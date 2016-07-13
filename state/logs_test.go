@@ -37,7 +37,8 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
-	tracker := state.NewLastSentLogTracker(s.State, "test-sink")
+	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink")
+	defer tracker.Close()
 
 	err := tracker.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +54,8 @@ func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerGetNeverSet(c *gc.C) {
-	tracker := state.NewLastSentLogTracker(s.State, "test")
+	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test")
+	defer tracker.Close()
 
 	_, err := tracker.Get()
 
@@ -61,10 +63,12 @@ func (s *LogsSuite) TestLastSentLogTrackerGetNeverSet(c *gc.C) {
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerIndependentModels(c *gc.C) {
-	tracker0 := state.NewLastSentLogTracker(s.State, "test-sink")
+	tracker0 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink")
+	defer tracker0.Close()
 	otherModel := s.NewStateForModelNamed(c, "test-model")
 	defer otherModel.Close()
-	tracker1 := state.NewLastSentLogTracker(otherModel, "test-sink") // same sink
+	tracker1 := state.NewLastSentLogTracker(otherModel, otherModel.ModelUUID(), "test-sink") // same sink
+	defer tracker1.Close()
 	err := tracker0.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
 	id0, err := tracker0.Get()
@@ -85,8 +89,10 @@ func (s *LogsSuite) TestLastSentLogTrackerIndependentModels(c *gc.C) {
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerIndependentSinks(c *gc.C) {
-	tracker0 := state.NewLastSentLogTracker(s.State, "test-sink0")
-	tracker1 := state.NewLastSentLogTracker(s.State, "test-sink1")
+	tracker0 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink0")
+	defer tracker0.Close()
+	tracker1 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink1")
+	defer tracker1.Close()
 	err := tracker0.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
 	id0, err := tracker0.Get()
@@ -112,6 +118,7 @@ func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
 	defer st.Close()
 	tracker, err := state.NewAllLastSentLogTracker(st, "test-sink")
 	c.Assert(err, jc.ErrorIsNil)
+	defer tracker.Close()
 
 	err = tracker.Set(10)
 	c.Assert(err, jc.ErrorIsNil)

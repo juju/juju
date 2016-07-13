@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// LogStreamRecord contains a slice of LogStreamRecords.
+type LogStreamRecords struct {
+	Records []LogStreamRecord `json:"records"`
+}
+
 // LogStreamRecord describes a single log record being streamed from
 // the server.
 type LogStreamRecord struct {

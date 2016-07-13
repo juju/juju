@@ -119,14 +119,17 @@ type logStreamState struct {
 }
 
 func (st logStreamState) getStart(sink string, allModels bool) (int64, error) {
-	tracker := state.NewLastSentLogTracker(st, sink)
+	var tracker *state.LastSentLogTracker
 	if allModels {
-		allTracker, err := state.NewAllLastSentLogTracker(st, sink)
+		var err error
+		tracker, err = state.NewAllLastSentLogTracker(st, sink)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}
-		tracker = allTracker
+	} else {
+		tracker = state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
 	}
+	defer tracker.Close()
 
 	// Resume for the sink...
 	lastSent, err := tracker.Get()
@@ -166,6 +169,8 @@ type logStreamRequestHandler struct {
 func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *apiLogStream, stop <-chan struct{}) {
 	logger.Infof("log stream request handler starting")
 
+	// TODO(wallyworld) - we currently only send one record at a time, but the API allows for
+	// sending batches of records, so we need to batch up the output from tailer.Logs().
 	for {
 		select {
 		case <-stop:
@@ -175,7 +180,7 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *
 				logger.Errorf("tailer stopped: %v", rh.tailer.Err())
 				return
 			}
-			if err := stream.sendRecord(rec, rh.sendModelUUID); err != nil {
+			if err := stream.sendRecords([]*state.LogRecord{rec}, rh.sendModelUUID); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -221,31 +226,36 @@ func (als *apiLogStream) sendInitial(err error) error {
 	})
 }
 
-func (als *apiLogStream) sendRecord(rec *state.LogRecord, sendModelUUID bool) error {
-	apiRec := als.apiFromRec(rec, sendModelUUID)
+func (als *apiLogStream) sendRecords(rec []*state.LogRecord, sendModelUUID bool) error {
+	apiRec := als.apiFromRecords(rec, sendModelUUID)
 	if err := als.send(apiRec); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (als *apiLogStream) send(rec params.LogStreamRecord) error {
+func (als *apiLogStream) send(rec params.LogStreamRecords) error {
 	return als.codec.Send(als.conn, rec)
 }
 
-func (als *apiLogStream) apiFromRec(rec *state.LogRecord, sendModelUUID bool) params.LogStreamRecord {
-	apiRec := params.LogStreamRecord{
-		ID:        rec.ID,
-		Version:   rec.Version.String(),
-		Entity:    rec.Entity.String(),
-		Timestamp: rec.Time,
-		Module:    rec.Module,
-		Location:  rec.Location,
-		Level:     rec.Level.String(),
-		Message:   rec.Message,
+func (als *apiLogStream) apiFromRecords(records []*state.LogRecord, sendModelUUID bool) params.LogStreamRecords {
+	var result params.LogStreamRecords
+	result.Records = make([]params.LogStreamRecord, len(records))
+	for i, rec := range records {
+		apiRec := params.LogStreamRecord{
+			ID:        rec.ID,
+			Version:   rec.Version.String(),
+			Entity:    rec.Entity.String(),
+			Timestamp: rec.Time,
+			Module:    rec.Module,
+			Location:  rec.Location,
+			Level:     rec.Level.String(),
+			Message:   rec.Message,
+		}
+		if sendModelUUID {
+			apiRec.ModelUUID = rec.ModelUUID
+		}
+		result.Records[i] = apiRec
 	}
-	if sendModelUUID {
-		apiRec.ModelUUID = rec.ModelUUID
-	}
-	return apiRec
+	return result
 }

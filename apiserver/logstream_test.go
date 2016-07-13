@@ -87,19 +87,20 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	// (It would be better to create those records explicitly --
 	// this is altogether too close to a violation of don't-copy-
 	// the-implementation-into-the-tests.)
-	var expected []params.LogStreamRecord
+	var expected []params.LogStreamRecords
 	for _, rec := range logs {
-		expected = append(expected, params.LogStreamRecord{
-			ID:        rec.ID,
-			ModelUUID: rec.ModelUUID,
-			Entity:    rec.Entity.String(),
-			Version:   version.Current.String(),
-			Timestamp: rec.Time,
-			Module:    rec.Module,
-			Location:  rec.Location,
-			Level:     rec.Level.String(),
-			Message:   rec.Message,
-		})
+		expected = append(expected, params.LogStreamRecords{
+			Records: []params.LogStreamRecord{{
+				ID:        rec.ID,
+				ModelUUID: rec.ModelUUID,
+				Entity:    rec.Entity.String(),
+				Version:   version.Current.String(),
+				Timestamp: rec.Time,
+				Module:    rec.Module,
+				Location:  rec.Location,
+				Level:     rec.Level.String(),
+				Message:   rec.Message,
+			}}})
 	}
 
 	// Create a tailer that will supply the source log records,
@@ -145,7 +146,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	// direct. The goroutine is needed here because the JSON Receive
 	// call will block waiting on the server to send the next message.
 	clientDone := make(chan struct{})
-	records := make(chan params.LogStreamRecord)
+	records := make(chan params.LogStreamRecords)
 	go func() {
 		defer close(clientDone)
 
@@ -154,7 +155,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		ok := c.Check(err, jc.ErrorIsNil)
 		if ok && c.Check(result, jc.DeepEquals, params.ErrorResult{}) {
 			for {
-				var apiRec params.LogStreamRecord
+				var apiRec params.LogStreamRecords
 				err = websocket.JSON.Receive(client, &apiRec)
 				if err != nil {
 					break
