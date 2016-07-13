@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -112,15 +111,15 @@ func (st *State) DeleteUser(tag names.UserTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if u.IsDeleted() {
+		return nil
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.
 			if err := u.Refresh(); err != nil {
 				return nil, errors.Trace(err)
-			}
-			if u.IsDeleted() {
-				return nil, jujutxn.ErrNoOperations
 			}
 		}
 		ops := []txn.Op{{
