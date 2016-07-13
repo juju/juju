@@ -6,17 +6,14 @@ from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.compute import (
     ComputeManagementClient,
     )
-import azure.mgmt.resource.subscriptions
 from azure.mgmt.resource.subscriptions import SubscriptionClient
 from msrestazure.azure_exceptions import CloudError
-from simplestreams.generate_simplestreams import items2content_trees
 from simplestreams.json2streams import Item
-from simplestreams import util
 
 from make_aws_image_streams import (
     get_parameters,
     make_aws_items,
-    write_juju_streams,
+    write_item_streams,
     )
 
 
@@ -84,26 +81,20 @@ def make_azure_items(all_credentials):
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
     for region in sub_client.subscriptions.list_locations(subscription_id):
+        logging.info('Retrieving image data in {}'.format(region.display_name))
         items.extend(get_image_versions(
             client, region.name, region.display_name))
     return items
 
 
-def write_streams(items, out_dir):
-    updated = util.timestamp()
-    data = {'updated': updated, 'datatype': 'image-ids'}
-    trees = items2content_trees(items, data)
-    write_juju_streams(out_dir, trees, updated, [
-        'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
-
-
 def main():
+    logging.basicConfig(level=logging.INFO)
     streams, creds_filename = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
     items = make_azure_items(all_credentials)
     items.extend(make_aws_items(all_credentials))
-    write_streams(items, streams)
+    write_item_streams(items, streams)
 
 
 if __name__ == '__main__':

@@ -201,10 +201,14 @@ def write_streams(credentials, china_credentials, now, streams):
     """
     items = [make_item(i, now) for i in iter_centos_images(
         credentials, china_credentials)]
+    write_item_streams(items, streams)
+
+
+def write_item_streams(items, out_dir):
     updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
-    write_juju_streams(streams, trees, updated, [
+    write_juju_streams(out_dir, trees, updated, [
         'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
 
 
