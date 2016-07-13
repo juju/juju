@@ -142,9 +142,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	// Stream out the results from the client. This whole block is
 	// just scaffolding to get the results back out on the records
 	// channel, and should probably be replaced by something more
-	// direct. (Does it *really* need its own goroutine?)
+	// direct. The goroutine is needed here because the JSON Receive
+	// call will block waiting on the server to send the next message.
 	clientDone := make(chan struct{})
-	records := make(chan params.LogStreamRecord, 1000)
+	records := make(chan params.LogStreamRecord)
 	go func() {
 		defer close(clientDone)
 
