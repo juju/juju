@@ -65,26 +65,6 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
-	controller := &fakeController{
-		bootResources: []gomaasapi.BootResource{
-			&fakeBootResource{name: "wily", architecture: "amd64/blah"},
-			&fakeBootResource{name: "wily", architecture: "amd64/something"},
-			&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
-		},
-	}
-	env := suite.makeEnviron(c, controller)
-	result, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []string{"amd64", "arm"})
-}
-
-func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
-	env := suite.makeEnviron(c, &fakeController{bootResourcesError: errors.New("Something terrible!")})
-	_, err := env.SupportedArchitectures()
-	c.Assert(err, gc.ErrorMatches, "Something terrible!")
-}
-
 func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) *maasEnviron {
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {

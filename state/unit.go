@@ -1349,9 +1349,6 @@ func validateUnitMachineAssignment(
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
 	}
-	if err := m.st.supportsUnitPlacement(); err != nil {
-		return errors.Trace(err)
-	}
 	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
 		return errors.Trace(err)
 	}

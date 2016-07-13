@@ -73,8 +73,6 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 }
 
 type maasEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -233,8 +231,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
+func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()
 	if env.supportedArchitectures != nil {

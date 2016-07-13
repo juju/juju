@@ -278,6 +278,14 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
+func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environs.Environ {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return env
+}
+
 func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
@@ -308,18 +316,8 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create a config that matches s.TestConfig but with use-floating-ip set to true
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": true,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	err = bootstrapEnv(c, env)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
@@ -347,18 +345,8 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		return nil
 	})
 
-	// Create a config that matches s.TestConfig but with use-floating-ip set to true
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": true,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
@@ -385,17 +373,8 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		return nil
 	})
 
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": false})
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
@@ -422,18 +401,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
-	env, err := bootstrap.Prepare(
-		envtesting.BootstrapContext(c),
-		s.ControllerStore,
-		prepareParams(attrs, s.cred),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	s.TestConfig["use-floating-ip"] = false
+	env := s.Prepare(c)
+	err = bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
@@ -456,11 +426,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.Prepare(c)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err = bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -470,40 +436,43 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that corresponds to a nova test service network
 		"network": "net",
-	}))
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
-	err = env.StopInstances(inst.Id())
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that has no related network in the nova test service
 		"network": "no-network-with-this-label",
-	}))
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
 }
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A valid UUID but no related network in the nova test service
 		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
-	}))
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+
@@ -552,11 +521,7 @@ func assertInstanceIds(c *gc.C, env environs.Environ, expected ...instance.Id) {
 }
 
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": config.FwInstance}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	// Openstack now has three security groups for the server, the default
@@ -568,7 +533,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.StopInstances(inst.Id())
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	// The security group for this instance is now removed.
 	assertSecurityGroups(c, env, []string{
@@ -591,11 +556,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": config.FwInstance}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
@@ -604,17 +565,13 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.StopInstances(inst.Id())
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
 }
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": config.FwInstance}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
@@ -623,17 +580,13 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.Destroy()
+	err := env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": config.FwGlobal}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwGlobal})
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
@@ -642,22 +595,14 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 		fmt.Sprintf("juju-%v-%v-global", s.ControllerUUID, modelUUID),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.Destroy()
+	err := env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
 
 func (s *localServerSuite) TestDestroyController(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"uuid": utils.MustNewUUID().String(),
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := config.New(config.NoDefaults, s.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerEnv, err := environs.New(controllerCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"uuid": utils.MustNewUUID().String()})
+	controllerEnv := s.env
 
 	controllerInstanceName := "100"
 	testing.AssertStartInstance(c, controllerEnv, s.ControllerUUID, controllerInstanceName)
@@ -676,7 +621,7 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 		allControllerSecurityGroups, allHostedModelSecurityGroups...,
 	))
 
-	err = controllerEnv.DestroyController(s.ControllerUUID)
+	err := controllerEnv.DestroyController(s.ControllerUUID)
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, controllerEnv, []string{"default"})
 	assertInstanceIds(c, env)
@@ -684,16 +629,8 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"uuid": utils.MustNewUUID().String(),
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := config.New(config.NoDefaults, s.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerEnv, err := environs.New(controllerCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"uuid": utils.MustNewUUID().String()})
+	controllerEnv := s.env
 
 	controllerInstanceName := "100"
 	controllerInstance, _ := testing.AssertStartInstance(c, controllerEnv, s.ControllerUUID, controllerInstanceName)
@@ -712,7 +649,7 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 		allControllerSecurityGroups, allHostedModelSecurityGroups...,
 	))
 
-	err = env.Destroy()
+	err := env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, controllerEnv, allControllerSecurityGroups)
 	assertInstanceIds(c, env)
@@ -775,13 +712,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
-	// Create a config that matches s.TestConfig but with use-floating-ip
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": true,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
 
 	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")
@@ -798,13 +729,7 @@ func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
 }
 
 func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
-	// Create a config that matches s.TestConfig but with use-floating-ip
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": withFloatingIP,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": withFloatingIP})
 
 	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	id0 := inst0.Id()
@@ -951,11 +876,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that ControllerInstances returns the ID of the bootstrap machine.
@@ -981,14 +902,12 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
 	// Create a config that matches s.TestConfig but with the specified stream.
-	envAttrs := s.TestConfig
+	attrs := coretesting.Attrs{}
 	if stream != "" {
-		envAttrs = envAttrs.Merge(coretesting.Attrs{"image-stream": stream})
+		attrs = coretesting.Attrs{"image-stream": stream}
 	}
-	cfg, err := config.New(config.NoDefaults, envAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c, attrs)
+
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 4)
@@ -1047,13 +966,6 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := s.Open(c, s.env.Config())
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "arm64", "ppc64el", "s390x"})
-}
-
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
@@ -1088,7 +1000,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	// data was created for it for the test.
 	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64 arm64 ppc64el s390x\\]")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
@@ -1406,11 +1318,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err = bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1537,11 +1445,7 @@ func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we see 1 instance in the environment
@@ -1619,11 +1523,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
@@ -1703,11 +1603,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var mock mockAvailabilityZoneAllocations
@@ -1731,11 +1627,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -1758,11 +1650,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
@@ -1798,11 +1686,7 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 		},
 	)
 
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cleanup := t.srv.Nova.RegisterControlPoint(
@@ -1840,11 +1724,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cleanup := t.srv.Nova.RegisterControlPoint(
@@ -1863,11 +1743,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -1881,11 +1757,7 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	instances, err := t.env.AllInstances()
@@ -1904,11 +1776,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 }
 
 func (t *localServerSuite) TestTagInstance(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMetadata := func(extraKey, extraValue string) {
@@ -2071,4 +1939,12 @@ func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials,
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService
+}
+
+func bootstrapEnv(c *gc.C, env environs.Environ) error {
+	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 }

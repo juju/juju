@@ -291,7 +291,6 @@ type BaseSuite struct {
 	Client     *StubClient
 	Firewaller *stubFirewaller
 	Common     *stubCommon
-	Policy     *stubPolicy
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -307,14 +306,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Client = &StubClient{Stub: s.Stub}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
-	s.Policy = &stubPolicy{stub: s.Stub}
 
 	// Patch out all expensive external deps.
 	s.Env.raw = &rawProvider{
-		lxdInstances:   s.Client,
-		lxdImages:      s.Client,
-		Firewaller:     s.Firewaller,
-		policyProvider: s.Policy,
+		lxdInstances: s.Client,
+		lxdImages:    s.Client,
+		Firewaller:   s.Firewaller,
 	}
 	s.Env.base = s.Common
 }
@@ -469,21 +466,6 @@ func (sc *stubCommon) DestroyEnv() error {
 	}
 
 	return nil
-}
-
-type stubPolicy struct {
-	stub *gitjujutesting.Stub
-
-	Arches []string
-}
-
-func (s *stubPolicy) SupportedArchitectures() ([]string, error) {
-	s.stub.AddCall("SupportedArchitectures")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Arches, nil
 }
 
 type StubClient struct {

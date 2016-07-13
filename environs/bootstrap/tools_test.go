@@ -60,7 +60,9 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.ValidateUploadAllowed(env, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
+	c.Assert(err, gc.ErrorMatches,
+		`model "foo" of type dummy does not support instances running on "ppc64el": invalid constraint value?: arch=ppc64el
+valid values are: \[amd64 arm64\]`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
@@ -208,7 +210,9 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true, true)
-	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "i386"`)
+	c.Assert(err, gc.ErrorMatches,
+		`model "foo" of type dummy does not support instances running on "i386": invalid constraint value: arch=i386
+valid values are: \[amd64 arm64\]`)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 }
 
@@ -262,7 +266,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
-	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
+	c.Assert(env.constraintsValidatorCount, gc.Equals, 1)
 	var trustyToolsFound int
 	expectedVersion := jujuversion.Current
 	expectedVersion.Build++
@@ -301,5 +305,5 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
-	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)
+	c.Assert(env.constraintsValidatorCount, gc.Equals, 0)
 }

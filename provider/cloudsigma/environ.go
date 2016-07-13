@@ -24,7 +24,6 @@ const (
 
 // This file contains the core of the Environ implementation.
 type environ struct {
-	common.SupportsUnitPlacementPolicy
 	name string
 
 	lock      sync.Mutex

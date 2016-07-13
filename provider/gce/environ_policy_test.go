@@ -125,15 +125,6 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
-	s.FakeCommon.Arches = []string{arch.AMD64}
-
-	archList, err := s.Env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(archList, jc.SameContents, []string{arch.AMD64})
-}
-
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	s.FakeCommon.Arches = []string{arch.AMD64}
 
@@ -143,8 +134,11 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Check(unsupported, gc.HasLen, 0)
+
+	i386 := arch.I386
+	_, err = validator.Validate(constraints.Value{Arch: &i386})
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64\\]")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {

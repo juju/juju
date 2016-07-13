@@ -94,16 +94,19 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
-	envCfg, err := api.metadata.ModelConfig()
-	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "getting environ config")
+	if len(metadata.Metadata) == 0 {
+		return params.ErrorResults{Results: all}, nil
 	}
-	env, err := environs.New(envCfg)
+	modelCfg, err := api.metadata.ModelConfig()
 	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "getting environ")
+		return params.ErrorResults{}, errors.Annotatef(err, "getting model config")
+	}
+	model, err := api.metadata.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Annotatef(err, "getting model")
 	}
 	for i, one := range metadata.Metadata {
-		md, err := api.parseMetadataListFromParams(one, env)
+		md, err := api.parseMetadataListFromParams(one, modelCfg, model.CloudRegion())
 		if err != nil {
 			all[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
@@ -143,11 +146,11 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 }
 
 func (api *API) parseMetadataListFromParams(
-	p params.CloudImageMetadataList, env environs.Environ,
+	p params.CloudImageMetadataList, cfg *config.Config, cloudRegion string,
 ) ([]cloudimagemetadata.Metadata, error) {
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
-		result, err := api.parseMetadataFromParams(metadata, env)
+		result, err := api.parseMetadataFromParams(metadata, cfg, cloudRegion)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -156,7 +159,7 @@ func (api *API) parseMetadataListFromParams(
 	return results, nil
 }
 
-func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environs.Environ) (cloudimagemetadata.Metadata, error) {
+func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, cfg *config.Config, cloudRegion string) (cloudimagemetadata.Metadata, error) {
 	result := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
@@ -175,7 +178,7 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environ
 
 	// Fill in any required default values.
 	if p.Stream == "" {
-		result.Stream = env.Config().ImageStream()
+		result.Stream = cfg.ImageStream()
 	}
 	if p.Source == "" {
 		result.Source = "custom"
@@ -184,17 +187,10 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environ
 		result.Arch = "amd64"
 	}
 	if result.Series == "" {
-		result.Series = config.PreferredSeries(env.Config())
+		result.Series = config.PreferredSeries(cfg)
 	}
 	if result.Region == "" {
-		// If the env supports regions, use the env default.
-		if r, ok := env.(simplestreams.HasRegion); ok {
-			spec, err := r.Region()
-			if err != nil {
-				return cloudimagemetadata.Metadata{}, errors.Annotatef(err, "getting cloud region")
-			}
-			result.Region = spec.Region
-		}
+		result.Region = cloudRegion
 	}
 	return result, nil
 }

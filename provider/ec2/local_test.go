@@ -1163,7 +1163,7 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 i386\\]")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
@@ -1246,13 +1246,6 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
-}
-
-func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := t.Prepare(c)
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {

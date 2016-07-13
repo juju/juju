@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -116,12 +115,6 @@ exit 0
 			c.Assert(err, gc.ErrorMatches, t.match)
 		}
 	}
-}
-
-func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
-	arches, err := s.env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
 }
 
 func (s *environSuite) TestSupportsNetworking(c *gc.C) {

@@ -56,8 +56,6 @@ type gceConnection interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 	uuid string
 	gce  gceConnection

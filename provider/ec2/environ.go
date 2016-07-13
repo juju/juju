@@ -57,8 +57,6 @@ var (
 )
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -133,8 +131,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *environ) SupportedArchitectures() ([]string, error) {
+func (e *environ) getSupportedArchitectures() ([]string, error) {
 	e.archMutex.Lock()
 	defer e.archMutex.Unlock()
 	if e.supportedArchitectures != nil {
@@ -177,7 +174,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.SupportedArchitectures()
+	supportedArches, err := e.getSupportedArchitectures()
 	if err != nil {
 		return nil, err
 	}

@@ -22,8 +22,6 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name   string
 	client *client
 

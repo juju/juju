@@ -4,8 +4,6 @@
 package cloudsigma
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -56,12 +54,4 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 // specify networks for applications and machines.
 func (env *environ) SupportNetworks() bool {
 	return false
-}
-
-// SupportsUnitAssignment returns an error which, if non-nil, indicates
-// that the environment does not support unit placement. If the environment
-// does not support unit placement, then machines may not be created
-// without units, and units cannot be placed explcitly.
-func (env *environ) SupportsUnitPlacement() error {
-	return errors.NotImplementedf("SupportsUnitPlacement")
 }

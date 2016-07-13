@@ -193,9 +193,6 @@ type Environ interface {
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
-	// EnvironCapability allows access to this environment's capabilities.
-	state.EnvironCapability
-
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
 	ConstraintsValidator() (constraints.Validator, error)

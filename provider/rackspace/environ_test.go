@@ -138,16 +138,6 @@ func (e *fakeEnviron) Config() *config.Config {
 	return e.config
 }
 
-func (e *fakeEnviron) SupportedArchitectures() ([]string, error) {
-	e.Push("SupportedArchitectures")
-	return nil, nil
-}
-
-func (e *fakeEnviron) SupportsUnitPlacement() error {
-	e.Push("SupportsUnitPlacement")
-	return nil
-}
-
 func (e *fakeEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	e.Push("ConstraintsValidator")
 	return nil, nil
