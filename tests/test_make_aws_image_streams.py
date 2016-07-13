@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import datetime
 import json
 import os
@@ -16,10 +15,9 @@ from make_aws_image_streams import (
     iter_region_connection,
     get_parameters,
     make_aws_credentials,
-    make_aws_items,
     make_item,
     make_item_name,
-    write_item_streams,
+    write_streams,
     )
 from utils import temp_dir
 
@@ -106,24 +104,6 @@ class IterRegionConnection(TestCase):
         self.assertEqual(0, ap_northeast_2.connect.call_count)
 
 
-@contextmanager
-def mocked_iter_region(image_groups):
-    connections = []
-    for image_group in image_groups:
-        conn = Mock()
-        conn.get_all_images.return_value = image_group
-        connections.append(conn)
-    with patch('make_aws_image_streams.iter_region_connection',
-               return_value=connections,
-               autospec=True) as irc_mock:
-        yield irc_mock
-    for conn in connections:
-        conn.get_all_images.assert_called_once_with(filters={
-            'owner_alias': 'aws-marketplace',
-            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
-            })
-
-
 class IterCentosImages(TestCase):
 
     def test_iter_centos_images(self):
@@ -131,10 +111,24 @@ class IterCentosImages(TestCase):
         aws_cn = {'name': 'aws-cn'}
         east_imgs = ['east-1', 'east-2']
         west_imgs = ['west-1', 'west-2']
-        with mocked_iter_region([east_imgs, west_imgs]) as irc_mock:
+        east_conn = Mock()
+        east_conn.get_all_images.return_value = east_imgs
+        west_conn = Mock()
+        west_conn.get_all_images.return_value = west_imgs
+        with patch('make_aws_image_streams.iter_region_connection',
+                   return_value=[east_conn, west_conn],
+                   autospec=True) as irc_mock:
             imgs = list(iter_centos_images(aws, aws_cn))
         self.assertEqual(east_imgs + west_imgs, imgs)
         irc_mock.assert_called_once_with(aws, aws_cn)
+        east_conn.get_all_images.assert_called_once_with(filters={
+            'owner_alias': 'aws-marketplace',
+            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
+            })
+        west_conn.get_all_images.assert_called_once_with(filters={
+            'owner_alias': 'aws-marketplace',
+            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
+            })
 
 
 class TestMakeAWSCredentials(TestCase):
@@ -181,7 +175,7 @@ def make_mock_image(region_name='us-northeast-3'):
     return image
 
 
-class TestMakeItem(TestCase):
+class TetMakeItem(TestCase):
 
     def test_happy_path(self):
         image = make_mock_image()
@@ -267,49 +261,33 @@ def load_json(parent, filename):
         return json.load(f)
 
 
-class TestMakeAwsItems(TestCase):
+class TestWriteStreams(TestCase):
 
-    def test_happy_path(self):
+    def test_write_streams(self):
         now = datetime(2001, 2, 3)
+        credentials = {'name': 'aws'}
+        china_credentials = {'name': 'aws-cn'}
+        east_conn = Mock()
         east_image = make_mock_image(region_name='us-east-1')
+        east_conn.get_all_images.return_value = [east_image]
+        west_conn = Mock()
         west_image = make_mock_image(region_name='us-west-1')
-        all_credentials = {
-            'aws': {'credentials': {
-                'access-key': 'foo',
-                'secret-key': 'bar',
-                }},
-            'aws-china': {'credentials': {
-                'access-key': 'baz',
-                'secret-key': 'qux',
-                }},
-            }
-        now = datetime(2001, 2, 3)
-        credentials = make_aws_credentials(all_credentials['aws'])
-        china_credentials = make_aws_credentials(all_credentials['aws-china'])
-        with mocked_iter_region([[east_image], [west_image]]) as irc_mock:
-            items = make_aws_items(all_credentials, now)
-        irc_mock.assert_called_once_with(credentials, china_credentials)
-        self.assertEqual([make_item(east_image, now),
-                          make_item(west_image, now)], items)
-
-
-class TestWriteItemStreams(TestCase):
-
-    def test_write_item_streams(self):
-        now = datetime(2001, 2, 3)
-        east_image = make_mock_image(region_name='us-east-1')
-        west_image = make_mock_image(region_name='us-west-1')
-        items = [make_item(west_image, now), make_item(east_image, now)]
+        west_conn.get_all_images.return_value = [west_image]
         with temp_dir() as streams:
-            with patch('simplestreams.util.timestamp',
-                       return_value='now'):
-                with patch('sys.stderr'):
-                    write_item_streams(items, streams)
+            with patch('make_aws_image_streams.iter_region_connection',
+                       return_value=[east_conn, west_conn],
+                       autospec=True) as irc_mock:
+                with patch('simplestreams.util.timestamp',
+                           return_value='now'):
+                    with patch('sys.stderr'):
+                        write_streams(credentials, china_credentials, now,
+                                      streams)
             self.assertFalse(
                 os.path.exists(os.path.join(streams, 'streams', 'v1',
                                             'index2.json')))
             index = load_json(streams, 'index.json')
             releases = load_json(streams, 'com.ubuntu.cloud.released-aws.json')
+            irc_mock.assert_called_once_with(credentials, china_credentials)
         self.assertEqual(
             {'format': 'index:1.0', 'updated': 'now', 'index': {
                 'com.ubuntu.cloud.released:aws': {
