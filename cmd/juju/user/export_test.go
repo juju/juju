@@ -15,8 +15,8 @@ type AddCommand struct {
 	*addCommand
 }
 
-type DeleteCommand struct {
-	*deleteCommand
+type RemoveCommand struct {
+	*removeCommand
 }
 
 type ChangePasswordCommand struct {
@@ -42,10 +42,10 @@ func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi
 	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
-func NewDeleteCommandForTest(api DeleteUserAPI, store jujuclient.ClientStore) (cmd.Command, *DeleteCommand) {
-	c := &deleteCommand{api: api}
+func NewRemoveCommandForTest(api RemoveUserAPI, store jujuclient.ClientStore) (cmd.Command, *RemoveCommand) {
+	c := &removeCommand{api: api}
 	c.SetClientStore(store)
-	return modelcmd.WrapController(c), &DeleteCommand{c}
+	return modelcmd.WrapController(c), &RemoveCommand{c}
 }
 
 func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {

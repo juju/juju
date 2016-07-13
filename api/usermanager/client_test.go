@@ -103,7 +103,7 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *usermanagerSuite) TestDeleteUser(c *gc.C) {
+func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password", "")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -114,7 +114,7 @@ func (s *usermanagerSuite) TestDeleteUser(c *gc.C) {
 	c.Assert(user.DisplayName(), gc.Equals, "Jimmy Jam")
 
 	// Delete the user.
-	err = s.usermanager.DeleteUser(tag.Name())
+	err = s.usermanager.RemoveUser(tag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert that the user is gone.

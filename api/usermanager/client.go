@@ -101,21 +101,21 @@ func (c *Client) userCall(username string, methodCall string) error {
 }
 
 // DisableUser disables a user.  If the user is already disabled, the action
-// is consided a success.
+// is considered a success.
 func (c *Client) DisableUser(username string) error {
 	return c.userCall(username, "DisableUser")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
-// consided a success.
+// considered a success.
 func (c *Client) EnableUser(username string) error {
 	return c.userCall(username, "EnableUser")
 }
 
-// DeleteUser deletes a user. That is it pernanently removes the user, while
-// retaineing the record of the user.
-func (c *Client) DeleteUser(username string) error {
-	return c.userCall(username, "DeleteUser")
+// RemoveUser deletes a user. That is it permanently removes the user, while
+// retaining the record of the user to maintain provenance.
+func (c *Client) RemoveUser(username string) error {
+	return c.userCall(username, "RemoveUser")
 }
 
 // IncludeDisabled is a type alias to avoid bare true/false values
