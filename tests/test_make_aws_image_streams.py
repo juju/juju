@@ -232,17 +232,9 @@ class TestGetParameters(TestCase):
 
     def test_happy_path(self):
         with patch.dict(os.environ, {'JUJU_DATA': 'foo'}):
-            streams, creds_filename, azure = get_parameters(['bar'])
+            streams, creds_filename = get_parameters(['bar'])
         self.assertEqual(creds_filename, 'foo/credentials.yaml')
         self.assertEqual(streams, 'bar')
-        self.assertFalse(azure)
-
-    def test_azure(self):
-        with patch.dict(os.environ, {'JUJU_DATA': 'foo'}):
-            streams, creds_filename, azure = get_parameters(['bar', '--azure'])
-        self.assertEqual(creds_filename, 'foo/credentials.yaml')
-        self.assertEqual(streams, 'bar')
-        self.assertTrue(azure)
 
     def test_no_juju_data(self):
         stderr = StringIO()
