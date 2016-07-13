@@ -8,59 +8,114 @@ package auditing
 import (
 	"net/http"
 
-	"golang.org/x/net/websocket"
-
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
-	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/loggo"
 )
 
-type openAuditEntriesFn func(done <-chan struct{}) <-chan audit.AuditEntry
+type AuditEntryRecord struct {
+	Value audit.AuditEntry
+	Error error
+}
 
-func NewAuditStreamHandler(
-	serverDone <-chan struct{},
-	logger loggo.Logger,
-	authAgent func(*http.Request) error,
-	openAuditEntries openAuditEntriesFn,
-) http.Handler {
-	return websocket.Server{
-		Handler: func(conn *websocket.Conn) {
-			defer conn.Close()
+type OpenAuditEntriesFn func(done <-chan struct{}) <-chan AuditEntryRecord
 
-			connDone := make(chan struct{})
-			defer close(connDone)
-			done := or(serverDone, connDone)
+type Conn interface {
+	Request() *http.Request
+	Send(interface{}) error
+	Close() error
+}
 
-			if err := authAgent(conn.Request()); err != nil {
-				logger.Errorf("%v", errors.Trace(err))
+type ConnHandlerContext struct {
+	ServerDone       <-chan struct{}
+	Logger           loggo.Logger
+	AuthAgent        func(*http.Request) error
+	OpenAuditEntries OpenAuditEntriesFn
+}
+
+func (c *ConnHandlerContext) Validate() error {
+	var nameOfNil string
+	switch {
+	default:
+		return nil
+	case c.ServerDone == nil:
+		nameOfNil = "ServerDone"
+	case c.AuthAgent == nil:
+		nameOfNil = "AuthAgent"
+	case c.OpenAuditEntries == nil:
+		nameOfNil = "OpenAuditEntries"
+	}
+	return errors.NotAssignedf(nameOfNil)
+}
+
+func NewConnHandler(ctx ConnHandlerContext) (func(Conn), error) {
+	if err := ctx.Validate(); err != nil {
+		return nil, err
+	}
+
+	logSendErr := logFailureFn(ctx.Logger.Errorf, "cannot send to client")
+	return func(conn Conn) {
+		defer conn.Close()
+
+		if err := errors.Trace(ctx.AuthAgent(conn.Request())); err != nil {
+			ctx.Logger.Infof(err.Error())
+			logSendErr(sendError(conn, err))
+			return
+		}
+
+		connDone := make(chan struct{})
+		defer close(connDone)
+		done := or(ctx.ServerDone, connDone)
+
+		// The client is waiting for an indication that the stream
+		// is ready (or that it failed).  See
+		// api/apiclient.go:readInitialStreamError().
+		if err := logSendErr(sendError(conn, nil)); err != nil {
+			return
+		}
+
+		// Set up a processing pipeline to prepare and
+		// serialize records before sending them.
+		auditEntryStream := ctx.OpenAuditEntries(done)
+		auditEntryParams := recordSerializer(done, auditEntryStream)
+
+		for entry := range auditEntryParams {
+			if entry.error != nil {
+				logSendErr(sendError(conn, entry.error))
+				break
 			}
+			logSendErr(conn.Send(entry.value))
+		}
+	}, nil
+}
 
-			// Set up a processing pipeline to prepare and
-			// serialize records before sending them.
-			auditEntryStream := openAuditEntries(done)
-			auditEntryParams := recordSerializer(done, auditEntryStream)
-
-			for entry := range auditEntryParams {
-				if err := websocket.JSON.Send(conn, entry); err != nil {
-					logger.Errorf("%v", errors.Trace(err))
-					break
-				}
-			}
-		},
+func logFailureFn(log func(string, ...interface{}), message string) func(error) error {
+	return func(err error) error {
+		if err != nil {
+			log("%v", errors.Annotate(err, message))
+		}
+		return err
 	}
 }
 
-func recordSerializer(done <-chan struct{}, entries <-chan audit.AuditEntry) <-chan params.AuditEntryParams {
-	entryParamStream := make(chan params.AuditEntryParams)
+type serializedAuditEntry struct {
+	value params.AuditEntryParams
+	error error
+}
+
+func recordSerializer(done <-chan struct{}, entries <-chan AuditEntryRecord) <-chan serializedAuditEntry {
+	entryParamStream := make(chan serializedAuditEntry)
 	go func() {
 		defer close(entryParamStream)
 
 		for entry := range entries {
-			entryParam, err := auditAPIParamDocFromAuditEntry(entry)
-			if err != nil {
-				return
+			entryParam := serializedAuditEntry{error: errors.Trace(entry.Error)}
+			if entry.Error == nil {
+				entryParam.value, entryParam.error = auditAPIParamDocFromAuditEntry(entry.Value)
+				entryParam.error = errors.Trace(entryParam.error)
 			}
 
 			select {
@@ -88,9 +143,31 @@ func auditAPIParamDocFromAuditEntry(auditEntry audit.AuditEntry) (params.AuditEn
 		OriginType:        auditEntry.OriginType,
 		OriginName:        auditEntry.OriginName,
 		Operation:         auditEntry.Operation,
-		Data:              utils.EscapeKeys(auditEntry.Data),
+		Data:              auditEntry.Data,
 	}, nil
 }
+
+func sendError(conn Conn, err error) error {
+	return conn.Send(params.ErrorResult{
+		Error: common.ServerError(err),
+	})
+}
+
+// func sendError(conn *websocket.Conn, err error) error {
+// 	initialCodec := websocket.Codec{
+// 		Marshal: func(v interface{}) (data []byte, payloadType byte, err error) {
+// 			data, payloadType, err = websocket.JSON.Marshal(v)
+// 			if err != nil {
+// 				return data, payloadType, err
+// 			}
+// 			// api/apiclient.go:readInitialStreamError() looks for LF.
+// 			return append(data, '\n'), payloadType, nil
+// 		},
+// 	}
+// 	return initialCodec.Send(conn, &params.ErrorResult{
+// 		Error: common.ServerError(err),
+// 	})
+// }
 
 func or(c1, c2 <-chan struct{}) <-chan struct{} {
 	orChan := make(chan struct{})
