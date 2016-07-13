@@ -27,6 +27,11 @@ import shutil
 import subprocess
 import sys
 
+# These options are to be removed from a sub-interface and applied to
+# the new bridged interface.
+
+BRIDGE_ONLY_OPTIONS = {'address', 'gateway', 'netmask', 'dns-nameservers', 'dns-search', 'dns-sortlist'}
+
 
 class SeekableIterator(object):
     """An iterator that supports relative seeking."""
@@ -86,6 +91,15 @@ class LogicalInterface(object):
     def __str__(self):
         return self.name
 
+    @classmethod
+    def prune_options(cls, options, invalid_options):
+        result = []
+        for o in options:
+            words = o.split()
+            if words[0] not in invalid_options:
+                result.append(o)
+        return result
+
     # Returns an ordered set of stanzas to bridge this interface.
     def bridge(self, prefix, bridge_name):
         if bridge_name is None:
@@ -106,10 +120,12 @@ class LogicalInterface(object):
         stanzas = []
         if self.has_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        stanzas.append(IfaceStanza(self.name, self.family, "manual", []))
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
         stanzas.append(AutoStanza(bridge_name))
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
+        options = self.prune_options(options, ['mtu'])
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
@@ -117,10 +133,12 @@ class LogicalInterface(object):
         stanzas = []
         if self.has_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        stanzas.append(IfaceStanza(self.name, self.family, "manual", self.options))
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
         stanzas.append(AutoStanza(bridge_name))
-        options = [x for x in self.options if not x.startswith("vlan")]
+        options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
+        options = self.prune_options(options, ['mtu', 'vlan_id', 'vlan-raw-device'])
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
@@ -135,9 +153,11 @@ class LogicalInterface(object):
         stanzas = []
         if self.has_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        stanzas.append(IfaceStanza(self.name, self.family, "manual", list(self.options)))
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
         stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("bond")]
+        options = self.prune_options(options, ['mtu'])
         options.append("bridge_ports {}".format(self.name))
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
