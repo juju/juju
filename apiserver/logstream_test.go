@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -58,14 +59,8 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 }
 
 func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
-	cfg := params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "eggs",
-	}
-	req := s.newReq(c, cfg)
-	stub := &testing.Stub{}
-	source := &stubSource{stub: stub}
-	source.ReturnGetStart = 10
+
+	// Create test data: i.e. log records for tailing...
 	logs := []state.LogRecord{{
 		ID:        10,
 		ModelUUID: "deadbeef-...",
@@ -87,6 +82,11 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		Level:     loggo.ERROR,
 		Message:   "whoops",
 	}}
+
+	// ...and transform them into the records we expect to see.
+	// (It would be better to create those records explicitly --
+	// this is altogether too close to a violation of don't-copy-
+	// the-implementation-into-the-tests.)
 	var expected []params.LogStreamRecord
 	for _, rec := range logs {
 		expected = append(expected, params.LogStreamRecord{
@@ -101,72 +101,99 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 			Message:   rec.Message,
 		})
 	}
-	tailer := &stubLogTailer{stub: stub}
+
+	// Create a tailer that will supply the source log records,
+	// defined above, to the request handler we're (primarily)
+	// testing, as set up in the next block; and create the
+	// http request that the handler's execution is (purportedly)
+	// caused by.
+	tailer := &stubLogTailer{stub: &testing.Stub{}}
 	tailer.ReturnLogs = tailer.newChannel(logs)
-	source.ReturnNewTailer = tailer
-	reqHandler := &logStreamRequestHandler{
-		req:           req,
-		tailer:        tailer,
-		sendModelUUID: true,
-	}
-
-	// Start the websocket server.
-	stop := make(chan struct{})
-	client := newWebsocketServer(c, func(conn *websocket.Conn) {
-		defer conn.Close()
-		stream, err := initStream(conn, nil)
-		if err != nil {
-			panic(err)
-		}
-		reqHandler.serveWebsocket(conn, stream, stop)
+	req := s.newReq(c, params.LogStreamConfig{
+		AllModels: true,
+		Sink:      "eggs",
 	})
-	defer client.Close()
-	defer close(stop)
 
-	// Stream out the results from the client.
-	okCh := make(chan params.ErrorResult)
-	receivedCh := make(chan params.LogStreamRecord)
-	go func() {
-		var initial params.ErrorResult
-		err := websocket.JSON.Receive(client, &initial)
-		c.Assert(err, jc.ErrorIsNil)
-		okCh <- initial
+	// Start the websocket server, which apes expected apiserver
+	// behaviour by calling `initStream` and then handing over to
+	// the `logStreamRequestHandler` as configured. That is to say:
+	// this server callback holds everything that's *actually* being
+	// tested here.
+	serverDone := make(chan struct{})
+	abortServer := make(chan struct{})
+	client := newWebsocketServer(c, func(conn *websocket.Conn) {
+		defer close(serverDone)
+		defer conn.Close()
 
-		for {
-			var apiRec params.LogStreamRecord
-			err := websocket.JSON.Receive(client, &apiRec)
-			if err == io.EOF {
-				break
-			}
-			c.Assert(err, jc.ErrorIsNil)
-			receivedCh <- apiRec
+		stream, err := initStream(conn, nil)
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
 		}
+		handler := &logStreamRequestHandler{
+			req:           req,
+			tailer:        tailer,
+			sendModelUUID: true,
+		}
+		handler.serveWebsocket(conn, stream, abortServer)
+	})
+	defer waitFor(c, serverDone)
+	defer close(abortServer)
+
+	// Stream out the results from the client. This whole block is
+	// just scaffolding to get the results back out on the records
+	// channel, and should probably be replaced by something more
+	// direct. (Does it *really* need its own goroutine?)
+	clientDone := make(chan struct{})
+	records := make(chan params.LogStreamRecord, 1000)
+	go func() {
+		defer close(clientDone)
+
+		var result params.ErrorResult
+		err := websocket.JSON.Receive(client, &result)
+		ok := c.Check(err, jc.ErrorIsNil)
+		if ok && c.Check(result, jc.DeepEquals, params.ErrorResult{}) {
+			for {
+				var apiRec params.LogStreamRecord
+				err = websocket.JSON.Receive(client, &apiRec)
+				if err != nil {
+					break
+				}
+				records <- apiRec
+			}
+		}
+
+		c.Logf("client stopped: %v", err)
+		if err == io.EOF {
+			return // this is fine
+		}
+		if _, ok := err.(*net.OpError); ok {
+			return // so is this, probably
+		}
+		// anything else is a problem
+		c.Check(err, jc.ErrorIsNil)
 	}()
+	defer waitFor(c, clientDone)
+	defer client.Close()
 
-	// Check the OK message.
-	select {
-	case initial := <-okCh:
-		c.Check(initial, jc.DeepEquals, params.ErrorResult{})
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for OK message")
-	}
-
-	// Check the records coming from the client.
+	// Check the client produces the expected records. (This is the
+	// actual *test* bit of the test, vs the scaffolding that
+	// accounts for just about everything else.)
 	for i, expectedRec := range expected {
 		c.Logf("trying #%d: %#v", i, expectedRec)
 		select {
-		case apiRec := <-receivedCh:
+		case apiRec := <-records:
 			c.Check(apiRec, jc.DeepEquals, expectedRec)
 		case <-time.After(coretesting.LongWait):
-			c.Fatal("timed out waiting for OK message")
+			c.Fatal("timed out waiting for log record")
 		}
 	}
 
-	// Make sure there aren't any extras.
+	// Wait a moment to be sure there aren't any extra records.
 	select {
-	case apiRec := <-receivedCh:
-		c.Errorf("got extra: %#v", apiRec)
-	default:
+	case apiRec := <-records:
+		c.Errorf("got unexpected record: %#v", apiRec)
+	case <-time.After(coretesting.ShortWait):
+		// All good, let the defers handle teardown.
 	}
 }
 
@@ -284,5 +311,13 @@ func newWebsocketClient(c *gc.C, cfg *websocket.Config) *websocket.Conn {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		return client
+	}
+}
+
+func waitFor(c *gc.C, done <-chan struct{}) {
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("channel never closed")
 	}
 }
