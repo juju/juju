@@ -101,7 +101,7 @@ def deploy_dummy_stack(client, charm_series):
         # finished; two machines initializing concurrently may
         # need even 40 minutes. In addition Windows image blobs or
         # any system deployment using MAAS requires extra time.
-        client.wait_for_started(3600)
+        client.wait_for_started(7200)
     else:
         client.wait_for_started()
 
