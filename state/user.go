@@ -4,7 +4,7 @@
 // NOTE: the users that are being stored in the database here are only
 // the local users, like "admin" or "bob" (@local).  In the  world
 // where we have external user providers hooked up, there are no records
-// in the databse for users that are authenticated elsewhere.
+// in the database for users that are authenticated elsewhere.
 
 package state
 
@@ -101,10 +101,9 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// DeleteUser marks the user as deleted. Which obviates the ability of a user
-// to function, but allows the record to remain retain provenance, i.e.
-// auditing.
-func (st *State) DeleteUser(tag names.UserTag) error {
+// RemoveUser marks the user as deleted. This obviates the ability of a user
+// to function, but keeps the userDoc retaining provenance, i.e. auditing.
+func (st *State) RemoveUser(tag names.UserTag) error {
 	name := strings.ToLower(tag.Name())
 
 	u, err := st.User(tag)
@@ -183,13 +182,15 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		// This error is returned to the apiserver and from there to the api
 		// client. So we don't annotate with information regarding deletion.
 		// TODO(redir): We'll return a deletedUserError in the future so we can
-		// return more approriate errors, e.g. username not available.
+		// return more appropriate errors, e.g. username not available.
 		return nil, errors.UserNotFoundf("%q", user.Name())
 	}
 	return user, nil
 }
 
-// User returns the state User for the given name,
+// AllUsers returns a slice of state.User. This includes all active users. If
+// includeDeactivated is true it also returns inactive users. At this point it
+// never returns deleted users.
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
@@ -199,10 +200,11 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var query bson.D
 	// TODO(redir): Provide option to retrieve deleted users in future PR.
 	// e.g. if !includeDelted.
-	// Ensure the query checks that user -- if it has the deleted attribute --
-	// the value is not true. fwereade wanted to be sure we cannot miss users
-	// that previously existed without the deleted attr. Since this will only
-	// be in 2.0 that should never happen, but... belt and suspenders.
+	// Ensure the query checks for users without the deleted attribute, and
+	// also that if it does that the value is not true. fwereade wanted to be
+	// sure we cannot miss users that previously existed without the deleted
+	// attr. Since this will only be in 2.0 that should never happen, but...
+	// belt and suspenders.
 	query = append(query, bson.D{
 		{"deleted", bson.D{{"$ne", true}}},
 		{"deleted", bson.D{{"$exists", false}}}}...)
@@ -491,7 +493,7 @@ func (u *User) IsDisabled() bool {
 	return u.doc.Deactivated
 }
 
-// IsDeleted returns whether the user is currenlty deleted.
+// IsDeleted returns whether the user is currently deleted.
 func (u *User) IsDeleted() bool {
 	return u.doc.Deleted
 }

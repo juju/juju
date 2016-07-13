@@ -138,12 +138,12 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	return result, nil
 }
 
-// DeleteUser permanently removes a user from the current controller for each
+// RemoveUser permanently removes a user from the current controller for each
 // entity provided. While the user is permanently removed we keep it's
 // information around for auditing purposes.
 // TODO(redir): Add information about getting deleted user information when we
 // add that capability.
-func (api *UserManagerAPI) DeleteUser(entities params.Entities) (params.ErrorResults, error) {
+func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorResults, error) {
 	deletions := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(entities.Entities))}
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -160,7 +160,7 @@ func (api *UserManagerAPI) DeleteUser(entities params.Entities) (params.ErrorRes
 		return deletions, errors.Trace(err)
 	}
 
-	// Delete the entities.
+	// Remove the entities.
 	for i, e := range entities.Entities {
 		user, err := names.ParseUserTag(e.Tag)
 		if err != nil {
@@ -173,7 +173,7 @@ func (api *UserManagerAPI) DeleteUser(entities params.Entities) (params.ErrorRes
 				errors.Errorf("cannot delete controller owner %q", user.Name()))
 			continue
 		}
-		err = api.state.DeleteUser(user)
+		err = api.state.RemoveUser(user)
 		if err != nil {
 			if errors.IsUserNotFound(err) {
 				deletions.Results[i].Error = common.ServerError(err)
@@ -201,7 +201,7 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 }
 
 // EnableUser enables one or more users.  If the user is already enabled,
-// the action is consided a success.
+// the action is considered a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -210,7 +210,7 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
-// the action is consided a success.
+// the action is considered a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
