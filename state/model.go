@@ -698,22 +698,29 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
-	var prereqOps []txn.Op
 	checkEmptyErr := m.checkEmpty()
 	isEmpty := checkEmptyErr == nil
-	uuid := m.UUID()
 	if ensureEmpty && !isEmpty {
 		return nil, errors.Trace(checkEmptyErr)
 	}
+
+	modelUUID := m.UUID()
+	nextLife := Dying
+	var prereqOps []txn.Op
 	if isEmpty {
-		prereqOps = append(prereqOps, txn.Op{
+		prereqOps = []txn.Op{{
 			C:  modelEntityRefsC,
-			Id: uuid,
+			Id: modelUUID,
 			Assert: bson.D{
 				{"machines", bson.D{{"$size", 0}}},
 				{"applications", bson.D{{"$size", 0}}},
 			},
-		})
+		}}
+		if modelUUID != m.doc.ServerUUID {
+			// The model is empty, and is not the controller
+			// model, so we can move it straight to Dead.
+			nextLife = Dead
+		}
 	}
 
 	if ensureNoHostedModels {
@@ -770,18 +777,12 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty+dead))
 	}
 
-	life := Dying
-	if isEmpty && uuid != m.doc.ServerUUID {
-		// The model is empty, and is not the controller
-		// model, so we can move it straight to Dead.
-		life = Dead
-	}
 	timeOfDying := nowToTheSecond()
 	modelUpdateValues := bson.D{
-		{"life", life},
+		{"life", nextLife},
 		{"time-of-dying", timeOfDying},
 	}
-	if life == Dead {
+	if nextLife == Dead {
 		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
 			"time-of-death", timeOfDying,
 		})
@@ -789,7 +790,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 
 	ops := []txn.Op{{
 		C:      modelsC,
-		Id:     uuid,
+		Id:     modelUUID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
@@ -798,8 +799,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
-	if uuid == m.doc.ServerUUID {
-		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, uuid)
+	if modelUUID == m.doc.ServerUUID {
+		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, modelUUID)
 		ops = append(ops, cleanupOp)
 	}
 	if !isEmpty {
@@ -809,10 +810,9 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
-		cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, uuid)
-		ops = append(ops, cleanupMachinesOp)
-		cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, uuid)
-		ops = append(ops, cleanupServicesOp)
+		cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
+		cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, modelUUID)
+		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
 	}
 	return append(prereqOps, ops...), nil
 }

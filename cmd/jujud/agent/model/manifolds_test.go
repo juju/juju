@@ -81,6 +81,18 @@ func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 	}
 }
 
+func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
+	manifolds := model.Manifolds(model.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
+	manifold, found := manifolds["state-cleaner"]
+	c.Assert(found, jc.IsTrue)
+
+	inputs := set.NewStrings(manifold.Inputs...)
+	c.Check(inputs.Contains("not-alive-flag"), jc.IsFalse)
+	c.Check(inputs.Contains("not-dead-flag"), jc.IsFalse)
+}
+
 func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	expectClock := &fakeClock{}
 	manifolds := model.Manifolds(model.ManifoldsConfig{

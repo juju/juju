@@ -178,6 +178,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: environs.New,
 		})),
+		stateCleanerName: ifResponsible(cleaner.Manifold(cleaner.ManifoldConfig{
+			APICallerName: apiCallerName,
+		})),
 
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
@@ -233,9 +236,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: charmrevision.NewWorker,
 		})),
 		metricWorkerName: ifNotDead(metricworker.Manifold(metricworker.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
-		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
