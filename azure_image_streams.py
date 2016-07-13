@@ -7,6 +7,7 @@ from azure.mgmt.compute import (
     ComputeManagementClient,
     )
 import azure.mgmt.resource.subscriptions
+from azure.mgmt.resource.subscriptions import SubscriptionClient
 from msrestazure.azure_exceptions import CloudError
 from simplestreams.generate_simplestreams import items2content_trees
 from simplestreams.json2streams import Item
@@ -79,8 +80,7 @@ def make_item(version, full_spec, region_name, endpoint):
 
 def make_azure_items(all_credentials):
     subscription_id, credentials = get_azure_credentials(all_credentials)
-    sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
-        credentials)
+    sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
     for region in sub_client.subscriptions.list_locations(subscription_id):
