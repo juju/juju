@@ -1,5 +1,4 @@
 import logging
-import yaml
 
 # Tested on Azure 2.0 API
 from azure.common.credentials import ServicePrincipalCredentials
@@ -9,12 +8,6 @@ from azure.mgmt.compute import (
 from azure.mgmt.resource.subscriptions import SubscriptionClient
 from msrestazure.azure_exceptions import CloudError
 from simplestreams.json2streams import Item
-
-from make_aws_image_streams import (
-    get_parameters,
-    make_aws_items,
-    write_item_streams,
-    )
 
 
 MS_VSTUDIO = 'MicrosoftVisualStudio'
