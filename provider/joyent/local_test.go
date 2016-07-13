@@ -159,7 +159,9 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
@@ -170,7 +172,9 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hwc := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
@@ -183,7 +187,9 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
@@ -292,7 +298,9 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

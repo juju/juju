@@ -324,7 +324,9 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 	c.Check(ok, jc.IsTrue)
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -346,9 +348,11 @@ func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
 		BootstrapSeries: "xenial",
+		AdminSecret:     testing.AdminSecret,
+		CAPrivateKey:    coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -431,8 +435,10 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BootstrapSeries:  "trusty",
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -512,7 +518,9 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -545,7 +553,9 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -716,7 +726,9 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
@@ -990,7 +1002,9 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -1250,7 +1264,9 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1472,7 +1488,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+			ControllerConfig: coretesting.FakeControllerConfig(),
 			BaseConfig:       localConfigAttrs,
 			Credential: cloud.NewCredential(
 				cloud.AccessKeyAuthType,
@@ -1484,6 +1500,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			ControllerName: localConfigAttrs["name"].(string),
 			CloudName:      "ec2",
 			CloudRegion:    "test",
+			AdminSecret:    testing.AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -49,10 +49,11 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			BaseConfig:       attrs,
 			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

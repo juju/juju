@@ -62,7 +62,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	modelConfig := testConfig(c, controller, vers)
 	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
-			coretesting.FakeControllerBootstrapConfig(),
+			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
 			vers.Series, "",
 		)
@@ -79,6 +79,13 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
 		icfg.Bootstrap.HostedModelConfig = map[string]interface{}{
 			"name": "hosted-model",
+		}
+		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    123,
+			APIPort:      456,
 		}
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{

@@ -150,7 +150,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
 	suite.addSubnet(c, 9, 9, "node0")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
@@ -389,7 +391,9 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -408,7 +412,9 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -427,7 +433,9 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
@@ -442,7 +450,9 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
@@ -451,7 +461,9 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
@@ -980,8 +992,10 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		Placement:        "bootstrap-host",
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env

@@ -4,6 +4,5 @@
 package migration
 
 var (
-	UpdateConfigFromProvider = updateConfigFromProvider
-	GetCharmStoragePath      = getCharmStoragePath
+	GetCharmStoragePath = getCharmStoragePath
 )

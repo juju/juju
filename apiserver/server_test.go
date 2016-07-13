@@ -331,7 +331,7 @@ var _ = gc.Suite(&macaroonServerSuite{})
 
 func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
@@ -381,7 +381,7 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}

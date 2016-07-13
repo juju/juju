@@ -128,18 +128,43 @@ type BootstrapParams struct {
 	// If not set, the Juju GUI is not installed from simplestreams.
 	GUIDataSourceBaseURL string
 
+	// AdminSecret contains the administrator password.
+	AdminSecret string
+
+	// CAPrivateKey is the controller's CA certificate private key.
+	CAPrivateKey string
+
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
+}
+
+// Validate validates the bootstrap parameters.
+func (p BootstrapParams) Validate() error {
+	if p.AdminSecret == "" {
+		return errors.New("admin-secret is empty")
+	}
+	if p.ControllerConfig.ControllerUUID() == "" {
+		return errors.New("controller configuration has no controller UUID")
+	}
+	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	if p.CAPrivateKey == "" {
+		return errors.New("empty ca-private-key")
+	}
+	// TODO(axw) validate other things.
+	return nil
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
-	cfg := environ.Config()
-	if secret := cfg.AdminSecret(); secret == "" {
-		return errors.Errorf("model configuration has no admin-secret")
+	if err := args.Validate(); err != nil {
+		return errors.Annotate(err, "validating bootstrap parameters")
 	}
+
+	cfg := environ.Config()
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
 		// Config will act differently (it's pretty crazy that, AFAICT, the
@@ -147,17 +172,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
-	}
-	if args.ControllerConfig.ControllerUUID() == "" {
-		return errors.Errorf("bootstrap configuration has no controller UUID")
-	}
-	caCert, hasCACert := args.ControllerConfig.CACert()
-	if !hasCACert {
-		return errors.Errorf("controller configuration has no ca-cert")
-	}
-	caKey, hasCAKey := args.ControllerConfig.CAPrivateKey()
-	if !hasCAKey {
-		return errors.Errorf("controller configuration has no ca-private-key")
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -307,10 +321,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
-	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, cfg, customImageMetadata,
-		caCert, caKey,
-	); err != nil {
+	if err := finalizeInstanceBootstrapConfig(ctx, instanceConfig, args, cfg, customImageMetadata); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
@@ -326,7 +337,6 @@ func finalizeInstanceBootstrapConfig(
 	args BootstrapParams,
 	cfg *config.Config,
 	customImageMetadata []*imagemetadata.ImageMetadata,
-	caCert, caKey string,
 ) error {
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
@@ -336,14 +346,13 @@ func finalizeInstanceBootstrapConfig(
 	if !hasCACert {
 		return errors.New("controller configuration has no ca-cert")
 	}
-	secret := cfg.AdminSecret()
 	icfg.APIInfo = &api.Info{
-		Password: secret,
+		Password: args.AdminSecret,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(cfg.UUID()),
 	}
 	icfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: secret,
+		Password: args.AdminSecret,
 		Info:     mongo.Info{CACert: caCert},
 	}
 
@@ -351,7 +360,7 @@ func finalizeInstanceBootstrapConfig(
 	// Initially, generate a controller certificate with no host IP
 	// addresses in the SAN field. Once the controller is up and the
 	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := controller.GenerateControllerCertAndKey(caCert, caKey, nil)
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
@@ -360,16 +369,12 @@ func finalizeInstanceBootstrapConfig(
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
-		CAPrivateKey: caKey,
+		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
 		return fmt.Errorf("controller model configuration has no agent-version")
 	}
 
-	cfg, err = bootstrapConfig(cfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
 	icfg.Bootstrap.ControllerCloudName = args.CloudName
@@ -384,7 +389,6 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
-	delete(icfg.Controller.Config, controller.CAPrivateKey)
 	return nil
 }
 
@@ -710,21 +714,4 @@ func hashAndSize(path string) (hash string, size int64, err error) {
 		return "", 0, errors.Mask(err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
-}
-
-// bootstrapConfig returns a copy of the supplied configuration with the
-// admin-secret attribute removed. If the resulting config is not suitable
-// for bootstrapping an environment, an error is returned.
-func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	m := cfg.AllAttrs()
-	// We never want to push admin-secret to the cloud.
-	delete(m, config.AdminSecretKey)
-	cfg, err := config.New(config.NoDefaults, m)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("model configuration has no agent-version")
-	}
-	return cfg, nil
 }

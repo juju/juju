@@ -131,7 +131,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerBootstrapConfig(), cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List(tools))

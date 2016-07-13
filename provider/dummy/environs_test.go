@@ -28,6 +28,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const AdminSecret = "admin-secret"
+
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
@@ -116,10 +118,11 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			BaseConfig:       s.TestConfig,
 			ControllerName:   s.TestConfig["name"].(string),
 			CloudName:        "dummy",
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
@@ -128,12 +131,14 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		ControllerConfig: testing.FakeControllerBootstrapConfig(),
+		ControllerConfig: testing.FakeControllerConfig(),
 		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
+		AdminSecret:  AdminSecret,
+		CAPrivateKey: testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv

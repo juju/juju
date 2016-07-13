@@ -316,7 +316,9 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
@@ -353,7 +355,9 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
@@ -388,7 +392,9 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
@@ -424,7 +430,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
@@ -449,7 +457,9 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 
 	env := s.Prepare(c)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
@@ -942,7 +952,9 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1395,7 +1407,9 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	defer openstack.RemoveTestImageData(metadataStorage)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1524,7 +1538,9 @@ func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1604,7 +1620,9 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1686,7 +1704,9 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1712,7 +1732,9 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1737,7 +1759,9 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1775,7 +1799,9 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 	)
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1815,7 +1841,9 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	)
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1836,7 +1864,9 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1852,7 +1882,9 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1873,7 +1905,9 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 
 func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1917,13 +1951,14 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BaseConfig:       attrs,
 		ControllerName:   attrs["name"].(string),
 		Credential:       makeCredential(cred),
 		CloudName:        "openstack",
 		CloudEndpoint:    cred.URL,
 		CloudRegion:      cred.Region,
+		AdminSecret:      testing.AdminSecret,
 	}
 }
 
@@ -2007,7 +2042,9 @@ func (s *noSwiftSuite) TearDownTest(c *gc.C) {
 
 func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

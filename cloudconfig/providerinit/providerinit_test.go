@@ -183,7 +183,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
-		controllerCfg := testing.FakeControllerBootstrapConfig()
+		controllerCfg := testing.FakeControllerConfig()
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
 				ControllerConfig:      controllerCfg,

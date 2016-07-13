@@ -1,17 +1,11 @@
-// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Copyright 2011-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package bootstrap
 
 import (
-	"crypto/rand"
-	"fmt"
-	"io"
-	"time"
-
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -61,6 +55,26 @@ type PrepareParams struct {
 	// CredentialName is the name of the credential to use to bootstrap.
 	// This will be empty for auto-detected credentials.
 	CredentialName string
+
+	// AdminSecret contains the password for the admin user.
+	AdminSecret string
+}
+
+// Validate validates the PrepareParams.
+func (p PrepareParams) Validate() error {
+	if err := p.ControllerConfig.Validate(); err != nil {
+		return errors.Annotate(err, "validating controller config")
+	}
+	if p.ControllerName == "" {
+		return errors.NotValidf("empty controller name")
+	}
+	if p.CloudName == "" {
+		return errors.NotValidf("empty cloud name")
+	}
+	if p.AdminSecret == "" {
+		return errors.NotValidf("empty admin-secret")
+	}
+	return nil
 }
 
 // Prepare prepares a new controller based on the provided configuration.
@@ -74,6 +88,10 @@ func Prepare(
 	store jujuclient.ClientStore,
 	args PrepareParams,
 ) (environs.Environ, error) {
+
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	_, err := store.ControllerByName(args.ControllerName)
 	if err == nil {
@@ -145,31 +163,6 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Config schema is still defined together for model and controller,
-	// hence any defaults are filled in when we construct a new model config above.
-	// Extract any controller specific defaults.
-	for attr, value := range cfg.AllAttrs() {
-		if controller.ControllerOnlyAttribute(attr) {
-			if _, ok := args.ControllerConfig[attr]; !ok {
-				args.ControllerConfig[attr] = value
-			}
-		}
-	}
-	// Remove any remaining controller attributes from the env config.
-	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
-	if err != nil {
-		return nil, details, errors.Annotate(err, "cannot remove controller attributes")
-	}
-
-	cfg, adminSecret, err := ensureAdminSecret(cfg)
-	if err != nil {
-		return nil, details, errors.Annotate(err, "cannot generate admin-secret")
-	}
-	caCert, err := ensureCertificate(cfg.Name(), args.ControllerConfig)
-	if err != nil {
-		return nil, details, errors.Annotate(err, "cannot ensure CA certificate")
-	}
 
 	cfg, err = p.BootstrapConfig(environs.BootstrapConfigParams{
 		args.ControllerConfig.ControllerUUID(), cfg, args.Credential, args.CloudRegion,
@@ -193,10 +186,18 @@ func prepare(
 	}
 	delete(details.Config, config.UUIDKey)
 
+	// TODO(axw) change signature of CACert() to not return a bool.
+	// It's no longer possible to have a controller config without
+	// a CA certificate.
+	caCert, ok := args.ControllerConfig.CACert()
+	if !ok {
+		return nil, details, errors.New("controller config is missing CA certificate")
+	}
+
 	details.CACert = caCert
 	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
 	details.User = environs.AdminUser
-	details.Password = adminSecret
+	details.Password = args.AdminSecret
 	details.ModelUUID = cfg.UUID()
 	details.ControllerDetails.Cloud = args.CloudName
 	details.ControllerDetails.CloudRegion = args.CloudRegion
@@ -214,50 +215,4 @@ type prepareDetails struct {
 	jujuclient.BootstrapConfig
 	jujuclient.AccountDetails
 	jujuclient.ModelDetails
-}
-
-// ensureAdminSecret returns a config with a non-empty admin-secret.
-func ensureAdminSecret(cfg *config.Config) (*config.Config, string, error) {
-	if secret := cfg.AdminSecret(); secret != "" {
-		return cfg, secret, nil
-	}
-
-	// Generate a random string.
-	buf := make([]byte, 16)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-		return nil, "", errors.Annotate(err, "generating random secret")
-	}
-	secret := fmt.Sprintf("%x", buf)
-
-	cfg, err := cfg.Apply(map[string]interface{}{"admin-secret": secret})
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	return cfg, secret, nil
-}
-
-// ensureCertificate generates a new CA certificate and
-// attaches it to the given controller configuration,
-// unless the configuration already has one.
-func ensureCertificate(name string, controllerCfg controller.Config) (string, error) {
-	caCert, hasCACert := controllerCfg.CACert()
-	_, hasCAKey := controllerCfg.CAPrivateKey()
-	if hasCACert && hasCAKey {
-		return caCert, nil
-	}
-	if hasCACert && !hasCAKey {
-		return "", errors.Errorf("controller configuration with a certificate but no CA private key")
-	}
-
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	caCert, caKey, err := cert.NewCA(name, controllerCfg.ControllerUUID(), time.Now().UTC().AddDate(10, 0, 0))
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	controllerCfg[controller.CACertKey] = string(caCert)
-	controllerCfg[controller.CAPrivateKey] = string(caKey)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return string(caCert), nil
 }

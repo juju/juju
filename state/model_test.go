@@ -252,9 +252,8 @@ func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, stri
 		controllerUUID = uuid.String()
 	}
 	return testing.CustomModelConfig(c, testing.Attrs{
-		"name":            "testing",
-		"uuid":            uuid.String(),
-		"controller-uuid": controllerUUID,
+		"name": "testing",
+		"uuid": uuid.String(),
 	}), uuid.String()
 }
 
@@ -859,7 +858,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		for controllerCredential = range credentials {
 		}
 	}
-	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,

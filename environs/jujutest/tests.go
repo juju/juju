@@ -55,8 +55,8 @@ func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 	return e
 }
 
-// PrepareParams returns the bootstrap.PrepareParams that will be used to call
-// bootstrap.Prepare.
+// PrepareParams returns the environs.PrepareParams that will be used to call
+// environs.Prepare.
 func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 	testConfigCopy := t.TestConfig.Merge(nil)
 
@@ -65,13 +65,14 @@ func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 		credential = cloud.NewEmptyCredential()
 	}
 	return bootstrap.PrepareParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BaseConfig:       testConfigCopy,
 		Credential:       credential,
 		ControllerName:   t.TestConfig["name"].(string),
 		CloudName:        t.TestConfig["type"].(string),
 		CloudEndpoint:    t.CloudEndpoint,
 		CloudRegion:      t.CloudRegion,
+		AdminSecret:      AdminSecret,
 	}
 }
 
@@ -180,7 +181,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	args := bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
@@ -191,6 +192,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 		CloudRegion:         t.CloudRegion,
 		CloudCredential:     &credential,
 		CloudCredentialName: "credential",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        coretesting.CAKey,
 	}
 
 	e := t.Prepare(c)

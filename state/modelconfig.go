@@ -13,6 +13,11 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+var disallowedModelConfigAttrs = [...]string{
+	"admin-secret",
+	"ca-private-key",
+}
+
 // ModelConfig returns the complete config for the model represented
 // by this state.
 func (st *State) ModelConfig() (*config.Config, error) {
@@ -25,11 +30,19 @@ func (st *State) ModelConfig() (*config.Config, error) {
 
 // checkModelConfig returns an error if the config is definitely invalid.
 func checkModelConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return errors.Errorf("admin-secret should never be written to the state")
+	allAttrs := cfg.AllAttrs()
+	for _, attr := range disallowedModelConfigAttrs {
+		if _, ok := allAttrs[attr]; ok {
+			return errors.Errorf(attr + " should never be written to the state")
+		}
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
 		return errors.Errorf("agent-version must always be set in state")
+	}
+	for attr := range allAttrs {
+		if controller.ControllerOnlyAttribute(attr) {
+			return errors.Errorf("cannot set controller attribute %q on a model", attr)
+		}
 	}
 	return nil
 }
@@ -69,14 +82,14 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 
 // checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.
 func checkControllerInheritedConfig(attrs map[string]interface{}) error {
-	if _, ok := attrs[config.AdminSecretKey]; ok {
-		return errors.Errorf("local cloud config cannot contain admin-secret")
+	disallowedCloudConfigAttrs := append(disallowedModelConfigAttrs[:], config.AgentVersionKey)
+	for _, attr := range disallowedCloudConfigAttrs {
+		if _, ok := attrs[attr]; ok {
+			return errors.Errorf("local cloud config cannot contain " + attr)
+		}
 	}
-	if _, ok := attrs[config.AgentVersionKey]; ok {
-		return errors.Errorf("local cloud config cannot contain agent-version")
-	}
-	for _, attrName := range controller.ControllerOnlyConfigAttributes {
-		if _, ok := attrs[attrName]; ok {
+	for attrName := range attrs {
+		if controller.ControllerOnlyAttribute(attrName) {
 			return errors.Errorf("local cloud config cannot contain controller attribute %q", attrName)
 		}
 	}
@@ -84,11 +97,6 @@ func checkControllerInheritedConfig(attrs map[string]interface{}) error {
 }
 
 func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
-	for attr := range updateAttrs {
-		if controller.ControllerOnlyAttribute(attr) {
-			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
-		}
-	}
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)

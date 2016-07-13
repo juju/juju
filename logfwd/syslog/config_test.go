@@ -128,7 +128,7 @@ func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in certificate input`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
@@ -154,7 +154,7 @@ func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in certificate input`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
@@ -167,7 +167,7 @@ func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in key input`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
@@ -180,7 +180,7 @@ func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to parse private key`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
@@ -193,7 +193,7 @@ func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in key input`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
 }
 
 func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
@@ -206,7 +206,7 @@ func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: private key does not match public key`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`)
 }
 
 var validCACert = `

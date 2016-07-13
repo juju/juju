@@ -37,10 +37,11 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
 			BaseConfig:       mockConfig(),
 			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

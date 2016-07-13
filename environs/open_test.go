@@ -50,12 +50,13 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	cache := jujuclienttesting.NewMemStore()
-	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg := testing.FakeControllerConfig()
 	env, err := bootstrap.Prepare(ctx, cache, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		BaseConfig:       cfg.AllAttrs(),
 		CloudName:        "dummy",
+		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,6 +67,8 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
 		ControllerConfig: controllerCfg,
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -85,13 +88,14 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		"uuid": uuid,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = uuid
 	_, err = bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		BaseConfig:       cfg.AllAttrs(),
 		CloudName:        "dummy",
+		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -143,13 +147,14 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
-	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg := testing.FakeControllerConfig()
 	ctx := envtesting.BootstrapContext(c)
 	e, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		BaseConfig:       cfg.AllAttrs(),
 		CloudName:        "dummy",
+		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")

@@ -688,7 +688,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			AvailableTools:   makeToolsList(series.LatestLts()),
 		},
 	)
