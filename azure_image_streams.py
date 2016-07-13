@@ -85,17 +85,3 @@ def make_azure_items(all_credentials):
         items.extend(get_image_versions(
             client, region.name, region.display_name))
     return items
-
-
-def main():
-    logging.basicConfig(level=logging.INFO)
-    streams, creds_filename = get_parameters()
-    with open(creds_filename) as creds_file:
-        all_credentials = yaml.safe_load(creds_file)['credentials']
-    items = make_azure_items(all_credentials)
-    items.extend(make_aws_items(all_credentials))
-    write_item_streams(items, streams)
-
-
-if __name__ == '__main__':
-    main()

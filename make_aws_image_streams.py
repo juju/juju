@@ -40,6 +40,8 @@ def get_parameters(argv=None):
         Write image streams for AWS images.  Only CentOS 7 is currently
         supported."""))
     parser.add_argument('streams', help='The directory to write streams to.')
+    parser.add_argument('--azure', help='Generate Azure streams also.',
+                        action='store_true')
     args = parser.parse_args(argv)
     try:
         juju_data = os.environ['JUJU_DATA']
@@ -48,7 +50,7 @@ def get_parameters(argv=None):
               ' credentials.yaml.', file=sys.stderr)
         sys.exit(1)
     creds_filename = os.path.join(juju_data, 'credentials.yaml')
-    return args.streams, creds_filename
+    return args.streams, creds_filename, args.azure
 
 
 def make_aws_credentials(creds):
@@ -236,10 +238,14 @@ def make_aws_items(all_credentials):
 
 
 def main():
-    streams, creds_filename = get_parameters()
+    streams, creds_filename, azure = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
     items = make_aws_items(all_credentials)
+    if azure:
+        # Avoid breakage for aws streams if azure libs not installed.
+        from azure_image_streams import make_azure_items
+        items.extend(make_azure_items(all_credentials))
     write_item_streams(items, streams)
 
 
