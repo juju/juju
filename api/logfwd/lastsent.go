@@ -93,9 +93,9 @@ func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
 	return results, nil
 }
 
-// SetList makes a "SetLastSent" call on the facade and returns the
+// SetLastSent makes a "SetLastSent" call on the facade and returns the
 // results in the same order.
-func (c LastSentClient) SetList(reqs []LastSentInfo) ([]LastSentResult, error) {
+func (c LastSentClient) SetLastSent(reqs []LastSentInfo) ([]LastSentResult, error) {
 	var args params.LogForwardingSetLastSentParams
 	args.Params = make([]params.LogForwardingSetLastSentParam, len(reqs))
 	for i, req := range reqs {

@@ -35,7 +35,7 @@ func OpenSyslog(cfg *syslog.RawConfig) (*logforwarder.LogSink, error) {
 
 type emptySendCloser struct{}
 
-func (emptySendCloser) Send(logfwd.Record) error {
+func (emptySendCloser) Send([]logfwd.Record) error {
 	return nil
 }
 

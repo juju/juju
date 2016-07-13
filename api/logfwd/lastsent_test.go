@@ -111,7 +111,7 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	results, err := client.SetList([]logfwd.LastSentInfo{{
+	results, err := client.SetLastSent([]logfwd.LastSentInfo{{
 		LastSentID: logfwd.LastSentID{
 			Model: modelTag,
 			Sink:  "spam",

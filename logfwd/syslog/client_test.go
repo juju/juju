@@ -97,7 +97,7 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	}
 	client := syslog.Client{Sender: s.sender}
 
-	err := client.Send(rec)
+	err := client.Send([]logfwd.Record{rec})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Send")
@@ -178,7 +178,7 @@ func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
 		s.stub.ResetCalls()
 		rec.Level = level
 
-		err := client.Send(rec)
+		err := client.Send([]logfwd.Record{rec})
 		c.Assert(err, jc.ErrorIsNil)
 
 		msg := s.stub.Calls()[0].Args[0].(rfc5424.Message)

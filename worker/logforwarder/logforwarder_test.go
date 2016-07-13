@@ -71,7 +71,7 @@ func (s *LogForwarderSuite) checkNext(c *gc.C, rec logfwd.Record) {
 	s.stream.waitAfterNext(c)
 	s.sender.waitAfterSend(c)
 	s.stub.CheckCallNames(c, "Next", "Send")
-	s.stub.CheckCall(c, 1, "Send", rec)
+	s.stub.CheckCall(c, 1, "Send", []logfwd.Record{rec})
 	s.stub.ResetCalls()
 }
 
@@ -207,7 +207,7 @@ func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
 	s.sender.waitAfterSend(c)
 	s.stub.CheckCallNames(c, "Close", "Next", "Send")
 	rec2.Message = "send to 10.0.0.2"
-	s.stub.CheckCall(c, 2, "Send", rec2)
+	s.stub.CheckCall(c, 2, "Send", []logfwd.Record{rec2})
 	s.stub.ResetCalls()
 }
 
@@ -296,16 +296,16 @@ func (s *stubStream) waitAfterNext(c *gc.C) {
 	}
 }
 
-func (s *stubStream) Next() (logfwd.Record, error) {
+func (s *stubStream) Next() ([]logfwd.Record, error) {
 	s.waitCh <- struct{}{}
 	s.stub.AddCall("Next")
 	s.waitCh <- struct{}{}
 	if err := s.stub.NextErr(); err != nil {
-		return logfwd.Record{}, errors.Trace(err)
+		return []logfwd.Record{}, errors.Trace(err)
 	}
 
 	rec := <-s.ReturnNext
-	return rec, nil
+	return []logfwd.Record{rec}, nil
 }
 
 type stubSender struct {
@@ -340,10 +340,12 @@ func (s *stubSender) waitBeforeClose(c *gc.C) {
 	}
 }
 
-func (s *stubSender) Send(rec logfwd.Record) error {
-	toSend := rec
-	toSend.Message = "send to " + s.host
-	s.stub.AddCall("Send", toSend)
+func (s *stubSender) Send(records []logfwd.Record) error {
+	for i, rec := range records {
+		rec.Message = "send to " + s.host
+		records[i] = rec
+	}
+	s.stub.AddCall("Send", records)
 	s.waitSendCh <- struct{}{}
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

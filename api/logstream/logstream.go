@@ -50,8 +50,8 @@ func Open(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID 
 	return ls, nil
 }
 
-// Next returns the next log record from the server. The records are
-// coverted from the wire format into logfwd.Record. The first returned
+// Next returns the next batch of log records from the server. The records are
+// converted from the wire format into logfwd.Record. The first returned
 // record will be the one after the last successfully sent record. If no
 // records have been sent yet then it will be the oldest log record.
 //
@@ -66,13 +66,12 @@ func Open(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID 
 // before being stored in the DB or if the DB on-disk storage for the
 // record becomes corrupted. Both scenarios are highly unlikely and
 // the respective systems are managed such that neither should happen.
-func (ls *LogStream) Next() (logfwd.Record, error) {
-	var record logfwd.Record
-	apiRecord, err := ls.next()
+func (ls *LogStream) Next() ([]logfwd.Record, error) {
+	apiRecords, err := ls.next()
 	if err != nil {
-		return record, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	record, err = recordFromAPI(apiRecord, ls.controllerUUID)
+	records, err := recordsFromAPI(apiRecords, ls.controllerUUID)
 	if err != nil {
 		// This should only happen if the data got corrupted over the
 		// network. Any other cause should be addressed by fixing the
@@ -82,25 +81,25 @@ func (ls *LogStream) Next() (logfwd.Record, error) {
 		// block on a consistently invalid record or to throw away
 		// a record. The log stream needs to maintain a high level
 		// of reliable delivery.
-		return record, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return record, nil
+	return records, nil
 }
 
-func (ls *LogStream) next() (params.LogStreamRecord, error) {
+func (ls *LogStream) next() (params.LogStreamRecords, error) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 
-	var apiRec params.LogStreamRecord
+	var result params.LogStreamRecords
 	if ls.stream == nil {
-		return apiRec, errors.Errorf("cannot read from closed stream")
+		return result, errors.Errorf("cannot read from closed stream")
 	}
 
-	err := ls.stream.ReadJSON(&apiRec)
+	err := ls.stream.ReadJSON(&result)
 	if err != nil {
-		return apiRec, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	return apiRec, nil
+	return result, nil
 }
 
 // Close closes the stream.
@@ -119,6 +118,18 @@ func (ls *LogStream) Close() error {
 }
 
 // See the counterpart in apiserver/logstream.go.
+func recordsFromAPI(apiRecords params.LogStreamRecords, controllerUUID string) ([]logfwd.Record, error) {
+	result := make([]logfwd.Record, len(apiRecords.Records))
+	for i, apiRec := range apiRecords.Records {
+		rec, err := recordFromAPI(apiRec, controllerUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[i] = rec
+	}
+	return result, nil
+}
+
 func recordFromAPI(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
 		ID:        apiRec.ID,

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
+// TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
 	logsDB     = "logs"
 	logsC      = "logs"
@@ -119,8 +120,8 @@ type LastSentLogTracker struct {
 // NewLastSentLogTracker returns a new tracker that records and retrieves
 // the timestamps of the most recent log records forwarded to the
 // identified log sink for the current model.
-func NewLastSentLogTracker(st ModelSessioner, sink string) *LastSentLogTracker {
-	return newLastSentLogTracker(st, st.ModelUUID(), sink)
+func NewLastSentLogTracker(st ModelSessioner, modelUUID, sink string) *LastSentLogTracker {
+	return newLastSentLogTracker(st, modelUUID, sink)
 }
 
 // NewAllLastSentLogTracker returns a new tracker that records and retrieves
@@ -134,14 +135,19 @@ func NewAllLastSentLogTracker(st ControllerSessioner, sink string) (*LastSentLog
 }
 
 func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTracker {
-	// TODO(ericsnow) We need to copy the session.
-	session := st.MongoSession()
+	session := st.MongoSession().Copy()
 	return &LastSentLogTracker{
 		id:      fmt.Sprintf("%s#%s", model, sink),
 		model:   model,
 		sink:    sink,
 		session: session,
 	}
+}
+
+// Close implements io.Closer
+func (logger *LastSentLogTracker) Close() error {
+	logger.session.Close()
+	return nil
 }
 
 // Set records the timestamp.

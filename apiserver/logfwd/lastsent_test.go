@@ -79,7 +79,7 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	trackerEggs := s.state.addTracker()
 	trackerEggs.ReturnGet = 20
 	s.state.addTracker() // ham
-	s.stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, state.ErrNeverForwarded)
+	s.stub.SetErrors(nil, nil, nil, nil, state.ErrNeverForwarded)
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -152,7 +152,7 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 	s.state.addTracker() // eggs
 	s.state.addTracker() // ham
 	failure := errors.New("<failed>")
-	s.stub.SetErrors(nil, nil, nil, nil, failure)
+	s.stub.SetErrors(nil, nil, failure)
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -214,18 +214,14 @@ func (s *stubState) addTracker() *stubTracker {
 	return tracker
 }
 
-func (s *stubState) NewLastSentTracker(tag names.ModelTag, sink string) (logfwd.LastSentTracker, error) {
+func (s *stubState) NewLastSentTracker(tag names.ModelTag, sink string) logfwd.LastSentTracker {
 	s.stub.AddCall("NewLastSentTracker", tag, sink)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-
 	if len(s.ReturnNewLastSentTracker) == 0 {
 		panic("ran out of trackers")
 	}
 	tracker := s.ReturnNewLastSentTracker[0]
 	s.ReturnNewLastSentTracker = s.ReturnNewLastSentTracker[1:]
-	return tracker, nil
+	return tracker
 }
 
 type stubTracker struct {

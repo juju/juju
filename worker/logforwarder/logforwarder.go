@@ -19,11 +19,10 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.logforwarder")
 
-// LogStream streams log entries from a log source (e.g. the Juju
-// controller).
+// LogStream streams log entries from a log source (e.g. the Juju controller).
 type LogStream interface {
-	// Next returns the next log record from the stream.
-	Next() (logfwd.Record, error)
+	// Next returns the next batch of log records from the stream.
+	Next() ([]logfwd.Record, error)
 }
 
 // LogStreamFn is a function that opens a log stream.
@@ -36,9 +35,9 @@ type SendCloser interface {
 }
 
 type sender interface {
-	// Send sends the record to its log sink. It is also responsible
+	// Send sends the records to its log sink. It is also responsible
 	// for notifying the controller that record was forwarded.
-	Send(logfwd.Record) error
+	Send([]logfwd.Record) error
 }
 
 // TODO(ericsnow) It is likely that eventually we will want to support
@@ -184,7 +183,7 @@ func (lf *LogForwarder) loop() error {
 		return errors.Trace(err)
 	}
 
-	records := make(chan logfwd.Record)
+	records := make(chan []logfwd.Record)
 	defer close(records)
 	var stream LogStream
 	go func() {

@@ -55,15 +55,11 @@ type trackingSender struct {
 }
 
 // Send implements Sender.
-func (s *trackingSender) Send(rec logfwd.Record) error {
-	if err := s.SendCloser.Send(rec); err != nil {
+func (s *trackingSender) Send(records []logfwd.Record) error {
+	if err := s.SendCloser.Send(records); err != nil {
 		return errors.Trace(err)
 	}
-	model := rec.Origin.ModelUUID
-	if s.allModels {
-		model = ""
-	}
-	if err := s.tracker.setOne(model, rec.ID); err != nil {
+	if err := s.tracker.setLastSent(s.allModels, records); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -84,9 +80,17 @@ func newLastSentTracker(sink string, caller base.APICaller) *lastSentTracker {
 	}
 }
 
-// TODO(ericsnow) We need to leverage the bulk API here.
-
-func (lst lastSentTracker) setOne(model string, recID int64) error {
+func (lst lastSentTracker) setLastSent(allModels bool, records []logfwd.Record) error {
+	// The records are received and sent in order, so we only need to
+	// call SetLastSent for the last record.
+	if len(records) == 0 {
+		return nil
+	}
+	rec := records[len(records)-1]
+	model := rec.Origin.ModelUUID
+	if allModels {
+		model = ""
+	}
 	var modelTag names.ModelTag
 	if model != "" {
 		if !names.IsValidModel(model) {
@@ -94,13 +98,12 @@ func (lst lastSentTracker) setOne(model string, recID int64) error {
 		}
 		modelTag = names.NewModelTag(model)
 	}
-
-	results, err := lst.client.SetList([]logfwdapi.LastSentInfo{{
+	results, err := lst.client.SetLastSent([]logfwdapi.LastSentInfo{{
 		LastSentID: logfwdapi.LastSentID{
 			Model: modelTag,
 			Sink:  lst.sink,
 		},
-		RecordID: recID,
+		RecordID: rec.ID,
 	}})
 	if err != nil {
 		return errors.Trace(err)

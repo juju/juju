@@ -36,7 +36,7 @@ type LastSentTracker interface {
 type LogForwardingState interface {
 	// NewLastSentTracker creates a new tracker for the given model
 	// and log sink.
-	NewLastSentTracker(tag names.ModelTag, sink string) (LastSentTracker, error)
+	NewLastSentTracker(tag names.ModelTag, sink string) LastSentTracker
 }
 
 // LogForwardingAPI is the concrete implementation of the api end point.
@@ -116,10 +116,7 @@ func (api *LogForwardingAPI) newLastSentTracker(id params.LogForwardingID) (Last
 	if err != nil {
 		return nil, err
 	}
-	tracker, err := api.state.NewLastSentTracker(tag, id.Sink)
-	if err != nil {
-		return nil, err
-	}
+	tracker := api.state.NewLastSentTracker(tag, id.Sink)
 	return tracker, nil
 }
 
@@ -128,19 +125,6 @@ type stateAdapter struct {
 }
 
 // NewLastSentTracker implements LogForwardingState.
-func (st stateAdapter) NewLastSentTracker(tag names.ModelTag, sink string) (LastSentTracker, error) {
-	if _, err := st.GetModel(tag); err != nil {
-		return nil, err
-	}
-	loggingState, err := st.ForModel(tag)
-	if err != nil {
-		return nil, err
-	}
-	lastSent := state.NewLastSentLogTracker(loggingState, sink)
-	return &lastSentCloser{lastSent, loggingState}, nil
-}
-
-type lastSentCloser struct {
-	*state.LastSentLogTracker
-	io.Closer
+func (st stateAdapter) NewLastSentTracker(tag names.ModelTag, sink string) LastSentTracker {
+	return state.NewLastSentLogTracker(st, tag.Id(), sink)
 }

@@ -99,13 +99,15 @@ func (client Client) Close() error {
 }
 
 // Send sends the record to the remote syslog host.
-func (client Client) Send(rec logfwd.Record) error {
-	msg, err := messageFromRecord(rec)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := client.Sender.Send(msg); err != nil {
-		return errors.Trace(err)
+func (client Client) Send(records []logfwd.Record) error {
+	for _, rec := range records {
+		msg, err := messageFromRecord(rec)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.Sender.Send(msg); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

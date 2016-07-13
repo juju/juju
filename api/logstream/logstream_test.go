@@ -75,12 +75,15 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 		Level:     loggo.INFO.String(),
 		Message:   "test message",
 	}
+	apiRecords := params.LogStreamRecords{
+		Records: []params.LogStreamRecord{apiRec},
+	}
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	stub := &testing.Stub{}
 	conn := &mockConnector{stub: stub}
 	jsonReader := mockStream{stub: stub}
-	logsCh := make(chan params.LogStreamRecord, 1)
-	logsCh <- apiRec
+	logsCh := make(chan params.LogStreamRecords, 1)
+	logsCh <- apiRecords
 	jsonReader.ReturnReadJSON = logsCh
 	conn.ReturnConnectStream = jsonReader
 	var cfg params.LogStreamConfig
@@ -89,10 +92,10 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	stub.ResetCalls()
 
 	// Check the record we injected into the stream.
-	var rec logfwd.Record
+	var records []logfwd.Record
 	done := make(chan struct{})
 	go func() {
-		rec, err = stream.Next()
+		records, err = stream.Next()
 		c.Assert(err, jc.ErrorIsNil)
 		close(done)
 	}()
@@ -101,7 +104,8 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for record")
 	}
-	c.Check(rec, jc.DeepEquals, logfwd.Record{
+	c.Assert(records, gc.HasLen, 1)
+	c.Check(records[0], jc.DeepEquals, logfwd.Record{
 		Origin: logfwd.Origin{
 			ControllerUUID: cUUID,
 			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
@@ -128,13 +132,13 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	// Make sure we don't get extras.
 	done = make(chan struct{})
 	go func() {
-		rec, err = stream.Next()
+		records, err = stream.Next()
 		c.Assert(err, jc.ErrorIsNil)
 		close(done)
 	}()
 	select {
 	case <-done:
-		c.Errorf("got extra record: %#v", rec)
+		c.Errorf("got extra record: %#v", records)
 	case <-time.After(coretesting.ShortWait):
 	}
 }
@@ -206,7 +210,7 @@ type mockStream struct {
 	base.Stream
 	stub *testing.Stub
 
-	ReturnReadJSON chan params.LogStreamRecord
+	ReturnReadJSON chan params.LogStreamRecords
 }
 
 func (s mockStream) ReadJSON(v interface{}) error {
@@ -216,7 +220,7 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	}
 
 	switch vt := v.(type) {
-	case *params.LogStreamRecord:
+	case *params.LogStreamRecords:
 		*vt = <-s.ReturnReadJSON
 		return nil
 	default:
