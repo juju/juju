@@ -150,8 +150,9 @@ class TestMakeAzureItems(TestCase):
             with patch('azure_image_streams.SubscriptionClient') as sc_mock:
                 subscriptions_mock = sc_mock.return_value.subscriptions
                 subscriptions_mock.list_locations.return_value = [location]
-                with patch('azure_image_streams.ComputeManagementClient'
-                          ) as cmc_mock:
+                with patch(
+                        'azure_image_streams.ComputeManagementClient'
+                        ) as cmc_mock:
                     cmc_mock.return_value = client
                     items = make_azure_items(all_credentials)
         self.assertEqual(expected_items, items)
