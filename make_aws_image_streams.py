@@ -191,20 +191,12 @@ def make_item(image, now):
         })
 
 
-def write_streams(credentials, china_credentials, now, streams):
-    """Write image streams for Centos 7.
-
-    :param credentials: The standard AWS credentials.
-    :param china_credentials: The AWS China crentials.
-    :param now: The current datetime.
-    :param streams: The directory to store streams metadata in.
-    """
-    items = [make_item(i, now) for i in iter_centos_images(
-        credentials, china_credentials)]
-    write_item_streams(items, streams)
-
-
 def write_item_streams(items, out_dir):
+    """Write image streams for supplied items.
+
+    :param items: The Items to write to simplestreams.
+    :param out_dir: The directory to store streams metadata in.
+    """
     updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
@@ -247,10 +239,8 @@ def main():
     streams, creds_filename = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
-    credentials = make_aws_credentials(all_credentials['aws'])
-    china_credentials = make_aws_credentials(all_credentials['aws-china'])
-    now = datetime.utcnow()
-    write_streams(credentials, china_credentials, now, streams)
+    items = make_aws_items(all_credentials)
+    write_item_streams(items, streams)
 
 
 if __name__ == '__main__':
