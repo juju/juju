@@ -13,7 +13,7 @@ import (
 // Observer defines a type which will observe API server events as
 // they happen.
 type Observer interface {
-	rpc.RequestNotifier
+	rpc.ObserverFactory
 
 	// Login informs an Observer that an entity has logged in.
 	Login(string)
@@ -84,19 +84,20 @@ func (m *Multiplexer) Leave() {
 	mapConcurrent(Observer.Leave, m.observers)
 }
 
-// ServerReply implements Observer.
-func (m *Multiplexer) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
-	mapConcurrent(func(o Observer) { o.ServerReply(req, hdr, body) }, m.observers)
-}
-
-// ServerRequest implements Observer.
-func (m *Multiplexer) ServerRequest(hdr *rpc.Header, body interface{}) {
-	mapConcurrent(func(o Observer) { o.ServerRequest(hdr, body) }, m.observers)
-}
-
 // Login implements Observer.
 func (m *Multiplexer) Login(entityName string) {
 	mapConcurrent(func(o Observer) { o.Login(entityName) }, m.observers)
+}
+
+// RPCObserver implements Observer. It will create an
+// rpc.ObserverMultiplexer by calling all the Observer's RPCObserver
+// methods.
+func (m *Multiplexer) RPCObserver() rpc.Observer {
+	rpcObservers := make([]rpc.Observer, len(m.observers))
+	for i, o := range m.observers {
+		rpcObservers[i] = o.RPCObserver()
+	}
+	return rpc.NewObserverMultiplexer(rpcObservers...)
 }
 
 // mapConcurrent calls fn on all observers concurrently and then waits

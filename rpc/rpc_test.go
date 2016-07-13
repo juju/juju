@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"regexp"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,10 +31,6 @@ type rpcSuite struct {
 }
 
 var _ = gc.Suite(&rpcSuite{})
-
-func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type callInfo struct {
 	rcvr   interface{}
@@ -1249,6 +1244,15 @@ type notifier struct {
 	mu             sync.Mutex
 	serverRequests []requestEvent
 	serverReplies  []replyEvent
+}
+
+func (n *notifier) RPCObserver() rpc.Observer {
+	// For testing, we usually won't want an actual copy of the
+	// stub. To avoid confusing test failures (e.g. wondering why your
+	// calls aren't showing up on your stub because the underlying
+	// code has called DeepCopy) and immense complexity, just return
+	// the same value.
+	return n
 }
 
 func (n *notifier) reset() {
