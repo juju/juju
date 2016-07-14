@@ -277,6 +277,7 @@ type ApplicationGetResults struct {
 	Charm       string                 `json:"charm"`
 	Config      map[string]interface{} `json:"config"`
 	Constraints constraints.Value      `json:"constraints"`
+	Series      string                 `json:"series"`
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.
