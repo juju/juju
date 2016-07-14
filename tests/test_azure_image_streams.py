@@ -60,18 +60,18 @@ class TestMakeItem(TestCase):
 
     def make_item(self, centos=False):
         offer = 'CentOS' if centos else 'bar'
-        release = 'win95'
+        release = 'centos7' if centos else 'win95'
         full_spec = (release, 'foo', offer, 'baz')
         region_name = 'Canada East'
         endpoint = 'http://example.org'
-        return make_item('pete', full_spec, region_name, endpoint)
+        return make_item('1', 'pete', full_spec, region_name, endpoint)
 
     def test_make_item(self):
         item = self.make_item()
         self.assertEqual(Item(
             'com.ubuntu.cloud:released:azure',
-            'com.ubuntu.cloud:windows',
-            'pete',
+            'com.ubuntu.cloud:windows:win95:amd64',
+            '1',
             'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
@@ -87,7 +87,7 @@ class TestMakeItem(TestCase):
         self.assertEqual(Item(
             'com.ubuntu.cloud:released:azure',
             'com.ubuntu.cloud:server:centos7:amd64',
-            'pete',
+            '1',
             'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
@@ -95,7 +95,7 @@ class TestMakeItem(TestCase):
                 'id': 'foo:CentOS:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
-                'release': 'win95',
+                'release': 'centos7',
             }), item)
 
 
@@ -117,9 +117,9 @@ def make_expected(client, versions):
     expected_calls = []
     for spec in IMAGE_SPEC:
         expected_calls.append(call('region1', *spec[1:]))
-        for version in versions:
+        for num, version in enumerate(versions):
             expected_items.append(
-                make_item(version, spec, 'Canada East',
+                make_item(str(num), version, spec, 'Canada East',
                           client.config.base_url))
     return expected_calls, expected_items
 
