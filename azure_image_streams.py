@@ -23,6 +23,36 @@ IMAGE_SPEC = [
 ]
 
 
+ITEM_NAMES = {
+    "Australia East": "auee1i3",
+    "Australia Southeast": "ause1i3",
+    "Brazil South": "brss1i3",
+    "Canada Central": "cacc1i3",
+    "Canada East": "caee1i3",
+    "Central India": "incc1i3",
+    "Central US": "uscc1i3",
+    "China East": "cnee1i3",
+    "China North": "cnnn1i3",
+    "East Asia": "asee1i3",
+    "East US 2": "usee2i3",
+    "East US": "usee1i3",
+    "Japan East": "jpee1i3",
+    "Japan West": "jpww1i3",
+    "North Central US": "uscc1i3",
+    "North Europe": "eunn1i3",
+    "South Central US": "uscc1i3",
+    "Southeast Asia": "asse1i3",
+    "South India": "inss1i3",
+    "UK North": "gbnn1i3",
+    "UK South 2": "gbss2i3",
+    "West Central US": "uscc1i3",
+    "West Europe": "euww1i3",
+    "West India": "inww1i3",
+    "West US 2": "usww2i3",
+    "West US": "usww1i3",
+}
+
+
 def get_azure_credentials(all_credentials):
     azure_dict = all_credentials['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
@@ -56,7 +86,7 @@ def make_item(version, full_spec, region_name, endpoint):
     return Item(
         'com.ubuntu.cloud:released:azure',
         product_name,
-        version.name, version.location, {
+        version.name, ITEM_NAMES[region_name], {
             'arch': 'amd64',
             'virt': 'Hyper-V',
             'region': region_name,

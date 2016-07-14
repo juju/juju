@@ -64,7 +64,7 @@ class TestMakeItem(TestCase):
         offer = 'CentOS' if centos else 'bar'
         release = 'win95'
         full_spec = (release, 'foo', offer, 'baz')
-        region_name = 'US Northsouth'
+        region_name = 'Canada East'
         endpoint = 'http://example.org'
         return make_item(version, full_spec, region_name, endpoint)
 
@@ -74,10 +74,10 @@ class TestMakeItem(TestCase):
             'com.ubuntu.cloud:released:azure',
             'com.ubuntu.cloud:windows',
             'pete',
-            'usns', {
+            'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
-                'region': 'US Northsouth',
+                'region': 'Canada East',
                 'id': 'foo:bar:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
@@ -90,10 +90,10 @@ class TestMakeItem(TestCase):
             'com.ubuntu.cloud:released:azure',
             'com.ubuntu.cloud:server:centos7:amd64',
             'pete',
-            'usns', {
+            'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
-                'region': 'US Northsouth',
+                'region': 'Canada East',
                 'id': 'foo:CentOS:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
@@ -120,7 +120,8 @@ def make_expected(client, versions):
         expected_calls.append(call('region1', *spec[1:]))
         for version in versions:
             expected_items.append(
-                make_item(version, spec, 'Region 1', client.config.base_url))
+                make_item(version, spec, 'Canada East',
+                          client.config.base_url))
     return expected_calls, expected_items
 
 
@@ -130,7 +131,7 @@ class TestGetImageVersions(TestCase):
         version_1 = mock_version('1')
         version_2 = mock_version('2')
         client = mock_compute_client([version_1, version_2])
-        items = list(get_image_versions(client, 'region1', 'Region 1'))
+        items = list(get_image_versions(client, 'region1', 'Canada East'))
         expected_calls, expected_items = make_expected(
             client, [version_1, version_2])
         self.assertEqual(expected_items, items)
@@ -145,7 +146,7 @@ class TestMakeAzureItems(TestCase):
         version = mock_version('3')
         client = mock_compute_client([version])
         expected_calls, expected_items = make_expected(client, [version])
-        location = Mock(display_name='Region 1')
+        location = Mock(display_name='Canada East')
         with mock_spc_cxt():
             with patch('azure_image_streams.SubscriptionClient') as sc_mock:
                 subscriptions_mock = sc_mock.return_value.subscriptions
