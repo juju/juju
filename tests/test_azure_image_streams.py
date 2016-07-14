@@ -59,14 +59,12 @@ class TestGetAzureCredentials(TestCase):
 class TestMakeItem(TestCase):
 
     def make_item(self, centos=False):
-        version = Mock(location='usns')
-        version.name = 'pete'
         offer = 'CentOS' if centos else 'bar'
         release = 'win95'
         full_spec = (release, 'foo', offer, 'baz')
         region_name = 'Canada East'
         endpoint = 'http://example.org'
-        return make_item(version, full_spec, region_name, endpoint)
+        return make_item('pete', full_spec, region_name, endpoint)
 
     def test_make_item(self):
         item = self.make_item()
@@ -103,7 +101,8 @@ class TestMakeItem(TestCase):
 
 def mock_compute_client(versions):
     client = Mock(spec=['config', 'virtual_machine_images'])
-    client.virtual_machine_images.list.return_value = versions
+    client.virtual_machine_images.list.return_value = [
+        mock_version(v) for v in versions]
     return client
 
 
@@ -128,12 +127,10 @@ def make_expected(client, versions):
 class TestGetImageVersions(TestCase):
 
     def test_get_image_versions(self):
-        version_1 = mock_version('1')
-        version_2 = mock_version('2')
-        client = mock_compute_client([version_1, version_2])
+        client = mock_compute_client(['1', '2'])
         items = list(get_image_versions(client, 'region1', 'Canada East'))
         expected_calls, expected_items = make_expected(
-            client, [version_1, version_2])
+            client, ['1', '2'])
         self.assertEqual(expected_items, items)
         self.assertEqual(expected_calls,
                          client.virtual_machine_images.list.mock_calls)
@@ -143,9 +140,8 @@ class TestMakeAzureItems(TestCase):
 
     def test_make_azure_items(self):
         all_credentials = make_all_credentials()
-        version = mock_version('3')
-        client = mock_compute_client([version])
-        expected_calls, expected_items = make_expected(client, [version])
+        client = mock_compute_client(['3'])
+        expected_calls, expected_items = make_expected(client, ['3'])
         location = Mock(display_name='Canada East')
         with mock_spc_cxt():
             with patch('azure_image_streams.SubscriptionClient') as sc_mock:
