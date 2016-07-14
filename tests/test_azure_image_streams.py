@@ -112,6 +112,12 @@ def mock_version(name):
     return version
 
 
+def mock_location(name, display_name):
+    location = Mock(display_name=display_name)
+    location.name = name
+    return location
+
+
 def make_expected(client, versions):
     expected_items = []
     expected_calls = []
@@ -128,7 +134,8 @@ class TestGetImageVersions(TestCase):
 
     def test_get_image_versions(self):
         client = mock_compute_client(['1', '2'])
-        items = list(get_image_versions(client, 'region1', 'Canada East'))
+        locations = [mock_location('region1', 'Canada East')]
+        items = list(get_image_versions(client, locations))
         expected_calls, expected_items = make_expected(
             client, ['1', '2'])
         self.assertEqual(expected_items, items)
@@ -142,7 +149,7 @@ class TestMakeAzureItems(TestCase):
         all_credentials = make_all_credentials()
         client = mock_compute_client(['3'])
         expected_calls, expected_items = make_expected(client, ['3'])
-        location = Mock(display_name='Canada East')
+        location = mock_location('canadaeast', 'Canada East')
         with mock_spc_cxt():
             with patch('azure_image_streams.SubscriptionClient') as sc_mock:
                 subscriptions_mock = sc_mock.return_value.subscriptions

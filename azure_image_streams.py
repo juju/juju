@@ -69,7 +69,7 @@ def get_azure_credentials(all_credentials):
         )
 
 
-def get_image_versions(client, location, location_name):
+def get_image_versions(client, locations):
     """Return Items for all versions of all specs in Azure.
 
     Uses IMAGE_SPEC as its list of specs.
@@ -81,19 +81,32 @@ def get_image_versions(client, location, location_name):
     endpoint = client.config.base_url
     for full_spec in IMAGE_SPEC:
         spec = full_spec[1:]
-        try:
-            versions = client.virtual_machine_images.list(location, *spec)
-        except CloudError:
-            template = 'Could not find {} {} {} in {location}'
-            logging.warning(template.format(*spec, location=location))
-            continue
-        # Sort in theoretical version number order, not lexicographically
-        versions.sort(key=lambda x: [int(ns) for ns in x.name.split('.')])
-        width = len('{}'.format(len(versions)))
-        for num, version in enumerate(versions):
-            version_name = '{:0{}d}'.format(num, width)
-            yield make_item(version_name, version.name, full_spec,
-                            location_name, endpoint)
+        for location in locations:
+            versions_locations = []
+            location_versions = {}
+            logging.info('Retrieving image data in {}'.format(
+                location.display_name))
+            try:
+                versions = client.virtual_machine_images.list(location.name,
+                                                              *spec)
+            except CloudError:
+                template = 'Could not find {} {} {} in {location}'
+                logging.warning(template.format(
+                    *spec, location=location.display_name))
+                continue
+            versions_locations.append((location, versions))
+            for version in versions:
+                location_versions.setdefault(
+                    version, set()).add(location.display_name)
+        lv2 = sorted(location_versions.items(), key=lambda x: [
+            int(ns) for ns in x[0].name.split('.')])
+        for num, (version, v_locations) in enumerate(lv2):
+            # Sort in theoretical version number order, not lexicographically
+            width = len('{}'.format(len(versions)))
+            for location in v_locations:
+                version_name = '{:0{}d}'.format(num, width)
+                yield make_item(version_name, version.name, full_spec,
+                                location, endpoint)
 
 
 def make_item(version_name, urn_version, full_spec, location_name, endpoint):
@@ -122,9 +135,6 @@ def make_azure_items(all_credentials):
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
-    for location in sub_client.subscriptions.list_locations(subscription_id):
-        logging.info('Retrieving image data in {}'.format(
-            location.display_name))
-        items.extend(get_image_versions(
-            client, location.name, location.display_name))
+    locations = sub_client.subscriptions.list_locations(subscription_id)
+    items.extend(get_image_versions(client, locations))
     return items
