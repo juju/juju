@@ -1,4 +1,5 @@
 import contextlib
+import json
 from mock import (
     call,
     patch,
@@ -32,6 +33,13 @@ class GoTestWinTestCase(TestCase):
         with temp_dir() as base:
             with working_directory(base):
                 gotestwin.main(['host', '1234'])
+                self.assertTrue(os.path.exists('temp-config.yaml'))
+                with open('temp-config.yaml') as f:
+                    data = json.load(f)
+        self.assertEqual(
+            ['python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
+             'github.com/juju/juju', '--remove', 'ci/foo.tar.gz'],
+            data['command'])
         co_mock.assert_called_once_with(
             [JUJU_CI_PATH, 'get', '-b', '1234', 'build-revision',
              '*.tar.gz', './'])
