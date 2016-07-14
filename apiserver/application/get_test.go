@@ -53,6 +53,7 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 				"default":     true,
 			},
 		},
+		Series: "quantal",
 	})
 }
 
@@ -103,6 +104,7 @@ var getTests = []struct {
 				"default":     true,
 			},
 		},
+		Series: "quantal",
 	},
 }, {
 	about: "deployed service  #2",
@@ -146,12 +148,14 @@ var getTests = []struct {
 				"value": float64(0),
 			},
 		},
+		Series: "quantal",
 	},
 }, {
 	about: "subordinate service",
 	charm: "logging",
 	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{},
+		Series: "quantal",
 	},
 }}
 
