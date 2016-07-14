@@ -81,9 +81,9 @@ def get_image_versions(client, locations):
     endpoint = client.config.base_url
     for full_spec in IMAGE_SPEC:
         spec = full_spec[1:]
+        versions_locations = []
+        location_versions = {}
         for location in locations:
-            versions_locations = []
-            location_versions = {}
             logging.info('Retrieving image data in {}'.format(
                 location.display_name))
             try:
@@ -97,16 +97,16 @@ def get_image_versions(client, locations):
             versions_locations.append((location, versions))
             for version in versions:
                 location_versions.setdefault(
-                    version, set()).add(location.display_name)
+                    version.name, set()).add(location.display_name)
         lv2 = sorted(location_versions.items(), key=lambda x: [
-            int(ns) for ns in x[0].name.split('.')])
+            int(ns) for ns in x[0].split('.')])
         for num, (version, v_locations) in enumerate(lv2):
             # Sort in theoretical version number order, not lexicographically
             width = len('{}'.format(len(versions)))
             for location in v_locations:
                 version_name = '{:0{}d}'.format(num, width)
-                yield make_item(version_name, version.name, full_spec,
-                                location, endpoint)
+                yield make_item(version_name, version, full_spec, location,
+                                endpoint)
 
 
 def make_item(version_name, urn_version, full_spec, location_name, endpoint):
