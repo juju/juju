@@ -4,6 +4,8 @@
 package logfwd
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -32,6 +34,10 @@ type LastSentInfo struct {
 	// RecordID identifies the last log record that was forwarded
 	// for a given model and sink.
 	RecordID int64
+
+	// RecordTimestamp identifies the last log record that was forwarded
+	// for a given model and sink.
+	RecordTimestamp time.Time
 }
 
 // LastSentResult holds a single result from a bulk API call.
@@ -62,9 +68,9 @@ func NewLastSentClient(newFacadeCaller func(string) FacadeCaller) *LastSentClien
 	}
 }
 
-// GetList makes a "GetLastSent" call on the facade and returns the
+// GetLastSent makes a "GetLastSent" call on the facade and returns the
 // results in the same order.
-func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
+func (c LastSentClient) GetLastSent(ids []LastSentID) ([]LastSentResult, error) {
 	var args params.LogForwardingGetLastSentParams
 	args.IDs = make([]params.LogForwardingID, len(ids))
 	for i, id := range ids {
@@ -89,6 +95,9 @@ func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
 			},
 			Error: common.RestoreError(apiRes.Error),
 		}
+		if apiRes.RecordTimestamp > 0 {
+			results[i].RecordTimestamp = time.Unix(0, apiRes.RecordTimestamp)
+		}
 	}
 	return results, nil
 }
@@ -104,7 +113,8 @@ func (c LastSentClient) SetLastSent(reqs []LastSentInfo) ([]LastSentResult, erro
 				ModelTag: req.Model.String(),
 				Sink:     req.Sink,
 			},
-			RecordID: req.RecordID,
+			RecordID:        req.RecordID,
+			RecordTimestamp: req.RecordTimestamp.UnixNano(),
 		}
 	}
 

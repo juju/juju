@@ -103,7 +103,8 @@ func (lst lastSentTracker) setLastSent(allModels bool, records []logfwd.Record) 
 			Model: modelTag,
 			Sink:  lst.sink,
 		},
-		RecordID: rec.ID,
+		RecordID:        rec.ID,
+		RecordTimestamp: rec.Timestamp,
 	}})
 	if err != nil {
 		return errors.Trace(err)

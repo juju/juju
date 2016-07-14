@@ -41,6 +41,11 @@ type LogForwardingGetLastSentResult struct {
 	// meaning of this value is undefined.
 	RecordID int64 `json:"record-id"`
 
+	// RecordTimestamp is the timestamp of the last log record that was
+	// forwarded for a given model and sink. If Error is set then the
+	// meaning of this value is undefined.
+	RecordTimestamp int64 `json:"record-timestamp"`
+
 	// Error holds the error, if any, that resulted while handling the
 	// request for a specific ID.
 	Error *Error `json:"err"`
@@ -61,4 +66,7 @@ type LogForwardingSetLastSentParam struct {
 
 	// RecordID identifies the record ID to set for the given ID.
 	RecordID int64 `json:"record-id"`
+
+	// RecordTimestamp identifies the record timestamp to set for the given ID.
+	RecordTimestamp int64 `json:"record-timestamp"`
 }
