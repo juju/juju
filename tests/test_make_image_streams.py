@@ -10,7 +10,7 @@ from mock import (
     patch,
     )
 
-from make_aws_image_streams import (
+from make_image_streams import (
     is_china,
     iter_centos_images,
     iter_region_connection,
@@ -50,7 +50,7 @@ class IterRegionConnection(TestCase):
         east = make_mock_region('east')
         west = make_mock_region('west')
         aws = {}
-        with patch('make_aws_image_streams.ec2.regions', autospec=True,
+        with patch('make_image_streams.ec2.regions', autospec=True,
                    return_value=[east, west]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, None)]
         regions_mock.assert_called_once_with()
@@ -64,7 +64,7 @@ class IterRegionConnection(TestCase):
         east = make_mock_region('east')
         gov = make_mock_region('west', name='foo-us-gov-bar')
         aws = {}
-        with patch('make_aws_image_streams.ec2.regions', autospec=True,
+        with patch('make_image_streams.ec2.regions', autospec=True,
                    return_value=[east, gov]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, None)]
         regions_mock.assert_called_once_with()
@@ -80,7 +80,7 @@ class IterRegionConnection(TestCase):
         west.name = 'west-name'
         aws = {'name': 'aws'}
         aws_cn = {'name': 'aws-cn'}
-        with patch('make_aws_image_streams.ec2.regions', autospec=True,
+        with patch('make_image_streams.ec2.regions', autospec=True,
                    return_value=[east, west]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, aws_cn)]
         regions_mock.assert_called_once_with(**aws)
@@ -96,7 +96,7 @@ class IterRegionConnection(TestCase):
         ap_northeast_2 = make_mock_region(
             'ap-northeast-2', endpoint='ec2.ap-northeast-2.amazonaws.com')
         aws = {}
-        with patch('make_aws_image_streams.ec2.regions', autospec=True,
+        with patch('make_image_streams.ec2.regions', autospec=True,
                    return_value=[eu_central_1, ap_northeast_2]
                    ) as regions_mock:
             connections = [x for x in iter_region_connection(aws, None)]
@@ -113,7 +113,7 @@ def mocked_iter_region(image_groups):
         conn = Mock()
         conn.get_all_images.return_value = image_group
         connections.append(conn)
-    with patch('make_aws_image_streams.iter_region_connection',
+    with patch('make_image_streams.iter_region_connection',
                return_value=connections,
                autospec=True) as irc_mock:
         yield irc_mock
