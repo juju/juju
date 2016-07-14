@@ -54,6 +54,11 @@ ITEM_NAMES = {
 
 
 def get_azure_credentials(all_credentials):
+    """Return the subscription_id and credentials for Azure.
+
+    Takes a dict where key is the cloud name, expected to be formatted like
+    cloud-city's credentials.
+    """
     azure_dict = all_credentials['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
     return subscription_id, ServicePrincipalCredentials(
@@ -64,15 +69,23 @@ def get_azure_credentials(all_credentials):
         )
 
 
-def get_image_versions(client, region, region_name):
+def get_image_versions(client, location, location_name):
+    """Return Items for all versions of all specs in Azure.
+
+    Uses IMAGE_SPEC as its list of specs.
+
+    'location' is the short name of the location, used for the actual lookup.
+    'location_name' is the display name of the location, used in simplestreams
+    as the "region".
+    """
     endpoint = client.config.base_url
     for full_spec in IMAGE_SPEC:
         spec = full_spec[1:]
         try:
-            versions = client.virtual_machine_images.list(region, *spec)
+            versions = client.virtual_machine_images.list(location, *spec)
         except CloudError:
-            logging.warning('Could not find {} {} {} in {region}'.format(*spec,
-                            region=region))
+            template = 'Could not find {} {} {} in {location}'
+            logging.warning(template.format(*spec, location=location))
             continue
         # Sort in theoretical version number order, not lexicographically
         versions.sort(key=lambda x: [int(ns) for ns in x.name.split('.')])
@@ -80,10 +93,10 @@ def get_image_versions(client, region, region_name):
         for num, version in enumerate(versions):
             version_name = '{:0{}d}'.format(num, width)
             yield make_item(version_name, version.name, full_spec,
-                            region_name, endpoint)
+                            location_name, endpoint)
 
 
-def make_item(version_name, urn_version, full_spec, region_name, endpoint):
+def make_item(version_name, urn_version, full_spec, location_name, endpoint):
     URN = ':'.join(full_spec[1:] + (urn_version,))
     pn_template = (
         'com.ubuntu.cloud:server:{}:amd64' if full_spec[2] == 'CentOS'
@@ -92,10 +105,10 @@ def make_item(version_name, urn_version, full_spec, region_name, endpoint):
     return Item(
         'com.ubuntu.cloud:released:azure',
         product_name,
-        version_name, ITEM_NAMES[region_name], {
+        version_name, ITEM_NAMES[location_name], {
             'arch': 'amd64',
             'virt': 'Hyper-V',
-            'region': region_name,
+            'region': location_name,
             'id': URN,
             'label': 'release',
             'endpoint': endpoint,
@@ -109,8 +122,9 @@ def make_azure_items(all_credentials):
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
-    for region in sub_client.subscriptions.list_locations(subscription_id):
-        logging.info('Retrieving image data in {}'.format(region.display_name))
+    for location in sub_client.subscriptions.list_locations(subscription_id):
+        logging.info('Retrieving image data in {}'.format(
+            location.display_name))
         items.extend(get_image_versions(
-            client, region.name, region.display_name))
+            client, location.name, location.display_name))
     return items
