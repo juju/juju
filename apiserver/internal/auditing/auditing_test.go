@@ -16,8 +16,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/auditing"
-	"github.com/juju/juju/apiserver/auditing/fakeconnection"
+	"github.com/juju/juju/apiserver/internal/auditing"
+	"github.com/juju/juju/apiserver/internal/auditing/fakeconnection"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/utils"
