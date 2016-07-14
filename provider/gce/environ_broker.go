@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/state/multiwatcher"
@@ -53,20 +52,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
-
-	// Ensure the API server port is open (globally for all instances
-	// on the network, not just for the specific node of the state
-	// server). See LP bug #1436191 for details.
-	if args.InstanceConfig.Bootstrap != nil {
-		ports := network.PortRange{
-			FromPort: args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
-			ToPort:   args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
-			Protocol: "tcp",
-		}
-		if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 
 	// Build the result.
 	hwc := getHardwareCharacteristics(env, spec, inst)

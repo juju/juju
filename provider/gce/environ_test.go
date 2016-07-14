@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/testing"
@@ -81,6 +82,32 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.Finalize, gc.NotNil)
+}
+
+func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
+	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
+		return nil
+	}
+	s.FakeCommon.BSFinalizer = finalizer
+
+	ctx := envtesting.BootstrapContext(c)
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
+	_, err := s.Env.Bootstrap(ctx, params)
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := params.ControllerConfig.APIPort()
+
+	called, calls := s.FakeConn.WasCalled("OpenPorts")
+	c.Check(called, gc.Equals, true)
+	c.Check(calls, gc.HasLen, 1)
+	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+	expectPorts := []network.PortRange{{
+		FromPort: apiPort,
+		ToPort:   apiPort,
+		Protocol: "tcp",
+	}}
+	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
