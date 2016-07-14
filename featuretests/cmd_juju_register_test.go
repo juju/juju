@@ -76,7 +76,7 @@ of a model to grant access to that model with "juju grant".
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	accountDetails, err := s.ControllerStore.AccountByName("bob-controller", "bob@local")
+	accountDetails, err := s.ControllerStore.AccountDetails("bob-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:           s.ControllerStore,

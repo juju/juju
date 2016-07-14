@@ -87,7 +87,7 @@ func (c *migrateCommand) Init(args []string) error {
 func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, error) {
 	store := c.ClientStore()
 
-	modelInfo, err := store.ModelByName(c.ControllerName(), c.AccountName(), c.model)
+	modelInfo, err := store.ModelByName(c.ControllerName(), c.model)
 	if err != nil {
 		return nil, err
 	}
@@ -97,12 +97,7 @@ func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, err
 		return nil, err
 	}
 
-	accountName, err := store.CurrentAccount(c.targetController)
-	if err != nil {
-		return nil, err
-	}
-
-	accountInfo, err := store.AccountByName(c.targetController, accountName)
+	accountInfo, err := store.AccountDetails(c.targetController)
 	if err != nil {
 		return nil, err
 	}

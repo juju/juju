@@ -117,14 +117,14 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
-	err := s.store.UpdateModel("testing", "admin@local", "mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].AccountModels["admin@local"].CurrentModel = "mymodel"
+	s.store.Models["testing"].CurrentModel = "mymodel"
 }
 
 func (s *ShowCommandSuite) TestShow(c *gc.C) {

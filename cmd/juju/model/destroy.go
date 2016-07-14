@@ -107,14 +107,13 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 	controllerName := c.ControllerName()
-	accountName := c.AccountName()
 	modelName := c.ModelName()
 
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller details")
 	}
-	modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
+	modelDetails, err := store.ModelByName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read model info")
 	}
@@ -143,7 +142,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}
 
-	err = store.RemoveModel(controllerName, accountName, modelName)
+	err = store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

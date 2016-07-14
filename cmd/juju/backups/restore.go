@@ -186,8 +186,9 @@ func (c *restoreCommand) getEnviron(
 	}
 
 	// Get the local admin user so we can use the password as the admin secret.
+	// TODO(axw) check that account.User is environs.AdminUser.
 	var adminSecret string
-	account, err := store.AccountByName(controllerName, environs.AdminUser)
+	account, err := store.AccountDetails(controllerName)
 	if err == nil {
 		adminSecret = account.Password
 	} else if errors.IsNotFound(err) {

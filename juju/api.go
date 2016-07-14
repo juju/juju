@@ -225,27 +225,25 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		return apiInfo, controller, nil
 	}
 	account := args.AccountDetails
-	// We only set the tag if either a password or
-	// macaroon is found in the accounts.yaml file.
-	// If neither is found, we'll use external
-	// macaroon authentication which requires that
-	// no tag be specified.
-	userTag := names.NewUserTag(account.User)
 	if args.AccountDetails.Password != "" {
 		// If a password is available, we always use
 		// that.
 		//
 		// TODO(axw) make it invalid to store both
 		// password and macaroon in accounts.yaml?
-		apiInfo.Tag = userTag
+		apiInfo.Tag = names.NewUserTag(account.User)
 		apiInfo.Password = account.Password
 	} else if args.AccountDetails.Macaroon != "" {
 		var m macaroon.Macaroon
 		if err := json.Unmarshal([]byte(account.Macaroon), &m); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		apiInfo.Tag = userTag
+		apiInfo.Tag = names.NewUserTag(account.User)
 		apiInfo.Macaroons = []macaroon.Slice{{&m}}
+	} else {
+		// Neither a password nor a local user macaroon was
+		// found, so we'll use external macaroon authentication,
+		// which requires that no tag be specified.
 	}
 	return apiInfo, controller, nil
 }

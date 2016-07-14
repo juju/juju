@@ -51,8 +51,8 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
-	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 }
 

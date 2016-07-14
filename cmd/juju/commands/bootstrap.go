@@ -519,16 +519,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Set the current model to the initial hosted model.
-	accountName, err := store.CurrentAccount(c.controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := store.UpdateModel(c.controllerName, accountName, c.hostedModelName, jujuclient.ModelDetails{
+	if err := store.UpdateModel(c.controllerName, c.hostedModelName, jujuclient.ModelDetails{
 		hostedModelUUID.String(),
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(c.controllerName, accountName, c.hostedModelName); err != nil {
+	if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
 		return errors.Trace(err)
 	}
 

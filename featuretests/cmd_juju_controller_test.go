@@ -160,9 +160,9 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	accountDetails, err := s.ControllerStore.AccountByName("kontroll", "admin@local")
+	accountDetails, err := s.ControllerStore.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
-	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local", "new-model")
+	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "new-model")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:           s.ControllerStore,

@@ -152,8 +152,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		CACert:         testing.CACert,
 		ControllerUUID: test3UUID,
 	}
-	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["test1"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 
 	var modelList = []struct {
@@ -184,7 +184,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			APIEndpoints:   []string{"localhost"},
 			CACert:         testing.CACert,
 		})
-		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
+		s.store.UpdateModel(controllerName, modelName, jujuclient.ModelDetails{
 			ModelUUID: model.modelUUID,
 		})
 		if model.bootstrapCfg != nil {
@@ -352,8 +352,8 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		CACert:         testing.CACert,
 		ControllerUUID: test1UUID,
 	}
-	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["test1"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 	s.store.BootstrapConfig["test1"] = jujuclient.BootstrapConfig{
 		Config: createBootstrapInfo(c, "admin"),

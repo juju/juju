@@ -53,28 +53,25 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			serverName = details.APIEndpoints[0]
 		}
 
-		var userName, modelName string
-		accountName, err := c.store.CurrentAccount(controllerName)
+		var userName string
+		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				addError("account name", controllerName, err)
-				continue
-			}
-		} else {
-			currentAccount, err := c.store.AccountByName(controllerName, accountName)
-			if err != nil {
 				addError("account details", controllerName, err)
 				continue
 			}
-			userName = currentAccount.User
+		} else {
+			userName = accountDetails.User
+		}
 
-			currentModel, err := c.store.CurrentModel(controllerName, accountName)
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					addError("model", controllerName, err)
-					continue
-				}
+		var modelName string
+		currentModel, err := c.store.CurrentModel(controllerName)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				addError("model", controllerName, err)
+				continue
 			}
+		} else {
 			modelName = currentModel
 		}
 

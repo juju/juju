@@ -133,16 +133,12 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	accountName, err := store.CurrentAccount(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	currentAccount, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	modelOwner := currentAccount.User
+	modelOwner := accountDetails.User
 	if c.Owner != "" {
 		if !names.IsValidUser(c.Owner) {
 			return errors.Errorf("%q is not a valid user name", c.Owner)
@@ -203,15 +199,14 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	messageFormat := "Added '%s' model"
 	messageArgs := []interface{}{c.Name}
 
-	if modelOwner == currentAccount.User {
+	if modelOwner == accountDetails.User {
 		controllerName := c.ControllerName()
-		accountName := c.AccountName()
-		if err := store.UpdateModel(controllerName, accountName, c.Name, jujuclient.ModelDetails{
+		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
 			model.UUID,
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
+		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
 	}

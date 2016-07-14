@@ -50,18 +50,14 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "test1"
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
-	s.store.Models["test1"] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"test1": {"test1-uuid"},
-					"test2": {"test2-uuid"},
-				},
-			},
+	s.store.Models["test1"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"test1": {"test1-uuid"},
+			"test2": {"test2-uuid"},
 		},
 	}
-	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["test1"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 }
 
@@ -76,13 +72,13 @@ func (s *DestroySuite) NewDestroyCommand() cmd.Command {
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
 	controller, model := modelcmd.SplitModelName(name)
-	_, err := store.ModelByName(controller, "admin@local", model)
+	_, err := store.ModelByName(controller, model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func checkModelRemovedFromStore(c *gc.C, name string, store jujuclient.ClientStore) {
 	controller, model := modelcmd.SplitModelName(name)
-	_, err := store.ModelByName(controller, "admin@local", model)
+	_, err := store.ModelByName(controller, model)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -103,7 +99,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownModel(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read model info: model test1:admin@local:foo not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read model info: model test1:foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -135,14 +131,10 @@ func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
-	s.store.Models["test1"] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"test1": {"test1-uuid"},
-					"test2": {"test2-uuid"},
-				},
-			},
+	s.store.Models["test1"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"test1": {"test1-uuid"},
+			"test2": {"test2-uuid"},
 		},
 	}
 }

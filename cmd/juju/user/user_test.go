@@ -28,25 +28,21 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		CACert:         testing.CACert,
 		ControllerUUID: testing.ModelTag.Id(),
 	}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"current-user@local": {
-				User:     "current-user@local",
-				Password: "old-password",
-			},
-		},
-		CurrentAccount: "current-user@local",
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User:     "current-user@local",
+		Password: "old-password",
 	}
 }
 
 func (s *BaseSuite) assertStorePassword(c *gc.C, user, pass string) {
-	details, err := s.store.AccountByName("testing", user)
+	details, err := s.store.AccountDetails("testing")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.User, gc.Equals, user)
 	c.Assert(details.Password, gc.Equals, pass)
 }
 
 func (s *BaseSuite) assertStoreMacaroon(c *gc.C, user string, mac *macaroon.Macaroon) {
-	details, err := s.store.AccountByName("testing", user)
+	details, err := s.store.AccountDetails("testing")
 	c.Assert(err, jc.ErrorIsNil)
 	if mac == nil {
 		c.Assert(details.Macaroon, gc.Equals, "")

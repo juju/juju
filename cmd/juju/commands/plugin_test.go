@@ -172,12 +172,10 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = store.SetCurrentController("myctrl")
 	c.Assert(err, jc.ErrorIsNil)
-	err = store.UpdateAccount("myctrl", "admin@local", jujuclient.AccountDetails{
+	err = store.UpdateAccount("myctrl", jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "hunter2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetCurrentAccount("myctrl", "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
