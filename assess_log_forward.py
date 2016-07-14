@@ -9,17 +9,21 @@ controller to a syslog host via TCP (using SSL).
 from __future__ import print_function
 
 import argparse
-from collections import namedtuple
+from datetime import datetime
 import logging
 from OpenSSL import crypto
 import os
 import sys
+import subprocess
+from time import sleep
 from textwrap import dedent
+import yaml
 
 from assess_model_migration import get_bootstrap_managers
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     temp_dir,
 )
 
@@ -31,47 +35,130 @@ log = logging.getLogger("assess_log_forward")
 
 
 def assess_log_forward(bs1, bs2, upload_tools):
-    ensure_log_forwarding_in_simple_setup(bs1, bs2, upload_tools)
+    check_logfwd_enabled_after_bootstrap(bs1, bs2, upload_tools)
 
 
-def ensure_log_forwarding_in_simple_setup(bs_dummy, bs_rsyslog, upload_tools):
-    """Simple check where enabling log forwarding results in logs at the target
+def check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools):
+    """Ensure logs are forwarded after forwarding enabled after bootstrapping.
 
-    Given 2 controllers set rsyslog-host and dummy:
-      - 1 up rsyslog (charm) on rsyslog-host
+    Given 2 controllers set rsyslog and dummy:
+      - setup rsyslog with secure details
       - Enable log forwarding on dummy
-      - Perform defined actions on dummy (that must show up in the log)
-      - Check the log results in rsyslog contain expected output
+      - Ensure intial logs are present in the rsyslog sinks logs
 
     """
     with bs_rsyslog.booted_context(upload_tools):
-        rsyslog_client = bs_rsyslog.client
         log.info('Bootstrapped rsyslog environment')
-        rsyslog_details = deploy_rsyslog(rsyslog_client)
+        rsyslog = bs_rsyslog.client
+        rsyslog_details = deploy_rsyslog(rsyslog)
 
         update_client_config(bs_dummy.client, rsyslog_details)
 
-        # configure the bootstrap to include the extra details for syslog
-        # forwarding.
         with bs_dummy.existing_booted_context(upload_tools):
-            dummy_client = bs_dummy.client
             log.info('Bootstrapped dummy environment')
+            dummy_client = bs_dummy.client
+
+            # ensure turning on log-fwd emits logs to the client.
+            # Should I ensure that nothing turns up beforehand
+            ensure_enabling_log_forwarding_forwards_previous_messages(
+                rsyslog, dummy_client)
+
+
+def ensure_enabling_log_forwarding_forwards_previous_messages(rsyslog, dummy):
+    """Assert when enabled log forwarding forwards messages from log start."""
+    uuid = get_controller_uuid(dummy)
+    # start_token = _set_logging_token(rsyslog)
+
+    enable_log_forwarding(dummy)
+    assert_initial_message_forwarded(rsyslog, uuid)
+
+
+def assert_initial_message_forwarded(rsyslog, uuid):
+    """Assert that mention of the sources logs appear in the sinks logging.
+
+    Given a rsyslog sink and an output source assert that logging details from
+    the source appear in the sinks logging.
+    Attempt a check over a period of time (10 seconds).
+
+    :returns: As soon as the expected message appears.
+    :raises JujuAssertionError: If the expected message does not appear in the
+      given timeframe.
+    :raises JujuAssertionError: If the log message check fails in an unexpected
+      way.
+
+    """
+    check = get_assert_regex(uuid)
+
+    for _ in range(0, 10):
+        try:
+            rsyslog.juju(
+                'ssh',
+                ('rsyslog/0', 'sudo', 'egrep', check, '/var/log/syslog'))
+            # Success! No need to continue.
+            break
+        except subprocess.CalledProcessError as e:
+            if e.returncode == 1:
+                sleep(1)
+            else:
+                raise JujuAssertionError(
+                    'Failed to parse the logs in an unexpected way.')
+    else:
+        # If we get here than the command never succeeded.
+        raise JujuAssertionError('Log message never appeared')
+
+
+def get_assert_regex(uuid, message=None):
+    # Maybe over simplified removing the last 8 characters
+    short_uuid = uuid[:-8]
+    date_check = '[A-Z][a-z]{,2}\ [0-9]+\ [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}'
+    machine = 'machine-0.{}'.format(uuid)
+    agent = 'jujud-machine-agent-{}'.format(short_uuid)
+    message = message or 'running\ jujud\ \[.*\]'
+
+    return '"^{datecheck}\ {machine}\ {agent}\ {message}$"'.format(
+        datecheck=date_check,
+        machine=machine,
+        agent=agent,
+        message=message)
+
+
+def _set_logging_token(rsyslog):
+    """Set a known token in the clients units syslog to compare against."""
+    token = '">>>> CI TESTING [{timestamp}] <<<<"'.format(
+        timestamp=datetime.utcnow().isoformat())
+    rsyslog.juju('ssh', ('rsyslog/0', 'logger', token))
+    return token
+
+
+def enable_log_forwarding(client):
+    client.juju(
+        'set-model-config',
+        ('-m', 'controller', 'logforward-enabled=true'), include_e=False)
+
+
+def disable_log_forwarding(client):
+    client.juju(
+        'set-model-config',
+        ('-m', 'controller', 'logforward-enabled=false'), include_e=False)
+
+
+def get_controller_uuid(client):
+    name = client.env.controller.name
+    output_yaml = client.get_juju_output(
+        'show-controller', '--format', 'yaml', include_e=False)
+    output = yaml.safe_load(output_yaml)
+    return output[name]['details']['uuid']
 
 
 def update_client_config(client, rsyslog_details):
-    # This could be a simple update if the dict is sane
     client.env.config['logforward-enabled'] = False
-    client.env.config['syslog-host'] = rsyslog_details['host']
-    client.env.config['syslog-ca-cert'] = rsyslog_details['ca_cert']
-    client.env.config['syslog-client-cert'] = rsyslog_details['client_cert']
-    client.env.config['syslog-client-key'] = rsyslog_details['client_key']
+    client.env.config.update(rsyslog_details)
 
 
 def deploy_rsyslog(client):
     """Deploy and setup the rsyslog charm on client.
 
-    Returns the configuration details i.e. certs, ca, key and ip:port.
-    TODO: This could use a namedtuple for the details
+    :returns: Configuration details needed: cert, ca, key and ip:port.
 
     """
     # why doesn't the deploy name the application as expected?
@@ -88,36 +175,16 @@ def deploy_rsyslog(client):
 def setup_tls_rsyslog(client, app_name):
     unit_machine = '{}/0'.format(app_name)
 
-    ip_address = get_units_ipaddress(client, unit_machine)
+    ip_address = get_unit_ipaddress(client, unit_machine)
 
     client.juju(
         'ssh',
         (unit_machine, 'sudo apt-get install rsyslog-gnutls'))
 
     with temp_dir() as config_dir:
-        copy_across_rsyslog_config(client, config_dir, unit_machine)
-
-        cert, key = create_certificate(config_dir, ip_address)
-        # Write actual ca file and copy it cert and keys to the unit.
-        ca_file = os.path.join(config_dir, 'ca.pem')
-        with open(ca_file, 'wt') as f:
-            f.write(get_ca_pem_contents())
-        scp_command = (
-            '--', cert, key, ca_file, '{unit}:/home/ubuntu/'.format(
-                unit=unit_machine))
-        client.juju('scp', scp_command)
-
-        with open(cert, 'rt') as f:
-            cert_contents = f.read()
-        with open(key, 'rt') as f:
-            key_contents = f.read()
-
-        rsyslog_details = dict(
-            host='{}:10514'.format(ip_address),
-            ca_cert=get_ca_pem_contents(),
-            client_cert=cert_contents,
-            client_key=key_contents
-        )
+        install_rsyslog_config(client, config_dir, unit_machine)
+        rsyslog_details = install_certificates(
+            client, config_dir, ip_address, unit_machine)
 
     # restart rsyslog to take into affect all changes
     client.juju('ssh', (unit_machine, 'sudo', 'service', 'rsyslog', 'restart'))
@@ -125,7 +192,37 @@ def setup_tls_rsyslog(client, app_name):
     return rsyslog_details
 
 
-def copy_across_rsyslog_config(client, config_dir, unit_machine):
+def install_certificates(client, config_dir, ip_address, unit_machine):
+    cert, key = create_certificate(config_dir, ip_address)
+
+    # Write contents to file to scp across
+    ca_file = os.path.join(config_dir, 'ca.pem')
+    with open(ca_file, 'wt') as f:
+        f.write(get_ca_pem_contents())
+
+    scp_command = (
+        '--', cert, key, ca_file, '{unit}:/home/ubuntu/'.format(
+            unit=unit_machine))
+    client.juju('scp', scp_command)
+
+    return _get_rsyslog_details(cert, key, ip_address)
+
+
+def _get_rsyslog_details(cert_file, key_file, ip_address):
+    with open(cert_file, 'rt') as f:
+        cert_contents = f.read()
+    with open(key_file, 'rt') as f:
+        key_contents = f.read()
+
+    return {
+        'syslog-host': '{}:10514'.format(ip_address),
+        'syslog-ca-cert': get_ca_pem_contents(),
+        'syslog-client-cert': cert_contents,
+        'syslog-client-key': key_contents
+    }
+
+
+def install_rsyslog_config(client, config_dir, unit_machine):
     config = write_rsyslog_config_file(config_dir)
     client.juju('scp', (config, '{unit}:/tmp'.format(unit=unit_machine)))
     client.juju(
@@ -134,13 +231,13 @@ def copy_across_rsyslog_config(client, config_dir, unit_machine):
             os.path.basename(config)), '/etc/rsyslog.d/'))
 
 
-def get_units_ipaddress(client, unit_name):
+def get_unit_ipaddress(client, unit_name):
     status = client.get_status()
     return status.get_unit(unit_name)['public-address']
 
 
 def write_rsyslog_config_file(tmp_dir):
-    """Write rsyslog config file to `tmp_dir`"""
+    """Write rsyslog config file to `tmp_dir`/10-securelogging.conf."""
     config = dedent("""\
     # make gtls driver the default
     $DefaultNetstreamDriver gtls
