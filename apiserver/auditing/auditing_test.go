@@ -8,6 +8,8 @@ package auditing_test
 import (
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/auditing/fakeconnection"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
+	"github.com/juju/utils"
 )
 
 type auditingSuite struct {
@@ -26,7 +29,7 @@ type auditingSuite struct {
 
 var _ = gc.Suite(&auditingSuite{})
 
-func (*auditingSuite) TestAuditStreamHandler_AuthFailureReturnsErr(c *gc.C) {
+func (*auditingSuite) TestNewConnHandler_AuthFailureReturnsErr(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
@@ -53,16 +56,77 @@ func (*auditingSuite) TestAuditStreamHandler_AuthFailureReturnsErr(c *gc.C) {
 	conn.CheckCall(c, 1, "Send", params.ErrorResult{Error: &params.Error{Message: "mock auth error"}})
 }
 
-func (*auditingSuite) TestAuditStreamHandler_SendsAuditEntries(c *gc.C) {
+func (*auditingSuite) TestNewConnHandler_HandlesTeardown(c *gc.C) {
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+
+	openAuditEntries := func(done <-chan struct{}) <-chan auditing.AuditEntryRecord {
+		records := make(chan auditing.AuditEntryRecord)
+		wg.Add(1)
+		go func() {
+			defer close(records)
+			defer wg.Done()
+			// Wait until we're told to exit.
+			<-done
+		}()
+		return records
+	}
+
+	handler, err := auditing.NewConnHandler(auditing.ConnHandlerContext{
+		ServerDone:       done,
+		Logger:           loggo.GetLogger("juju.apiserver"),
+		AuthAgent:        func(*http.Request) error { return nil },
+		OpenAuditEntries: openAuditEntries,
+	})
+	if err != nil {
+		c.Fatalf("cannot set up connection handler: %v", err)
+	}
+
+	fakeConn := fakeconnection.Instance{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handler(&fakeConn)
+	}()
+
+	close(done)
+
+	// Wait until both the openAuditEntries & handler are done.
+	wg.Wait()
+
+	fakeConn.CheckCall(c, 2, "Close")
+}
+
+func (*auditingSuite) TestNewConnHandler_SendsAuditEntries(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
+
+	timestamp, err := time.Parse("2006-01-02", "2016-06-14")
+	if err != nil {
+		c.Fatalf("could not parse time: %v", err)
+	}
+	entryToSend := audit.AuditEntry{
+		JujuServerVersion: version.MustParse("1.0.0"),
+		ModelUUID:         utils.MustNewUUID().String(),
+		Timestamp:         timestamp,
+		RemoteAddress:     "8.8.8.8",
+		OriginType:        "user",
+		OriginName:        "katco",
+		Operation:         "status",
+		Data: map[string]interface{}{
+			"foo": "bar",
+			"baz": 1,
+		},
+	}
 
 	openAuditEntries := func(done <-chan struct{}) <-chan auditing.AuditEntryRecord {
 		records := make(chan auditing.AuditEntryRecord)
 		go func() {
 			defer close(records)
-			records <- auditing.AuditEntryRecord{
-				Value: audit.AuditEntry{},
+			select {
+			case <-done:
+				return
+			case records <- auditing.AuditEntryRecord{Value: entryToSend}:
 			}
 		}()
 		return records
@@ -85,13 +149,53 @@ func (*auditingSuite) TestAuditStreamHandler_SendsAuditEntries(c *gc.C) {
 	conn.CheckCall(c, 1, "Send", params.ErrorResult{})
 
 	conn.CheckCall(c, 2, "Send", params.AuditEntryParams{
-		JujuServerVersion: version.Number{Major: 0, Minor: 0, Tag: "", Patch: 0, Build: 0},
-		ModelUUID:         "",
-		Timestamp:         "0001-01-01T00:00:00Z",
-		RemoteAddress:     "",
-		OriginType:        "",
-		OriginName:        "",
-		Operation:         "",
-		Data:              map[string]interface{}(nil),
+		JujuServerVersion: entryToSend.JujuServerVersion,
+		ModelUUID:         entryToSend.ModelUUID,
+		Timestamp:         entryToSend.Timestamp.Format(time.RFC3339),
+		RemoteAddress:     entryToSend.RemoteAddress,
+		OriginType:        entryToSend.OriginType,
+		OriginName:        entryToSend.OriginName,
+		Operation:         entryToSend.Operation,
+		Data:              entryToSend.Data,
 	})
+}
+
+func (*auditingSuite) TestNewConnHandler_SendsErrorAndExits(c *gc.C) {
+	done := make(chan struct{})
+	defer close(done)
+
+	var wg sync.WaitGroup
+	openAuditEntries := func(done <-chan struct{}) <-chan auditing.AuditEntryRecord {
+		records := make(chan auditing.AuditEntryRecord)
+		wg.Add(1)
+		go func() {
+			defer close(records)
+			defer wg.Done()
+			// Simulate streaming records until we're told to stop.
+			for {
+				select {
+				case <-done:
+					return
+				case records <- auditing.AuditEntryRecord{Error: fmt.Errorf("doh")}:
+				}
+			}
+		}()
+		return records
+	}
+
+	handler, err := auditing.NewConnHandler(auditing.ConnHandlerContext{
+		ServerDone:       done,
+		Logger:           loggo.GetLogger("juju.apiserver"),
+		AuthAgent:        func(*http.Request) error { return nil },
+		OpenAuditEntries: openAuditEntries,
+	})
+	if err != nil {
+		c.Fatalf("cannot open handler: %v", err)
+	}
+
+	conn := fakeconnection.Instance{}
+	handler(&conn)
+	wg.Wait() // Wait until openAuditEntries goroutine is told to stop
+
+	conn.CheckCall(c, 2, "Send", params.ErrorResult{Error: &params.Error{Message: "doh"}})
 }

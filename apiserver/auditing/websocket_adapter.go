@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-
 	"golang.org/x/net/websocket"
 )
 
