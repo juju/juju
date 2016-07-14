@@ -104,10 +104,10 @@ def assert_initial_message_forwarded(rsyslog, uuid):
                 sleep(1)
             else:
                 raise JujuAssertionError(
-                    'Failed to parse the logs in an unexpected way.')
+                    'Failed to parse the logs in an expected way.')
     else:
         # If we get here than the command never succeeded.
-        raise JujuAssertionError('Log message never appeared')
+        raise JujuAssertionError('Forwarded log message never appeared.')
 
 
 def get_assert_regex(uuid, message=None):
