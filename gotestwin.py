@@ -30,10 +30,10 @@ def main(argv=None):
         downloaded = subprocess.check_output([
             juju_ci_path, 'get', '-b', args.revision, 'build-revision',
             '*.tar.gz', './'])
+        subprocess.check_call([
+            juju_ci_path, 'get-build-vars', '--summary', args.revision])
     (tarfile,) = [basename(l) for l in downloaded.splitlines()]
 
-    subprocess.check_call([
-        juju_ci_path, 'get-build-vars', '--summary', args.revision])
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
             'install': {'ci': [

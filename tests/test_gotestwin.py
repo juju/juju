@@ -49,3 +49,20 @@ class GoTestWinTestCase(TestCase):
             ['workspace-run', '-v', '-i', 'cloud-city/staging-juju-rsa',
              'temp-config.yaml', 'Administrator@host'])
         self.assertEqual([tarfile_call, gotest_call], cc_mock.call_args_list)
+
+    def test_main_with_tarfile_and_package(self, cc_mock, co_mock):
+        with temp_dir() as base:
+            with working_directory(base):
+                gotestwin.main(
+                    ['host', 'bar.tar.gz', 'github.com/juju/juju/cmd'])
+                self.assertTrue(os.path.exists('temp-config.yaml'))
+                with open('temp-config.yaml') as f:
+                    data = json.load(f)
+        self.assertEqual(
+            ['python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
+             'github.com/juju/juju/cmd', '--remove', 'ci/bar.tar.gz'],
+            data['command'])
+        self.assertEqual(0, co_mock.call_count)
+        cc_mock.assert_called_once_with(
+            ['workspace-run', '-v', '-i', 'cloud-city/staging-juju-rsa',
+             'temp-config.yaml', 'Administrator@host'])
