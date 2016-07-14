@@ -16,26 +16,52 @@ import (
 	"github.com/juju/juju/audit"
 )
 
+// AuditEntryRecord contains either a valid AuditEntry, or an error.
 type AuditEntryRecord struct {
 	Value audit.AuditEntry
 	Error error
 }
 
+// OpenAuditEntriesFn defines a function which will create an
+// AuditEntryRecord channel, asynchronously begin placing records on
+// it, and return. when called. When the done channel is closed, it is
+// expected that the channel which was returned will also be closed.
 type OpenAuditEntriesFn func(done <-chan struct{}) <-chan AuditEntryRecord
 
+// Conn defines a client connection.
 type Conn interface {
+
+	// Request returns the http request uploaded to the connection.
 	Request() *http.Request
+
+	// Send sends data over the connection and handles any marshaling.
 	Send(interface{}) error
+
+	// Close closes the connection.
 	Close() error
 }
 
+// ConnHandlerContext defines things which NewConnHandler requires to
+// operate correctly.
 type ConnHandlerContext struct {
-	ServerDone       <-chan struct{}
-	Logger           loggo.Logger
-	AuthAgent        func(*http.Request) error
+
+	// ServerDone signals when the API server is being torn down. It
+	// is expected that when this is received, we should tear
+	// everything down.
+	ServerDone <-chan struct{}
+
+	// Logger is the logging instance to send messages to.
+	Logger loggo.Logger
+
+	// AuthAgent authenticates that the request is coming from a valid
+	// agent.
+	AuthAgent func(*http.Request) error
+
+	// OpenAuditEntries opens a channel for reading audit entries.
 	OpenAuditEntries OpenAuditEntriesFn
 }
 
+// Validate ensures the context is valid.
 func (c *ConnHandlerContext) Validate() error {
 	var nameOfNil string
 	switch {
@@ -51,6 +77,8 @@ func (c *ConnHandlerContext) Validate() error {
 	return errors.NotAssignedf(nameOfNil)
 }
 
+// NewConnHandler will return a function which will handle new
+// connections of type Conn from a client.
 func NewConnHandler(ctx ConnHandlerContext) (func(Conn), error) {
 	if err := ctx.Validate(); err != nil {
 		return nil, err
@@ -152,22 +180,6 @@ func sendError(conn Conn, err error) error {
 		Error: common.ServerError(err),
 	})
 }
-
-// func sendError(conn *websocket.Conn, err error) error {
-// 	initialCodec := websocket.Codec{
-// 		Marshal: func(v interface{}) (data []byte, payloadType byte, err error) {
-// 			data, payloadType, err = websocket.JSON.Marshal(v)
-// 			if err != nil {
-// 				return data, payloadType, err
-// 			}
-// 			// api/apiclient.go:readInitialStreamError() looks for LF.
-// 			return append(data, '\n'), payloadType, nil
-// 		},
-// 	}
-// 	return initialCodec.Send(conn, &params.ErrorResult{
-// 		Error: common.ServerError(err),
-// 	})
-// }
 
 func or(c1, c2 <-chan struct{}) <-chan struct{} {
 	orChan := make(chan struct{})
