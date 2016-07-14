@@ -1,4 +1,3 @@
-from contextlib import nested
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
@@ -52,20 +51,18 @@ class TestMain(TestCase):
             "an-env-mod",
             "--verbose",
             ]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with nested(
-            patch("assess_resources.configure_logging", autospec=True),
-            patch("assess_resources.BootstrapManager.booted_context",
-                  autospec=True),
-            patch("jujupy.SimpleEnvironment.from_config", return_value=env),
-            patch("jujupy.EnvJujuClient.by_version", return_value=client),
-            patch("assess_resources.assess_resources", autospec=True),
-        ) as (mock_cl, mock_bc, mock_e, mock_c, mock_assess):
-            main(argv)
+        with patch("assess_resources.configure_logging",
+                   autospec=True) as mock_cl:
+            with patch("assess_resources.BootstrapManager.booted_context",
+                       autospec=True) as mock_bc:
+                    with patch("deploy_stack.client_from_config",
+                               return_value=client) as mock_c:
+                        with patch("assess_resources.assess_resources",
+                                   autospec=True) as mock_assess:
+                            main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, make_args())
 

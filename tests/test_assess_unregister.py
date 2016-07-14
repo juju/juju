@@ -1,6 +1,5 @@
 """Tests for assess_unregister module."""
 
-from contextlib import nested
 import logging
 from mock import (
     Mock,
@@ -44,20 +43,18 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with nested(
-            patch("assess_unregister.configure_logging", autospec=True),
-            patch("assess_unregister.BootstrapManager.booted_context",
-                  autospec=True),
-            patch("jujupy.SimpleEnvironment.from_config", return_value=env),
-            patch("jujupy.EnvJujuClient.by_version", return_value=client),
-            patch("assess_unregister.assess_unregister", autospec=True),
-        ) as (mock_cl, mock_bc, mock_e, mock_c, mock_assess):
-            a_unreg.main(argv)
+        with patch("assess_unregister.configure_logging",
+                   autospec=True) as mock_cl:
+            with patch("assess_unregister.BootstrapManager.booted_context",
+                       autospec=True) as mock_bc:
+                with patch("deploy_stack.client_from_config",
+                           return_value=client) as mock_c:
+                    with patch("assess_unregister.assess_unregister",
+                               autospec=True) as mock_assess:
+                        a_unreg.main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
@@ -66,15 +63,16 @@ class TestAssess(TestCase):
 
     def test_unregister(self):
         fake_user = Mock()
-        with nested(
-            patch.object(a_unreg, 'register_user', return_value=fake_user),
-            patch.object(a_unreg, 'assert_controller_list', autospec=True),
-            patch.object(a_unreg, 'assert_switch_raises_error', autospec=True)
-        ) as (mock_reg_user, mock_assert_list, mock_assert_switch):
-            fake_client = Mock(wraps=fake_juju_client())
-            fake_client.env.controller.name = 'testing-controller'
-            fake_client.bootstrap()
-            a_unreg.assess_unregister(fake_client)
+        with patch.object(a_unreg, 'register_user',
+                          return_value=fake_user):
+            with patch.object(a_unreg, 'assert_controller_list',
+                              autospec=True) as mock_assert_list:
+                with patch.object(a_unreg, 'assert_switch_raises_error',
+                                  autospec=True):
+                    fake_client = Mock(wraps=fake_juju_client())
+                    fake_client.env.controller.name = 'testing-controller'
+                    fake_client.bootstrap()
+                    a_unreg.assess_unregister(fake_client)
         self.assertEqual(
             mock_assert_list.mock_calls,
             [

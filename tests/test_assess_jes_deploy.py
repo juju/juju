@@ -24,7 +24,7 @@ class TestJES(tests.FakeHomeTestCase):
     client_class = EnvJujuClient25
 
     @patch('assess_jes_deploy.get_random_string', autospec=True)
-    @patch('assess_jes_deploy.SimpleEnvironment.from_config')
+    @patch('jujupy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
         get_random_string_func.return_value = 'fakeran'
@@ -46,7 +46,7 @@ class TestJES(tests.FakeHomeTestCase):
 
     @patch('assess_jes_deploy.print_now', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)
-    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
+    @patch('jujupy.EnvJujuClient.juju', autospec=True)
     @patch('assess_jes_deploy.check_token', autospec=True)
     def test_check_services(
             self,
@@ -65,24 +65,20 @@ class TestJES(tests.FakeHomeTestCase):
         check_token_func.assert_called_once_with(client, 'tokenfakeran')
         print_now_func.assert_called_once_with('checking services in token')
 
-    @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
-    @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines', autospec=True)
+    @patch('jujupy.EnvJujuClient.get_full_path')
+    @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
     @patch('assess_jes_deploy.boot_context', autospec=True)
     @patch('assess_jes_deploy.configure_logging', autospec=True)
-    @patch('assess_jes_deploy.SimpleEnvironment.from_config')
-    @patch('assess_jes_deploy.EnvJujuClient.by_version')
+    @patch('assess_jes_deploy.client_from_config')
     def test_jes_setup(
             self,
             by_version_func,
-            from_config_func,
             configure_logging_func,
             boot_context_func,
             add_ssh_machines_func,
             get_full_path_func):
         # patch helper funcs
         expected_client = self.mock_client()
-        expected_env = SimpleEnvironment('baz', {})
-        from_config_func.return_value = expected_env
         by_version_func.return_value = expected_client
         configure_logging_func.return_value = None
         get_full_path_func.return_value = '/path/to/juju'
@@ -109,7 +105,7 @@ class TestJES(tests.FakeHomeTestCase):
 
         # assert that helper funcs were called with expected args.
         by_version_func.assert_called_once_with(
-            expected_env, '/path/to/bin/juju', True)
+            'baz', '/path/to/bin/juju', True)
 
         configure_logging_func.assert_called_once_with(True)
         boot_context_func.assert_called_once_with(

@@ -347,14 +347,11 @@ class TestMain(FakeHomeTestCase):
         client.env = env
         with patch("assess_container_networking.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("jujupy.SimpleEnvironment.from_config",
-                       return_value=env) as mock_e:
-                with patch("jujupy.EnvJujuClient.by_version",
+                with patch("deploy_stack.client_from_config",
                            return_value=client) as mock_c:
                     yield
         mock_cl.assert_called_once_with(log_level)
-        mock_e.assert_called_once_with(argv[0])
-        mock_c.assert_called_once_with(env, argv[1], debug=debug)
+        mock_c.assert_called_once_with('an-env', argv[1], debug=debug)
 
     @contextmanager
     def patch_bootstrap_manager(self, runs=True):

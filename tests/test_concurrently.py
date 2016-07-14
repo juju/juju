@@ -53,7 +53,7 @@ class ConcurrentlyTest(TestCase):
         task_one.returncode = 1
         self.assertEqual(1, concurrently.summarise_tasks(tasks))
         task_two.returncode = 3
-        self.assertEqual(4, concurrently.summarise_tasks(tasks))
+        self.assertEqual(3, concurrently.summarise_tasks(tasks))
 
     def test_run_all(self):
         task_one = concurrently.Task('one=foo a')
@@ -87,6 +87,13 @@ class TaskTest(TestCase):
                 os.path.join(base, 'one-err.log'), task.err_log_name)
             self.assertIsNone(task.returncode)
             self.assertIsNone(task.proc)
+
+    def test_init_quoted_args(self):
+        with temp_dir() as base:
+            task = concurrently.Task('one=foo a "b c"', log_dir=base)
+            self.assertEqual('one', task.name)
+            self.assertEqual('foo a "b c"', task.commandline)
+            self.assertEqual(['foo', 'a', 'b c'], task.command)
 
     def test_start(self):
         with temp_dir() as base:
