@@ -89,8 +89,8 @@ type lastSentDoc struct {
 	// TODO(ericsnow) Solve the problems with using the timestamp
 	// as the record ID.
 
-	// RecordID identifies the last record sent to the log sink
-	// for the model. The ID is used to look up log records in the DB.
+	// RecordTimestamp identifies the last record sent to the log sink
+	// for the model. It is used to look up log records in the DB.
 	//
 	// Currently we use the record's timestamp (unix nano UTC), which
 	// has a risk of collisions. Log record timestamps have nanosecond
@@ -105,6 +105,11 @@ type lastSentDoc struct {
 	// The solution to both these issues will likely involve using an
 	// int sequence for the ID rather than the timestamp. That sequence
 	// would be shared by all models.
+	RecordTimestamp int64 `bson:"record-timestamp"`
+
+	// RecordID is the ID of the last record sent to the log sink.
+	// We record it but currently just use the timestamp when querying
+	// the log collection.
 	RecordID int64 `bson:"record-id"`
 }
 
@@ -151,34 +156,33 @@ func (logger *LastSentLogTracker) Close() error {
 }
 
 // Set records the timestamp.
-func (logger *LastSentLogTracker) Set(recID int64) error {
-	//recID := t.UnixNano()
-
+func (logger *LastSentLogTracker) Set(recID, recTimestamp int64) error {
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	_, err := collection.UpsertId(
 		logger.id,
 		lastSentDoc{
-			ID:        logger.id,
-			ModelUUID: logger.model,
-			Sink:      logger.sink,
-			RecordID:  recID,
+			ID:              logger.id,
+			ModelUUID:       logger.model,
+			Sink:            logger.sink,
+			RecordID:        recID,
+			RecordTimestamp: recTimestamp,
 		},
 	)
 	return errors.Trace(err)
 }
 
-// Get retrieves the timestamp.
-func (logger *LastSentLogTracker) Get() (int64, error) {
+// Get retrieves the id and timestamp.
+func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	var doc lastSentDoc
 	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return 0, errors.Trace(ErrNeverForwarded)
+			return 0, 0, errors.Trace(ErrNeverForwarded)
 		}
-		return 0, errors.Trace(err)
+		return 0, 0, errors.Trace(err)
 	}
-	return doc.RecordID, nil
+	return doc.RecordID, doc.RecordTimestamp, nil
 }
 
 // logDoc describes log messages stored in MongoDB.
@@ -510,10 +514,7 @@ func (t *logTailer) tailOplog() error {
 }
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
-	sel := bson.D{
-		// "t" -> "_id" once it is a sequential int.
-		{"t", bson.M{"$gte": params.StartID}},
-	}
+	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
 	}

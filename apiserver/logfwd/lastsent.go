@@ -24,11 +24,11 @@ func init() {
 type LastSentTracker interface {
 	io.Closer
 
-	// Get retrieves the record ID.
-	Get() (int64, error)
+	// Get retrieves the record ID and timestamp.
+	Get() (recID int64, recTimestamp int64, err error)
 
-	// Set records the record ID.
-	Set(recID int64) error
+	// Set records the record ID and timestamp.
+	Set(recID int64, recTimestamp int64) error
 }
 
 // LogForwardingState supports interacting with state for the
@@ -76,7 +76,7 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 	}
 	defer lst.Close()
 
-	recID, err := lst.Get()
+	recID, recTimestamp, err := lst.Get()
 	if err != nil {
 		res.Error = common.ServerError(err)
 		if errors.Cause(err) == state.ErrNeverForwarded {
@@ -85,6 +85,7 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 		return res
 	}
 	res.RecordID = recID
+	res.RecordTimestamp = recTimestamp
 	return res
 }
 
@@ -107,7 +108,7 @@ func (api *LogForwardingAPI) set(arg params.LogForwardingSetLastSentParam) *para
 	}
 	defer lst.Close()
 
-	err = lst.Set(arg.RecordID)
+	err = lst.Set(arg.RecordID, arg.RecordTimestamp)
 	return common.ServerError(err)
 }
 

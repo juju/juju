@@ -184,7 +184,6 @@ func (lf *LogForwarder) loop() error {
 	}
 
 	records := make(chan []logfwd.Record)
-	defer close(records)
 	var stream LogStream
 	go func() {
 		for {
@@ -200,6 +199,8 @@ func (lf *LogForwarder) loop() error {
 				streamCfg := params.LogStreamConfig{
 					AllModels: lf.args.AllModels,
 					Sink:      lf.args.Name,
+					// TODO(wallyworld) - this should be configurable via lf.args.LogForwardConfig
+					MaxLookbackRecords: 100,
 				}
 				stream, err = lf.args.OpenLogStream(lf.args.Caller, streamCfg, lf.args.ControllerUUID)
 				if err != nil {

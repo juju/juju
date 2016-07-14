@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -33,8 +34,9 @@ var _ = gc.Suite(&LogStreamIntSuite{})
 
 func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 	cfg := params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "spam",
+		AllModels:          true,
+		Sink:               "spam",
+		MaxLookbackRecords: 100,
 	}
 	req := s.newReq(c, cfg)
 
@@ -46,15 +48,54 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 		newSource: source.newSource,
 	}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(req)
+	reqHandler, err := handler.newLogStreamRequestHandler(req, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam", true)
 	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
-		StartID:   10,
-		AllModels: true,
+		StartTime:    time.Unix(10, 0),
+		AllModels:    true,
+		InitialLines: 100,
+	})
+}
+
+type mockClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (m *mockClock) Now() time.Time {
+	return m.now
+}
+
+func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
+	cfg := params.LogStreamConfig{
+		Sink:                "spam",
+		MaxLookbackDuration: "2h",
+	}
+	req := s.newReq(c, cfg)
+
+	stub := &testing.Stub{}
+	source := &stubSource{stub: stub}
+	source.ReturnGetStart = 0
+	handler := logStreamEndpointHandler{
+		stopCh:    nil,
+		newSource: source.newSource,
+	}
+
+	now := time.Now()
+	clock := &mockClock{now: now}
+
+	reqHandler, err := handler.newLogStreamRequestHandler(req, clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(reqHandler.sendModelUUID, jc.IsFalse)
+	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
+	stub.CheckCall(c, 1, "getStart", "spam", false)
+	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+		StartTime: now.Add(-2 * time.Hour),
 	})
 }
 
@@ -226,13 +267,13 @@ func (s *stubSource) newSource(req *http.Request) (logStreamSource, error) {
 	return s, nil
 }
 
-func (s *stubSource) getStart(sink string, allModels bool) (int64, error) {
+func (s *stubSource) getStart(sink string, allModels bool) (time.Time, error) {
 	s.stub.AddCall("getStart", sink, allModels)
 	if err := s.stub.NextErr(); err != nil {
-		return 0, errors.Trace(err)
+		return time.Time{}, errors.Trace(err)
 	}
 
-	return s.ReturnGetStart, nil
+	return time.Unix(s.ReturnGetStart, 0), nil
 }
 
 func (s *stubSource) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {

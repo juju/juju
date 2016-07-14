@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"time"
 )
 
 type LastSentSuite struct {
@@ -27,9 +28,11 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 	caller := &stubFacadeCaller{stub: stub}
 	caller.ReturnFacadeCallGet = params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}, {
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: 200,
 		}, {
 			Error: common.ServerError(errors.NewNotFound(state.ErrNeverForwarded, "")),
 		}},
@@ -38,7 +41,7 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	results, err := client.GetList([]logfwd.LastSentID{{
+	results, err := client.GetLastSent([]logfwd.LastSentID{{
 		Model: modelTag,
 		Sink:  "spam",
 	}, {
@@ -56,7 +59,8 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 				Model: modelTag,
 				Sink:  "spam",
 			},
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: time.Unix(0, 100),
 		},
 	}, {
 		LastSentInfo: logfwd.LastSentInfo{
@@ -64,7 +68,8 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 				Model: modelTag,
 				Sink:  "eggs",
 			},
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: time.Unix(0, 200),
 		},
 	}, {
 		LastSentInfo: logfwd.LastSentInfo{
@@ -116,19 +121,22 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 			Model: modelTag,
 			Sink:  "spam",
 		},
-		RecordID: 10,
+		RecordID:        10,
+		RecordTimestamp: time.Unix(0, 100),
 	}, {
 		LastSentID: logfwd.LastSentID{
 			Model: modelTag,
 			Sink:  "eggs",
 		},
-		RecordID: 20,
+		RecordID:        20,
+		RecordTimestamp: time.Unix(0, 200),
 	}, {
 		LastSentID: logfwd.LastSentID{
 			Model: modelTag,
 			Sink:  "ham",
 		},
-		RecordID: 15,
+		RecordID:        15,
+		RecordTimestamp: time.Unix(0, 150),
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -138,7 +146,8 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 				Model: modelTag,
 				Sink:  "spam",
 			},
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: time.Unix(0, 100),
 		},
 	}, {
 		LastSentInfo: logfwd.LastSentInfo{
@@ -146,7 +155,8 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 				Model: modelTag,
 				Sink:  "eggs",
 			},
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: time.Unix(0, 200),
 		},
 	}, {
 		LastSentInfo: logfwd.LastSentInfo{
@@ -154,7 +164,8 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 				Model: modelTag,
 				Sink:  "ham",
 			},
-			RecordID: 15,
+			RecordID:        15,
+			RecordTimestamp: time.Unix(0, 150),
 		},
 		Error: common.RestoreError(apiError),
 	}})
@@ -166,19 +177,22 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "eggs",
 			},
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: 200,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "ham",
 			},
-			RecordID: 15,
+			RecordID:        15,
+			RecordTimestamp: 150,
 		}},
 	})
 }

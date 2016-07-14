@@ -66,7 +66,8 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}},
 	})
 	s.stub.CheckCallNames(c, "NewLastSentTracker", "Get", "Close")
@@ -100,9 +101,11 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}, {
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: 200,
 		}, {
 			Error: &params.Error{
 				Message: `cannot find ID of the last forwarded record`,
@@ -133,7 +136,8 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}},
 	})
 
@@ -144,7 +148,7 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 	})
 	s.stub.CheckCallNames(c, "NewLastSentTracker", "Set", "Close")
 	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
-	s.stub.CheckCall(c, 1, "Set", int64(10))
+	s.stub.CheckCall(c, 1, "Set", int64(10), int64(100))
 }
 
 func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
@@ -164,19 +168,22 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			RecordID: 10,
+			RecordID:        10,
+			RecordTimestamp: 100,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "eggs",
 			},
-			RecordID: 20,
+			RecordID:        20,
+			RecordTimestamp: 200,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "ham",
 			},
-			RecordID: 15,
+			RecordID:        15,
+			RecordTimestamp: 150,
 		}},
 	})
 
@@ -195,11 +202,11 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 		"NewLastSentTracker", "Set", "Close",
 	)
 	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
-	s.stub.CheckCall(c, 1, "Set", int64(10))
+	s.stub.CheckCall(c, 1, "Set", int64(10), int64(100))
 	s.stub.CheckCall(c, 3, "NewLastSentTracker", modelTag, "eggs")
-	s.stub.CheckCall(c, 4, "Set", int64(20))
+	s.stub.CheckCall(c, 4, "Set", int64(20), int64(200))
 	s.stub.CheckCall(c, 6, "NewLastSentTracker", modelTag, "ham")
-	s.stub.CheckCall(c, 7, "Set", int64(15))
+	s.stub.CheckCall(c, 7, "Set", int64(15), int64(150))
 }
 
 type stubState struct {
@@ -230,17 +237,17 @@ type stubTracker struct {
 	ReturnGet int64
 }
 
-func (s *stubTracker) Get() (int64, error) {
+func (s *stubTracker) Get() (int64, int64, error) {
 	s.stub.AddCall("Get")
 	if err := s.stub.NextErr(); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return s.ReturnGet, nil
+	return s.ReturnGet, s.ReturnGet * 10, nil
 }
 
-func (s *stubTracker) Set(recID int64) error {
-	s.stub.AddCall("Set", recID)
+func (s *stubTracker) Set(recID int64, recTimestamp int64) error {
+	s.stub.AddCall("Set", recID, recTimestamp)
 	if err := s.stub.NextErr(); err != nil {
 		return err
 	}

@@ -44,4 +44,11 @@ type LogStreamConfig struct {
 	// This is used as a bookmark for where to start the next time logs
 	// are streamed for the same sink.
 	Sink string `schema:"sink" url:"sink,omitempty"`
+
+	// MaxLookbackDuration is the maximum time duration from the past to stream.
+	// It must be a valid time duration string.
+	MaxLookbackDuration string `schema:"maxlookbackduration" url:"maxlookbackduration,omitempty"`
+
+	// MaxLookbackRecords is the maximum number of log records to stream from the past.
+	MaxLookbackRecords int `schema:"maxlookbackrecords" url:"maxlookbackrecords,omitempty"`
 }

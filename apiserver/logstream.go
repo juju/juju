@@ -5,9 +5,11 @@ package apiserver
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/schema"
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,7 +18,7 @@ import (
 )
 
 type logStreamSource interface {
-	getStart(sink string, allModels bool) (int64, error)
+	getStart(sink string, allModels bool) (time.Time, error)
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
@@ -50,7 +52,7 @@ func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			defer conn.Close()
-			reqHandler, err := eph.newLogStreamRequestHandler(req)
+			reqHandler, err := eph.newLogStreamRequestHandler(req, clock.WallClock)
 			if err == nil {
 				defer reqHandler.tailer.Stop()
 			}
@@ -68,7 +70,7 @@ func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	server.ServeHTTP(w, req)
 }
 
-func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Request) (*logStreamRequestHandler, error) {
+func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Request, clock clock.Clock) (*logStreamRequestHandler, error) {
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
@@ -84,7 +86,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 		return nil, errors.Annotate(err, "decoding schema")
 	}
 
-	tailer, err := eph.newTailer(source, cfg)
+	tailer, err := eph.newTailer(source, cfg, clock)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating new tailer")
 	}
@@ -97,14 +99,26 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	return reqHandler, nil
 }
 
-func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig) (state.LogTailer, error) {
+func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
 	start, err := source.getStart(cfg.Sink, cfg.AllModels)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log start position")
 	}
+	if cfg.MaxLookbackDuration != "" {
+		d, err := time.ParseDuration(cfg.MaxLookbackDuration)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid lookback duration")
+		}
+		now := clock.Now()
+		if now.Sub(start) > d {
+			start = now.Add(-1 * d)
+		}
+	}
+
 	tailerArgs := &state.LogTailerParams{
-		StartID:   start,
-		AllModels: cfg.AllModels,
+		StartTime:    start,
+		InitialLines: cfg.MaxLookbackRecords,
+		AllModels:    cfg.AllModels,
 	}
 	tailer, err := source.newTailer(tailerArgs)
 	if err != nil {
@@ -118,13 +132,13 @@ type logStreamState struct {
 	state.LogTailerState
 }
 
-func (st logStreamState) getStart(sink string, allModels bool) (int64, error) {
+func (st logStreamState) getStart(sink string, allModels bool) (time.Time, error) {
 	var tracker *state.LastSentLogTracker
 	if allModels {
 		var err error
 		tracker, err = state.NewAllLastSentLogTracker(st, sink)
 		if err != nil {
-			return 0, errors.Trace(err)
+			return time.Time{}, errors.Trace(err)
 		}
 	} else {
 		tracker = state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
@@ -132,22 +146,20 @@ func (st logStreamState) getStart(sink string, allModels bool) (int64, error) {
 	defer tracker.Close()
 
 	// Resume for the sink...
-	lastSent, err := tracker.Get()
+	_, lastSentTimestamp, err := tracker.Get()
 	if errors.Cause(err) == state.ErrNeverForwarded {
 		// If we've never forwarded a message, we start from
 		// position zero.
-		lastSent = 0
+		lastSentTimestamp = 0
 	} else if err != nil {
-		return 0, errors.Trace(err)
+		return time.Time{}, errors.Trace(err)
 	}
 
 	// Using the same timestamp will cause at least 1 duplicate
 	// entry, but that is better than dropping records.
 	// TODO(ericsnow) Add 1 to start once we track by sequential int ID
 	// instead of by timestamp.
-	start := lastSent
-
-	return start, nil
+	return time.Unix(0, lastSentTimestamp), nil
 }
 
 func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
