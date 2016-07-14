@@ -70,7 +70,6 @@ def check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools):
 def ensure_enabling_log_forwarding_forwards_previous_messages(rsyslog, dummy):
     """Assert when enabled log forwarding forwards messages from log start."""
     uuid = get_controller_uuid(dummy)
-    # start_token = _set_logging_token(rsyslog)
 
     enable_log_forwarding(dummy)
     assert_initial_message_forwarded(rsyslog, uuid)
@@ -125,24 +124,10 @@ def get_assert_regex(uuid, message=None):
         message=message)
 
 
-def _set_logging_token(rsyslog):
-    """Set a known token in the clients units syslog to compare against."""
-    token = '">>>> CI TESTING [{timestamp}] <<<<"'.format(
-        timestamp=datetime.utcnow().isoformat())
-    rsyslog.juju('ssh', ('rsyslog/0', 'logger', token))
-    return token
-
-
 def enable_log_forwarding(client):
     client.juju(
         'set-model-config',
         ('-m', 'controller', 'logforward-enabled=true'), include_e=False)
-
-
-def disable_log_forwarding(client):
-    client.juju(
-        'set-model-config',
-        ('-m', 'controller', 'logforward-enabled=false'), include_e=False)
 
 
 def get_controller_uuid(client):
