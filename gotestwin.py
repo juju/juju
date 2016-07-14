@@ -8,22 +8,25 @@ from os.path import (
     join,
 )
 import subprocess
+import sys
 
 
-def main():
-    scripts = dirname(__file__)
+SCRIPTS = dirname(__file__)
+
+
+def main(argv=None):
     parser = ArgumentParser()
     parser.add_argument('host', help='The machine to test on.')
     parser.add_argument('revision',
-                        help='The revision-build or tarfile to test.')
+                        help='The revision-build or tarfile path to test.')
     parser.add_argument('package', nargs='?', default='github.com/juju/juju',
                         help='The package to test.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.revision.endswith('tar.gz'):
         downloaded = args.revision
     else:
-        juju_ci_path = join(scripts, 'jujuci.py')
+        juju_ci_path = join(SCRIPTS, 'jujuci.py')
         downloaded = subprocess.check_output([
             juju_ci_path, 'get', '-b', args.revision, 'build-revision',
             '*.tar.gz', './'])
@@ -35,9 +38,9 @@ def main():
         dump({
             'install': {'ci': [
                 tarfile,
-                join(scripts, 'gotesttarfile.py'),
-                join(scripts, 'jujucharm.py'),
-                join(scripts, 'utility.py'),
+                join(SCRIPTS, 'gotesttarfile.py'),
+                join(SCRIPTS, 'jujucharm.py'),
+                join(SCRIPTS, 'utility.py'),
                 ]},
             'command': [
                 'python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
@@ -45,7 +48,7 @@ def main():
                 ]},
              temp_file)
     juju_home = os.environ.get('JUJU_HOME',
-                               join(dirname(scripts), 'cloud-city'))
+                               join(dirname(SCRIPTS), 'cloud-city'))
     subprocess.check_call([
         'workspace-run', '-v', '-i', join(juju_home, 'staging-juju-rsa'),
         'temp-config.yaml', 'Administrator@{}'.format(args.host)
@@ -53,4 +56,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
