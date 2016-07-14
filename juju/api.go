@@ -53,7 +53,8 @@ type NewAPIConnectionParams struct {
 
 	// AccountDetails contains the account details to use for logging
 	// in to the Juju API. If this is nil, then no login will take
-	// place.
+	// place. If AccountDetails.Password and AccountDetails.Macaroon
+	// are zero, the login will be as an external user.
 	AccountDetails *jujuclient.AccountDetails
 
 	// ModelUUID is an optional model UUID. If specified, the API connection
@@ -96,7 +97,8 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot connect to redirected address")
 		}
-		// TODO(rogpeppe) update cached model addresses.
+		// TODO(rog) update cached model addresses.
+		// TODO(rog) should we do something with the logged-in username?
 		return st, nil
 	}
 	addrConnectedTo, err := serverAddress(st.Addr())
@@ -113,6 +115,20 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	err = updateControllerAddresses(args.Store, args.ControllerName, controller, hostPorts, addrConnectedTo)
 	if err != nil {
 		logger.Errorf("cannot cache API addresses: %v", err)
+	}
+	if apiInfo.Tag == nil && !apiInfo.SkipLogin {
+		// We used macaroon auth to login; save the username
+		// that we've logged in as.
+		user, ok := st.AuthTag().(names.UserTag)
+		if ok && !user.IsLocal() {
+			if err := args.Store.UpdateAccount(args.ControllerName, jujuclient.AccountDetails{
+				User: user.Canonical(),
+			}); err != nil {
+				logger.Errorf("cannot update account information: %v", err)
+			}
+		} else {
+			logger.Errorf("unexpected logged-in username %v", st.AuthTag())
+		}
 	}
 	return st, nil
 }
@@ -135,6 +151,7 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
 	}
 	if args.AccountDetails == nil {
+		apiInfo.SkipLogin = true
 		return apiInfo, controller, nil
 	}
 	account := args.AccountDetails

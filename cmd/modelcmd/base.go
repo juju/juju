@@ -91,11 +91,19 @@ func (c *JujuCommandBase) NewAPIRoot(
 	controllerName, modelName string,
 ) (api.Connection, error) {
 	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.Trace(ErrNotLoggedInToController)
-		}
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
+	}
+	// If there are no account details or there's no logged-in
+	// user or the user is external, then trigger macaroon authentication
+	// by using an empty AccountDetails.
+	if accountDetails == nil || accountDetails.User == "" {
+		accountDetails = &jujuclient.AccountDetails{}
+	} else {
+		u := names.NewUserTag(accountDetails.User)
+		if !u.IsLocal() {
+			accountDetails = &jujuclient.AccountDetails{}
+		}
 	}
 	params, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
