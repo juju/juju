@@ -104,6 +104,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.cloudimagemetadata(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -747,6 +751,30 @@ func (e *exporter) sshHostKeys() error {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			MachineID: machine.Id(),
 			Keys:      keys,
+		})
+	}
+	return nil
+}
+
+func (e *exporter) cloudimagemetadata() error {
+	cloudimagemetadata, err := e.st.AllCloudImageMetadatas()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d cloudimagemetadata", len(cloudimagemetadata))
+	for _, cloudimagemetadata := range cloudimagemetadata {
+		results, message := cloudimagemetadata.Results()
+		e.model.AddCloudImageMetadata(description.CloudImageMetadataArgs{
+			Receiver:   cloudimagemetadata.Receiver(),
+			Name:       cloudimagemetadata.Name(),
+			Parameters: cloudimagemetadata.Parameters(),
+			Enqueued:   cloudimagemetadata.Enqueued(),
+			Started:    cloudimagemetadata.Started(),
+			Completed:  cloudimagemetadata.Completed(),
+			Status:     string(cloudimagemetadata.Status()),
+			Results:    results,
+			Message:    message,
+			Id:         cloudimagemetadata.Id(),
 		})
 	}
 	return nil

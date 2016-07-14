@@ -77,6 +77,9 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
+	CloudImageMetadatas() []CloudImageMetadata
+	AddCloudImageMetadata(CloudImageMetadataArgs) CloudImageMetadata
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -373,4 +376,18 @@ type IPAddress interface {
 type SSHHostKey interface {
 	MachineID() string
 	Keys() []string
+}
+
+// CloudImageMetadata represents an IP cloudimagemetadata.
+type CloudImageMetadata interface {
+	Id() string
+	Receiver() string
+	Name() string
+	Parameters() map[string]interface{}
+	Enqueued() time.Time
+	Started() time.Time
+	Completed() time.Time
+	Results() map[string]interface{}
+	Status() string
+	Message() string
 }

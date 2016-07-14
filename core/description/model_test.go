@@ -634,3 +634,26 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
+
+func (s *ModelSerializationSuite) TestCloudImageMetadata(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	enqueued := time.Now()
+	cloudimagemetadata := initial.AddCloudImageMetadata(CloudImageMetadataArgs{
+		Name:       "foo",
+		Enqueued:   enqueued,
+		Parameters: map[string]interface{}{},
+		Results:    map[string]interface{}{},
+	})
+	c.Assert(cloudimagemetadata.Name(), gc.Equals, "foo")
+	c.Assert(cloudimagemetadata.Enqueued(), gc.Equals, enqueued)
+	cloudimagemetadata := initial.CloudImageMetadatas()
+	c.Assert(cloudimagemetadata, gc.HasLen, 1)
+	c.Assert(cloudimagemetadata[0], jc.DeepEquals, cloudimagemetadata)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.CloudImageMetadatas(), jc.DeepEquals, cloudimagemetadata)
+}

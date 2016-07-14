@@ -55,6 +55,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+
+		// cloudimagemetadata
+		cloudimagemetadataC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -127,9 +130,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-		// model
-		cloudimagemetadataC,
-
 		// machine
 		rebootC,
 
@@ -618,6 +618,25 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 		"Keys",
 	)
 	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestCloudImageMetadataDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DocId",
+		"Receiver",
+		"Name",
+		"Enqueued",
+		"Started",
+		"Completed",
+		"Parameters",
+		"Results",
+		"Message",
+		"Status",
+	)
+	s.AssertExportedFields(c, cloudimagemetadataDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

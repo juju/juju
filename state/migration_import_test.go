@@ -702,6 +702,26 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
 }
 
+func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueCloudImageMetadata(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	cloudimagemetadata, _ := newSt.AllCloudImageMetadatas()
+	c.Assert(cloudimagemetadata, gc.HasLen, 1)
+	cloudimagemetadata := cloudimagemetadata[0]
+	c.Check(cloudimagemetadata.Receiver(), gc.Equals, machine.Id())
+	c.Check(cloudimagemetadata.Name(), gc.Equals, "foo")
+	c.Check(cloudimagemetadata.Status(), gc.Equals, state.CloudImageMetadataPending)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

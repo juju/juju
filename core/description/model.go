@@ -48,6 +48,7 @@ func NewModel(args ModelArgs) Model {
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
+	m.setCloudImageMetadatas(nil)
 	return m
 }
 
@@ -118,6 +119,7 @@ type model struct {
 	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
+	CloudImageMetadatas_          cloudimagemetadata          `yaml:"cloudimagemetadata"`
 
 	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
 
@@ -395,6 +397,29 @@ func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
 	}
 }
 
+// CloudImageMetadatas implements Model.
+func (m *model) CloudImageMetadatas() []CloudImageMetadata {
+	var result []CloudImageMetadata
+	for _, addr := range m.CloudImageMetadatas_.CloudImageMetadatas_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddCloudImageMetadata implements Model.
+func (m *model) AddCloudImageMetadata(args CloudImageMetadataArgs) CloudImageMetadata {
+	addr := newCloudImageMetadata(args)
+	m.CloudImageMetadatas_.CloudImageMetadatas_ = append(m.CloudImageMetadatas_.CloudImageMetadatas_, addr)
+	return addr
+}
+
+func (m *model) setCloudImageMetadatas(cloudimagemetadataList []*cloudimagemetadata) {
+	m.CloudImageMetadatas_ = cloudimagemetadata{
+		Version:  1,
+		CloudImageMetadatas_: cloudimagemetadataList,
+	}
+}
+
 // Sequences implements Model.
 func (m *model) Sequences() map[string]int {
 	return m.Sequences_
@@ -668,6 +693,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"applications":     schema.StringMap(schema.Any()),
 		"relations":        schema.StringMap(schema.Any()),
 		"sshhostkeys":      schema.StringMap(schema.Any()),
+		"cloudimagemetadata":          schema.StringMap(schema.Any()),
 		"ipaddresses":      schema.StringMap(schema.Any()),
 		"spaces":           schema.StringMap(schema.Any()),
 		"subnets":          schema.StringMap(schema.Any()),
@@ -791,5 +817,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "sshhostkeys")
 	}
 	result.setSSHHostKeys(hostKeys)
+
+	cloudimagemetadataMap := valid["cloudimagemetadata"].(map[string]interface{})
+	cloudimagemetadata, err := importCloudImageMetadatas(cloudimagemetadataMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "cloudimagemetadata")
+	}
+	result.setCloudImageMetadatas(cloudimagemetadata)
 	return result, nil
 }

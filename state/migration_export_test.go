@@ -613,6 +613,25 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
+func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueCloudImageMetadata(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudimagemetadata := model.CloudImageMetadatas()
+	c.Assert(cloudimagemetadata, gc.HasLen, 1)
+	cloudimagemetadata := cloudimagemetadata[0]
+	c.Check(cloudimagemetadata.Receiver(), gc.Equals, machine.Id())
+	c.Check(cloudimagemetadata.Name(), gc.Equals, "foo")
+	c.Check(cloudimagemetadata.Status(), gc.Equals, "pending")
+	c.Check(cloudimagemetadata.Message(), gc.Equals, "")
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token

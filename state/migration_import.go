@@ -95,6 +95,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.sshHostKeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshHostKeys")
 	}
+	if err := restore.cloudimagemetadata(); err != nil {
+		return nil, nil, errors.Annotate(err, "cloudimagemetadata")
+	}
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
@@ -1053,6 +1056,57 @@ func (i *importer) sshHostKeys() error {
 		}
 	}
 	i.logger.Debugf("importing ssh host keys succeeded")
+	return nil
+}
+
+func (i *importer) cloudimagemetadata() error {
+	i.logger.Debugf("importing cloudimagemetadata")
+	for _, cloudimagemetadata := range i.model.CloudImageMetadatas() {
+		err := i.addCloudImageMetadata(cloudimagemetadata)
+		if err != nil {
+			i.logger.Errorf("error importing cloudimagemetadata %v: %s", cloudimagemetadata, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing cloudimagemetadata succeeded")
+	return nil
+}
+
+func (i *importer) addCloudImageMetadata(cloudimagemetadata description.CloudImageMetadata) error {
+	modelUUID := i.st.ModelUUID()
+	newDoc := &cloudimagemetadataDoc{
+		DocId:      i.st.docID(cloudimagemetadata.Id()),
+		ModelUUID:  modelUUID,
+		Receiver:   cloudimagemetadata.Receiver(),
+		Name:       cloudimagemetadata.Name(),
+		Parameters: cloudimagemetadata.Parameters(),
+		Enqueued:   cloudimagemetadata.Enqueued(),
+		Results:    cloudimagemetadata.Results(),
+		Message:    cloudimagemetadata.Message(),
+		Started:    cloudimagemetadata.Started(),
+		Completed:  cloudimagemetadata.Completed(),
+		Status:     CloudImageMetadataStatus(cloudimagemetadata.Status()),
+	}
+	prefix := ensureCloudImageMetadataMarker(cloudimagemetadata.Receiver())
+	notificationDoc := &cloudimagemetadataNotificationDoc{
+		DocId:     i.st.docID(prefix + cloudimagemetadata.Id()),
+		ModelUUID: modelUUID,
+		Receiver:  cloudimagemetadata.Receiver(),
+		CloudImageMetadataID:  cloudimagemetadata.Id(),
+	}
+	ops := []txn.Op{{
+		C:      cloudimagemetadataC,
+		Id:     newDoc.DocId,
+		Insert: newDoc,
+	}, {
+		C:      cloudimagemetadataNotificationsC,
+		Id:     notificationDoc.DocId,
+		Insert: notificationDoc,
+	}}
+
+	if err := i.st.runTranscloudimagemetadata(ops); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
