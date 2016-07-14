@@ -79,12 +79,11 @@ of a model to grant access to that model with "juju grant".
 	accountDetails, err := s.ControllerStore.AccountDetails("bob-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
-		Store:           s.ControllerStore,
-		ControllerName:  "bob-controller",
-		AccountDetails:  accountDetails,
-		BootstrapConfig: noBootstrapConfig,
-		DialOpts:        api.DefaultDialOpts(),
-		OpenAPI:         api.Open,
+		Store:          s.ControllerStore,
+		ControllerName: "bob-controller",
+		AccountDetails: accountDetails,
+		DialOpts:       api.DefaultDialOpts(),
+		OpenAPI:        api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)
