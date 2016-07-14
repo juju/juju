@@ -37,8 +37,12 @@ def get_parameters(argv=None):
     creds_filename is the filename to get credentials from.
     """
     parser = ArgumentParser(description=dedent("""
-        Write image streams for AWS images.  Only CentOS 7 is currently
-        supported."""))
+        Query cloud API and write image streams.  AWS is written by default,
+        and Azure optionally.  CentOS 7 is supported on AWS and Azure.  Azure
+        additionally supports Windows.
+
+        The credentials.yaml in JUJU_DATA is used to look up credentials.
+        """))
     parser.add_argument('streams', help='The directory to write streams to.')
     parser.add_argument('--azure', help='Generate Azure streams also.',
                         action='store_true')
