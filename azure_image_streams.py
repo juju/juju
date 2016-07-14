@@ -69,7 +69,7 @@ def get_azure_credentials(all_credentials):
         )
 
 
-def get_image_versions(client, full_spec, locations):
+def make_spec_items(client, full_spec, locations):
     """Return Items for all versions this spec in all Azure locations.
 
     full_spec is the spec to use for looking up versions.
@@ -104,6 +104,16 @@ def get_image_versions(client, full_spec, locations):
 
 
 def make_item(version_name, urn_version, full_spec, location_name, endpoint):
+    """Make a simplestreams Item for a version.
+
+    Version name is the simplestreams version_name.
+    urn_version is the Azure version.name, used to generate the URN ID.
+    full_spec is the spec that was used to list the versions.
+    location_name is the Azure display name.
+    endpoint is the URL used as an Azure endpoint.
+
+    The item_name is looked up from ITEM_NAMES.
+    """
     URN = ':'.join(full_spec[1:] + (urn_version,))
     pn_template = (
         'com.ubuntu.cloud:server:{}:amd64' if full_spec[2] == 'CentOS'
@@ -125,11 +135,18 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
 
 
 def make_azure_items(all_credentials):
+    """Make simplestreams Items for existing Azure images.
+
+    All versions of all images matching IMAGE_SPEC will be returned.
+
+    all_credentials is a dict of credentials in the credentials.yaml
+    structure, used to create Azure credentials.
+    """
     subscription_id, credentials = get_azure_credentials(all_credentials)
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
     locations = sub_client.subscriptions.list_locations(subscription_id)
     for full_spec in IMAGE_SPEC:
-        items.extend(get_image_versions(client, full_spec, locations))
+        items.extend(make_spec_items(client, full_spec, locations))
     return items

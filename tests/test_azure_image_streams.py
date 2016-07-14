@@ -9,7 +9,7 @@ from mock import (
 
 from azure_image_streams import (
     get_azure_credentials,
-    get_image_versions,
+    make_spec_items,
     IMAGE_SPEC,
     make_item,
     make_azure_items,
@@ -130,12 +130,12 @@ def make_expected(client, versions, specs):
     return expected_calls, expected_items
 
 
-class TestGetImageVersions(TestCase):
+class TestMakeSpecItems(TestCase):
 
-    def test_get_image_versions(self):
+    def test_make_spec_items(self):
         client = mock_compute_client(['1', '2'])
         locations = [mock_location('region1', 'Canada East')]
-        items = list(get_image_versions(client, IMAGE_SPEC[0], locations))
+        items = list(make_spec_items(client, IMAGE_SPEC[0], locations))
         expected_calls, expected_items = make_expected(
             client, ['1', '2'], [IMAGE_SPEC[0]])
         self.assertEqual(expected_items, items)
