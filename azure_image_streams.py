@@ -74,15 +74,21 @@ def get_image_versions(client, region, region_name):
             logging.warning('Could not find {} {} {} in {region}'.format(*spec,
                             region=region))
             continue
-        for version in versions:
-            yield make_item(version.name, full_spec, region_name, endpoint)
+        # Sort in theoretical version number order, not lexicographically
+        versions.sort(key=lambda x: [int(ns) for ns in x.name.split('.')])
+        width = len('{}'.format(len(versions)))
+        for num, version in enumerate(versions):
+            version_name = '{:0{}d}'.format(num, width)
+            yield make_item(version_name, version.name, full_spec,
+                            region_name, endpoint)
 
 
-def make_item(version_name, full_spec, region_name, endpoint):
-    URN = ':'.join(full_spec[1:] + (version_name,))
-    product_name = (
-        'com.ubuntu.cloud:server:centos7:amd64' if full_spec[2] == 'CentOS'
-        else 'com.ubuntu.cloud:windows')
+def make_item(version_name, urn_version, full_spec, region_name, endpoint):
+    URN = ':'.join(full_spec[1:] + (urn_version,))
+    pn_template = (
+        'com.ubuntu.cloud:server:{}:amd64' if full_spec[2] == 'CentOS'
+        else 'com.ubuntu.cloud:windows:{}:amd64')
+    product_name = pn_template.format(full_spec[0])
     return Item(
         'com.ubuntu.cloud:released:azure',
         product_name,
