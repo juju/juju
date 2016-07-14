@@ -35,9 +35,8 @@ type RegisterSuite struct {
 	apiConnection               *mockAPIConnection
 	store                       *jujuclienttesting.MemStore
 	apiOpenError                error
-	refreshModels               func(jujuclient.ClientStore, string, string) error
+	refreshModels               func(jujuclient.ClientStore, string) error
 	refreshModelsControllerName string
-	refreshModelsAccountName    string
 	server                      *httptest.Server
 	httpHandler                 http.Handler
 }
@@ -60,10 +59,8 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		addr:          serverURL.Host,
 	}
 	s.refreshModelsControllerName = ""
-	s.refreshModelsAccountName = ""
-	s.refreshModels = func(store jujuclient.ClientStore, controllerName, accountName string) error {
+	s.refreshModels = func(store jujuclient.ClientStore, controllerName string) error {
 		s.refreshModelsControllerName = controllerName
-		s.refreshModelsAccountName = accountName
 		return nil
 	}
 
@@ -147,7 +144,6 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 func (s *RegisterSuite) TestRegister(c *gc.C) {
 	ctx := s.testRegister(c, "")
 	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
-	c.Assert(s.refreshModelsAccountName, gc.Equals, "bob@local")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 Please set a name for this controller (controller-name):
@@ -164,8 +160,8 @@ of a model to grant access to that model with "juju grant".
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
-		err := store.UpdateModel(controller, account, "theoneandonly", jujuclient.ModelDetails{
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "theoneandonly", jujuclient.ModelDetails{
 			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -173,15 +169,15 @@ func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 	}
 	s.testRegister(c, "")
 	c.Assert(
-		s.store.Models["controller-name"].AccountModels["bob@local"].CurrentModel,
+		s.store.Models["controller-name"].CurrentModel,
 		gc.Equals, "theoneandonly",
 	)
 }
 
 func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
 		for _, name := range [...]string{"model1", "model2"} {
-			err := store.UpdateModel(controller, account, name, jujuclient.ModelDetails{
+			err := store.UpdateModel(controller, name, jujuclient.ModelDetails{
 				ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 			})
 			c.Assert(err, jc.ErrorIsNil)
@@ -193,7 +189,7 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 	// When there are multiple models, no current model will be set.
 	// Instead, the command will output the list of models and inform
 	// the user how to set the current model.
-	_, err := s.store.CurrentModel("controller-name", "bob@local")
+	_, err := s.store.CurrentModel("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	stderr := testing.Stderr(ctx)
@@ -280,7 +276,7 @@ func (s *RegisterSuite) testRegister(c *gc.C, expectedError string) *cmd.Context
 		APIEndpoints:   []string{s.apiConnection.addr},
 		CACert:         testing.CACert,
 	})
-	account, err := s.store.AccountByName("controller-name", "bob@local")
+	account, err := s.store.AccountDetails("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "bob@local",
@@ -324,8 +320,8 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 		CACert:         testing.CACert,
 	})
 
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
-		err := store.UpdateModel(controller, account, "controller-name", jujuclient.ModelDetails{
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "controller-name", jujuclient.ModelDetails{
 			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 		})
 		c.Assert(err, jc.ErrorIsNil)

@@ -56,14 +56,7 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	currentAccount, err := store.CurrentAccount(currentController)
-	if errors.IsNotFound(err) {
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	currentModel, err := store.CurrentModel(currentController, currentAccount)
+	currentModel, err := store.CurrentModel(currentController)
 	if errors.IsNotFound(err) {
 		return currentController + ":", nil
 	} else if err != nil {
@@ -118,7 +111,6 @@ type ModelCommandBase struct {
 	store jujuclient.ClientStore
 
 	modelName      string
-	accountName    string
 	controllerName string
 
 	// opener is the strategy used to open the API connection.
@@ -152,12 +144,7 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 			return errors.Trace(err)
 		}
 	}
-	accountName, err := c.store.CurrentAccount(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	c.controllerName = controllerName
-	c.accountName = accountName
 	c.modelName = modelName
 	return nil
 }
@@ -165,11 +152,6 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 // ModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelName() string {
 	return c.modelName
-}
-
-// AccountName implements the ModelCommand interface.
-func (c *ModelCommandBase) AccountName() string {
-	return c.accountName
 }
 
 // ControllerName implements the ModelCommand interface.
@@ -213,18 +195,18 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
+	_, err := c.store.ModelByName(c.controllerName, c.modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
-		if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
+		if err := c.RefreshModels(c.store, c.controllerName); err != nil {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
-	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)
+	return opener.Open(c.store, c.controllerName, c.modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.

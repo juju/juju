@@ -133,7 +133,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		return expectState, nil
 	}
 
-	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", store, apiOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin", store, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -149,11 +149,11 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", stubStore, apiOpen, noBootstrapConfig)
+	st, err = newAPIConnectionFromNames(c, "noconfig", "admin", stubStore, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
-	stubStore.CheckCallNames(c, "AccountByName", "ModelByName", "ControllerByName")
+	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +173,7 @@ func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 		return nil, expectErr
 	}
 
-	client, err := newAPIConnectionFromNames(c, "noconfig", "", "", store, panicAPIOpen, getBootstrapConfig)
+	client, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen, getBootstrapConfig)
 	c.Assert(errors.Cause(err), gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -186,7 +186,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "", store, panicAPIOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen, noBootstrapConfig)
 	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller noconfig not found")
 	c.Assert(st, gc.IsNil)
 }
@@ -228,7 +228,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 		return nil, fmt.Errorf("OpenAPI called too many times")
 	}
 
-	st0, err := newAPIConnectionFromNames(c, "ctl", "admin@local", "admin", store, redirOpen, noBootstrapConfig)
+	st0, err := newAPIConnectionFromNames(c, "ctl", "admin", store, redirOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openCount, gc.Equals, 2)
 	st := st0.(*mockAPIState)
@@ -254,7 +254,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := newAPIConnectionFromNames(c, "noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "", jujuClient, apiOpen, noBootstrapConfig)
 	// We expect to get the error from apiOpen, because it is not
 	// fatal to have no bootstrap config.
 	c.Assert(err, gc.ErrorMatches, "an error")
@@ -291,7 +291,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 	startTime := time.Now()
 	st, err := newAPIConnectionFromNames(c,
-		"my-controller", "admin@local", "only", store, apiOpen,
+		"my-controller", "only", store, apiOpen,
 		modelcmd.NewGetBootstrapConfigFunc(store),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -358,7 +358,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		st, err := newAPIConnectionFromNames(c,
-			"my-controller", "admin@local", "only", store, apiOpen,
+			"my-controller", "only", store, apiOpen,
 			modelcmd.NewGetBootstrapConfigFunc(store),
 		)
 		c.Check(err, jc.ErrorIsNil)
@@ -414,7 +414,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := newAPIConnectionFromNames(c, "my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "my-controller", "only", store, apiOpen, getBootstrapConfig)
 	c.Check(err, gc.ErrorMatches, "connecting with bootstrap config: config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -430,7 +430,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = store.UpdateModel(controllerName, "admin@local", "admin", jujuclient.ModelDetails{
+	err = store.UpdateModel(controllerName, "admin", jujuclient.ModelDetails{
 		fakeUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -438,12 +438,10 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	// Models belong to accounts, so we must have an account even
 	// if "creds" is not initialised. If it is, it may overwrite
 	// this one.
-	err = store.UpdateAccount(controllerName, "admin@local", jujuclient.AccountDetails{
+	err = store.UpdateAccount(controllerName, jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "hunter2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetCurrentAccount(controllerName, "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }
@@ -832,7 +830,7 @@ func noBootstrapConfig(controllerName string) (*config.Config, error) {
 
 func newAPIConnectionFromNames(
 	c *gc.C,
-	controller, account, model string,
+	controller, model string,
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	getBootstrapConfig func(string) (*config.Config, error),
@@ -844,13 +842,13 @@ func newAPIConnectionFromNames(
 		DialOpts:        api.DefaultDialOpts(),
 		OpenAPI:         apiOpen,
 	}
-	if account != "" {
-		accountDetails, err := store.AccountByName(controller, account)
+	accountDetails, err := store.AccountDetails(controller)
+	if !errors.IsNotFound(err) {
 		c.Assert(err, jc.ErrorIsNil)
 		params.AccountDetails = accountDetails
 	}
 	if model != "" {
-		modelDetails, err := store.ModelByName(controller, account, model)
+		modelDetails, err := store.ModelByName(controller, model)
 		c.Assert(err, jc.ErrorIsNil)
 		params.ModelUUID = modelDetails.ModelUUID
 	}

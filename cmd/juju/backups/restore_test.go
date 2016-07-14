@@ -54,24 +54,15 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 		CloudRegion:    "a-region",
 	}
 	s.store.CurrentControllerName = "testing"
-	s.store.Models["testing"] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"admin": {"test1-uuid"},
-				},
-				CurrentModel: "admin",
-			},
+	s.store.Models["testing"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin": {"test1-uuid"},
 		},
+		CurrentModel: "admin",
 	}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"admin@local": {
-				User:     "current-user@local",
-				Password: "old-password",
-			},
-		},
-		CurrentAccount: "admin@local",
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User:     "current-user@local",
+		Password: "old-password",
 	}
 	s.store.BootstrapConfig["testing"] = jujuclient.BootstrapConfig{
 		Cloud:       "mycloud",

@@ -69,7 +69,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot establish API connection")
 	}
 	defer conn.Close()
-	details, err := c.ClientStore().ModelByName(c.ControllerName(), c.AccountName(), c.ModelName())
+	details, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName())
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve model details")
 	}
@@ -134,12 +134,7 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
-	if c.AccountName() == "" {
-		return errors.Errorf("no connection credentials available")
-	}
-	accountDetails, err := c.ClientStore().AccountByName(
-		c.ControllerName(), c.AccountName(),
-	)
+	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}

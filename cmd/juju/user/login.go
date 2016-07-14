@@ -85,6 +85,8 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 
 	user := c.User
 	if user == "" {
+		// TODO(rog) Try macaroon login first before
+		// falling back to prompting for username.
 		// The username has not been specified, so prompt for it.
 		fmt.Fprint(ctx.Stderr, "username: ")
 		var err error
@@ -100,27 +102,20 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		return errors.NotValidf("user name %q", user)
 	}
 	userTag := names.NewUserTag(user)
-	accountName := userTag.Canonical()
 
 	// Make sure that the client is not already logged in,
 	// or if it is, that it is logged in as the specified
 	// user.
-	currentAccountName, err := store.CurrentAccount(controllerName)
-	if err == nil {
-		if currentAccountName != accountName {
-			return errors.New(`already logged in
-
-Run "juju logout" first before attempting to log in as a different user.
-`)
-		}
-	} else if !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	accountDetails, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
+	if accountDetails != nil && accountDetails.User != userTag.Canonical() {
+		return errors.New(`already logged in
 
+Run "juju logout" first before attempting to log in as a different user.
+`)
+	}
 	// Read password from the terminal, and attempt to log in using that.
 	fmt.Fprint(ctx.Stderr, "password: ")
 	password, err := readPassword(ctx.Stdin)
@@ -128,19 +123,14 @@ Run "juju logout" first before attempting to log in as a different user.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	params, err := c.NewAPIConnectionParams(store, controllerName, "", "")
+	accountDetails = &jujuclient.AccountDetails{
+		User:     userTag.Canonical(),
+		Password: password,
+	}
+	params, err := c.NewAPIConnectionParams(store, controllerName, "", accountDetails)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if accountDetails != nil {
-		accountDetails.Password = password
-	} else {
-		accountDetails = &jujuclient.AccountDetails{
-			User:     accountName,
-			Password: password,
-		}
-	}
-	params.AccountDetails = accountDetails
 	api, err := c.newLoginAPI(params)
 	if err != nil {
 		return errors.Annotate(err, "creating API connection")
@@ -160,12 +150,9 @@ Run "juju logout" first before attempting to log in as a different user.
 	}
 	accountDetails.Password = ""
 	accountDetails.Macaroon = string(macaroonJSON)
-	if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
+	if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 		return errors.Annotate(err, "failed to record temporary credential")
 	}
-	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
-		return errors.Annotate(err, "failed to set current account")
-	}
-	ctx.Infof("You are now logged in to %q as %q.", controllerName, accountName)
+	ctx.Infof("You are now logged in to %q as %q.", controllerName, userTag.Canonical())
 	return nil
 }

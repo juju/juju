@@ -84,7 +84,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 		if name == controllerName {
 			continue
 		}
-		_, err := store.CurrentAccount(name)
+		_, err := store.AccountDetails(name)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -104,15 +104,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *logoutCommand) logout(store jujuclient.ClientStore, controllerName string) error {
-	accountName, err := store.CurrentAccount(controllerName)
-	if errors.IsNotFound(err) {
-		// Not logged in; nothing else to do.
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	accountDetails, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if errors.IsNotFound(err) {
 		// Not logged in; nothing else to do.
 		return nil
@@ -140,7 +132,7 @@ this command again with the "--force" flag.
 	}
 
 	// Remove the account credentials.
-	if err := store.RemoveAccount(controllerName, accountName); err != nil {
+	if err := store.RemoveAccount(controllerName); err != nil {
 		return errors.Annotate(err, "failed to clear credentials")
 	}
 	return nil

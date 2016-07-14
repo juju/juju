@@ -49,7 +49,7 @@ func NewRegisterCommand() cmd.Command {
 type registerCommand struct {
 	modelcmd.JujuCommandBase
 	apiOpen       api.OpenFunc
-	refreshModels func(_ jujuclient.ClientStore, controller, account string) error
+	refreshModels func(_ jujuclient.ClientStore, controller string) error
 	store         jujuclient.ClientStore
 	EncodedData   string
 }
@@ -170,21 +170,13 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		User:     registrationParams.userTag.Canonical(),
 		Macaroon: string(macaroonJSON),
 	}
-	accountName := accountDetails.User
-	if err := c.store.UpdateAccount(
-		registrationParams.controllerName, accountName, accountDetails,
-	); err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.store.SetCurrentAccount(
-		registrationParams.controllerName, accountName,
-	); err != nil {
+	if err := c.store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
+	if err := c.refreshModels(c.store, registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.store.SetCurrentController(registrationParams.controllerName); err != nil {
@@ -195,11 +187,11 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName, accountName)
+	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName)
 }
 
-func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName, accountName string) error {
-	models, err := c.store.AllModels(controllerName, accountName)
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName string) error {
+	models, err := c.store.AllModels(controllerName)
 	if errors.IsNotFound(err) {
 		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
 		return nil
@@ -215,7 +207,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName,
 		for modelName = range models {
 			// Loop exists only to obtain one and only key.
 		}
-		err := c.store.SetCurrentModel(controllerName, accountName, modelName)
+		err := c.store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}

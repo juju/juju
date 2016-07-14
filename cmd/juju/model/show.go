@@ -76,7 +76,6 @@ func (c *showModelCommand) Run(ctx *cmd.Context) (err error) {
 	store := c.ClientStore()
 	modelDetails, err := store.ModelByName(
 		c.ControllerName(),
-		c.AccountName(),
 		c.ModelName(),
 	)
 	if err != nil {

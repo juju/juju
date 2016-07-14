@@ -130,23 +130,19 @@ func decorateAndWriteInfo(
 	details prepareDetails,
 	controllerName, modelName string,
 ) error {
-	accountName := details.User
 	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	if err := store.UpdateBootstrapConfig(controllerName, details.BootstrapConfig); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.UpdateAccount(controllerName, accountName, details.AccountDetails); err != nil {
+	if err := store.UpdateAccount(controllerName, details.AccountDetails); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
+	if err := store.UpdateModel(controllerName, modelName, details.ModelDetails); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.UpdateModel(controllerName, accountName, modelName, details.ModelDetails); err != nil {
-		return errors.Trace(err)
-	}
-	if err := store.SetCurrentModel(controllerName, accountName, modelName); err != nil {
+	if err := store.SetCurrentModel(controllerName, modelName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

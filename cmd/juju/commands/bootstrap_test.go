@@ -231,7 +231,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 
-	controllerModel, err := s.store.ModelByName(controllerName, "admin@local", bootstrap.ControllerModelName)
+	controllerModel, err := s.store.ModelByName(controllerName, bootstrap.ControllerModelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
 
@@ -393,7 +393,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
-	modelName, err := s.store.CurrentModel(currentController, "admin@local")
+	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelName, gc.Equals, "default")
 }
@@ -563,7 +563,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, model, account string) {
+func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, model, user string) {
 	err := s.store.UpdateController(controller, jujuclient.ControllerDetails{
 		CACert:         "x",
 		ControllerUUID: "y",
@@ -571,18 +571,16 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, mo
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.SetCurrentController(controller)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateAccount(controller, account, jujuclient.AccountDetails{
-		User:     account,
+	err = s.store.UpdateAccount(controller, jujuclient.AccountDetails{
+		User:     user,
 		Password: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentAccount(controller, account)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel(controller, account, model, jujuclient.ModelDetails{
+	err = s.store.UpdateModel(controller, model, jujuclient.ModelDetails{
 		ModelUUID: "model-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel(controller, account, model)
+	err = s.store.SetCurrentModel(controller, model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -601,14 +599,14 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
-	oldCurrentController := s.store.CurrentControllerName
-	c.Assert(oldCurrentController, gc.Equals, "olddevcontroller")
-	oldCurrentAccount, err := s.store.CurrentAccount(oldCurrentController)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "olddevcontroller")
+	accountDetails, err := s.store.AccountDetails(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oldCurrentAccount, gc.Equals, "fred@local")
-	oldCurrentModel, err := s.store.CurrentModel(oldCurrentController, oldCurrentAccount)
+	c.Assert(accountDetails.User, gc.Equals, "fred@local")
+	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oldCurrentModel, gc.Equals, "fredmodel")
+	c.Assert(currentModel, gc.Equals, "fredmodel")
 }
 
 func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
@@ -624,10 +622,10 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, controllerName))
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
-	currentAccount, err := s.store.CurrentAccount(currentController)
+	accountDetails, err := s.store.AccountDetails(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentAccount, gc.Equals, "fred@local")
-	currentModel, err := s.store.CurrentModel(currentController, currentAccount)
+	c.Assert(accountDetails.User, gc.Equals, "fred@local")
+	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentModel, gc.Equals, "fredmodel")
 }
