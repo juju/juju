@@ -75,18 +75,18 @@ def get_image_versions(client, region, region_name):
                             region=region))
             continue
         for version in versions:
-            yield make_item(version, full_spec, region_name, endpoint)
+            yield make_item(version.name, full_spec, region_name, endpoint)
 
 
-def make_item(version, full_spec, region_name, endpoint):
-    URN = ':'.join(full_spec[1:] + (version.name,))
+def make_item(version_name, full_spec, region_name, endpoint):
+    URN = ':'.join(full_spec[1:] + (version_name,))
     product_name = (
         'com.ubuntu.cloud:server:centos7:amd64' if full_spec[2] == 'CentOS'
         else 'com.ubuntu.cloud:windows')
     return Item(
         'com.ubuntu.cloud:released:azure',
         product_name,
-        version.name, ITEM_NAMES[region_name], {
+        version_name, ITEM_NAMES[region_name], {
             'arch': 'amd64',
             'virt': 'Hyper-V',
             'region': region_name,
