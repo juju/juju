@@ -15,7 +15,7 @@ github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	8d99dd2a94d7b4fd975a152238d0e19d0c4a6cf1	2016-06-15T07:19:43Z
-github.com/juju/cmd	git	a11ae7a7436c133e799f025998cbbefd3f6eef7e	2016-06-01T03:55:00Z
+github.com/juju/cmd	git	a11ae7a7436c133e799f025998cbbefd3f6eef7e	2016-06-01T03:55:01Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
@@ -33,7 +33,7 @@ github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
-github.com/juju/romulus	git	ce1888c89480dfea16e280af34b4b3d7b456a325	2016-07-14T09:41:15Z
+github.com/juju/romulus	git	6b52a14d619315a31ad4d7069db654c883d6f562	2016-07-14T11:43:41Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/testing	git	ccf839b5a07a7a05009f8fa3ec41cd05fb2e0b08	2016-06-24T20:35:24Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
@@ -72,5 +72,4 @@ gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06
 gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
 gopkg.in/yaml.v2	git	a83829b6f1293c91addabc89d0571c246397bbf4	2016-03-01T20:40:22Z
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
-launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20140529072043-hzcrlnl3ygvg914q	18
