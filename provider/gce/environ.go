@@ -149,6 +149,17 @@ func (env *environ) Config() *config.Config {
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	// Ensure the API server port is open (globally for all instances
+	// on the network, not just for the specific node of the state
+	// server). See LP bug #1436191 for details.
+	ports := network.PortRange{
+		FromPort: params.ControllerConfig.APIPort(),
+		ToPort:   params.ControllerConfig.APIPort(),
+		Protocol: "tcp",
+	}
+	if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return bootstrap(ctx, env, params)
 }
 
