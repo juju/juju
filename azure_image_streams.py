@@ -69,44 +69,38 @@ def get_azure_credentials(all_credentials):
         )
 
 
-def get_image_versions(client, locations):
-    """Return Items for all versions of all specs in Azure.
+def get_image_versions(client, full_spec, locations):
+    """Return Items for all versions this spec in all Azure locations.
 
-    Uses IMAGE_SPEC as its list of specs.
-
-    'location' is the short name of the location, used for the actual lookup.
-    'location_name' is the display name of the location, used in simplestreams
-    as the "region".
+    full_spec is the spec to use for looking up versions.
+    locations is a list of Azure Locations.
     """
     endpoint = client.config.base_url
-    for full_spec in IMAGE_SPEC:
-        spec = full_spec[1:]
-        versions_locations = []
-        location_versions = {}
-        for location in locations:
-            logging.info('Retrieving image data in {}'.format(
-                location.display_name))
-            try:
-                versions = client.virtual_machine_images.list(location.name,
-                                                              *spec)
-            except CloudError:
-                template = 'Could not find {} {} {} in {location}'
-                logging.warning(template.format(
-                    *spec, location=location.display_name))
-                continue
-            versions_locations.append((location, versions))
-            for version in versions:
-                location_versions.setdefault(
-                    version.name, set()).add(location.display_name)
-        lv2 = sorted(location_versions.items(), key=lambda x: [
-            int(ns) for ns in x[0].split('.')])
-        for num, (version, v_locations) in enumerate(lv2):
-            # Sort in theoretical version number order, not lexicographically
-            width = len('{}'.format(len(versions)))
-            for location in v_locations:
-                version_name = '{:0{}d}'.format(num, width)
-                yield make_item(version_name, version, full_spec, location,
-                                endpoint)
+    spec = full_spec[1:]
+    location_versions = {}
+    for location in locations:
+        logging.info('Retrieving image data in {}'.format(
+            location.display_name))
+        try:
+            versions = client.virtual_machine_images.list(location.name,
+                                                          *spec)
+        except CloudError:
+            template = 'Could not find {} {} {} in {location}'
+            logging.warning(template.format(
+                *spec, location=location.display_name))
+            continue
+        for version in versions:
+            location_versions.setdefault(
+                version.name, set()).add(location.display_name)
+    lv2 = sorted(location_versions.items(), key=lambda x: [
+        int(ns) for ns in x[0].split('.')])
+    for num, (version, v_locations) in enumerate(lv2):
+        # Sort in theoretical version number order, not lexicographically
+        width = len('{}'.format(len(versions)))
+        for location in v_locations:
+            version_name = '{:0{}d}'.format(num, width)
+            yield make_item(version_name, version, full_spec, location,
+                            endpoint)
 
 
 def make_item(version_name, urn_version, full_spec, location_name, endpoint):
@@ -136,5 +130,6 @@ def make_azure_items(all_credentials):
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
     locations = sub_client.subscriptions.list_locations(subscription_id)
-    items.extend(get_image_versions(client, locations))
+    for full_spec in IMAGE_SPEC:
+        items.extend(get_image_versions(client, full_spec, locations))
     return items
