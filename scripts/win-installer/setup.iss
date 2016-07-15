@@ -51,13 +51,13 @@ Filename: "{app}\README.txt"; Description: "View the README file"; Flags: postin
 
 [Code]
 const
-    ModPathName= 'modifypath';
+	ModPathName= 'modifypath';
   ModPathType = 'system';
 
 function ModPathDir(): TArrayOfString;
 begin
-    setArrayLength(Result, 1)
-    Result[0] := ExpandConstant('{app}');
+	setArrayLength(Result, 1)
+	Result[0] := ExpandConstant('{app}');
 end;
 
 #include "modpath.iss"

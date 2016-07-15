@@ -6,14 +6,14 @@
 package version
 
 import (
-    "fmt"
-    "io/ioutil"
-    "os"
-    "path/filepath"
-    "runtime"
-    "strings"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 
-    semversion "github.com/juju/version"
+	semversion "github.com/juju/version"
 )
 
 // The presence and format of this constant is very important.
@@ -32,19 +32,19 @@ var Current = semversion.MustParse(version)
 var Compiler = runtime.Compiler
 
 func init() {
-    toolsDir := filepath.Dir(os.Args[0])
-    v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
-    if err != nil {
-        if !os.IsNotExist(err) {
-            fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
-        }
-        return
-    }
-    Current = semversion.MustParse(strings.TrimSpace(string(v)))
+	toolsDir := filepath.Dir(os.Args[0])
+	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
+		}
+		return
+	}
+	Current = semversion.MustParse(strings.TrimSpace(string(v)))
 }
 
 func isOdd(x int) bool {
-    return x%2 != 0
+	return x%2 != 0
 }
 
 // IsDev returns whether the version represents a development version. A
@@ -52,8 +52,8 @@ func isOdd(x int) bool {
 // development version.  Versions older than or equal to 1.19.3 (the switch
 // over time) check for odd minor versions.
 func IsDev(v semversion.Number) bool {
-    if v.Compare(switchOverVersion) <= 0 {
-        return isOdd(v.Minor) || v.Build > 0
-    }
-    return v.Tag != "" || v.Build > 0
+	if v.Compare(switchOverVersion) <= 0 {
+		return isOdd(v.Minor) || v.Build > 0
+	}
+	return v.Tag != "" || v.Build > 0
 }
