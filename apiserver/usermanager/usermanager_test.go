@@ -178,13 +178,13 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockAddUser")
 	result, err := s.usermanager.AddUser(args)
-	// Check that the call is blocked
+	// Check that the call is blocked.
 	s.AssertBlocked(c, err, "TestBlockAddUser")
-	c.Assert(result.Results, gc.HasLen, 1)
-	//check that user is not created
+	// Check that there's no results.
+	c.Assert(len(result.Results), jc.DeepEquals, 0)
+	//check that user is not created.
 	foobarTag := names.NewLocalUserTag("foobar")
-	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{})
-	// Check that the call results in a new user being created
+	// Check that the call results in a new user being created.
 	_, err = s.State.User(foobarTag)
 	c.Assert(err, gc.ErrorMatches, `user "foobar" not found`)
 }

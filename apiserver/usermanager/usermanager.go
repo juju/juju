@@ -76,9 +76,8 @@ func NewUserManagerAPI(
 // AddUser adds a user with a username, and either a password or
 // a randomly generated secret key which will be returned.
 func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
-	result := params.AddUserResults{
-		Results: make([]params.AddUserResult, len(args.Users)),
-	}
+	var result params.AddUserResults
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -89,6 +88,9 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	if !api.isAdmin {
 		return result, common.ErrPerm
 	}
+
+	// Create the results list to populate.
+	result.Results = make([]params.AddUserResult, len(args.Users))
 
 	for i, arg := range args.Users {
 		var user *state.User
@@ -144,8 +146,8 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 // TODO(redir): Add information about getting deleted user information when we
 // add that capability.
 func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorResults, error) {
-	deletions := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(entities.Entities))}
+	var deletions params.ErrorResults
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return deletions, errors.Trace(err)
 	}
@@ -160,6 +162,8 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 		return deletions, errors.Trace(err)
 	}
 
+	// Create the results list to populate.
+	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
 	// Remove the entities.
 	for i, e := range entities.Entities {
 		user, err := names.ParseUserTag(e.Tag)
@@ -219,9 +223,8 @@ func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResul
 }
 
 func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
+	var result params.ErrorResults
+
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
@@ -229,6 +232,8 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 		return result, common.ErrPerm
 	}
 
+	// Create the results list to populate.
+	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, arg := range args.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
@@ -246,6 +251,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
+
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		var lastLogin *time.Time
 		userLastLogin, err := user.LastLogin()
@@ -280,6 +286,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		return results, nil
 	}
 
+	// Create the results list to populate.
 	results.Results = make([]params.UserInfoResult, argCount)
 	for i, arg := range request.Entities {
 		user, err := api.getUser(arg.Tag)
@@ -298,12 +305,15 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
+
+	var result params.ErrorResults
+
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
+
+	// Create the results list to populate.
+	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
 			result.Results[i].Error = common.ServerError(err)
