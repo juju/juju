@@ -103,7 +103,7 @@ def deploy_dummy_stack(client, charm_series):
         # any system deployment using MAAS requires extra time.
         client.wait_for_started(7200)
     else:
-        client.wait_for_started()
+        client.wait_for_started(3600)
 
 
 def assess_juju_relations(client):
