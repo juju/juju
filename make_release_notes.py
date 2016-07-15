@@ -18,28 +18,32 @@ DEVEL = 'development'
 PROPOSED = 'proposed'
 
 DEVEL_TEMPLATE = """\
-A new development release of Juju, {version} is here!
+A new development release of Juju, {version}, is here!
+
 
 ## What's new?
 
 {notable}
 
+
 ## How do I get it?
 
 If you are running ubuntu, you can get it from the juju devel ppa:
 
-sudo apt-add-repository ppa/devel
-sudo apt update; sudo apt install juju-2.0
+    sudo apt-add-repository ppa/devel
+    sudo apt update; sudo apt install juju-2.0
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 
     https://launchpad.net/juju-core/+milestone/{version}
+
 
 ## Feedback Appreciated!
 
 We encourage everyone to subscribe the mailing list at
 juju@lists.ubuntu.com and join us on #juju on freenode. We would love to hear
 your feedback and usage of juju.
+
 
 ## Anything else?
 
@@ -51,20 +55,22 @@ https://jujucharms.com/docs/devel/temp-release-notes
 """
 
 PROPOSED_TEMPLATE = """\
-# Juju {version}
-
-A new proposed stable release of Juju, juju {version}, is now available.
+A new proposed stable release of Juju, {version}, is here!
 This release may replace version {previous} on {release_date}.
 
 
-## Getting Juju
+## What's new?
 
-juju {version} is available for Yakkety and backported to earlier
-series in the following PPA:
+{notable}
+
+
+## How do I get it?
+
+If you are running ubuntu, you can get it from the juju proposed ppa:
 
     https://launchpad.net/~juju/+archive/proposed
 
-Windows, Centos, and OS X users will find installers at:
+Windows, Centos, and OS X users can get a corresponding installer at:
 
     https://launchpad.net/juju-core/+milestone/{version}
 
@@ -73,20 +79,17 @@ the `agent-stream` option in your environments.yaml to use the matching
 juju agents.
 
 
-## Notable Changes
+## Feedback Appreciated!
 
-{notable}
+We encourage everyone to subscribe the mailing list at
+juju@lists.ubuntu.com and join us on #juju on freenode. We would love to hear
+your feedback and usage of juju.
 
 
 ## Resolved issues
 
 {resolved_text}
 
-
-Finally
-
-We encourage everyone to subscribe the mailing list at
-juju@lists.ubuntu.com, or join us on #juju on freenode.
 """
 
 
