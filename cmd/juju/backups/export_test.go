@@ -5,6 +5,7 @@ package backups
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -98,5 +99,11 @@ func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.Backu
 			CloudName:        cloud,
 			CloudRegion:      "a-region",
 		}, nil
+	}
+}
+
+func GetEnvironFuncWithError() func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+		return nil, nil, errors.New("failed")
 	}
 }

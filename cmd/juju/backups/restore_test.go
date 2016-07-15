@@ -48,10 +48,12 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		CACert:         testing.CACert,
-		Cloud:          "mycloud",
-		CloudRegion:    "a-region",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		CACert:                 testing.CACert,
+		Cloud:                  "mycloud",
+		CloudRegion:            "a-region",
+		APIEndpoints:           []string{"10.0.1.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
 	}
 	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = &jujuclient.ControllerModels{
@@ -164,6 +166,37 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 
 	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
+}
+
+func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		backups.GetEnvironFuncWithError(),
+	)
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		// We should not call bootstrap.
+		c.Fail()
+		return nil
+	})
+
+	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, gc.ErrorMatches, "failed")
+	// The details below are as per what was done in test setup, so no changes.
+	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
+		Cloud:                  "mycloud",
+		CloudRegion:            "a-region",
+		CACert:                 testing.CACert,
+		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		APIEndpoints:           []string{"10.0.1.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+	})
 }
 
 func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C) {
