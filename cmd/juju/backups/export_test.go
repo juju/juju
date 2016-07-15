@@ -96,6 +96,7 @@ func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.Backu
 		return e, &restoreBootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			CloudName:        cloud,
+			CloudRegion:      "a-region",
 		}, nil
 	}
 }

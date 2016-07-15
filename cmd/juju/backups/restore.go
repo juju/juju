@@ -168,23 +168,6 @@ func (c *restoreCommand) getEnviron(
 		return nil, nil, errors.Trace(err)
 	}
 
-	controllerCfg := controller.Config{
-		controller.ControllerUUIDKey: params.ControllerUUID,
-		controller.CACertKey:         meta.CACert,
-	}
-
-	// We may have previous controller metadata. We need to update that so it
-	// will contain the new CA Cert and UUID required to connect to the newly
-	// bootstrapped controller API.
-	details := jujuclient.ControllerDetails{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-		CACert:         meta.CACert,
-	}
-	err = store.UpdateController(controllerName, details)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// Get the local admin user so we can use the password as the admin secret.
 	// TODO(axw) check that account.User is environs.AdminUser.
 	var adminSecret string
@@ -210,6 +193,11 @@ func (c *restoreCommand) getEnviron(
 	})
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+	}
+
+	controllerCfg := controller.Config{
+		controller.ControllerUUIDKey: params.ControllerUUID,
+		controller.CACertKey:         meta.CACert,
 	}
 	env, err := environs.New(cfg)
 	return env, &restoreBootstrapParams{
@@ -259,6 +247,21 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
+	// We may have previous controller metadata. We need to replace that so it
+	// will contain the new CA Cert and UUID required to connect to the newly
+	// bootstrapped controller API.
+	store := c.ClientStore()
+	details := jujuclient.ControllerDetails{
+		ControllerUUID: params.ControllerConfig.ControllerUUID(),
+		CACert:         meta.CACert,
+		Cloud:          params.CloudName,
+		CloudRegion:    params.CloudRegion,
+	}
+	err = store.UpdateController(c.ControllerName(), details)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	bootVers := version.Current
 	var cred *cloud.Credential
 	if params.Credential.AuthType() != cloud.EmptyAuthType {
@@ -288,10 +291,6 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
-
-	// We remove models from the client store as the cached values will be used
-	// to dial after re-bootstraping (if present) and the process will fail.
-	store := c.ClientStore()
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
