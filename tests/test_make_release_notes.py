@@ -71,29 +71,20 @@ class MakeReleaseNotes(TestCase):
         # Proposed purpose points to the proposed PPA without a warning.
         text = make_notes('1.20.0', PROPOSED, "  * One\n    Lp 1")
         self.assertIn(
-            'A new proposed stable release of Juju, juju 1.20.0, '
-            'is now available.',
-            text)
+            'A new proposed stable release of Juju, 1.20.0, is here!', text)
         self.assertIn(
-            'https://launchpad.net/~juju/+archive/proposed',
-            text)
-        self.assertIn(
-            '  * One\n    Lp 1',
-            text)
+            'https://launchpad.net/~juju/+archive/proposed', text)
+        self.assertIn('  * One\n    Lp 1', text)
 
     def test_make_notes_with_devel_purpose(self):
         # Devel purpose points to the devel PPA and a warning is included.
         text = make_notes('1.21-alpha1', DEVEL, "  * One\n    Lp 1")
         self.assertIn(
-            'A new development release of Juju, juju 1.21-alpha1,'
-            ' is now available.',
+            'A new development release of Juju, 1.21-alpha1, is here!',
             text)
+        self.assertIn('sudo apt-add-repository ppa/devel', text)
         self.assertIn(
-            'https://launchpad.net/~juju/+archive/devel',
-            text)
-        self.assertIn(
-            '  * One\n    Lp 1',
-            text)
+            'https://jujucharms.com/docs/devel/temp-release-notes', text)
 
     def test_make_notes_with_notable(self):
         # The default value of None implies a stable bug fix release.
