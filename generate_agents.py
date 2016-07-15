@@ -119,8 +119,7 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
                                            'control'])
     control = deb822.Deb822(control_str)
     control_version = control['Version']
-    base_version = re.sub('-0ubuntu.*$', '', control_version)
-    base_version = re.sub('~.*$', '', base_version)
+    base_version = re.sub('(~|-0ubuntu).*$', '', control_version)
     major_minor = '.'.join(base_version.split('-')[0].split('.')[0:2])
     series = juju_series.get_name_from_package_version(control_version)
     architecture = control['Architecture']
