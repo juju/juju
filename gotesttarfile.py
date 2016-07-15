@@ -91,7 +91,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     with WorkingDirectory(package_dir):
         if verbose:
             print_now('Building test dependencies')
-        return_code = run(build_cmd, env=env)
+        returncode = run(build_cmd, env=env)
         if verbose:
             print_now('Running unit tests in %s' % package)
         returncode = run(test_cmd, env=env)
