@@ -106,6 +106,11 @@ find $WORK/src/ -type f -name *.go.orig -delete
 $SCRIPT_DIR/check_dependencies.py --delete-unknown --ignore $PACKAGE \
     "$WORKPACKAGE/dependencies.tsv" "$WORK/src"
 
+# Apply patches against the whole source tree from the juju project
+if [[ -d "$WORKPACKAGE/patches" ]]; then
+    $SCRIPT_DIR/apply_patches.py "$WORKPACKAGE/patches" "$WORK/src"
+fi
+
 # Run juju's fmt and vet script on the source after finding the right version
 if [[ $(lsb_release -sc) == "trusty" ]]; then
     CHECKSCRIPT=./scripts/verify.bash
