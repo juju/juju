@@ -200,11 +200,10 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 	} else {
 		path = defaultPath
 	}
-	path, err := utils.NormalizePath(path)
+	absPath, err := utils.NormalizePath(path)
 	if err != nil {
 		return "", userSpecified, errors.Trace(err)
 	}
-	absPath := path
 	if !filepath.IsAbs(absPath) {
 		absPath = osenv.JujuXDGDataHomePath(absPath)
 	}
