@@ -133,7 +133,9 @@ func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	s.command = backups.NewRestoreCommandForTest(
 		s.store, &mockRestoreAPI{},
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
-			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
+			return &mockArchiveReader{}, &params.BackupsMetadataResult{
+				CACert: testing.CACert,
+			}, nil
 		},
 		backups.GetEnvironFunc(fakeEnv, "mycloud"),
 	)
@@ -187,7 +189,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		Cloud:                  "mycloud",
 		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		APIEndpoints:           []string{"10.0.0.1:17777"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 	})
