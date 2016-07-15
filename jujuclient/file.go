@@ -449,10 +449,11 @@ func updateModels(
 		if all == nil {
 			all = make(map[string]*ControllerModels)
 		}
-		controllerModels = &ControllerModels{
-			Models: make(map[string]ModelDetails),
-		}
+		controllerModels = &ControllerModels{}
 		all[controllerName] = controllerModels
+	}
+	if controllerModels.Models == nil {
+		controllerModels.Models = make(map[string]ModelDetails)
 	}
 	updated, err := update(controllerModels)
 	if err != nil {

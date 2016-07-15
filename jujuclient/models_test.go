@@ -4,6 +4,7 @@
 package jujuclient_test
 
 import (
+	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -137,6 +138,27 @@ func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*details, jc.DeepEquals, testModelDetails)
 	}
+}
+
+func (s *ModelsSuite) TestUpdateModelEmptyModels(c *gc.C) {
+	// This test exists to exercise a bug caused by the
+	// presence of a file with an empty "models" field,
+	// that would lead to a panic.
+	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(`
+controllers:
+  ctrl:
+    models:
+`[1:]), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	err = s.store.UpdateModel("ctrl", "admin", testModelDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	models, err := s.store.AllModels("ctrl")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
+		"admin": testModelDetails,
+	})
 }
 
 func (s *ModelsSuite) TestRemoveModelNoFile(c *gc.C) {
