@@ -24,7 +24,7 @@ class FakePopen(object):
         return None, None
 
 
-class gotesttarfileTestCase(TestCase):
+class GotesttarfileTestCase(TestCase):
 
     def test_run_success(self):
         env = {'a': 'b'}
@@ -69,8 +69,10 @@ class gotesttarfileTestCase(TestCase):
                     returncode = go_test_package(
                         'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        self.assertEqual(run_mock.call_count, 2)
+        self.assertEqual(run_mock.call_count, 3)
         args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'test', '-i', './...'],), args)
+        args, kwargs = run_mock.call_args_list[1]
         self.assertEqual(
             (['go', 'test', '-timeout=1200s', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
@@ -92,8 +94,12 @@ class gotesttarfileTestCase(TestCase):
                             returncode = go_test_package(
                                 'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
+        self.assertEqual(run_mock.call_count, 3)
         args, kwargs = run_mock.call_args_list[0]
-        self.assertEqual(run_mock.call_count, 2)
+        self.assertEqual(
+            (['powershell.exe', '-Command', 'go', 'test', '-i', './...'], ),
+            args)
+        args, kwargs = run_mock.call_args_list[1]
         self.assertEqual(
             (['powershell.exe', '-Command', 'go', 'test',
               '-timeout=1200s', './...'], ),

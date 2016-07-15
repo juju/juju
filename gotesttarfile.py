@@ -69,6 +69,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
+    build_cmd = [go_cmd, 'test', '-i', './...']
+    test_cmd = [go_cmd, 'test', '-timeout=1200s', './...']
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sane_path = [p for p in env['PATH'].split(';') if 'OpenSSH' not in p]
@@ -83,15 +85,16 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         if verbose:
             print_now('Setting environ TMP and TEMP to:')
             print_now(env['TEMP'])
-        command = ['powershell.exe', '-Command', go_cmd,
-                   'test', '-timeout=1200s', './...']
-    else:
-        command = [go_cmd, 'test', '-timeout=1200s', './...']
+        build_cmd = ['powershell.exe', '-Command'] + build_cmd
+        test_cmd = ['powershell.exe', '-Command'] + test_cmd
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
+            print_now('Building test dependencies')
+        return_code = run(build_cmd, env=env)
+        if verbose:
             print_now('Running unit tests in %s' % package)
-        returncode = run(command, env=env)
+        returncode = run(test_cmd, env=env)
         if verbose:
             if returncode == 0:
                 print_now('SUCCESS')
