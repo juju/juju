@@ -7,6 +7,7 @@ package containerinit
 import (
 	"bytes"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"strings"
 
@@ -99,19 +100,35 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 			continue
 		} else if address == string(network.ConfigDHCP) {
 			output.WriteString("iface " + name + " inet dhcp\n")
+			// We're expecting to get a default gateway
+			// from the DHCP lease.
+			gatewayWritten = true
 			continue
 		}
 
 		output.WriteString("iface " + name + " inet static\n")
 		output.WriteString("  address " + address + "\n")
 		if !gatewayWritten && prepared.GatewayAddress != "" {
-			output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
-			gatewayWritten = true // write it only once
+			_, network, err := net.ParseCIDR(address)
+
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+
+			gatewayIP := net.ParseIP(prepared.GatewayAddress)
+			if network.Contains(gatewayIP) {
+				output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
+				gatewayWritten = true // write it only once
+			}
 		}
 	}
 
 	generatedConfig := output.String()
 	logger.Debugf("generated network config:\n%s", generatedConfig)
+
+	if !gatewayWritten {
+		logger.Infof("generated network config has no gateway")
+	}
 
 	return generatedConfig, nil
 }
@@ -158,8 +175,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 
 		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
 
-		if info.InterfaceName == "eth0" && gatewayAddress == "" {
-			// Only set gateway once for the primary NIC.
+		if gatewayAddress == "" && info.GatewayAddress.Value != "" {
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
