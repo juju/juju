@@ -27,10 +27,11 @@ type constraintsDoc struct {
 	Container    *instance.ContainerType
 	Tags         *[]string
 	Spaces       *[]string
+	VirtType     *string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
-	return constraints.Value{
+	result := constraints.Value{
 		Arch:         doc.Arch,
 		CpuCores:     doc.CpuCores,
 		CpuPower:     doc.CpuPower,
@@ -41,10 +42,14 @@ func (doc constraintsDoc) value() constraints.Value {
 		Tags:         doc.Tags,
 		Spaces:       doc.Spaces,
 	}
+	if doc.VirtType != nil {
+		result.VirtType = doc.VirtType
+	}
+	return result
 }
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
-	return constraintsDoc{
+	result := constraintsDoc{
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,
@@ -55,6 +60,10 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 		Tags:         cons.Tags,
 		Spaces:       cons.Spaces,
 	}
+	if cons.VirtType != nil {
+		result.VirtType = cons.VirtType
+	}
+	return result
 }
 
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {

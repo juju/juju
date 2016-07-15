@@ -947,6 +947,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		}
 	}
 
+	args.Constraints, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
