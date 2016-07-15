@@ -1,0 +1,605 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/Azure/azure-sdk-for-go",
+			"repository": "https://github.com/Azure/azure-sdk-for-go",
+			"vcs": "git",
+			"revision": "3b480eaaf6b4236d43a3c06cba969da6f53c8b66",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/ajstarks/svgo",
+			"repository": "https://github.com/ajstarks/svgo",
+			"vcs": "git",
+			"revision": "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/altoros/gosigma",
+			"repository": "https://github.com/altoros/gosigma",
+			"vcs": "git",
+			"revision": "31228935eec685587914528585da4eb9b073c76d",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/bmizerany/pat",
+			"repository": "https://github.com/bmizerany/pat",
+			"vcs": "git",
+			"revision": "c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/coreos/go-systemd",
+			"repository": "https://github.com/coreos/go-systemd",
+			"vcs": "git",
+			"revision": "7b2428fec40033549c68f54e26e89e7ca9a9ce31",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/dustin/go-humanize",
+			"repository": "https://github.com/dustin/go-humanize",
+			"vcs": "git",
+			"revision": "145fabdb1ab757076a70a886d092a3af27f66f4c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/gabriel-samfira/sys",
+			"repository": "https://github.com/gabriel-samfira/sys",
+			"vcs": "git",
+			"revision": "9ddc60d56b511544223adecea68da1e4f2153beb",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/godbus/dbus",
+			"repository": "https://github.com/godbus/dbus",
+			"vcs": "git",
+			"revision": "32c6cc29c14570de4cf6d7e7737d68fb2d01ad15",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/google/go-querystring",
+			"repository": "https://github.com/google/go-querystring",
+			"vcs": "git",
+			"revision": "9235644dd9e52eeae6fa48efd539fdc351a0af53",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/gorilla/schema",
+			"repository": "https://github.com/gorilla/schema",
+			"vcs": "git",
+			"revision": "08023a0215e7fc27a9aecd8b8c50913c40019478",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/gorilla/websocket",
+			"repository": "https://github.com/gorilla/websocket",
+			"vcs": "git",
+			"revision": "13e4d0621caa4d77fd9aa470ef6d7ab63d1a5e41",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/gosuri/uitable",
+			"repository": "https://github.com/gosuri/uitable",
+			"vcs": "git",
+			"revision": "36ee7e946282a3fb1cfecd476ddc9b35d8847e42",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/joyent/gocommon",
+			"repository": "https://github.com/joyent/gocommon",
+			"vcs": "git",
+			"revision": "ade826b8b54e81a779ccb29d358a45ba24b7809c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/joyent/gosdc",
+			"repository": "https://github.com/joyent/gosdc",
+			"vcs": "git",
+			"revision": "2f11feadd2d9891e92296a1077c3e2e56939547d",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/joyent/gosign",
+			"repository": "https://github.com/joyent/gosign",
+			"vcs": "git",
+			"revision": "0da0d5f1342065321c97812b1f4ac0c2b0bab56c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/blobstore",
+			"repository": "https://github.com/juju/blobstore",
+			"vcs": "git",
+			"revision": "06056004b3d7b54bbb7984d830c537bad00fec21",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/bundlechanges",
+			"repository": "https://github.com/juju/bundlechanges",
+			"vcs": "git",
+			"revision": "8d99dd2a94d7b4fd975a152238d0e19d0c4a6cf1",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/cmd",
+			"repository": "https://github.com/juju/cmd",
+			"vcs": "git",
+			"revision": "a11ae7a7436c133e799f025998cbbefd3f6eef7e",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/errors",
+			"repository": "https://github.com/juju/errors",
+			"vcs": "git",
+			"revision": "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/go4",
+			"repository": "https://github.com/juju/go4",
+			"vcs": "git",
+			"revision": "40d72ab9641a2a8c36a9c46a51e28367115c8e59",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/gojsonpointer",
+			"repository": "https://github.com/juju/gojsonpointer",
+			"vcs": "git",
+			"revision": "afe8b77aa08f272b49e01b82de78510c11f61500",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/gojsonreference",
+			"repository": "https://github.com/juju/gojsonreference",
+			"vcs": "git",
+			"revision": "f0d24ac5ee330baa21721cdff56d45e4ee42628e",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/gojsonschema",
+			"repository": "https://github.com/juju/gojsonschema",
+			"vcs": "git",
+			"revision": "e1ad140384f254c82f89450d9a7c8dd38a632838",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/gomaasapi",
+			"repository": "https://github.com/juju/gomaasapi",
+			"vcs": "git",
+			"revision": "5bd7212f416a2d801e4a39800b66e1ee4461c42e",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/govmomi",
+			"repository": "https://github.com/juju/govmomi",
+			"vcs": "git",
+			"revision": "4354a88d4b34abe467215f77c2fc1cb9f78b66f7",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/httpprof",
+			"repository": "https://github.com/juju/httpprof",
+			"vcs": "git",
+			"revision": "14bf14c307672fd2456bdbf35d19cf0ccd3cf565",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/httprequest",
+			"repository": "https://github.com/juju/httprequest",
+			"vcs": "git",
+			"revision": "796aaafaf712f666df58d31a482c51233038bf9f",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/idmclient",
+			"repository": "https://github.com/juju/idmclient",
+			"vcs": "git",
+			"revision": "3dda079a75cccb85083d4c3877e638f5d6ab79c2",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/loggo",
+			"repository": "https://github.com/juju/loggo",
+			"vcs": "git",
+			"revision": "8477fc936adf0e382d680310047ca27e128a309a",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/mempool",
+			"repository": "https://github.com/juju/mempool",
+			"vcs": "git",
+			"revision": "24974d6c264fe5a29716e7d56ea24c4bd904b7cc",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/mutex",
+			"repository": "https://github.com/juju/mutex",
+			"vcs": "git",
+			"revision": "59c26ee163447c5c57f63ff71610d433862013de",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/persistent-cookiejar",
+			"repository": "https://github.com/juju/persistent-cookiejar",
+			"vcs": "git",
+			"revision": "e710b897c13ca52828ca2fc9769465186fd6d15c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/replicaset",
+			"repository": "https://github.com/juju/replicaset",
+			"vcs": "git",
+			"revision": "fb7294cf57a1e2f08a57691f1246d129a87ab7e8",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/retry",
+			"repository": "https://github.com/juju/retry",
+			"vcs": "git",
+			"revision": "62c62032529169c7ec02fa48f93349604c345e1f",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/rfc",
+			"repository": "https://github.com/juju/rfc",
+			"vcs": "git",
+			"revision": "ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/romulus",
+			"repository": "https://github.com/juju/romulus",
+			"vcs": "git",
+			"revision": "6b52a14d619315a31ad4d7069db654c883d6f562",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/schema",
+			"repository": "https://github.com/juju/schema",
+			"vcs": "git",
+			"revision": "075de04f9b7d7580d60a1e12a0b3f50bb18e6998",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/testing",
+			"repository": "https://github.com/juju/testing",
+			"vcs": "git",
+			"revision": "ccf839b5a07a7a05009f8fa3ec41cd05fb2e0b08",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/txn",
+			"repository": "https://github.com/juju/txn",
+			"vcs": "git",
+			"revision": "99ec629d0066a4d73c54d8e021a7fc1dc07df614",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/usso",
+			"repository": "https://github.com/juju/usso",
+			"vcs": "git",
+			"revision": "68a59c96c178fbbad65926e7f93db50a2cd14f33",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/utils",
+			"repository": "https://github.com/juju/utils",
+			"vcs": "git",
+			"revision": "6219812829a3542c827c76cc75f416d4e6c94335",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/version",
+			"repository": "https://github.com/juju/version",
+			"vcs": "git",
+			"revision": "4ae6172c00626779a5a462c3e3d22fc0e889431a",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/webbrowser",
+			"repository": "https://github.com/juju/webbrowser",
+			"vcs": "git",
+			"revision": "54b8c57083b4afb7dc75da7f13e2967b2606a507",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/xml",
+			"repository": "https://github.com/juju/xml",
+			"vcs": "git",
+			"revision": "eb759a627588d35166bc505fceb51b88500e291e",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/juju/zip",
+			"repository": "https://github.com/juju/zip",
+			"vcs": "git",
+			"revision": "f6b1e93fa2e29a1d7d49b566b2b51efb060c982a",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/julienschmidt/httprouter",
+			"repository": "https://github.com/julienschmidt/httprouter",
+			"vcs": "git",
+			"revision": "77a895ad01ebc98a4dc95d8355bc825ce80a56f6",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/lxc/lxd",
+			"repository": "https://github.com/lxc/lxd",
+			"vcs": "git",
+			"revision": "62f62e9d6e0da14947023f99764eac29c26cef8d",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/mattn/go-runewidth",
+			"repository": "https://github.com/mattn/go-runewidth",
+			"vcs": "git",
+			"revision": "d96d1bd051f2bd9e7e43d602782b37b93b1b5666",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/rogpeppe/fastuuid",
+			"repository": "https://github.com/rogpeppe/fastuuid",
+			"vcs": "git",
+			"revision": "6724a57986aff9bff1a1770e9347036def7c89f6",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/crypto",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "aedad9a179ec1ea11b7064c57cbc6dc30d7724ec",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/net",
+			"repository": "https://go.googlesource.com/net",
+			"vcs": "git",
+			"revision": "ea47fc708ee3e20177f3ca3716217c4ab75942cb",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/oauth2",
+			"repository": "https://go.googlesource.com/oauth2",
+			"vcs": "git",
+			"revision": "11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "google.golang.org/api",
+			"repository": "https://code.googlesource.com/google-api-go-client",
+			"vcs": "git",
+			"revision": "0d3983fb069cb6651353fc44c5cb604e263f2a93",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "google.golang.org/cloud",
+			"repository": "https://code.googlesource.com/gocloud",
+			"vcs": "git",
+			"revision": "f20d6dcccb44ed49de45ae3703312cb46e627db1",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/amz.v3",
+			"repository": "https://gopkg.in/amz.v3",
+			"vcs": "git",
+			"revision": "a651c43e72df7778b14ac6b54e5ac119d32b1263",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/check.v1",
+			"repository": "https://gopkg.in/check.v1",
+			"vcs": "git",
+			"revision": "4f90aeace3a26ad7021961c297b22c42160c7b25",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/errgo.v1",
+			"repository": "https://gopkg.in/errgo.v1",
+			"vcs": "git",
+			"revision": "66cb46252b94c1f3d65646f54ee8043ab38d766c",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/goose.v1",
+			"repository": "https://gopkg.in/goose.v1",
+			"vcs": "git",
+			"revision": "495e6fa2ab89bc5ed2c8e1bbcbc4c9e4a3c97d37",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/ini.v1",
+			"repository": "https://gopkg.in/ini.v1",
+			"vcs": "git",
+			"revision": "776aa739ce9373377cd16f526cdf06cb4c89b40f",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/blobstore.v2",
+			"repository": "https://gopkg.in/juju/blobstore.v2",
+			"vcs": "git",
+			"revision": "51fa6e26128d74e445c72d3a91af555151cc3654",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/charm.v6-unstable",
+			"repository": "https://gopkg.in/juju/charm.v6-unstable",
+			"vcs": "git",
+			"revision": "8796be6021c9ecb20630950498ec515f7dd24575",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/charmrepo.v2-unstable",
+			"repository": "https://gopkg.in/juju/charmrepo.v2-unstable",
+			"vcs": "git",
+			"revision": "6e6733987fb03100f30e494cc1134351fe4a593b",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/charmstore.v5-unstable",
+			"repository": "https://gopkg.in/juju/charmstore.v5-unstable",
+			"vcs": "git",
+			"revision": "2cb9f80553dddaae8c5e2161ea45f4be5d9afc00",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/environschema.v1",
+			"repository": "https://gopkg.in/juju/environschema.v1",
+			"vcs": "git",
+			"revision": "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/jujusvg.v1",
+			"repository": "https://gopkg.in/juju/jujusvg.v1",
+			"vcs": "git",
+			"revision": "cc128825adce31ea13020d24e7b3302bac86a8c3",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/juju/names.v2",
+			"repository": "https://gopkg.in/juju/names.v2",
+			"vcs": "git",
+			"revision": "5426d66579afd36fc63d809dd58806806c2f161f",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/macaroon-bakery.v1",
+			"repository": "https://gopkg.in/macaroon-bakery.v1",
+			"vcs": "git",
+			"revision": "b097c9d99b2537efaf54492e08f7e148f956ba51",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/macaroon.v1",
+			"repository": "https://gopkg.in/macaroon.v1",
+			"vcs": "git",
+			"revision": "ab3940c6c16510a850e1c2dd628b919f0f3f1464",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/mgo.v2",
+			"repository": "https://gopkg.in/mgo.v2",
+			"vcs": "git",
+			"revision": "4d04138ffef2791c479c0c8bbffc30b34081b8d9",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/natefinch/lumberjack.v2",
+			"repository": "https://gopkg.in/natefinch/lumberjack.v2",
+			"vcs": "git",
+			"revision": "514cbda263a734ae8caac038dadf05f8f3f9f738",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/natefinch/npipe.v2",
+			"repository": "https://gopkg.in/natefinch/npipe.v2",
+			"vcs": "git",
+			"revision": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/yaml.v1",
+			"repository": "https://gopkg.in/yaml.v1",
+			"vcs": "git",
+			"revision": "9f9df34309c04878acc86042b16630b0f696e1de",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/yaml.v2",
+			"repository": "https://gopkg.in/yaml.v2",
+			"vcs": "git",
+			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
+			"branch": "HEAD",
+			"notests": true
+		},
+		{
+			"importpath": "launchpad.net/gnuflag",
+			"repository": "https://launchpad.net/gnuflag",
+			"vcs": "bzr",
+			"revision": "1",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "launchpad.net/tomb",
+			"repository": "https://launchpad.net/tomb",
+			"vcs": "bzr",
+			"revision": "1",
+			"branch": "master",
+			"notests": true
+		}
+	]
+}
