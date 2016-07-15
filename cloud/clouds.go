@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
@@ -128,12 +130,15 @@ type region struct {
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
+//DefaultLXD is the name of the default lxd cloud.
+const DefaultLXD = "localhost"
+
 // BuiltInClouds work out of the box.
 var BuiltInClouds = map[string]Cloud{
-	"localhost": {
-		Type:      "lxd",
+	DefaultLXD: {
+		Type:      lxdnames.ProviderType,
 		AuthTypes: []AuthType{EmptyAuthType},
-		Regions:   []Region{{Name: "localhost"}},
+		Regions:   []Region{{Name: lxdnames.DefaultRegion}},
 	},
 }
 
@@ -175,15 +180,17 @@ func RegionByName(regions []Region, name string) (*Region, error) {
 	}
 	return nil, errors.NewNotFound(nil, fmt.Sprintf(
 		"region %q not found (expected one of %q)",
-		name, cloudRegionNames(regions),
+		name, RegionNames(regions),
 	))
 }
 
-func cloudRegionNames(regions []Region) []string {
+// RegionNames returns a sorted list of the names of the given regions.
+func RegionNames(regions []Region) []string {
 	names := make([]string, len(regions))
 	for i, region := range regions {
 		names[i] = region.Name
 	}
+	sort.Strings(names)
 	return names
 }
 

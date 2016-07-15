@@ -4,8 +4,10 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/user"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -141,6 +143,9 @@ type bootstrapCommand struct {
 	Cloud               string
 	Region              string
 	noGUI               bool
+	interactive         bool
+
+	flagset *gnuflag.FlagSet
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -153,6 +158,9 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
+	// we need to store this so that later we can easily check how many flags
+	// have been set (for interactive mode).
+	c.flagset = f
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set model constraints")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
@@ -175,6 +183,21 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
+	if len(args) == 0 {
+		switch c.flagset.NFlag() {
+		case 0:
+			// no args or flags, go interactive.
+			c.interactive = true
+			return nil
+		case 1:
+			if c.UploadTools {
+				// juju bootstrap --upload-tools is ok for interactive, too.
+				c.interactive = true
+				return nil
+			}
+			// some other flag was set, which means non-interactive.
+		}
+	}
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return fmt.Errorf("--clouds and --regions can't be used together")
 	}
@@ -279,6 +302,12 @@ run juju autoload-credentials and specify a credential using the --credential ar
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	if c.interactive {
+		if err := c.runInteractive(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		// now run normal bootstrap using info gained above.
+	}
 	if c.showClouds {
 		return printClouds(ctx, c.ClientStore())
 	}
@@ -681,6 +710,49 @@ to clean up the model.`[1:])
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName)
+}
+
+// runInteractive queries the user about bootstrap config interactively at the
+// command prompt.
+func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
+	scanner := bufio.NewScanner(ctx.Stdin)
+	clouds, err := assembleClouds()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.Cloud, err = queryCloud(clouds, jujucloud.DefaultLXD, scanner, ctx.Stdout)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloud, err := jujucloud.CloudByName(c.Cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	switch len(cloud.Regions) {
+	case 0:
+		// No region to choose, nothing to do.
+	case 1:
+		// If there's just one, don't prompt, just use it.
+		c.Region = cloud.Regions[0].Name
+	default:
+		c.Region, err = queryRegion(c.Cloud, cloud.Regions, scanner, ctx.Stdout)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	var username string
+	if u, err := user.Current(); err == nil {
+		username = u.Username
+	}
+	defName := defaultControllerName(username, c.Cloud, c.Region, cloud)
+
+	c.controllerName, err = queryName(defName, scanner, ctx.Stdout)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // getRegion returns the cloud.Region to use, based on the specified

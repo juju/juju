@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -59,7 +60,7 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
 	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: "localhost"}})
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
