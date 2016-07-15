@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Juju"
-#define MyAppVersion "2.0-beta12"
+#define MyAppVersion "2.0-beta13"
 #define MyAppPublisher "Canonical, Ltd"
 #define MyAppURL "http://juju.ubuntu.com/"
 #define MyAppExeName "juju.exe"
@@ -51,13 +51,13 @@ Filename: "{app}\README.txt"; Description: "View the README file"; Flags: postin
 
 [Code]
 const
-	ModPathName= 'modifypath';
+    ModPathName= 'modifypath';
   ModPathType = 'system';
 
 function ModPathDir(): TArrayOfString;
 begin
-	setArrayLength(Result, 1)
-	Result[0] := ExpandConstant('{app}');
+    setArrayLength(Result, 1)
+    Result[0] := ExpandConstant('{app}');
 end;
 
 #include "modpath.iss"
