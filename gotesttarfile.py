@@ -92,6 +92,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         if verbose:
             print_now('Building test dependencies')
         returncode = run(build_cmd, env=env)
+        if returncode != 0:
+            return returncode
         if verbose:
             print_now('Running unit tests in %s' % package)
         returncode = run(test_cmd, env=env)

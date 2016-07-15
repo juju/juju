@@ -5,9 +5,9 @@ from mock import (
     patch,
 )
 import os
-from unittest import TestCase
 
 import gotestwin
+from tests import TestCase
 from utility import temp_dir
 
 
@@ -25,10 +25,10 @@ def working_directory(path):
         os.chdir(curdir)
 
 
-@patch('subprocess.check_output', return_value='path/foo.tar.gz')
-@patch('subprocess.check_call')
 class GoTestWinTestCase(TestCase):
 
+    @patch('subprocess.check_output', return_value='path/foo.tar.gz')
+    @patch('subprocess.check_call')
     def test_main_with_revision(self, cc_mock, co_mock):
         with temp_dir() as base:
             with working_directory(base):
@@ -50,7 +50,8 @@ class GoTestWinTestCase(TestCase):
              'temp-config.yaml', 'Administrator@host'])
         self.assertEqual([tarfile_call, gotest_call], cc_mock.call_args_list)
 
-    def test_main_with_tarfile_and_package(self, cc_mock, co_mock):
+    @patch('subprocess.check_call')
+    def test_main_with_tarfile_and_package(self, cc_mock):
         with temp_dir() as base:
             with working_directory(base):
                 gotestwin.main(
@@ -62,7 +63,6 @@ class GoTestWinTestCase(TestCase):
             ['python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
              'github.com/juju/juju/cmd', '--remove', 'ci/bar.tar.gz'],
             data['command'])
-        self.assertEqual(0, co_mock.call_count)
         cc_mock.assert_called_once_with(
             ['workspace-run', '-v', '-i', 'cloud-city/staging-juju-rsa',
              'temp-config.yaml', 'Administrator@host'])

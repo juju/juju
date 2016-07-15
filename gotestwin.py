@@ -17,21 +17,22 @@ SCRIPTS = dirname(__file__)
 def main(argv=None):
     parser = ArgumentParser()
     parser.add_argument('host', help='The machine to test on.')
-    parser.add_argument('revision',
+    parser.add_argument('revision_or_tarfile',
                         help='The revision-build or tarfile path to test.')
     parser.add_argument('package', nargs='?', default='github.com/juju/juju',
                         help='The package to test.')
     args = parser.parse_args(argv)
 
-    if args.revision.endswith('tar.gz'):
-        downloaded = args.revision
+    if args.revision_or_tarfile.endswith('tar.gz'):
+        downloaded = args.revision_or_tarfile
     else:
+        revision = args.revision_or_tarfile
         juju_ci_path = join(SCRIPTS, 'jujuci.py')
         downloaded = subprocess.check_output([
-            juju_ci_path, 'get', '-b', args.revision, 'build-revision',
+            juju_ci_path, 'get', '-b', revision, 'build-revision',
             '*.tar.gz', './'])
         subprocess.check_call([
-            juju_ci_path, 'get-build-vars', '--summary', args.revision])
+            juju_ci_path, 'get-build-vars', '--summary', revision])
     (tarfile,) = [basename(l) for l in downloaded.splitlines()]
 
     with open('temp-config.yaml', 'w') as temp_file:

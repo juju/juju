@@ -112,6 +112,22 @@ class GotesttarfileTestCase(TestCase):
         run_mock.assert_called_with(
             ['taskkill.exe', '/F', '/FI', 'imagename eq mongod.exe'])
 
+    def test_go_test_package_compile_failure(self):
+        with temp_dir() as gopath:
+            package_path = os.path.join(
+                gopath, 'src', 'github.com', 'juju', 'juju')
+            os.makedirs(package_path)
+            with patch('gotesttarfile.run', return_value=1,
+                       autospec=True) as run_mock:
+                devnull = open(os.devnull, 'w')
+                with patch('sys.stdout', devnull):
+                    returncode = go_test_package(
+                        'github.com/juju/juju', 'go', gopath)
+        self.assertEqual(1, returncode)
+        self.assertEqual(run_mock.call_count, 1)
+        args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'test', '-i', './...'],), args)
+
     def test_parse_args(self):
         args = parse_args(
             ['-v', '-g', 'go', '-p' 'github/foo', '-r', 'juju.tar.gz'])
