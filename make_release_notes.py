@@ -18,41 +18,36 @@ DEVEL = 'development'
 PROPOSED = 'proposed'
 
 DEVEL_TEMPLATE = """\
-# Juju {version}
+A new development release of Juju, {version} is here!
 
-A new development release of Juju, juju {version}, is now available.
-This release replaces version {previous}.
-
-
-## Getting Juju
-
-Juju {version} is available for Yakkety and backported to earlier
-series in the following PPA:
-
-    https://launchpad.net/~juju/+archive/devel
-
-Windows, Centos, and OS X users will find installers at:
-
-    https://launchpad.net/juju-core/+milestone/{version}
-
-Upgrading 1.x environments to {version} is not yet supported. Once 2.x is
-proven we will provide an upgrade path from 1.25
-
-
-## Notable Changes
+## What's new?
 
 {notable}
 
+## How do I get it?
 
-## Resolved issues
+If you are running ubuntu, you can get it from the juju devel ppa:
 
-{resolved_text}
+sudo apt-add-repository ppa/devel
+sudo apt update; sudo apt install juju-2.0
 
+Windows, Centos, and OS X users can get a corresponding installer at:
 
-Finally
+    https://launchpad.net/juju-core/+milestone/{version}
+
+## Feedback Appreciated!
 
 We encourage everyone to subscribe the mailing list at
-juju@lists.ubuntu.com, or join us on #juju on freenode.
+juju@lists.ubuntu.com and join us on #juju on freenode. We would love to hear
+your feedback and usage of juju.
+
+## Anything else?
+
+You can read more information about what's in this release by viewing the
+release notes here:
+
+https://jujucharms.com/docs/devel/temp-release-notes
+
 """
 
 PROPOSED_TEMPLATE = """\
