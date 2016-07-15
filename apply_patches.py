@@ -5,7 +5,6 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import os
-import shutil
 import subprocess
 import sys
 
