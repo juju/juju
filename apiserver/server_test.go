@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -423,6 +424,48 @@ type fakeResource struct {
 func (r *fakeResource) Stop() error {
 	r.stopped = true
 	return nil
+}
+
+func (s *serverSuite) TestApiHandlerHasPermission(c *gc.C) {
+	u, err := s.State.AddUser("foobar", "Foo Bar", "password", "read")
+	c.Assert(err, jc.ErrorIsNil)
+	user, err := names.ParseUserTag("user-foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	cu, err := s.State.ControllerUser(user)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cu.Access(), gc.Equals, description.LoginAccess)
+
+	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
+	hasPermission := handler.HasPermission(description.LoginAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
+	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
+	c.Assert(hasPermission, jc.IsFalse)
+	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
+	c.Assert(hasPermission, jc.IsFalse)
+
+	err = cu.SetAccess(description.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hasPermission = handler.HasPermission(description.LoginAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
+	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
+	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
+	c.Assert(hasPermission, jc.IsFalse)
+
+	err = cu.SetAccess(description.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hasPermission = handler.HasPermission(description.LoginAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
+	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
+	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
+	c.Assert(hasPermission, jc.IsTrue)
 }
 
 func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {

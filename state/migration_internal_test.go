@@ -79,6 +79,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
+		// Controller users contain extra data about users therefore
+		// are not migrated either.
+		controllerUsersC,
 		// userenvnameC is just to provide a unique key constraint.
 		usermodelnameC,
 		// Metrics aren't migrated.
@@ -176,6 +179,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// If this test fails, it means that a new collection has been added
 	// but migrations for it has not been done. This is a Bad Thing™.
+	// Beware, if your collection is something controller-related it might
+	// not need migration (such as Users or ControllerUsers) in that
+	// case they only need to be accounted for among the ignored collections.
 	c.Assert(remainder, gc.HasLen, 0)
 }
 

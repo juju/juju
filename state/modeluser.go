@@ -60,6 +60,11 @@ type modelUserLastConnectionDoc struct {
 	LastConnection time.Time `bson:"last-connection"`
 }
 
+// Access returns the access level of this model user.
+func (e *ModelUser) Access() description.Access {
+	return e.modelPermission.access()
+}
+
 // ID returns the ID of the model user.
 func (e *ModelUser) ID() string {
 	return e.doc.ID
@@ -206,15 +211,10 @@ func (e *ModelUser) updateLastConnection(when time.Time) error {
 	return errors.Trace(err)
 }
 
-func modelUserGlobalKey(userID string) string {
-	// e model us user <name> key.
-	return fmt.Sprintf("%s#us#%s", modelGlobalKey, userID)
-}
-
 func (e *ModelUser) globalKey() string {
 	// TODO(perrito666) this asumes out of band knowledge of how modelUserID is crafted
 	username := strings.ToLower(e.UserName())
-	return modelUserGlobalKey(username)
+	return userWithGlobalKey(username)
 }
 
 // ModelUser returns the model user.
@@ -295,7 +295,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(modelGlobalKey, modelUserGlobalKey(modelUserID(user)), access),
+		createPermissionOp(modelGlobalKey, userWithGlobalKey(modelUserID(user)), access),
 		{
 			C:      modelUsersC,
 			Id:     modelUserID(user),
@@ -309,7 +309,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 // RemoveModelUser removes a user from the database.
 func (st *State) RemoveModelUser(user names.UserTag) error {
 	ops := []txn.Op{
-		removePermissionOp(modelGlobalKey, modelUserGlobalKey(modelUserID(user))),
+		removePermissionOp(modelGlobalKey, userWithGlobalKey(modelUserID(user))),
 		{
 			C:      modelUsersC,
 			Id:     modelUserID(user),
@@ -394,7 +394,7 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	subjectGlobalKey := modelUserGlobalKey(username)
+	subjectGlobalKey := userWithGlobalKey(username)
 
 	// TODO(perrito666) 20160606 this is prone to errors, it will just
 	// yield ErrPerm and be hard to trace, use ModelUser and Permission.
