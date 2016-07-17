@@ -441,7 +441,6 @@ var commandNames = []string{
 	"machines",
 	"models",
 	"plans",
-	"publish",
 	"register",
 	"relate", //alias for add-relation
 	"remove-all-blocks",

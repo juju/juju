@@ -248,9 +248,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeJujuCommand(nil))
 	r.Register(application.NewUpgradeCharmCommand())
 
-	// Charm publishing commands.
-	r.Register(newPublishCommand())
-
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
 	r.Register(charmcmd.NewSuperCommand())
