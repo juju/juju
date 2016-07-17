@@ -241,7 +241,7 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	}
 
 	for _, u := range st.controllerModel.users {
-		if user.Name() == u.UserName() && u.access == state.AdminAccess {
+		if user.Name() == u.UserName() && u.access == description.AdminAccess {
 			nextErr := st.NextErr()
 			if user.Name() != "admin" {
 				panic(user.Name())

@@ -79,9 +79,9 @@ func (p *permission) isGreaterAccess(a description.Access) bool {
 }
 
 func permissionID(objectKey, subjectKey string) string {
-	// example: e#mo#jim
+	// example: e#us#jim
 	// e: model global key (its always e).
-	// mo: model user key prefix.
+	// us: user key prefix.
 	// jim: an arbitrary username.
 	return fmt.Sprintf("%s#%s", objectKey, subjectKey)
 }

@@ -457,7 +457,7 @@ func resolveStateAccess(access permission.ModelAccess) (description.Access, erro
 	var fail description.Access
 	switch access {
 	case permission.ModelAdminAccess:
-		return state.AdminAccess, nil
+		return description.AdminAccess, nil
 	case permission.ModelReadAccess:
 		return description.ReadAccess, nil
 	case permission.ModelWriteAccess:

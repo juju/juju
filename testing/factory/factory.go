@@ -46,13 +46,14 @@ func NewFactory(st *state.State) *Factory {
 
 // UserParams defines the parameters for creating a user with MakeUser.
 type UserParams struct {
-	Name        string
-	DisplayName string
-	Password    string
-	Creator     names.Tag
-	NoModelUser bool
-	Disabled    bool
-	Access      description.Access
+	Name                string
+	DisplayName         string
+	Password            string
+	Creator             names.Tag
+	NoModelUser         bool
+	Disabled            bool
+	Access              description.Access
+	ExpectedCreateError string
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -183,7 +184,11 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	if params.ExpectedCreateError != "" {
+		c.Assert(err, gc.ErrorMatches, params.ExpectedCreateError)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	if !params.NoModelUser {
 		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
