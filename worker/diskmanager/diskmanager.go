@@ -5,6 +5,7 @@ package diskmanager
 
 import (
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/juju/loggo"
@@ -55,6 +56,9 @@ func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.Bloc
 		return err
 	}
 	storage.SortBlockDevices(blockDevices)
+	for _, blockDevice := range blockDevices {
+		sort.Strings(blockDevice.DeviceLinks)
+	}
 	if reflect.DeepEqual(blockDevices, *old) {
 		logger.Tracef("no changes to block devices detected")
 		return nil
