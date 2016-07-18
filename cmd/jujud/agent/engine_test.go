@@ -83,6 +83,9 @@ var (
 		"leadership-tracker",
 		"logging-config-updater",
 		"meter-status",
+		"metric-collect",
+		"metric-sender",
+		"metric-spool",
 		"proxy-config-updater",
 		"uniter",
 	}
