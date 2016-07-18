@@ -146,7 +146,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller (controller-name):
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -194,7 +194,7 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller (controller-name):
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -337,9 +337,9 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-WARNING: the controller proposed "controller-name" which clashes with an existing controller. The two controllers are entirely different.
+WARNING: The controller proposed "controller-name" which clashes with an existing controller. The two controllers are entirely different.
 
-Please set a name for this controller:
+Enter a name for this controller: 
 `[1:])
 
 }

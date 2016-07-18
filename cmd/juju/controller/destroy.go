@@ -68,7 +68,7 @@ var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
 This includes all machines, applications, data and other resources.
 
-Continue [y/N]? `[1:]
+Continue? (y/N):`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
