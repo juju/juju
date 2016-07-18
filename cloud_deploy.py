@@ -12,8 +12,7 @@ from jujucharm import (
 )
 from jujupy import (
     CannotConnectEnv,
-    EnvJujuClient,
-    SimpleEnvironment,
+    client_from_config,
 )
 from substrate import (
     LIBVIRT_DOMAIN_RUNNING,
@@ -31,8 +30,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
 
     :param environment: The name of the desired environment.
     """
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(environment), debug=debug)
+    client = client_from_config(environment, None, debug=debug)
     running_domains = dict()
     if client.env.config['type'] == 'maas':
         # Split the hypervisor_URI and machine name

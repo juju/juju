@@ -879,16 +879,6 @@ class EnvJujuClient:
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
-    @classmethod
-    def by_version(cls, env, juju_path=None, debug=False):
-        version = cls.get_version(juju_path)
-        if juju_path is None:
-            full_path = cls.get_full_path()
-        else:
-            full_path = os.path.abspath(juju_path)
-        client_class = get_client_class(version)
-        return client_class(env, version, full_path, debug=debug)
-
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""
         version = self.get_version(juju_path)
