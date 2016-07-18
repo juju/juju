@@ -196,6 +196,8 @@ type Constraints interface {
 
 	Spaces() []string
 	Tags() []string
+
+	VirtType() string
 }
 
 // Status represents an agent, application, or workload status.
