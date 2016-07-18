@@ -947,7 +947,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		}
 	}
 
-	args.Constraints, err = st.resolveConstraints(args.Constraints)
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -198,6 +198,18 @@ var setConstraintsTests = []struct {
 	effectiveServiceCons: "virt-type=kvm",
 	effectiveUnitCons:    "virt-type=kvm",
 	effectiveMachineCons: "virt-type=kvm",
+}, {
+	about:        "ensure model and application constraints are separate",
+	consToSet:    "virt-type=kvm",
+	consFallback: "mem=2G",
+
+	// application deployment constraints are transformed into machine
+	// provisioning constraints. Unit constraints must also have virt-type set
+	// to ensure consistency in scalability.
+	effectiveModelCons:   "mem=2G",
+	effectiveServiceCons: "virt-type=kvm",
+	effectiveUnitCons:    "mem=2G virt-type=kvm",
+	effectiveMachineCons: "mem=2G virt-type=kvm",
 }}
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
