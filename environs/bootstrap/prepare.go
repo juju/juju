@@ -190,6 +190,16 @@ func prepare(
 		return nil, details, errors.New("controller config is missing CA certificate")
 	}
 
+	// We want to store attributes describing how a controller has been configured.
+	// These do not include the CACert or UUID since they will be replaced with new
+	// values when/if we need to use this configuration.
+	details.ControllerConfig = make(controller.Config)
+	for k, v := range args.ControllerConfig {
+		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
+			continue
+		}
+		details.ControllerConfig[k] = v
+	}
 	details.CACert = caCert
 	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
 	details.User = environs.AdminUser

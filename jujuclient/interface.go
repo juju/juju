@@ -3,7 +3,10 @@
 
 package jujuclient
 
-import "github.com/juju/juju/cloud"
+import (
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+)
 
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
@@ -59,9 +62,12 @@ type AccountDetails struct {
 // bootstrap configuration. A reference to the credential used will be
 // stored, rather than the credential itself.
 type BootstrapConfig struct {
+	// ControllerConfig is the controller configuration.
+	ControllerConfig controller.Config `yaml:"controller-config"`
+
 	// ModelConfig is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
-	Config map[string]interface{} `yaml:"config"`
+	Config map[string]interface{} `yaml:"base-model-config"`
 
 	// Credential is the name of the credential used to bootstrap.
 	//

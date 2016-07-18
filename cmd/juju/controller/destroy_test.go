@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -124,10 +123,6 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 		"uuid":       testing.ModelTag.Id(),
 		"controller": "true",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	cfg, err = cfg.Remove(jujucontroller.ControllerOnlyConfigAttributes)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg.AllAttrs()
 }

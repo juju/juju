@@ -385,6 +385,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		return nil, nil, errors.Trace(err)
 	}
 	return &jujuclient.BootstrapConfig{
+			ControllerConfig:     bootstrapConfig.ControllerConfig,
 			Credential:           bootstrapConfig.Credential,
 			Cloud:                bootstrapConfig.Cloud,
 			CloudRegion:          bootstrapConfig.CloudRegion,
