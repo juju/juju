@@ -65,6 +65,20 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 	}
 	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
+		var resp params.RedirectInfoResult
+		if params.IsRedirect(err) {
+			// We've been asked to redirect. Find out the redirection info.
+			// If the rpc packet allowed us to return arbitrary information in
+			// an error, we'd probably put this information in the Login response,
+			// but we can't do that currently.
+			if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+				return errors.Annotatef(err, "cannot get redirect addresses")
+			}
+			return &RedirectError{
+				Servers: params.NetworkHostsPorts(resp.Servers),
+				CACert:  resp.CACert,
+			}
+		}
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {
@@ -97,16 +111,23 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 	}
 
+	var readOnly bool
 	if result.UserInfo != nil {
-		// This was a macaroon based user authentication.
 		tag, err = names.ParseTag(result.UserInfo.Identity)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		readOnly = result.UserInfo.ReadOnly
 	}
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.ModelTag, result.ControllerTag, servers, result.Facades)
-	if err != nil {
+	if err = st.setLoginResult(loginResultParams{
+		tag:           tag,
+		modelTag:      result.ModelTag,
+		controllerTag: result.ControllerTag,
+		servers:       servers,
+		facades:       result.Facades,
+		readOnly:      readOnly,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 	st.serverVersion, err = version.Parse(result.ServerVersion)
@@ -116,12 +137,22 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
-	st.authTag = tag
-	st.modelTag = modelTag
-	st.controllerTag = controllerTag
+type loginResultParams struct {
+	tag           names.Tag
+	modelTag      string
+	controllerTag string
+	readOnly      bool
+	servers       [][]network.HostPort
+	facades       []params.FacadeVersions
+}
 
-	hostPorts, err := addAddress(servers, st.addr)
+func (st *state) setLoginResult(p loginResultParams) error {
+	st.authTag = p.tag
+	st.modelTag = p.modelTag
+	st.controllerTag = p.controllerTag
+	st.readOnly = p.readOnly
+
+	hostPorts, err := addAddress(p.servers, st.addr)
 	if err != nil {
 		if clerr := st.Close(); clerr != nil {
 			err = errors.Annotatef(err, "error closing state: %v", clerr)
@@ -130,8 +161,8 @@ func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, s
 	}
 	st.hostPorts = hostPorts
 
-	st.facadeVersions = make(map[string][]int, len(facades))
-	for _, facade := range facades {
+	st.facadeVersions = make(map[string][]int, len(p.facades))
+	for _, facade := range p.facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
 
@@ -142,6 +173,12 @@ func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, s
 // AuthTag returns the tag of the authorized user of the state API connection.
 func (st *state) AuthTag() names.Tag {
 	return st.authTag
+}
+
+// ReadOnly returns whether the authorized user is connected to the model in
+// read-only mode.
+func (st *state) ReadOnly() bool {
+	return st.readOnly
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be

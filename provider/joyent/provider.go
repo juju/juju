@@ -52,7 +52,7 @@ func (joyentProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (joyentProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
@@ -76,7 +76,7 @@ func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.

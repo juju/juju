@@ -27,7 +27,7 @@ type EnvironProvider interface {
 	// for new environments that may be created in an existing juju server.
 	// Note that this is not called in a client context, so environment variables,
 	// local files, etc are not available.
-	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
+	PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error)
 
 	// PrepareForBootstrap prepares an environment for use.
 	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
@@ -71,6 +71,9 @@ type ProviderSchema interface {
 
 // BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
 type BootstrapConfigParams struct {
+	// ControllerUUID is the UUID of the controller to be bootstrapped.
+	ControllerUUID string
+
 	// Config is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
 	Config *config.Config
@@ -212,25 +215,29 @@ type Environ interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
 	// ControllerInstances returns the IDs of instances corresponding
-	// to Juju controllers. If there are no controller instances,
-	// ErrNoInstances is returned. If it can be determined that the
-	// environment has not been bootstrapped, then ErrNotBootstrapped
-	// should be returned instead.
-	ControllerInstances() ([]instance.Id, error)
+	// to Juju controller, having the specified controller UUID.
+	// If there are no controller instances, ErrNoInstances is returned.
+	// If it can be determined that the environment has not been bootstrapped,
+	// then ErrNotBootstrapped should be returned instead.
+	ControllerInstances(controllerUUID string) ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,
 	// very recently started instances may not be destroyed
 	// because they are not yet visible.
 	//
-	// If the Environ represents the controller model, then this
-	// method should also destroy any resources relating to hosted
-	// models. This ensures that "kill-controller" can clean up
-	// hosted models when the Juju controller process is unavailable.
-	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid.
 	Destroy() error
+
+	// DestroyController is similar to Destroy() in that it destroys
+	// the model, which in this case will be the controller model.
+	//
+	// In addition, this method also destroys any resources relating
+	// to hosted models on the controller on which it is invoked.
+	// This ensures that "kill-controller" can clean up hosted models
+	// when the Juju controller process is unavailable.
+	DestroyController(controllerUUID string) error
 
 	Firewaller
 
@@ -265,16 +272,4 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
-}
-
-// MigrationConfigUpdater is an optional interface that a provider
-// can implement that will be called when the model is being imported
-// into a new controller as part of model migration. If the provider stores
-// information specific to the controller, this information can be extracted
-// from the controller config.
-//
-// The return value is a map containing changes that are necessary to be
-// applied to the model's config for the new controller.
-type MigrationConfigUpdater interface {
-	MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{}
 }

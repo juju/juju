@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/watcher"
 )
 
@@ -49,12 +49,22 @@ func (e *ModelWatcher) ModelConfig() (*config.Config, error) {
 	return conf, nil
 }
 
-// ControllerConfig returns the current controller configuration.
-func (e *ModelWatcher) ControllerConfig() (controller.Config, error) {
-	var result params.ControllerConfigResult
-	err := e.facade.FacadeCall("ControllerConfig", nil, &result)
+// WatchForLogForwardConfigChanges return a NotifyWatcher waiting for the
+// log forward syslog configuration to change.
+func (e *ModelWatcher) WatchForLogForwardConfigChanges() (watcher.NotifyWatcher, error) {
+	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
+	// For now, we'll piggyback off the ModelConfig API.
+	return e.WatchForModelConfigChanges()
+}
+
+// LogForwardConfig returns the current log forward syslog configuration.
+func (e *ModelWatcher) LogForwardConfig() (*syslog.RawConfig, bool, error) {
+	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
+	// For now, we'll piggyback off the ModelConfig API.
+	modelConfig, err := e.ModelConfig()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return controller.Config(result.Config), nil
+	cfg, ok := modelConfig.LogFwdSyslog()
+	return cfg, ok, nil
 }

@@ -42,6 +42,7 @@ type Controller interface {
 // ControllerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
+	*common.ControllerConfigAPI
 	state      *state.State
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -74,10 +75,11 @@ func NewControllerAPI(
 	}
 
 	return &ControllerAPI{
-		state:      st,
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		resources:  resources,
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		state:               st,
+		authorizer:          authorizer,
+		apiUser:             apiUser,
+		resources:           resources,
 	}, nil
 }
 
@@ -191,23 +193,17 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerModel.Config()
+	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result.Config = config.AllAttrs()
-	return result, nil
-}
-
-// ControllerConfig returns the controller's configuration.
-func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error) {
-	result := params.ControllerConfigResult{}
-	config, err := s.state.ControllerConfig()
-	if err != nil {
-		return result, err
+	result.Config = make(map[string]params.ConfigValue)
+	for name, val := range cfg.AllAttrs() {
+		result.Config[name] = params.ConfigValue{
+			Value: val,
+		}
 	}
-	result.Config = params.ControllerConfig(config)
 	return result, nil
 }
 

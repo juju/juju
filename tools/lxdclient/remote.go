@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	lxdshared "github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -191,7 +193,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 	// TODO: jam 2016-02-25 This should be updated for systems that are
 	// 	 space aware, as we may not be just using the default LXC
 	// 	 bridge.
-	addr, err := utils.GetAddressForInterface(DefaultLXDBridge)
+	addr, err := utils.GetAddressForInterface(network.DefaultLXDBridge)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
@@ -206,9 +208,3 @@ func (r Remote) UsingTCP() (Remote, error) {
 
 	return r, nil
 }
-
-// TODO(ericsnow) Add a "Connect(Config)" method that connects
-// to the remote and returns the corresponding Client.
-
-// TODO(ericsnow) Add a "Register" method to Client that adds the remote
-// to the client's remote?

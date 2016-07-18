@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -25,7 +26,6 @@ import (
 )
 
 var addMachineDoc = `
-
 Juju supports adding machines using provider-specific machine instances
 (EC2 instances, OpenStack servers, MAAS nodes, etc.); existing machines
 running a supported operating system (see "manual provisioning" below),
@@ -67,8 +67,8 @@ Examples:
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
-See also:
-    remove-machine
+See Also:
+    juju remove-machine
 `
 
 func init() {
@@ -110,17 +110,17 @@ func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
-		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
+		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
 		Aliases: []string{"add-machines"},
 	}
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "series", "", "the charm series")
+	f.StringVar(&c.Series, "series", "", "The charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
-	f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Additional machine constraints")
+	f.Var(disksFlag{&c.Disks}, "disks", "Constraints for disks to attach to the machine")
 }
 
 func (c *addCommand) Init(args []string) error {
@@ -215,12 +215,17 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		logger.Infof("manual provisioning")
+		authKeys, err := common.ReadAuthorizedKeys(ctx, "")
+		if err != nil {
+			return errors.Annotate(err, "reading authorized-keys")
+		}
 		args := manual.ProvisionMachineArgs{
-			Host:   c.Placement.Directive,
-			Client: client,
-			Stdin:  ctx.Stdin,
-			Stdout: ctx.Stdout,
-			Stderr: ctx.Stderr,
+			Host:           c.Placement.Directive,
+			Client:         client,
+			Stdin:          ctx.Stdin,
+			Stdout:         ctx.Stdout,
+			Stderr:         ctx.Stderr,
+			AuthorizedKeys: authKeys,
 			UpdateBehavior: &params.UpdateBehavior{
 				config.EnableOSRefreshUpdate(),
 				config.EnableOSUpgrade(),

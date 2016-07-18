@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -58,6 +57,10 @@ type ProvisionMachineArgs struct {
 	// Stderr is required to present machine provisioning progress to the user.
 	Stderr io.Writer
 
+	// AuthorizedKeys contains the concatenated authorized-keys to add to the
+	// ubuntu user's ~/.ssh/authorized_keys.
+	AuthorizedKeys string
+
 	*params.UpdateBehavior
 }
 
@@ -87,8 +90,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
 	user, hostname := splitUserHost(args.Host)
-	authorizedKeys, err := config.ReadAuthorizedKeys("")
-	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+	if err := InitUbuntuUser(hostname, user, args.AuthorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 

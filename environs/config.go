@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -102,23 +100,4 @@ func RegisteredProviders() []string {
 // Provider returns the previously registered provider with the given type.
 func Provider(providerType string) (EnvironProvider, error) {
 	return GlobalProviderRegistry().Provider(providerType)
-}
-
-// BootstrapConfig returns a copy of the supplied configuration with the
-// admin-secret and ca-private-key attributes removed. If the resulting
-// config is not suitable for bootstrapping an environment, an error is
-// returned.
-func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	m := cfg.AllAttrs()
-	// We never want to push admin-secret or the root CA private key to the cloud.
-	delete(m, "admin-secret")
-	delete(m, "ca-private-key")
-	cfg, err := config.New(config.NoDefaults, m)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("model configuration has no agent-version")
-	}
-	return cfg, nil
 }

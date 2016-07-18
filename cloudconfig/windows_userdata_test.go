@@ -712,7 +712,7 @@ New-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS'
 Set-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS' -Value ''
 mkdir 'C:\Juju\lib\juju\agents\machine-10'
 Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
-# format 1.18
+# format 2.0
 tag: machine-10
 datadir: C:/Juju/lib/juju
 logdir: C:/Juju/log/juju

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -41,45 +41,6 @@ const (
 	// useful for clouds without support for either global or per
 	// instance security groups.
 	FwNone = "none"
-
-	// DefaultStatePort is the default port the controller is listening on.
-	DefaultStatePort int = 37017
-
-	// DefaultApiPort is the default port the API server is listening on.
-	DefaultAPIPort int = 17070
-
-	// DefaultBootstrapSSHTimeout is the amount of time to wait
-	// contacting a controller, in seconds.
-	DefaultBootstrapSSHTimeout int = 600
-
-	// DefaultBootstrapSSHRetryDelay is the amount of time between
-	// attempts to connect to an address, in seconds.
-	DefaultBootstrapSSHRetryDelay int = 5
-
-	// DefaultBootstrapSSHAddressesDelay is the amount of time between
-	// refreshing the addresses, in seconds. Not too frequent, as we
-	// refresh addresses from the provider each time.
-	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// DefaultNumaControlPolicy should not be used by default.
-	// Only use numactl if user specifically requests it
-	DefaultNumaControlPolicy = false
-
-	// DefaultPreventDestroyEnvironment should not be used by default.
-	// Only prevent destroy-model from running
-	// if user specifically requests it. Otherwise, let it run.
-	DefaultPreventDestroyEnvironment = false
-
-	// DefaultPreventRemoveObject should not be used by default.
-	// Only prevent remove-object from running
-	// if user specifically requests it. Otherwise, let it run.
-	// Object here is a juju artifact - machine, service, unit or relation.
-	DefaultPreventRemoveObject = false
-
-	// DefaultPreventAllChanges should not be used by default.
-	// Only prevent all-changes from running
-	// if user specifically requests it. Otherwise, let them run.
-	DefaultPreventAllChanges = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -96,14 +57,14 @@ const (
 	// TypeKey is the key for the model's cloud type.
 	TypeKey = "type"
 
-	// AdminSecret is the administrator password.
-	AdminSecretKey = "admin-secret"
-
 	// AgentVersionKey is the key for the model's Juju agent version.
 	AgentVersionKey = "agent-version"
 
 	// UUIDKey is the key for the model UUID attribute.
 	UUIDKey = "uuid"
+
+	// AuthorizedKeysKey is the key for the authorized-keys attribute.
+	AuthorizedKeysKey = "authorized-keys"
 
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
@@ -135,9 +96,6 @@ const (
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
 
-	// NumaControlPolicyKey stores the value for this setting
-	SetNumaControlPolicyKey = "set-numa-control-policy"
-
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -149,6 +107,24 @@ const (
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
+
+	// LogForwardEnabled determines whether the log forward functionality is enabled.
+	LogForwardEnabled = "logforward-enabled"
+
+	// LogFwdSyslogHost sets the hostname:port of the syslog server.
+	LogFwdSyslogHost = "syslog-host"
+
+	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
+	// server certificate.
+	LogFwdSyslogCACert = "syslog-ca-cert"
+
+	// LogFwdSyslogClientCert sets the client certificate for syslog
+	// forwarding.
+	LogFwdSyslogClientCert = "syslog-client-cert"
+
+	// LogFwdSyslogClientKey sets the client key for syslog
+	// forwarding.
+	LogFwdSyslogClientKey = "syslog-client-key"
 
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
@@ -203,16 +179,6 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestNone:      "none",
 	HarvestUnknown:   "unknown",
 	HarvestDestroyed: "destroyed",
-}
-
-// proxyAttrs contains attribute names that could contain loopback URLs, pointing to localhost
-var ProxyAttributes = []string{
-	HttpProxyKey,
-	HttpsProxyKey,
-	FtpProxyKey,
-	AptHttpProxyKey,
-	AptHttpsProxyKey,
-	AptFtpProxyKey,
 }
 
 // String returns the description of the harvesting mode.
@@ -275,23 +241,14 @@ const (
 // environment providers are verified.  If useDefaults is UseDefaults,
 // default values will be taken from the environment.
 //
-// Specifically, the "authorized-keys-path" key
-// is translated into "authorized-keys" by loading the content from
-// respective file.  Similarly, "ca-cert-path" and "ca-private-key-path"
-// are translated into the "ca-cert" and "ca-private-key" values.  If
-// not specified, authorized SSH keys and CA details will be read from:
+// "ca-cert-path" and "ca-private-key-path" are translated into the
+// "ca-cert" and "ca-private-key" values.  If not specified, CA details
+// will be read from:
 //
-//     ~/.ssh/id_dsa.pub
-//     ~/.ssh/id_rsa.pub
-//     ~/.ssh/identity.pub
 //     ~/.local/share/juju/<name>-cert.pem
 //     ~/.local/share/juju/<name>-private-key.pem
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
-//
-// The required keys (after any files have been read) are "name",
-// "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" (string) and "development" (bool).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -304,11 +261,6 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	c := &Config{
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
-	}
-	if withDefaults {
-		if err := c.fillInDefaults(); err != nil {
-			return nil, err
-		}
 	}
 	if err := c.ensureUnitLogging(); err != nil {
 		return nil, err
@@ -349,39 +301,6 @@ func (c *Config) ensureUnitLogging() error {
 	return nil
 }
 
-func (c *Config) fillInDefaults() error {
-	// For backward compatibility purposes, we treat as unset string
-	// valued attributes that are set to the empty string, and fill
-	// out their defaults accordingly.
-	c.fillInStringDefault("firewall-mode")
-
-	// Load authorized-keys-path into authorized-keys if necessary.
-	path := c.asString("authorized-keys-path")
-	keys := c.asString("authorized-keys")
-	if path != "" || keys == "" {
-		var err error
-		c.defined["authorized-keys"], err = ReadAuthorizedKeys(path)
-		if err != nil {
-			return err
-		}
-	}
-	delete(c.defined, "authorized-keys-path")
-
-	// Don't use c.Name() because the name hasn't
-	// been verified yet.
-	name := c.asString(NameKey)
-	if name == "" {
-		return fmt.Errorf("empty name in model configuration")
-	}
-	return controller.Config(c.defined).FillInDefaults(name)
-}
-
-func (c *Config) fillInStringDefault(attr string) {
-	if c.asString(attr) == "" {
-		c.defined[attr] = defaults[attr]
-	}
-}
-
 // ProcessDeprecatedAttributes gathers any deprecated attributes in attrs and adds or replaces
 // them with new name value pairs for the replacement attrs.
 // Ths ensures that older versions of Juju which require that deprecated
@@ -418,23 +337,6 @@ func (e *InvalidConfigValueError) Error() string {
 // it holds the previous environment configuration for consideration when
 // validating changes.
 func Validate(cfg, old *Config) error {
-	// First validate the controller portion.
-	if err := controller.Validate(controller.ControllerConfig(cfg.AllAttrs())); err != nil {
-		return err
-	}
-	// Check that we don't have any disallowed fields.
-	for _, attr := range allowedWithDefaultsOnly {
-		if _, ok := cfg.defined[attr]; ok {
-			return fmt.Errorf("attribute %q is not allowed in configuration", attr)
-		}
-	}
-	// Check that mandatory fields are specified.
-	for _, attr := range mandatoryWithoutDefaults {
-		if _, ok := cfg.defined[attr]; !ok {
-			return fmt.Errorf("%s missing from model configuration", attr)
-		}
-	}
-
 	// Check that all other fields that have been specified are non-empty,
 	// unless they're allowed to be empty for backward compatibility,
 	for attr, val := range cfg.defined {
@@ -446,7 +348,11 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if modelName := cfg.mustString(NameKey); !names.IsValidModelName(modelName) {
+	modelName := cfg.asString(NameKey)
+	if modelName == "" {
+		return fmt.Errorf("empty name in model configuration")
+	}
+	if !names.IsValidModelName(modelName) {
 		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", modelName)
 	}
 
@@ -465,6 +371,12 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
+		if err := lfCfg.Validate(); err != nil {
+			return errors.Annotate(err, "invalid syslog forwarding config")
+		}
+	}
+
 	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
 	}
@@ -476,8 +388,7 @@ func Validate(cfg, old *Config) error {
 
 	// Check the immutable config values.  These can't change
 	if old != nil {
-		allImmutableAttributes := append(immutableAttributes, controller.ControllerOnlyConfigAttributes...)
-		for _, attr := range allImmutableAttributes {
+		for _, attr := range immutableAttributes {
 			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
 				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
@@ -558,13 +469,6 @@ func (c *Config) UUID() string {
 	return c.mustString(UUIDKey)
 }
 
-// ControllerUUID returns the uuid for the model's controller.
-// Even though this is a controller attribute, we always ensure
-// we also populate it here as environs currently rely on it.
-func (c *Config) ControllerUUID() string {
-	return controller.ControllerConfig(c.defined).ControllerUUID()
-}
-
 // DefaultSeries returns the configured default Ubuntu series for the environment,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
@@ -581,17 +485,10 @@ func (c *Config) DefaultSeries() (string, bool) {
 	}
 }
 
-// NumaCtlPreference returns if numactl is preferred.
-func (c *Config) NumaCtlPreference() bool {
-	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
-		return numa.(bool)
-	}
-	return DefaultNumaControlPolicy
-}
-
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
-	return c.mustString("authorized-keys")
+	value, _ := c.defined[AuthorizedKeysKey].(string)
+	return value
 }
 
 // ProxySSH returns a flag indicating whether SSH commands
@@ -680,34 +577,40 @@ func (c *Config) AptMirror() string {
 	return c.asString("apt-mirror")
 }
 
-// BootstrapSSHOpts returns the SSH timeout and retry delays used
-// during bootstrap.
-func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
-	opts := SSHTimeoutOpts{
-		Timeout:        time.Duration(DefaultBootstrapSSHTimeout) * time.Second,
-		RetryDelay:     time.Duration(DefaultBootstrapSSHRetryDelay) * time.Second,
-		AddressesDelay: time.Duration(DefaultBootstrapSSHAddressesDelay) * time.Second,
-	}
-	if v, ok := c.defined["bootstrap-timeout"].(int); ok && v != 0 {
-		opts.Timeout = time.Duration(v) * time.Second
-	}
-	if v, ok := c.defined["bootstrap-retry-delay"].(int); ok && v != 0 {
-		opts.RetryDelay = time.Duration(v) * time.Second
-	}
-	if v, ok := c.defined["bootstrap-addresses-delay"].(int); ok && v != 0 {
-		opts.AddressesDelay = time.Duration(v) * time.Second
-	}
-	return opts
-}
+// LogFwdSyslog returns the syslog forwarding config.
+func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
+	partial := false
+	var lfCfg syslog.RawConfig
 
-// AdminSecret returns the administrator password.
-// It's empty if the password has not been set.
-// TODO(wallyworld) - remove this, it is a bootstrap parameter only
-func (c *Config) AdminSecret() string {
-	if s, ok := c.defined[AdminSecretKey]; ok && s != "" {
-		return s.(string)
+	if s, ok := c.defined[LogForwardEnabled]; ok {
+		partial = true
+		lfCfg.Enabled = s.(bool)
 	}
-	return ""
+
+	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
+		partial = true
+		lfCfg.Host = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
+		partial = true
+		lfCfg.CACert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
+		partial = true
+		lfCfg.ClientCert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
+		partial = true
+		lfCfg.ClientKey = s.(string)
+	}
+
+	if !partial {
+		return nil, false
+	}
+	return &lfCfg, true
 }
 
 // FirewallMode returns whether the firewall should
@@ -954,28 +857,16 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	// The following attributes are for the controller config
-	// but are included here because we currently parse model
-	// and controller config together.
-	controller.CACertKey:              schema.Omit,
-	controller.CAPrivateKey:           schema.Omit,
-	controller.ApiPort:                schema.Omit,
-	controller.StatePort:              schema.Omit,
-	controller.IdentityURL:            schema.Omit,
-	controller.IdentityPublicKey:      schema.Omit,
-	controller.CACertKey + "-path":    schema.Omit,
-	controller.CAPrivateKey + "-path": schema.Omit,
-
 	// Model config attributes
 	AgentVersionKey:              schema.Omit,
-	"authorized-keys":            schema.Omit,
-	"authorized-keys-path":       schema.Omit,
+	AuthorizedKeysKey:            schema.Omit,
 	"logging-config":             schema.Omit,
 	ProvisionerHarvestModeKey:    schema.Omit,
-	"bootstrap-timeout":          schema.Omit,
-	"bootstrap-retry-delay":      schema.Omit,
-	"bootstrap-addresses-delay":  schema.Omit,
-	"rsyslog-ca-cert":            schema.Omit,
+	LogForwardEnabled:            schema.Omit,
+	LogFwdSyslogHost:             schema.Omit,
+	LogFwdSyslogCACert:           schema.Omit,
+	LogFwdSyslogClientCert:       schema.Omit,
+	LogFwdSyslogClientKey:        schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -987,7 +878,6 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
-	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
 
@@ -1003,7 +893,6 @@ var alwaysOptional = schema.Defaults{
 	"enable-os-upgrade":        schema.Omit,
 	"image-stream":             schema.Omit,
 	"image-metadata-url":       schema.Omit,
-	AdminSecretKey:             schema.Omit,
 	AgentMetadataURLKey:        schema.Omit,
 	"default-series":           "",
 	"test-mode":                false,
@@ -1023,16 +912,10 @@ func allDefaults() schema.Defaults {
 		"firewall-mode":              FwInstance,
 		"development":                false,
 		"ssl-hostname-verification":  true,
-		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
-		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
-		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
 		"proxy-ssh":                  false,
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
-		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 		AutomaticallyRetryHooks:      true,
-		controller.StatePort:         DefaultStatePort,
-		controller.ApiPort:           DefaultAPIPort,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1040,22 +923,6 @@ func allDefaults() schema.Defaults {
 		}
 	}
 	return d
-}
-
-// allowedWithDefaultsOnly holds those attributes
-// that are only allowed in a configuration that is
-// being created with UseDefaults.
-var allowedWithDefaultsOnly = []string{
-	"ca-cert-path",
-	"ca-private-key-path",
-	"authorized-keys-path",
-}
-
-// mandatoryWithoutDefaults holds those attributes
-// that are mandatory if the configuration is created
-// with no defaults but optional otherwise.
-var mandatoryWithoutDefaults = []string{
-	"authorized-keys",
 }
 
 // immutableAttributes holds those attributes
@@ -1066,9 +933,6 @@ var immutableAttributes = []string{
 	TypeKey,
 	UUIDKey,
 	"firewall-mode",
-	"bootstrap-timeout",
-	"bootstrap-retry-delay",
-	"bootstrap-addresses-delay",
 }
 
 var (
@@ -1119,24 +983,6 @@ func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interf
 	return repo
 }
 
-// SSHTimeoutOpts lists the amount of time we will wait for various
-// parts of the SSH connection to complete. This is similar to
-// DialOpts, see http://pad.lv/1258889 about possibly deduplicating
-// them.
-type SSHTimeoutOpts struct {
-	// Timeout is the amount of time to wait contacting a state
-	// server.
-	Timeout time.Duration
-
-	// RetryDelay is the amount of time between attempts to connect to
-	// an address.
-	RetryDelay time.Duration
-
-	// AddressesDelay is the amount of time between refreshing the
-	// addresses.
-	AddressesDelay time.Duration
-}
-
 func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 	if value != "" {
 		settings[key] = value
@@ -1170,16 +1016,16 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // package.
 func Schema(extra environschema.Fields) (environschema.Fields, error) {
 	fields := make(environschema.Fields)
-	for name, field := range controller.ConfigSchema {
-		fields[name] = field
-	}
 	for name, field := range configSchema {
-		if _, ok := fields[name]; ok {
+		if controller.ControllerOnlyAttribute(name) {
 			return nil, errors.Errorf("config field %q clashes with controller config", name)
 		}
 		fields[name] = field
 	}
 	for name, field := range extra {
+		if controller.ControllerOnlyAttribute(name) {
+			return nil, errors.Errorf("config field %q clashes with controller config", name)
+		}
 		if _, ok := fields[name]; ok {
 			return nil, errors.Errorf("config field %q clashes with global config", name)
 		}
@@ -1192,13 +1038,6 @@ func Schema(extra environschema.Fields) (environschema.Fields, error) {
 // the config package.
 // TODO(rog) make this available to external packages.
 var configSchema = environschema.Fields{
-	AdminSecretKey: {
-		Description: "The password for the administrator user",
-		Type:        environschema.Tstring,
-		Secret:      true,
-		Example:     "<random secret>",
-		Group:       environschema.EnvironGroup,
-	},
 	AgentMetadataURLKey: {
 		Description: "URL of private stream",
 		Type:        environschema.Tstring,
@@ -1239,32 +1078,9 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"authorized-keys": {
-		// TODO what to do about authorized-keys-path ?
+	AuthorizedKeysKey: {
 		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"authorized-keys-path": {
-		Description: "Path to file containing SSH authorized keys",
-		Type:        environschema.Tstring,
-	},
-	"bootstrap-addresses-delay": {
-		Description: "The amount of time between refreshing the addresses in seconds. Not too frequent as we refresh addresses from the provider each time.",
-		Type:        environschema.Tint,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	"bootstrap-retry-delay": {
-		Description: "Time between attempts to connect to an address in seconds.",
-		Type:        environschema.Tint,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	"bootstrap-timeout": {
-		Description: "The amount of time to wait contacting a controller in seconds",
-		Type:        environschema.Tint,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	CloudImageBaseURL: {
@@ -1314,10 +1130,8 @@ that port).
 'none' requests that no firewalling should be performed
 inside the model. It's useful for clouds without support for either
 global or per instance security groups.`,
-		Type: environschema.Tstring,
-		// Note that we need the empty value because it can
-		// be found in legacy environments.
-		Values:    []interface{}{FwInstance, FwGlobal, FwNone, ""},
+		Type:      environschema.Tstring,
+		Values:    []interface{}{FwInstance, FwGlobal, FwNone},
 		Immutable: true,
 		Group:     environschema.EnvironGroup,
 	},
@@ -1381,14 +1195,29 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
-	"rsyslog-ca-cert": {
-		Description: `The certificate of the CA that signed the rsyslog certificate, in PEM format.`,
+	LogForwardEnabled: {
+		Description: `Whether syslog forwarding is enabled.`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogHost: {
+		Description: `The hostname:port of the syslog server.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SetNumaControlPolicyKey: {
-		Description: "Tune Juju controller to work with NUMA if present (default false)",
-		Type:        environschema.Tbool,
+	LogFwdSyslogCACert: {
+		Description: `The certificate of the CA that signed the syslog server certificate, in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientCert: {
+		Description: `The syslog client certificate in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientKey: {
+		Description: `The syslog client key in PEM format.`,
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"ssl-hostname-verification": {

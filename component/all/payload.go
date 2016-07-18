@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -27,15 +26,13 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-const payloadsHookContextFacade = payload.ComponentName + "-hook-context"
+const payloadsHookContextFacade = "PayloadsHookContext"
 
 type payloads struct{}
 
 func (c payloads) registerForServer() error {
 	c.registerPublicFacade()
-
 	c.registerHookContext()
-
 	return nil
 }
 
@@ -57,13 +54,13 @@ func (c payloads) registerPublicFacade() {
 		return
 	}
 
+	// NOTE: facade is also defined in api/facadeversions.go.
 	const version = 1
 	common.RegisterStandardFacade(
-		payload.ComponentName,
+		payload.FacadeName,
 		version,
 		c.newPublicFacade,
 	)
-	api.RegisterFacadeVersion(payload.ComponentName, version)
 }
 
 type facadeCaller struct {
@@ -80,7 +77,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, payload.ComponentName, 1)
+	caller := base.NewFacadeCallerForVersion(apiCaller, payload.FacadeName, 1)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
@@ -121,7 +118,7 @@ func (c payloads) registerHookContext() {
 }
 
 func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 0)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 1)
 	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
@@ -134,14 +131,13 @@ func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interfa
 }
 
 func (c payloads) registerHookContextFacade() {
-	const version = 0
+	const version = 1
 	common.RegisterHookContextFacade(
 		payloadsHookContextFacade,
 		version,
 		c.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
-	api.RegisterFacadeVersion(payloadsHookContextFacade, version)
 }
 
 type payloadsHookContext struct {

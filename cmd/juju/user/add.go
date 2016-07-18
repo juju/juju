@@ -145,9 +145,10 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	registrationInfo := jujuclient.RegistrationInfo{
-		User:      c.User,
-		Addrs:     controllerDetails.APIEndpoints,
-		SecretKey: secretKey,
+		User:           c.User,
+		Addrs:          controllerDetails.APIEndpoints,
+		SecretKey:      secretKey,
+		ControllerName: c.ControllerName(),
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
 	if err != nil {

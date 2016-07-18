@@ -163,6 +163,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:    "controller",
+		Cloud:   "dummy",
 		Version: "1.2.3",
 	},
 	Machines: map[string]params.MachineStatus{

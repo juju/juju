@@ -4,9 +4,11 @@
 package reboot_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -29,8 +31,8 @@ type rebootSuite struct {
 	ct            *state.Machine
 	ctRebootState apireboot.State
 
-	lock       *fslock.Lock
-	lockReboot *fslock.Lock
+	lockName string
+	clock    clock.Clock
 }
 
 var _ = gc.Suite(&rebootSuite{})
@@ -64,9 +66,8 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
 
-	lock, err := fslock.NewLock(c.MkDir(), "fake", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-	s.lock = lock
+	s.lockName = "reboot-test"
+	s.clock = &fakeClock{delay: time.Millisecond}
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
@@ -74,14 +75,14 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.lock)
+	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lockName, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.lock)
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lockName, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,20 +90,18 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.lock)
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), s.lockName, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
 }
 
-func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
-	s.lock.Lock(reboot.RebootMessage)
+type fakeClock struct {
+	clock.Clock
+	delay time.Duration
+}
 
-	wrk, err := reboot.NewReboot(s.rebootState, s.lock)
-	c.Assert(err, jc.ErrorIsNil)
-	wrk.Kill()
-	c.Assert(wrk.Wait(), gc.IsNil)
-
-	c.Assert(s.lock.IsLocked(), jc.IsFalse)
+func (f *fakeClock) After(time.Duration) <-chan time.Time {
+	return time.After(f.delay)
 }

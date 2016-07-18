@@ -16,4 +16,9 @@ type RegistrationInfo struct {
 	// SecretKey contains the secret key to use when encrypting
 	// and decrypting registration requests and responses.
 	SecretKey []byte
+
+	// ControllerName contains the name that the controller has for the
+	// caller of "juju add-user" that will be used to suggest a name for
+	// the caller of "juju register".
+	ControllerName string
 }

@@ -52,7 +52,7 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 		}
 		return []checkers.Caveat{checkers.DeclaredCaveat("username", username)}, nil
 	})
-	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
+	s.JujuConnSuite.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)

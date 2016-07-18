@@ -31,7 +31,6 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
 	result, err := s.Env.StartInstance(s.StartInstArgs)
-
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, gc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)

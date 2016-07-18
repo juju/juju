@@ -6,6 +6,7 @@ package action
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/cmd"
@@ -40,14 +41,14 @@ For more information, see also the 'run-ation' command, which executes actions.
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.BoolVar(&c.fullSchema, "schema", false, "display the full action schema")
+	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
 }
 
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "actions",
 		Args:    "<application name>",
-		Purpose: "list actions defined for a service",
+		Purpose: "List actions defined for a service.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	}
@@ -84,14 +85,13 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	output := actions.ActionSpecs
-	if len(output) == 0 {
+	if len(actions) == 0 {
 		return c.out.Write(ctx, "No actions defined for "+c.applicationTag.Id())
 	}
 
 	if c.fullSchema {
 		verboseSpecs := make(map[string]interface{})
-		for k, v := range output {
+		for k, v := range actions {
 			verboseSpecs[k] = v.Params
 		}
 
@@ -100,7 +100,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 
 	shortOutput := make(map[string]string)
 	var sortedNames []string
-	for name, action := range actions.ActionSpecs {
+	for name, action := range actions {
 		shortOutput[name] = action.Description
 		if shortOutput[name] == "" {
 			shortOutput[name] = "No description"
@@ -123,8 +123,9 @@ func (c *listCommand) printTabular(ctx *cmd.Context, actions map[string]string, 
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	fmt.Fprintf(tw, "%s\t%s\n", "ACTION", "DESCRIPTION")
 	for _, name := range sortedNames {
-		fmt.Fprintf(tw, "%s\t%s\n", name, actions[name])
+		fmt.Fprintf(tw, "%s\t%s\n", name, strings.TrimSpace(actions[name]))
 	}
 	tw.Flush()
 	return c.out.Write(ctx, string(out.Bytes()))

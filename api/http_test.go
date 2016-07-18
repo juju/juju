@@ -76,8 +76,8 @@ var httpClientTests = []struct {
 	about: "bad charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		type badResponse struct {
-			Error    string
-			CharmURL map[string]int
+			Error    string         `json:"error"`
+			CharmURL map[string]int `json:"charm-url"`
 		}
 		httprequest.WriteJSON(w, http.StatusUnauthorized, badResponse{
 			Error:    "something",
@@ -153,17 +153,17 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		}
 		err := s.client.Get("/", resp)
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-			c.Assert(params.ErrCode(err), gc.Equals, test.expectErrorCode)
+			c.Check(err, gc.ErrorMatches, test.expectError)
+			c.Check(params.ErrCode(err), gc.Equals, test.expectErrorCode)
 			if err, ok := errors.Cause(err).(*params.Error); ok {
-				c.Assert(err.Info, jc.DeepEquals, test.expectErrorInfo)
+				c.Check(err.Info, jc.DeepEquals, test.expectErrorInfo)
 			} else if test.expectErrorInfo != nil {
 				c.Fatalf("no error info found in error")
 			}
 			continue
 		}
-		c.Assert(err, gc.IsNil)
-		c.Assert(resp, jc.DeepEquals, test.expectResponse)
+		c.Check(err, gc.IsNil)
+		c.Check(resp, jc.DeepEquals, test.expectResponse)
 	}
 }
 

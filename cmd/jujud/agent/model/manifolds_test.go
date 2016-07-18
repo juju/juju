@@ -4,12 +4,11 @@
 package model_test
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/worker/workertest"
@@ -84,6 +83,18 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 			c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
 		}
 	}
+}
+
+func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
+	manifolds := model.Manifolds(model.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
+	manifold, found := manifolds["state-cleaner"]
+	c.Assert(found, jc.IsTrue)
+
+	inputs := set.NewStrings(manifold.Inputs...)
+	c.Check(inputs.Contains("not-alive-flag"), jc.IsFalse)
+	c.Check(inputs.Contains("not-dead-flag"), jc.IsFalse)
 }
 
 func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {

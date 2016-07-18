@@ -28,15 +28,6 @@ Show extended information about storage instances.
 Storage instances to display are specified by storage ids.
 
 * note use of positional arguments
-
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= yaml)
-   specify output format (json|yaml)
-[space separated storage ids]
 `
 
 // showCommand attempts to release storage instance.
@@ -60,7 +51,8 @@ func (c *showCommand) Init(args []string) (err error) {
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-storage",
-		Purpose: "shows storage instance",
+		Args:    "<storage ID> [...]",
+		Purpose: "Shows storage instance information.",
 		Doc:     showCommandDoc,
 	}
 }

@@ -60,7 +60,7 @@ You are now logged in to "kontroll" as "test@local".
 
 	// We should have a macaroon, but no password, in the client store.
 	store := jujuclient.NewFileClientStore()
-	accountDetails, err := store.AccountByName("kontroll", "test@local")
+	accountDetails, err := store.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accountDetails.Password, gc.Equals, "")
 	c.Assert(accountDetails.Macaroon, gc.Not(gc.Equals), "")

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -79,9 +80,10 @@ var (
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
-	Config    *config.Config
-	EnvConfig *environConfig
-	Env       *environ
+	ControllerUUID string
+	Config         *config.Config
+	EnvConfig      *environConfig
+	Env            *environ
 
 	Addresses       []network.Address
 	BaseInstance    *google.Instance
@@ -103,6 +105,7 @@ var _ instance.Instance = (*environInstance)(nil)
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.ControllerUUID = testing.FakeControllerConfig().ControllerUUID()
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
@@ -128,7 +131,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List(tools))
@@ -142,10 +145,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.UbuntuMetadata = map[string]string{
-		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: string(userData),
-		metadataKeyEncoding:  "base64",
-		metadataKeySSHKeys:   authKeys,
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
+		metadataKeyCloudInit:  string(userData),
+		metadataKeyEncoding:   "base64",
+		metadataKeySSHKeys:    authKeys,
+	}
+	instanceConfig.Tags = map[string]string{
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
 	}
 	s.WindowsMetadata = map[string]string{
 		metadataKeyWindowsUserdata: string(userData),
@@ -162,6 +170,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,

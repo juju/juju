@@ -16,20 +16,19 @@ import (
 type MemStore struct {
 	Controllers           map[string]jujuclient.ControllerDetails
 	CurrentControllerName string
-	Models                map[string]jujuclient.ControllerAccountModels
-	Accounts              map[string]*jujuclient.ControllerAccounts
+	Models                map[string]*jujuclient.ControllerModels
+	Accounts              map[string]jujuclient.AccountDetails
 	Credentials           map[string]cloud.CloudCredential
 	BootstrapConfig       map[string]jujuclient.BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
-		make(map[string]jujuclient.ControllerDetails),
-		"",
-		make(map[string]jujuclient.ControllerAccountModels),
-		make(map[string]*jujuclient.ControllerAccounts),
-		make(map[string]cloud.CloudCredential),
-		make(map[string]jujuclient.BootstrapConfig),
+		Controllers:     make(map[string]jujuclient.ControllerDetails),
+		Models:          make(map[string]*jujuclient.ControllerModels),
+		Accounts:        make(map[string]jujuclient.AccountDetails),
+		Credentials:     make(map[string]cloud.CloudCredential),
+		BootstrapConfig: make(map[string]jujuclient.BootstrapConfig),
 	}
 }
 
@@ -107,11 +106,8 @@ func (c *MemStore) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (c *MemStore) UpdateModel(controller, account, model string, details jujuclient.ModelDetails) error {
+func (c *MemStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
-		return err
-	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
@@ -120,265 +116,137 @@ func (c *MemStore) UpdateModel(controller, account, model string, details jujucl
 	if err := jujuclient.ValidateModelDetails(details); err != nil {
 		return err
 	}
-	controllerAccountModels, ok := c.Models[controller]
+	controllerModels, ok := c.Models[controller]
 	if !ok {
-		controllerAccountModels.AccountModels = make(map[string]*jujuclient.AccountModels)
-		c.Models[controller] = controllerAccountModels
-	}
-	accountModels, ok := controllerAccountModels.AccountModels[account]
-	if !ok {
-		accountModels = &jujuclient.AccountModels{
+		controllerModels = &jujuclient.ControllerModels{
 			Models: make(map[string]jujuclient.ModelDetails),
 		}
-		controllerAccountModels.AccountModels[account] = accountModels
+		c.Models[controller] = controllerModels
 	}
-	accountModels.Models[model] = details
+	controllerModels.Models[model] = details
 	return nil
 }
 
 // SetCurrentModel implements ModelUpdater.
-func (c *MemStore) SetCurrentModel(controllerName, accountName, modelName string) error {
+func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
-	}
-	if err := jujuclient.ValidateAccountName(accountName); err != nil {
-		return err
 	}
 	if err := jujuclient.ValidateModelName(modelName); err != nil {
 		return errors.Trace(err)
 	}
-	controllerAccountModels, ok := c.Models[controllerName]
+	controllerModels, ok := c.Models[controllerName]
 	if !ok {
 		return errors.NotFoundf("models for controller %s", controllerName)
 	}
-	accountModels, ok := controllerAccountModels.AccountModels[accountName]
-	if !ok {
-		return errors.NotFoundf(
-			"models for account %s on controller %s",
-			accountName, controllerName,
-		)
+	if _, ok := controllerModels.Models[modelName]; !ok {
+		return errors.NotFoundf("model %s:%s", controllerName, modelName)
 	}
-	if _, ok := accountModels.Models[modelName]; !ok {
-		return errors.NotFoundf("model %s:%s:%s", controllerName, accountName, modelName)
-	}
-	accountModels.CurrentModel = modelName
+	controllerModels.CurrentModel = modelName
 	return nil
 }
 
 // RemoveModel implements ModelRemover.
-func (c *MemStore) RemoveModel(controller, account, model string) error {
+func (c *MemStore) RemoveModel(controller, model string) error {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
-		return err
-	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
 		return err
 	}
-	controllerAccountModels, ok := c.Models[controller]
+	controllerModels, ok := c.Models[controller]
 	if !ok {
 		return errors.NotFoundf("models for controller %s", controller)
 	}
-	accountModels, ok := controllerAccountModels.AccountModels[account]
-	if !ok {
-		return errors.NotFoundf(
-			"models for account %s on controller %s",
-			account, controller,
-		)
+	if _, ok := controllerModels.Models[model]; !ok {
+		return errors.NotFoundf("model %s:%s", controller, model)
 	}
-	if _, ok := accountModels.Models[model]; !ok {
-		return errors.NotFoundf("model %s:%s:%s", controller, account, model)
-	}
-	delete(accountModels.Models, model)
-	if accountModels.CurrentModel == model {
-		accountModels.CurrentModel = ""
+	delete(controllerModels.Models, model)
+	if controllerModels.CurrentModel == model {
+		controllerModels.CurrentModel = ""
 	}
 	return nil
 }
 
 // AllModels implements ModelGetter.
-func (c *MemStore) AllModels(controller, account string) (map[string]jujuclient.ModelDetails, error) {
+func (c *MemStore) AllModels(controller string) (map[string]jujuclient.ModelDetails, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
-		return nil, err
-	}
-	controllerAccountModels, ok := c.Models[controller]
+	controllerModels, ok := c.Models[controller]
 	if !ok {
 		return nil, errors.NotFoundf("models for controller %s", controller)
 	}
-	accountModels, ok := controllerAccountModels.AccountModels[account]
-	if !ok {
-		return nil, errors.NotFoundf("models for account %s on controller %s", account, controller)
-	}
-	return accountModels.Models, nil
+	return controllerModels.Models, nil
 }
 
 // CurrentModel implements ModelGetter.
-func (c *MemStore) CurrentModel(controller, account string) (string, error) {
+func (c *MemStore) CurrentModel(controller string) (string, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
 		return "", err
 	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
-		return "", err
-	}
-	controllerAccountModels, ok := c.Models[controller]
+	controllerModels, ok := c.Models[controller]
 	if !ok {
 		return "", errors.NotFoundf("models for controller %s", controller)
 	}
-	accountModels, ok := controllerAccountModels.AccountModels[account]
-	if !ok {
-		return "", errors.NotFoundf("models for account %s on controller %s", account, controller)
+	if controllerModels.CurrentModel == "" {
+		return "", errors.NotFoundf("current model for controller %s", controller)
 	}
-	if accountModels.CurrentModel == "" {
-		return "", errors.NotFoundf("current model for account %s on controller %s", account, controller)
-	}
-	return accountModels.CurrentModel, nil
+	return controllerModels.CurrentModel, nil
 }
 
 // ModelByName implements ModelGetter.
-func (c *MemStore) ModelByName(controller, account, model string) (*jujuclient.ModelDetails, error) {
+func (c *MemStore) ModelByName(controller, model string) (*jujuclient.ModelDetails, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
-		return nil, err
-	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return nil, err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
 		return nil, err
 	}
-	controllerAccountModels, ok := c.Models[controller]
+	controllerModels, ok := c.Models[controller]
 	if !ok {
 		return nil, errors.NotFoundf("models for controller %s", controller)
 	}
-	accountModels, ok := controllerAccountModels.AccountModels[account]
+	details, ok := controllerModels.Models[model]
 	if !ok {
-		return nil, errors.NotFoundf("models for account %s on controller %s", account, controller)
-	}
-	details, ok := accountModels.Models[model]
-	if !ok {
-		return nil, errors.NotFoundf("model %s:%s:%s", controller, account, model)
+		return nil, errors.NotFoundf("model %s:%s", controller, model)
 	}
 	return &details, nil
 }
 
 // UpdateAccount implements AccountUpdater.
-func (c *MemStore) UpdateAccount(controllerName, accountName string, details jujuclient.AccountDetails) error {
+func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.AccountDetails) error {
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
-		return err
-	}
-	if err := jujuclient.ValidateAccountName(accountName); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateAccountDetails(details); err != nil {
 		return err
 	}
-	accounts, ok := c.Accounts[controllerName]
-	if !ok {
-		accounts = &jujuclient.ControllerAccounts{
-			Accounts: make(map[string]jujuclient.AccountDetails),
-		}
-		c.Accounts[controllerName] = accounts
-	}
-	if len(accounts.Accounts) > 0 {
-		if _, ok := accounts.Accounts[accountName]; !ok {
-			return errors.AlreadyExistsf(
-				"alternative account for controller %s",
-				controllerName,
-			)
-		}
-	}
-	accounts.Accounts[accountName] = details
-	return nil
-
-}
-
-// SetCurrentAccount implements AccountUpdater.
-func (c *MemStore) SetCurrentAccount(controllerName, accountName string) error {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
-		return err
-	}
-	if err := jujuclient.ValidateAccountName(accountName); err != nil {
-		return err
-	}
-	accounts, ok := c.Accounts[controllerName]
-	if !ok {
-		return errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	if _, ok := accounts.Accounts[accountName]; !ok {
-		return errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
-	accounts.CurrentAccount = accountName
+	c.Accounts[controllerName] = details
 	return nil
 }
 
-// AllAccounts implements AccountGetter.
-func (c *MemStore) AllAccounts(controllerName string) (map[string]jujuclient.AccountDetails, error) {
+// AccountDetails implements AccountGetter.
+func (c *MemStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
 		return nil, err
 	}
-	accounts, ok := c.Accounts[controllerName]
+	details, ok := c.Accounts[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	return accounts.Accounts, nil
-}
-
-// CurrentAccount implements AccountGetter.
-func (c *MemStore) CurrentAccount(controllerName string) (string, error) {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
-		return "", err
-	}
-	accounts, ok := c.Accounts[controllerName]
-	if !ok {
-		return "", errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	if accounts.CurrentAccount == "" {
-		return "", errors.NotFoundf("current account for controller %s", controllerName)
-	}
-	return accounts.CurrentAccount, nil
-}
-
-// AccountByName implements AccountGetter.
-func (c *MemStore) AccountByName(controllerName, accountName string) (*jujuclient.AccountDetails, error) {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
-		return nil, err
-	}
-	if err := jujuclient.ValidateAccountName(accountName); err != nil {
-		return nil, err
-	}
-	accounts, ok := c.Accounts[controllerName]
-	if !ok {
-		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	details, ok := accounts.Accounts[accountName]
-	if !ok {
-		return nil, errors.NotFoundf("account %s:%s", controllerName, accountName)
+		return nil, errors.NotFoundf("account for controller %s", controllerName)
 	}
 	return &details, nil
 }
 
 // RemoveAccount implements AccountRemover.
-func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
+func (c *MemStore) RemoveAccount(controllerName string) error {
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateAccountName(accountName); err != nil {
-		return err
+	if _, ok := c.Accounts[controllerName]; !ok {
+		return errors.NotFoundf("account for controller %s", controllerName)
 	}
-	accounts, ok := c.Accounts[controllerName]
-	if !ok {
-		return errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	if _, ok := accounts.Accounts[accountName]; !ok {
-		return errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
-	delete(accounts.Accounts, accountName)
-	if accounts.CurrentAccount == accountName {
-		accounts.CurrentAccount = ""
-	}
+	delete(c.Accounts, controllerName)
 	return nil
 }
 

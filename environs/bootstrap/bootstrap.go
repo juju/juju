@@ -20,18 +20,23 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/mongo"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -83,9 +88,13 @@ type BootstrapParams struct {
 	// credentialis.
 	CloudCredential *cloud.Credential
 
-	// ModelConfigDefaults is the set of config attributes to be shared
-	// across all models in the same controller.
-	ModelConfigDefaults map[string]interface{}
+	// ControllerConfig is the set of config attributes relevant
+	// to a controller.
+	ControllerConfig controller.Config
+
+	// ControllerInheritedConfig is the set of config attributes to be shared
+	// across all models in the same controller on the bootstrap cloud.
+	ControllerInheritedConfig map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -118,16 +127,44 @@ type BootstrapParams struct {
 	// used to retrieve the Juju GUI archive installed in the controller.
 	// If not set, the Juju GUI is not installed from simplestreams.
 	GUIDataSourceBaseURL string
+
+	// AdminSecret contains the administrator password.
+	AdminSecret string
+
+	// CAPrivateKey is the controller's CA certificate private key.
+	CAPrivateKey string
+
+	// DialOpts contains the bootstrap dial options.
+	DialOpts environs.BootstrapDialOpts
+}
+
+// Validate validates the bootstrap parameters.
+func (p BootstrapParams) Validate() error {
+	if p.AdminSecret == "" {
+		return errors.New("admin-secret is empty")
+	}
+	if p.ControllerConfig.ControllerUUID() == "" {
+		return errors.New("controller configuration has no controller UUID")
+	}
+	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	if p.CAPrivateKey == "" {
+		return errors.New("empty ca-private-key")
+	}
+	// TODO(axw) validate other things.
+	return nil
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
-	cfg := environ.Config()
-	if secret := cfg.AdminSecret(); secret == "" {
-		return errors.Errorf("model configuration has no admin-secret")
+	if err := args.Validate(); err != nil {
+		return errors.Annotate(err, "validating bootstrap parameters")
 	}
+
+	cfg := environ.Config()
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
 		// Config will act differently (it's pretty crazy that, AFAICT, the
@@ -135,13 +172,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
-	}
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
-	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
-		return errors.Errorf("model configuration has no ca-cert")
-	}
-	if _, hasCAKey := controllerCfg.CAPrivateKey(); !hasCAKey {
-		return errors.Errorf("model configuration has no ca-private-key")
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -222,7 +252,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Starting new instance for initial controller")
+
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
 		BootstrapSeries:      args.BootstrapSeries,
@@ -277,7 +309,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
+		args.ControllerConfig,
+		args.BootstrapConstraints,
+		args.ModelConstraints,
+		result.Series,
+		publicKey,
 	)
 	if err != nil {
 		return err
@@ -285,22 +321,74 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
-	instanceConfig.Bootstrap.CustomImageMetadata = customImageMetadata
-	instanceConfig.Bootstrap.ControllerCloudName = args.CloudName
-	instanceConfig.Bootstrap.ControllerCloud = args.Cloud
-	instanceConfig.Bootstrap.ControllerCloudRegion = args.CloudRegion
-	instanceConfig.Bootstrap.ControllerCloudCredential = args.CloudCredential
-	instanceConfig.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
-	instanceConfig.Bootstrap.ModelConfigDefaults = args.ModelConfigDefaults
-	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
-	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
-		ctx.Infof(msg)
-	})
-
-	if err := result.Finalize(ctx, instanceConfig); err != nil {
+	if err := finalizeInstanceBootstrapConfig(ctx, instanceConfig, args, cfg, customImageMetadata); err != nil {
+		return errors.Annotate(err, "finalizing bootstrap instance config")
+	}
+	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")
+	return nil
+}
+
+func finalizeInstanceBootstrapConfig(
+	ctx environs.BootstrapContext,
+	icfg *instancecfg.InstanceConfig,
+	args BootstrapParams,
+	cfg *config.Config,
+	customImageMetadata []*imagemetadata.ImageMetadata,
+) error {
+	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
+		return errors.New("machine configuration already has api/state info")
+	}
+	controllerCfg := icfg.Controller.Config
+	caCert, hasCACert := controllerCfg.CACert()
+	if !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	icfg.APIInfo = &api.Info{
+		Password: args.AdminSecret,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(cfg.UUID()),
+	}
+	icfg.Controller.MongoInfo = &mongo.MongoInfo{
+		Password: args.AdminSecret,
+		Info:     mongo.Info{CACert: caCert},
+	}
+
+	// These really are directly relevant to running a controller.
+	// Initially, generate a controller certificate with no host IP
+	// addresses in the SAN field. Once the controller is up and the
+	// NIC addresses become known, the certificate can be regenerated.
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot generate controller certificate")
+	}
+	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+		StatePort:    controllerCfg.StatePort(),
+		APIPort:      controllerCfg.APIPort(),
+		Cert:         string(cert),
+		PrivateKey:   string(key),
+		CAPrivateKey: args.CAPrivateKey,
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return fmt.Errorf("controller model configuration has no agent-version")
+	}
+
+	icfg.Bootstrap.ControllerModelConfig = cfg
+	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
+	icfg.Bootstrap.ControllerCloudName = args.CloudName
+	icfg.Bootstrap.ControllerCloud = args.Cloud
+	icfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
+	icfg.Bootstrap.ControllerCloudCredential = args.CloudCredential
+	icfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
+	icfg.Bootstrap.ControllerConfig = args.ControllerConfig
+	icfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
+	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
+	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+		ctx.Infof(msg)
+	})
 	return nil
 }
 

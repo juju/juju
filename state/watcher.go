@@ -1304,15 +1304,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newDocWatcher(st, []docKey{
-		{
-			settingsC,
-			st.docID(modelGlobalKey),
-		}, {
-			controllersC,
-			defaultModelSettingsGlobalKey,
-		},
-	})
+	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
 
 // WatchForUnitAssignment watches for new services that request units to be

@@ -5,11 +5,13 @@ package backups
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -92,6 +94,16 @@ func NewRestoreCommandForTest(
 
 func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
 	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-		return e, &restoreBootstrapParams{CloudName: cloud}, nil
+		return e, &restoreBootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			CloudName:        cloud,
+			CloudRegion:      "a-region",
+		}, nil
+	}
+}
+
+func GetEnvironFuncWithError() func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+		return nil, nil, errors.New("failed")
 	}
 }

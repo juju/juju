@@ -139,9 +139,9 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	access := state.ModelAdminAccess
+	access := state.AdminAccess
 	if readOnly {
-		access = state.ModelReadAccess
+		access = state.ReadAccess
 	}
 	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
@@ -161,7 +161,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
 	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
 	c.Assert(newUser.DateCreated(), gc.Equals, oldUser.DateCreated())
-	c.Assert(newUser.ReadOnly(), gc.Equals, oldUser.ReadOnly())
+	c.Assert(newUser.IsReadOnly(), gc.Equals, newUser.IsReadOnly())
 
 	connTime, err := oldUser.LastConnection()
 	if state.IsNeverConnectedError(err) {
@@ -389,6 +389,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	})
 	err := exported.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	err = exported.SetWorkloadVersion("amethyst")
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, exported, status.StatusActive, 5)
@@ -407,6 +409,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	version, err := imported.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, "amethyst")
 
 	exportedMachineId, err := exported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,6 +432,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.assertAnnotations(c, newSt, imported)
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
+	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)

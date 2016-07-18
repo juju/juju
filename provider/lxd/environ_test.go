@@ -15,6 +15,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/lxd"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -70,13 +71,15 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch:   "amd64",
 		Series: "trusty",
-		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
+		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -88,7 +91,9 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -144,15 +149,15 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
 	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
 
-	err := s.Env.Destroy()
+	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	prefix := s.Prefix()
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
+		{"Destroy", nil},
 		{"Instances", []interface{}{prefix, lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
-		{"Destroy", nil},
 	})
 }

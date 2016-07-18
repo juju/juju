@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
 	"github.com/juju/juju/rpc"
@@ -22,14 +23,14 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {
 	srv         *Server
 	root        *apiHandler
-	reqNotifier *requestNotifier
+	apiObserver observer.Observer
 
 	mu       sync.Mutex
 	loggedIn bool
@@ -131,9 +132,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	a.root.entity = entity
 
-	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag().String())
-	}
+	a.apiObserver.Login(entity.Tag().String())
 
 	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
@@ -146,18 +145,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var envUser *state.ModelUser
+	var modelUser *state.ModelUser
 	// Send back user info if user
 	if isUser && !serverOnlyLogin {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
-		envUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
+		modelUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
 		if err != nil {
 			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
 		}
-		if envUser.ReadOnly() {
+		maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
+		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
 	}
@@ -200,8 +200,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		loginResult.Facades = facades
 	}
 
-	if envUser != nil {
-		authedApi = newClientAuthRoot(authedApi, envUser)
+	if modelUser != nil {
+		authedApi = newClientAuthRoot(authedApi, modelUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)

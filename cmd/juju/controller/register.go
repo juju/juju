@@ -49,7 +49,7 @@ func NewRegisterCommand() cmd.Command {
 type registerCommand struct {
 	modelcmd.JujuCommandBase
 	apiOpen       api.OpenFunc
-	refreshModels func(_ jujuclient.ClientStore, controller, account string) error
+	refreshModels func(_ jujuclient.ClientStore, controller string) error
 	store         jujuclient.ClientStore
 	EncodedData   string
 }
@@ -170,21 +170,13 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		User:     registrationParams.userTag.Canonical(),
 		Macaroon: string(macaroonJSON),
 	}
-	accountName := accountDetails.User
-	if err := c.store.UpdateAccount(
-		registrationParams.controllerName, accountName, accountDetails,
-	); err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.store.SetCurrentAccount(
-		registrationParams.controllerName, accountName,
-	); err != nil {
+	if err := c.store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
+	if err := c.refreshModels(c.store, registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.store.SetCurrentController(registrationParams.controllerName); err != nil {
@@ -195,11 +187,11 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName, accountName)
+	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName)
 }
 
-func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName, accountName string) error {
-	models, err := c.store.AllModels(controllerName, accountName)
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName string) error {
+	models, err := c.store.AllModels(controllerName)
 	if errors.IsNotFound(err) {
 		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
 		return nil
@@ -215,7 +207,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName,
 		for modelName = range models {
 			// Loop exists only to obtain one and only key.
 		}
-		err := c.store.SetCurrentModel(controllerName, accountName, modelName)
+		err := c.store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -271,7 +263,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	copy(params.key[:], info.SecretKey)
 
 	// Prompt the user for the controller name.
-	controllerName, err := c.promptControllerName(ctx.Stderr, ctx.Stdin)
+	controllerName, err := c.promptControllerName(info.ControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -370,16 +362,34 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-func (c *registerCommand) promptControllerName(stderr io.Writer, stdin io.Reader) (string, error) {
-	fmt.Fprintf(stderr, "Please set a name for this controller: ")
+const errControllerConflicts = `WARNING: the controller proposed %q which clashes with an` +
+	` existing controller. The two controllers are entirely different.
+
+`
+
+func (c *registerCommand) promptControllerName(suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
+	_, err := c.store.ControllerByName(suggestedName)
+	if err == nil {
+		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
+		suggestedName = ""
+	}
+	setMsg := "Please set a name for this controller"
+	if suggestedName != "" {
+		setMsg = setMsg + " (" + suggestedName + ")"
+	}
+	setMsg = setMsg + ":"
+	fmt.Fprintf(stderr, setMsg)
 	defer stderr.Write([]byte{'\n'})
 	name, err := c.readLine(stdin)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	name = strings.TrimSpace(name)
-	if name == "" {
+	if name == "" && suggestedName == "" {
 		return "", errors.NewNotValid(nil, "you must specify a non-empty controller name")
+	}
+	if name == "" && suggestedName != "" {
+		return suggestedName, nil
 	}
 	return name, nil
 }

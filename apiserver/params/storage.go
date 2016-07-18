@@ -9,13 +9,13 @@ import "github.com/juju/juju/storage"
 // on that machine.
 type MachineBlockDevices struct {
 	Machine      string                `json:"machine"`
-	BlockDevices []storage.BlockDevice `json:"blockdevices,omitempty"`
+	BlockDevices []storage.BlockDevice `json:"block-devices,omitempty"`
 }
 
 // SetMachineBlockDevices holds the arguments for recording the block
 // devices present on a set of machines.
 type SetMachineBlockDevices struct {
-	MachineBlockDevices []MachineBlockDevices `json:"machineblockdevices"`
+	MachineBlockDevices []MachineBlockDevices `json:"machine-block-devices"`
 }
 
 // BlockDeviceResult holds the result of an API call to retrieve details
@@ -46,9 +46,9 @@ type BlockDevicesResults struct {
 
 // StorageInstance describes a storage instance.
 type StorageInstance struct {
-	StorageTag string
-	OwnerTag   string
-	Kind       StorageKind
+	StorageTag string      `json:"storage-tag"`
+	OwnerTag   string      `json:"owner-tag"`
+	Kind       StorageKind `json:"kind"`
 }
 
 // StorageKind is the kind of a storage instance.
@@ -87,20 +87,20 @@ type StorageInstanceResults struct {
 
 // StorageAttachment describes a unit's attached storage instance.
 type StorageAttachment struct {
-	StorageTag string
-	OwnerTag   string
-	UnitTag    string
+	StorageTag string `json:"storage-tag"`
+	OwnerTag   string `json:"owner-tag"`
+	UnitTag    string `json:"unit-tag"`
 
-	Kind     StorageKind
-	Location string
-	Life     Life
+	Kind     StorageKind `json:"kind"`
+	Location string      `json:"location"`
+	Life     Life        `json:"life"`
 }
 
 // StorageAttachmentId identifies a storage attachment by the tags of the
 // related unit and storage instance.
 type StorageAttachmentId struct {
-	StorageTag string `json:"storagetag"`
-	UnitTag    string `json:"unittag"`
+	StorageTag string `json:"storage-tag"`
+	UnitTag    string `json:"unit-tag"`
 }
 
 // StorageAttachmentIds holds a set of storage attachment identifiers.
@@ -150,10 +150,10 @@ type StorageAttachmentResults struct {
 // MachineStorageId identifies the attachment of a storage entity
 // to a machine, by their tags.
 type MachineStorageId struct {
-	MachineTag string `json:"machinetag"`
+	MachineTag string `json:"machine-tag"`
 	// AttachmentTag is the tag of the volume or filesystem whose
 	// attachment to the machine is represented.
-	AttachmentTag string `json:"attachmenttag"`
+	AttachmentTag string `json:"attachment-tag"`
 }
 
 // MachineStorageIds holds a set of machine/storage-entity
@@ -164,14 +164,14 @@ type MachineStorageIds struct {
 
 // Volume identifies and describes a storage volume in the model.
 type Volume struct {
-	VolumeTag string     `json:"volumetag"`
+	VolumeTag string     `json:"volume-tag"`
 	Info      VolumeInfo `json:"info"`
 }
 
 // Volume describes a storage volume in the model.
 type VolumeInfo struct {
-	VolumeId   string `json:"volumeid"`
-	HardwareId string `json:"hardwareid,omitempty"`
+	VolumeId   string `json:"volume-id"`
+	HardwareId string `json:"hardware-id,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -184,27 +184,27 @@ type Volumes struct {
 
 // VolumeAttachment identifies and describes a volume attachment.
 type VolumeAttachment struct {
-	VolumeTag  string               `json:"volumetag"`
-	MachineTag string               `json:"machinetag"`
+	VolumeTag  string               `json:"volume-tag"`
+	MachineTag string               `json:"machine-tag"`
 	Info       VolumeAttachmentInfo `json:"info"`
 }
 
 // VolumeAttachmentInfo describes a volume attachment.
 type VolumeAttachmentInfo struct {
-	DeviceName string `json:"devicename,omitempty"`
-	DeviceLink string `json:"devicelink,omitempty"`
-	BusAddress string `json:"busaddress,omitempty"`
+	DeviceName string `json:"device-name,omitempty"`
+	DeviceLink string `json:"device-link,omitempty"`
+	BusAddress string `json:"bus-address,omitempty"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // VolumeAttachments describes a set of storage volume attachments.
 type VolumeAttachments struct {
-	VolumeAttachments []VolumeAttachment `json:"volumeattachments"`
+	VolumeAttachments []VolumeAttachment `json:"volume-attachments"`
 }
 
 // VolumeParams holds the parameters for creating a storage volume.
 type VolumeParams struct {
-	VolumeTag  string                  `json:"volumetag"`
+	VolumeTag  string                  `json:"volume-tag"`
 	Size       uint64                  `json:"size"`
 	Provider   string                  `json:"provider"`
 	Attributes map[string]interface{}  `json:"attributes,omitempty"`
@@ -215,10 +215,10 @@ type VolumeParams struct {
 // VolumeAttachmentParams holds the parameters for creating a volume
 // attachment.
 type VolumeAttachmentParams struct {
-	VolumeTag  string `json:"volumetag"`
-	MachineTag string `json:"machinetag"`
-	VolumeId   string `json:"volumeid,omitempty"`
-	InstanceId string `json:"instanceid,omitempty"`
+	VolumeTag  string `json:"volume-tag"`
+	MachineTag string `json:"machine-tag"`
+	VolumeId   string `json:"volume-id,omitempty"`
+	InstanceId string `json:"instance-id,omitempty"`
 	Provider   string `json:"provider"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
 }
@@ -285,14 +285,14 @@ type VolumeAttachmentParamsResults struct {
 
 // Filesystem identifies and describes a storage filesystem in the model.
 type Filesystem struct {
-	FilesystemTag string         `json:"filesystemtag"`
-	VolumeTag     string         `json:"volumetag,omitempty"`
+	FilesystemTag string         `json:"filesystem-tag"`
+	VolumeTag     string         `json:"volume-tag,omitempty"`
 	Info          FilesystemInfo `json:"info"`
 }
 
 // Filesystem describes a storage filesystem in the model.
 type FilesystemInfo struct {
-	FilesystemId string `json:"filesystemid"`
+	FilesystemId string `json:"filesystem-id"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
@@ -304,26 +304,26 @@ type Filesystems struct {
 
 // FilesystemAttachment identifies and describes a filesystem attachment.
 type FilesystemAttachment struct {
-	FilesystemTag string                   `json:"filesystemtag"`
-	MachineTag    string                   `json:"machinetag"`
+	FilesystemTag string                   `json:"filesystem-tag"`
+	MachineTag    string                   `json:"machine-tag"`
 	Info          FilesystemAttachmentInfo `json:"info"`
 }
 
 // FilesystemAttachmentInfo describes a filesystem attachment.
 type FilesystemAttachmentInfo struct {
-	MountPoint string `json:"mountpoint,omitempty"`
+	MountPoint string `json:"mount-point,omitempty"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachments describes a set of storage filesystem attachments.
 type FilesystemAttachments struct {
-	FilesystemAttachments []FilesystemAttachment `json:"filesystemattachments"`
+	FilesystemAttachments []FilesystemAttachment `json:"filesystem-attachments"`
 }
 
 // FilesystemParams holds the parameters for creating a storage filesystem.
 type FilesystemParams struct {
-	FilesystemTag string                      `json:"filesystemtag"`
-	VolumeTag     string                      `json:"volumetag,omitempty"`
+	FilesystemTag string                      `json:"filesystem-tag"`
+	VolumeTag     string                      `json:"volume-tag,omitempty"`
 	Size          uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
@@ -334,12 +334,12 @@ type FilesystemParams struct {
 // FilesystemAttachmentParams holds the parameters for creating a filesystem
 // attachment.
 type FilesystemAttachmentParams struct {
-	FilesystemTag string `json:"filesystemtag"`
-	MachineTag    string `json:"machinetag"`
-	FilesystemId  string `json:"filesystemid,omitempty"`
-	InstanceId    string `json:"instanceid,omitempty"`
+	FilesystemTag string `json:"filesystem-tag"`
+	MachineTag    string `json:"machine-tag"`
+	FilesystemId  string `json:"filesystem-id,omitempty"`
+	InstanceId    string `json:"instance-id,omitempty"`
 	Provider      string `json:"provider"`
-	MountPoint    string `json:"mountpoint,omitempty"`
+	MountPoint    string `json:"mount-point,omitempty"`
 	ReadOnly      bool   `json:"read-only,omitempty"`
 }
 
@@ -393,10 +393,10 @@ type FilesystemAttachmentParamsResults struct {
 // StorageDetails holds information about storage.
 type StorageDetails struct {
 	// StorageTag holds tag for this storage.
-	StorageTag string `json:"storagetag"`
+	StorageTag string `json:"storage-tag"`
 
 	// OwnerTag holds tag for the owner of this storage, unit or application.
-	OwnerTag string `json:"ownertag"`
+	OwnerTag string `json:"owner-tag"`
 
 	// Kind holds what kind of storage this instance is.
 	Kind StorageKind `json:"kind"`
@@ -407,7 +407,7 @@ type StorageDetails struct {
 	// Persistent reports whether or not the underlying volume or
 	// filesystem is persistent; i.e. whether or not it outlives
 	// the machine that it is attached to.
-	Persistent bool
+	Persistent bool `json:"persistent"`
 
 	// Attachments contains a mapping from unit tag to
 	// storage attachment details.
@@ -451,13 +451,13 @@ type StorageDetailsListResults struct {
 // StorageAttachmentDetails holds detailed information about a storage attachment.
 type StorageAttachmentDetails struct {
 	// StorageTag is the tag of the storage instance.
-	StorageTag string `json:"storagetag"`
+	StorageTag string `json:"storage-tag"`
 
 	// UnitTag is the tag of the unit attached to the storage instance.
-	UnitTag string `json:"unittag"`
+	UnitTag string `json:"unit-tag"`
 
 	// MachineTag is the tag of the machine that the attached unit is assigned to.
-	MachineTag string `json:"machinetag"`
+	MachineTag string `json:"machine-tag"`
 
 	// Location holds location (mount point/device path) of
 	// the attached storage.
@@ -492,7 +492,7 @@ type StoragePoolFilters struct {
 
 // StoragePoolsResult holds a collection of storage pools.
 type StoragePoolsResult struct {
-	Result []StoragePool `json:"storagepools,omitempty"`
+	Result []StoragePool `json:"storage-pools,omitempty"`
 	Error  *Error        `json:"error,omitempty"`
 }
 
@@ -542,7 +542,7 @@ type FilesystemFilters struct {
 // information (status, attachments, storage).
 type VolumeDetails struct {
 	// VolumeTag is the tag for the volume.
-	VolumeTag string `json:"volumetag"`
+	VolumeTag string `json:"volume-tag"`
 
 	// Info contains information about the volume.
 	Info VolumeInfo `json:"info"`
@@ -552,7 +552,7 @@ type VolumeDetails struct {
 
 	// MachineAttachments contains a mapping from
 	// machine tag to volume attachment information.
-	MachineAttachments map[string]VolumeAttachmentInfo `json:"machineattachments,omitempty"`
+	MachineAttachments map[string]VolumeAttachmentInfo `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
@@ -594,11 +594,11 @@ type VolumeDetailsListResults struct {
 // information (status, attachments, storage).
 type FilesystemDetails struct {
 	// FilesystemTag is the tag for the filesystem.
-	FilesystemTag string `json:"filesystemtag"`
+	FilesystemTag string `json:"filesystem-tag"`
 
 	// VolumeTag is the tag for the volume backing the
 	// filesystem, if any.
-	VolumeTag string `json:"volumetag,omitempty"`
+	VolumeTag string `json:"volume-tag,omitempty"`
 
 	// Info contains information about the filesystem.
 	Info FilesystemInfo `json:"info"`
@@ -608,7 +608,7 @@ type FilesystemDetails struct {
 
 	// MachineAttachments contains a mapping from
 	// machine tag to filesystem attachment information.
-	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machineattachments,omitempty"`
+	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
@@ -643,13 +643,13 @@ type FilesystemDetailsListResults struct {
 type StorageConstraints struct {
 	// Pool is the name of the storage pool from which to provision the
 	// storage instance.
-	Pool string `bson:"pool,omitempty"`
+	Pool string `json:"pool,omitempty"`
 
 	// Size is the required size of the storage instance, in MiB.
-	Size *uint64 `bson:"size,omitempty"`
+	Size *uint64 `json:"size,omitempty"`
 
 	// Count is the required number of storage instances.
-	Count *uint64 `bson:"count,omitempty"`
+	Count *uint64 `json:"count,omitempty"`
 }
 
 // StorageAddParams holds storage details to add to a unit dynamically.
@@ -658,7 +658,7 @@ type StorageAddParams struct {
 	UnitTag string `json:"unit"`
 
 	// StorageName is the name of the storage as specified in the charm.
-	StorageName string `bson:"name"`
+	StorageName string `json:"name"`
 
 	// Constraints are specified storage constraints.
 	Constraints StorageConstraints `json:"storage"`

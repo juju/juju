@@ -67,11 +67,12 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 		return fmt.Errorf("error getting addresses: %v", err)
 	}
 
-	// Filter out any LXC bridge addresses. See LP bug #1416928.
+	// Filter out any LXC or LXD bridge addresses. See LP bug #1416928. and
+	// bug #1567683
 	hpsToSet := make([][]network.HostPort, 0, len(addresses))
 	for _, hostPorts := range addresses {
 		// Strip ports, filter, then add ports again.
-		filtered := network.FilterLXCAddresses(network.HostsWithoutPort(hostPorts))
+		filtered := network.FilterBridgeAddresses(network.HostsWithoutPort(hostPorts))
 		hps := make([]network.HostPort, 0, len(filtered))
 		for _, hostPort := range hostPorts {
 			for _, addr := range filtered {

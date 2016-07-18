@@ -43,26 +43,22 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define an account for the model in the source controller in the config.
-	err = s.store.UpdateAccount("source", "source@local", jujuclient.AccountDetails{
-		User: "whatever@local",
+	err = s.store.UpdateAccount("source", jujuclient.AccountDetails{
+		User: "source@local",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentAccount("source", "source@local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the model to migrate in the config.
-	err = s.store.UpdateModel("source", "source@local", "model", jujuclient.ModelDetails{
+	err = s.store.UpdateModel("source", "model", jujuclient.ModelDetails{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the account for the target controller.
-	err = s.store.UpdateAccount("target", "target@local", jujuclient.AccountDetails{
-		User:     "admin@local",
+	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
+		User:     "target@local",
 		Password: "secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentAccount("target", "target@local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the target controller in the config.
@@ -101,7 +97,7 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
-		TargetUser:           "admin@local",
+		TargetUser:           "target@local",
 		TargetPassword:       "secret",
 	})
 }

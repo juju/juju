@@ -49,26 +49,87 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCloud(c *gc.C) {
-	cloud, err := s.api.Cloud()
+	results, err := s.api.Cloud(params.Entities{
+		[]params.Entity{{"cloud-my-cloud"}, {"machine-0"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "Cloud")
-	c.Assert(cloud, jc.DeepEquals, params.Cloud{
+	s.backend.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Cloud", []interface{}{"my-cloud"}},
+	})
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Cloud, jc.DeepEquals, &params.Cloud{
 		Type:      "dummy",
 		AuthTypes: []string{"empty", "userpass"},
 		Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloud tag`,
+	})
+}
+
+func (s *cloudSuite) TestCloudDefaults(c *gc.C) {
+	results, err := s.api.CloudDefaults(params.Entities{[]params.Entity{
+		{"machine-0"},
+		{"user-admin"},
+		{"user-bruce"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c,
+		"IsControllerAdministrator", // for auth-checking
+		"ControllerModel",
+		"IsControllerAdministrator", // to get default credential
+	)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid user tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[2].Result, jc.DeepEquals, &params.CloudDefaults{
+		CloudTag:        "cloud-some-cloud",
+		CloudRegion:     "some-region",
+		CloudCredential: "",
+	})
+}
+
+func (s *cloudSuite) TestCloudDefaultsAdminAccess(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin@local")
+	results, err := s.api.CloudDefaults(params.Entities{[]params.Entity{
+		{"user-admin"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c,
+		"IsControllerAdministrator", // for auth-checking
+		"ControllerModel",
+		"IsControllerAdministrator", // to get default credential
+	)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Result, jc.DeepEquals, &params.CloudDefaults{
+		CloudTag:        "cloud-some-cloud",
+		CloudRegion:     "some-region",
+		CloudCredential: "some-credential",
+	})
 }
 
 func (s *cloudSuite) TestCredentials(c *gc.C) {
-	results, err := s.api.Credentials(params.Entities{[]params.Entity{{
-		Tag: "machine-0",
+	results, err := s.api.Credentials(params.UserClouds{[]params.UserCloud{{
+		UserTag:  "machine-0",
+		CloudTag: "cloud-meep",
 	}, {
-		Tag: "user-admin",
+		UserTag:  "user-admin",
+		CloudTag: "cloud-meep",
 	}, {
-		Tag: "user-bruce",
+		UserTag:  "user-bruce",
+		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "IsControllerAdministrator", "CloudCredentials")
+	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce"), "meep")
+
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid user tag`,
@@ -93,8 +154,9 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 
 func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin@local")
-	results, err := s.api.Credentials(params.Entities{[]params.Entity{{
-		Tag: "user-julia",
+	results, err := s.api.Credentials(params.UserClouds{[]params.UserCloud{{
+		UserTag:  "user-julia",
+		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "IsControllerAdministrator", "CloudCredentials")
@@ -105,11 +167,14 @@ func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	results, err := s.api.UpdateCredentials(params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-		UserTag: "machine-0",
+		UserTag:  "machine-0",
+		CloudTag: "cloud-meep",
 	}, {
-		UserTag: "user-admin",
+		UserTag:  "user-admin",
+		CloudTag: "cloud-meep",
 	}, {
-		UserTag: "user-bruce",
+		UserTag:  "user-bruce",
+		CloudTag: "cloud-meep",
 		Credentials: map[string]params.CloudCredential{
 			"three": {
 				AuthType:   "oauth1",
@@ -138,6 +203,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.backend.CheckCall(
 		c, 1, "UpdateCloudCredentials",
 		names.NewUserTag("bruce"),
+		"meep",
 		map[string]cloud.Credential{
 			"three": cloud.NewCredential(
 				cloud.OAuth1AuthType,
@@ -154,7 +220,8 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin@local")
 	results, err := s.api.UpdateCredentials(params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-		UserTag: "user-julia",
+		UserTag:  "user-julia",
+		CloudTag: "cloud-meep",
 		Credentials: map[string]params.CloudCredential{
 			"three": {
 				AuthType:   "oauth1",
@@ -180,22 +247,45 @@ func (st *mockBackend) IsControllerAdministrator(user names.UserTag) (bool, erro
 	return user.Canonical() == "admin@local", st.NextErr()
 }
 
-func (st *mockBackend) Cloud() (cloud.Cloud, error) {
-	st.MethodCall(st, "Cloud")
+func (st *mockBackend) ControllerModel() (cloudfacade.Model, error) {
+	st.MethodCall(st, "ControllerModel")
+	return &mockModel{"some-cloud", "some-region", "some-credential"}, st.NextErr()
+}
+
+func (st *mockBackend) Cloud(name string) (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockBackend) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
-	st.MethodCall(st, "CloudCredentials", user)
+func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
 }
 
-func (st *mockBackend) UpdateCloudCredentials(user names.UserTag, creds map[string]cloud.Credential) error {
-	st.MethodCall(st, "UpdateCloudCredentials", user, creds)
+func (st *mockBackend) UpdateCloudCredentials(user names.UserTag, cloudName string, creds map[string]cloud.Credential) error {
+	st.MethodCall(st, "UpdateCloudCredentials", user, cloudName, creds)
 	return st.NextErr()
 }
 
 func (st *mockBackend) Close() error {
 	st.MethodCall(st, "Close")
 	return st.NextErr()
+}
+
+type mockModel struct {
+	cloud           string
+	cloudRegion     string
+	cloudCredential string
+}
+
+func (m *mockModel) Cloud() string {
+	return m.cloud
+}
+
+func (m *mockModel) CloudRegion() string {
+	return m.cloudRegion
+}
+
+func (m *mockModel) CloudCredential() string {
+	return m.cloudCredential
 }

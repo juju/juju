@@ -137,3 +137,13 @@ func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext 
 func (*RestrictedContext) Component(string) (ContextComponent, error) {
 	return nil, ErrRestrictedContext
 }
+
+// UnitWorkloadVersion implements jujuc.Context.
+func (*RestrictedContext) UnitWorkloadVersion() (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// SetUnitWorkloadVersion implements jujuc.Context.
+func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
+	return ErrRestrictedContext
+}

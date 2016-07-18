@@ -34,6 +34,7 @@ func init() {
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
+	*common.ControllerConfigAPI
 	*common.Remover
 	*common.StatusSetter
 	*common.StatusGetter
@@ -107,6 +108,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		APIAddresser:         common.NewAPIAddresser(st, resources),
 		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ControllerConfigAPI:  common.NewControllerConfig(st),
 		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
 		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),

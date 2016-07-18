@@ -30,11 +30,8 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
 		APIEndpoints: []string{"testing.invalid:1234"},
 	}
-	s.store.Accounts["foo"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"bar@local": {User: "bar@local", Password: "hunter2"},
-		},
-		CurrentAccount: "bar@local",
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar@local", Password: "hunter2",
 	}
 }
 
@@ -44,7 +41,7 @@ func (s *BaseCommandSuite) TestLoginExpiry(c *gc.C) {
 	}
 	var cmd modelcmd.JujuCommandBase
 	cmd.SetAPIOpen(apiOpen)
-	conn, err := cmd.NewAPIRoot(s.store, "foo", "bar@local", "")
+	conn, err := cmd.NewAPIRoot(s.store, "foo", "")
 	c.Assert(conn, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `login expired
 

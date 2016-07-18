@@ -5,23 +5,23 @@ package params
 
 // AnnotationsGetResult holds entity annotations or retrieval error.
 type AnnotationsGetResult struct {
-	EntityTag   string
-	Annotations map[string]string
-	Error       ErrorResult
+	EntityTag   string            `json:"entity"`
+	Annotations map[string]string `json:"annotations"`
+	Error       ErrorResult       `json:"error,omitempty"`
 }
 
 // AnnotationsGetResults holds annotations associated with entities.
 type AnnotationsGetResults struct {
-	Results []AnnotationsGetResult
+	Results []AnnotationsGetResult `json:"results"`
 }
 
 // AnnotationsSet stores parameters for making Set call on Annotations client.
 type AnnotationsSet struct {
-	Annotations []EntityAnnotations
+	Annotations []EntityAnnotations `json:"annotations"`
 }
 
 // EntityAnnotations stores annotations for an entity.
 type EntityAnnotations struct {
-	EntityTag   string
-	Annotations map[string]string
+	EntityTag   string            `json:"entity"`
+	Annotations map[string]string `json:"annotations"`
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/testing"
 )
 
 type environSuite struct {
@@ -34,7 +35,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	})
 
 	os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.VSphereProvider)
-	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{})
+	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{ControllerConfig: testing.FakeControllerConfig()})
 	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
 }
 

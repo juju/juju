@@ -35,7 +35,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	manifolds := unit.Manifolds(config)
 	expectedKeys := []string{
 		"agent",
-		"machine-lock",
 		"api-config-watcher",
 		"api-caller",
 		"log-sender",

@@ -45,10 +45,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -79,16 +80,10 @@ func SampleConfig() testing.Attrs {
 		"type":                      "dummy",
 		"name":                      "only",
 		"uuid":                      testing.ModelTag.Id(),
-		"controller-uuid":           testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              testing.DefaultMongoPassword,
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            testing.CAKey,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
 		"default-series":            series.LatestLts(),
 
 		"secret":     "pork",
@@ -204,8 +199,13 @@ type environProvider struct {
 	statePolicy            state.Policy
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
-	// We have one state for each prepared controller.
-	state map[string]*environState
+	apiPort                int
+	state                  map[string]*environState
+}
+
+// ApiPort returns the randon api port used by the given provider instance.
+func ApiPort(p environs.EnvironProvider) int {
+	return p.(*environProvider).apiPort
 }
 
 // environState represents the state of an environment.
@@ -234,6 +234,7 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name         string
+	modelUUID    string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
@@ -398,17 +399,13 @@ func SetSupportsSpaceDiscovery(supports bool) bool {
 	return current
 }
 
-// Listen closes the previously registered listener (if any).
-// Subsequent operations on any dummy environment can be received on c
-// (if not nil).
+// Listen directs subsequent operations on any dummy environment
+// to channel c (if not nil).
 func Listen(c chan<- Operation) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if c == nil {
 		c = discardOperations
-	}
-	if dummy.ops != discardOperations {
-		close(dummy.ops)
 	}
 	dummy.ops = c
 	for _, st := range dummy.state {
@@ -508,7 +505,7 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 func (e *environ) state() (*environState, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
-	state, ok := dummy.state[e.Config().ControllerUUID()]
+	state, ok := dummy.state[e.modelUUID]
 	if !ok {
 		return nil, errNotPrepared
 	}
@@ -522,12 +519,10 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := p.state[cfg.ControllerUUID()]; !ok {
-		return nil, errNotPrepared
-	}
 	env := &environ{
 		name:         ecfg.Name(),
 		ecfgUnlocked: ecfg,
+		modelUUID:    cfg.UUID(),
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -541,7 +536,7 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p *environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	// NOTE: this check might appear redundant, but it's not: some tests
 	// (apiserver/modelmanager) inject a string value and determine that
 	// the config is validated later; validating here would render that
@@ -570,7 +565,11 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	envState, ok := p.state[args.Config.ControllerUUID()]
+	controllerUUID := args.ControllerUUID
+	if controllerUUID != args.Config.UUID() {
+		return nil, errors.Errorf("invalid bootstrap config, model UUID %v doesn't equal controller UUID %v", controllerUUID, args.Config.UUID())
+	}
+	envState, ok := p.state[controllerUUID]
 	if ok {
 		// BootstrapConfig is expected to return the same result given
 		// the same input. We assume that the args are the same for a
@@ -591,16 +590,10 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	envState = newState(name, p.ops, p.statePolicy)
 	cfg := args.Config
 	if ecfg.controller() {
-		apiPort := envState.listenAPI()
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"api-port": apiPort,
-		})
-		if err != nil {
-			return nil, err
-		}
+		p.apiPort = envState.listenAPI()
 	}
 	envState.bootstrapConfig = cfg
-	p.state[cfg.ControllerUUID()] = envState
+	p.state[controllerUUID] = envState
 	return cfg, nil
 }
 
@@ -659,12 +652,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("admin-secret is required for bootstrap")
-	}
-	if _, ok := controller.ControllerConfig(e.Config().AllAttrs()).CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in model configuration")
+	if _, ok := args.ControllerConfig.CACert(); !ok {
+		return nil, fmt.Errorf("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -695,7 +684,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		if e.ecfg().controller() {
 			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
@@ -714,10 +703,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// user is constructed with an empty password here.
 			// It is set just below.
 			st, err := state.Initialize(state.InitializeParams{
+				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
 					Owner:           names.NewUserTag("admin@local"),
 					Config:          icfg.Bootstrap.ControllerModelConfig,
 					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:       icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
 				},
@@ -734,10 +725,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 				return err
 			}
-			if err := st.SetAdminMongoPassword(password); err != nil {
+			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
-			if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
@@ -751,18 +742,19 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
-			logger.Debugf("setting password for %q to %q", owner.Name(), password)
-			owner.SetPassword(password)
+			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
+			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
 			estate.apiStatePool = state.NewStatePool(st)
 
 			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-				Cert:      []byte(testing.ServerCert),
-				Key:       []byte(testing.ServerKey),
-				Tag:       names.NewMachineTag("0"),
-				DataDir:   DataDir,
-				LogDir:    LogDir,
-				StatePool: estate.apiStatePool,
+				Cert:        []byte(testing.ServerCert),
+				Key:         []byte(testing.ServerKey),
+				Tag:         names.NewMachineTag("0"),
+				DataDir:     DataDir,
+				LogDir:      LogDir,
+				StatePool:   estate.apiStatePool,
+				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 			})
 			if err != nil {
 				panic(err)
@@ -781,7 +773,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -845,13 +837,19 @@ func (e *environ) Destroy() (res error) {
 	if !e.ecfg().controller() {
 		return nil
 	}
-	dummy.mu.Lock()
-	delete(dummy.state, estate.bootstrapConfig.ControllerUUID())
-	dummy.mu.Unlock()
-
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.destroy()
+	return nil
+}
+
+func (e *environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return err
+	}
+	dummy.mu.Lock()
+	delete(dummy.state, e.modelUUID)
+	dummy.mu.Unlock()
 	return nil
 }
 
@@ -1528,11 +1526,4 @@ func delay() {
 
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
-}
-
-// MigrationConfigUpdate implements MigrationConfigUpdater.
-func (*environ) MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"controller-uuid": controllerConfig.UUID(),
-	}
 }

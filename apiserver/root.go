@@ -57,7 +57,7 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:     st,
 		resources: common.NewResources(),

@@ -29,7 +29,6 @@ var (
 	ContainerManagerConfig = containerManagerConfig
 	GetToolsFinder         = &getToolsFinder
 	ResolvConf             = &resolvConf
-	LocalDNSServers        = localDNSServers
 	RetryStrategyDelay     = &retryStrategyDelay
 	RetryStrategyCount     = &retryStrategyCount
 )

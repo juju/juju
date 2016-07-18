@@ -38,12 +38,13 @@ func init() {
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModel() error
 }
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	state       Backend
+	state       common.ModelManagerBackend
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
@@ -52,13 +53,13 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
-	return NewModelManagerAPI(NewStateBackend(st), auth)
+func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+	return NewModelManagerAPI(common.NewModelManagerBackend(st), auth)
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(st Backend, authorizer facade.Authorizer) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(st common.ModelManagerBackend, authorizer facade.Authorizer) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -105,7 +106,7 @@ type ConfigSource interface {
 }
 
 func (mm *ModelManagerAPI) newModelConfig(
-	args params.ModelCreateArgs, source ConfigSource, credential *cloud.Credential,
+	args params.ModelCreateArgs, controllerUUID string, source ConfigSource, credential *cloud.Credential,
 ) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the model config together in the
@@ -117,15 +118,13 @@ func (mm *ModelManagerAPI) newModelConfig(
 	if _, ok := joint["uuid"]; ok {
 		return nil, errors.New("uuid is generated, you cannot specify one")
 	}
-	if args.Name != "" {
-		// TODO(axw) we should always expect args.Name to be non-empty,
-		// and always fail if the name was specified in config. The
-		// GUI needs to be updated for this to work.
-		if _, ok := joint[config.NameKey]; ok {
-			return nil, errors.New("name must not be specified in config")
-		}
-		joint[config.NameKey] = args.Name
+	if args.Name == "" {
+		return nil, errors.NewNotValid(nil, "Name must be specified")
 	}
+	if _, ok := joint[config.NameKey]; ok {
+		return nil, errors.New("name must not be specified in config")
+	}
+	joint[config.NameKey] = args.Name
 
 	// Copy credential attributes across to model config.
 	// TODO(axw) credentials should not be going into model config.
@@ -150,34 +149,18 @@ func (mm *ModelManagerAPI) newModelConfig(
 			return result.List, nil
 		},
 	}
-	return creator.NewModelConfig(mm.isAdmin, baseConfig, joint)
-}
-
-type modelSkeletonConfigArgs struct {
-	Provider string
-	Region   string
-}
-
-// TODO(axw) drop this after beta9. The GUI needs to be updated to stop using this.
-func (mm *ModelManagerAPI) ConfigSkeleton(args modelSkeletonConfigArgs) (params.ModelConfigResult, error) {
-	var result params.ModelConfigResult
-	if args.Region != "" {
-		return result, errors.NotValidf("region value %q", args.Region)
-	}
-	cloud, err := mm.state.Cloud()
-	if err != nil {
-		return result, err
-	}
-	result.Config = params.ModelConfig{
-		config.TypeKey: cloud.Type,
-	}
-	return result, nil
+	return creator.NewModelConfig(mm.isAdmin, controllerUUID, baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
+	// TODO(perrito666) this check should be part of the authCheck, without this check
+	// any user in the controller may create models.
+	if !mm.isAdmin {
+		return result, errors.Trace(common.ErrPerm)
+	}
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
 	controllerModel, err := mm.state.ControllerModel()
@@ -198,16 +181,17 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
+	cloudName := controllerModel.Cloud()
 	cloudCredentialName := args.CloudCredential
 	if cloudCredentialName == "" {
-		if ownerTag == controllerModel.Owner() {
+		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
 			cloudCredentialName = controllerModel.CloudCredential()
 		} else {
 			// TODO(axw) check if the user has one and only one
 			// cloud credential, and if so, use it? For now, we
 			// require the user to specify a credential unless
 			// the cloud does not require one.
-			controllerCloud, err := mm.state.Cloud()
+			controllerCloud, err := mm.state.Cloud(controllerModel.Cloud())
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -232,7 +216,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	var credential *cloud.Credential
 	if cloudCredentialName != "" {
-		ownerCredentials, err := mm.state.CloudCredentials(ownerTag)
+		ownerCredentials, err := mm.state.CloudCredentials(ownerTag, controllerModel.Cloud())
 		if err != nil {
 			return result, errors.Annotate(err, "getting credentials")
 		}
@@ -245,7 +229,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		credential = &elem
 	}
 
-	newConfig, err := mm.newModelConfig(args, controllerModel, credential)
+	controllerCfg, err := mm.state.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	newConfig, err := mm.newModelConfig(args, controllerCfg.ControllerUUID(), controllerModel, credential)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}
@@ -254,6 +243,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
+		CloudName:       cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredentialName,
 		Config:          newConfig,
@@ -310,6 +300,23 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	}
 
 	return result, nil
+}
+
+// DestroyModel will try to destroy the current model.
+// If there is a block on destruction, this method will return an error.
+func (m *ModelManagerAPI) DestroyModel() error {
+	// Any user is able to delete their own model (until real fine
+	// grain permissions are available), and admins (the creator of the state
+	// server model) are able to delete models for other people.
+	model, err := m.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = m.authCheck(model.Owner())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
 }
 
 // ModelInfo returns information about the specified models.
@@ -380,6 +387,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		Status:          common.EntityStatusFromState(status),
 		ProviderType:    cfg.Type(),
 		DefaultSeries:   config.PreferredSeries(cfg),
+		Cloud:           model.Cloud(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: model.CloudCredential(),
 	}
@@ -409,7 +417,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
+func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -444,35 +452,21 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 
 // resolveStateAccess returns the state representation of the logical model
 // access type.
-func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
-	var fail state.ModelAccess
+func resolveStateAccess(access permission.ModelAccess) (state.Access, error) {
+	var fail state.Access
 	switch access {
+	case permission.ModelAdminAccess:
+		return state.AdminAccess, nil
 	case permission.ModelReadAccess:
-		return state.ModelReadAccess, nil
+		return state.ReadAccess, nil
 	case permission.ModelWriteAccess:
-		// TODO: Initially, we'll map "write" access to admin-level access.
-		// Post Juju-2.0, support for more nuanced access will be added to the
-		// permission business logic and state model.
-		return state.ModelAdminAccess, nil
+		return state.WriteAccess, nil
 	}
 	logger.Errorf("invalid access permission: %+v", access)
 	return fail, errors.Errorf("invalid access permission")
 }
 
-// isGreaterAccess returns whether the new access provides more permissions
-// than the current access.
-// TODO(cmars): If/when more access types are implemented in state,
-//   the implementation of this function will certainly need to change, and it
-//   should be abstracted away to juju/permission as pure business logic
-//   instead of operating on state values.
-func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
-	if currentAccess == state.ModelReadAccess && newAccess == state.ModelAdminAccess {
-		return true
-	}
-	return false
-}
-
-func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.UserTag) error {
+func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
 	if userIsAdmin {
 		// Just confirm that the model that has been given is a valid model.
 		_, err := st.Model()
@@ -492,7 +486,7 @@ func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.Us
 		}
 		return errors.Annotate(err, "could not retrieve user")
 	}
-	if currentUser.Access() != state.ModelAdminAccess {
+	if !currentUser.IsAdmin() {
 		return common.ErrPerm
 	}
 	return nil
@@ -500,7 +494,7 @@ func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.Us
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
+func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
@@ -530,34 +524,42 @@ func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, apiUser, targe
 			}
 
 			// Only set access if greater access is being granted.
-			if isGreaterAccess(modelUser.Access(), stateAccess) {
+			if modelUser.IsGreaterAccess(stateAccess) {
 				err = modelUser.SetAccess(stateAccess)
 				if err != nil {
 					return errors.Annotate(err, "could not set model access for user")
 				}
 			} else {
-				return errors.Errorf("user already has %q access", modelUser.Access())
+				return errors.Errorf("user already has %q access or greater", stateAccess)
 			}
 			return nil
 		}
 		return errors.Annotate(err, "could not grant model access")
 
 	case params.RevokeModelAccess:
-		if stateAccess == state.ModelReadAccess {
+		switch stateAccess {
+		case state.ReadAccess:
 			// Revoking read access removes all access.
 			err := st.RemoveModelUser(targetUserTag)
 			return errors.Annotate(err, "could not revoke model access")
-
-		} else if stateAccess == state.ModelAdminAccess {
-			// Revoking admin access sets read-only.
+		case state.WriteAccess:
+			// Revoking write access sets read-only.
 			modelUser, err := st.ModelUser(targetUserTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			err = modelUser.SetAccess(state.ModelReadAccess)
+			err = modelUser.SetAccess(state.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
+		case state.AdminAccess:
+			// Revoking admin access sets read-write.
+			modelUser, err := st.ModelUser(targetUserTag)
+			if err != nil {
+				return errors.Annotate(err, "could not look up model access for user")
+			}
+			err = modelUser.SetAccess(state.WriteAccess)
+			return errors.Annotate(err, "could not set model access to read-write")
 
-		} else {
+		default:
 			return errors.Errorf("don't know how to revoke %q access", stateAccess)
 		}
 
@@ -574,6 +576,8 @@ func FromModelAccessParam(paramAccess params.ModelAccessPermission) (permission.
 		return permission.ModelReadAccess, nil
 	case params.ModelWriteAccess:
 		return permission.ModelWriteAccess, nil
+	case params.ModelAdminAccess:
+		return permission.ModelAdminAccess, nil
 	}
 	return fail, errors.Errorf("invalid model access permission %q", paramAccess)
 }

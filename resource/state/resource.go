@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -332,6 +333,7 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 		unit:       unit,
 		pending:    pending,
 		resource:   resourceInfo,
+		clock:      clock.WallClock,
 	}
 
 	return resourceInfo, resourceReader, nil
@@ -420,11 +422,13 @@ func storagePath(name, applicationID, pendingID string) string {
 // reader has been fully read.
 type unitSetter struct {
 	io.ReadCloser
-	persist  resourcePersistence
-	unit     resource.Unit
-	pending  resource.Resource
-	resource resource.Resource
-	progress int64
+	persist            resourcePersistence
+	unit               resource.Unit
+	pending            resource.Resource
+	resource           resource.Resource
+	progress           int64
+	lastProgressUpdate time.Time
+	clock              clock.Clock
 }
 
 // Read implements io.Reader.
@@ -438,9 +442,11 @@ func (u *unitSetter) Read(p []byte) (n int, err error) {
 		}
 	} else {
 		u.progress += int64(n)
-		// TODO(ericsnow) Don't do this every time?
-		if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
-			logger.Errorf("failed to track progress: %v", err)
+		if time.Since(u.lastProgressUpdate) > time.Second {
+			u.lastProgressUpdate = u.clock.Now()
+			if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
+				logger.Errorf("failed to track progress: %v", err)
+			}
 		}
 	}
 	return n, err

@@ -102,7 +102,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, icfg.Series, "")
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(coretesting.FakeControllerConfig(), cons, cons, icfg.Series, "")
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
@@ -120,6 +120,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
 		BootstrapConstraints: checkCons,
 		ModelConstraints:     checkCons,
 		Placement:            checkPlacement,
@@ -166,7 +167,8 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "utopic"
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		BootstrapSeries: bootstrapSeries,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapSeries:  bootstrapSeries,
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
@@ -213,6 +215,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	ctx := envtesting.BootstrapContext(c)
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
@@ -242,7 +245,7 @@ func (neverAddresses) Addresses() ([]network.Address, error) {
 	return nil, nil
 }
 
-var testSSHTimeout = config.SSHTimeoutOpts{
+var testSSHTimeout = environs.BootstrapDialOpts{
 	Timeout:        coretesting.ShortWait,
 	RetryDelay:     1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,

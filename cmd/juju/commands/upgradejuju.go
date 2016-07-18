@@ -201,7 +201,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	if c.UploadTools && (cfg.UUID() != cfg.ControllerUUID()) {
+	controller, err := c.ClientStore().ControllerByName(c.ControllerName())
+	if err != nil {
+		return err
+	}
+	if c.UploadTools && (cfg.UUID() != controller.ControllerUUID) {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
 		return errors.Errorf("--upload-tools can only be used with the controller model")

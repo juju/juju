@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
 // DirectorySpec identifies information for a resource directory.
@@ -46,8 +47,9 @@ func (spec DirectorySpec) Resolve(path ...string) string {
 
 // IsUpToDate determines whether or not the content matches the resource directory.
 func (spec DirectorySpec) IsUpToDate(content Content) (bool, error) {
-	// TODO(katco): Check to see if we have latest version
-	return false, nil
+	filename := spec.Resolve(spec.Name)
+	ok, err := spec.Deps.FingerprintMatches(filename, content.Fingerprint)
+	return ok, errors.Trace(err)
 }
 
 // Initialize preps the spec'ed directory and returns it.
@@ -62,6 +64,10 @@ func (spec DirectorySpec) Initialize() (*Directory, error) {
 // DirectorySpecDeps exposes the external depenedencies of DirectorySpec.
 type DirectorySpecDeps interface {
 	DirectoryDeps
+
+	// FingerprintMatches determines whether or not the identified file
+	// exists and has the provided fingerprint.
+	FingerprintMatches(filename string, fp charmresource.Fingerprint) (bool, error)
 
 	// Join exposes the functionality of filepath.Join().
 	Join(...string) string

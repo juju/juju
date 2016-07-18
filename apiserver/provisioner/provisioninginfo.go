@@ -88,6 +88,10 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get available image metadata")
 	}
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get controller configuration")
+	}
 
 	return &params.ProvisioningInfo{
 		Constraints:      cons,
@@ -99,6 +103,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		SubnetsToZones:   subnetsToZones,
 		EndpointBindings: endpointBindings,
 		ImageMetadata:    imageMetadata,
+		ControllerConfig: controllerCfg,
 	}, nil
 }
 

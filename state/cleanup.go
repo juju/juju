@@ -177,12 +177,9 @@ func (st *State) cleanupModelsForDyingController() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, env := range models {
-
-		if env.Life() == Alive {
-			if err := env.Destroy(); err != nil {
-				return errors.Trace(err)
-			}
+	for _, model := range models {
+		if err := model.Destroy(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil

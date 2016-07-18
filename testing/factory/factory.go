@@ -51,7 +51,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
-	Access      state.ModelAccess
+	Access      state.Access
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -59,7 +59,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	Access      state.ModelAccess
+	Access      state.Access
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -120,6 +120,7 @@ type ModelParams struct {
 	Name            string
 	Owner           names.Tag
 	ConfigAttrs     testing.Attrs
+	CloudName       string
 	CloudRegion     string
 	CloudCredential string
 }
@@ -175,8 +176,8 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
-	if params.Access == state.ModelUndefinedAccess {
-		params.Access = state.ModelAdminAccess
+	if params.Access == state.UndefinedAccess {
+		params.Access = state.AdminAccess
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
@@ -213,8 +214,8 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
-	if params.Access == state.ModelUndefinedAccess {
-		params.Access = state.ModelAdminAccess
+	if params.Access == state.UndefinedAccess {
+		params.Access = state.AdminAccess
 	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()
@@ -565,6 +566,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
+	if params.CloudName == "" {
+		params.CloudName = "dummy"
+	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -574,19 +578,16 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := factory.st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name":       params.Name,
-		"uuid":       uuid.String(),
-		"type":       currentCfg.Type(),
-		"state-port": controllerCfg.StatePort(),
-		"api-port":   controllerCfg.APIPort(),
+		"name": params.Name,
+		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
+		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
 		CloudCredential: params.CloudCredential,
 		Config:          cfg,

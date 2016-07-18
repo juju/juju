@@ -65,14 +65,13 @@ func (conn *Conn) send(call *Call) {
 	hdr := &Header{
 		RequestId: reqId,
 		Request:   call.Request,
+		Version:   1,
 	}
 	params := call.Params
 	if params == nil {
 		params = struct{}{}
 	}
-	if conn.notifier != nil {
-		conn.notifier.ClientRequest(hdr, params)
-	}
+
 	if err := conn.codec.WriteMessage(hdr, params); err != nil {
 		conn.mutex.Lock()
 		call = conn.clientPending[reqId]
@@ -100,9 +99,6 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// removed; response is a server telling us about an
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(Request{}, hdr, nil)
-		}
 		err = conn.readBody(nil, false)
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
@@ -117,15 +113,9 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Code:    hdr.ErrorCode,
 		}
 		err = conn.readBody(nil, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, nil)
-		}
 		call.done()
 	default:
 		err = conn.readBody(call.Response, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, call.Response)
-		}
 		call.done()
 	}
 	return errors.Annotate(err, "error handling response")

@@ -46,7 +46,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
@@ -60,7 +60,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

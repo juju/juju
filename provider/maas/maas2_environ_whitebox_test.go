@@ -29,7 +29,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	corejujutesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -48,12 +48,12 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	testServer.AddGetResponse("/api/1.0/version/", http.StatusOK, "<html></html>")
 	testServer.Start()
 	suite.AddCleanup(func(*gc.C) { testServer.Close() })
-	testAttrs := corejujutesting.Attrs{}
+	testAttrs := coretesting.Attrs{}
 	for k, v := range maasEnvAttrs {
 		testAttrs[k] = v
 	}
 	testAttrs["maas-server"] = testServer.Server.URL
-	attrs := corejujutesting.FakeConfig().Merge(testAttrs)
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return NewEnviron(cfg)
@@ -326,7 +326,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
-	params := environs.StartInstanceParams{}
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
@@ -351,8 +351,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 	params := environs.StartInstanceParams{
-		Placement:   "zone=foo",
-		Constraints: constraints.MustParse("mem=8G"),
+		ControllerUUID: suite.controllerUUID,
+		Placement:      "zone=foo",
+		Constraints:    constraints.MustParse("mem=8G"),
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -680,7 +681,11 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -695,7 +700,11 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -875,7 +884,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	params := environs.StartInstanceParams{}
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
@@ -1499,7 +1508,11 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine.Stub.CheckCallNames(c, "Start")
@@ -1515,7 +1528,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -1530,7 +1543,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	node1.zoneName = "test_zone"
 	controller.allocateMachine = node1
 
-	instance, hc := jujutesting.AssertStartInstance(c, env, "1")
+	instance, hc := jujutesting.AssertStartInstance(c, env, suite.controllerUUID, "1")
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
@@ -1552,7 +1565,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = jujutesting.StartInstance(env, "2")
+	instance, _, _, err = jujutesting.StartInstance(env, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1560,7 +1573,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 	controller := newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state"))
 	env := suite.makeEnviron(c, controller)
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
@@ -1572,7 +1585,7 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 			name:     "agent-prefix-provider-state",
 			contents: state,
 		}}
-		controllerInstances, err := env.ControllerInstances()
+		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
@@ -1581,7 +1594,7 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron(c,
 		newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state")))
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -1615,7 +1628,11 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
@@ -1624,7 +1641,11 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*cannot run instances.*")

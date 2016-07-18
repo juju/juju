@@ -244,7 +244,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 

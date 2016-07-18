@@ -48,7 +48,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -514,18 +514,6 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 }
 
-func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
-	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
-	if st != nil {
-		st.Close()
-	}
-	if expectErrType != nil {
-		c.Assert(err, gc.FitsTypeOf, expectErrType)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -623,7 +611,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -639,15 +627,8 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 
-	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
-		"bootstrap-timeout": "13",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapParams.ControllerModelConfig = cfg
-	s.writeBootstrapParamsFile(c)
-
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -739,7 +720,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
-func createImageMetadata(c *gc.C) []*imagemetadata.ImageMetadata {
+func createImageMetadata() []*imagemetadata.ImageMetadata {
 	return []*imagemetadata.ImageMetadata{{
 		Id:         "imageId",
 		Storage:    "rootStore",
@@ -771,7 +752,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
 	s.writeBootstrapParamsFile(c)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -796,7 +777,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
 	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
 	s.writeBootstrapParamsFile(c)
 
@@ -809,22 +790,26 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     jujuversion.Current.String(),
-			"bootstrap-timeout": "123",
+			"agent-version": jujuversion.Current.String(),
 		},
 	).Delete("admin-secret", "ca-private-key")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: cfg})
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
+	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Config:         cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
-	inst, _, _, err := jujutesting.StartInstance(env, "0")
+	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := inst.Addresses()
@@ -834,6 +819,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	s.hostedModelUUID = utils.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
+	args.ControllerConfig = controllerCfg
 	args.BootstrapMachineInstanceId = inst.Id()
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")

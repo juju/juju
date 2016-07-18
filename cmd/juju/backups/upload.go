@@ -35,7 +35,7 @@ func (c *uploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upload-backup",
 		Args:    "<filename>",
-		Purpose: "store a backup archive file remotely in juju",
+		Purpose: "Store a backup archive file remotely in Juju.",
 		Doc:     uploadDoc,
 	}
 }

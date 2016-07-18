@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -91,16 +92,18 @@ func InitializeState(
 			Owner:           adminUser,
 			Config:          args.ControllerModelConfig,
 			Constraints:     args.ModelConstraints,
+			CloudName:       args.ControllerCloudName,
 			CloudRegion:     args.ControllerCloudRegion,
 			CloudCredential: args.ControllerCloudCredentialName,
 		},
-		CloudName:           args.ControllerCloudName,
-		Cloud:               args.ControllerCloud,
-		CloudCredentials:    cloudCredentials,
-		ModelConfigDefaults: args.ModelConfigDefaults,
-		MongoInfo:           info,
-		MongoDialOpts:       dialOpts,
-		Policy:              policy,
+		CloudName:                 args.ControllerCloudName,
+		Cloud:                     args.ControllerCloud,
+		CloudCredentials:          cloudCredentials,
+		ControllerConfig:          args.ControllerConfig,
+		ControllerInheritedConfig: args.ControllerInheritedConfig,
+		MongoInfo:                 info,
+		MongoDialOpts:             dialOpts,
+		Policy:                    policy,
 	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
@@ -114,8 +117,8 @@ func InitializeState(
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC bridge addresses from the machine addresses.
-	args.BootstrapMachineAddresses = network.FilterLXCAddresses(args.BootstrapMachineAddresses)
+	// Filter out any LXC or LXD bridge addresses from the machine addresses.
+	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
@@ -131,19 +134,23 @@ func InitializeState(
 
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
-	// and any user supplied config.
+	// and any user supplied config. We also copy the authorized-keys
+	// from the controller model.
 	attrs := make(map[string]interface{})
 	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
+	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
+
 	// TODO(axw) we shouldn't be adding credentials to model config.
 	if args.ControllerCloudCredential != nil {
 		for k, v := range args.ControllerCloudCredential.Attributes() {
 			attrs[k] = v
 		}
 	}
+	controllerUUID := args.ControllerConfig.ControllerUUID()
 	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
-		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
+		modelmanager.IsAdmin, controllerUUID, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
@@ -152,6 +159,7 @@ func InitializeState(
 		Owner:           adminUser,
 		Config:          hostedModelConfig,
 		Constraints:     args.ModelConstraints,
+		CloudName:       args.ControllerCloudName,
 		CloudRegion:     args.ControllerCloudRegion,
 		CloudCredential: args.ControllerCloudCredentialName,
 	})

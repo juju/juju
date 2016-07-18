@@ -7,11 +7,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,13 +25,14 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -80,12 +79,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = apimachiner.NewState(st).Machine(machine.MachineTag())
-	err = errors.Cause(err)
-	// The client has not necessarily seen the server shutdown yet,
-	// so there are two possible errors.
-	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
-		c.Fatalf("unexpected error from request: %#v, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
-	}
+	// The client has not necessarily seen the server shutdown yet, so there
+	// are multiple possible errors. All we should care about is that there is
+	// an error, not what the error actually is.
+	c.Assert(err, gc.NotNil)
 
 	// Check it can be stopped twice.
 	err = srv.Stop()
@@ -334,7 +331,7 @@ var _ = gc.Suite(&macaroonServerSuite{})
 
 func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
@@ -384,7 +381,7 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
@@ -453,10 +450,11 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert:   []byte(coretesting.ServerCert),
-		Key:    []byte(coretesting.ServerKey),
-		Tag:    names.NewMachineTag("0"),
-		LogDir: c.MkDir(),
+		Cert:        []byte(coretesting.ServerCert),
+		Key:         []byte(coretesting.ServerKey),
+		Tag:         names.NewMachineTag("0"),
+		LogDir:      c.MkDir(),
+		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

@@ -6,12 +6,16 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
 )
 
-const controllerCloudKey = "controller"
+// cloudGlobalKey returns the global database key for the specified cloud.
+func cloudGlobalKey(name string) string {
+	return "cloud#" + name
+}
 
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
@@ -45,8 +49,8 @@ func createCloudOp(cloud cloud.Cloud, cloudName string) txn.Op {
 		}
 	}
 	return txn.Op{
-		C:      controllersC,
-		Id:     controllerCloudKey,
+		C:      cloudsC,
+		Id:     cloudName,
 		Assert: txn.DocMissing,
 		Insert: &cloudDoc{
 			Name:            cloudName,
@@ -88,14 +92,31 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 }
 
 // Cloud returns the controller's cloud definition.
-func (st *State) Cloud() (cloud.Cloud, error) {
-	coll, cleanup := st.getCollection(controllersC)
+func (st *State) Cloud(name string) (cloud.Cloud, error) {
+	coll, cleanup := st.getCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc
-	err := coll.FindId(controllerCloudKey).One(&doc)
+	err := coll.FindId(name).One(&doc)
+	if err == mgo.ErrNotFound {
+		return cloud.Cloud{}, errors.NotFoundf("cloud %q", name)
+	}
 	if err != nil {
-		return cloud.Cloud{}, errors.Annotatef(err, "cannot get cloud definition")
+		return cloud.Cloud{}, errors.Annotatef(err, "cannot get cloud %q", name)
 	}
 	return doc.toCloud(), nil
+}
+
+// validateCloud checks that the supplied cloud is valid.
+func validateCloud(cloud cloud.Cloud) error {
+	if cloud.Type == "" {
+		return errors.NotValidf("empty Type")
+	}
+	if len(cloud.AuthTypes) == 0 {
+		return errors.NotValidf("empty auth-types")
+	}
+	// TODO(axw) we should ensure that the cloud auth-types is a subset
+	// of the auth-types supported by the provider. To do that, we'll
+	// need a new "policy".
+	return nil
 }

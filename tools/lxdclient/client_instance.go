@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -25,17 +26,28 @@ type Devices map[string]Device
 type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
-	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices shared.Devices, ephem bool) (*lxd.Response, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
 	WaitForSuccess(waitURL string) error
 	ContainerState(name string) (*shared.ContainerState, error)
+	ContainerDeviceAdd(container, devname, devtype string, props []string) (*lxd.Response, error)
 }
 
 type instanceClient struct {
 	raw    rawInstanceClient
 	remote string
+}
+
+func deviceProperties(device Device) []string {
+	var props []string
+
+	for k, v := range device {
+		props = append(props, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return props
 }
 
 func (client *instanceClient) addInstance(spec InstanceSpec) error {
@@ -54,7 +66,7 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	// TODO(ericsnow) Copy the image first?
 
 	config := spec.config()
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, copyDevices(spec.Devices), spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -66,6 +78,23 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
+	}
+
+	for name, device := range spec.Devices {
+		deviceType, ok := device["type"]
+		if !ok {
+			continue
+		}
+		props := deviceProperties(device)
+		logger.Infof("adding device=%s, type=%s with properties=%q to container %s",
+			name, deviceType, props, spec.Name)
+		resp, err := client.raw.ContainerDeviceAdd(spec.Name, name, deviceType, props)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -284,20 +313,4 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		}
 	}
 	return addrs, nil
-}
-
-func copyDevices(in Devices) (out shared.Devices) {
-	out = make(shared.Devices, len(in))
-	for name, device := range in {
-		out[name] = copyDevice(device)
-	}
-	return
-}
-
-func copyDevice(in Device) (out shared.Device) {
-	out = make(shared.Device, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
-	return
 }

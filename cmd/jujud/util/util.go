@@ -6,12 +6,10 @@ package util
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
@@ -225,14 +223,6 @@ func (c *CloseWorker) Wait() error {
 		c.logger.Errorf("closeWorker: close error: %v", err)
 	}
 	return err
-}
-
-// HookExecutionLock returns an *fslock.Lock suitable for use as a
-// unit hook execution lock. Other workers may also use this lock if
-// they require isolation from hook execution.
-func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
-	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

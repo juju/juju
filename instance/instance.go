@@ -57,14 +57,14 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string   `json:",omitempty" yaml:"arch,omitempty"`
-	Mem      *uint64   `json:",omitempty" yaml:"mem,omitempty"`
-	RootDisk *uint64   `json:",omitempty" yaml:"rootdisk,omitempty"`
-	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
-	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
-	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
+	Arch     *string   `json:"arch,omitempty" yaml:"arch,omitempty"`
+	Mem      *uint64   `json:"mem,omitempty" yaml:"mem,omitempty"`
+	RootDisk *uint64   `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
+	CpuCores *uint64   `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
+	CpuPower *uint64   `json:"cpu-power,omitempty" yaml:"cpupower,omitempty"`
+	Tags     *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
-	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
+	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
 }
 
 // An error reporting that an error has occurred during instance creation

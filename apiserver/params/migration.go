@@ -38,7 +38,7 @@ type InitiateModelMigrationResults struct {
 // model migration initiation attempt.
 type InitiateModelMigrationResult struct {
 	ModelTag    string `json:"model-tag"`
-	Error       *Error `json:"error"`
+	Error       *Error `json:"error,omitempty"`
 	MigrationId string `json:"migration-id"`
 }
 

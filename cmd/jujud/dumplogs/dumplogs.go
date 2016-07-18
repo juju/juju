@@ -177,7 +177,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 		writer.WriteString(c.format(
 			rec.Time,
 			rec.Level,
-			rec.Entity,
+			rec.Entity.String(),
 			rec.Module,
 			rec.Message,
 		) + "\n")

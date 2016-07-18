@@ -20,11 +20,12 @@ import (
 // that it should wait for hosted models to be completely cleaned up
 // before proceeding.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	controllerEnv, err := s.state.ControllerModel()
+	st := common.NewModelManagerBackend(s.state)
+	controllerModel, err := st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	systemTag := controllerEnv.ModelTag()
+	systemTag := controllerModel.ModelTag()
 
 	if err = s.ensureNotBlocked(args); err != nil {
 		return errors.Trace(err)
@@ -35,9 +36,9 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
 	if args.DestroyModels {
-		return errors.Trace(common.DestroyModelIncludingHosted(s.state, systemTag))
+		return errors.Trace(common.DestroyModelIncludingHosted(st, systemTag))
 	}
-	if err := common.DestroyModel(s.state, systemTag); err != nil {
+	if err := common.DestroyModel(st, systemTag); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

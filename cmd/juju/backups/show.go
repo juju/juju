@@ -31,7 +31,7 @@ func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-backup",
 		Args:    "<ID>",
-		Purpose: "get metadata",
+		Purpose: "Show metadata for the specified backup.",
 		Doc:     showDoc,
 	}
 }

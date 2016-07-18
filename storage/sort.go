@@ -8,6 +8,10 @@ import "sort"
 // SortBlockDevices sorts block devices by device name.
 func SortBlockDevices(devices []BlockDevice) {
 	sort.Sort(byDeviceName(devices))
+
+	for i := range devices {
+		sort.Strings(devices[i].DeviceLinks)
+	}
 }
 
 type byDeviceName []BlockDevice

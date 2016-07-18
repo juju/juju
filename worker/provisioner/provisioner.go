@@ -143,11 +143,17 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the controller config.")
+	}
+
 	secureServerConnection := false
 	if info, ok := p.agentConfig.StateServingInfo(); ok {
 		secureServerConnection = info.CAPrivateKey != ""
 	}
 	task, err := NewProvisionerTask(
+		controllerCfg.ControllerUUID(),
 		machineTag,
 		harvestMode,
 		p.st,

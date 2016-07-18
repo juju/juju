@@ -19,7 +19,9 @@ type restrictedRoot struct {
 
 // newRestrictedRoot returns a new restrictedRoot.
 func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
-	return &restrictedRoot{finder}
+	return &restrictedRoot{
+		MethodFinder: finder,
+	}
 }
 
 // The restrictedRootNames are the root names that can be accessed at the root

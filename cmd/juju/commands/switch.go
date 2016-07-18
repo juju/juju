@@ -25,7 +25,7 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	modelcmd.JujuCommandBase
-	RefreshModels func(jujuclient.ClientStore, string, string) error
+	RefreshModels func(jujuclient.ClientStore, string) error
 
 	Store  jujuclient.ClientStore
 	Target string
@@ -147,17 +147,13 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		newName = modelcmd.JoinModelName(newControllerName, modelName)
 	}
 
-	accountName, err := c.Store.CurrentAccount(newControllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.Store.SetCurrentModel(newControllerName, accountName, modelName)
+	err = c.Store.SetCurrentModel(newControllerName, modelName)
 	if errors.IsNotFound(err) {
 		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(c.Store, newControllerName, accountName); err != nil {
+		if err := c.RefreshModels(c.Store, newControllerName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}
-		err := c.Store.SetCurrentModel(newControllerName, accountName, modelName)
+		err := c.Store.SetCurrentModel(newControllerName, modelName)
 		if errors.IsNotFound(err) {
 			return unknownSwitchTargetError(c.Target)
 		} else if err != nil {
@@ -193,15 +189,11 @@ func (c *switchCommand) name(controllerName string, machineReadable bool) (strin
 	if controllerName == "" {
 		return "", nil
 	}
-	accountName, err := c.Store.CurrentAccount(controllerName)
+	modelName, err := c.Store.CurrentModel(controllerName)
 	if err == nil {
-		modelName, err := c.Store.CurrentModel(controllerName, accountName)
-		if err == nil {
-			return modelcmd.JoinModelName(controllerName, modelName), nil
-		} else if !errors.IsNotFound(err) {
-			return "", errors.Trace(err)
-		}
-	} else if !errors.IsNotFound(err) {
+		return modelcmd.JoinModelName(controllerName, modelName), nil
+	}
+	if !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
 	}
 	// No current account or model.

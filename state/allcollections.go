@@ -146,13 +146,20 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds cloud definitions.
+		cloudsC: {global: true},
+
 		// This collection holds users' cloud credentials.
 		cloudCredentialsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner"},
+				Key: []string{"owner", "cloud"},
 			}},
 		},
+
+		// This collection holds settings from various sources which
+		// are inherited and then forked by new models.
+		globalSettingsC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -176,16 +183,23 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
+		// This collection holds users related to a model and will be usde as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
+
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
-		// given collection.
-		modelUsersC: {},
+		// given operation.
+		permissionsC: {},
 
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
 			rawAccess: true,
 		},
+
+		// This collection holds the source from where model settings came.
+		modelSettingsSourcesC: {},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -358,6 +372,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditingC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -371,18 +390,21 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
@@ -396,12 +418,14 @@ const (
 	migrationsC              = "migrations"
 	migrationsMinionSyncC    = "migrations.minionsync"
 	migrationsStatusC        = "migrations.status"
+	modelSettingsSourcesC    = "modelSettingsSources"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
 	payloadsC                = "payloads"
+	permissionsC             = "permissions"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
@@ -433,6 +457,5 @@ const (
 	usersC                   = "users"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
-	// "payloads" (see payload/persistence/mongo.go)
 	// "resources" (see resource/persistence/mongo.go)
 )

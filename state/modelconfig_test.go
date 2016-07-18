@@ -7,11 +7,14 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type ModelConfigSuite struct {
@@ -84,18 +87,32 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
 }
 
-func (s *ModelConfigSuite) TestModelConfigOverridesCloudValue(c *gc.C) {
-	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.DefaultModelSettingsGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	sharedSettings.Set("apt-mirror", "http://mirror")
-	_, err = sharedSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+type ModelConfigSourceSuite struct {
+	ConnSuite
+}
 
+var _ = gc.Suite(&ModelConfigSourceSuite{})
+
+func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
+	s.ControllerInheritedConfig = map[string]interface{}{
+		"apt-mirror": "http://cloud-mirror",
+		"http-proxy": "http://proxy",
+	}
+	s.ConnSuite.SetUpTest(c)
+
+	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	localControllerSettings.Set("apt-mirror", "http://mirror")
+	_, err = localControllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesCloudValue(c *gc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"apt-mirror":      "http://anothermirror",
 	}
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.State.ModelConfig()
@@ -103,14 +120,115 @@ func (s *ModelConfigSuite) TestModelConfigOverridesCloudValue(c *gc.C) {
 	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://anothermirror")
 }
 
-func (s *ModelConfigSuite) TestModelConfigInheritsCloudValue(c *gc.C) {
-	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.DefaultModelSettingsGlobalKey)
+func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *gc.C) {
+	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	sharedSettings.Set("apt-mirror", "http://mirror")
-	_, err = sharedSettings.Write()
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
+
+	// Change the local controller settings and ensure the model setting stays the same.
+	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	localControllerSettings.Set("apt-mirror", "http://anothermirror")
+	_, err = localControllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := s.State.ModelConfig()
+	modelCfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
+}
+
+func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": "another",
+		"uuid": uuid.String(),
+	})
+	owner := names.NewUserTag("test@remote")
+	_, st, err := s.State.NewModel(state.ModelArgs{
+		Config: cfg, Owner: owner, CloudName: "dummy",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	modelCfg, err := st.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
+
+	// Change the local controller settings and ensure the model setting stays the same.
+	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	localCloudSettings.Set("apt-mirror", "http://anothermirror")
+	_, err = localCloudSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelCfg, err = st.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
+}
+
+func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
+	modelCfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "apt-mirror" || attr == "http-proxy" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	sources, err := s.State.ModelConfigValues()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
+}
+
+func (s *ModelConfigSourceSuite) TestModelConfigUpdateSetsSource(c *gc.C) {
+	attrs := map[string]interface{}{
+		"http-proxy": "http://anotherproxy",
+	}
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelCfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "apt-mirror" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	sources, err := s.State.ModelConfigValues()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
+}
+
+func (s *ModelConfigSourceSuite) TestModelConfigDeleteSetsSource(c *gc.C) {
+	err := s.State.UpdateModelConfig(nil, []string{"apt-mirror"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelCfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "http-proxy" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	sources, err := s.State.ModelConfigValues()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
