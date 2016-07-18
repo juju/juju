@@ -324,19 +324,18 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	if len(ControllerInheritedConfig) > 0 {
 		configSources = []modelConfigSource{{
 			name: config.JujuControllerSource,
-			sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
+			sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
 				return ControllerInheritedConfig, nil
 			})}}
 	} else {
 		configSources = modelConfigSources(st)
 	}
-	modelCfg, cfgSource, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
+	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
-		createSettingsSourceOp(cfgSource),
 		createModelEntityRefsOp(modelUUID),
 		createModelOp(
 			args.Owner,
