@@ -45,20 +45,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the config attributes of the model to import.
-	attr, err := st.ControllerConfig()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	for k, v := range model.Config() {
-		attr[k] = v
-	}
 	// Create the model.
-	cfg, err := config.New(config.NoDefaults, attr)
+	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
 		Owner:         model.Owner(),
@@ -212,17 +205,23 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		access := ModelAdminAccess
-		if user.ReadOnly() {
-			access = ModelReadAccess
+		var access Access
+		switch {
+		case user.IsReadOnly():
+			access = ReadAccess
+		case user.IsReadWrite():
+			access = WriteAccess
+		default:
+			access = AdminAccess
 		}
-		ops = append(ops, createModelUserOp(
+		ops = append(ops, createModelUserOps(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			access))
+			access)...,
+		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -651,10 +650,21 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
+	workloadVersion := u.WorkloadVersion()
+	versionStatus := status.StatusActive
+	if workloadVersion == "" {
+		versionStatus = status.StatusUnknown
+	}
+	workloadVersionDoc := statusDoc{
+		Status:     versionStatus,
+		StatusInfo: workloadVersion,
+	}
+
 	ops := addUnitOps(i.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: workloadStatusDoc,
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  workloadStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
@@ -693,6 +703,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -112,11 +111,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("apt-mirror", "http://mirror")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,11 +122,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
-
-	// Remove all controller and cloud config before comparison.
-	controller.RemoveControllerAttributes(modelAttrs)
-	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
@@ -164,7 +153,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ModelReadAccess,
+		Access:    state.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(bob, lastConnection)
@@ -185,14 +174,14 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.ReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.ReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
@@ -281,7 +270,7 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
 }
 
-func (s *MigrationExportSuite) TestServices(c *gc.C) {
+func (s *MigrationExportSuite) TestApplications(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
@@ -329,7 +318,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
 }
 
-func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
+func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
@@ -347,6 +336,10 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
@@ -369,6 +362,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
+	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -382,6 +376,16 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
+
+	versionHistory := exported.WorkloadVersionHistory()
+	// There are extra entries at the start that we don't care about.
+	c.Assert(len(versionHistory) >= 4, jc.IsTrue)
+	versions := make([]string, 4)
+	for i, status := range versionHistory[:4] {
+		versions[i] = status.Message()
+	}
+	// The exporter reads history in reverse time order.
+	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -37,7 +40,8 @@ import (
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -60,7 +64,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
-	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
@@ -82,38 +86,51 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined, nil)
 	s.setDummyStorage(c, env)
-	fixEnv := func(key string, value interface{}) {
-		cfg, err := env.Config().Apply(map[string]interface{}{
-			key: value,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		env.cfg = cfg
-	}
 
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "model configuration has no admin-secret")
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, gc.ErrorMatches, "validating bootstrap parameters: admin-secret is empty")
 
-	fixEnv("admin-secret", "whatever")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-cert")
+	controllerCfg := coretesting.FakeControllerConfig()
+	delete(controllerCfg, "ca-cert")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: controllerCfg,
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, gc.ErrorMatches, "validating bootstrap parameters: controller configuration has no ca-cert")
 
-	fixEnv("ca-cert", coretesting.CACert)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-private-key")
+	controllerCfg = coretesting.FakeControllerConfig()
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: controllerCfg,
+		AdminSecret:      "admin-secret",
+	})
+	c.Assert(err, gc.ErrorMatches, "validating bootstrap parameters: empty ca-private-key")
 
-	fixEnv("ca-private-key", coretesting.CAKey)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: controllerCfg,
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
-	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{})
+	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+	})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
@@ -122,6 +139,9 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
 	modelCons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		BootstrapConstraints: bootstrapCons,
 		ModelConstraints:     modelCons,
 	})
@@ -141,7 +161,10 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	env.cfg = cfg
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		BootstrapSeries: "trusty",
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		BootstrapSeries:  "trusty",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
@@ -153,7 +176,11 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	placement := "directive"
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Placement: placement})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		Placement:        placement})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
@@ -179,6 +206,9 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		BootstrapImage:       "img-id",
 		BootstrapSeries:      "precise",
 		BootstrapConstraints: bootstrapCons,
@@ -230,6 +260,9 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		BootstrapConstraints: bootstrapCons,
 		MetadataDir:          metadataDir,
 	})
@@ -255,6 +288,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BuildToolsTarball: func(*version.Number, string) (*sync.BuiltTools, error) {
 			return &sync.BuiltTools{Dir: c.MkDir()}, nil
 		},
@@ -276,6 +312,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"development": true})
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
 		BuildToolsTarball: func(*version.Number, string) (*sync.BuiltTools, error) {
 			return &sync.BuiltTools{Dir: c.MkDir()}, nil
 		},
@@ -364,6 +403,9 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +423,11 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.2.0 installation from local archive\n")
 
@@ -407,7 +453,11 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
 	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
@@ -420,6 +470,9 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -434,6 +487,9 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -445,7 +501,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, `Cannot use Juju GUI at "/no/such/file": cannot open Juju GUI archive:`)
 }
@@ -457,7 +517,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot read Juju GUI archive", path))
 }
@@ -467,7 +531,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju GUI at %q: cannot parse version "invalid"`, path))
 }
@@ -477,7 +545,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot find Juju GUI version", path))
 }
@@ -528,7 +600,10 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		MetadataDir: metadataDir,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		MetadataDir:      metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -556,6 +631,9 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 	s.setDummyStorage(c, env)
 	credential := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{"what": "ever"})
 	args := bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -583,9 +661,57 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
 
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Controller.PublicImageSigningKey, gc.Equals, "publickey")
+}
+
+func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
+
+	password := "lisboan-pork"
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      password,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	icfg := env.instanceConfig
+
+	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
+		Password: password,
+		CACert:   coretesting.CACert,
+		ModelTag: coretesting.ModelTag,
+	})
+	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
+		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
+	})
+	controllerCfg := icfg.Controller.Config
+	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
+	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
+	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
+	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, coretesting.CAKey)
+
+	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
+	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
+	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
+	c.Check(err, jc.ErrorIsNil)
+
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now().AddDate(9, 0, 0))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now().AddDate(10, 0, 1))
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -599,7 +725,10 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		MetadataDir: noImagesDir,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		MetadataDir:      noImagesDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -641,7 +770,10 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		AgentVersion: toolsVersion,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		AgentVersion:     toolsVersion,
 	})
 	vers, _ := env.cfg.AgentVersion()
 	return err, env.bootstrapCount, vers
@@ -746,7 +878,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
-	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		e.finalizerCount++
 		e.instanceConfig = icfg
 		return nil

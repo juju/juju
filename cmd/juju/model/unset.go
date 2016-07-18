@@ -19,7 +19,7 @@ func NewUnsetCommand() cmd.Command {
 
 type unsetCommand struct {
 	modelcmd.ModelCommandBase
-	api  UnsetEnvironmentAPI
+	api  UnsetModelAPI
 	keys []string
 }
 
@@ -59,13 +59,13 @@ func (c *unsetCommand) Init(args []string) (err error) {
 	return nil
 }
 
-type UnsetEnvironmentAPI interface {
+type UnsetModelAPI interface {
 	Close() error
 	ModelGet() (map[string]interface{}, error)
 	ModelUnset(keys ...string) error
 }
 
-func (c *unsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
+func (c *unsetCommand) getAPI() (UnsetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

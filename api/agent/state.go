@@ -19,6 +19,7 @@ import (
 type State struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 }
 
 // NewState returns a version of the state that provides functionality
@@ -26,8 +27,9 @@ type State struct {
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{
-		facade:       facadeCaller,
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		facade:              facadeCaller,
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}
 }
 

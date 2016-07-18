@@ -6,15 +6,21 @@ package environs
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/tools"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// ControllerConfig contains the configuration attributes for the
+	// bootstrapped controller.
+	ControllerConfig controller.Config
+
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the new
 	// environment's state.
@@ -50,7 +56,24 @@ type BootstrapParams struct {
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a InstanceConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig) error
+type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig, BootstrapDialOpts) error
+
+// BootstrapDialOpts contains the options for the synchronous part of the
+// bootstrap procedure, where the CLI connects to the bootstrap machine
+// to complete the process.
+type BootstrapDialOpts struct {
+	// Timeout is the amount of time to wait contacting a state
+	// server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time between attempts to connect to
+	// an address.
+	RetryDelay time.Duration
+
+	// AddressesDelay is the amount of time between refreshing the
+	// addresses.
+	AddressesDelay time.Duration
+}
 
 // BootstrapResult holds the data returned by calls to Environ.Bootstrap.
 type BootstrapResult struct {

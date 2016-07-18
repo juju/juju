@@ -8,10 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -318,26 +316,6 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	charm, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-		Actions:  charm.Actions(),
-	}
-	return info, nil
-}
-
 // ModelInfo returns information about the current model (default
 // series and type).
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
@@ -353,6 +331,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:   config.PreferredSeries(conf),
+		Cloud:           model.Cloud(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: model.CloudCredential(),
 		ProviderType:    conf.Type(),
@@ -397,12 +376,17 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 // get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	// Get the existing model config from the state.
-	config, err := c.api.stateAccessor.ModelConfig()
+	values, err := c.api.stateAccessor.ModelConfigValues()
 	if err != nil {
 		return result, err
 	}
-	result.Config = config.AllAttrs()
+	result.Config = make(map[string]params.ConfigValue)
+	for attr, val := range values {
+		result.Config[attr] = params.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
 	return result, nil
 }
 
@@ -530,15 +514,4 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyModel() (err error) {
-	if err := c.check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelTag := c.api.stateAccessor.ModelTag()
-	return errors.Trace(common.DestroyModel(c.api.state(), modelTag))
 }

@@ -35,9 +35,8 @@ type RegisterSuite struct {
 	apiConnection               *mockAPIConnection
 	store                       *jujuclienttesting.MemStore
 	apiOpenError                error
-	refreshModels               func(jujuclient.ClientStore, string, string) error
+	refreshModels               func(jujuclient.ClientStore, string) error
 	refreshModelsControllerName string
-	refreshModelsAccountName    string
 	server                      *httptest.Server
 	httpHandler                 http.Handler
 }
@@ -60,10 +59,8 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		addr:          serverURL.Host,
 	}
 	s.refreshModelsControllerName = ""
-	s.refreshModelsAccountName = ""
-	s.refreshModels = func(store jujuclient.ClientStore, controllerName, accountName string) error {
+	s.refreshModels = func(store jujuclient.ClientStore, controllerName string) error {
 		s.refreshModelsControllerName = controllerName
-		s.refreshModelsAccountName = accountName
 		return nil
 	}
 
@@ -107,6 +104,21 @@ func (s *RegisterSuite) encodeRegistrationData(c *gc.C, user string, secretKey [
 	return base64.URLEncoding.EncodeToString(data)
 }
 
+func (s *RegisterSuite) encodeRegistrationDataWithControllerName(c *gc.C, user string, secretKey []byte, controller string) string {
+	data, err := asn1.Marshal(jujuclient.RegistrationInfo{
+		User:           user,
+		Addrs:          []string{s.apiConnection.addr},
+		SecretKey:      secretKey,
+		ControllerName: controller,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Append some junk to the end of the encoded data to
+	// ensure that, if we have to pad the data in add-user,
+	// register can still decode it.
+	data = append(data, 0, 0, 0)
+	return base64.URLEncoding.EncodeToString(data)
+}
+
 func (s *RegisterSuite) seal(c *gc.C, message, key, nonce []byte) []byte {
 	var keyArray [32]byte
 	var nonceArray [24]byte
@@ -130,12 +142,11 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
-	ctx := s.testRegister(c)
+	ctx := s.testRegister(c, "")
 	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
-	c.Assert(s.refreshModelsAccountName, gc.Equals, "bob@local")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller: 
+Please set a name for this controller (controller-name):
 Enter a new password: 
 Confirm password: 
 
@@ -149,41 +160,41 @@ of a model to grant access to that model with "juju grant".
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
-		err := store.UpdateModel(controller, account, "theoneandonly", jujuclient.ModelDetails{
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "theoneandonly", jujuclient.ModelDetails{
 			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	}
-	s.testRegister(c)
+	s.testRegister(c, "")
 	c.Assert(
-		s.store.Models["controller-name"].AccountModels["bob@local"].CurrentModel,
+		s.store.Models["controller-name"].CurrentModel,
 		gc.Equals, "theoneandonly",
 	)
 }
 
 func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
 		for _, name := range [...]string{"model1", "model2"} {
-			err := store.UpdateModel(controller, account, name, jujuclient.ModelDetails{
+			err := store.UpdateModel(controller, name, jujuclient.ModelDetails{
 				ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		return nil
 	}
-	ctx := s.testRegister(c)
+	ctx := s.testRegister(c, "")
 
 	// When there are multiple models, no current model will be set.
 	// Instead, the command will output the list of models and inform
 	// the user how to set the current model.
-	_, err := s.store.CurrentModel("controller-name", "bob@local")
+	_, err := s.store.CurrentModel("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller: 
+Please set a name for this controller (controller-name):
 Enter a new password: 
 Confirm password: 
 
@@ -197,7 +208,7 @@ one of them:
 `[1:])
 }
 
-func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
+func (s *RegisterSuite) testRegister(c *gc.C, expectedError string) *cmd.Context {
 	secretKey := []byte(strings.Repeat("X", 32))
 	respNonce := []byte(strings.Repeat("X", 24))
 
@@ -229,9 +240,13 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 		c.Check(err, jc.ErrorIsNil)
 	})
 
-	registrationData := s.encodeRegistrationData(c, "bob", secretKey)
-	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+	stdin := strings.NewReader("\nhunter2\nhunter2\n")
 	ctx, err := s.run(c, stdin, registrationData)
+	if expectedError != "" {
+		c.Assert(err, gc.ErrorMatches, expectedError)
+		return ctx
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	// There should have been one POST command to "/register".
@@ -261,7 +276,7 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 		APIEndpoints:   []string{s.apiConnection.addr},
 		CACert:         testing.CACert,
 	})
-	account, err := s.store.AccountByName("controller-name", "bob@local")
+	account, err := s.store.AccountDetails("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "bob@local",
@@ -297,6 +312,36 @@ func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
 	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
 	_, err = s.run(c, stdin, registrationData)
 	c.Assert(err, gc.ErrorMatches, `controller "controller-name" already exists`)
+}
+
+func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
+	err := s.store.UpdateController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		CACert:         testing.CACert,
+	})
+
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "controller-name", jujuclient.ModelDetails{
+			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	}
+
+	ctx := s.testRegister(c, "you must specify a non-empty controller name")
+
+	secretKey := []byte(strings.Repeat("X", 32))
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+	stdin := strings.NewReader("controller-name1\nhunter2\nhunter2\n")
+	_, err = s.run(c, stdin, registrationData)
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+WARNING: the controller proposed "controller-name" which clashes with an existing controller. The two controllers are entirely different.
+
+Please set a name for this controller:
+`[1:])
+
 }
 
 func (s *RegisterSuite) TestRegisterEmptyPassword(c *gc.C) {

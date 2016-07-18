@@ -39,7 +39,7 @@ func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
 		Args:    "<unit name> [hook names]",
-		Purpose: "launch a tmux session to debug a hook",
+		Purpose: "Launch a tmux session to debug a hook.",
 		Doc:     debugHooksDoc,
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
@@ -661,12 +660,10 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			Results: []params.ApplicationCharmActionsResult{
 				{
 					ApplicationTag: names.NewApplicationTag("dummy").String(),
-					Actions: &charm.Actions{
-						ActionSpecs: map[string]charm.ActionSpec{
-							"snapshot": {
-								Description: "Take a snapshot of the database.",
-								Params:      actionSchemas["snapshot"],
-							},
+					Actions: map[string]params.ActionSpec{
+						"snapshot": {
+							Description: "Take a snapshot of the database.",
+							Params:      actionSchemas["snapshot"],
 						},
 					},
 				},
@@ -678,12 +675,10 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			Results: []params.ApplicationCharmActionsResult{
 				{
 					ApplicationTag: names.NewApplicationTag("wordpress").String(),
-					Actions: &charm.Actions{
-						ActionSpecs: map[string]charm.ActionSpec{
-							"fakeaction": {
-								Description: "No description",
-								Params:      actionSchemas["fakeaction"],
-							},
+					Actions: map[string]params.ActionSpec{
+						"fakeaction": {
+							Description: "No description",
+							Params:      actionSchemas["fakeaction"],
 						},
 					},
 				},

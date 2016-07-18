@@ -28,7 +28,7 @@ var (
 	defaultSender            MetricSender = &HttpSender{}
 )
 
-func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {
+func handleResponse(mm *state.MetricsManager, st MetricsSenderBackend, response wireformat.Response) {
 	for _, envResp := range response.EnvResponses {
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
 		if err != nil {
@@ -57,7 +57,7 @@ func handleResponse(mm *state.MetricsManager, st *state.State, response wireform
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
 // no larger than batchSize.
-func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
+func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) error {
 	metricsManager, err := st.MetricsManager()
 	if err != nil {
 		return errors.Trace(err)

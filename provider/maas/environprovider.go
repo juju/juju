@@ -46,7 +46,7 @@ func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p maasEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	attrs := cfg.UnknownAttrs()
 	oldName, found := attrs["maas-agent-name"]
 	if found && oldName != "" {
@@ -85,7 +85,7 @@ func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.

@@ -53,6 +53,7 @@ type environSuite struct {
 	sender        azuretesting.Senders
 	retryClock    mockClock
 
+	controllerUUID                string
 	tags                          map[string]*string
 	group                         *resources.ResourceGroup
 	vmSizes                       *compute.VirtualMachineSizeListResult
@@ -88,9 +89,10 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	})
 
+	s.controllerUUID = testing.ModelTag.Id()
 	envTags := map[string]*string{
 		"juju-model-uuid":      to.StringPtr(testing.ModelTag.Id()),
-		"juju-controller-uuid": to.StringPtr(testing.ModelTag.Id()),
+		"juju-controller-uuid": to.StringPtr(s.controllerUUID),
 	}
 	s.tags = map[string]*string{
 		"juju-machine-name": to.StringPtr("machine-0"),
@@ -407,7 +409,7 @@ func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.M
 	return sender
 }
 
-func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParams {
+func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:246"},
@@ -425,6 +427,7 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 	c.Assert(err, jc.ErrorIsNil)
 
 	return environs.StartInstanceParams{
+		ControllerUUID: controllerUUID,
 		Tools:          makeToolsList(series),
 		InstanceConfig: icfg,
 	}
@@ -491,7 +494,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	result, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	result, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -534,7 +537,7 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	senders = append(senders, successSender)
 	s.sender = senders
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 8+failures)
@@ -577,7 +580,7 @@ func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
 	}
 	s.sender = senders
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, gc.ErrorMatches, "creating virtual machine.*: max duration exceeded: .*failed with.*")
 
 	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
@@ -602,7 +605,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
 	unitsDeployed := "mysql/0 wordpress/0"
-	params := makeStartInstanceParams(c, "quantal")
+	params := makeStartInstanceParams(c, s.controllerUUID, "quantal")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
 	_, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -685,7 +688,8 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			AvailableTools: makeToolsList(series.LatestLts()),
+			ControllerConfig: testing.FakeControllerConfig(),
+			AvailableTools:   makeToolsList(series.LatestLts()),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -876,7 +880,7 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
 }
 
-func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
+func (s *environSuite) TestDestroyController(c *gc.C) {
 	groups := []resources.ResourceGroup{{
 		Name: to.StringPtr("group1"),
 	}, {
@@ -890,7 +894,7 @@ func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 	}
-	err := env.Destroy()
+	err := env.DestroyController(s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -910,7 +914,7 @@ func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 }
 
-func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
+func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	groups := []resources.ResourceGroup{
 		{Name: to.StringPtr("group1")},
 		{Name: to.StringPtr("group2")},
@@ -929,7 +933,7 @@ func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
 		errorSender1,                              // DELETE
 		errorSender2,                              // DELETE
 	}
-	destroyErr := env.Destroy()
+	destroyErr := env.DestroyController(s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -944,14 +948,9 @@ func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 
-	// The errors are guaranteed to be in the order that the names appeared
-	// in the list response.
-	firstErr := "foo"
-	secondErr := "bar"
-	if groupsDeleted[0] == "group2" {
-		firstErr, secondErr = secondErr, firstErr
-	}
-	c.Assert(destroyErr, gc.ErrorMatches,
-		`deleting resource group "group1":.* failed with `+firstErr+`; `+
-			`deleting resource group "group2":.* failed with `+secondErr)
+	c.Check(destroyErr, gc.ErrorMatches,
+		`deleting resource group "group1":.* failed with .*; `+
+			`deleting resource group "group2":.* failed with .*`)
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with foo.*")
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with bar.*")
 }

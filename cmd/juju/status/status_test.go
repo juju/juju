@@ -4,6 +4,7 @@
 package status
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -88,7 +89,7 @@ type stepper interface {
 // context
 //
 
-func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag string) *context {
+func newContext(st *state.State, env environs.Environ, adminUserTag string) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
@@ -143,7 +144,7 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
-	return newContext(c, st, s.Environ, s.AdminUserTag(c).String())
+	return newContext(st, s.Environ, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -2383,6 +2384,133 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 19
+		"consistent workload version",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1"},
+		setUnitWorkloadVersion{"mysql/0", "the best!"},
+
+		expect{
+			"application and unit with correct workload version",
+			M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"applications": M{
+					"mysql": mysqlCharm(M{
+						"version": "the best!",
+						"application-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-1.dns",
+							},
+						},
+					}),
+				},
+			},
+		},
+	),
+	test( // 20
+		"mixed workload version",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1"},
+		setUnitWorkloadVersion{"mysql/0", "the best!"},
+
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitWorkloadVersion{"mysql/1", "not as good"},
+
+		expect{
+			"application and unit with correct workload version",
+			M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+				},
+				"applications": M{
+					"mysql": mysqlCharm(M{
+						"version": "not as good",
+						"application-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-1.dns",
+							},
+							"mysql/1": M{
+								"machine": "2",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-2.dns",
+							},
+						},
+					}),
+				},
+			},
+		},
+	),
 }
 
 func mysqlCharm(extras M) M {
@@ -2476,7 +2604,9 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2490,7 +2620,9 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	// lp:1558657
@@ -2514,7 +2646,9 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -2531,7 +2665,9 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -2801,6 +2937,18 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
+}
+
+type setUnitWorkloadVersion struct {
+	unitName string
+	version  string
+}
+
+func (wv setUnitWorkloadVersion) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(wv.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetWorkloadVersion(wv.version)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type openUnitPort struct {
@@ -3204,6 +3352,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", status.StatusActive, "", nil},
 		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
+		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
+		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3222,31 +3373,31 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE  
-controller  kontroll    dummy  1.2.3    1.2.4              
+MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
+controller  kontroll    dummy         1.2.3    1.2.4
 
-APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS      
-logging                 true     jujucharms  logging    1    ubuntu  
-mysql      maintenance  true     jujucharms  mysql      1    ubuntu  
-wordpress  active       true     jujucharms  wordpress  3    ubuntu  
+APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
+logging    a bi...               true     jujucharms  logging    1    ubuntu
+mysql      5.7.13   maintenance  true     jujucharms  mysql      1    ubuntu
+wordpress  4.5.3    active       true     jujucharms  wordpress  3    ubuntu
 
-RELATION           PROVIDES   CONSUMES   TYPE         
-juju-info          logging    mysql      regular      
-logging-dir        logging    wordpress  regular      
-info               mysql      logging    subordinate  
-db                 mysql      wordpress  regular      
-logging-directory  wordpress  logging    subordinate  
+RELATION           PROVIDES   CONSUMES   TYPE
+juju-info          logging    mysql      regular
+logging-dir        logging    wordpress  regular
+info               mysql      logging    subordinate
+db                 mysql      wordpress  regular
+logging-directory  wordpress  logging    subordinate
 
-UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE                         
-mysql/0      maintenance  idle   2               controller-2.dns  installing all the things       
-  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs  
-wordpress/0  active       idle   1               controller-1.dns                                  
-  logging/0  active       idle                   controller-1.dns                                  
+UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE
+mysql/0      maintenance  idle   2               controller-2.dns  installing all the things
+  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs
+wordpress/0  active       idle   1               controller-1.dns  
+  logging/0  active       idle                   controller-1.dns  
 
-MACHINE  STATE    DNS               INS-ID        SERIES   AZ          
-0        started  controller-0.dns  controller-0  quantal  us-east-1a  
-1        started  controller-1.dns  controller-1  quantal              
-2        started  controller-2.dns  controller-2  quantal              
+MACHINE  STATE    DNS               INS-ID        SERIES   AZ
+0        started  controller-0.dns  controller-0  quantal  us-east-1a
+1        started  controller-1.dns  controller-1  quantal  
+2        started  controller-2.dns  controller-2  quantal  
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -3259,9 +3410,9 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
-			"foo": applicationStatus{
+			"foo": {
 				Units: map[string]unitStatus{
-					"foo/0": unitStatus{
+					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running config-changed hook",
@@ -3271,7 +3422,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 							Message: "doing some work",
 						},
 					},
-					"foo/1": unitStatus{
+					"foo/1": {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running action backup database",
@@ -3288,18 +3439,44 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION  
-                                   
+MODEL  CONTROLLER  CLOUD/REGION  VERSION
+                                 
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
-foo          false                   0        
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
-UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                            
-foo/0  maintenance  executing                                  (config-changed) doing some work   
-foo/1  maintenance  executing                                  (backup database) doing some work  
+UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+foo/0  maintenance  executing                                  (config-changed) doing some work
+foo/1  maintenance  executing                                  (backup database) doing some work
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 `[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
+	status := formattedStatus{
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Relations: map[string][]string{
+					"coordinator":  {"foo"},
+					"frobulator":   {"foo"},
+					"encapsulator": {"foo"},
+					"catchulator":  {"foo"},
+					"perforator":   {"foo"},
+					"deliverator":  {"foo"},
+					"replicator":   {"foo"},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	sections, err := splitTableSections(out)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sections["RELATION"], gc.DeepEquals, []string{
+		"RELATION    PROVIDES  CONSUMES  TYPE",
+		"replicator  foo       foo       peer",
+	})
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
@@ -3333,15 +3510,15 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
-			"foo": applicationStatus{
+			"foo": {
 				Units: map[string]unitStatus{
-					"foo/0": unitStatus{
+					"foo/0": {
 						MeterStatus: &meterStatus{
 							Color:   "strange",
 							Message: "warning: stable strangelets",
 						},
 					},
-					"foo/1": unitStatus{
+					"foo/1": {
 						MeterStatus: &meterStatus{
 							Color:   "up",
 							Message: "things are looking up",
@@ -3354,21 +3531,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION  
-                                   
+MODEL  CONTROLLER  CLOUD/REGION  VERSION
+                                 
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
-foo          false                   0        
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
-UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE  
-foo/0                                                            
-foo/1                                                            
+UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+foo/0                                                   
+foo/1                                                   
 
-METER  STATUS   MESSAGE                      
-foo/0  strange  warning: stable strangelets  
-foo/1  up       things are looking up        
+METER  STATUS   MESSAGE
+foo/0  strange  warning: stable strangelets
+foo/1  up       things are looking up
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 `[1:])
 }
 
@@ -3857,7 +4034,7 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	status := &params.FullStatus{
 		Machines: map[string]params.MachineStatus{
-			"1": params.MachineStatus{
+			"1": {
 				AgentStatus: params.DetailedStatus{
 					Status: "error",
 					Info:   "<error while provisioning>",
@@ -3875,7 +4052,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{
 		Machines: map[string]machineStatus{
-			"1": machineStatus{
+			"1": {
 				JujuStatus: statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId: "pending",
 				Series:     "trusty",
@@ -3885,4 +4062,31 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{},
 	})
+}
+
+type tableSections map[string][]string
+
+func sectionTitle(lines []string) string {
+	return strings.SplitN(lines[0], " ", 2)[0]
+}
+
+func splitTableSections(tableData []byte) (tableSections, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(tableData))
+	result := make(tableSections)
+	var current []string
+	for scanner.Scan() {
+		if line := scanner.Text(); line == "" && current != nil {
+			result[sectionTitle(current)] = current
+			current = nil
+		} else if line != "" {
+			current = append(current, line)
+		}
+	}
+	if scanner.Err() != nil {
+		return nil, scanner.Err()
+	}
+	if current != nil {
+		result[sectionTitle(current)] = current
+	}
+	return result, nil
 }

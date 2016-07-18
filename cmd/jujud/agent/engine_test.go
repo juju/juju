@@ -31,10 +31,10 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"spaces-imported-gate",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
 		"charm-revision-updater",
@@ -71,7 +71,6 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"log-sender",
-		"machine-lock",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -84,6 +83,9 @@ var (
 		"leadership-tracker",
 		"logging-config-updater",
 		"meter-status",
+		"metric-collect",
+		"metric-sender",
+		"metric-spool",
 		"proxy-config-updater",
 		"uniter",
 	}
@@ -92,6 +94,7 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"log-forwarder",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

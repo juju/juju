@@ -51,7 +51,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-user-password",
 		Args:    "[username]",
-		Purpose: "Changes the password for a Juju user.",
+		Purpose: "Changes the password for the current or specified Juju user",
 		Doc:     userChangePasswordDoc,
 	}
 }
@@ -90,30 +90,39 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var accountName string
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var userTag names.UserTag
 	if c.User != "" {
 		if !names.IsValidUserName(c.User) {
 			return errors.NotValidf("user name %q", c.User)
 		}
-		accountName = names.NewUserTag(c.User).Canonical()
-	} else {
-		accountName, err = store.CurrentAccount(controllerName)
-		if err != nil {
-			return errors.Trace(err)
+		userTag = names.NewUserTag(c.User)
+		if userTag.Canonical() != accountDetails.User {
+			// The account details don't correspond to the username
+			// being changed, so we don't need to update the account
+			// locally.
+			accountDetails = nil
 		}
-	}
-	accountDetails, err := store.AccountByName(controllerName, accountName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
+	} else {
+		if !names.IsValidUser(accountDetails.User) {
+			return errors.Errorf("invalid user in account %q", accountDetails.User)
+		}
+		userTag = names.NewUserTag(accountDetails.User)
+		if !userTag.IsLocal() {
+			return errors.Errorf("cannot change password for external user %q", userTag)
+		}
 	}
 
 	if accountDetails != nil && accountDetails.Macaroon == "" {
 		// Generate a macaroon first to guard against I/O failures
 		// occurring after the password has been changed, preventing
 		// future logins.
-		userTag := names.NewUserTag(accountName)
 		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
 		if err != nil {
 			return errors.Trace(err)
@@ -128,12 +137,12 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		}
 		accountDetails.Macaroon = string(macaroonJSON)
 
-		if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
+		if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 			return errors.Annotate(err, "failed to update client credentials")
 		}
 	}
 
-	if err := c.api.SetPassword(accountName, newPassword); err != nil {
+	if err := c.api.SetPassword(userTag.Canonical(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	if accountDetails == nil {

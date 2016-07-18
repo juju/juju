@@ -41,24 +41,17 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
-	s.store.Accounts[controllerName] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"bob@local": {User: "bob@local"},
-		},
-		CurrentAccount: "bob@local",
+	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
+		User: "bob@local",
 	}
-	s.store.Models = map[string]jujuclient.ControllerAccountModels{
-		controllerName: jujuclient.ControllerAccountModels{
-			AccountModels: map[string]*jujuclient.AccountModels{
-				"bob@local": &jujuclient.AccountModels{
-					Models: map[string]jujuclient.ModelDetails{
-						"foo":    jujuclient.ModelDetails{fooModelUUID},
-						"bar":    jujuclient.ModelDetails{barModelUUID},
-						"baz":    jujuclient.ModelDetails{bazModelUUID},
-						"model1": jujuclient.ModelDetails{model1ModelUUID},
-						"model2": jujuclient.ModelDetails{model2ModelUUID},
-					},
-				},
+	s.store.Models = map[string]*jujuclient.ControllerModels{
+		controllerName: {
+			Models: map[string]jujuclient.ModelDetails{
+				"foo":    jujuclient.ModelDetails{fooModelUUID},
+				"bar":    jujuclient.ModelDetails{barModelUUID},
+				"baz":    jujuclient.ModelDetails{bazModelUUID},
+				"model1": jujuclient.ModelDetails{model1ModelUUID},
+				"model2": jujuclient.ModelDetails{model2ModelUUID},
 			},
 		},
 	}

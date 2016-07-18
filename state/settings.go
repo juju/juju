@@ -163,10 +163,9 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	return keys
 }
 
-// Write writes changes made to c back onto its node.  Changes are written
-// as a delta applied on top of the latest version of the node, to prevent
-// overwriting unrelated changes made to the node since it was last read.
-func (s *Settings) Write() ([]ItemChange, error) {
+// settingsUpdateOps returns the item changes and txn ops necessary
+// to write the changes made to c back onto its node.
+func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
 	changes := []ItemChange{}
 	updates := bson.M{}
 	deletions := bson.M{}
@@ -203,12 +202,29 @@ func (s *Settings) Write() ([]ItemChange, error) {
 		Assert: txn.DocExists,
 		Update: setUnsetUpdateSettings(updates, deletions),
 	}}
+	return changes, ops
+}
+
+func (s *Settings) write(ops []txn.Op) error {
 	err := s.st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		return nil, errors.NotFoundf("settings")
+		return errors.NotFoundf("settings")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot write settings: %v", err)
+		return fmt.Errorf("cannot write settings: %v", err)
+	}
+	s.disk = copyMap(s.core, nil)
+	return nil
+}
+
+// Write writes changes made to c back onto its node.  Changes are written
+// as a delta applied on top of the latest version of the node, to prevent
+// overwriting unrelated changes made to the node since it was last read.
+func (s *Settings) Write() ([]ItemChange, error) {
+	changes, ops := s.settingsUpdateOps()
+	err := s.write(ops)
+	if err != nil {
+		return nil, err
 	}
 	s.disk = copyMap(s.core, nil)
 	return changes, nil

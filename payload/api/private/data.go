@@ -13,7 +13,7 @@ import (
 // TrackArgs are the arguments for the Track endpoint.
 type TrackArgs struct {
 	// Payloads is the list of Payloads to track
-	Payloads []api.Payload
+	Payloads []api.Payload `json:"payloads"`
 }
 
 // List uses params.Entities.
@@ -21,21 +21,21 @@ type TrackArgs struct {
 // LookUpArgs are the arguments for the LookUp endpoint.
 type LookUpArgs struct {
 	// Args is the list of arguments to pass to this function.
-	Args []LookUpArg
+	Args []LookUpArg `json:"args"`
 }
 
 // LookUpArg contains all the information necessary to identify a payload.
 type LookUpArg struct {
 	// Name is the payload name.
-	Name string
+	Name string `json:"name"`
 	// ID uniquely identifies the payload for the given name.
-	ID string
+	ID string `json:"id"`
 }
 
 // SetStatusArgs are the arguments for the SetStatus endpoint.
 type SetStatusArgs struct {
 	// Args is the list of arguments to pass to this function.
-	Args []SetStatusArg
+	Args []SetStatusArg `json:"args"`
 }
 
 // SetStatusArg are the arguments for a single call to the
@@ -43,7 +43,7 @@ type SetStatusArgs struct {
 type SetStatusArg struct {
 	params.Entity
 	// Status is the new status of the payload.
-	Status string
+	Status string `json:"status"`
 }
 
 // Untrack uses params.Entities.
@@ -51,7 +51,7 @@ type SetStatusArg struct {
 // PayloadResults is the result for a call that makes one or more requests
 // about payloads.
 type PayloadResults struct {
-	Results []PayloadResult
+	Results []PayloadResult `json:"results"`
 }
 
 // TODO(ericsnow) Eliminate the NotFound field?
@@ -60,9 +60,9 @@ type PayloadResults struct {
 type PayloadResult struct {
 	params.Entity
 	// Payload holds the details of the payload, if any.
-	Payload *api.Payload
+	Payload *api.Payload `json:"payload"`
 	// NotFound indicates that the payload was not found in state.
-	NotFound bool
+	NotFound bool `json:"not-found"`
 	// Error is the error (if any) for the call referring to ID.
-	Error *params.Error
+	Error *params.Error `json:"error,omitempty"`
 }

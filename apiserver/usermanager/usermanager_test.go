@@ -156,9 +156,9 @@ func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAc
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
 		if u.UserName() == "foobar" {
-			c.Assert(u.ReadOnly(), gc.Equals, access == params.ModelReadAccess)
+			c.Assert(u.IsReadOnly(), gc.Equals, access == params.ModelReadAccess)
 		} else if u.UserName() == "admin" {
-			c.Assert(u.ReadOnly(), gc.Equals, false)
+			c.Assert(u.IsReadOnly(), gc.Equals, false)
 		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{

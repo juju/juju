@@ -62,6 +62,7 @@ var _ MachineGetter = (*apiprovisioner.State)(nil)
 var _ ToolsFinder = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
+	controllerUUID string,
 	machineTag names.MachineTag,
 	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
@@ -82,6 +83,7 @@ func NewProvisionerTask(
 		workers = append(workers, retryWatcher)
 	}
 	task := &provisionerTask{
+		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
 		machineGetter:              machineGetter,
 		toolsFinder:                toolsFinder,
@@ -108,6 +110,7 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
+	controllerUUID             string
 	machineTag                 names.MachineTag
 	machineGetter              MachineGetter
 	toolsFinder                ToolsFinder
@@ -523,12 +526,17 @@ func (task *provisionerTask) constructInstanceConfig(
 			PublicImageSigningKey: publicKey,
 			MongoInfo:             stateInfo,
 		}
+		instanceConfig.Controller.Config = make(map[string]interface{})
+		for k, v := range pInfo.ControllerConfig {
+			instanceConfig.Controller.Config[k] = v
+		}
 	}
 
 	return instanceConfig, nil
 }
 
 func constructStartInstanceParams(
+	controllerUUID string,
 	machine *apiprovisioner.Machine,
 	instanceConfig *instancecfg.InstanceConfig,
 	provisioningInfo *params.ProvisioningInfo,
@@ -601,6 +609,7 @@ func constructStartInstanceParams(
 	}
 
 	return environs.StartInstanceParams{
+		ControllerUUID:    controllerUUID,
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
 		InstanceConfig:    instanceConfig,
@@ -657,6 +666,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		startInstanceParams, err := constructStartInstanceParams(
+			task.controllerUUID,
 			m,
 			instanceCfg,
 			pInfo,

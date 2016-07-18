@@ -116,8 +116,8 @@ type ModelSet struct {
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
-		accountDetails, err := c.ClientStore().AccountByName(
-			c.ControllerName(), c.AccountName(),
+		accountDetails, err := c.ClientStore().AccountDetails(
+			c.ControllerName(),
 		)
 		if err != nil {
 			return err
@@ -155,7 +155,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	modelSet := ModelSet{Models: modelInfo}
-	current, err := c.ClientStore().CurrentModel(c.ControllerName(), c.AccountName())
+	current, err := c.ClientStore().CurrentModel(c.ControllerName())
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

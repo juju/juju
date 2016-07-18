@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -57,15 +58,15 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 		users: []*mockModelUser{{
 			userName: "admin",
-			access:   state.ModelAdminAccess,
+			access:   state.AdminAccess,
 		}, {
 			userName:    "bob@local",
 			displayName: "Bob",
-			access:      state.ModelReadAccess,
+			access:      state.ReadAccess,
 		}, {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
-			access:      state.ModelReadAccess,
+			access:      state.ReadAccess,
 		}},
 	}
 	var err error
@@ -82,7 +83,8 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.model.users[1].SetErrors(
-		nil, state.NeverConnectedError("never connected"),
+		state.NeverConnectedError("never connected"),
+		nil, nil, nil, nil,
 	)
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
@@ -91,6 +93,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID:  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OwnerTag:        "user-bob@local",
 		ProviderType:    "someprovider",
+		Cloud:           "some-cloud",
 		CloudRegion:     "some-region",
 		CloudCredential: "some-credential",
 		DefaultSeries:   series.LatestLts(),
@@ -102,7 +105,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		Users: []params.ModelUserInfo{{
 			UserName:       "admin",
 			LastConnection: &time.Time{},
-			Access:         params.ModelWriteAccess,
+			Access:         params.ModelAdminAccess,
 		}, {
 			UserName:       "bob@local",
 			DisplayName:    "Bob",
@@ -129,6 +132,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
+		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
 	})
@@ -205,6 +209,8 @@ type mockState struct {
 	environs.EnvironConfigGetter
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
+	common.BlockGetter
+	metricsender.MetricsSenderBackend
 
 	uuid            string
 	cloud           cloud.Cloud
@@ -226,47 +232,71 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 
 func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdministrator", user)
-	return user.Canonical() == "admin@local", st.NextErr()
+	if st.controllerModel == nil {
+		return user.Canonical() == "admin@local", st.NextErr()
+	}
+	if st.controllerModel.users == nil {
+		return user.Canonical() == "admin@local", st.NextErr()
+	}
+
+	for _, u := range st.controllerModel.users {
+		if user.Name() == u.UserName() && u.access == state.AdminAccess {
+			nextErr := st.NextErr()
+			if user.Name() != "admin" {
+				panic(user.Name())
+			}
+			return true, nextErr
+		}
+	}
+	return false, st.NextErr()
 }
 
-func (st *mockState) NewModel(args state.ModelArgs) (modelmanager.Model, modelmanager.Backend, error) {
+func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
 	st.model.tag = names.NewModelTag(args.Config.UUID())
 	return st.model, st, st.NextErr()
 }
 
-func (st *mockState) ControllerModel() (modelmanager.Model, error) {
+func (st *mockState) ControllerModel() (common.Model, error) {
 	st.MethodCall(st, "ControllerModel")
 	return st.controllerModel, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return controller.Config{
+		controller.ControllerUUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}, st.NextErr()
+}
+
+func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
 	st.MethodCall(st, "ForModel", tag)
 	return st, st.NextErr()
 }
 
-func (st *mockState) Model() (modelmanager.Model, error) {
+func (st *mockState) Model() (common.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
 }
 
-func (st *mockState) Cloud() (cloud.Cloud, error) {
-	st.MethodCall(st, "Cloud")
+func (st *mockState) ModelTag() names.ModelTag {
+	st.MethodCall(st, "ModelTag")
+	return st.model.ModelTag()
+}
+
+func (st *mockState) AllModels() ([]common.Model, error) {
+	st.MethodCall(st, "AllModels")
+	return []common.Model{st.model}, st.NextErr()
+}
+
+func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockState) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
-	st.MethodCall(st, "CloudCredentials", user)
+func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	st.MethodCall(st, "ControllerConfig")
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
-		controller.CACertKey:         coretesting.CACert,
-		controller.CAPrivateKey:      coretesting.CAKey,
-	}, st.NextErr()
 }
 
 func (st *mockState) Close() error {
@@ -327,6 +357,12 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
+func (m *mockModel) Cloud() string {
+	m.MethodCall(m, "Cloud")
+	m.PopNoErr()
+	return "some-cloud"
+}
+
 func (m *mockModel) CloudRegion() string {
 	m.MethodCall(m, "CloudRegion")
 	m.PopNoErr()
@@ -351,18 +387,40 @@ func (m *mockModel) Users() ([]common.ModelUser, error) {
 	return users, nil
 }
 
+func (m *mockModel) Destroy() error {
+	m.MethodCall(m, "Destroy")
+	return m.NextErr()
+}
+
+func (m *mockModel) DestroyIncludingHosted() error {
+	m.MethodCall(m, "DestroyIncludingHosted")
+	return m.NextErr()
+}
+
 type mockModelUser struct {
 	gitjujutesting.Stub
 	userName       string
 	displayName    string
-	access         state.ModelAccess
 	lastConnection time.Time
+	access         state.Access
 }
 
-func (u *mockModelUser) Access() state.ModelAccess {
-	u.MethodCall(u, "Access")
+func (u *mockModelUser) IsAdmin() bool {
+	u.MethodCall(u, "IsAdmin")
 	u.PopNoErr()
-	return u.access
+	return u.access == state.AdminAccess
+}
+
+func (u *mockModelUser) IsReadOnly() bool {
+	u.MethodCall(u, "IsReadOnly")
+	u.PopNoErr()
+	return u.access == state.ReadAccess
+}
+
+func (u *mockModelUser) IsReadWrite() bool {
+	u.MethodCall(u, "IsReadWrite")
+	u.PopNoErr()
+	return u.access == state.WriteAccess
 }
 
 func (u *mockModelUser) DisplayName() string {

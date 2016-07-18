@@ -124,13 +124,12 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
+func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	instanceIds := []instance.Id{}
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")
-	filter.Set(tagKey("model"), env.Config().Name())
-	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
+	filter.Set(tagKey(tags.JujuModel), controllerUUID)
 	filter.Set(tagKey(tags.JujuIsController), "true")
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
@@ -151,6 +150,12 @@ func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
 
 func (env *joyentEnviron) Destroy() error {
 	return errors.Trace(common.Destroy(env))
+}
+
+// DestroyController implements the Environ interface.
+func (env *joyentEnviron) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {

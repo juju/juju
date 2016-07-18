@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
@@ -73,11 +72,11 @@ func (c *JujuCommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 	c.apiOpenFunc = apiOpen
 }
 
-func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName, accountName string) (ModelAPI, error) {
+func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
 	if c.modelApi != nil {
 		return c.modelApi, nil
 	}
-	conn, err := c.NewAPIRoot(store, controllerName, accountName, "")
+	conn, err := c.NewAPIRoot(store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,10 +88,25 @@ func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName,
 // model or controller.
 func (c *JujuCommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
-	controllerName, accountName, modelName string,
+	controllerName, modelName string,
 ) (api.Connection, error) {
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	// If there are no account details or there's no logged-in
+	// user or the user is external, then trigger macaroon authentication
+	// by using an empty AccountDetails.
+	if accountDetails == nil || accountDetails.User == "" {
+		accountDetails = &jujuclient.AccountDetails{}
+	} else {
+		u := names.NewUserTag(accountDetails.User)
+		if !u.IsLocal() {
+			accountDetails = &jujuclient.AccountDetails{}
+		}
+	}
 	params, err := c.NewAPIConnectionParams(
-		store, controllerName, accountName, modelName,
+		store, controllerName, modelName, accountDetails,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,14 +120,16 @@ func (c *JujuCommandBase) NewAPIRoot(
 // the same arguments.
 func (c *JujuCommandBase) NewAPIConnectionParams(
 	store jujuclient.ClientStore,
-	controllerName, accountName, modelName string,
+	controllerName, modelName string,
+	accountDetails *jujuclient.AccountDetails,
 ) (juju.NewAPIConnectionParams, error) {
 	if err := c.initAPIContext(); err != nil {
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
 	return newAPIConnectionParams(
-		store, controllerName, accountName, modelName,
-		c.apiContext.BakeryClient, c.apiOpen,
+		store, controllerName, modelName,
+		accountDetails, c.apiContext.BakeryClient,
+		c.apiOpen,
 	)
 }
 
@@ -149,17 +165,17 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
-func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName, accountName string) error {
-	accountDetails, err := store.AccountByName(controllerName, accountName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	modelManager, err := c.modelAPI(store, controllerName, accountName)
+func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	modelManager, err := c.modelAPI(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelManager.Close()
+
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	models, err := modelManager.ListModels(accountDetails.User)
 	if err != nil {
@@ -167,7 +183,7 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	}
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{model.UUID}
-		if err := store.UpdateModel(controllerName, accountName, model.Name, modelDetails); err != nil {
+		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -234,25 +250,17 @@ func (w *baseCommandWrapper) Init(args []string) error {
 func newAPIConnectionParams(
 	store jujuclient.ClientStore,
 	controllerName,
-	accountName,
 	modelName string,
+	accountDetails *jujuclient.AccountDetails,
 	bakery *httpbakery.Client,
 	apiOpen api.OpenFunc,
 ) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
 	}
-	var accountDetails *jujuclient.AccountDetails
-	if accountName != "" {
-		var err error
-		accountDetails, err = store.AccountByName(controllerName, accountName)
-		if err != nil {
-			return juju.NewAPIConnectionParams{}, errors.Trace(err)
-		}
-	}
 	var modelUUID string
 	if modelName != "" {
-		modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
+		modelDetails, err := store.ModelByName(controllerName, modelName)
 		if err != nil {
 			return juju.NewAPIConnectionParams{}, errors.Trace(err)
 		}
@@ -288,13 +296,12 @@ To log back in, run the following command:
 	}
 
 	return juju.NewAPIConnectionParams{
-		Store:           store,
-		ControllerName:  controllerName,
-		BootstrapConfig: NewGetBootstrapConfigFunc(store),
-		AccountDetails:  accountDetails,
-		ModelUUID:       modelUUID,
-		DialOpts:        dialOpts,
-		OpenAPI:         openAPI,
+		Store:          store,
+		ControllerName: controllerName,
+		AccountDetails: accountDetails,
+		ModelUUID:      modelUUID,
+		DialOpts:       dialOpts,
+		OpenAPI:        openAPI,
 	}, nil
 }
 
@@ -372,8 +379,6 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		return nil, nil, errors.Trace(err)
 	}
 	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
-	bootstrapConfig.Config[controller.CACertKey] = controllerDetails.CACert
-	bootstrapConfig.Config[controller.ControllerUUIDKey] = controllerDetails.ControllerUUID
 
 	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
 	if err != nil {
@@ -388,6 +393,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			CloudStorageEndpoint: bootstrapConfig.CloudStorageEndpoint,
 		},
 		&environs.BootstrapConfigParams{
+			controllerDetails.ControllerUUID,
 			cfg, *credential,
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.CloudEndpoint,

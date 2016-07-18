@@ -107,7 +107,7 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: otherOwner})
+	_, otherState, err := s.State.NewModel(state.ModelArgs{CloudName: "dummy", Config: cfg, Owner: otherOwner})
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })

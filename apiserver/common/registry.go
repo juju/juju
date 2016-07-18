@@ -214,7 +214,7 @@ func registerAPIEndpoint(pattern string, spec apihttp.HandlerSpec) error {
 }
 
 // DefaultHTTPMethods are the HTTP methods supported by default by the API.
-var DefaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DEL", "OPTIONS"}
+var DefaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 // ResolveAPIEndpoints builds the set of endpoint handlers for all
 // registered API endpoints.

@@ -92,8 +92,7 @@ type mockConfigGetter struct{}
 
 func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
 	return map[string]interface{}{
-		jujucontroller.CACertKey:    coretesting.CACert,
-		jujucontroller.CAPrivateKey: coretesting.CAKey,
+		jujucontroller.CACertKey: coretesting.CACert,
 	}, nil
 }
 

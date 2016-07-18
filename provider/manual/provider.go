@@ -46,7 +46,7 @@ func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p manualProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

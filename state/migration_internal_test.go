@@ -23,6 +23,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelsC,
 		modelUsersC,
 		modelUserLastConnectionC,
+		permissionsC,
 		settingsC,
 		sequenceC,
 		sshHostKeysC,
@@ -62,6 +63,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// Clouds aren't migrated. They must exist in the
+		// target controller already.
+		cloudsC,
 		// Cloud credentials aren't migrated. They must exist in the
 		// target controller already.
 		cloudCredentialsC,
@@ -127,6 +131,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
+		// model configuration
+		modelSettingsSourcesC,
+		globalSettingsC,
+
 		// model
 		cloudimagemetadataC,
 
@@ -154,6 +162,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
+		auditingC,
 	)
 
 	envCollections := set.NewStrings()
@@ -184,6 +193,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
+		"Cloud",
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
@@ -203,9 +213,18 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
-		"Access",
 	)
 	s.AssertExportedFields(c, modelUserDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		"ID",
+		"ObjectGlobalKey",
+		"SubjectGlobalKey",
+		"Access",
+	)
+	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {

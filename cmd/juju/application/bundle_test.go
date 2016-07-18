@@ -945,6 +945,7 @@ deployment of bundle "local:bundle/example-0" completed`
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-2", "mysql")
+
 	content := `
         applications:
             wp:
@@ -1037,6 +1038,45 @@ deployment of bundle "local:bundle/example-0" completed`
 		"wp/0":  "0",
 		"wp/1":  "1/lxd/0",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+
+	// Note that we use lxc here, to represent a 1.x bundle that specifies lxc.
+	content := `
+        applications:
+            wp:
+                charm: cs:xenial/wordpress-0
+                num_units: 1
+                to:
+                    - lxc:0
+                options:
+                    blog-title: these are the voyages
+            wp2:
+                charm: cs:xenial/wordpress-0
+                num_units: 1
+                to:
+                    - lxc:0
+                options:
+                    blog-title: these are the voyages
+        machines:
+            0:
+                series: xenial
+    `
+	output, err := s.DeployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedUnits := map[string]string{
+		"wp/0":  "0/lxd/0",
+		"wp2/0": "0/lxd/1",
+	}
+	idx := strings.Index(output, "Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
+	lastIdx := strings.LastIndex(output, "Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
+	// The message exists.
+	c.Assert(idx, jc.GreaterThan, -1)
+	// No more than one instance of the message was printed.
+	c.Assert(idx, gc.Equals, lastIdx)
+	s.assertUnitsCreated(c, expectedUnits)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {

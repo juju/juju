@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -49,30 +48,23 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		ControllerUUID: testing.ModelTag.Id(),
-		CACert:         testing.CACert,
-		Cloud:          "mycloud",
-		CloudRegion:    "a-region",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		CACert:                 testing.CACert,
+		Cloud:                  "mycloud",
+		CloudRegion:            "a-region",
+		APIEndpoints:           []string{"10.0.1.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
 	}
 	s.store.CurrentControllerName = "testing"
-	s.store.Models["testing"] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"admin": {"test1-uuid"},
-				},
-				CurrentModel: "admin",
-			},
+	s.store.Models["testing"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin": {"test1-uuid"},
 		},
+		CurrentModel: "admin",
 	}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"admin@local": {
-				User:     "current-user@local",
-				Password: "old-password",
-			},
-		},
-		CurrentAccount: "admin@local",
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User:     "current-user@local",
+		Password: "old-password",
 	}
 	s.store.BootstrapConfig["testing"] = jujuclient.BootstrapConfig{
 		Cloud:       "mycloud",
@@ -143,7 +135,9 @@ func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	s.command = backups.NewRestoreCommandForTest(
 		s.store, &mockRestoreAPI{},
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
-			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
+			return &mockArchiveReader{}, &params.BackupsMetadataResult{
+				CACert: testing.CACert,
+			}, nil
 		},
 		backups.GetEnvironFunc(fakeEnv, "mycloud"),
 	)
@@ -167,13 +161,42 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 		},
 		nil)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
-		attr := environ.Config().AllAttrs()
-		c.Assert(attr["ca-cert"], gc.Equals, testing.CACert)
 		return errors.New("failed to bootstrap new controller")
 	})
 
 	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
+}
+
+func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		backups.GetEnvironFuncWithError(),
+	)
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		// We should not call bootstrap.
+		c.Fail()
+		return nil
+	})
+
+	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, gc.ErrorMatches, "failed")
+	// The details below are as per what was done in test setup, so no changes.
+	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
+		Cloud:                  "mycloud",
+		CloudRegion:            "a-region",
+		CACert:                 testing.CACert,
+		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		APIEndpoints:           []string{"10.0.1.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+	})
 }
 
 func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C) {
@@ -200,8 +223,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
 		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.0.1:100"},
-		UnresolvedAPIEndpoints: []string{"10.0.0.1:100"},
+		APIEndpoints:           []string{"10.0.0.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 	})
 }
 
@@ -221,7 +244,7 @@ type fakeEnviron struct {
 	controllerInstances []instance.Id
 }
 
-func (f fakeEnviron) ControllerInstances() ([]instance.Id, error) {
+func (f fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	return f.controllerInstances, nil
 }
 
@@ -231,10 +254,4 @@ func (f fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 func (f fakeEnviron) AllInstances() ([]instance.Instance, error) {
 	return []instance.Instance{fakeInstance{id: "1"}}, nil
-}
-
-func (f fakeEnviron) Config() *config.Config {
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{"api-port": "100"})
-	cfg, _ := config.New(config.NoDefaults, attrs)
-	return cfg
 }

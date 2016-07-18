@@ -5,72 +5,98 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
+var disallowedModelConfigAttrs = [...]string{
+	"admin-secret",
+	"ca-private-key",
+}
+
 // ModelConfig returns the complete config for the model represented
 // by this state.
 func (st *State) ModelConfig() (*config.Config, error) {
-	controllerSettings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defaultModelSettings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attrs := defaultModelSettings.Map()
-
-	// Merge in model specific settings.
-	for k, v := range modelSettings.Map() {
-		attrs[k] = v
-	}
-
-	// We also need to add controller UUID.
-	attrs[controller.ControllerUUIDKey] = controllerSettings.Map()[controller.ControllerUUIDKey]
-
-	return config.New(config.NoDefaults, attrs)
+	return config.New(config.NoDefaults, modelSettings.Map())
 }
 
 // checkModelConfig returns an error if the config is definitely invalid.
 func checkModelConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return errors.Errorf("admin-secret should never be written to the state")
+	allAttrs := cfg.AllAttrs()
+	for _, attr := range disallowedModelConfigAttrs {
+		if _, ok := allAttrs[attr]; ok {
+			return errors.Errorf(attr + " should never be written to the state")
+		}
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
 		return errors.Errorf("agent-version must always be set in state")
 	}
+	for attr := range allAttrs {
+		if controller.ControllerOnlyAttribute(attr) {
+			return errors.Errorf("cannot set controller attribute %q on a model", attr)
+		}
+	}
 	return nil
 }
 
-// checkModelConfigDefaults returns an error if the shared config is definitely invalid.
-func checkModelConfigDefaults(attrs map[string]interface{}) error {
-	if _, ok := attrs[config.AdminSecretKey]; ok {
-		return errors.Errorf("config defaults cannot contain admin-secret")
+// ModelConfigValues returns the config values for the model represented
+// by this state.
+func (st *State) ModelConfigValues() (config.ConfigValues, error) {
+	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if _, ok := attrs[config.AgentVersionKey]; ok {
-		return errors.Errorf("config defaults cannot contain agent-version")
+	// TODO(wallyworld) - this data should not be stored separately
+	sources, closer := st.getCollection(modelSettingsSourcesC)
+	defer closer()
+
+	var settingsSources settingsSourcesDoc
+	err = sources.FindId(modelGlobalKey).One(&settingsSources)
+	if err == mgo.ErrNotFound {
+		err = errors.NotFoundf("settings sources")
 	}
-	for _, attrName := range controller.ControllerOnlyConfigAttributes {
-		if _, ok := attrs[attrName]; ok {
-			return errors.Errorf("config defaults cannot contain controller attribute %q", attrName)
+	if err != nil {
+		return nil, err
+	}
+	result := make(config.ConfigValues)
+	for attr, val := range modelSettings.Map() {
+		source, ok := settingsSources.Sources[attr]
+		if !ok {
+			source = config.JujuModelConfigSource
+		}
+		result[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	return result, nil
+}
+
+// checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.
+func checkControllerInheritedConfig(attrs map[string]interface{}) error {
+	disallowedCloudConfigAttrs := append(disallowedModelConfigAttrs[:], config.AgentVersionKey)
+	for _, attr := range disallowedCloudConfigAttrs {
+		if _, ok := attrs[attr]; ok {
+			return errors.Errorf("local cloud config cannot contain " + attr)
+		}
+	}
+	for attrName := range attrs {
+		if controller.ControllerOnlyAttribute(attrName) {
+			return errors.Errorf("local cloud config cannot contain controller attribute %q", attrName)
 		}
 	}
 	return nil
 }
 
 func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
-	for attr := range updateAttrs {
-		if controllerOnlyAttribute(attr) {
-			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
-		}
-	}
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -132,22 +158,105 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 		}
 	}
 
-	// Remove any attributes that are the same as what's in cloud config.
-	// TODO(wallyworld) if/when cloud config becomes mutable, we must check
-	// for concurrent changes when writing config to ensure the validation
-	// we do here remains true
-	defaultAttrs, err := st.ModelConfigDefaults()
-	if err != nil {
-		return errors.Trace(err)
+	modelSettings.Update(validAttrs)
+	changes, ops := modelSettings.settingsUpdateOps()
+	ops = append(ops, updateModelSourcesOps(changes)...)
+	return modelSettings.write(ops)
+}
+
+func updateModelSourcesOps(changes []ItemChange) []txn.Op {
+	var update bson.D
+	var set = make(bson.M)
+	for _, c := range changes {
+		set["sources."+c.Key] = "model"
 	}
-	for attr, sharedValue := range defaultAttrs {
-		if newValue, ok := validAttrs[attr]; ok && newValue == sharedValue {
-			delete(validAttrs, attr)
-			modelSettings.Delete(attr)
+	update = append(update, bson.DocElem{"$set", set})
+
+	ops := []txn.Op{{
+		C:      modelSettingsSourcesC,
+		Id:     modelGlobalKey,
+		Assert: txn.DocExists,
+		Update: update,
+	}}
+	return ops
+}
+
+// settingsSourcesDoc stores for each model attribute,
+// the source of the attribute.
+type settingsSourcesDoc struct {
+	// Sources defines the named source for each settings attribute.
+	Sources map[string]string `bson:"sources,omitempty"`
+}
+
+func createSettingsSourceOp(values map[string]string) txn.Op {
+	return txn.Op{
+		C:      modelSettingsSourcesC,
+		Id:     modelGlobalKey,
+		Assert: txn.DocMissing,
+		Insert: &settingsSourcesDoc{
+			Sources: values,
+		},
+	}
+}
+
+type modelConfigSourceFunc func() (map[string]interface{}, error)
+
+type modelConfigSource struct {
+	name       string
+	sourceFunc modelConfigSourceFunc
+}
+
+// modelConfigSources returns a slice of named model config
+// sources, in hierarchical order. Starting from the first source,
+// config is retrieved and each subsequent source adds to the
+// overall config values, later values override earlier ones.
+func modelConfigSources(st *State) []modelConfigSource {
+	return []modelConfigSource{
+		{config.JujuControllerSource, st.ControllerInheritedConfig},
+		// We will also support local cloud region, tenant, user etc
+	}
+}
+
+// ControllerInheritedConfig returns the inherited config values
+// sourced from the local cloud config.
+func (st *State) ControllerInheritedConfig() (map[string]interface{}, error) {
+	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings.Map(), nil
+}
+
+// composeModelConfigAttributes returns a set of model config settings composed from known
+// sources of default values overridden by model specific attributes.
+// Also returned is a map containing the source location for each model attribute.
+// The source location is the name of the config values from which an attribute came.
+func composeModelConfigAttributes(
+	modelAttr map[string]interface{}, configSources ...modelConfigSource,
+) (map[string]interface{}, map[string]string, error) {
+	resultAttrs := make(map[string]interface{})
+	settingsSources := make(map[string]string)
+
+	// Compose default settings from all known sources.
+	for _, source := range configSources {
+		newSettings, err := source.sourceFunc()
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "reading %s settings", source.name)
+		}
+		for name, val := range newSettings {
+			resultAttrs[name] = val
+			settingsSources[name] = source.name
 		}
 	}
 
-	modelSettings.Update(validAttrs)
-	_, err = modelSettings.Write()
-	return errors.Trace(err)
+	// Merge in model specific settings.
+	for attr, val := range modelAttr {
+		resultAttrs[attr] = val
+		settingsSources[attr] = config.JujuModelConfigSource
+	}
+
+	return resultAttrs, settingsSources, nil
 }

@@ -23,7 +23,14 @@ var logger = loggo.GetLogger("juju.environs.testing")
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
 func DisableFinishBootstrap() func() {
-	f := func(environs.BootstrapContext, ssh.Client, environs.Environ, instance.Instance, *instancecfg.InstanceConfig) error {
+	f := func(
+		environs.BootstrapContext,
+		ssh.Client,
+		environs.Environ,
+		instance.Instance,
+		*instancecfg.InstanceConfig,
+		environs.BootstrapDialOpts,
+	) error {
 		logger.Infof("provider/common.FinishBootstrap is disabled")
 		return nil
 	}

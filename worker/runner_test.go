@@ -347,7 +347,7 @@ func (starter *testWorkerStarter) assertStarted(c *gc.C, started bool) {
 	select {
 	case isStarted := <-starter.startNotify:
 		c.Assert(isStarted, gc.Equals, started)
-	case <-time.After(1 * time.Second):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for start notification")
 	}
 }

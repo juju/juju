@@ -110,9 +110,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	username := c.Username
 	if username == "" {
-		accountDetails, err := c.ClientStore().AccountByName(
-			c.ControllerName(), c.AccountName(),
-		)
+		accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
 		if err != nil {
 			return err
 		}

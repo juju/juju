@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
@@ -40,7 +42,9 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -793,10 +797,6 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
-	initLock, err := cmdutil.HookExecutionLock(agentConfig.DataDir())
-	if err != nil {
-		return err
-	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	modelUUID, err := st.ModelTag()
 	if err != nil {
@@ -832,7 +832,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLock:            initLock,
+		InitLockName:        agent.MachineLockName,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
@@ -1054,7 +1054,15 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	if err != nil {
 		return nil, err
 	}
-	w, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+
+	// TODO(katco): We should be doing something more serious than
+	// logging audit errors. Failures in the auditing systems should
+	// stop the api server until the problem can be corrected.
+	auditErrorHandler := func(err error) {
+		logger.Criticalf("%v", err)
+	}
+
+	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
 		Tag:         tag,
@@ -1062,11 +1070,71 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		LogDir:      logDir,
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
+		NewObserver: newObserverFn(
+			clock.WallClock,
+			jujuversion.Current,
+			agentConfig.Model().Id(),
+			newAuditEntrySink(st, logDir),
+			auditErrorHandler,
+		),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
-	return w, nil
+
+	return server, nil
+}
+
+func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
+	persistFn := st.PutAuditEntryFn()
+	fileSinkFn := audit.NewLogFileSink(logDir)
+	return func(entry audit.AuditEntry) error {
+		// We don't care about auditing anything but user actions.
+		if _, err := names.ParseUserTag(entry.OriginName); err != nil {
+			return nil
+		}
+		// TODO(wallyworld) - Pinger requests should not originate as a user action.
+		if strings.HasPrefix(entry.Operation, "Pinger:") {
+			return nil
+		}
+		persistErr := persistFn(entry)
+		sinkErr := fileSinkFn(entry)
+		if persistErr == nil {
+			return errors.Annotate(sinkErr, "cannot save audit record to file")
+		}
+		if sinkErr == nil {
+			return errors.Annotate(persistErr, "cannot save audit record to database")
+		}
+		return errors.Annotate(persistErr, "cannot save audit record to file or database")
+	}
+}
+
+func newObserverFn(
+	clock clock.Clock,
+	jujuServerVersion version.Number,
+	modelUUID string,
+	persistAuditEntry audit.AuditEntrySinkFn,
+	auditErrorHandler observer.ErrorHandler,
+) observer.ObserverFactory {
+	var connectionID int64
+	return observer.ObserverFactoryMultiplexer(
+		func() observer.Observer {
+			logger := loggo.GetLogger("juju.apiserver")
+			ctx := observer.RequestObserverContext{
+				Clock:  clock,
+				Logger: logger,
+			}
+			return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
+		},
+		func() observer.Observer {
+			ctx := &observer.AuditContext{
+				JujuServerVersion: jujuServerVersion,
+				ModelUUID:         modelUUID,
+			}
+			// TODO(katco): Pass in an error channel
+			return observer.NewAudit(ctx, persistAuditEntry, auditErrorHandler)
+		},
+	)
 }
 
 // limitLogins is called by the API server for each login attempt.

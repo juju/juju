@@ -82,11 +82,15 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		userpassCredential.Label: userpassCredential,
 		emptyCredential.Label:    emptyCredential,
 	}
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:           owner,
 			Config:          cfg,
+			CloudName:       "dummy",
 			CloudRegion:     "some-region",
 			CloudCredential: "some-credential",
 		},
@@ -113,7 +117,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	controller.RemoveControllerAttributes(initial)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
 	// Check that the model has been created.
 	model, err := s.State.Model()
@@ -147,21 +150,26 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag, CloudName: "dummy"})
 
-	// Check that the model's credential name is as
-	// expected, and the owner's cloud credentials
-	// are initialised.
+	// Check that the model's cloud and credential names are as
+	// expected, and the owner's cloud credentials are initialised.
+	c.Assert(model.Cloud(), gc.Equals, "dummy")
 	c.Assert(model.CloudCredential(), gc.Equals, "some-credential")
-	cloudCredentials, err := s.State.CloudCredentials(model.Owner())
+	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudCredentials, jc.DeepEquals, cloudCredentialsIn)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
+	modelCfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	_, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: testing.ModelConfig(c),
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -181,27 +189,32 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	)
 }
 
-func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
-	modelConfigDefaultsIn := map[string]interface{}{
+	controllerInheritedConfigIn := map[string]interface{}{
 		"default-series": initial["default-series"],
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = uuid
+
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		ModelConfigDefaults: modelConfigDefaultsIn,
-		MongoInfo:           statetesting.NewMongoInfo(),
-		MongoDialOpts:       mongotest.DialOpts(),
+		ControllerInheritedConfig: controllerInheritedConfigIn,
+		MongoInfo:                 statetesting.NewMongoInfo(),
+		MongoDialOpts:             mongotest.DialOpts(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -212,13 +225,12 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	modelConfigDefaults, err := s.State.ModelConfigDefaults()
+	ControllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfigDefaults, jc.DeepEquals, modelConfigDefaultsIn)
+	c.Assert(ControllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	controller.RemoveControllerAttributes(initial)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
 }
 
@@ -228,10 +240,15 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
+
 	args := state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -255,59 +272,40 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 }
 
 func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
-	// admin-secret blocks Initialize.
-	good := testing.ModelConfig(c)
-	badUpdateAttrs := map[string]interface{}{"admin-secret": "foo"}
-	bad, err := good.Apply(badUpdateAttrs)
-	owner := names.NewLocalUserTag("initialize-admin")
+	update := map[string]interface{}{"admin-secret": "foo"}
+	remove := []string{}
+	s.testBadModelConfig(c, update, remove, "admin-secret should never be written to the state")
+}
 
-	args := state.InitializeParams{
-		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: bad,
-		},
-		CloudName: "dummy",
-		Cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
-	}
-	_, err = state.Initialize(args)
-	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
-
-	// admin-secret blocks UpdateModelConfig.
-	args.ControllerModelArgs.Config = good
-	st, err := state.Initialize(args)
-	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
-
-	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(badUpdateAttrs, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
-
-	// ModelConfig remains inviolate.
-	cfg, err := s.State.ModelConfig()
-	goodAttrs := good.AllAttrs()
-	controller.RemoveControllerAttributes(goodAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
+func (s *InitializeSuite) TestModelConfigWithCAPrivateKey(c *gc.C) {
+	update := map[string]interface{}{"ca-private-key": "foo"}
+	remove := []string{}
+	s.testBadModelConfig(c, update, remove, "ca-private-key should never be written to the state")
 }
 
 func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
-	// admin-secret blocks Initialize.
+	update := map[string]interface{}{}
+	remove := []string{"agent-version"}
+	s.testBadModelConfig(c, update, remove, "agent-version must always be set in state")
+}
+
+func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interface{}, remove []string, expect string) {
 	good := testing.ModelConfig(c)
-	attrs := good.AllAttrs()
-	delete(attrs, "agent-version")
-	bad, err := config.New(config.NoDefaults, attrs)
+	bad, err := good.Apply(update)
 	c.Assert(err, jc.ErrorIsNil)
+	bad, err = bad.Remove(remove)
+	c.Assert(err, jc.ErrorIsNil)
+
 	owner := names.NewLocalUserTag("initialize-admin")
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = good.UUID()
 
 	args := state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: bad,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    bad,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -318,7 +316,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 		MongoDialOpts: mongotest.DialOpts(),
 	}
 	_, err = state.Initialize(args)
-	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
+	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
 	st, err := state.Initialize(args)
@@ -326,31 +324,36 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	st.Close()
 
 	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(map[string]interface{}{}, []string{"agent-version"}, nil)
-	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
+	err = s.State.UpdateModelConfig(update, remove, nil)
+	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	goodAttrs := good.AllAttrs()
-	controller.RemoveControllerAttributes(goodAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
 }
 
 func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	badAttrNames := []string{
-		config.AdminSecretKey,
+		"admin-secret",
+		"ca-private-key",
 		config.AgentVersionKey,
 	}
 	for _, attr := range controller.ControllerOnlyConfigAttributes {
 		badAttrNames = append(badAttrNames, attr)
 	}
 
+	modelCfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	args := state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  names.NewLocalUserTag("initialize-admin"),
-			Config: testing.ModelConfig(c),
+			CloudName: "dummy",
+			Owner:     names.NewLocalUserTag("initialize-admin"),
+			Config:    modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -363,8 +366,8 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 
 	for _, badAttrName := range badAttrNames {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
-		args.ModelConfigDefaults = badAttrs
+		args.ControllerInheritedConfig = badAttrs
 		_, err := state.Initialize(args)
-		c.Assert(err, gc.ErrorMatches, "config defaults cannot contain .*")
+		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }

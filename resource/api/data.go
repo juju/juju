@@ -86,14 +86,14 @@ type AddPendingResourcesResult struct {
 
 	// PendingIDs holds the "pending ID" for each of the requested
 	// resources.
-	PendingIDs []string
+	PendingIDs []string `json:"pending-ids"`
 }
 
 // ResourcesResults holds the resources that result
 // from a bulk API call.
 type ResourcesResults struct {
 	// Results is the list of resource results.
-	Results []ResourcesResult
+	Results []ResourcesResult `json:"results"`
 }
 
 // ResourcesResult holds the resources that result from an API call
@@ -102,15 +102,15 @@ type ResourcesResult struct {
 	params.ErrorResult
 
 	// Resources is the list of resources for the application.
-	Resources []Resource
+	Resources []Resource `json:"resources"`
 
 	// CharmStoreResources is the list of resources associated with the charm in
 	// the charmstore.
-	CharmStoreResources []CharmResource
+	CharmStoreResources []CharmResource `json:"charm-store-resources"`
 
 	// UnitResources contains a list of the resources for each unit in the
 	// application.
-	UnitResources []UnitResources
+	UnitResources []UnitResources `json:"unit-resources"`
 }
 
 // A UnitResources contains a list of the resources the unit defined by Entity.
@@ -118,12 +118,12 @@ type UnitResources struct {
 	params.Entity
 
 	// Resources is a list of resources for the unit.
-	Resources []Resource
+	Resources []Resource `json:"resources"`
 
 	// DownloadProgress indicates the number of bytes of a resource file
 	// have been downloaded so far the uniter. Only currently downloading
 	// resources are included.
-	DownloadProgress map[string]int64
+	DownloadProgress map[string]int64 `json:"download-progress"`
 }
 
 // UploadResult is the response from an upload request.
@@ -131,7 +131,7 @@ type UploadResult struct {
 	params.ErrorResult
 
 	// Resource describes the resource that was stored in the model.
-	Resource Resource
+	Resource Resource `json:"resource"`
 }
 
 // Resource contains info about a Resource.
@@ -141,15 +141,15 @@ type Resource struct {
 	// ID uniquely identifies a resource-application pair within the model.
 	// Note that the model ignores pending resources (those with a
 	// pending ID) except for in a few clearly pending-related places.
-	ID string
+	ID string `json:"id"`
 
 	// PendingID identifies that this resource is pending and
 	// distinguishes it from other pending resources with the same model
 	// ID (and from the active resource).
-	PendingID string
+	PendingID string `json:"pending-id"`
 
 	// ApplicationID identifies the application for the resource.
-	ApplicationID string
+	ApplicationID string `json:"application"`
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
@@ -183,7 +183,7 @@ type CharmResource struct {
 	Fingerprint []byte `json:"fingerprint"`
 
 	// Size is the size of the resource, in bytes.
-	Size int64
+	Size int64 `json:"size"`
 }
 
 func resolveErrors(errs []error) error {

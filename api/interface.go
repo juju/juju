@@ -54,9 +54,8 @@ type Info struct {
 	SkipLogin bool `yaml:"-"`
 
 	// Tag holds the name of the entity that is connecting.
-	// If this is nil, and the password is empty, no login attempt will be made.
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
+	// If this is nil, and the password is empty, macaroon authentication
+	// will be used to log in unless SkipLogin is true.
 	Tag names.Tag
 
 	// Password holds the password for the administrator or connecting entity.
@@ -91,7 +90,7 @@ func (info *Info) Validate() error {
 		return errors.NotValidf("missing addresses")
 	}
 	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
-		return errors.NotValidf("host addresses")
+		return errors.NotValidf("host addresses: %v", err)
 	}
 	if info.CACert == "" {
 		return errors.NotValidf("missing CA certificate")
@@ -200,6 +199,10 @@ type Connection interface {
 	// AuthTag returns the tag of the authorized user of the state API
 	// connection.
 	AuthTag() names.Tag
+
+	// ReadOnly returns whether the authorized user is connected to the model
+	// in read-only mode.
+	ReadOnly() bool
 
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.

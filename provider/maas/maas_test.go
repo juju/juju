@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
@@ -24,7 +23,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -35,10 +34,11 @@ const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabili
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
+	controllerUUID string
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
-	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	suite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	toolsDir := filepath.Join(storageDir, "tools")
 	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
@@ -52,9 +52,6 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
 		restoreTimeouts()
-	})
-	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
-		return coretesting.ShortWait
 	})
 }
 
@@ -135,6 +132,7 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	}
 	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)

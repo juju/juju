@@ -19,7 +19,7 @@ must be manually unblocked to proceed.
  the Juju model.
 `
 
-const superBlockCmdPurpose = "list and enable model blocks"
+const superBlockCmdPurpose = "List and enable model blocks."
 
 // Command is the top-level command wrapping all storage functionality.
 type Command struct {

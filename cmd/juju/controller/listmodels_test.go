@@ -122,21 +122,12 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
-	s.store.Models["fake"] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				CurrentModel: "test-model1",
-			},
-		},
+	s.store.Models["fake"] = &jujuclient.ControllerModels{
+		CurrentModel: "test-model1",
 	}
-	s.store.Accounts["fake"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"admin@local": {
-				User:     "admin@local",
-				Password: "password",
-			},
-		},
-		CurrentAccount: "admin@local",
+	s.store.Accounts["fake"] = jujuclient.AccountDetails{
+		User:     "admin@local",
+		Password: "password",
 	}
 }
 

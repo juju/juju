@@ -21,6 +21,8 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -489,7 +491,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err := st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -517,7 +519,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -576,11 +578,12 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 		s.State,
 		listener,
 		apiserver.ServerConfig{
-			Cert:      []byte(coretesting.ServerCert),
-			Key:       []byte(coretesting.ServerKey),
-			Validator: validator,
-			Tag:       names.NewMachineTag("0"),
-			LogDir:    c.MkDir(),
+			Cert:        []byte(coretesting.ServerCert),
+			Key:         []byte(coretesting.ServerKey),
+			Validator:   validator,
+			Tag:         names.NewMachineTag("0"),
+			LogDir:      c.MkDir(),
+			NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

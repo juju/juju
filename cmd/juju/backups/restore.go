@@ -9,6 +9,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -93,7 +94,7 @@ var BootstrapFunc = bootstrap.Bootstrap
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore-backup",
-		Purpose: "restore from a backup archive to a new controller",
+		Purpose: "Restore from a backup archive to a new controller.",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
 	}
@@ -105,10 +106,10 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set model constraints")
 
-	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
-	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
-	f.StringVar(&c.backupId, "id", "", "provide the name of the backup to be restored.")
-	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload tools if bootstraping a new machine.")
+	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
+	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
+	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "Upload tools if bootstraping a new machine")
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -133,10 +134,13 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 type restoreBootstrapParams struct {
-	CloudName      string
-	CloudRegion    string
-	CredentialName string
-	Credential     cloud.Credential
+	ControllerConfig controller.Config
+	CloudName        string
+	CloudRegion      string
+	CredentialName   string
+	Credential       cloud.Credential
+	AdminSecret      string
+	CAPrivateKey     string
 }
 
 // getEnviron returns the environ for the specified controller, or
@@ -164,21 +168,10 @@ func (c *restoreCommand) getEnviron(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// We may have previous controller metadata. We need to update that so it
-	// will contain the new CA Cert and UUID required to connect to the newly
-	// bootstrapped controller API.
-	details := jujuclient.ControllerDetails{
-		ControllerUUID: cfg.ControllerUUID(),
-		CACert:         meta.CACert,
-	}
-	err = store.UpdateController(controllerName, details)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// Get the local admin user so we can use the password as the admin secret.
+	// TODO(axw) check that account.User is environs.AdminUser.
 	var adminSecret string
-	account, err := store.AccountByName(controllerName, environs.AdminUser)
+	account, err := store.AccountDetails(controllerName)
 	if err == nil {
 		adminSecret = account.Password
 	} else if errors.IsNotFound(err) {
@@ -197,19 +190,23 @@ func (c *restoreCommand) getEnviron(
 	// Also set the admin secret and ca cert info.
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"provisioner-safe-mode": true,
-		"admin-secret":          adminSecret,
-		"ca-private-key":        meta.CAPrivateKey,
-		"ca-cert":               meta.CACert,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
+
+	controllerCfg := controller.Config{
+		controller.ControllerUUIDKey: params.ControllerUUID,
+		controller.CACertKey:         meta.CACert,
+	}
 	env, err := environs.New(cfg)
 	return env, &restoreBootstrapParams{
-		CloudName:      config.Cloud,
-		CloudRegion:    config.CloudRegion,
-		CredentialName: config.Credential,
-		Credential:     params.Credentials,
+		ControllerConfig: controllerCfg,
+		CloudName:        config.Cloud,
+		CloudRegion:      config.CloudRegion,
+		CredentialName:   config.Credential,
+		Credential:       params.Credentials,
+		AdminSecret:      adminSecret,
 	}, err
 }
 
@@ -220,7 +217,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(params.ControllerConfig.ControllerUUID())
 	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
@@ -250,6 +247,21 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
+	// We may have previous controller metadata. We need to replace that so it
+	// will contain the new CA Cert and UUID required to connect to the newly
+	// bootstrapped controller API.
+	store := c.ClientStore()
+	details := jujuclient.ControllerDetails{
+		ControllerUUID: params.ControllerConfig.ControllerUUID(),
+		CACert:         meta.CACert,
+		Cloud:          params.CloudName,
+		CloudRegion:    params.CloudRegion,
+	}
+	err = store.UpdateController(c.ControllerName(), details)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	bootVers := version.Current
 	var cred *cloud.Credential
 	if params.Credential.AuthType() != cloud.EmptyAuthType {
@@ -264,22 +276,26 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		ModelConstraints:    c.constraints,
 		UploadTools:         c.uploadTools,
 		BuildToolsTarball:   sync.BuildToolsTarball,
+		ControllerConfig:    params.ControllerConfig,
 		HostedModelConfig:   hostedModelConfig,
 		BootstrapSeries:     meta.Series,
 		AgentVersion:        &bootVers,
+		AdminSecret:         params.AdminSecret,
+		CAPrivateKey:        meta.CAPrivateKey,
+		DialOpts: environs.BootstrapDialOpts{
+			Timeout:        time.Second * bootstrap.DefaultBootstrapSSHTimeout,
+			RetryDelay:     time.Second * bootstrap.DefaultBootstrapSSHRetryDelay,
+			AddressesDelay: time.Second * bootstrap.DefaultBootstrapSSHAddressesDelay,
+		},
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 
-	// We remove models from the client store as the cached values will be used
-	// to dial after re-bootstraping (if present) and the process will fail.
-	store := c.ClientStore()
-
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	controllerCfg := controller.ControllerConfig(env.Config().AllAttrs())
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), controllerCfg.APIPort(), env)
+	apiPort := params.ControllerConfig.APIPort()
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), apiPort, env)
 	if err != nil {
 		return errors.Trace(err)
 	}

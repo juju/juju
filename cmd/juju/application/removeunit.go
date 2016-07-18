@@ -29,18 +29,29 @@ type removeUnitCommand struct {
 const removeUnitDoc = `
 Remove application units from the model.
 
-If this is the only unit running, the machine on which
-the unit is hosted will also be destroyed, if possible.
-The machine will be destroyed if:
-- it is not a controller
-- it is not hosting any Juju managed containers
+Units of a service are numbered in sequence upon creation. For example, the
+fourth unit of wordpress will be designated "wordpress/3". These identifiers
+can be supplied in a space delimited list to remove unwanted units from the
+model.
+
+Juju will also remove the machine if the removed unit was the only unit left
+on that machine (including units in containers).
+
+Removing all units of a service is not equivalent to removing the service
+itself; for that, the ` + "`juju remove-service`" + ` command is used.
+
+Examples:
+
+    juju remove-unit wordpress/2 wordpress/3 wordpress/4
+
+See also: remove-service
 `
 
 func (c *removeUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...]",
-		Purpose: "remove application units from the model",
+		Purpose: "Remove application units from the model.",
 		Doc:     removeUnitDoc,
 		Aliases: []string{"destroy-unit"},
 	}

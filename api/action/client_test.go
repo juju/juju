@@ -8,7 +8,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/action"
@@ -33,7 +32,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 		patchResults   []params.ApplicationCharmActionsResult
 		patchErr       string
 		expectedErr    string
-		expectedResult *charm.Actions
+		expectedResult map[string]params.ActionSpec
 	}{{
 		description: "result from wrong service",
 		patchResults: []params.ApplicationCharmActionsResult{
@@ -73,25 +72,21 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 		patchResults: []params.ApplicationCharmActionsResult{
 			{
 				ApplicationTag: names.NewApplicationTag("foo").String(),
-				Actions: &charm.Actions{
-					ActionSpecs: map[string]charm.ActionSpec{
-						"action": {
-							Description: "description",
-							Params: map[string]interface{}{
-								"foo": "bar",
-							},
+				Actions: map[string]params.ActionSpec{
+					"action": {
+						Description: "description",
+						Params: map[string]interface{}{
+							"foo": "bar",
 						},
 					},
 				},
 			},
 		},
-		expectedResult: &charm.Actions{
-			ActionSpecs: map[string]charm.ActionSpec{
-				"action": {
-					Description: "description",
-					Params: map[string]interface{}{
-						"foo": "bar",
-					},
+		expectedResult: map[string]params.ActionSpec{
+			"action": {
+				Description: "description",
+				Params: map[string]interface{}{
+					"foo": "bar",
 				},
 			},
 		},
