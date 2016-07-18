@@ -195,10 +195,13 @@ func (c *restoreCommand) getEnviron(
 		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 
-	controllerCfg := controller.Config{
-		controller.ControllerUUIDKey: params.ControllerUUID,
-		controller.CACertKey:         meta.CACert,
+	controllerCfg := make(controller.Config)
+	for k, v := range config.ControllerConfig {
+		controllerCfg[k] = v
 	}
+	controllerCfg[controller.ControllerUUIDKey] = params.ControllerUUID
+	controllerCfg[controller.CACertKey] = meta.CACert
+
 	env, err := environs.New(cfg)
 	return env, &restoreBootstrapParams{
 		ControllerConfig: controllerCfg,
@@ -243,7 +246,43 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	}
 
 	cloudParam, err := cloud.CloudByName(params.CloudName)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		provider, err := environs.Provider(params.CloudName)
+		if errors.IsNotFound(err) {
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", params.CloudName, "juju update-clouds"))
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		detector, ok := provider.(environs.CloudRegionDetector)
+		if !ok {
+			return errors.Errorf("provider %q does not support detecting regions", params.CloudName)
+		}
+		var cloudEndpoint string
+		regions, err := detector.DetectRegions()
+		if errors.IsNotFound(err) {
+			// It's not an error to have no regions. If the
+			// provider does not support regions, then we
+			// reinterpret the supplied region name as the
+			// cloud's endpoint. This enables the user to
+			// supply, for example, maas/<IP> or manual/<IP>.
+			if params.CloudRegion != "" {
+				cloudEndpoint = params.CloudRegion
+			}
+		} else if err != nil {
+			return errors.Annotatef(err, "detecting regions for %q cloud provider", params.CloudName)
+		}
+		schemas := provider.CredentialSchemas()
+		authTypes := make([]cloud.AuthType, 0, len(schemas))
+		for authType := range schemas {
+			authTypes = append(authTypes, authType)
+		}
+		cloudParam = &cloud.Cloud{
+			Type:      params.CloudName,
+			AuthTypes: authTypes,
+			Endpoint:  cloudEndpoint,
+			Regions:   regions,
+		}
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 

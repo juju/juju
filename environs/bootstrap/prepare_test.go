@@ -14,6 +14,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -50,8 +51,11 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	controllerStore := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	controllerCfg := controller.Config{
-		controller.ControllerUUIDKey: testing.ModelTag.Id(),
-		controller.CACertKey:         testing.CACert,
+		controller.ControllerUUIDKey:       testing.ModelTag.Id(),
+		controller.CACertKey:               testing.CACert,
+		controller.ApiPort:                 17777,
+		controller.StatePort:               1234,
+		controller.SetNumaControlPolicyKey: true,
 	}
 	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
@@ -67,6 +71,31 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
 	c.Assert(foundController.Cloud, gc.Equals, "dummy")
+
+	// Check that bootstrap config was written
+	bootstrapCfg, err := controllerStore.BootstrapConfigForController(cfg.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapCfg, jc.DeepEquals, &jujuclient.BootstrapConfig{
+		ControllerConfig: controller.Config{
+			controller.ApiPort:                 17777,
+			controller.StatePort:               1234,
+			controller.SetNumaControlPolicyKey: true,
+		},
+		Config: map[string]interface{}{
+			"default-series":            "xenial",
+			"firewall-mode":             "instance",
+			"ssl-hostname-verification": true,
+			"logging-config":            "<root>=DEBUG;unit=DEBUG",
+			"secret":                    "pork",
+			"authorized-keys":           testing.FakeAuthKeys,
+			"type":                      "dummy",
+			"name":                      "erewhemos",
+			"controller":                false,
+			"development":               false,
+			"test-mode":                 false,
+		},
+		Cloud: "dummy",
+	})
 
 	// Check we cannot call Prepare again.
 	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{

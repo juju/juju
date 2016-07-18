@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
 )
 
@@ -72,6 +74,10 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 		Config: map[string]interface{}{
 			"type": "dummy",
 			"name": "admin",
+		},
+		ControllerConfig: controller.Config{
+			"api-port":   17070,
+			"state-port": 37017,
 		},
 	}
 	s.store.Credentials["dummy"] = cloud.CloudCredential{
@@ -212,12 +218,22 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		},
 		backups.GetEnvironFunc(fakeEnv, "mycloud"),
 	)
+	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		c.Assert(args.ControllerConfig, jc.DeepEquals, controller.Config{
+			"controller-uuid":         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			"ca-cert":                 testing.CACert,
+			"state-port":              1234,
+			"api-port":                17777,
+			"set-numa-control-policy": false,
+		})
+		boostrapped = true
 		return nil
 	})
 
 	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boostrapped, jc.IsTrue)
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
 		Cloud:                  "mycloud",
 		CloudRegion:            "a-region",
@@ -226,6 +242,35 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		APIEndpoints:           []string{"10.0.0.1:17777"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 	})
+}
+
+func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	fakeEnv := fakeEnviron{}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		backups.GetEnvironFunc(fakeEnv, "lxd"),
+	)
+	boostrapped := false
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		boostrapped = true
+		c.Assert(args.Cloud, jc.DeepEquals, cloud.Cloud{
+			Type:      "lxd",
+			AuthTypes: []cloud.AuthType{"empty"},
+			Regions:   []cloud.Region{{Name: "localhost"}},
+		})
+		return nil
+	})
+
+	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boostrapped, jc.IsTrue)
 }
 
 type fakeInstance struct {
