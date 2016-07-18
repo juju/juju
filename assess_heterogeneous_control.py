@@ -13,6 +13,7 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     EnvJujuClient1X,
+    IncompatibleConfigClass,
     SimpleEnvironment,
     until_timeout,
     )
@@ -57,7 +58,12 @@ def get_clients(initial, other, base_env, debug, agent_url):
     # System juju is assumed to be released and the best choice for tearing
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
-    released_client = initial_client.clone_path_cls(None)
+    try:
+        released_client = initial_client.clone_path_cls(None)
+    except IncompatibleConfigClass:
+        # If initial_client's config class is incompatible with the system
+        # juju, use initial client for teardown.
+        released_client = initial_client
     # If released_client is a different major version, it cannot tear down
     # initial client, so use initial client for teardown.
     if (
