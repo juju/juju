@@ -35,7 +35,7 @@ type Conn interface {
 	Request() *http.Request
 
 	// Send sends data over the connection and handles any marshaling.
-	Send(interface{}) error
+	Send(...interface{}) error
 
 	// Close closes the connection.
 	Close() error
@@ -101,7 +101,7 @@ func NewConnHandler(ctx ConnHandlerContext) (func(Conn), error) {
 		// The client is waiting for an indication that the stream
 		// is ready (or that it failed).  See
 		// api/apiclient.go:readInitialStreamError().
-		if err := logSendErr(sendError(conn, nil)); err != nil {
+		if err := logSendErr(sendError(conn, nil, '\n')); err != nil {
 			return
 		}
 
@@ -175,10 +175,16 @@ func auditAPIParamDocFromAuditEntry(auditEntry audit.AuditEntry) (params.AuditEn
 	}, nil
 }
 
-func sendError(conn Conn, err error) error {
-	return conn.Send(params.ErrorResult{
-		Error: common.ServerError(err),
-	})
+func sendError(conn Conn, err error, data ...interface{}) error {
+	data = append(
+		[]interface{}{
+			params.ErrorResult{
+				Error: common.ServerError(err),
+			},
+		},
+		data...,
+	)
+	return conn.Send(data...)
 }
 
 func or(c1, c2 <-chan struct{}) <-chan struct{} {

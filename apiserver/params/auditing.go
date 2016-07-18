@@ -5,7 +5,8 @@ package params
 
 import "github.com/juju/version"
 
-// AuditEntryParams is the doc that is persisted to the audit collection.
+// AuditEntryParams is the type which is returned when an API request
+// is made.
 type AuditEntryParams struct {
 
 	// JujuServerVersion is the version of jujud that recorded this
@@ -36,6 +37,6 @@ type AuditEntryParams struct {
 	// the audit event.
 	Operation string `json:"operation"`
 
-	// Data is a catch-all for storing random data.
+	// Data is a catch-all for storing data.
 	Data map[string]interface{} `json:"data"`
 }
