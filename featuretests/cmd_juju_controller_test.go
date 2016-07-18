@@ -87,9 +87,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
-		"controller*  admin@local  available  just now\n"+
-		"new-model    test@local   available  never connected\n"+
+		"MODEL              OWNER        STATUS     LAST CONNECTION\n"+
+		"admin/controller*  admin@local  available  just now\n"+
+		"test/new-model     test@local   available  never connected\n"+
 		"\n")
 }
 
@@ -161,7 +161,7 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.
 	// to the api server.
 	accountDetails, err := s.ControllerStore.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
-	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "new-model")
+	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local/new-model")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:          s.ControllerStore,

@@ -52,8 +52,8 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
 	s.store.Models["test1"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"test1": {"test1-uuid"},
-			"test2": {"test2-uuid"},
+			"admin@local/test1": {"test1-uuid"},
+			"admin@local/test2": {"test2-uuid"},
 		},
 	}
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
@@ -99,7 +99,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownModel(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read model info: model test1:foo not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read model info: model test1:admin@local/foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -107,34 +107,34 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy model \"test2\"")
-	checkModelExistsInStore(c, "test1:test2", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test2", s.store)
 }
 
 func (s *DestroySuite) TestSystemDestroyFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, `"test1" is a controller; use 'juju destroy-controller' to destroy it`)
-	checkModelExistsInStore(c, "test1:test1", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
-	checkModelExistsInStore(c, "test1:test2", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test2", s.store)
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	checkModelRemovedFromStore(c, "test1:test2", s.store)
+	checkModelRemovedFromStore(c, "test1:admin@local/test2", s.store)
 }
 
 func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
 	s.api.err = errors.New("permission denied")
 	_, err := s.runDestroyCommand(c, "test1:test2", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: permission denied")
-	checkModelExistsInStore(c, "test1:test2", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test2", s.store)
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
 	s.store.Models["test1"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"test1": {"test1-uuid"},
-			"test2": {"test2-uuid"},
+			"admin@local/test1": {"test1-uuid"},
+			"admin@local/test2": {"test2-uuid"},
 		},
 	}
 }
@@ -156,7 +156,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
-	checkModelExistsInStore(c, "test1:test1", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -169,7 +169,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
-	checkModelExistsInStore(c, "test1:test2", s.store)
+	checkModelExistsInStore(c, "test1:admin@local/test2", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
@@ -182,7 +182,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("command took too long")
 		}
-		checkModelRemovedFromStore(c, "test1:test2", s.store)
+		checkModelRemovedFromStore(c, "test1:admin@local/test2", s.store)
 
 		// Add the test2 model back into the store for the next test
 		s.resetModel(c)
