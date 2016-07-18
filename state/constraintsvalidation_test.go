@@ -4,6 +4,9 @@
 package state_test
 
 import (
+	"regexp"
+
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +14,15 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
+
+type applicationConstraintsSuite struct {
+	ConnSuite
+
+	applicationName string
+	testCharm       *state.Charm
+}
+
+var _ = gc.Suite(&applicationConstraintsSuite{})
 
 type constraintsValidationSuite struct {
 	ConnSuite
@@ -242,4 +254,38 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(scons, jc.DeepEquals, constraints.MustParse(t.effectiveServiceCons))
 	}
+}
+
+func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterVocabulary(constraints.VirtType, []string{"kvm"})
+		return validator, nil
+	}
+	s.applicationName = "wordpress"
+	s.testCharm = s.AddTestingCharm(c, s.applicationName)
+}
+
+func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
+	cons := constraints.MustParse("virt-type=blah")
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
+}
+
+func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
+	cons := constraints.MustParse("virt-type=kvm")
+	service, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(service, gc.NotNil)
 }

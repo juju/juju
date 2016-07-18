@@ -41,9 +41,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		Container:    doc.Container,
 		Tags:         doc.Tags,
 		Spaces:       doc.Spaces,
-	}
-	if doc.VirtType != nil {
-		result.VirtType = doc.VirtType
+		VirtType:     doc.VirtType,
 	}
 	return result
 }
@@ -59,9 +57,7 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 		Container:    cons.Container,
 		Tags:         cons.Tags,
 		Spaces:       cons.Spaces,
-	}
-	if cons.VirtType != nil {
-		result.VirtType = cons.VirtType
+		VirtType:     cons.VirtType,
 	}
 	return result
 }
