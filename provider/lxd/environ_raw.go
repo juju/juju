@@ -18,7 +18,6 @@ type rawProvider struct {
 	lxdProfiles
 	lxdImages
 	common.Firewaller
-	policyProvider
 }
 
 type lxdInstances interface {
@@ -48,14 +47,11 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 		return nil, errors.Trace(err)
 	}
 
-	policy := &lxdPolicyProvider{}
-
 	raw := &rawProvider{
-		lxdInstances:   client,
-		lxdProfiles:    client,
-		lxdImages:      client,
-		Firewaller:     firewaller,
-		policyProvider: policy,
+		lxdInstances: client,
+		lxdProfiles:  client,
+		lxdImages:    client,
+		Firewaller:   firewaller,
 	}
 	return raw, nil
 }

@@ -99,8 +99,7 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	errs, err := s.api.Save(params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
-	// not expected to call state :D
-	s.assertCalls(c, environConfig)
+	s.assertCalls(c)
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
@@ -131,14 +130,13 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, environConfig, saveMetadata, saveMetadata)
+	s.assertCalls(c, environConfig, "Model", saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
 	errs, err := s.api.Delete(params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
-	// not expected to call state :D
 	s.assertCalls(c)
 }
 

@@ -198,15 +198,13 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
-	// archMutex gates access to supportedArchitectures
+	// archMutex gates access to cachedSupportedArchitectures
 	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
+	// cachedSupportedArchitectures caches the architectures
 	// for which images can be instantiated.
-	supportedArchitectures []string
+	cachedSupportedArchitectures []string
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -409,26 +407,6 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *Environ) SupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
@@ -441,7 +419,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.SupportedArchitectures()
+	supportedArches, err := e.supportedArchitectures()
 	if err != nil {
 		return nil, err
 	}
@@ -458,6 +436,25 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
+}
+
+func (e *Environ) supportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.cachedSupportedArchitectures != nil {
+		return e.cachedSupportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.cachedSupportedArchitectures, err
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones

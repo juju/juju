@@ -24,8 +24,6 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
 	compute *joyentCompute
@@ -83,8 +81,7 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
+func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()
 	defer env.archLock.Unlock()
 	if env.supportedArchitectures != nil {

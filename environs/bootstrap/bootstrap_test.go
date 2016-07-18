@@ -839,12 +839,12 @@ type bootstrapEnviron struct {
 	environs.Environ // stub out all methods we don't care about.
 
 	// The following fields are filled in when Bootstrap is called.
-	bootstrapCount              int
-	finalizerCount              int
-	supportedArchitecturesCount int
-	args                        environs.BootstrapParams
-	instanceConfig              *instancecfg.InstanceConfig
-	storage                     storage.Storage
+	bootstrapCount            int
+	finalizerCount            int
+	constraintsValidatorCount int
+	args                      environs.BootstrapParams
+	instanceConfig            *instancecfg.InstanceConfig
+	storage                   storage.Storage
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
@@ -903,13 +903,11 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
-	e.supportedArchitecturesCount++
-	return []string{arch.AMD64, arch.ARM64}, nil
-}
-
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
-	return constraints.NewValidator(), nil
+	e.constraintsValidatorCount++
+	v := constraints.NewValidator()
+	v.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
+	return v, nil
 }
 
 type bootstrapEnvironWithRegion struct {

@@ -483,30 +483,6 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(sources, gc.HasLen, 0)
 }
 
-func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
-	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
-	env := suite.makeEnviron()
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
-}
-
-func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
-	// If we cannot query boot-images (e.g. MAAS server version 1.4),
-	// then Juju will fall over to listing all the available nodes.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
-	suite.addSubnet(c, 9, 9, "node0")
-	suite.addSubnet(c, 9, 9, "node1")
-	env := suite.makeEnviron()
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
-}
-
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()

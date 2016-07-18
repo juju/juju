@@ -26,8 +26,6 @@ type baseProvider interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 	uuid string
 	raw  *rawProvider

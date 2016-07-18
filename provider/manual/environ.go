@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
@@ -45,8 +44,6 @@ var (
 )
 
 type manualEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
 	ubuntuUserInited    bool
@@ -82,11 +79,6 @@ func (e *manualEnviron) envConfig() (cfg *environConfig) {
 
 func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
-}
-
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
-	return arch.AllSupportedArches, nil
 }
 
 // Bootstrap is specified on the Environ interface.

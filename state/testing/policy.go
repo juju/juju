@@ -14,7 +14,6 @@ import (
 type MockPolicy struct {
 	GetPrechecker           func(*config.Config) (state.Prechecker, error)
 	GetConfigValidator      func(string) (state.ConfigValidator, error)
-	GetEnvironCapability    func(*config.Config) (state.EnvironCapability, error)
 	GetConstraintsValidator func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error)
 	GetInstanceDistributor  func(*config.Config) (state.InstanceDistributor, error)
 }
@@ -31,13 +30,6 @@ func (p *MockPolicy) ConfigValidator(providerType string) (state.ConfigValidator
 		return p.GetConfigValidator(providerType)
 	}
 	return nil, errors.NotImplementedf("ConfigValidator")
-}
-
-func (p *MockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
-	if p.GetEnvironCapability != nil {
-		return p.GetEnvironCapability(cfg)
-	}
-	return nil, errors.NotImplementedf("EnvironCapability")
 }
 
 func (p *MockPolicy) ConstraintsValidator(cfg *config.Config, querier state.SupportedArchitecturesQuerier) (constraints.Validator, error) {

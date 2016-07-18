@@ -65,17 +65,15 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Check(cloudSpec.Region, gc.Not(gc.Equals), "")
 	c.Check(cloudSpec.Endpoint, gc.Not(gc.Equals), "")
 
-	archs, err := env.SupportedArchitectures()
-	c.Check(err, gc.IsNil)
-	c.Assert(archs, gc.NotNil)
-	c.Assert(archs, gc.HasLen, 1)
-	c.Check(archs[0], gc.Equals, arch.AMD64)
-
 	validator, err := env.ConstraintsValidator()
 	c.Check(validator, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
-	c.Check(env.SupportsUnitPlacement(), gc.ErrorMatches, "SupportsUnitPlacement not implemented")
+	amd64, i386 := arch.AMD64, arch.I386
+	_, err = validator.Validate(constraints.Value{Arch: &amd64})
+	c.Check(err, gc.IsNil)
+	_, err = validator.Validate(constraints.Value{Arch: &i386})
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64\\]")
 
 	c.Check(env.OpenPorts(nil), gc.IsNil)
 	c.Check(env.ClosePorts(nil), gc.IsNil)

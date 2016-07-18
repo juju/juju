@@ -231,8 +231,6 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name         string
 	modelUUID    string
 	ecfgMutex    sync.Mutex
@@ -627,11 +625,6 @@ func (e *environ) checkBroken(method string) error {
 	return nil
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64}, nil
-}
-
 // PrecheckInstance is specified in the state.Prechecker interface.
 func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" && placement != "valid" {
@@ -858,6 +851,9 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	validator.RegisterVocabulary(constraints.Arch, []string{
+		arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64,
+	})
 	return validator, nil
 }
 

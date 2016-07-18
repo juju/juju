@@ -44,8 +44,6 @@ import (
 const jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
 
 type azureEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
 
@@ -321,15 +319,6 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
-	return env.supportedArchitectures(), nil
-}
-
-func (env *azureEnviron) supportedArchitectures() []string {
-	return []string{arch.AMD64}
-}
-
 // ConstraintsValidator is defined on the Environs interface.
 func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	instanceTypes, err := env.getInstanceTypes()
@@ -350,7 +339,7 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	})
 	validator.RegisterVocabulary(
 		constraints.Arch,
-		env.supportedArchitectures(),
+		[]string{arch.AMD64},
 	)
 	validator.RegisterVocabulary(
 		constraints.InstanceType,
