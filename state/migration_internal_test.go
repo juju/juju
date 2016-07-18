@@ -508,6 +508,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
+		"VirtType",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

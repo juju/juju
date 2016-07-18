@@ -4,6 +4,9 @@
 package state_test
 
 import (
+	"regexp"
+
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +14,15 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
+
+type applicationConstraintsSuite struct {
+	ConnSuite
+
+	applicationName string
+	testCharm       *state.Charm
+}
+
+var _ = gc.Suite(&applicationConstraintsSuite{})
 
 type constraintsValidationSuite struct {
 	ConnSuite
@@ -174,6 +186,30 @@ var setConstraintsTests = []struct {
 	effectiveServiceCons: "container=kvm arch=amd64",
 	effectiveUnitCons:    "container=kvm mem=8G arch=amd64",
 	effectiveMachineCons: "mem=8G arch=amd64",
+}, {
+	about:        "specify image virt-type when deploying applications on multi-hypervisor aware openstack",
+	consToSet:    "virt-type=kvm",
+	consFallback: "",
+
+	// application deployment constraints are transformed into machine
+	// provisioning constraints. Unit constraints must also have virt-type set
+	// to ensure consistency in scalability.
+	effectiveModelCons:   "",
+	effectiveServiceCons: "virt-type=kvm",
+	effectiveUnitCons:    "virt-type=kvm",
+	effectiveMachineCons: "virt-type=kvm",
+}, {
+	about:        "ensure model and application constraints are separate",
+	consToSet:    "virt-type=kvm",
+	consFallback: "mem=2G",
+
+	// application deployment constraints are transformed into machine
+	// provisioning constraints. Unit constraints must also have virt-type set
+	// to ensure consistency in scalability.
+	effectiveModelCons:   "mem=2G",
+	effectiveServiceCons: "virt-type=kvm",
+	effectiveUnitCons:    "mem=2G virt-type=kvm",
+	effectiveMachineCons: "mem=2G virt-type=kvm",
 }}
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
@@ -230,4 +266,38 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(scons, jc.DeepEquals, constraints.MustParse(t.effectiveServiceCons))
 	}
+}
+
+func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterVocabulary(constraints.VirtType, []string{"kvm"})
+		return validator, nil
+	}
+	s.applicationName = "wordpress"
+	s.testCharm = s.AddTestingCharm(c, s.applicationName)
+}
+
+func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
+	cons := constraints.MustParse("virt-type=blah")
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
+}
+
+func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
+	cons := constraints.MustParse("virt-type=kvm")
+	service, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(service, gc.NotNil)
 }
