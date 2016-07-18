@@ -146,7 +146,7 @@ godeps
 After getting the juju code, you need to get `godeps`:
 
 ```shell
-go get launchpad.net/godeps
+go get github.com/rogpeppe/godeps
 ```
 
 This installs the `godeps` application.  You can then run `godeps` from the
