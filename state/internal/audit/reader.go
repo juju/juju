@@ -4,7 +4,6 @@
 package audit
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -56,8 +55,8 @@ type AuditTailerContext struct {
 	OpenAuditIter func(time.Time) Iterator
 }
 
-// NewAuditTailer returns a channel of AuditEntry and returns values
-// on this channel asynchronously.
+// NewAuditTailer returns a channel of FetchedAuditEntry and returns
+// values on this channel asynchronously.
 //
 // The values returned will be pulled from an Iterator created by the
 // OpenAuditIter function passed in. The reader will re-open an
@@ -71,7 +70,6 @@ func NewAuditTailer(ctx AuditTailerContext, after time.Time) <-chan FetchedAudit
 	records := make(chan FetchedAuditEntry)
 	highWatermark := after // Rename for readability
 	openAuditIter := func() Iterator {
-		fmt.Printf("opening iter @ %s\n", highWatermark)
 		return cancellable(ctx.Done, ctx.OpenAuditIter, highWatermark)
 	}
 	go func() {
@@ -139,8 +137,6 @@ func auditEntryFromDoc(doc auditEntryDoc) (audit.AuditEntry, error) {
 	if err := timestamp.UnmarshalText([]byte(doc.Timestamp)); err != nil {
 		return audit.AuditEntry{}, errors.Trace(err)
 	}
-
-	fmt.Println(timestamp.Format(time.RFC3339))
 
 	return audit.AuditEntry{
 		JujuServerVersion: doc.JujuServerVersion,
