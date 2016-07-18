@@ -53,7 +53,7 @@ class ConcurrentlyTest(TestCase):
         task_one.returncode = 1
         self.assertEqual(1, concurrently.summarise_tasks(tasks))
         task_two.returncode = 3
-        self.assertEqual(4, concurrently.summarise_tasks(tasks))
+        self.assertEqual(3, concurrently.summarise_tasks(tasks))
 
     def test_run_all(self):
         task_one = concurrently.Task('one=foo a')
