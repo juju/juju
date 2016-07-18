@@ -174,6 +174,18 @@ var setConstraintsTests = []struct {
 	effectiveServiceCons: "container=kvm arch=amd64",
 	effectiveUnitCons:    "container=kvm mem=8G arch=amd64",
 	effectiveMachineCons: "mem=8G arch=amd64",
+}, {
+	about:        "specify image virt-type when deploying applications on multi-hypervisor aware openstack",
+	consToSet:    "virt-type=kvm",
+	consFallback: "",
+
+	// application deployment constraints are transformed into machine
+	// provisioning constraints. Unit constraints must also have virt-type set
+	// to ensure consistency in scalability.
+	effectiveModelCons:   "",
+	effectiveServiceCons: "virt-type=kvm",
+	effectiveUnitCons:    "virt-type=kvm",
+	effectiveMachineCons: "virt-type=kvm",
 }}
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
