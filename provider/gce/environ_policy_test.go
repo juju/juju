@@ -136,9 +136,9 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unsupported, gc.HasLen, 0)
 
-	i386 := arch.I386
-	_, err = validator.Validate(constraints.Value{Arch: &i386})
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64\\]")
+	arm64 := arch.ARM64
+	_, err = validator.Validate(constraints.Value{Arch: &arm64})
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are: \\[amd64\\]")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {

@@ -60,9 +60,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.ValidateUploadAllowed(env, nil, nil)
-	c.Assert(err, gc.ErrorMatches,
-		`model "foo" of type dummy does not support instances running on "ppc64el": invalid constraint value?: arch=ppc64el
-valid values are: \[amd64 arm64\]`)
+	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
@@ -210,9 +208,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true, true)
-	c.Assert(err, gc.ErrorMatches,
-		`model "foo" of type dummy does not support instances running on "i386": invalid constraint value: arch=i386
-valid values are: \[amd64 arm64\]`)
+	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "i386"`)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 }
 
