@@ -4,8 +4,7 @@
 package state_test
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -38,7 +37,7 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		c.Assert(updateAttrs, gc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
 		if _, found := updateAttrs["logging-config"]; found {
-			return fmt.Errorf("cannot change logging-config")
+			return errors.New("cannot change logging-config")
 		}
 		return nil
 	}
@@ -47,7 +46,7 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 		c.Assert(removeAttrs, gc.DeepEquals, []string{"logging-config"})
 		for _, i := range removeAttrs {
 			if i == "logging-config" {
-				return fmt.Errorf("cannot remove logging-config")
+				return errors.New("cannot remove logging-config")
 			}
 		}
 		return nil
@@ -173,7 +172,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
 	expectedValues := make(config.ConfigValues)
 	for attr, val := range modelCfg.AllAttrs() {
 		source := "model"
-		if attr == "apt-mirror" || attr == "http-proxy" {
+		if attr == "http-proxy" {
 			source = "controller"
 		}
 		expectedValues[attr] = config.ConfigValue{
@@ -186,9 +185,10 @@ func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigUpdateSetsSource(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy": "http://anotherproxy",
+		"apt-mirror": "http://mirror",
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,28 +199,6 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSetsSource(c *gc.C) {
 	for attr, val := range modelCfg.AllAttrs() {
 		source := "model"
 		if attr == "apt-mirror" {
-			source = "controller"
-		}
-		expectedValues[attr] = config.ConfigValue{
-			Value:  val,
-			Source: source,
-		}
-	}
-	sources, err := s.State.ModelConfigValues()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedValues)
-}
-
-func (s *ModelConfigSourceSuite) TestModelConfigDeleteSetsSource(c *gc.C) {
-	err := s.State.UpdateModelConfig(nil, []string{"apt-mirror"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelCfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := make(config.ConfigValues)
-	for attr, val := range modelCfg.AllAttrs() {
-		source := "model"
-		if attr == "http-proxy" {
 			source = "controller"
 		}
 		expectedValues[attr] = config.ConfigValue{

@@ -118,7 +118,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
 		// model configuration
-		modelSettingsSourcesC,
 		globalSettingsC,
 
 		// model

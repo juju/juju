@@ -5,13 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
+
+type attrValues map[string]interface{}
 
 var disallowedModelConfigAttrs = [...]string{
 	"admin-secret",
@@ -54,23 +53,39 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(wallyworld) - this data should not be stored separately
-	sources, closer := st.getCollection(modelSettingsSourcesC)
-	defer closer()
 
-	var settingsSources settingsSourcesDoc
-	err = sources.FindId(modelGlobalKey).One(&settingsSources)
-	if err == mgo.ErrNotFound {
-		err = errors.NotFoundf("settings sources")
+	// Read all of the current inherited config values so
+	// we can dynamically reflect the origin of the model config.
+	configSources := modelConfigSources(st)
+	sourceNames := make([]string, 0, len(configSources))
+	sourceAttrs := make([]attrValues, 0, len(configSources))
+	for _, src := range configSources {
+		sourceNames = append(sourceNames, src.name)
+		cfg, err := src.sourceFunc()
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading %s settings", src.name)
+		}
+		sourceAttrs = append(sourceAttrs, cfg)
 	}
-	if err != nil {
-		return nil, err
-	}
+
+	// Figure out the source of each config attribute based
+	// on the current model values and the inherited values.
 	result := make(config.ConfigValues)
 	for attr, val := range modelSettings.Map() {
-		source, ok := settingsSources.Sources[attr]
-		if !ok {
-			source = config.JujuModelConfigSource
+		// Find the source of config for which the model
+		// value matches. If there's a match, the last match
+		// in the search order will be the source of config.
+		// If there's no match, the source is the model.
+		source := config.JujuModelConfigSource
+		n := len(sourceAttrs)
+		for i := range sourceAttrs {
+			if sourceAttrs[n-i-1][attr] == val {
+				source = sourceNames[n-i-1]
+				break
+			}
 		}
 		result[attr] = config.ConfigValue{
 			Value:  val,
@@ -81,7 +96,7 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 }
 
 // checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.
-func checkControllerInheritedConfig(attrs map[string]interface{}) error {
+func checkControllerInheritedConfig(attrs attrValues) error {
 	disallowedCloudConfigAttrs := append(disallowedModelConfigAttrs[:], config.AgentVersionKey)
 	for _, attr := range disallowedCloudConfigAttrs {
 		if _, ok := attrs[attr]; ok {
@@ -96,7 +111,7 @@ func checkControllerInheritedConfig(attrs map[string]interface{}) error {
 	return nil
 }
 
-func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -159,47 +174,11 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	}
 
 	modelSettings.Update(validAttrs)
-	changes, ops := modelSettings.settingsUpdateOps()
-	ops = append(ops, updateModelSourcesOps(changes)...)
+	_, ops := modelSettings.settingsUpdateOps()
 	return modelSettings.write(ops)
 }
 
-func updateModelSourcesOps(changes []ItemChange) []txn.Op {
-	var update bson.D
-	var set = make(bson.M)
-	for _, c := range changes {
-		set["sources."+c.Key] = "model"
-	}
-	update = append(update, bson.DocElem{"$set", set})
-
-	ops := []txn.Op{{
-		C:      modelSettingsSourcesC,
-		Id:     modelGlobalKey,
-		Assert: txn.DocExists,
-		Update: update,
-	}}
-	return ops
-}
-
-// settingsSourcesDoc stores for each model attribute,
-// the source of the attribute.
-type settingsSourcesDoc struct {
-	// Sources defines the named source for each settings attribute.
-	Sources map[string]string `bson:"sources,omitempty"`
-}
-
-func createSettingsSourceOp(values map[string]string) txn.Op {
-	return txn.Op{
-		C:      modelSettingsSourcesC,
-		Id:     modelGlobalKey,
-		Assert: txn.DocMissing,
-		Insert: &settingsSourcesDoc{
-			Sources: values,
-		},
-	}
-}
-
-type modelConfigSourceFunc func() (map[string]interface{}, error)
+type modelConfigSourceFunc func() (attrValues, error)
 
 type modelConfigSource struct {
 	name       string
@@ -219,7 +198,7 @@ func modelConfigSources(st *State) []modelConfigSource {
 
 // ControllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
-func (st *State) ControllerInheritedConfig() (map[string]interface{}, error) {
+func (st *State) ControllerInheritedConfig() (attrValues, error) {
 	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -229,13 +208,10 @@ func (st *State) ControllerInheritedConfig() (map[string]interface{}, error) {
 
 // composeModelConfigAttributes returns a set of model config settings composed from known
 // sources of default values overridden by model specific attributes.
-// Also returned is a map containing the source location for each model attribute.
-// The source location is the name of the config values from which an attribute came.
 func composeModelConfigAttributes(
-	modelAttr map[string]interface{}, configSources ...modelConfigSource,
-) (map[string]interface{}, map[string]string, error) {
-	resultAttrs := make(map[string]interface{})
-	settingsSources := make(map[string]string)
+	modelAttr attrValues, configSources ...modelConfigSource,
+) (attrValues, error) {
+	resultAttrs := make(attrValues)
 
 	// Compose default settings from all known sources.
 	for _, source := range configSources {
@@ -244,19 +220,17 @@ func composeModelConfigAttributes(
 			continue
 		}
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "reading %s settings", source.name)
+			return nil, errors.Annotatef(err, "reading %s settings", source.name)
 		}
 		for name, val := range newSettings {
 			resultAttrs[name] = val
-			settingsSources[name] = source.name
 		}
 	}
 
 	// Merge in model specific settings.
 	for attr, val := range modelAttr {
 		resultAttrs[attr] = val
-		settingsSources[attr] = config.JujuModelConfigSource
 	}
 
-	return resultAttrs, settingsSources, nil
+	return resultAttrs, nil
 }

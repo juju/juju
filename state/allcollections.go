@@ -194,9 +194,6 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 		},
 
-		// This collection holds the source from where model settings came.
-		modelSettingsSourcesC: {},
-
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
 		blocksC: {},
@@ -409,7 +406,6 @@ const (
 	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
-	modelSettingsSourcesC    = "modelSettingsSources"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"

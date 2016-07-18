@@ -372,7 +372,7 @@ func finalizeInstanceBootstrapConfig(
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return fmt.Errorf("controller model configuration has no agent-version")
+		return errors.New("controller model configuration has no agent-version")
 	}
 
 	icfg.Bootstrap.ControllerModelConfig = cfg
