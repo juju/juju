@@ -22,7 +22,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/cmd/pprof"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -192,11 +191,6 @@ func Main(args []string) int {
 	commandName := filepath.Base(args[0])
 	switch commandName {
 	case names.Jujud:
-		// start pprof server and defer cleanup
-		pprofSocketPath := filepath.Join(os.TempDir(), pprof.Filename)
-		stop := pprof.Start(pprofSocketPath)
-		defer stop()
-
 		code, err = jujuDMain(args, ctx)
 	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
