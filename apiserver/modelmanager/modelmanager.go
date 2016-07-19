@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
@@ -37,6 +38,7 @@ func init() {
 // ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModel(args params.Entity) (params.BytesResult, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModel() error
 }
@@ -255,6 +257,41 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	defer st.Close()
 
 	return mm.getModelInfo(model.ModelTag())
+}
+
+// DumpModel will export the model into the database agnostic YAML
+// representation. This serialized YAML is returned as a single string over
+// the API. The user needs to either be a controller admin, or have admin
+// privileges on the model itself.
+func (mm *ModelManagerAPI) DumpModel(args params.Entity) (params.BytesResult, error) {
+	var empty params.BytesResult
+	modelTag, err := names.ParseModelTag(args.Tag)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	st, err := mm.state.ForModel(modelTag)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	// Check model permissions if the user isn't a controller admin.
+	if !mm.isAdmin {
+		user, err := st.ModelUser(mm.apiUser)
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		if !user.IsAdmin() {
+			return empty, errors.Trace(common.ErrPerm)
+		}
+	}
+
+	bytes, err := migration.ExportModel(st)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	return params.BytesResult{bytes}, nil
 }
 
 // ListModels returns the models that the specified user

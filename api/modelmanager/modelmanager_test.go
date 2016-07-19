@@ -9,8 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -87,4 +90,30 @@ func (s *modelmanagerSuite) TestDestroyEnvironment(c *gc.C) {
 	err := modelManagerClient.DestroyModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+type dumpModelSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&dumpModelSuite{})
+
+func (s *dumpModelSuite) TestDumpModel(c *gc.C) {
+	results := params.BytesResult{[]byte("serialized model info")}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(request, gc.Equals, "DumpModel")
+			in, ok := args.(params.Entity)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(in.Tag, gc.Equals, testing.ModelTag.String())
+			res, ok := result.(*params.BytesResult)
+			c.Assert(ok, jc.IsTrue)
+			*res = results
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModel(testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, results.Result)
 }

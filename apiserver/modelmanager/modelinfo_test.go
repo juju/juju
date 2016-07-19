@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -218,6 +219,16 @@ type mockState struct {
 	controllerModel *mockModel
 	users           []*state.ModelUser
 	creds           map[string]cloud.Credential
+}
+
+type fakeModelDescription struct {
+	description.Model `yaml:"-"`
+
+	UUID string `yaml:"model-uuid"`
+}
+
+func (st *mockState) Export() (description.Model, error) {
+	return &fakeModelDescription{UUID: st.uuid}, nil
 }
 
 func (st *mockState) ModelUUID() string {

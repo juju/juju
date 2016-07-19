@@ -82,6 +82,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		model: &mockModel{
 			owner: names.NewUserTag("admin@local"),
 			life:  state.Alive,
+			tag:   coretesting.ModelTag,
 			cfg:   cfg,
 			status: status.StatusInfo{
 				Status: status.StatusAvailable,
@@ -228,6 +229,49 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `no such credential "bar"`)
+}
+
+func (s *modelManagerSuite) TestDumpModelBadTag(c *gc.C) {
+	_, err := s.api.DumpModel(params.Entity{Tag: "bad-tag"})
+	c.Check(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	_, err = s.api.DumpModel(params.Entity{Tag: "application-foo"})
+	c.Check(err, gc.ErrorMatches, `"application-foo" is not a valid model tag`)
+}
+
+func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
+	s.st.SetErrors(errors.New("boom"))
+	_, err := s.api.DumpModel(params.Entity{Tag: s.st.ModelTag().String()})
+
+	calls := s.st.Calls()
+	lastCall := calls[len(calls)-1]
+	c.Check(lastCall.FuncName, gc.Equals, "ForModel")
+	c.Check(err, gc.ErrorMatches, `boom`)
+}
+
+func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
+	s.st.SetErrors(nil, nil, errors.New("boom"))
+
+	authoriser := apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("other@local"),
+	}
+	api, err := modelmanager.NewModelManagerAPI(&s.st, authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = api.DumpModel(params.Entity{Tag: s.st.ModelTag().String()})
+
+	calls := s.st.Calls()
+	lastCall := calls[len(calls)-1]
+	c.Check(lastCall.FuncName, gc.Equals, "ModelUser")
+	c.Check(err, gc.ErrorMatches, `boom`)
+}
+
+func (s *modelManagerSuite) TestDumpModelAdminUser(c *gc.C) {
+	bytes, err := s.api.DumpModel(params.Entity{Tag: s.st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	out := string(bytes.Result)
+	expected := "model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n"
+	c.Assert(out, gc.Equals, expected)
 }
 
 // modelManagerStateSuite contains end-to-end tests.

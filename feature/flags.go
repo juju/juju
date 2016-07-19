@@ -36,3 +36,7 @@ const ImageMetadata = "image-metadata"
 
 // Migration enables the 'juju migrate' command.
 const Migration = "migration"
+
+// DeveloperMode allows for certain commands and behaviour to be accessed
+// for developers.
+const DeveloperMode = "developer-mode"

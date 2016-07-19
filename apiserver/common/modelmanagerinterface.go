@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -42,6 +43,7 @@ type ModelManagerBackend interface {
 	RemoveModelUser(names.UserTag) error
 	ModelUser(names.UserTag) (*state.ModelUser, error)
 	ModelTag() names.ModelTag
+	Export() (description.Model, error)
 	Close() error
 }
 
