@@ -668,7 +668,7 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(c.hostedModelName); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
 		return errors.Trace(err)
 	}
 

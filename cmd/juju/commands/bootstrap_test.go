@@ -1181,6 +1181,91 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudRegionsNoSuchCloud(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cloud foo not found")
 }
 
+func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
+	// This test ensures that the controller name is correctly set on
+	// on the bootstrap commands embedded ModelCommandBase. Without
+	// this, the concurrent bootstraps fail.
+	// See https://pad.lv/1604223
+
+	resetJujuXDGDataHome(c)
+	s.patchVersionAndSeries(c, "raring")
+
+	const controllerName = "dev"
+
+	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
+	var seenControllerName string
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ string) error {
+		seenControllerName = base.ControllerName()
+		return nil
+	})
+
+	// Run the bootstrap command in another goroutine, sending the
+	// dummy provider ops to opc.
+	errc := make(chan error, 1)
+	opc := make(chan dummy.Operation)
+	dummy.Listen(opc)
+	go func() {
+		defer func() {
+			dummy.Listen(nil)
+			close(opc)
+		}()
+		com := s.newBootstrapCommand()
+		args := []string{controllerName, "dummy", "--auto-upgrade"}
+		if err := coretesting.InitCommand(com, args); err != nil {
+			errc <- err
+			return
+		}
+		errc <- com.Run(cmdtesting.NullContext(c))
+	}()
+
+	// Wait for bootstrap to start.
+	select {
+	case op := <-opc:
+		_, ok := op.(dummy.OpBootstrap)
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
+	// Simulate another controller being bootstrapped during the
+	// bootstrap. Changing the current controller shouldn't affect the
+	// bootstrap process.
+	c.Assert(s.store.UpdateController("another", jujuclient.ControllerDetails{
+		ControllerUUID: "uuid",
+		CACert:         "cert",
+	}), jc.ErrorIsNil)
+	c.Assert(s.store.SetCurrentController("another"), jc.ErrorIsNil)
+
+	// Let bootstrap finish.
+	select {
+	case op := <-opc:
+		_, ok := op.(dummy.OpFinalizeBootstrap)
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
+	// Ensure there were no errors reported.
+	select {
+	case err := <-errc:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
+	// Wait for the ops channel to close.
+	select {
+	case _, ok := <-opc:
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
+	// Expect to see that the correct controller was in use at the end
+	// of bootstrap.
+	c.Assert(seenControllerName, gc.Equals, controllerName)
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
