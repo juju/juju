@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Latest compiled and minified CSS -->
+    <link
+       rel="stylesheet"
+       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+       integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
+       crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link
+       rel="stylesheet"
+       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"
+       integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r"
+       crossorigin="anonymous">
+
+    <title>Simple performance/scale reporting</title>
+
+  </head>
+  <body role="document">
+    <div class="container" role="main">
+
+      <div class="page-header">
+        <h1>Test outline</h1>
+      </div>
+      <ul>
+        <li>Run a simple bootstrap</li>
+        <li>Deploying charm: 'cs:bundle/wiki-simple-0'</li>
+      </ul>
+
+      <div class="page-header">
+        <h2>Timings</h2>
+      </div>
+      <table class="table">
+        <tr>
+          <th>Action</th>
+          <th>Time</th>
+        </tr>
+        <tr>
+          <td>Bootstrap</td>
+          <td>{{timings.bootstrap}} Seconds</td>
+        </tr>
+        {% for deploy in timings.deploys %}
+        <tr>
+          <td>Deploy 1</td>
+          <td>{{deploy}} Seconds</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <div class="page-header">
+        <h2>CPU Usage</h2>
+      </div>
+      <img src="file://{{cpu_graph}}" alt="CPU Usage Graph" />
+
+      <div class="page-header">
+        <h2>Memory Usage</h2>
+      </div>
+      <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
+
+      <div class="page-header">
+        <h2>Swap Usage</h2>
+      </div>
+      <img src="file://{{swap_graph}}" alt="Swap Usage Graph" />
+
+      <div class="page-header">
+        <h2>Network Usage</h2>
+      </div>
+      <img src="file://{{network_graph}}" alt="Network Usage Graph" />
+    </div>
+  </body>
+</html>

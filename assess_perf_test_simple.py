@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
+from jinja2 import Template
 import logging
 import os
 import sys
@@ -166,11 +167,15 @@ def assess_perf_test_simple(bs_manager, upload_tools):
             admin_client = client.get_admin_client()
             admin_client.wait_for_started()
             bs_end = time.time()
-            print('TIME bootstrap: {}'.format(bs_end - bs_start))
+            bootstrap_time = bs_end - bs_start
+            print('TIME bootstrap: {}'.format(bootstrap_time))
 
             setup_system_monitoring(admin_client)
 
+            deploy_start = time.time()
             assess_deployment_perf(client)
+            deploy_end = time.time()
+            deploy_time = deploy_end - deploy_start
         finally:
             # Grab the performance data files from the client(s)
             # make dir in logs dir for the results files.
@@ -183,27 +188,36 @@ def assess_perf_test_simple(bs_manager, upload_tools):
                 ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
                  results_dir)
             )
-            generate_reports(results_dir)
+            timings = dict(bootstrap=bootstrap_time, deploys=[deploy_time])
+            generate_reports(results_dir, timings)
 
 
-def generate_reports(results_dir):
+def generate_reports(results_dir, timings):
     """Generate reports and graphs from run results."""
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
     swap_image = generate_swap_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
 
-    images = dict(
-        cpu=cpu_image,
-        memory=memory_image,
-        swap=swap_image,
-        network=network_image)
+    details = dict(
+        cpu_graph=cpu_image,
+        memory_graph=memory_image,
+        swap_graph=swap_image,
+        network_graph=network_image,
+        timings=timings,
+    )
 
-    create_html_report(results_dir, images)
+    create_html_report(results_dir, details)
 
 
-def create_html_report(results_dir, images):
-    pass
+def create_html_report(results_dir, details):
+    # render the html file to the results dir
+    with open('./perf_report_template.html', 'rt') as f:
+        template = Template(f.read())
+
+    results_output = os.path.join(results_dir, 'report.html')
+    with open(results_output, 'wt') as f:
+        f.write(template.render(details))
 
 
 def generate_graph_image(base_dir, results_dir, generator):
@@ -224,20 +238,10 @@ def create_report_graph(rrd_dir, output_dir, name, generator):
 def generate_cpu_graph_image(results_dir):
     return generate_graph_image(
         results_dir, 'aggregation-cpu-average', create_cpu_report_graph)
-    # cpu_dir = os.path.join(
-    #     os.path.abspath(results_dir),
-    #     'aggregation-cpu-average')
-    # return create_cpu_report_graph(cpu_dir, results_dir)
 
 
 def create_cpu_report_graph(rrd_dir, output_dir):
     return create_report_graph(rrd_dir, output_dir, 'cpu', _rrd_cpu_graph)
-    # any_file = os.listdir(rrd_dir)[0]
-    # start, end = get_duration_points(os.path.join(rrd_dir, any_file))
-    # output_file = os.path.join(os.path.abspath(output_dir), 'cpu.png')
-    # _rrd_cpu_graph(start, end, rrd_dir, output_file)
-    # print('Created: {}'.format(output_file))
-    # return output_file
 
 
 def generate_memory_graph_image(results_dir):
@@ -245,7 +249,6 @@ def generate_memory_graph_image(results_dir):
         results_dir, 'memory', create_memory_report_graph)
 
 
-# This can be de-duped as it's mainly the same thing.
 def create_memory_report_graph(rrd_dir, output_dir):
     return create_report_graph(
         rrd_dir, output_dir, 'memory', _rrd_memory_graph)
@@ -441,7 +444,14 @@ def get_duration_points(rrd_file):
     start = subprocess.check_output(['rrdtool', 'first', rrd_file]).strip()
     end = subprocess.check_output(['rrdtool', 'last', rrd_file]).strip()
 
-    return start, end
+    # This probably stems from a misunderstanding on my part.
+    shitty_command = 'rrdtool fetch {file} AVERAGE --start {start} --end {end} | tail --lines=+3 | grep -v "\-nan" | head -n1'.format(
+        file=rrd_file,
+        start=start,
+        end=end)
+    actual_start = subprocess.check_output(shitty_command, shell=True)
+
+    return actual_start.split(':')[0], end
 
 
 def assess_deployment_perf(client):
@@ -474,7 +484,7 @@ def setup_system_monitoring(admin_client):
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
+    parser = argparse.ArgumentParser(description="Simple perf/scale testing")
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 
@@ -484,7 +494,8 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     assess_perf_test_simple(bs_manager, args.upload_tools)
-    generate_reports('/tmp/example_collection/')
+    # generate_reports(
+    #     '/tmp/example_collection/', dict(bootstrap=123, deploys=['321']))
     return 0
 
 
