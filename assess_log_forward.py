@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Test Jujus log forwarding feature.
+"""Test Juju's log forwarding feature.
 
 Log forwarding allows a controller to forward syslog from all models of a
 controller to a syslog host via TCP (using SSL).
@@ -9,12 +9,11 @@ controller to a syslog host via TCP (using SSL).
 from __future__ import print_function
 
 import argparse
-from datetime import datetime
 import logging
 import os
 import sys
 import subprocess
-from time import sleep
+import time
 from textwrap import dedent
 import yaml
 
@@ -100,7 +99,7 @@ def assert_initial_message_forwarded(rsyslog, uuid):
             break
         except subprocess.CalledProcessError as e:
             if e.returncode == 1:
-                sleep(1)
+                time.sleep(1)
             else:
                 raise JujuAssertionError(
                     'Failed to parse the logs in an expected way.')
