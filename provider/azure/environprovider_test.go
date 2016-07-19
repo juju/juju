@@ -5,7 +5,6 @@ package azure_test
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -39,20 +38,6 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		RequestInspector: requestRecorder(&s.requests),
 	})
 	s.sender = nil
-}
-
-func (s *environProviderSuite) TestBootstrapConfigWithInternalConfig(c *gc.C) {
-	s.testBootstrapConfigWithInternalConfig(c, "storage-account")
-}
-
-func (s *environProviderSuite) testBootstrapConfigWithInternalConfig(c *gc.C, key string) {
-	cfg := makeTestModelConfig(c, testing.Attrs{key: "whatever"})
-	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	_, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:      cfg,
-		Credentials: fakeUserPassCredential(),
-	})
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`internal config "%s" must not be specified`, key))
 }
 
 func fakeUserPassCredential() cloud.Credential {

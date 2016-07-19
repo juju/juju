@@ -56,9 +56,11 @@ type azureEnviron struct {
 	// envName is the name of the environment.
 	envName string
 
-	mu            sync.Mutex
-	config        *azureModelConfig
-	instanceTypes map[string]instances.InstanceType
+	mu                 sync.Mutex
+	config             *azureModelConfig
+	instanceTypes      map[string]instances.InstanceType
+	storageAccount     *storage.Account
+	storageAccountKeys *storage.AccountKeys
 	// azure management clients
 	compute       compute.ManagementClient
 	resources     resources.ManagementClient
@@ -89,14 +91,9 @@ func (env *azureEnviron) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
-	cfg, err := env.initResourceGroup(args.ControllerConfig.ControllerUUID())
-	if err != nil {
+	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID()); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
-	if err := env.SetConfig(cfg); err != nil {
-		return nil, errors.Annotate(err, "updating config")
-	}
-
 	result, err := common.Bootstrap(ctx, env, args)
 	if err != nil {
 		logger.Errorf("bootstrap failed, destroying model: %v", err)
@@ -112,7 +109,8 @@ func (env *azureEnviron) Bootstrap(
 // environment. The resource group will have a storage account and a
 // subnet associated with it (but not necessarily contained within:
 // see subnet creation).
-func (env *azureEnviron) initResourceGroup(controllerUUID string) (*config.Config, error) {
+func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
+	env.mu.Lock()
 	location := env.config.location
 	tags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
@@ -120,6 +118,10 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string) (*config.Confi
 		env.config,
 	)
 	resourceGroupsClient := resources.GroupsClient{env.resources}
+	networkClient := env.network
+	storageAccountsClient := storage.AccountsClient{env.storage}
+	storageAccountType := env.config.storageAccountType
+	env.mu.Unlock()
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
 	if err := env.callAPI(func() (autorest.Response, error) {
@@ -129,40 +131,34 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string) (*config.Confi
 		})
 		return group.Response, err
 	}); err != nil {
-		return nil, errors.Annotate(err, "creating resource group")
+		return errors.Annotate(err, "creating resource group")
 	}
 
 	// Create an internal network for all VMs in the
 	// resource group to connect to.
 	vnetPtr, err := createInternalVirtualNetwork(
-		env.callAPI, env.network, env.resourceGroup, location, tags,
+		env.callAPI, networkClient, env.resourceGroup, location, tags,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "creating virtual network")
+		return errors.Annotate(err, "creating virtual network")
 	}
 
 	_, err = createInternalSubnet(
-		env.callAPI, env.network, env.resourceGroup, vnetPtr, location, tags,
+		env.callAPI, networkClient, env.resourceGroup, vnetPtr, location, tags,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "creating subnet")
+		return errors.Annotate(err, "creating subnet")
 	}
 
 	// Create a storage account for the resource group.
-	storageAccountsClient := storage.AccountsClient{env.storage}
-	storageAccountName, storageAccountKey, err := createStorageAccount(
-		env.callAPI, storageAccountsClient,
-		env.config.storageAccountType,
+	if err := createStorageAccount(
+		env.callAPI, storageAccountsClient, storageAccountType,
 		env.resourceGroup, location, tags,
 		env.provider.config.StorageAccountNameGenerator,
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating storage account")
+	); err != nil {
+		return errors.Annotate(err, "creating storage account")
 	}
-	return env.config.Config.Apply(map[string]interface{}{
-		configAttrStorageAccount:    storageAccountName,
-		configAttrStorageAccountKey: storageAccountKey,
-	})
+	return nil
 }
 
 func createStorageAccount(
@@ -173,7 +169,7 @@ func createStorageAccount(
 	location string,
 	tags map[string]string,
 	accountNameGenerator func() string,
-) (string, string, error) {
+) error {
 	logger.Debugf("creating storage account (finding available name)")
 	const maxAttempts = 10
 	for remaining := maxAttempts; remaining > 0; remaining-- {
@@ -192,7 +188,7 @@ func createStorageAccount(
 			)
 			return result.Response, err
 		}); err != nil {
-			return "", "", errors.Annotate(err, "checking account name availability")
+			return errors.Annotate(err, "checking account name availability")
 		}
 		if !to.Bool(result.NameAvailable) {
 			logger.Debugf(
@@ -216,21 +212,11 @@ func createStorageAccount(
 			result, err := client.Create(resourceGroup, accountName, createParams)
 			return result.Response, err
 		}); err != nil {
-			return "", "", errors.Trace(err)
+			return errors.Trace(err)
 		}
-
-		logger.Debugf("- listing storage account keys")
-		var listKeysResult storage.AccountKeys
-		if err := callAPI(func() (autorest.Response, error) {
-			var err error
-			listKeysResult, err = client.ListKeys(resourceGroup, accountName)
-			return listKeysResult.Response, err
-		}); err != nil {
-			return "", "", errors.Annotate(err, "listing storage account keys")
-		}
-		return accountName, to.String(listKeysResult.Key1), nil
+		return nil
 	}
-	return "", "", errors.New("could not find available storage account name")
+	return errors.New("could not find available storage account name")
 }
 
 // ControllerInstances is specified in the Environ interface.
@@ -415,12 +401,15 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vmImagesClient := compute.VirtualMachineImagesClient{env.compute}
 	vmExtensionClient := compute.VirtualMachineExtensionsClient{env.compute}
 	imageStream := env.config.ImageStream()
-	storageEndpoint := env.config.storageEndpoint
-	storageAccountName := env.config.storageAccount
 	instanceTypes, err := env.getInstanceTypesLocked()
 	if err != nil {
 		env.mu.Unlock()
 		return nil, errors.Trace(err)
+	}
+	storageAccount, err := env.getStorageAccountLocked(false)
+	if err != nil {
+		env.mu.Unlock()
+		return nil, errors.Annotate(err, "getting storage account")
 	}
 	internalNetworkSubnet, err := env.getInternalSubnetLocked()
 	if err != nil {
@@ -491,7 +480,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		args.DistributionGroup,
 		env.Instances,
 		apiPortPtr, internalNetworkSubnet,
-		storageEndpoint, storageAccountName,
+		storageAccount,
 		networkClient, vmClient,
 		availabilitySetClient, vmExtensionClient,
 		env.callAPI,
@@ -534,7 +523,7 @@ func createVirtualMachine(
 	instancesFunc func([]instance.Id) ([]instance.Instance, error),
 	apiPort *int,
 	internalNetworkSubnet *network.Subnet,
-	storageEndpoint, storageAccountName string,
+	storageAccount *storage.Account,
 	networkClient network.ManagementClient,
 	vmClient compute.VirtualMachinesClient,
 	availabilitySetClient compute.AvailabilitySetsClient,
@@ -543,7 +532,7 @@ func createVirtualMachine(
 ) (compute.VirtualMachine, error) {
 
 	storageProfile, err := newStorageProfile(
-		vmName, instanceSpec, storageEndpoint, storageAccountName,
+		vmName, instanceSpec, storageAccount,
 	)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating storage profile")
@@ -715,7 +704,7 @@ func createAvailabilitySet(
 func newStorageProfile(
 	vmName string,
 	instanceSpec *instances.InstanceSpec,
-	storageEndpoint, storageAccountName string,
+	storageAccount *storage.Account,
 ) (*compute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
 
@@ -728,7 +717,7 @@ func newStorageProfile(
 	sku := urnParts[2]
 	version := urnParts[3]
 
-	osDisksRoot := osDiskVhdRoot(storageEndpoint, storageAccountName)
+	osDisksRoot := osDiskVhdRoot(storageAccount)
 	osDiskName := vmName
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),
@@ -805,10 +794,6 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	computeClient := env.compute
 	networkClient := env.network
 	env.mu.Unlock()
-	storageClient, err := env.getStorageClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Query the instances, so we can inspect the VirtualMachines
 	// and delete related resources.
@@ -821,6 +806,11 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	case nil, environs.ErrPartialInstances:
 		// handled below
 		break
+	}
+
+	storageClient, err := env.getStorageClient()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	for _, inst := range instances {
@@ -1288,11 +1278,86 @@ func (env *azureEnviron) getInternalSubnetLocked() (*network.Subnet, error) {
 func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	client, err := getStorageClient(env.provider.config.NewStorageClient, env.config)
+	storageAccount, err := env.getStorageAccountLocked(false)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting storage account")
+	}
+	storageAccountKeys, err := env.getStorageAccountKeysLocked(
+		to.String(storageAccount.Name), false,
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting storage account keys")
+	}
+	client, err := getStorageClient(
+		env.provider.config.NewStorageClient,
+		env.config.storageEndpoint,
+		storageAccount,
+		storageAccountKeys,
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage client")
 	}
 	return client, nil
+}
+
+// getStorageAccount returns the storage account for this environment's
+// resource group. If refresh is true, cached details will be refreshed.
+func (env *azureEnviron) getStorageAccount(refresh bool) (*storage.Account, error) {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	return env.getStorageAccountLocked(refresh)
+}
+
+func (env *azureEnviron) getStorageAccountLocked(refresh bool) (*storage.Account, error) {
+	if !refresh && env.storageAccount != nil {
+		return env.storageAccount, nil
+	}
+	client := storage.AccountsClient{env.storage}
+	var result storage.AccountListResult
+	if err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		result, err = client.List()
+		return result.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing storage accounts")
+	}
+	if result.Value == nil || len(*result.Value) == 0 {
+		return nil, errors.NotFoundf("storage account")
+	}
+	for _, account := range *result.Value {
+		if toTags(account.Tags)[tags.JujuModel] != env.config.UUID() {
+			continue
+		}
+		env.storageAccount = &account
+		return &account, nil
+	}
+	return nil, errors.NotFoundf("storage account")
+}
+
+// getStorageAccountKeys returns the storage account keys for this
+// environment's storage account. If refresh is true, cached keys
+// will be refreshed.
+func (env *azureEnviron) getStorageAccountKeys(accountName string, refresh bool) (*storage.AccountKeys, error) {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	return env.getStorageAccountKeysLocked(accountName, refresh)
+}
+
+func (env *azureEnviron) getStorageAccountKeysLocked(accountName string, refresh bool) (*storage.AccountKeys, error) {
+	if !refresh && env.storageAccountKeys != nil {
+		return env.storageAccountKeys, nil
+	}
+	client := storage.AccountsClient{env.storage}
+	var listKeysResult storage.AccountKeys
+	if err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		listKeysResult, err = client.ListKeys(env.resourceGroup, accountName)
+		return listKeysResult.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing storage account keys")
+	}
+	env.storageAccountKeys = &listKeysResult
+	return env.storageAccountKeys, nil
 }
 
 // AgentMirror is specified in the tools.HasAgentMirror interface.

@@ -57,6 +57,7 @@ type environSuite struct {
 	tags                          map[string]*string
 	group                         *resources.ResourceGroup
 	vmSizes                       *compute.VirtualMachineSizeListResult
+	storageAccounts               []storage.Account
 	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
 	storageAccount                *storage.Account
 	storageAccountKeys            *storage.AccountKeys
@@ -291,7 +292,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
-	attrs = append([]testing.Attrs{{"storage-account": fakeStorageAccount}}, attrs...)
 	return openEnviron(c, s.provider, &s.sender, attrs...)
 }
 
@@ -359,13 +359,13 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 		s.makeSender(".*/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
-		s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys),
 	}
 }
 
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
+		s.storageAccountsSender(),
 		s.makeSender(".*/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
@@ -401,6 +401,15 @@ func (s *environSuite) virtualMachinesSender(vms ...compute.VirtualMachine) *azu
 
 func (s *environSuite) vmSizesSender() *azuretesting.MockSender {
 	return s.makeSender(".*/vmSizes", s.vmSizes)
+}
+
+func (s *environSuite) storageAccountsSender() *azuretesting.MockSender {
+	accounts := []storage.Account{*s.storageAccount}
+	return s.makeSender(".*/storageAccounts", storage.AccountListResult{Value: &accounts})
+}
+
+func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
+	return s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
 }
 
 func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.MockSender {
@@ -540,12 +549,12 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 8+failures)
-	s.assertStartInstanceRequests(c, s.requests[:8])
+	c.Assert(s.requests, gc.HasLen, 9+failures)
+	s.assertStartInstanceRequests(c, s.requests[:9])
 
 	// The last two requests should match the third-to-last, which
 	// is checked by assertStartInstanceRequests.
-	for i := 8; i < 8+failures; i++ {
+	for i := 9; i < 9+failures; i++ {
 		c.Assert(s.requests[i].Method, gc.Equals, "PUT")
 		assertCreateVirtualMachineRequestBody(c, s.requests[i], s.virtualMachine)
 	}
@@ -630,29 +639,31 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	s.virtualMachine.Properties.ProvisioningState = nil
 
 	// Validate HTTP request bodies.
-	c.Assert(requests, gc.HasLen, 8)
+	c.Assert(requests, gc.HasLen, 9)
 	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
-	c.Assert(requests[2].Method, gc.Equals, "GET") // skus
-	c.Assert(requests[3].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[3], s.publicIPAddress)
-	c.Assert(requests[4].Method, gc.Equals, "GET") // NICs
-	c.Assert(requests[5].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[5], s.newNetworkInterface)
+	c.Assert(requests[1].Method, gc.Equals, "GET") // storage accounts
+	c.Assert(requests[2].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+	c.Assert(requests[3].Method, gc.Equals, "GET") // skus
+	c.Assert(requests[4].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[4], s.publicIPAddress)
+	c.Assert(requests[5].Method, gc.Equals, "GET") // NICs
 	c.Assert(requests[6].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[6], s.jujuAvailabilitySet)
+	assertRequestBody(c, requests[6], s.newNetworkInterface)
 	c.Assert(requests[7].Method, gc.Equals, "PUT")
-	assertCreateVirtualMachineRequestBody(c, requests[7], s.virtualMachine)
+	assertRequestBody(c, requests[7], s.jujuAvailabilitySet)
+	c.Assert(requests[8].Method, gc.Equals, "PUT")
+	assertCreateVirtualMachineRequestBody(c, requests[8], s.virtualMachine)
 
 	return startInstanceRequests{
 		vmSizes:          requests[0],
-		subnet:           requests[1],
-		skus:             requests[2],
-		publicIPAddress:  requests[3],
-		nics:             requests[4],
-		networkInterface: requests[5],
-		availabilitySet:  requests[6],
-		virtualMachine:   requests[7],
+		storageAccounts:  requests[1],
+		subnet:           requests[2],
+		skus:             requests[3],
+		publicIPAddress:  requests[4],
+		nics:             requests[5],
+		networkInterface: requests[6],
+		availabilitySet:  requests[7],
+		virtualMachine:   requests[8],
 	}
 }
 
@@ -668,6 +679,7 @@ func assertCreateVirtualMachineRequestBody(c *gc.C, req *http.Request, expect *c
 
 type startInstanceRequests struct {
 	vmSizes          *http.Request
+	storageAccounts  *http.Request
 	subnet           *http.Request
 	skus             *http.Request
 	publicIPAddress  *http.Request
@@ -704,7 +716,6 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")  // subnet
 	c.Assert(s.requests[4].Method, gc.Equals, "POST") // check storage account name
 	c.Assert(s.requests[5].Method, gc.Equals, "PUT")  // create storage account
-	c.Assert(s.requests[6].Method, gc.Equals, "POST") // get storage account keys
 
 	assertRequestBody(c, s.requests[0], &s.group)
 
@@ -797,6 +808,8 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 		s.publicIPAddressesSender(
 			makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
 		),
+		s.storageAccountsSender(),
+		s.storageAccountKeysSender(),
 		s.makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
