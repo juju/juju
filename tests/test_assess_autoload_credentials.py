@@ -355,10 +355,9 @@ def bogus_credentials():
     client = fake_juju_client()
     client.env.credentials = {
         'credentials': {'bogus': {}}}
-    with temp_dir() as juju_home:
-        with patch('assess_autoload_credentials.client_from_config',
-                return_value=client):
-            yield
+    with patch('assess_autoload_credentials.client_from_config',
+               return_value=client):
+        yield
 
 
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):

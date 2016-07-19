@@ -320,7 +320,7 @@ class AutoloadCredentials:
 
     def sendline(self, line):
         if self.last_expect == (
-            'Enter cloud to which the credential belongs, or Q to quit.*'):
+                'Enter cloud to which the credential belongs, or Q to quit.*'):
             self.cloud = line
 
     def isalive(self):
@@ -620,8 +620,7 @@ class FakeBackend:
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
-            return AutoloadCredentials(self, juju_home,
-                    extra_env)
+            return AutoloadCredentials(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass
