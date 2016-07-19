@@ -1068,6 +1068,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		RootDisk:     optionalInt("rootdisk"),
 		Spaces:       optionalStringSlice("spaces"),
 		Tags:         optionalStringSlice("tags"),
+		VirtType:     optionalString("virttype"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)

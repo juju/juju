@@ -185,9 +185,17 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
@@ -206,8 +214,11 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,11 +282,19 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplications(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -310,8 +329,11 @@ func (s *MigrationExportSuite) TestApplications(c *gc.C) {
 
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
