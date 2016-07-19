@@ -36,8 +36,8 @@ __metaclass__ = type
 log = logging.getLogger("assess_log_forward")
 
 
-def assess_log_forward(bs1, bs2, upload_tools):
-    check_logfwd_enabled_after_bootstrap(bs1, bs2, upload_tools)
+def assess_log_forward(bs_dummy, bs_rsyslog, upload_tools):
+    check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools)
 
 
 def check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools):
@@ -257,8 +257,8 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    bs1, bs2 = get_bootstrap_managers(args)
-    assess_log_forward(bs1, bs2, args.upload_tools)
+    bs_dummy, bs_rsyslog = get_bootstrap_managers(args)
+    assess_log_forward(bs_dummy, bs_rsyslog, args.upload_tools)
     return 0
 
 
