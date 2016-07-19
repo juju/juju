@@ -22,9 +22,9 @@ def create_certificate(target_dir, ip_address):
     req = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr_contents)
 
     ca_cert = crypto.load_certificate(
-        crypto.FILETYPE_PEM, get_ca_pem_contents())
+        crypto.FILETYPE_PEM, ca_pem_contents)
     ca_key = crypto.load_privatekey(
-        crypto.FILETYPE_PEM, get_ca_key_pem_contents())
+        crypto.FILETYPE_PEM, ca_key_pem_contents)
 
     cert = crypto.X509()
     cert.set_version(0x2)
@@ -68,8 +68,7 @@ def generate_csr(target_dir, key, ip_address):
     return crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
 
 
-def get_ca_pem_contents():
-    return dedent("""\
+ca_pem_contents = dedent("""\
     -----BEGIN CERTIFICATE-----
     MIIEFTCCAn2gAwIBAgIBBzANBgkqhkiG9w0BAQsFADAjMRIwEAYDVQQDEwlhbnlT
     ZXJ2ZXIxDTALBgNVBAoTBGp1anUwHhcNMTYwNzExMDQyOTM1WhcNMjYwNzA5MDQy
@@ -97,8 +96,7 @@ def get_ca_pem_contents():
     """)
 
 
-def get_ca_key_pem_contents():
-    return dedent("""\
+ca_key_pem_contents = dedent("""\
     -----BEGIN RSA PRIVATE KEY-----
     MIIG4wIBAAKCAYEAp+jsWN98gIqwAaBOFGmSQTp0DkSMwtduUe9RNkxuYEh4xygO
     9C9At3YMloVvcHMoVG1wbs/Dnqdie5B787lD8NgFlyPmNnNGn1lan4+ZLslKRoV7

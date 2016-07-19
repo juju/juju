@@ -18,10 +18,7 @@ from textwrap import dedent
 import yaml
 
 from assess_model_migration import get_bootstrap_managers
-from certificates import (
-    create_certificate,
-    get_ca_pem_contents,
-)
+import certificates
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -180,12 +177,12 @@ def setup_tls_rsyslog(client, app_name):
 
 
 def install_certificates(client, config_dir, ip_address, unit_machine):
-    cert, key = create_certificate(config_dir, ip_address)
+    cert, key = certificates.create_certificate(config_dir, ip_address)
 
     # Write contents to file to scp across
     ca_file = os.path.join(config_dir, 'ca.pem')
     with open(ca_file, 'wt') as f:
-        f.write(get_ca_pem_contents())
+        f.write(certificates.ca_pem_contents)
 
     scp_command = (
         '--', cert, key, ca_file, '{unit}:/home/ubuntu/'.format(
@@ -203,7 +200,7 @@ def _get_rsyslog_details(cert_file, key_file, ip_address):
 
     return {
         'syslog-host': '{}:10514'.format(ip_address),
-        'syslog-ca-cert': get_ca_pem_contents(),
+        'syslog-ca-cert': certificates.ca_pem_contents,
         'syslog-client-cert': cert_contents,
         'syslog-client-key': key_contents
     }
