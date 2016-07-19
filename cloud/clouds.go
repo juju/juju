@@ -41,6 +41,9 @@ const (
 	// a JSON file.
 	JSONFileAuthType AuthType = "jsonfile"
 
+	// CertificateAuthType is an authentication type using certificates.
+	CertificateAuthType AuthType = "certificate"
+
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"

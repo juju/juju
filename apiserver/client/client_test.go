@@ -50,6 +50,9 @@ type serverSuite struct {
 var _ = gc.Suite(&serverSuite{})
 
 func (s *serverSuite) SetUpTest(c *gc.C) {
+	s.ConfigAttrs = map[string]interface{}{
+		"authorized-keys": coretesting.FakeAuthKeys,
+	}
 	s.baseSuite.SetUpTest(c)
 
 	var err error
@@ -739,6 +742,7 @@ func (s *serverSuite) TestClientModelGet(c *gc.C) {
 			Source: "model",
 		}
 	}
+	delete(cfg, "authorized-keys")
 	c.Assert(result.Config, gc.DeepEquals, cfg)
 }
 
