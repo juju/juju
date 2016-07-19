@@ -74,11 +74,13 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 
 	switch rAction {
 	case params.ShouldReboot:
+		logger.Debugf("acquiring mutex %q for reboot", r.machineLockName)
 		if _, err := mutex.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
 		return worker.ErrRebootMachine
 	case params.ShouldShutdown:
+		logger.Debugf("acquiring mutex %q for shutdown", r.machineLockName)
 		if _, err := mutex.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
