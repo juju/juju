@@ -2,6 +2,7 @@
 
 from argparse import Namespace
 import ConfigParser
+from contextlib import contextmanager
 import logging
 from mock import patch
 import os
@@ -349,14 +350,28 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
             cred_expected)
 
 
+@contextmanager
+def bogus_credentials():
+    client = fake_juju_client()
+    client.env.credentials = {
+        'credentials': {'bogus': {}}}
+    with temp_dir() as juju_home:
+        with patch('assess_autoload_credentials.client_from_config',
+                return_value=client):
+            yield
+
+
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
 
     def test_existing_credentials_openstack(self):
-        client = fake_juju_client()
-        client.env.credentials = {
-            'credentials': {'bogus': {}}}
-        with temp_dir() as juju_home:
-            with patch('assess_autoload_credentials.client_from_config',
-                    return_value=client):
-                aac.ensure_autoload_credentials_stores_details(
-                    'foo', aac.openstack_envvar_test_details)
+        with bogus_credentials():
+            aac.ensure_autoload_credentials_stores_details(
+                'foo', aac.openstack_envvar_test_details)
+
+
+class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):
+
+    def test_overwrite_existing(self):
+        with bogus_credentials():
+            aac.ensure_autoload_credentials_overwrite_existing(
+                'foo', aac.openstack_envvar_test_details)
