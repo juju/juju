@@ -49,6 +49,7 @@ See also: models
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-model-config",
+		Aliases: []string{"model-config"},
 		Args:    "[<model key>]",
 		Purpose: "Displays configuration settings for a model.",
 		Doc:     strings.TrimSpace(getModelHelpDoc),
@@ -142,7 +143,10 @@ func formatConfigTabular(value interface{}) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Annotatef(err, "formatting value for %q", name)
 		}
-		p(name, info.Source, string(val))
+		// Some attribute values have a newline appended
+		// which makes the output messy.
+		valString := strings.TrimSuffix(string(val), "\n")
+		p(name, info.Source, valString)
 	}
 
 	tw.Flush()

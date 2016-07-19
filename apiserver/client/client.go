@@ -380,8 +380,41 @@ func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	if err != nil {
 		return result, err
 	}
+
+	// TODO(wallyworld) - this can be removed once credentials are properly
+	// managed outside of model config.
+	// Strip out any model config attributes that are credential attributes.
+	provider, err := environs.Provider(values[config.TypeKey].Value.(string))
+	if err != nil {
+		return result, err
+	}
+	credSchemas := provider.CredentialSchemas()
+	var allCredentialAttributes []string
+	for _, schema := range credSchemas {
+		for _, attr := range schema {
+			allCredentialAttributes = append(allCredentialAttributes, attr.Name)
+		}
+	}
+	isCredentialAttribute := func(attr string) bool {
+		for _, a := range allCredentialAttributes {
+			if a == attr {
+				return true
+			}
+		}
+		return false
+	}
+
 	result.Config = make(map[string]params.ConfigValue)
 	for attr, val := range values {
+		if isCredentialAttribute(attr) {
+			continue
+		}
+		// Authorized keys are able to be listed using
+		// juju ssh-keys and including them here just
+		// clutters everything.
+		if attr == config.AuthorizedKeysKey {
+			continue
+		}
 		result.Config[attr] = params.ConfigValue{
 			Value:  val.Value,
 			Source: val.Source,
