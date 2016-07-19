@@ -21,8 +21,8 @@ func (f *Instance) Request() *http.Request {
 	return &http.Request{}
 }
 
-func (f *Instance) Send(data interface{}) error {
-	f.AddCall(funcName(), data)
+func (f *Instance) Send(data ...interface{}) error {
+	f.AddCall(funcName(), data...)
 	return nil
 }
 

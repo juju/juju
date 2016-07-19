@@ -16,8 +16,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/internal/auditing"
-	"github.com/juju/juju/apiserver/internal/auditing/fakeconnection"
+	"github.com/juju/juju/apiserver/auditing"
+	"github.com/juju/juju/apiserver/auditing/fakeconnection"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/utils"
@@ -146,7 +146,7 @@ func (*auditingSuite) TestNewConnHandler_SendsAuditEntries(c *gc.C) {
 	handler(&conn)
 
 	// Client expects empty error to be sent first
-	conn.CheckCall(c, 1, "Send", params.ErrorResult{})
+	conn.CheckCall(c, 1, "Send", params.ErrorResult{}, '\n')
 
 	conn.CheckCall(c, 2, "Send", params.AuditEntryParams{
 		JujuServerVersion: entryToSend.JujuServerVersion,

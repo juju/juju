@@ -1,6 +1,7 @@
 package auditing
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -36,6 +37,17 @@ type connAdapter struct {
 	websocket.Codec
 }
 
-func (a *connAdapter) Send(data interface{}) error {
-	return a.Codec.Send(a.Conn, data)
+func (a *connAdapter) Send(data ...interface{}) error {
+	var sendBuffer bytes.Buffer
+	for _, d := range data {
+		marshaled, _, err := a.Codec.Marshal(d)
+		if err != nil {
+			return errors.Annotate(err, "cannot marshal data to be sent")
+		}
+		if _, err := sendBuffer.Write(marshaled); err != nil {
+			return errors.Annotate(err, "cannot buffer data to be sent")
+		}
+	}
+
+	return errors.Annotate(websocket.Message.Send(a.Conn, sendBuffer.Bytes()), "cannot send data")
 }
