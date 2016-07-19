@@ -80,7 +80,7 @@ func (s *RemoveUserCommandSuite) TestRemovePrompts(c *gc.C) {
 	expected := `
 WARNING! This command will remove the user "testing" from the "testing" controller.
 
-Continue [y/N]? `[1:]
+Continue (y/N)? `[1:]
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 	ctx, _ := testing.RunCommand(c, command, username)
 	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)

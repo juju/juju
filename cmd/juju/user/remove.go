@@ -42,7 +42,7 @@ See also:
 var removeUserMsg = `
 WARNING! This command will remove the user %q from the %q controller.
 
-Continue [y/N]? `[1:]
+Continue (y/N)? `[1:]
 
 // RemoveUserAPI defines the usermanager API methods that the remove command
 // uses.
