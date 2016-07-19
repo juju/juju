@@ -306,6 +306,38 @@ class FakeEnvironmentState:
         return {'machines': machines, 'applications': services}
 
 
+class AutoloadCredentials:
+
+    def __init__(self, backend, juju_home, extra_env):
+        self.backend = backend
+        self.juju_home = juju_home
+        self.extra_env = extra_env
+        self.last_expect = None
+        self.cloud = None
+
+    def expect(self, line):
+        self.last_expect = line
+
+    def sendline(self, line):
+        if self.last_expect == (
+            'Enter cloud to which the credential belongs, or Q to quit.*'):
+            self.cloud = line
+
+    def isalive(self):
+        juju_data = JujuData('foo', juju_home=self.juju_home)
+        juju_data.load_yaml()
+        creds = juju_data.credentials.setdefault('credentials', {})
+        creds.update({self.cloud: {self.extra_env['OS_USERNAME']: {
+            'domain-name': '',
+            'auth-type': 'userpass',
+            'username': self.extra_env['OS_USERNAME'],
+            'password': self.extra_env['OS_PASSWORD'],
+            'tenant-name': self.extra_env['OS_TENANT_NAME'],
+            }}})
+        juju_data.dump_yaml(self.juju_home, {})
+        return False
+
+
 class FakeBackend:
     """A fake juju backend for tests.
 
@@ -584,6 +616,12 @@ class FakeBackend:
             self.controller_state.require_controller('backup', model)
             return 'juju-backup-0.tar.gz'
         return ''
+
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        if command == 'autoload-credentials':
+            return AutoloadCredentials(self, juju_home,
+                    extra_env)
 
     def pause(self, seconds):
         pass

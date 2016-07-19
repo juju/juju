@@ -13,6 +13,7 @@ from tests import (
     TestCase,
     parse_error,
     )
+from tests.test_jujupy import fake_juju_client
 from utility import temp_dir
 
 
@@ -346,3 +347,16 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
             aac.assert_credentials_contains_expected_results,
             cred_actual,
             cred_expected)
+
+
+class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
+
+    def test_existing_credentials_openstack(self):
+        client = fake_juju_client()
+        client.env.credentials = {
+            'credentials': {'bogus': {}}}
+        with temp_dir() as juju_home:
+            with patch('assess_autoload_credentials.client_from_config',
+                    return_value=client):
+                aac.ensure_autoload_credentials_stores_details(
+                    'foo', aac.openstack_envvar_test_details)
