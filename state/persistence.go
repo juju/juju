@@ -100,10 +100,6 @@ func (sp *statePersistence) ApplicationExistsOps(applicationID string) []txn.Op 
 	return []txn.Op{{
 		C:      applicationsC,
 		Id:     applicationID,
-		Assert: txn.DocExists,
-	}, {
-		C:      applicationsC,
-		Id:     applicationID,
 		Assert: isAliveDoc,
 	}}
 }

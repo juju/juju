@@ -116,21 +116,20 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 
 func (*FacadeSuite) TestWatchErrors(c *gc.C) {
 	stub := &testing.Stub{}
-	stub.SetErrors(errors.New("blort"), nil, errors.New("squish"))
+	stub.SetErrors(errors.New("blort")) // trigger channel closed error
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
 	facade, err := migrationflag.New(backend, resources, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// 4 entities: unparseable, unauthorized, watch error, closed chan.
+	// 3 entities: unparseable, unauthorized, closed channel.
 	results := facade.Watch(entities(
 		"urgle",
 		unknownModel,
 		coretesting.ModelTag.String(),
-		coretesting.ModelTag.String(),
 	))
-	c.Assert(results.Results, gc.HasLen, 4)
-	stub.CheckCallNames(c, "WatchMigrationPhase", "WatchMigrationPhase")
+	c.Assert(results.Results, gc.HasLen, 3)
+	stub.CheckCallNames(c, "WatchMigrationPhase")
 
 	c.Check(results.Results, jc.DeepEquals, []params.NotifyWatchResult{{
 		Error: &params.Error{
@@ -142,10 +141,7 @@ func (*FacadeSuite) TestWatchErrors(c *gc.C) {
 		}}, {
 		Error: &params.Error{
 			Message: "blort",
-		}}, {
-		Error: &params.Error{
-			Message: "squish",
-		},
-	}})
+		}},
+	})
 	c.Check(resources.Count(), gc.Equals, 0)
 }

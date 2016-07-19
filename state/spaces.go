@@ -20,8 +20,6 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID      string `bson:"_id"`
-	ModelUUID  string `bson:"model-uuid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
 	IsPublic   bool   `bson:"is-public"`
@@ -33,11 +31,6 @@ func (s *Space) Life() Life {
 	return s.doc.Life
 }
 
-// ID returns the unique id for the space, for other entities to reference it
-func (s *Space) ID() string {
-	return s.doc.DocID
-}
-
 // String implements fmt.Stringer.
 func (s *Space) String() string {
 	return s.doc.Name
@@ -46,6 +39,11 @@ func (s *Space) String() string {
 // Name returns the name of the Space.
 func (s *Space) Name() string {
 	return s.doc.Name
+}
+
+// IsPublic returns whether the space is public or not.
+func (s *Space) IsPublic() bool {
+	return s.doc.IsPublic
 }
 
 // ProviderId returns the provider id of the space. This will be the empty
@@ -82,10 +80,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		return nil, errors.NewNotValid(nil, "invalid space name")
 	}
 
-	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
-		DocID:      spaceID,
-		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
@@ -95,7 +90,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     spaceID,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
@@ -110,7 +105,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     st.docID(subnetId),
+			Id:     subnetId,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
@@ -185,7 +180,7 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
@@ -209,7 +204,7 @@ func (s *Space) Remove() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Remove: true,
 		Assert: isDeadDoc,
 	}}
@@ -232,7 +227,7 @@ func (s *Space) Refresh() error {
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.FindId(s.doc.DocID).One(&doc)
+	err := spaces.FindId(s.doc.Name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("space %q", s)
 	} else if err != nil {

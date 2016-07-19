@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -346,10 +347,15 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 
 // UploadCharm sends the content to the API server using an HTTP post.
 func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
-	endpoint := "/charms?series=" + curl.Series
+	args := url.Values{}
+	args.Add("series", curl.Series)
+	args.Add("schema", curl.Schema)
+	args.Add("revision", strconv.Itoa(curl.Revision))
+	apiURI := url.URL{Path: "/charms", RawQuery: args.Encode()}
+
 	contentType := "application/zip"
 	var resp params.CharmsResponse
-	if err := c.httpPost(content, endpoint, contentType, &resp); err != nil {
+	if err := c.httpPost(content, apiURI.String(), contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -453,25 +459,20 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 // OpenCharm streams out the identified charm from the controller via
 // the API.
 func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
+	query := make(url.Values)
+	query.Add("url", curl.String())
+	query.Add("file", "*")
+	return c.OpenURI("/charms", query)
+}
+
+// OpenURI performs a GET on a Juju HTTP endpoint returning the
+func (c *Client) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
 	httpClient, err := c.st.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	blob, err := openCharm(httpClient, curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return blob, nil
-}
-
-// openCharm streams out the identified charm from the controller via
-// the API.
-func openCharm(httpClient HTTPDoer, curl *charm.URL) (io.ReadCloser, error) {
-	query := make(url.Values)
-	query.Add("url", curl.String())
-	query.Add("file", "*")
-	blob, err := openBlob(httpClient, "/charms", query)
+	blob, err := openBlob(httpClient, uri, query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

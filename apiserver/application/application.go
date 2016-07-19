@@ -14,6 +14,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
@@ -41,14 +42,14 @@ type Application interface {
 type API struct {
 	check      *common.BlockChecker
 	state      *state.State
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns a new application API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

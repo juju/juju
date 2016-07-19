@@ -121,8 +121,12 @@ func allCollections() collectionSchema {
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
-		// one model migration document exists per environment.
+		// one model migration document exists per model.
 		migrationsActiveC: {global: true},
+
+		// This collection tracks migration progress reports from the
+		// migration minions.
+		migrationsMinionSyncC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -316,14 +320,18 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// TODO(ericsnow) Use a component-oriented registration mechanism...
-
 		// This collection holds information associated with charm payloads.
-		// See payload/persistence/mongo.go.
-		"payloads": {},
+		payloadsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "unitid"},
+			}, {
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 
 		// This collection holds information associated with charm resources.
-		// See resource/persistence/mongo.go.
+		// See resource/persistence/mongo.go, where it should never have
+		// been put in the first place.
 		"resources": {},
 
 		// -----
@@ -403,14 +411,16 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
-	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
+	migrationsMinionSyncC    = "migrations.minionsync"
+	migrationsStatusC        = "migrations.status"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
+	payloadsC                = "payloads"
 	permissionsC             = "permissions"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
@@ -443,6 +453,5 @@ const (
 	usersC                   = "users"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
-	// "payloads" (see payload/persistence/mongo.go)
 	// "resources" (see resource/persistence/mongo.go)
 )

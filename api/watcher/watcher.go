@@ -492,6 +492,7 @@ func (w *migrationStatusWatcher) loop() error {
 			return errors.Errorf("invalid phase %q", inStatus.Phase)
 		}
 		outStatus := watcher.MigrationStatus{
+			MigrationId:    inStatus.MigrationId,
 			Attempt:        inStatus.Attempt,
 			Phase:          phase,
 			SourceAPIAddrs: inStatus.SourceAPIAddrs,

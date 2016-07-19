@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -19,7 +20,7 @@ func init() {
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {
 	st          stateInterface
-	authorizer  common.Authorizer
+	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
 }
 
@@ -30,8 +31,8 @@ var getState = func(st *state.State) stateInterface {
 // NewDiskManagerAPI creates a new server-side DiskManager API facade.
 func NewDiskManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*DiskManagerAPI, error) {
 
 	if !authorizer.AuthMachineAgent() {

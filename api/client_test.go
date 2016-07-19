@@ -168,7 +168,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `POST http://.+: the POST method is not allowed`)
 }
 
 func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
@@ -232,6 +232,28 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
 		}
 	}
+}
+
+func (s *clientSuite) TestOpenURIFound(c *gc.C) {
+	// Use tools download to test OpenURI
+	const toolsVersion = "2.0.0-xenial-ppc64"
+	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
+
+	client := s.APIState.Client()
+	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+
+	// The fake tools content will be the version number.
+	content, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, toolsVersion)
+}
+
+func (s *clientSuite) TestOpenURIError(c *gc.C) {
+	client := s.APIState.Client()
+	_, err := client.OpenURI("/tools/foobar", nil)
+	c.Assert(err, gc.ErrorMatches, ".+error parsing version.+")
 }
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {

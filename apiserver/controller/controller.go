@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -43,9 +44,9 @@ type Controller interface {
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	state      *state.State
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 	apiUser    names.UserTag
-	resources  *common.Resources
+	resources  facade.Resources
 }
 
 var _ Controller = (*ControllerAPI)(nil)
@@ -54,8 +55,8 @@ var _ Controller = (*ControllerAPI)(nil)
 // environments.
 func NewControllerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -282,7 +283,7 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
-			result.Id = id
+			result.MigrationId = id
 		}
 	}
 	return out, nil

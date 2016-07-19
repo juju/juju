@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -20,16 +21,16 @@ func init() {
 // UndertakerAPI implements the API used by the machine undertaker worker.
 type UndertakerAPI struct {
 	st        State
-	resources *common.Resources
+	resources facade.Resources
 	*common.StatusSetter
 }
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
-func NewUndertakerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
+func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
 	return newUndertakerAPI(&stateShim{st}, resources, authorizer)
 }
 
-func newUndertakerAPI(st State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
+func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
 	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -211,7 +212,7 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 
 func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 	expectErr := errors.New("zwoosh")
-	registerFunc := func(common.Resource) string { return "bambalam" }
+	registerFunc := func(facade.Resource) string { return "bambalam" }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
 		"machine-1": &fakeActionReceiver{watcher: &fakeWatcher{}},
 		"machine-2": &fakeActionReceiver{watcher: &fakeWatcher{err: expectErr}},

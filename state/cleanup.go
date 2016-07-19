@@ -330,14 +330,23 @@ func (st *State) cleanupDyingUnit(name string) error {
 func (st *State) cleanupRemovedUnit(unitId string) error {
 	actions, err := st.matchingActionsByReceiverId(unitId)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
-	cancelled := ActionResults{Status: ActionCancelled, Message: "unit removed"}
+	cancelled := ActionResults{
+		Status:  ActionCancelled,
+		Message: "unit removed",
+	}
 	for _, action := range actions {
 		if _, err = action.Finish(cancelled); err != nil {
-			return err
+			return errors.Trace(err)
 		}
+	}
+
+	change := payloadCleanupChange{
+		Unit: unitId,
+	}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

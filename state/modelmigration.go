@@ -6,15 +6,18 @@ package state
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/mongo"
 )
 
 // This file contains functionality for managing the state documents
@@ -71,9 +74,34 @@ type ModelMigration interface {
 	// current progress of the migration.
 	SetStatusMessage(text string) error
 
+	// MinionReport records a report from a migration minion worker
+	// about the success or failure to complete its actions for a
+	// given migration phase.
+	MinionReport(tag names.Tag, phase migration.Phase, success bool) error
+
+	// GetMinionReports returns details of the minions that have
+	// reported success or failure for the current migration phase, as
+	// well as those which are yet to report.
+	GetMinionReports() (*MinionReports, error)
+
+	// WatchMinionReports returns a notify watcher which triggers when
+	// a migration minion has reported back about the success or failure
+	// of its actions for the current migration phase.
+	WatchMinionReports() (NotifyWatcher, error)
+
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
 	Refresh() error
+}
+
+// MinionReports indicates the sets of agents whose migration minion
+// workers have completed the current migration phase, have failed to
+// complete the current migration phase, or are yet to report
+// regarding the current migration phase.
+type MinionReports struct {
+	Succeeded []names.Tag
+	Failed    []names.Tag
+	Unknown   []names.Tag
 }
 
 // modelMigration is an implementation of ModelMigration.
@@ -153,6 +181,15 @@ type modelMigStatusDoc struct {
 	// StatusMessage holds a human readable message about the
 	// migration's progress.
 	StatusMessage string `bson:"status-message"`
+}
+
+type modelMigMinionSyncDoc struct {
+	Id          string `bson:"_id"`
+	MigrationId string `bson:"migration-id"`
+	Phase       string `bson:"phase"`
+	EntityKey   string `bson:"entity-key"`
+	Time        int64  `bson:"time"`
+	Success     bool   `bson:"success"`
 }
 
 // Id implements ModelMigration.
@@ -257,6 +294,21 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		update["success-time"] = now
 	}
 	var ops []txn.Op
+
+	// If the migration aborted, make the model active again.
+	if nextPhase == migration.ABORTDONE {
+		ops = append(ops, txn.Op{
+			C:      modelsC,
+			Id:     mig.doc.ModelUUID,
+			Assert: txn.DocExists,
+			Update: bson.M{
+				"$set": bson.M{"migration-mode": MigrationModeActive},
+			},
+		})
+	}
+
+	// Set end timestamps and mark migration as no longer active if a
+	// terminal phase is hit.
 	if nextPhase.IsTerminal() {
 		nextDoc.EndTime = now
 		update["end-time"] = now
@@ -299,6 +351,168 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 	}
 	mig.statusDoc.StatusMessage = text
 	return nil
+}
+
+// MinionReport implements ModelMigration.
+func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, success bool) error {
+	globalKey, err := agentTagToGlobalKey(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	docID := mig.minionReportId(phase, globalKey)
+	doc := modelMigMinionSyncDoc{
+		Id:          docID,
+		MigrationId: mig.Id(),
+		Phase:       phase.String(),
+		EntityKey:   globalKey,
+		Time:        GetClock().Now().UnixNano(),
+		Success:     success,
+	}
+	ops := []txn.Op{{
+		C:      migrationsMinionSyncC,
+		Id:     docID,
+		Insert: doc,
+		Assert: txn.DocMissing,
+	}}
+	err = mig.st.runTransaction(ops)
+	if errors.Cause(err) == txn.ErrAborted {
+		coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+		defer closer()
+		var existingDoc modelMigMinionSyncDoc
+		err := coll.FindId(docID).Select(bson.M{"success": 1}).One(&existingDoc)
+		if err != nil {
+			return errors.Annotate(err, "checking existing report")
+		}
+		if existingDoc.Success != success {
+			return errors.Errorf("conflicting reports received for %s/%s/%s",
+				mig.Id(), phase.String(), tag)
+		}
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// GetMinionReports implements ModelMigration.
+func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
+	all, err := mig.getAllAgents()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving phase")
+	}
+
+	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+	defer closer()
+	query := coll.Find(bson.M{"_id": bson.M{
+		"$regex": "^" + mig.minionReportId(phase, ".+"),
+	}})
+	query = query.Select(bson.M{
+		"entity-key": 1,
+		"success":    1,
+	})
+	var docs []bson.M
+	if err := query.All(&docs); err != nil {
+		return nil, errors.Annotate(err, "retrieving minion reports")
+	}
+
+	succeeded := set.NewTags()
+	failed := set.NewTags()
+	for _, doc := range docs {
+		entityKey, ok := doc["entity-key"].(string)
+		if !ok {
+			return nil, errors.Errorf("unexpected entity-key %v", doc["entity-key"])
+		}
+		tag, err := globalKeyToAgentTag(entityKey)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		success, ok := doc["success"].(bool)
+		if !ok {
+			return nil, errors.Errorf("unexpected success value: %v", doc["success"])
+		}
+		if success {
+			succeeded.Add(tag)
+		} else {
+			failed.Add(tag)
+		}
+	}
+
+	unknown := all.Difference(succeeded).Difference(failed)
+
+	return &MinionReports{
+		Succeeded: succeeded.Values(),
+		Failed:    failed.Values(),
+		Unknown:   unknown.Values(),
+	}, nil
+}
+
+// WatchMinionReports implements ModelMigration.
+func (mig *modelMigration) WatchMinionReports() (NotifyWatcher, error) {
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving phase")
+	}
+	prefix := mig.minionReportId(phase, "")
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return strings.HasPrefix(id, prefix)
+	}
+	return newNotifyCollWatcher(mig.st, migrationsMinionSyncC, filter), nil
+}
+
+func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey string) string {
+	return fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
+}
+
+func (mig *modelMigration) getAllAgents() (set.Tags, error) {
+	machineTags, err := mig.loadAgentTags(machinesC, "machineid",
+		func(id string) names.Tag { return names.NewMachineTag(id) },
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "loading machine tags")
+	}
+
+	unitTags, err := mig.loadAgentTags(unitsC, "name",
+		func(name string) names.Tag { return names.NewUnitTag(name) },
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "loading unit names")
+	}
+
+	return machineTags.Union(unitTags), nil
+}
+
+func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert func(string) names.Tag) (
+	set.Tags, error,
+) {
+	// During migrations we know that nothing there are no machines or
+	// units being provisioned or destroyed so a simple query of the
+	// collections will do.
+	coll, closer := mig.st.getCollection(collName)
+	defer closer()
+	var docs []bson.M
+	err := coll.Find(nil).Select(bson.M{fieldName: 1}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	out := set.NewTags()
+	for _, doc := range docs {
+		v, ok := doc[fieldName].(string)
+		if !ok {
+			return nil, errors.Errorf("invalid %s value: %v", fieldName, doc[fieldName])
+		}
+		out.Add(convert(v))
+	}
+	return out, nil
 }
 
 // Refresh implements ModelMigration.
@@ -405,6 +619,13 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
+		}, {
+			C:      modelsC,
+			Id:     modelUUID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"migration-mode": MigrationModeExporting,
+			}},
 		}, model.assertActiveOp(),
 		}, nil
 	}
@@ -430,14 +651,33 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 	return nil
 }
 
-// GetModelMigration returns the most recent ModelMigration for a
+// LatestModelMigration returns the most recent ModelMigration for a
 // model (if any).
-func (st *State) GetModelMigration() (ModelMigration, error) {
+func (st *State) LatestModelMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
-
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-_id").Limit(1)
+	mig, err := st.modelMigrationFromQuery(query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+// ModelMigration retrieves a specific ModelMigration by its
+// id. See also LatestModelMigration.
+func (st *State) ModelMigration(id string) (ModelMigration, error) {
+	migColl, closer := st.getCollection(migrationsC)
+	defer closer()
+	mig, err := st.modelMigrationFromQuery(migColl.FindId(id))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+func (st *State) modelMigrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	var doc modelMigDoc
 	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
@@ -450,8 +690,10 @@ func (st *State) GetModelMigration() (ModelMigration, error) {
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to find status document")
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("migration status")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "migration status lookup failed")
 	}
 
 	return &modelMigration{
@@ -478,4 +720,31 @@ func unixNanoToTime0(i int64) time.Time {
 		return time.Time{}
 	}
 	return time.Unix(0, i)
+}
+
+func agentTagToGlobalKey(tag names.Tag) (string, error) {
+	switch t := tag.(type) {
+	case names.MachineTag:
+		return machineGlobalKey(t.Id()), nil
+	case names.UnitTag:
+		return unitAgentGlobalKey(t.Id()), nil
+	default:
+		return "", errors.Errorf("%s is not an agent tag", tag)
+	}
+}
+
+func globalKeyToAgentTag(key string) (names.Tag, error) {
+	parts := strings.SplitN(key, "#", 2)
+	if len(parts) != 2 {
+		return nil, errors.NotValidf("global key %q", key)
+	}
+	keyType, keyId := parts[0], parts[1]
+	switch keyType {
+	case "m":
+		return names.NewMachineTag(keyId), nil
+	case "u":
+		return names.NewUnitTag(keyId), nil
+	default:
+		return nil, errors.NotValidf("global key type %q", keyType)
+	}
 }

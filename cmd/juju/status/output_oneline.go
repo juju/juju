@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/utils"
 )
 
 // FormatOneline returns a brief list of units and their subordinates.
@@ -49,9 +48,9 @@ func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
 		printf(&out, format, uName, u, level)
 	}
 
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		svc := fs.Applications[svcName]
-		for _, uName := range common.SortStringsNaturally(stringKeysFromMap(svc.Units)) {
+		for _, uName := range utils.SortStringsNaturally(stringKeysFromMap(svc.Units)) {
 			unit := svc.Units[uName]
 			pprint(uName, unit, 0)
 			recurseUnits(unit, 1, pprint)
