@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
@@ -44,7 +45,7 @@ type ModelManager interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	state       common.ModelManagerBackend
-	authorizer  common.Authorizer
+	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
 	isAdmin     bool
@@ -52,13 +53,13 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, _ *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
+func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(common.NewModelManagerBackend(st), auth)
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(st common.ModelManagerBackend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(st common.ModelManagerBackend, authorizer facade.Authorizer) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}

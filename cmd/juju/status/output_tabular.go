@@ -13,10 +13,10 @@ import (
 	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -134,7 +134,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("APP", "VERSION", "STATUS", "EXPOSED", "ORIGIN", "CHARM", "REV", "OS")
-	for _, appName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
 		// Don't let a long version push out the version column.
@@ -200,7 +200,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 
 	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE")
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
@@ -209,7 +209,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	if metering {
 		outputHeaders("METER", "STATUS", "MESSAGE")
-		for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
+		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
 				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
@@ -229,7 +229,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			az = *hw.AvailabilityZone
 		}
 		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
-		for _, name := range common.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
 			pMachine(m.Containers[name])
 		}
 	}
@@ -243,7 +243,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 func printMachines(tw *tabwriter.Writer, machines map[string]machineStatus) {
 	p := printHelper(tw)
 	p("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(machines)) {
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		printMachine(p, machines[name], "")
 	}
 }
@@ -259,7 +259,7 @@ func printMachine(p func(...interface{}), m machineStatus, prefix string) {
 		az = *hw.AvailabilityZone
 	}
 	p(prefix+m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
 		printMachine(p, m.Containers[name], prefix+"  ")
 	}
 }

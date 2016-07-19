@@ -4,7 +4,9 @@
 package description
 
 import (
+	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -43,6 +45,11 @@ func NewModel(args ModelArgs) Model {
 	m.setMachines(nil)
 	m.setApplications(nil)
 	m.setRelations(nil)
+	m.setSpaces(nil)
+	m.setLinkLayerDevices(nil)
+	m.setSubnets(nil)
+	m.setIPAddresses(nil)
+	m.setSSHHostKeys(nil)
 	return m
 }
 
@@ -69,6 +76,33 @@ func Deserialize(bytes []byte) (Model, error) {
 	return model, nil
 }
 
+// parseLinkLayerDeviceGlobalKey is used to validate that the parent device
+// referenced by a LinkLayerDevice exists. Copied from state to avoid exporting
+// and will be replaced by device.ParentMachineID() at some point.
+func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
+	if !strings.Contains(globalKey, "#") {
+		// Can't be a global key.
+		return "", "", false
+	}
+	keyParts := strings.Split(globalKey, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", true
+	}
+	machineID, deviceName = keyParts[1], keyParts[3]
+	return machineID, deviceName, true
+}
+
+// parentId returns the id of the host machine if machineId a container id, or ""
+// if machineId is not for a container.
+func parentId(machineId string) string {
+	idParts := strings.Split(machineId, "/")
+	if len(idParts) < 3 {
+		return ""
+	}
+	return strings.Join(idParts[:len(idParts)-2], "/")
+}
+
 type model struct {
 	Version int `yaml:"version"`
 
@@ -78,10 +112,16 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_        users        `yaml:"users"`
-	Machines_     machines     `yaml:"machines"`
-	Applications_ applications `yaml:"applications"`
-	Relations_    relations    `yaml:"relations"`
+	Users_            users            `yaml:"users"`
+	Machines_         machines         `yaml:"machines"`
+	Applications_     applications     `yaml:"applications"`
+	Relations_        relations        `yaml:"relations"`
+	Spaces_           spaces           `yaml:"spaces"`
+	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
+	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
+	Subnets_          subnets          `yaml:"subnets"`
+
+	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -94,8 +134,7 @@ type model struct {
 	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
 	// TODO:
-	// Spaces
-	// Storage
+	// Storage...
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -244,6 +283,121 @@ func (m *model) setRelations(relationList []*relation) {
 	}
 }
 
+// Spaces implements Model.
+func (m *model) Spaces() []Space {
+	var result []Space
+	for _, space := range m.Spaces_.Spaces_ {
+		result = append(result, space)
+	}
+	return result
+}
+
+// AddSpace implements Model.
+func (m *model) AddSpace(args SpaceArgs) Space {
+	space := newSpace(args)
+	m.Spaces_.Spaces_ = append(m.Spaces_.Spaces_, space)
+	return space
+}
+
+func (m *model) setSpaces(spaceList []*space) {
+	m.Spaces_ = spaces{
+		Version: 1,
+		Spaces_: spaceList,
+	}
+}
+
+// LinkLayerDevices implements Model.
+func (m *model) LinkLayerDevices() []LinkLayerDevice {
+	var result []LinkLayerDevice
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		result = append(result, device)
+	}
+	return result
+}
+
+// Subnets implements Model.
+func (m *model) Subnets() []Subnet {
+	var result []Subnet
+	for _, subnet := range m.Subnets_.Subnets_ {
+		result = append(result, subnet)
+	}
+	return result
+}
+
+// AddLinkLayerDevice implements Model.
+func (m *model) AddLinkLayerDevice(args LinkLayerDeviceArgs) LinkLayerDevice {
+	device := newLinkLayerDevice(args)
+	m.LinkLayerDevices_.LinkLayerDevices_ = append(m.LinkLayerDevices_.LinkLayerDevices_, device)
+	return device
+}
+
+func (m *model) setLinkLayerDevices(devicesList []*linklayerdevice) {
+	m.LinkLayerDevices_ = linklayerdevices{
+		Version:           1,
+		LinkLayerDevices_: devicesList,
+	}
+}
+
+// IPAddresses implements Model.
+func (m *model) IPAddresses() []IPAddress {
+	var result []IPAddress
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddSubnet implemets Model.
+func (m *model) AddSubnet(args SubnetArgs) Subnet {
+	subnet := newSubnet(args)
+	m.Subnets_.Subnets_ = append(m.Subnets_.Subnets_, subnet)
+	return subnet
+}
+
+func (m *model) setSubnets(subnetList []*subnet) {
+	m.Subnets_ = subnets{
+		Version:  1,
+		Subnets_: subnetList,
+	}
+}
+
+// AddIPAddress implements Model.
+func (m *model) AddIPAddress(args IPAddressArgs) IPAddress {
+	addr := newIPAddress(args)
+	m.IPAddresses_.IPAddresses_ = append(m.IPAddresses_.IPAddresses_, addr)
+	return addr
+}
+
+func (m *model) setIPAddresses(addressesList []*ipaddress) {
+	m.IPAddresses_ = ipaddresses{
+		Version:      1,
+		IPAddresses_: addressesList,
+	}
+}
+
+// SSHHostKeys implements Model.
+func (m *model) SSHHostKeys() []SSHHostKey {
+	var result []SSHHostKey
+	for _, addr := range m.SSHHostKeys_.SSHHostKeys_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddSSHHostKey implements Model.
+func (m *model) AddSSHHostKey(args SSHHostKeyArgs) SSHHostKey {
+	addr := newSSHHostKey(args)
+	m.SSHHostKeys_.SSHHostKeys_ = append(m.SSHHostKeys_.SSHHostKeys_, addr)
+	return addr
+}
+
+func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
+	m.SSHHostKeys_ = sshHostKeys{
+		Version:      1,
+		SSHHostKeys_: addressesList,
+	}
+}
+
 // Sequences implements Model.
 func (m *model) Sequences() map[string]int {
 	return m.Sequences_
@@ -314,7 +468,152 @@ func (m *model) Validate() error {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
 	}
 
-	return m.validateRelations()
+	err := m.validateRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// validateSubnets makes sure that any spaces referenced by subnets exist.
+func (m *model) validateSubnets() error {
+	spaceNames := set.NewStrings()
+	for _, space := range m.Spaces_.Spaces_ {
+		spaceNames.Add(space.Name())
+	}
+	for _, subnet := range m.Subnets_.Subnets_ {
+		if subnet.SpaceName() == "" {
+			continue
+		}
+		if !spaceNames.Contains(subnet.SpaceName()) {
+			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
+		}
+	}
+
+	return nil
+}
+
+func (m *model) machineMaps() (map[string]Machine, map[string]map[string]LinkLayerDevice) {
+	machineIDs := make(map[string]Machine)
+	for _, machine := range m.Machines_.Machines_ {
+		addMachinesToMap(machine, machineIDs)
+	}
+
+	// Build a map of all devices for each machine.
+	machineDevices := make(map[string]map[string]LinkLayerDevice)
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		_, ok := machineDevices[device.MachineID()]
+		if !ok {
+			machineDevices[device.MachineID()] = make(map[string]LinkLayerDevice)
+		}
+		machineDevices[device.MachineID()][device.Name()] = device
+	}
+	return machineIDs, machineDevices
+}
+
+func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
+	machineIDs[machine.Id()] = machine
+	for _, container := range machine.Containers() {
+		addMachinesToMap(container, machineIDs)
+	}
+}
+
+// validateAddresses makes sure that the machine and device referenced by IP
+// addresses exist.
+func (m *model) validateAddresses() error {
+	machineIDs, machineDevices := m.machineMaps()
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		_, ok := machineIDs[addr.MachineID()]
+		if !ok {
+			return errors.Errorf("ip address %q references non-existent machine %q", addr.Value(), addr.MachineID())
+		}
+		_, ok = machineDevices[addr.MachineID()][addr.DeviceName()]
+		if !ok {
+			return errors.Errorf("ip address %q references non-existent device %q", addr.Value(), addr.DeviceName())
+		}
+		if ip := net.ParseIP(addr.Value()); ip == nil {
+			return errors.Errorf("ip address has invalid value %q", addr.Value())
+		}
+		if addr.SubnetCIDR() == "" {
+			return errors.Errorf("ip address %q has empty subnet CIDR", addr.Value())
+		}
+		if _, _, err := net.ParseCIDR(addr.SubnetCIDR()); err != nil {
+			return errors.Errorf("ip address %q has invalid subnet CIDR %q", addr.Value(), addr.SubnetCIDR())
+		}
+
+		if addr.GatewayAddress() != "" {
+			if ip := net.ParseIP(addr.GatewayAddress()); ip == nil {
+				return errors.Errorf("ip address %q has invalid gateway address %q", addr.Value(), addr.GatewayAddress())
+			}
+		}
+	}
+	return nil
+}
+
+// validateLinkLayerDevices makes sure that any machines referenced by link
+// layer devices exist.
+func (m *model) validateLinkLayerDevices() error {
+	machineIDs, machineDevices := m.machineMaps()
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		machine, ok := machineIDs[device.MachineID()]
+		if !ok {
+			return errors.Errorf("device %q references non-existent machine %q", device.Name(), device.MachineID())
+		}
+		if device.Name() == "" {
+			return errors.Errorf("device has empty name: %#v", device)
+		}
+		if device.MACAddress() != "" {
+			if _, err := net.ParseMAC(device.MACAddress()); err != nil {
+				return errors.Errorf("device %q has invalid MACAddress %q", device.Name(), device.MACAddress())
+			}
+		}
+		if device.ParentName() == "" {
+			continue
+		}
+		hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(device.ParentName())
+		if !canBeGlobalKey {
+			hostMachineID = device.MachineID()
+			parentDeviceName = device.ParentName()
+		}
+		parentDevice, ok := machineDevices[hostMachineID][parentDeviceName]
+		if !ok {
+			return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
+		}
+		if !canBeGlobalKey {
+			if device.Name() == parentDeviceName {
+				return errors.Errorf("device %q is its own parent", device.Name())
+			}
+			continue
+		}
+		// The device is on a container.
+		if parentDevice.Type() != "bridge" {
+			return errors.Errorf("device %q on a container but not a bridge", device.Name())
+		}
+		parentId := parentId(machine.Id())
+		if parentId == "" {
+			return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
+		}
+		if parentDevice.MachineID() != parentId {
+			return errors.Errorf("parent machine of device %q not host machine %q", device.Name(), parentId)
+		}
+	}
+	return nil
 }
 
 // validateRelations makes sure that for each endpoint in each relation there
@@ -367,17 +666,22 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
-		"owner":        schema.String(),
-		"cloud":        schema.String(),
-		"cloud-region": schema.String(),
-		"config":       schema.StringMap(schema.Any()),
-		"latest-tools": schema.String(),
-		"blocks":       schema.StringMap(schema.String()),
-		"users":        schema.StringMap(schema.Any()),
-		"machines":     schema.StringMap(schema.Any()),
-		"applications": schema.StringMap(schema.Any()),
-		"relations":    schema.StringMap(schema.Any()),
-		"sequences":    schema.StringMap(schema.Int()),
+		"owner":            schema.String(),
+		"cloud":            schema.String(),
+		"cloud-region":     schema.String(),
+		"config":           schema.StringMap(schema.Any()),
+		"latest-tools":     schema.String(),
+		"blocks":           schema.StringMap(schema.String()),
+		"users":            schema.StringMap(schema.Any()),
+		"machines":         schema.StringMap(schema.Any()),
+		"applications":     schema.StringMap(schema.Any()),
+		"relations":        schema.StringMap(schema.Any()),
+		"sshhostkeys":      schema.StringMap(schema.Any()),
+		"ipaddresses":      schema.StringMap(schema.Any()),
+		"spaces":           schema.StringMap(schema.Any()),
+		"subnets":          schema.StringMap(schema.Any()),
+		"linklayerdevices": schema.StringMap(schema.Any()),
+		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -463,5 +767,39 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setRelations(relations)
 
+	spaceMap := valid["spaces"].(map[string]interface{})
+	spaces, err := importSpaces(spaceMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "spaces")
+	}
+	result.setSpaces(spaces)
+
+	deviceMap := valid["linklayerdevices"].(map[string]interface{})
+	devices, err := importLinkLayerDevices(deviceMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "linklayerdevices")
+	}
+	result.setLinkLayerDevices(devices)
+
+	subnetsMap := valid["subnets"].(map[string]interface{})
+	subnets, err := importSubnets(subnetsMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "subnets")
+	}
+	result.setSubnets(subnets)
+
+	addressMap := valid["ipaddresses"].(map[string]interface{})
+	addresses, err := importIPAddresses(addressMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "ipaddresses")
+	}
+	result.setIPAddresses(addresses)
+
+	sshHostKeyMap := valid["sshhostkeys"].(map[string]interface{})
+	hostKeys, err := importSSHHostKeys(sshHostKeyMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "sshhostkeys")
+	}
+	result.setSSHHostKeys(hostKeys)
 	return result, nil
 }

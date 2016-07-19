@@ -4,7 +4,6 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -18,20 +17,9 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-type machines struct {
-	machine     *state.Machine
-	stateAPI    api.Connection
-	rebootState apireboot.State
-}
 
 type rebootSuite struct {
 	jujutesting.JujuConnSuite

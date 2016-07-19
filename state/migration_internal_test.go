@@ -26,6 +26,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		permissionsC,
 		settingsC,
 		sequenceC,
+		sshHostKeysC,
 		statusesC,
 		statusesHistoryC,
 
@@ -46,6 +47,15 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// relation
 		relationsC,
 		relationScopesC,
+
+		// networking
+		ipAddressesC,
+		spacesC,
+		linkLayerDevicesC,
+		subnetsC,
+
+		// storage
+		blockDevicesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -91,6 +101,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		migrationsC,
 		migrationsStatusC,
 		migrationsActiveC,
+		migrationsMinionSyncC,
 
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
@@ -110,9 +121,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// separately.
 		modelEntityRefsC,
 
-		// The SSH host keys for each machine will be reported as each
-		// machine agent starts up.
-		sshHostKeysC,
+		// This is marked as deprecated, and should probably be removed.
+		actionresultsC,
+
+		// These are recreated whilst migrating other network entities.
+		providerIDsC,
+		linkLayerDevicesRefsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -133,7 +147,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		blockDevicesC,
 		filesystemsC,
 		filesystemAttachmentsC,
 		storageInstancesC,
@@ -142,18 +155,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumesC,
 		volumeAttachmentsC,
 
-		// network
-		ipAddressesC,
-		providerIDsC,
-		linkLayerDevicesC,
-		linkLayerDevicesRefsC,
-		subnetsC,
-		spacesC,
-
 		// actions
 		actionsC,
 		actionNotificationsC,
-		actionresultsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -524,6 +528,115 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 		"Updated",
 	)
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// Always alive, not explicitly exported.
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"IsPublic",
+		"ProviderId",
+	)
+	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+		// We manage machine through containment.
+		"Machine",
+	)
+	migrated := set.NewStrings(
+		"BlockDevices",
+	)
+	s.AssertExportedFields(c, blockDevicesDoc{}, migrated.Union(ignored))
+	// The meat is in the type stored in "BlockDevices".
+	migrated = set.NewStrings(
+		"DeviceName",
+		"DeviceLinks",
+		"Label",
+		"UUID",
+		"HardwareId",
+		"BusAddress",
+		"Size",
+		"FilesystemType",
+		"InUse",
+		"MountPoint",
+	)
+	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
+}
+
+func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+
+		// Currently unused (never set or exposed).
+		"IsPublic",
+	)
+	migrated := set.NewStrings(
+		"CIDR",
+		"VLANTag",
+		"SpaceName",
+		"ProviderId",
+		"AvailabilityZone",
+	)
+	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"MachineID",
+		"ProviderID",
+		"Name",
+		"MTU",
+		"Type",
+		"MACAddress",
+		"IsAutoStart",
+		"IsUp",
+		"ParentName",
+	)
+	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
+	ignored := set.NewStrings()
+	migrated := set.NewStrings(
+		"Keys",
+	)
+	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

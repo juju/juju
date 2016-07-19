@@ -55,6 +55,22 @@ func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
 	c.Check(migration.DONE.IsTerminal(), jc.IsTrue)
 }
 
+func (s *PhaseSuite) TestIsRunning(c *gc.C) {
+	c.Check(migration.UNKNOWN.IsRunning(), jc.IsFalse)
+	c.Check(migration.NONE.IsRunning(), jc.IsFalse)
+
+	c.Check(migration.QUIESCE.IsRunning(), jc.IsTrue)
+	c.Check(migration.IMPORT.IsRunning(), jc.IsTrue)
+	c.Check(migration.SUCCESS.IsRunning(), jc.IsTrue)
+
+	c.Check(migration.LOGTRANSFER.IsRunning(), jc.IsFalse)
+	c.Check(migration.REAP.IsRunning(), jc.IsFalse)
+	c.Check(migration.REAPFAILED.IsRunning(), jc.IsFalse)
+	c.Check(migration.DONE.IsRunning(), jc.IsFalse)
+	c.Check(migration.ABORT.IsRunning(), jc.IsFalse)
+	c.Check(migration.ABORTDONE.IsRunning(), jc.IsFalse)
+}
+
 func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)

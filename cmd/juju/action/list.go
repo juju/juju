@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -107,7 +107,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		sortedNames = append(sortedNames, name)
 	}
-	sortedNames = common.SortStringsNaturally(sortedNames)
+	utils.SortStringsNaturally(sortedNames)
 	return c.printTabular(ctx, shortOutput, sortedNames)
 }
 

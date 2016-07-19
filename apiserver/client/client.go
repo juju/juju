@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -30,8 +31,8 @@ var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	stateAccessor stateInterface
-	auth          common.Authorizer
-	resources     *common.Resources
+	auth          facade.Authorizer
+	resources     facade.Resources
 	client        *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
@@ -57,7 +58,7 @@ var getState = func(st *state.State) stateInterface {
 }
 
 // NewClient creates a new instance of the Client Facade.
-func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
+func NewClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}

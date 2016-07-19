@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -39,7 +40,7 @@ type RetryStrategy interface {
 type RetryStrategyAPI struct {
 	st         *state.State
 	accessUnit common.GetAuthFunc
-	resources  *common.Resources
+	resources  facade.Resources
 }
 
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
@@ -47,8 +48,8 @@ var _ RetryStrategy = (*RetryStrategyAPI)(nil)
 // NewRetryStrategyAPI creates a new API endpoint for getting retry strategies.
 func NewRetryStrategyAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*RetryStrategyAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm

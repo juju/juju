@@ -32,7 +32,6 @@ func (s *ReportSuite) TestReportStarted(c *gc.C) {
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state":     "started",
-			"error":     nil,
 			"manifolds": map[string]interface{}{},
 		})
 	})
@@ -44,7 +43,6 @@ func (s *ReportSuite) TestReportStopped(c *gc.C) {
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state":     "stopped",
-			"error":     nil,
 			"manifolds": map[string]interface{}{},
 		})
 	})
@@ -91,11 +89,9 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 		}
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state": "stopping",
-			"error": nil,
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":        "stopping",
-					"error":        nil,
 					"inputs":       ([]string)(nil),
 					"resource-log": []map[string]interface{}{},
 					"report": map[string]interface{}{
@@ -122,11 +118,9 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state": "started",
-			"error": nil,
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":        "started",
-					"error":        nil,
 					"inputs":       ([]string)(nil),
 					"resource-log": []map[string]interface{}{},
 					"report": map[string]interface{}{
@@ -135,12 +129,10 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 				},
 				"another task": map[string]interface{}{
 					"state":  "started",
-					"error":  nil,
 					"inputs": []string{"task"},
 					"resource-log": []map[string]interface{}{{
-						"name":  "task",
-						"type":  "<nil>",
-						"error": nil,
+						"name": "task",
+						"type": "<nil>",
 					}},
 					"report": map[string]interface{}{
 						"key1": "hello there",
@@ -163,18 +155,16 @@ func (s *ReportSuite) TestReportError(c *gc.C) {
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state": "stopped",
-			"error": nil,
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":  "stopped",
-					"error":  dependency.ErrMissing,
+					"error":  dependency.ErrMissing.Error(),
 					"inputs": []string{"missing"},
 					"resource-log": []map[string]interface{}{{
 						"name":  "missing",
 						"type":  "<nil>",
-						"error": dependency.ErrMissing,
+						"error": dependency.ErrMissing.Error(),
 					}},
-					"report": (map[string]interface{})(nil),
 				},
 			},
 		})

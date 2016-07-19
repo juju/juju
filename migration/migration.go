@@ -6,20 +6,18 @@ package migration
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -64,6 +62,12 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 	return dbModel, dbState, nil
 }
 
+// CharmDownlaoder defines a single method that is used to download a
+// charm from the source controller in a migration.
+type CharmDownloader interface {
+	OpenCharm(*charm.URL) (io.ReadCloser, error)
+}
+
 // UploadBackend define the methods on *state.State that are needed for
 // uploading the tools and charms from the current controller to a different
 // controller.
@@ -74,72 +78,50 @@ type UploadBackend interface {
 	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
-// CharmUploader defines a simple single method interface that is used to
-// upload a charm to the target controller
+// CharmUploader defines a single method that is used to upload a
+// charm to the target controller in a migration.
 type CharmUploader interface {
 	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
 }
 
-// ToolsUploader defines a simple single method interface that is used to
-// upload tools to the target controller
+// ToolsDownloader defines a single method that is used to download
+// tools from the source controller in a migration.
+type ToolsDownloader interface {
+	OpenURI(string, url.Values) (io.ReadCloser, error)
+}
+
+// ToolsUploader defines a single method that is used to upload tools
+// to the target controller in a migration.
 type ToolsUploader interface {
 	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
 }
 
-// UploadBinariesConfig provides all the configuration that the UploadBinaries
-// function needs to operate. The functions are configurable for testing
-// purposes. To construct the config with the default functions, use
-// `NewUploadBinariesConfig`.
+// UploadBinariesConfig provides all the configuration that the
+// UploadBinaries function needs to operate. To construct the config
+// with the default helper functions, use `NewUploadBinariesConfig`.
 type UploadBinariesConfig struct {
-	State  UploadBackend
-	Model  description.Model
-	Target api.Connection
+	Charms          []string
+	CharmDownloader CharmDownloader
+	CharmUploader   CharmUploader
 
-	GetCharmUploader func(api.Connection) CharmUploader
-	GetToolsUploader func(api.Connection) ToolsUploader
-
-	GetStateStorage     func(UploadBackend) storage.Storage
-	GetCharmStoragePath func(UploadBackend, *charm.URL) (string, error)
-}
-
-// NewUploadBinariesConfig constructs a `UploadBinariesConfig` with the default
-// functions to get the uploaders for the target api connection, and functions
-// used to get the charm data out of the database.
-func NewUploadBinariesConfig(backend UploadBackend, model description.Model, target api.Connection) UploadBinariesConfig {
-	return UploadBinariesConfig{
-		State:  backend,
-		Model:  model,
-		Target: target,
-
-		GetCharmUploader:    getCharmUploader,
-		GetStateStorage:     getStateStorage,
-		GetToolsUploader:    getToolsUploader,
-		GetCharmStoragePath: getCharmStoragePath,
-	}
+	Tools           map[version.Binary]string
+	ToolsDownloader ToolsDownloader
+	ToolsUploader   ToolsUploader
 }
 
 // Validate makes sure that all the config values are non-nil.
 func (c *UploadBinariesConfig) Validate() error {
-	if c.State == nil {
-		return errors.NotValidf("missing UploadBackend")
+	if c.CharmDownloader == nil {
+		return errors.NotValidf("missing CharmDownloader")
 	}
-	if c.Model == nil {
-		return errors.NotValidf("missing Model")
+	if c.CharmUploader == nil {
+		return errors.NotValidf("missing CharmUploader")
 	}
-	if c.Target == nil {
-		return errors.NotValidf("missing Target")
+	if c.ToolsDownloader == nil {
+		return errors.NotValidf("missing ToolsDownloader")
 	}
-	if c.GetCharmUploader == nil {
-		return errors.NotValidf("missing GetCharmUploader")
-	}
-	if c.GetStateStorage == nil {
-		return errors.NotValidf("missing GetStateStorage")
-	}
-	if c.GetToolsUploader == nil {
-		return errors.NotValidf("missing GetToolsUploader")
-	}
-	if c.GetCharmStoragePath == nil {
-		return errors.NotValidf("missing GetCharmStoragePath")
+	if c.ToolsUploader == nil {
+		return errors.NotValidf("missing ToolsUploader")
 	}
 	return nil
 }
@@ -150,65 +132,17 @@ func UploadBinaries(config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := uploadTools(config); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := uploadCharms(config); err != nil {
 		return errors.Trace(err)
 	}
-
-	return nil
-}
-
-func getStateStorage(backend UploadBackend) storage.Storage {
-	return storage.NewStorage(backend.ModelUUID(), backend.MongoSession())
-}
-
-func getToolsUploader(target api.Connection) ToolsUploader {
-	return target.Client()
-}
-
-func getCharmUploader(target api.Connection) CharmUploader {
-	return target.Client()
-}
-
-func uploadTools(config UploadBinariesConfig) error {
-	storage, err := config.State.ToolsStorage()
-	if err != nil {
+	if err := uploadTools(config); err != nil {
 		return errors.Trace(err)
 	}
-	defer storage.Close()
-
-	usedVersions := getUsedToolsVersions(config.Model)
-	toolsUploader := config.GetToolsUploader(config.Target)
-
-	for toolsVersion := range usedVersions {
-		logger.Debugf("send tools version %s to target", toolsVersion)
-		_, reader, err := storage.Open(toolsVersion.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer reader.Close()
-
-		content, cleanup, err := streamThroughTempFile(reader)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer cleanup()
-
-		// UploadTools encapsulates the HTTP POST necessary to send the tools
-		// to the target API server.
-		if _, err := toolsUploader.UploadTools(content, toolsVersion); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return nil
 }
 
 func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
-	tempFile, err := ioutil.TempFile("", "juju-tools")
+	tempFile, err := ioutil.TempFile("", "juju-migrate-binary")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -231,53 +165,18 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	return tempFile, rmTempFile, nil
 }
 
-func getUsedToolsVersions(model description.Model) map[version.Binary]bool {
-	// Iterate through the model for all tools, and make a map of them.
-	usedVersions := make(map[version.Binary]bool)
-	// It is most likely that the preconditions will limit the number of
-	// tools versions in use, but that is not depended on here.
-	for _, machine := range model.Machines() {
-		addToolsVersionForMachine(machine, usedVersions)
-	}
-
-	for _, application := range model.Applications() {
-		for _, unit := range application.Units() {
-			tools := unit.Tools()
-			usedVersions[tools.Version()] = true
-		}
-	}
-	return usedVersions
-}
-
-func addToolsVersionForMachine(machine description.Machine, usedVersions map[version.Binary]bool) {
-	tools := machine.Tools()
-	usedVersions[tools.Version()] = true
-	for _, container := range machine.Containers() {
-		addToolsVersionForMachine(container, usedVersions)
-	}
-}
-
 func uploadCharms(config UploadBinariesConfig) error {
-	storage := config.GetStateStorage(config.State)
-	usedCharms := getUsedCharms(config.Model)
-	charmUploader := config.GetCharmUploader(config.Target)
-
-	for _, charmUrl := range usedCharms.Values() {
-		logger.Debugf("send charm %s to target", charmUrl)
+	for _, charmUrl := range config.Charms {
+		logger.Debugf("sending charm %s to target", charmUrl)
 
 		curl, err := charm.ParseURL(charmUrl)
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
 		}
 
-		path, err := config.GetCharmStoragePath(config.State, curl)
+		reader, err := config.CharmDownloader.OpenCharm(curl)
 		if err != nil {
-			return errors.Trace(err)
-		}
-
-		reader, _, err := storage.Get(path)
-		if err != nil {
-			return errors.Annotate(err, "cannot get charm from storage")
+			return errors.Annotate(err, "cannot open charm")
 		}
 		defer reader.Close()
 
@@ -287,28 +186,34 @@ func uploadCharms(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
-		if _, err := charmUploader.UploadCharm(curl, content); err != nil {
+		if _, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		}
 	}
 	return nil
 }
 
-func getUsedCharms(model description.Model) set.Strings {
-	result := set.NewStrings()
-	for _, application := range model.Applications() {
-		result.Add(application.CharmURL())
-	}
-	return result
-}
+func uploadTools(config UploadBinariesConfig) error {
+	for v, uri := range config.Tools {
+		logger.Debugf("sending tools to target: %s", v)
 
-func getCharmStoragePath(st UploadBackend, curl *charm.URL) (string, error) {
-	ch, err := st.Charm(curl)
-	if err != nil {
-		return "", errors.Annotate(err, "cannot get charm from state")
-	}
+		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
+		if err != nil {
+			return errors.Annotate(err, "cannot open charm")
+		}
+		defer reader.Close()
 
-	return ch.StoragePath(), nil
+		content, cleanup, err := streamThroughTempFile(reader)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer cleanup()
+
+		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
+			return errors.Annotate(err, "cannot upload tools")
+		}
+	}
+	return nil
 }
 
 // PrecheckBackend is implemented by *state.State but defined as an interface

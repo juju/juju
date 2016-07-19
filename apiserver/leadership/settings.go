@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 )
@@ -14,7 +15,7 @@ import (
 // NewLeadershipSettingsAccessor creates a new
 // LeadershipSettingsAccessor.
 func NewLeadershipSettingsAccessor(
-	authorizer common.Authorizer,
+	authorizer facade.Authorizer,
 	registerWatcherFn RegisterWatcherFn,
 	getSettingsFn GetSettingsFn,
 	leaderCheckFn LeaderCheckFn,
@@ -52,7 +53,7 @@ type MergeSettingsChunkFn func(token leadership.Token, serviceId string, setting
 // LeadershipSettingsAccessor provides a type which can read, write,
 // and watch leadership settings.
 type LeadershipSettingsAccessor struct {
-	authorizer           common.Authorizer
+	authorizer           facade.Authorizer
 	registerWatcherFn    RegisterWatcherFn
 	getSettingsFn        GetSettingsFn
 	leaderCheckFn        LeaderCheckFn

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -221,7 +222,12 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
+	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        watcherId.AllWatcherId,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
 	defer func() {
@@ -339,10 +345,10 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
 		expectedId := st.ModelUUID() + ":0"
-		c.Check(result.Id, gc.Equals, expectedId)
+		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
-		mig, err := st.GetModelMigration()
+		mig, err := st.LatestModelMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
@@ -374,7 +380,7 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.Id, gc.Equals, "")
+	c.Check(result.MigrationId, gc.Equals, "")
 	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 

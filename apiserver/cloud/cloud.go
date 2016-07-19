@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
@@ -25,19 +26,19 @@ func init() {
 // the concrete implementation of the api end point.
 type CloudAPI struct {
 	backend                  Backend
-	authorizer               common.Authorizer
+	authorizer               facade.Authorizer
 	apiUser                  names.UserTag
 	getCredentialsAuthFunc   common.GetAuthFunc
 	getCloudDefaultsAuthFunc common.GetAuthFunc
 }
 
-func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*CloudAPI, error) {
+func newFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend Backend, authorizer common.Authorizer) (*CloudAPI, error) {
+func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
