@@ -4,7 +4,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -21,6 +20,10 @@ var logger = loggo.GetLogger("juju.controller")
 const (
 	// ApiPort is the port used for api connections.
 	ApiPort = "api-port"
+
+	// AuditingEnabled determines whether the controller will record
+	// auditing information.
+	AuditingEnabled = "auditing-enabled"
 
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
@@ -41,6 +44,10 @@ const (
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
 	// Attribute Defaults
+
+	// DefaultAuditingEnabled contains the default value for the
+	// AuditingEnabled config value.
+	DefaultAuditingEnabled = false
 
 	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
@@ -111,7 +118,7 @@ func (c Config) mustInt(name string) int {
 	}
 	value, _ := c[name].(int)
 	if value == 0 {
-		panic(fmt.Errorf("empty value for %q found in configuration", name))
+		panic(errors.Errorf("empty value for %q found in configuration", name))
 	}
 	return value
 }
@@ -129,7 +136,7 @@ func (c Config) asString(name string) string {
 func (c Config) mustString(name string) string {
 	value, _ := c[name].(string)
 	if value == "" {
-		panic(fmt.Errorf("empty value for %q found in configuration (type %T, val %v)", name, c[name], c[name]))
+		panic(errors.Errorf("empty value for %q found in configuration (type %T, val %v)", name, c[name], c[name]))
 	}
 	return value
 }
@@ -142,6 +149,15 @@ func (c Config) StatePort() int {
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(ApiPort)
+}
+
+// AuditingEnabled returns whether or not auditing has been enabled
+// for the environment. The default is false.
+func (c Config) AuditingEnabled() bool {
+	if v, ok := c[AuditingEnabled]; ok {
+		return v.(bool)
+	}
+	return false
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -192,10 +208,10 @@ func Validate(c Config) error {
 	if v, ok := c[IdentityURL].(string); ok {
 		u, err := url.Parse(v)
 		if err != nil {
-			return fmt.Errorf("invalid identity URL: %v", err)
+			return errors.Annotate(err, "invalid identity URL")
 		}
 		if u.Scheme != "https" {
-			return fmt.Errorf("URL needs to be https")
+			return errors.Errorf("URL needs to be https")
 		}
 
 	}
@@ -203,7 +219,7 @@ func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
 		var key bakery.PublicKey
 		if err := key.UnmarshalText([]byte(v)); err != nil {
-			return fmt.Errorf("invalid identity public key: %v", err)
+			return errors.Annotate(err, "invalid identity public key")
 		}
 	}
 
@@ -229,6 +245,7 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
+	AuditingEnabled:         schema.Bool(),
 	ApiPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
@@ -236,6 +253,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	SetNumaControlPolicyKey: schema.Bool(),
 }, schema.Defaults{
 	ApiPort:                 DefaultAPIPort,
+	AuditingEnabled:         DefaultAuditingEnabled,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,

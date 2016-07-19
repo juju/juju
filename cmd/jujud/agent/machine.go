@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -1062,6 +1063,11 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		logger.Criticalf("%v", err)
 	}
 
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot fetch the controller config")
+	}
+
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
@@ -1071,6 +1077,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
 		NewObserver: newObserverFn(
+			controllerConfig,
 			clock.WallClock,
 			jujuversion.Current,
 			agentConfig.Model().Id(),
@@ -1110,31 +1117,41 @@ func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
 }
 
 func newObserverFn(
+	controllerConfig controller.Config,
 	clock clock.Clock,
 	jujuServerVersion version.Number,
 	modelUUID string,
 	persistAuditEntry audit.AuditEntrySinkFn,
 	auditErrorHandler observer.ErrorHandler,
 ) observer.ObserverFactory {
+
+	var observerFactories []observer.ObserverFactory
+
+	// Common logging of RPC requests
 	var connectionID int64
-	return observer.ObserverFactoryMultiplexer(
-		func() observer.Observer {
-			logger := loggo.GetLogger("juju.apiserver")
-			ctx := observer.RequestObserverContext{
-				Clock:  clock,
-				Logger: logger,
-			}
-			return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
-		},
-		func() observer.Observer {
+	observerFactories = append(observerFactories, func() observer.Observer {
+		logger := loggo.GetLogger("juju.apiserver")
+		ctx := observer.RequestObserverContext{
+			Clock:  clock,
+			Logger: logger,
+		}
+		return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
+	})
+
+	// Auditing observer
+	// TODO(katco): Auditing needs feature tests (lp:1604551)
+	if controllerConfig.AuditingEnabled() {
+		observerFactories = append(observerFactories, func() observer.Observer {
 			ctx := &observer.AuditContext{
 				JujuServerVersion: jujuServerVersion,
 				ModelUUID:         modelUUID,
 			}
-			// TODO(katco): Pass in an error channel
 			return observer.NewAudit(ctx, persistAuditEntry, auditErrorHandler)
-		},
-	)
+		})
+	}
+
+	return observer.ObserverFactoryMultiplexer(observerFactories...)
+
 }
 
 // limitLogins is called by the API server for each login attempt.
