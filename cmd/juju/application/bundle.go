@@ -24,6 +24,7 @@ import (
 	apiannotations "github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
@@ -110,9 +111,14 @@ func deployBundle(
 	}
 	defer watcher.Stop()
 
-	serviceClient, err := serviceDeployer.newApplicationAPIClient()
+	applicationClient, err := serviceDeployer.newApplicationAPIClient()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get application client")
+	}
+
+	modelConfigClient, err := serviceDeployer.newModelConfigAPIClient()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get model config client")
 	}
 
 	annotationsClient, err := serviceDeployer.newAnnotationsAPIClient()
@@ -131,7 +137,8 @@ func deployBundle(
 		results:           make(map[string]string, numChanges),
 		channel:           channel,
 		client:            client,
-		serviceClient:     serviceClient,
+		modelConfigClient: modelConfigClient,
+		applicationClient: applicationClient,
 		annotationsClient: annotationsClient,
 		charmsClient:      charmsClient,
 		serviceDeployer:   serviceDeployer,
@@ -214,11 +221,14 @@ type bundleHandler struct {
 	// client is used to interact with the environment.
 	client *api.Client
 
+	// modelConfigClient is used to get model config information.
+	modelConfigClient *modelconfig.Client
+
 	// charmsClient is used to get charm information.
 	charmsClient *charms.Client
 
-	// serviceClient is used to interact with services.
-	serviceClient *application.Client
+	// applicationClient is used to interact with applications.
+	applicationClient *application.Client
 
 	// annotationsClient is used to interact with annotations.
 	annotationsClient *apiannotations.Client
@@ -366,7 +376,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	}
 
 	// Figure out what series we need to deploy with.
-	conf, err := getClientConfig(h.client)
+	conf, err := getModelConfig(h.modelConfigClient)
 	if err != nil {
 		return err
 	}
@@ -414,7 +424,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	}
 	// Update application configuration.
 	if configYAML != "" {
-		if err := h.serviceClient.Update(params.ApplicationUpdate{
+		if err := h.applicationClient.Update(params.ApplicationUpdate{
 			ApplicationName: p.Application,
 			SettingsYAML:    configYAML,
 		}); err != nil {
@@ -426,7 +436,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	}
 	// Update application constraints.
 	if p.Constraints != "" {
-		if err := h.serviceClient.SetConstraints(p.Application, cons); err != nil {
+		if err := h.applicationClient.SetConstraints(p.Application, cons); err != nil {
 			// This should never happen, as the bundle is already verified.
 			return errors.Annotatef(err, "cannot update constraints for application %q", p.Application)
 		}
@@ -525,7 +535,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
-	_, err := h.serviceClient.AddRelation(ep1, ep2)
+	_, err := h.applicationClient.AddRelation(ep1, ep2)
 	if err == nil {
 		// A new relation has been established.
 		h.log.Infof("related %s and %s", ep1, ep2)
@@ -574,7 +584,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		}
 		placementArg = append(placementArg, placement)
 	}
-	r, err := h.serviceClient.AddUnits(application, 1, placementArg)
+	r, err := h.applicationClient.AddUnits(application, 1, placementArg)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add unit for application %q", application)
 	}
@@ -599,7 +609,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 // exposeService exposes an application.
 func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
 	application := resolve(p.Application, h.results)
-	if err := h.serviceClient.Expose(application); err != nil {
+	if err := h.applicationClient.Expose(application); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
 	h.log.Infof("application %s exposed", application)
@@ -820,7 +830,7 @@ func resolve(placeholder string, results map[string]string) string {
 // incompatible, meaning an upgrade from one to the other is not allowed.
 func (h *bundleHandler) upgradeCharm(applicationName string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources map[string]string) error {
 	id := chID.URL.String()
-	existing, err := h.serviceClient.GetCharmURL(applicationName)
+	existing, err := h.applicationClient.GetCharmURL(applicationName)
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve info for application %q", applicationName)
 	}
@@ -852,7 +862,7 @@ func (h *bundleHandler) upgradeCharm(applicationName string, chID charmstore.Cha
 		CharmID:         chID,
 		ResourceIDs:     resNames2IDs,
 	}
-	if err := h.serviceClient.SetCharm(cfg); err != nil {
+	if err := h.applicationClient.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	h.log.Infof("upgraded charm for existing application %s (from %s to %s)", applicationName, existing, id)

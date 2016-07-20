@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -69,7 +70,11 @@ func (c *unsetCommand) getAPI() (UnsetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return modelconfig.NewClient(api), nil
 }
 
 func (c *unsetCommand) Run(ctx *cmd.Context) error {

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
@@ -138,15 +139,15 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.ModelGet",
-		op:    opClientEnvironmentGet,
+		op:    opClientModelGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.ModelSet",
-		op:    opClientEnvironmentSet,
+		op:    opClientModelSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.SetModelAgentVersion",
-		op:    opClientSetEnvironAgentVersion,
+		op:    opClientSetModelAgentVersion,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.WatchAll",
@@ -379,28 +380,28 @@ func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.St
 	return func() {}, nil
 }
 
-func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().ModelGet()
+func opClientModelGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := modelconfig.NewClient(st).ModelGet()
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {}, nil
 }
 
-func opClientEnvironmentSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientModelSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := map[string]interface{}{"some-key": "some-value"}
-	err := st.Client().ModelSet(args)
+	err := modelconfig.NewClient(st).ModelSet(args)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		args["some-key"] = nil
-		st.Client().ModelSet(args)
+		modelconfig.NewClient(st).ModelSet(args)
 	}, nil
 }
 
-func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	attrs, err := st.Client().ModelGet()
+func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	attrs, err := modelconfig.NewClient(st).ModelGet()
 	if err != nil {
 		return func() {}, err
 	}

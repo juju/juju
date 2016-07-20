@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -162,6 +163,14 @@ func (c *upgradeCharmCommand) newServiceAPIClient() (*application.Client, error)
 	return application.NewClient(root), nil
 }
 
+func (c *upgradeCharmCommand) newModelConfigAPIClient() (*modelconfig.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -175,6 +184,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer serviceClient.Close()
 
 	oldURL, err := serviceClient.GetCharmURL(c.ApplicationName)
 	if err != nil {
@@ -201,7 +211,12 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
 
-	conf, err := getClientConfig(client)
+	modelConfigClient, err := c.newModelConfigAPIClient()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+	conf, err := getModelConfig(modelConfigClient)
 	if err != nil {
 		return errors.Trace(err)
 	}

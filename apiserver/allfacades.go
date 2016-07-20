@@ -50,6 +50,7 @@ import (
 	_ "github.com/juju/juju/apiserver/migrationmaster"
 	_ "github.com/juju/juju/apiserver/migrationminion"
 	_ "github.com/juju/juju/apiserver/migrationtarget"
+	_ "github.com/juju/juju/apiserver/modelconfig"
 	_ "github.com/juju/juju/apiserver/modelmanager"
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/proxyupdater"

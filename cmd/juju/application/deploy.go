@@ -25,6 +25,7 @@ import (
 	apiannotations "github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -276,7 +277,7 @@ type ModelConfigGetter interface {
 	ModelGet() (map[string]interface{}, error)
 }
 
-var getClientConfig = func(client ModelConfigGetter) (*config.Config, error) {
+var getModelConfig = func(client ModelConfigGetter) (*config.Config, error) {
 	// Separated into a variable for easy overrides
 	attrs, err := client.ModelGet()
 	if err != nil {
@@ -311,7 +312,7 @@ func (c *DeployCommand) maybeReadLocalBundleData(ctx *cmd.Context) (
 	return bundleData, bundleFile, bundleFilePath, err
 }
 
-func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
+func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client, modelConfigClient *modelconfig.Client) error {
 	deployer := applicationDeployer{ctx, c}
 
 	// We may have been given a local bundle file.
@@ -373,7 +374,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return err
 	}
 
-	conf, err := getClientConfig(client)
+	conf, err := getModelConfig(modelConfigClient)
 	if err != nil {
 		return err
 	}
@@ -673,6 +674,14 @@ func (d *applicationDeployer) newApplicationAPIClient() (*application.Client, er
 	return application.NewClient(root), nil
 }
 
+func (d *applicationDeployer) newModelConfigAPIClient() (*modelconfig.Client, error) {
+	root, err := d.api.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 func (d *applicationDeployer) newAnnotationsAPIClient() (*apiannotations.Client, error) {
 	root, err := d.api.NewAPIRoot()
 	if err != nil {
@@ -721,11 +730,18 @@ func (c *applicationDeployer) applicationDeploy(args applicationDeployParams) er
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	err = c.deployCharmOrBundle(ctx, client)
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelConfigClient := modelconfig.NewClient(api)
+	defer modelConfigClient.Close()
+
+	err = c.deployCharmOrBundle(ctx, client, modelConfigClient)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -113,7 +114,7 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 			// behaviour live, so the only restriction is that Build cannot
 			// be used (because its value needs to be chosen internally so as
 			// not to collide with existing tools).
-			return fmt.Errorf("cannot specify build number when uploading tools")
+			return errors.New("cannot specify build number when uploading tools")
 		}
 		c.Version = vers
 	}
@@ -164,7 +165,6 @@ func formatTools(tools coretools.List) string {
 }
 
 type upgradeJujuAPI interface {
-	ModelGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 	AbortCurrentUpgrade() error
@@ -172,8 +172,21 @@ type upgradeJujuAPI interface {
 	Close() error
 }
 
+type modelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+	Close() error
+}
+
 var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
+}
+
+var getModelConfigAPI = func(c *upgradeJujuCommand) (modelConfigAPI, error) {
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(api), nil
 }
 
 // Run changes the version proposed for the juju envtools.
@@ -184,6 +197,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer client.Close()
+	modelConfigClient, err := getModelConfigAPI(c)
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
 	defer func() {
 		if err == errUpToDate {
 			ctx.Infof(err.Error())
@@ -192,7 +210,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	attrs, err := client.ModelGet()
+	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -214,7 +232,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
-		return fmt.Errorf("incomplete model configuration")
+		return errors.New("incomplete model configuration")
 	}
 
 	if c.UploadTools && c.Version == version.Zero {
@@ -228,12 +246,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	case !canUpgradeRunningVersion(agentVersion):
 		// This version of upgrade-juju cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
-		return fmt.Errorf("cannot upgrade a %s model with a %s client",
+		return errors.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, jujuversion.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
-		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
+		return errors.Errorf(downgradeErrMsg, agentVersion, c.Version)
 	case agentVersion.Major != jujuversion.Current.Major:
 		// Running environment is the previous major version (a higher major
 		// version wouldn't have passed the check in canUpgradeRunningVersion).
@@ -272,7 +290,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			retErr = true
 		}
 		if retErr {
-			return fmt.Errorf("unable to upgrade to requested version")
+			return errors.New("unable to upgrade to requested version")
 		}
 	}
 
@@ -486,9 +504,9 @@ func (context *upgradeContext) validate() (err error) {
 				context.chosen = newestCurrent
 			} else {
 				if context.agent.Major != context.client.Major {
-					return fmt.Errorf("no compatible tools available")
+					return errors.New("no compatible tools available")
 				} else {
-					return fmt.Errorf("no more recent supported versions available")
+					return errors.New("no more recent supported versions available")
 				}
 			}
 		}
@@ -513,7 +531,7 @@ func (context *upgradeContext) validate() (err error) {
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf(downgradeErrMsg, context.agent, context.chosen)
+		return errors.Errorf(downgradeErrMsg, context.agent, context.chosen)
 	}
 
 	return nil
