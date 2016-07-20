@@ -1123,5 +1123,8 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	if tags := cons.Tags(); len(tags) > 0 {
 		result.Tags = &tags
 	}
+	if virt := cons.VirtType(); virt != "" {
+		result.VirtType = &virt
+	}
 	return result
 }

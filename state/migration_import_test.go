@@ -383,7 +383,14 @@ func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G")
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Value) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
