@@ -215,7 +215,7 @@ def write_item_streams(items, out_dir):
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
     write_juju_streams(out_dir, trees, updated, [
-        'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
+        'path', 'sha256', 'md5', 'size', 'virt', 'root_store', 'id'])
 
 
 def write_juju_streams(out_d, trees, updated, sticky):
