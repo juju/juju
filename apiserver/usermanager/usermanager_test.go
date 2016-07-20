@@ -181,7 +181,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	// Check that the call is blocked.
 	s.AssertBlocked(c, err, "TestBlockAddUser")
 	// Check that there's no results.
-	c.Assert(len(result.Results), jc.DeepEquals, 0)
+	c.Assert(result.Results, gc.HasLen, 0)
 	//check that user is not created.
 	foobarTag := names.NewLocalUserTag("foobar")
 	// Check that the call results in a new user being created.
@@ -203,10 +203,12 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 		}}}
 
 	got, err := usermanager.AddUser(args)
+
 	for _, result := range got.Results {
 		c.Check(errors.Cause(result.Error), jc.DeepEquals,
 			&params.Error{Message: "permission denied", Code: "unauthorized access"})
 	}
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.User(names.NewLocalUserTag("foobar"))
@@ -360,6 +362,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	for _, result := range got.Results {
 		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
 	}
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = barb.Refresh()
@@ -382,6 +385,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	for _, result := range got.Results {
 		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
 	}
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = barb.Refresh()
@@ -606,7 +610,7 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 	tag := "not-a-tag"
 	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
-	c.Assert(len(got.Results), gc.Equals, 1)
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, gc.Equals, nil)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: "\"not-a-tag\" is not a valid tag",
@@ -617,7 +621,7 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	tag := "user-harvey"
 	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
-	c.Assert(len(got.Results), gc.Equals, 1)
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, gc.Equals, nil)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: "failed to delete user \"harvey\": user \"harvey\" not found",
@@ -634,9 +638,9 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	// Remove the user
 	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
-	var paramErr *params.Error
-	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Assert(got.Results, gc.HasLen, 1)
+
+	c.Check(got.Results[0].Error, gc.IsNil) // Uses gc.IsNil as it's a typed nil.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check if deleted.
@@ -647,7 +651,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	// Try again and verify we get the expected error.
 	got, err = s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
+	c.Check(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
 		Code:    "user not found",
@@ -682,7 +686,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	// Remove jjam as chuck and fail.
 	got, err := usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
+	c.Check(got.Results, gc.HasLen, 1)
 	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
 		&params.Error{Message: "permission denied", Code: "unauthorized access"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -715,7 +719,7 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	// Remove the user as the user
 	got, err := usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
 		&params.Error{Message: "permission denied", Code: "unauthorized access"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -732,7 +736,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	// Remove admin as admin.
 	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
 	})
@@ -741,7 +745,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	// Try again to see if we succeeded.
 	got, err = s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
-	c.Check(len(got.Results), gc.Equals, 1)
+	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
 	})
@@ -783,7 +787,7 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 			{Tag: jjam.Tag().String()},
 			{Tag: alice.Tag().String()},
 		}})
-	c.Check(len(got.Results), gc.Equals, 2)
+	c.Check(got.Results, gc.HasLen, 2)
 	var paramErr *params.Error
 	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
 	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
