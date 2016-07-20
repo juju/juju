@@ -205,7 +205,8 @@ func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
 	s.stream.waitBeforeNext(c)
 	s.stream.waitAfterNext(c)
 	s.sender.waitAfterSend(c)
-	s.stub.CheckCallNames(c, "Close", "Next", "Send")
+	// Check that the config change has been picked up and
+	// that the second record is sent.
 	rec2.Message = "send to 10.0.0.2"
 	s.stub.CheckCall(c, 2, "Send", []logfwd.Record{rec2})
 	s.stub.ResetCalls()
