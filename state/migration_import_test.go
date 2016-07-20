@@ -139,9 +139,9 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	access := state.AdminAccess
+	access := description.AdminAccess
 	if readOnly {
-		access = state.ReadAccess
+		access = description.ReadAccess
 	}
 	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),

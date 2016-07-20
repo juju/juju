@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -74,10 +75,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   state.AdminAccess,
-			}, {
-				userName: "otheruser",
-				access:   state.AdminAccess,
+				access:   description.AdminAccess,
 			}},
 		},
 		model: &mockModel{
@@ -90,10 +88,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   state.AdminAccess,
-			}, {
-				userName: "otheruser",
-				access:   state.AdminAccess,
+				access:   description.AdminAccess,
 			}},
 		},
 		creds: map[string]cloud.Credential{
@@ -615,7 +610,7 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.WriteAccess})
+	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.WriteAccess})
 
 	err := s.revoke(c, user.UserTag(), params.ModelWriteAccess, user.ModelTag())
 	c.Assert(err, gc.IsNil)
@@ -722,7 +717,7 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
-	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ReadAccess})
+	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
 
 	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -752,7 +747,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: state.ReadAccess})
+		User: apiUser.Canonical(), Access: description.ReadAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -767,7 +762,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: state.AdminAccess})
+		User: apiUser.Canonical(), Access: description.AdminAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())

@@ -4,6 +4,9 @@
 package state
 
 import (
+	"strings"
+
+	"github.com/juju/juju/core/description"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 )
@@ -14,15 +17,34 @@ type internalUserSuite struct {
 
 var _ = gc.Suite(&internalUserSuite{})
 
-func (s *internalUserSuite) TestCreateInitialUserOp(c *gc.C) {
+func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	tag := names.NewUserTag("AdMiN")
-	op := createInitialUserOp(nil, tag, "abc", "salt")
+	ops := createInitialUserOps(s.state.ControllerUUID(), tag, "abc", "salt")
+	c.Assert(ops, gc.HasLen, 3)
+	op := ops[0]
 	c.Assert(op.Id, gc.Equals, "admin")
 
 	doc := op.Insert.(*userDoc)
 	c.Assert(doc.DocID, gc.Equals, "admin")
 	c.Assert(doc.Name, gc.Equals, "AdMiN")
 	c.Assert(doc.PasswordSalt, gc.Equals, "salt")
+
+	// controller user permissions
+	op = ops[1]
+	permdoc := op.Insert.(*permissionDoc)
+	c.Assert(permdoc.Access, gc.Equals, string(description.LoginAccess))
+	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerGlobalKey, userWithGlobalKey(strings.ToLower(tag.Canonical()))))
+	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userWithGlobalKey(strings.ToLower(tag.Canonical())))
+	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerGlobalKey)
+
+	// controller user
+	op = ops[2]
+	cudoc := op.Insert.(*controllerUserDoc)
+	c.Assert(cudoc.ID, gc.Equals, "admin@local")
+	c.Assert(cudoc.ControllerUUID, gc.Equals, s.state.ControllerUUID())
+	c.Assert(cudoc.UserName, gc.Equals, "AdMiN@local")
+	c.Assert(cudoc.DisplayName, gc.Equals, "AdMiN")
+	c.Assert(cudoc.CreatedBy, gc.Equals, "AdMiN@local")
 }
 
 func (s *internalUserSuite) TestCaseNameVsId(c *gc.C) {

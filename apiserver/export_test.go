@@ -104,6 +104,15 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 	return h, h.getResources()
 }
 
+// TestingApiHandlerWithEntity gives you the sane kind of ApiHandler than
+// TestingApiHandler but sets the passed entity as the apiHandler
+// entity.
+func TestingApiHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
+	h, hr := TestingApiHandler(c, srvSt, st)
+	h.entity = entity
+	return h, hr
+}
+
 // TestingUpgradingRoot returns a limited srvRoot
 // in an upgrade scenario.
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {

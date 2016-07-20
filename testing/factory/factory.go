@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -45,13 +46,14 @@ func NewFactory(st *state.State) *Factory {
 
 // UserParams defines the parameters for creating a user with MakeUser.
 type UserParams struct {
-	Name        string
-	DisplayName string
-	Password    string
-	Creator     names.Tag
-	NoModelUser bool
-	Disabled    bool
-	Access      state.Access
+	Name                string
+	DisplayName         string
+	Password            string
+	Creator             names.Tag
+	NoModelUser         bool
+	Disabled            bool
+	Access              description.Access
+	ExpectedCreateError string
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -59,7 +61,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	Access      state.Access
+	Access      description.Access
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -176,13 +178,17 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
-	if params.Access == state.UndefinedAccess {
-		params.Access = state.AdminAccess
+	if params.Access == description.UndefinedAccess {
+		params.Access = description.AdminAccess
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	if params.ExpectedCreateError != "" {
+		c.Assert(err, gc.ErrorMatches, params.ExpectedCreateError)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	if !params.NoModelUser {
 		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
@@ -214,8 +220,8 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
-	if params.Access == state.UndefinedAccess {
-		params.Access = state.AdminAccess
+	if params.Access == description.UndefinedAccess {
+		params.Access = description.AdminAccess
 	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()

@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/testing/factory"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
 
@@ -51,8 +51,23 @@ func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 	s.AssertCallNotImplemented(c, client, "Unknown", 1, "Method")
 }
 
+func (s *clientAuthRootSuite) TestAdminUser(c *gc.C) {
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.WriteAccess})
+	client := newClientAuthRoot(&fakeFinder{}, modelUser)
+	s.AssertCallGood(c, client, "Client", 1, "FullStatus")
+	s.AssertCallErrPerm(c, client, "ModelManager", 2, "ModifyModelAccess")
+	s.AssertCallErrPerm(c, client, "ModelManager", 2, "CreateModel")
+	s.AssertCallErrPerm(c, client, "Controller", 3, "DestroyController")
+
+	modelUser = s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.AdminAccess})
+	client = newClientAuthRoot(&fakeFinder{}, modelUser)
+	s.AssertCallGood(c, client, "ModelManager", 2, "ModifyModelAccess")
+	s.AssertCallGood(c, client, "ModelManager", 2, "CreateModel")
+	s.AssertCallGood(c, client, "Controller", 3, "DestroyController")
+}
+
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
-	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ReadAccess})
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
 	client := newClientAuthRoot(&fakeFinder{}, modelUser)
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")

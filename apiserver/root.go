@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -346,6 +347,47 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 // GetAuthEntity returns the authenticated entity.
 func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+type userWithPermissions interface {
+	Access() description.Access
+}
+
+// HasPermission returns
+func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) bool {
+	var user userWithPermissions
+	userTag, ok := r.entity.Tag().(names.UserTag)
+	if !ok {
+		return false
+	}
+
+	var err error
+	targetKind := target.Kind()
+	switch targetKind {
+	case names.ControllerTagKind:
+		user, err = r.state.ControllerUser(userTag)
+	case names.ModelTagKind:
+		user, err = r.state.ModelUser(userTag)
+	default:
+		return false
+	}
+	if err != nil {
+		logger.Errorf("while obtaining %s user: %v", targetKind, err)
+		return false
+	}
+
+	userAccess := user.Access()
+	if !userAccess.EqualOrGreaterAccessThan(operation) {
+		return false
+	}
+	switch operation {
+	case description.LoginAccess, description.AddModelAccess, description.SuperuserAccess:
+		return targetKind == names.ControllerTagKind
+	case description.ReadAccess, description.WriteAccess, description.AdminAccess:
+		return targetKind == names.ModelTagKind
+	}
+
+	return false
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

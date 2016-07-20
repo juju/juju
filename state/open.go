@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -228,9 +229,10 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := []txn.Op{
-		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
-		{
+	ops := createInitialUserOps(st.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	ops = append(ops,
+
+		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
@@ -240,19 +242,19 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud, args.CloudName),
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
@@ -260,7 +262,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
-	}
+	)
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
 			args.ControllerModelArgs.Owner,
@@ -306,7 +308,7 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	isHostedModel := controllerUUID != modelUUID
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
