@@ -24,8 +24,8 @@ var _ environs.EnvironProvider = providerInstance
 var logger = loggo.GetLogger("juju.provider.vmware")
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	env, err := newEnviron(args.Config)
 	return env, errors.Trace(err)
 }
 

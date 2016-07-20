@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/workertest"
@@ -103,11 +102,11 @@ func (s *WaitSuite) TestIgnoresBadConfig(c *gc.C) {
 			"type": "unknown",
 		},
 	}
-	newEnvironFunc := func(cfg *config.Config) (environs.Environ, error) {
-		if cfg.Type() == "unknown" {
+	newEnvironFunc := func(args environs.OpenParams) (environs.Environ, error) {
+		if args.Config.Type() == "unknown" {
 			return nil, errors.NotValidf("config")
 		}
-		return &mockEnviron{cfg: cfg}, nil
+		return &mockEnviron{cfg: args.Config}, nil
 	}
 	fix.Run(c, func(context *runContext) {
 		abort := make(chan struct{})

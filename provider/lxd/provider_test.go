@@ -103,7 +103,7 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(s.Config)
+	env, err := s.provider.Open(environs.OpenParams{s.Config})
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 

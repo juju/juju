@@ -28,9 +28,9 @@ var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
 var providerInstance maasEnvironProvider
 
-func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening model %q.", cfg.Name())
-	env, err := NewEnviron(cfg)
+func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Debugf("opening model %q.", args.Config.Name())
+	env, err := NewEnviron(args.Config)
 	if err != nil {
 		return nil, err
 	}

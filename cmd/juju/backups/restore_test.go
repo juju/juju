@@ -93,7 +93,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
-	s.command = backups.NewRestoreCommandForTest(s.store, nil, nil, nil)
+	s.command = backups.NewRestoreCommandForTest(s.store, nil, nil, nil, nil)
 	_, err := testing.RunCommand(c, s.command, "restore")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id.")
 
@@ -132,7 +132,8 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
 		},
-		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+		backups.GetEnvironFunc(fakeEnv),
+		backups.GetRebootstrapParamsFunc("mycloud"),
 	)
 	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
@@ -147,7 +148,8 @@ func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 				CACert: testing.CACert,
 			}, nil
 		},
-		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+		backups.GetEnvironFunc(fakeEnv),
+		backups.GetRebootstrapParamsFunc("mycloud"),
 	)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return errors.New("failed to bootstrap new controller")
@@ -167,7 +169,9 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		nil)
+		backups.GetEnvironFunc(fakeEnviron{}),
+		backups.GetRebootstrapParamsFunc("mycloud"),
+	)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return errors.New("failed to bootstrap new controller")
 	})
@@ -186,7 +190,8 @@ func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		backups.GetEnvironFuncWithError(),
+		nil,
+		backups.GetRebootstrapParamsFuncWithError(),
 	)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		// We should not call bootstrap.
@@ -218,7 +223,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+		backups.GetEnvironFunc(fakeEnv),
+		backups.GetRebootstrapParamsFunc("mycloud"),
 	)
 	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
@@ -257,7 +263,8 @@ func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		backups.GetEnvironFunc(fakeEnv, "lxd"),
+		backups.GetEnvironFunc(fakeEnv),
+		backups.GetRebootstrapParamsFunc("lxd"),
 	)
 	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {

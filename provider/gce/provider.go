@@ -19,8 +19,8 @@ type environProvider struct {
 var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	env, err := newEnviron(args.Config)
 	return env, errors.Trace(err)
 }
 

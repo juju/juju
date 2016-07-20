@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -31,7 +30,7 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
-	s.PatchValue(&newEnvirons, func(config *config.Config) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
 		return &dummyEnviron{}, nil
 	})
 

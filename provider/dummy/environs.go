@@ -515,17 +515,17 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
-func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	ecfg, err := p.newConfig(cfg)
+	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
 	env := &environ{
 		name:         ecfg.Name(),
 		ecfgUnlocked: ecfg,
-		modelUUID:    cfg.UUID(),
+		modelUUID:    args.Config.UUID(),
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err

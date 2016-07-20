@@ -306,7 +306,7 @@ func openEnviron(
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
-	env, err := provider.Open(cfg)
+	env, err := provider.Open(environs.OpenParams{cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Force an explicit refresh of the access token, so it isn't done
@@ -336,7 +336,7 @@ func prepareForBootstrap(
 		Credentials:          fakeUserPassCredential(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Open(cfg)
+	env, err := provider.Open(environs.OpenParams{cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(ctx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -484,9 +484,7 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 }
 
 func (s *environSuite) TestOpen(c *gc.C) {
-	cfg := makeTestModelConfig(c)
-	env, err := s.provider.Open(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	env := s.openEnviron(c)
 	c.Assert(env, gc.NotNil)
 }
 

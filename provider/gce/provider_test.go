@@ -33,7 +33,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(s.Config)
+	env, err := s.provider.Open(environs.OpenParams{s.Config})
 	c.Check(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()

@@ -117,7 +117,7 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.New(environs.OpenParams{cfg})
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
 	c.Assert(env, gc.IsNil)
 }
@@ -130,7 +130,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(cfg)
+	e, err := environs.New(environs.OpenParams{cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = e.ControllerInstances("uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")

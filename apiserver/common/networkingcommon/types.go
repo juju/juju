@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -106,8 +105,7 @@ type BackingSpace interface {
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
-	// ModelConfig returns the current environment config.
-	ModelConfig() (*config.Config, error)
+	environs.EnvironConfigGetter
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).

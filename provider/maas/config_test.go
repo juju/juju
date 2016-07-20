@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -40,11 +39,7 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return env.(*maasEnviron).ecfg(), nil
+	return providerInstance.newConfig(cfg)
 }
 
 func (s *configSuite) SetUpTest(c *gc.C) {

@@ -71,17 +71,17 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
+func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
 	e := new(Environ)
 
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
-	err := e.SetConfig(cfg)
+	err := e.SetConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
-	e.name = cfg.Name()
+	e.name = args.Config.Name()
 	return e, nil
 }
 

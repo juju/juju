@@ -68,7 +68,7 @@ func (t configTest) check(c *gc.C) {
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(cfg)
+	e, err := environs.New(environs.OpenParams{cfg})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 

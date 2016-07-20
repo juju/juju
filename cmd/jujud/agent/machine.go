@@ -905,7 +905,12 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 				return w, nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-				w, err := peergrouperNew(st)
+				env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+				if err != nil {
+					return nil, errors.Annotate(err, "getting environ from state")
+				}
+				supportsSpaces := environs.SupportsSpaces(env)
+				w, err := peergrouperNew(st, supportsSpaces)
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start peergrouper worker")
 				}

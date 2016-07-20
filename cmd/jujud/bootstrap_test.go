@@ -803,7 +803,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config:         cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Open(cfg)
+	env, err := provider.Open(environs.OpenParams{cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(nullContext())
 	c.Assert(err, jc.ErrorIsNil)

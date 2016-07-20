@@ -40,12 +40,18 @@ type EnvironProvider interface {
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
 	// prepared environment.
-	Open(cfg *config.Config) (Environ, error)
+	Open(OpenParams) (Environ, error)
 
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
+}
+
+// OpenParams contains the parameters for EnvironProvider.Open.
+type OpenParams struct {
+	// Config is the base configuration for the provider.
+	Config *config.Config
 }
 
 // ProviderSchema can be implemented by a provider to provide

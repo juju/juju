@@ -167,7 +167,7 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	env, err := p.Open(cfg)
+	env, err := p.Open(environs.OpenParams{cfg})
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}

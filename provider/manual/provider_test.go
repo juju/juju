@@ -65,7 +65,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(testConfig)
+	env, err := manual.ProviderInstance.Open(environs.OpenParams{testConfig})
 	if err != nil {
 		return nil, err
 	}

@@ -55,11 +55,11 @@ func init() {
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
 
-	env := &environ{name: cfg.Name()}
-	if err := env.SetConfig(cfg); err != nil {
+	env := &environ{name: args.Config.Name()}
+	if err := env.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
 

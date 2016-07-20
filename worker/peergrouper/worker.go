@@ -11,8 +11,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -32,7 +30,6 @@ type stateInterface interface {
 	Space(id string) (SpaceReader, error)
 	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
 	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
-	ModelConfig() (*config.Config, error)
 }
 
 type stateMachine interface {
@@ -108,7 +105,7 @@ type pgWorker struct {
 
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
-func New(st *state.State) (worker.Worker, error) {
+func New(st *state.State, supportsSpaces bool) (worker.Worker, error) {
 	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, err
@@ -118,7 +115,6 @@ func New(st *state.State) (worker.Worker, error) {
 		mongoPort: cfg.StatePort(),
 		apiPort:   cfg.APIPort(),
 	}
-	supportsSpaces := networkingcommon.SupportsSpaces(shim) == nil
 	return newWorker(shim, newPublisher(st), supportsSpaces)
 }
 

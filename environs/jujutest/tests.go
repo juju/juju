@@ -49,7 +49,7 @@ type Tests struct {
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
-	e, err := environs.New(cfg)
+	e, err := environs.New(environs.OpenParams{cfg})
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e

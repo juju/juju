@@ -41,7 +41,7 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// identify region and endpoint info that we need. Not sure what
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
-	return environs.New(cfg)
+	return environs.New(environs.OpenParams{cfg})
 }
 
 func newImageMetadataCommand() cmd.Command {

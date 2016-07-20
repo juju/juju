@@ -17,19 +17,23 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type environSuite struct {
+type baseEnvironSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	env *manualEnviron
 }
 
-var _ = gc.Suite(&environSuite{})
-
-func (s *environSuite) SetUpTest(c *gc.C) {
+func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
+	env, err := manualProvider{}.Open(environs.OpenParams{MinimalConfig(c)})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
+
+type environSuite struct {
+	baseEnvironSuite
+}
+
+var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
 	err := s.env.SetConfig(MinimalConfig(c))
@@ -131,33 +135,11 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
 }
 
-type bootstrapSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	env *manualEnviron
-}
-
-var _ = gc.Suite(&bootstrapSuite{})
-
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env.(*manualEnviron)
-}
-
 type controllerInstancesSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	env *manualEnviron
+	baseEnvironSuite
 }
 
 var _ = gc.Suite(&controllerInstancesSuite{})
-
-func (s *controllerInstancesSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env.(*manualEnviron)
-}
 
 func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 	var outputResult string
