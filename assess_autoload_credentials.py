@@ -97,6 +97,7 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = client_from_config('local', juju_bin, False)
         client.env.juju_home = tmp_juju_home
+        client.env.load_yaml()
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
 
         run_autoload_credentials(
@@ -127,6 +128,7 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = client_from_config('local', juju_bin, False)
         client.env.juju_home = tmp_juju_home
+        client.env.load_yaml()
 
         initial_details = cloud_details_fn(
             user, tmp_scratch_dir, client)
