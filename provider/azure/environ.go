@@ -41,7 +41,13 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-const jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
+const (
+	jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
+
+	// defaultRootDiskSize is the default root disk size to give
+	// to a VM, if none is specified.
+	defaultRootDiskSize = 30 * 1024 // 30 GiB
+)
 
 type azureEnviron struct {
 	// provider is the azureEnvironProvider used to open this environment.
@@ -407,6 +413,16 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	env.mu.Unlock()
 
+	// If the user has not specified a root-disk size, then
+	// set a sensible default.
+	var rootDisk uint64
+	if args.Constraints.RootDisk != nil {
+		rootDisk = *args.Constraints.RootDisk
+	} else {
+		rootDisk = defaultRootDiskSize
+		args.Constraints.RootDisk = &rootDisk
+	}
+
 	// Identify the instance type and image to provision.
 	instanceSpec, err := findInstanceSpec(
 		vmImagesClient,
@@ -421,6 +437,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	)
 	if err != nil {
 		return nil, err
+	}
+	if rootDisk < uint64(instanceSpec.InstanceType.RootDisk) {
+		// The InstanceType's RootDisk is set to the maximum
+		// OS disk size; override it with the user-specified
+		// or default root disk size.
+		instanceSpec.InstanceType.RootDisk = rootDisk
 	}
 
 	// Pick tools by filtering the available tools down to the architecture of
@@ -708,6 +730,7 @@ func newStorageProfile(
 
 	osDisksRoot := osDiskVhdRoot(storageAccount)
 	osDiskName := vmName
+	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),
 		CreateOption: compute.FromImage,
@@ -717,6 +740,7 @@ func newStorageProfile(
 				osDisksRoot + osDiskName + vhdExtension,
 			),
 		},
+		DiskSizeGB: to.IntPtr(int(osDiskSizeGB)),
 	}
 	return &compute.StorageProfile{
 		ImageReference: &compute.ImageReference{
@@ -727,6 +751,11 @@ func newStorageProfile(
 		},
 		OsDisk: osDisk,
 	}, nil
+}
+
+func mibToGB(mib uint64) uint64 {
+	b := float64(mib * 1024 * 1024)
+	return uint64(b / (1000 * 1000 * 1000))
 }
 
 func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*compute.OSProfile, os.OSType, error) {

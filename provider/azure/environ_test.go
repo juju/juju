@@ -269,6 +269,8 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 							fakeStorageAccount,
 						)),
 					},
+					// 30 GiB is roughly 32 GB.
+					DiskSizeGB: to.IntPtr(32),
 				},
 			},
 			OsProfile: &compute.OSProfile{
@@ -513,7 +515,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 
 	arch := "amd64"
 	mem := uint64(3584)
-	rootDisk := uint64(29495) // ~30 GB
+	rootDisk := uint64(30 * 1024) // 30 GiB
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,

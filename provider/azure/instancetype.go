@@ -107,18 +107,19 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 		Arches:   []string{arch.AMD64},
 		CpuCores: uint64(to.Int(size.NumberOfCores)),
 		Mem:      uint64(to.Int(size.MemoryInMB)),
-		// NOTE(axw) size.OsDiskSizeInMB is the maximum root disk
-		// size, but the actual disk size is limited to the size
-		// of the image/VHD that the machine is backed by. The
-		// Azure Resource Manager APIs do not provide a way of
-		// determining the image size.
-		//
-		// All of the published images that we use are ~30GiB.
-		RootDisk: uint64(29495),
+		// NOTE(axw) size.OsDiskSizeInMB is the *maximum*
+		// OS-disk size. When we create a VM, we can create
+		// one that is smaller.
+		RootDisk: mbToMib(uint64(to.Int(size.OsDiskSizeInMB))),
 		Cost:     uint64(cost),
 		VirtType: &vtype,
 		// tags are not currently supported by azure
 	}
+}
+
+func mbToMib(mb uint64) uint64 {
+	b := mb * 1000 * 1000
+	return uint64(float64(b) / 1024 / 1024)
 }
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
