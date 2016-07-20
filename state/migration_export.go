@@ -177,11 +177,11 @@ func (e *exporter) modelUsers() error {
 		var access string
 		switch {
 		case user.IsAdmin():
-			access = string(AdminAccess)
+			access = string(description.AdminAccess)
 		case user.IsReadWrite():
-			access = string(WriteAccess)
+			access = string(description.WriteAccess)
 		default:
-			access = string(ReadAccess)
+			access = string(description.ReadAccess)
 
 		}
 
@@ -192,7 +192,7 @@ func (e *exporter) modelUsers() error {
 			CreatedBy:      names.NewUserTag(user.CreatedBy()),
 			DateCreated:    user.DateCreated(),
 			LastConnection: lastConn,
-			Access:         access,
+			Access:         stringToAccess(access),
 		}
 		e.model.AddUser(arg)
 	}

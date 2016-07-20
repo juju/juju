@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -452,15 +453,15 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 
 // resolveStateAccess returns the state representation of the logical model
 // access type.
-func resolveStateAccess(access permission.ModelAccess) (state.Access, error) {
-	var fail state.Access
+func resolveStateAccess(access permission.ModelAccess) (description.Access, error) {
+	var fail description.Access
 	switch access {
 	case permission.ModelAdminAccess:
-		return state.AdminAccess, nil
+		return description.AdminAccess, nil
 	case permission.ModelReadAccess:
-		return state.ReadAccess, nil
+		return description.ReadAccess, nil
 	case permission.ModelWriteAccess:
-		return state.WriteAccess, nil
+		return description.WriteAccess, nil
 	}
 	logger.Errorf("invalid access permission: %+v", access)
 	return fail, errors.Errorf("invalid access permission")
@@ -510,6 +511,11 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		return errors.Annotate(err, "could not resolve model access")
 	}
 
+	// Default to read access if not otherwise specified.
+	if stateAccess == description.UndefinedAccess {
+		stateAccess = description.ReadAccess
+	}
+
 	switch action {
 	case params.GrantModelAccess:
 		_, err = st.AddModelUser(state.ModelUserSpec{User: targetUserTag, CreatedBy: apiUser, Access: stateAccess})
@@ -538,25 +544,25 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 
 	case params.RevokeModelAccess:
 		switch stateAccess {
-		case state.ReadAccess:
+		case description.ReadAccess:
 			// Revoking read access removes all access.
 			err := st.RemoveModelUser(targetUserTag)
 			return errors.Annotate(err, "could not revoke model access")
-		case state.WriteAccess:
+		case description.WriteAccess:
 			// Revoking write access sets read-only.
 			modelUser, err := st.ModelUser(targetUserTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			err = modelUser.SetAccess(state.ReadAccess)
+			err = modelUser.SetAccess(description.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
-		case state.AdminAccess:
+		case description.AdminAccess:
 			// Revoking admin access sets read-write.
 			modelUser, err := st.ModelUser(targetUserTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			err = modelUser.SetAccess(state.WriteAccess)
+			err = modelUser.SetAccess(description.WriteAccess)
 			return errors.Annotate(err, "could not set model access to read-write")
 
 		default:

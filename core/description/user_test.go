@@ -70,7 +70,7 @@ func (*UserSerializationSuite) TestParsingSerializedData(c *gc.C) {
 				DisplayName_: "A read only user",
 				CreatedBy_:   "admin@local",
 				DateCreated_: time.Date(2015, 10, 9, 12, 34, 56, 0, time.UTC),
-				Access_:      "read",
+				Access_:      ReadAccess,
 			},
 		},
 	}

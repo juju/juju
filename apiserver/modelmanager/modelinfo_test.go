@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -58,15 +59,15 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 		users: []*mockModelUser{{
 			userName: "admin",
-			access:   state.AdminAccess,
+			access:   description.AdminAccess,
 		}, {
 			userName:    "bob@local",
 			displayName: "Bob",
-			access:      state.ReadAccess,
+			access:      description.ReadAccess,
 		}, {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
-			access:      state.ReadAccess,
+			access:      description.ReadAccess,
 		}},
 	}
 	var err error
@@ -240,7 +241,7 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	}
 
 	for _, u := range st.controllerModel.users {
-		if user.Name() == u.UserName() && u.access == state.AdminAccess {
+		if user.Name() == u.UserName() && u.access == description.AdminAccess {
 			nextErr := st.NextErr()
 			if user.Name() != "admin" {
 				panic(user.Name())
@@ -402,25 +403,25 @@ type mockModelUser struct {
 	userName       string
 	displayName    string
 	lastConnection time.Time
-	access         state.Access
+	access         description.Access
 }
 
 func (u *mockModelUser) IsAdmin() bool {
 	u.MethodCall(u, "IsAdmin")
 	u.PopNoErr()
-	return u.access == state.AdminAccess
+	return u.access == description.AdminAccess
 }
 
 func (u *mockModelUser) IsReadOnly() bool {
 	u.MethodCall(u, "IsReadOnly")
 	u.PopNoErr()
-	return u.access == state.ReadAccess
+	return u.access == description.ReadAccess
 }
 
 func (u *mockModelUser) IsReadWrite() bool {
 	u.MethodCall(u, "IsReadWrite")
 	u.PopNoErr()
-	return u.access == state.WriteAccess
+	return u.access == description.WriteAccess
 }
 
 func (u *mockModelUser) DisplayName() string {
