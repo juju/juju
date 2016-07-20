@@ -77,18 +77,14 @@ func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
 	s.assertConfigInvalid(c, testing.Attrs{"subscription-id": ""}, `"subscription-id" config not specified`)
 }
 
-func (s *configSuite) TestValidateStorageAccountCantChange(c *gc.C) {
-	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account": "abc"})
+func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Standard_LRS"})
 	_, err := s.provider.Validate(cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfgNew := makeTestModelConfig(c) // no storage-account attribute
+	cfgNew := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Premium_LRS"})
 	_, err = s.provider.Validate(cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot remove immutable "storage-account" config`)
-
-	cfgNew = makeTestModelConfig(c, testing.Attrs{"storage-account": "def"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account" config \(abc -> def\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account-type" config \(Standard_LRS -> Premium_LRS\)`)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {

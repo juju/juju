@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -50,11 +51,7 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	attrs = append([]testing.Attrs{{
-		"storage-account":     fakeStorageAccount,
-		"storage-account-key": fakeStorageAccountKey,
-	}}, attrs...)
-	cfg := makeTestModelConfig(c, attrs...)
+	cfg := makeTestModelConfig(c)
 	volumeSource, err := s.provider.VolumeSource(cfg, storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,6 +61,32 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 	err = azure.ForceVolumeSourceTokenRefresh(volumeSource)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource
+}
+
+func (s *storageSuite) accountsSender() *azuretesting.MockSender {
+	envTags := map[string]*string{
+		"juju-model-uuid": to.StringPtr(testing.ModelTag.Id()),
+	}
+	accounts := []armstorage.Account{{
+		Name: to.StringPtr(fakeStorageAccount),
+		Type: to.StringPtr("Standard_LRS"),
+		Tags: &envTags,
+		Properties: &armstorage.AccountProperties{
+			PrimaryEndpoints: &armstorage.Endpoints{
+				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
+			},
+		},
+	}}
+	accountsSender := azuretesting.NewSenderWithValue(armstorage.AccountListResult{Value: &accounts})
+	accountsSender.PathPattern = ".*/storageAccounts"
+	return accountsSender
+}
+
+func (s *storageSuite) accountKeysSender() *azuretesting.MockSender {
+	keys := armstorage.AccountKeys{Key1: to.StringPtr(fakeStorageAccountKey), Key2: to.StringPtr("key2")}
+	keysSender := azuretesting.NewSenderWithValue(&keys)
+	keysSender.PathPattern = ".*/storageAccounts/.*/listKeys"
+	return keysSender
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -170,6 +193,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		nicsSender,
 		virtualMachinesSender,
+		s.accountsSender(),
 		updateVirtualMachine0Sender,
 		updateVirtualMachine1Sender,
 	}
@@ -185,11 +209,12 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 4)
+	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
 	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-1
+	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests[4].Method, gc.Equals, "PUT") // update machine-1
 
 	machine0DataDisks := []compute.DataDisk{{
 		Lun:        to.IntPtr(0),
@@ -213,7 +238,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		CreateOption: compute.Empty,
 	}}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[2], &virtualMachines[0])
+	assertRequestBody(c, s.requests[3], &virtualMachines[0])
 
 	machine1DataDisks = append(machine1DataDisks, compute.DataDisk{
 		Lun:        to.IntPtr(1),
@@ -226,7 +251,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
 	})
-	assertRequestBody(c, s.requests[3], &virtualMachines[1])
+	assertRequestBody(c, s.requests[4], &virtualMachines[1])
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
@@ -254,6 +279,10 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	}
 
 	volumeSource := s.volumeSource(c)
+	s.sender = azuretesting.Senders{
+		s.accountsSender(),
+		s.accountKeysSender(),
+	}
 	volumeIds, err := volumeSource.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
@@ -267,6 +296,11 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 
 func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	volumeSource := s.volumeSource(c)
+	s.sender = azuretesting.Senders{
+		s.accountsSender(),
+		s.accountKeysSender(),
+	}
+
 	s.storageClient.SetErrors(errors.New("no client for you"))
 	_, err := volumeSource.ListVolumes()
 	c.Assert(err, gc.ErrorMatches, "listing volumes: getting storage client: no client for you")
@@ -297,6 +331,10 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	}
 
 	volumeSource := s.volumeSource(c)
+	s.sender = azuretesting.Senders{
+		s.accountsSender(),
+		s.accountKeysSender(),
+	}
 	results, err := volumeSource.DescribeVolumes([]string{"volume-0", "volume-1", "volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
@@ -329,6 +367,10 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volumeSource := s.volumeSource(c)
+	s.sender = azuretesting.Senders{
+		s.accountsSender(),
+		s.accountKeysSender(),
+	}
 	results, err := volumeSource.DestroyVolumes([]string{"volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
@@ -425,6 +467,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		nicsSender,
 		virtualMachinesSender,
+		s.accountsSender(),
 		updateVirtualMachine0Sender,
 	}
 
@@ -439,10 +482,11 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 4)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
 	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
 
 	machine0DataDisks := []compute.DataDisk{{
 		Lun:  to.IntPtr(0),
@@ -464,7 +508,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		CreateOption: compute.Attach,
 	}}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[2], &virtualMachines[0])
+	assertRequestBody(c, s.requests[3], &virtualMachines[0])
 }
 
 func (s *storageSuite) TestDetachVolumes(c *gc.C) {
@@ -548,6 +592,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		nicsSender,
 		virtualMachinesSender,
+		s.accountsSender(),
 		updateVirtualMachine0Sender,
 	}
 
@@ -561,15 +606,16 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	c.Check(results[3], gc.ErrorMatches, "instance machine-42 not found")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 4)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
 	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
 
 	machine0DataDisks = []compute.DataDisk{
 		machine0DataDisks[0],
 		machine0DataDisks[2],
 	}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[2], &virtualMachines[0])
+	assertRequestBody(c, s.requests[3], &virtualMachines[0])
 }
