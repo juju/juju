@@ -32,13 +32,15 @@ func (f *fakeDumpClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpClient) DumpModel(model names.ModelTag) ([]byte, error) {
+func (f *fakeDumpClient) DumpModel(model names.ModelTag) (map[string]interface{}, error) {
 	f.MethodCall(f, "DumpModel", model)
 	err := f.NextErr()
 	if err != nil {
 		return nil, err
 	}
-	return []byte("dump model result"), nil
+	return map[string]interface{}{
+		"model-uuid": "fake uuid",
+	}, nil
 }
 
 func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
@@ -66,5 +68,5 @@ func (s *DumpCommandSuite) TestDump(c *gc.C) {
 	})
 
 	out := testing.Stdout(ctx)
-	c.Assert(out, gc.Equals, "dump model result\n")
+	c.Assert(out, gc.Equals, "model-uuid: fake uuid\n")
 }

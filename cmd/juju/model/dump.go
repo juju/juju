@@ -4,13 +4,12 @@
 package model
 
 import (
-	"fmt"
 	"strings"
-
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,6 +22,7 @@ func NewDumpCommand() cmd.Command {
 
 type dumpCommand struct {
 	modelcmd.ModelCommandBase
+	out cmd.Output
 	api DumpModelAPI
 }
 
@@ -35,7 +35,8 @@ Examples:
     juju dump-model
     juju dump-model -m mymodel
 
-See also: models
+See also:
+    models
 `
 
 // Info implements Command.
@@ -47,14 +48,23 @@ func (c *dumpCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements Command.
+func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+	})
+}
+
 // Init implements Command.
 func (c *dumpCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
+// DumpModelAPI specifies the used function calls of the ModelManager.
 type DumpModelAPI interface {
 	Close() error
-	DumpModel(names.ModelTag) ([]byte, error)
+	DumpModel(names.ModelTag) (map[string]interface{}, error)
 }
 
 func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
@@ -68,6 +78,7 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 	return modelmanager.NewClient(root), nil
 }
 
+// Run implements Command.
 func (c *dumpCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
@@ -90,6 +101,5 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx.GetStdout(), "%s\n", results)
-	return nil
+	return c.out.Write(ctx, results)
 }

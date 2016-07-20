@@ -75,6 +75,18 @@ type StringResults struct {
 	Results []StringResult `json:"results"`
 }
 
+// MapResult holds a generic map or an error.
+type MapResult struct {
+	Result map[string]interface{} `json:"result"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// MapResults holds the bulk operation result of an API call
+// that returns a map or an error.
+type MapResults struct {
+	Results []MapResult `json:"results"`
+}
+
 // ModelResult holds the result of an API call returning a name and UUID
 // for a model.
 type ModelResult struct {

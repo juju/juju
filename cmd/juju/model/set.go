@@ -36,9 +36,10 @@ Examples:
     juju set-model-config logging-config='<root>=WARNING;unit=INFO'
     juju set-model-config -m mymodel api-port=17071 default-series=xenial
 
-See also: models
-          get-model-config
-          unset-model-config
+See also:
+    models
+    get-model-config
+    unset-model-config
 `
 
 func (c *setCommand) Info() *cmd.Info {

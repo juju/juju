@@ -99,15 +99,21 @@ type dumpModelSuite struct {
 var _ = gc.Suite(&dumpModelSuite{})
 
 func (s *dumpModelSuite) TestDumpModel(c *gc.C) {
-	results := params.BytesResult{[]byte("serialized model info")}
+	expected := map[string]interface{}{
+		"model-uuid": "some-uuid",
+		"other-key":  "special",
+	}
+	results := params.MapResults{Results: []params.MapResult{{
+		Result: expected,
+	}}}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {
 			c.Check(objType, gc.Equals, "ModelManager")
-			c.Check(request, gc.Equals, "DumpModel")
-			in, ok := args.(params.Entity)
+			c.Check(request, gc.Equals, "DumpModels")
+			in, ok := args.(params.Entities)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(in.Tag, gc.Equals, testing.ModelTag.String())
-			res, ok := result.(*params.BytesResult)
+			c.Assert(in, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
+			res, ok := result.(*params.MapResults)
 			c.Assert(ok, jc.IsTrue)
 			*res = results
 			return nil
@@ -115,5 +121,22 @@ func (s *dumpModelSuite) TestDumpModel(c *gc.C) {
 	client := modelmanager.NewClient(apiCaller)
 	out, err := client.DumpModel(testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, results.Result)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *dumpModelSuite) TestDumpModelError(c *gc.C) {
+	results := params.MapResults{Results: []params.MapResult{{
+		Error: &params.Error{Message: "fake error"},
+	}}}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			res, ok := result.(*params.MapResults)
+			c.Assert(ok, jc.IsTrue)
+			*res = results
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModel(testing.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "fake error")
+	c.Assert(out, gc.IsNil)
 }

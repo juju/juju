@@ -14,8 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -38,7 +40,7 @@ func init() {
 // ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
-	DumpModel(args params.Entity) (params.BytesResult, error)
+	DumpModels(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModel() error
 }
@@ -259,39 +261,75 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	return mm.getModelInfo(model.ModelTag())
 }
 
-// DumpModel will export the model into the database agnostic YAML
-// representation. This serialized YAML is returned as a single string over
-// the API. The user needs to either be a controller admin, or have admin
-// privileges on the model itself.
-func (mm *ModelManagerAPI) DumpModel(args params.Entity) (params.BytesResult, error) {
-	var empty params.BytesResult
+func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	st, err := mm.state.ForModel(modelTag)
-	if err != nil {
-		return empty, errors.Trace(err)
+	st := mm.state
+	if st.ModelTag() != modelTag {
+		st, err = mm.state.ForModel(modelTag)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Trace(common.ErrBadId)
+			}
+			return nil, errors.Trace(err)
+		}
+		defer st.Close()
 	}
 
 	// Check model permissions if the user isn't a controller admin.
 	if !mm.isAdmin {
 		user, err := st.ModelUser(mm.apiUser)
 		if err != nil {
-			return empty, errors.Trace(err)
+			if errors.IsNotFound(err) {
+				return nil, errors.Trace(common.ErrPerm)
+			}
+			// Something weird went on.
+			return nil, errors.Trace(err)
 		}
 		if !user.IsAdmin() {
-			return empty, errors.Trace(common.ErrPerm)
+			return nil, errors.Trace(common.ErrPerm)
 		}
 	}
 
 	bytes, err := migration.ExportModel(st)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+	// Now read it back into a map.
+	var asMap map[string]interface{}
+	err = yaml.Unmarshal(bytes, &asMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// In order to serialize the map through JSON, we need to make sure
+	// that all the embedded maps are map[string]interface{}, not
+	// map[interface{}]interface{} which is what YAML gives by default.
+	out, err := utils.ConformYAML(asMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.(map[string]interface{}), nil
+}
 
-	return params.BytesResult{bytes}, nil
+// DumpModels will export the models into the database agnostic
+// representation. The user needs to either be a controller admin, or have
+// admin privileges on the model itself.
+func (mm *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
+	results := params.MapResults{
+		Results: make([]params.MapResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		dumped, err := mm.dumpModel(entity)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = dumped
+	}
+	return results
 }
 
 // ListModels returns the models that the specified user

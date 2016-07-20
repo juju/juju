@@ -106,13 +106,24 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 }
 
 // DumpModel returns the serialized database agnostic model representation.
-func (c *Client) DumpModel(model names.ModelTag) ([]byte, error) {
-	var results params.BytesResult
-	err := c.facade.FacadeCall("DumpModel", params.Entity{model.String()}, &results)
+func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error) {
+	var results params.MapResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: model.String()}},
+	}
+
+	err := c.facade.FacadeCall("DumpModels", entities, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return results.Result, nil
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
 }
 
 // DestroyModel puts the model into a "dying" state,
