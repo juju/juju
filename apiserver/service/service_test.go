@@ -6,6 +6,7 @@ package service_test
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"sync"
 
 	"github.com/juju/errors"
@@ -459,6 +460,9 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 }
 
 func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1596960: Skipping this on windows for now")
+	}
 	var putBarrier sync.WaitGroup
 	var blobs blobs
 	s.PatchValue(service.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
