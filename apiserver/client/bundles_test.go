@@ -101,29 +101,37 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django"},
+		Args:   []interface{}{"django", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
 		Args: []interface{}{
-			"$addCharm-0", "django",
-			map[string]interface{}{"debug": true}, "",
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
 			map[string]string{"tmpfs": "tmpfs,1G"},
 			map[string]string{},
+			map[string]int{},
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42"},
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty"},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
 		Args: []interface{}{
-			"$addCharm-2", "haproxy",
-			map[string]interface{}{}, "",
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
 			map[string]string{},
 			map[string]string{},
+			map[string]int{},
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -156,11 +164,13 @@ func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C)
 				Method: "deploy",
 				Args: []interface{}{
 					"$addCharm-0",
+					"",
 					"django",
 					map[string]interface{}{},
 					"",
 					map[string]string{},
 					map[string]string{"url": "public"},
+					map[string]int{},
 				},
 				Requires: []string{"addCharm-0"},
 			})
