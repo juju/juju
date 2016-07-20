@@ -85,12 +85,17 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	if len(args.Users) == 0 {
 		return result, nil
 	}
-	if !api.isAdmin {
-		return result, common.ErrPerm
-	}
 
 	// Create the results list to populate.
 	result.Results = make([]params.AddUserResult, len(args.Users))
+
+	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
+	if !api.isAdmin {
+		for i, _ := range result.Results {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return result, nil
+	}
 
 	for i, arg := range args.Users {
 		var user *state.User
@@ -152,10 +157,6 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 		return deletions, errors.Trace(err)
 	}
 
-	// Make sure we have admin.
-	if !api.isAdmin {
-		return deletions, common.ErrPerm
-	}
 	// Get a handle on the controller model.
 	controllerModel, err := api.state.ControllerModel()
 	if err != nil {
@@ -164,6 +165,15 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 
 	// Create the results list to populate.
 	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
+
+	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
+	if !api.isAdmin {
+		for i, _ := range deletions.Results {
+			deletions.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return deletions, nil
+	}
+
 	// Remove the entities.
 	for i, e := range entities.Entities {
 		user, err := names.ParseUserTag(e.Tag)
@@ -228,12 +238,17 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	if !api.isAdmin {
-		return result, common.ErrPerm
-	}
 
 	// Create the results list to populate.
 	result.Results = make([]params.ErrorResult, len(args.Entities))
+
+	if !api.isAdmin {
+		for i, _ := range result.Results {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return result, nil
+	}
+
 	for i, arg := range args.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
