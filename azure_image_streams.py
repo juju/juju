@@ -1,6 +1,6 @@
 import logging
 
-# Tested on Azure 2.0 API
+# Tested on Azure 2.0 rc5 API
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.compute import (
     ComputeManagementClient,
