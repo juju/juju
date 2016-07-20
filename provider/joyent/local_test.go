@@ -262,8 +262,11 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances(inst0.Id(), inst1.Id())
-		c.Assert(err, jc.ErrorIsNil)
+		// StopInstances deletes machines in parallel but the Joyent
+		// API test double isn't goroutine-safe so stop them one at a
+		// time. See https://pad.lv/1604514
+		c.Check(env.StopInstances(inst0.Id()), jc.ErrorIsNil)
+		c.Check(env.StopInstances(inst1.Id()), jc.ErrorIsNil)
 	}()
 
 	for i, test := range instanceGathering {
