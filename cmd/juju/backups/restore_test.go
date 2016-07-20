@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"io"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -260,9 +261,10 @@ func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		boostrapped = true
+		sort.Sort(args.Cloud.AuthTypes)
 		c.Assert(args.Cloud, jc.DeepEquals, cloud.Cloud{
 			Type:      "lxd",
-			AuthTypes: []cloud.AuthType{"empty", "certificate"},
+			AuthTypes: []cloud.AuthType{"certificate", "empty"},
 			Regions:   []cloud.Region{{Name: "localhost"}},
 		})
 		return nil

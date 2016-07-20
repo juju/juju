@@ -24,6 +24,13 @@ import (
 // AuthType is the type of authentication used by the cloud.
 type AuthType string
 
+// AuthTypes is defined to allow sorting AuthType slices.
+type AuthTypes []AuthType
+
+func (a AuthTypes) Len() int           { return len(a) }
+func (a AuthTypes) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AuthTypes) Less(i, j int) bool { return a[i] < a[j] }
+
 const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"
@@ -55,7 +62,7 @@ type Cloud struct {
 	Type string
 
 	// AuthTypes are the authentication modes supported by the cloud.
-	AuthTypes []AuthType
+	AuthTypes AuthTypes
 
 	// Endpoint is the default endpoint for the cloud regions, may be
 	// overridden by a region.

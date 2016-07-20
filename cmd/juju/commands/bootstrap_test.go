@@ -976,7 +976,7 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 		"many-credentials-no-auth-types",
 		"--credential", "one",
 	)
-	c.Assert(bootstrap.args.Cloud.AuthTypes, jc.SameContents, []cloud.AuthType{"one", "two"})
+	c.Assert(bootstrap.args.Cloud.AuthTypes, jc.SameContents, cloud.AuthTypes{"one", "two"})
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
