@@ -23,6 +23,11 @@ from simplestreams.json2streams import (
 from simplestreams import util
 
 
+AWS = 'aws'
+AZURE = 'azure'
+ALL = 'all'
+
+
 class WindowsFriendlyNamer(JujuFileNamer):
 
     @classmethod
@@ -43,9 +48,10 @@ def get_parameters(argv=None):
 
         The credentials.yaml in JUJU_DATA is used to look up credentials.
         """))
+    parser.add_argument('cloud',
+                        help='The cloud to generate streams for.',
+                        choices={ALL, AWS, AZURE})
     parser.add_argument('streams', help='The directory to write streams to.')
-    parser.add_argument('--azure', help='Generate Azure streams also.',
-                        action='store_true')
     args = parser.parse_args(argv)
     try:
         juju_data = os.environ['JUJU_DATA']
@@ -54,7 +60,9 @@ def get_parameters(argv=None):
               ' credentials.yaml.', file=sys.stderr)
         sys.exit(1)
     creds_filename = os.path.join(juju_data, 'credentials.yaml')
-    return args.streams, creds_filename, args.azure
+    azure = args.cloud in {AZURE, ALL}
+    aws = args.cloud in {AWS, ALL}
+    return args.streams, creds_filename, aws, azure
 
 
 def make_aws_credentials(creds):
@@ -241,11 +249,13 @@ def make_aws_items(all_credentials, now):
 
 
 def main():
-    streams, creds_filename, azure = get_parameters()
+    streams, creds_filename, aws, azure = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
     now = datetime.utcnow()
-    items = make_aws_items(all_credentials, now)
+    items = []
+    if aws:
+        items.extend(make_aws_items(all_credentials, now))
     if azure:
         # Avoid breakage for aws streams if azure libs not installed.
         from azure_image_streams import make_azure_items

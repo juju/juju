@@ -238,23 +238,36 @@ class TestGetParameters(TestCase):
 
     def test_happy_path(self):
         with patch.dict(os.environ, {'JUJU_DATA': 'foo'}):
-            streams, creds_filename, azure = get_parameters(['bar'])
+            streams, creds_filename, aws, azure = get_parameters(['all',
+                                                                  'bar'])
         self.assertEqual(creds_filename, 'foo/credentials.yaml')
         self.assertEqual(streams, 'bar')
-        self.assertFalse(azure)
+        self.assertTrue(aws)
+        self.assertTrue(azure)
 
     def test_azure(self):
         with patch.dict(os.environ, {'JUJU_DATA': 'foo'}):
-            streams, creds_filename, azure = get_parameters(['bar', '--azure'])
+            streams, creds_filename, aws, azure = get_parameters(['azure',
+                                                                  'bar'])
         self.assertEqual(creds_filename, 'foo/credentials.yaml')
         self.assertEqual(streams, 'bar')
+        self.assertFalse(aws)
         self.assertTrue(azure)
+
+    def test_aws(self):
+        with patch.dict(os.environ, {'JUJU_DATA': 'foo'}):
+            streams, creds_filename, aws, azure = get_parameters(['aws',
+                                                                  'bar'])
+        self.assertEqual(creds_filename, 'foo/credentials.yaml')
+        self.assertEqual(streams, 'bar')
+        self.assertTrue(aws)
+        self.assertFalse(azure)
 
     def test_no_juju_data(self):
         stderr = StringIO()
         with self.assertRaises(SystemExit):
             with patch('sys.stderr', stderr):
-                get_parameters(['bar'])
+                get_parameters(['all', 'bar'])
         self.assertEqual(
             stderr.getvalue(),
             'JUJU_DATA must be set to a directory containing'
