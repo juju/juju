@@ -34,42 +34,96 @@
       <div class="page-header">
         <h2>Timings</h2>
       </div>
+
+      <blockquote>
+        <p>
+          Breakdown of start and end times of an action (i.e. either
+          bootstrapping or deploying a charm).
+        </p>
+      </blockquote>
+
       <table class="table">
         <tr>
           <th>Action</th>
-          <th>Time</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Duration</th>
         </tr>
         <tr>
           <td>Bootstrap</td>
-          <td>{{timings.bootstrap}} Seconds</td>
+          <td>{{deployments.bootstrap.start}}</td>
+          <td>{{deployments.bootstrap.end}}</td>
+          <td>{{deployments.bootstrap.seconds}} Seconds</td>
         </tr>
-        {% for deploy in timings.deploys %}
+        {% for deploy in deployments.deploys %}
         <tr>
-          <td>Deploy 1</td>
-          <td>{{deploy}} Seconds</td>
+          <td>Deploy {{deploy.name}}</td>
+          <td>{{deploy.timings.start}}</td>
+          <td>{{deploy.timings.end}}</td>
+          <td>{{deploy.timings.seconds}} Seconds</td>
+        </tr>
+        <tr>
+          <td colspan=4>
+            Units
+            <ul>
+              {% for name in deploy.applications.keys() %}
+              <li><b>{{name}}:</b> {{deploy.applications[name]}}</li>
+              {% endfor %}
+            </ul>
+          </td>
         </tr>
         {% endfor %}
       </table>
 
       <div class="page-header">
-        <h2>CPU Usage</h2>
+        <h1>Controller system metrics</h1>
       </div>
+
+      <blockquote>
+        <p>
+          System metrics are collected on the api-server(s) during the deployment
+          of charms. No metrics are collected during the bootstrap process.
+        </p>
+      </blockquote>
+
+      <h2>CPU Usage</h2>
       <img src="file://{{cpu_graph}}" alt="CPU Usage Graph" />
 
-      <div class="page-header">
-        <h2>Memory Usage</h2>
-      </div>
+      <h2>Memory Usage</h2>
       <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
 
-      <div class="page-header">
-        <h2>Swap Usage</h2>
-      </div>
+      <h2>Swap Usage</h2>
       <img src="file://{{swap_graph}}" alt="Swap Usage Graph" />
 
-      <div class="page-header">
-        <h2>Network Usage</h2>
-      </div>
+      <h2>Network Usage</h2>
       <img src="file://{{network_graph}}" alt="Network Usage Graph" />
+
+      <h2>MongoDB Statistics</h2>
+      <img src="file://{{mongo_graph}}" alt="MongoDB Details Graph" />
+
+      <div class="page-header">
+        <h1>Log Breakdown</h1>
+      </div>
+      <blockquote>
+        <p>
+          Table of the relevent log broken down into 20 sec blocks (to match up
+          with the graph granularity).
+        </p>
+      </blockquote>
+
+      <table class="table">
+        <tr>
+          <th>Timerange</th>
+          <th>Log message</th>
+        </tr>
+        {% for chunk in log_message_chunks %}
+        <tr>
+          <td>{{chunk.timeframe}}</td>
+          <td>{{chunk.message}}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
     </div>
   </body>
 </html>
