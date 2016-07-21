@@ -5,7 +5,6 @@ package juju
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,8 +31,6 @@ type apiStateCachedInfo struct {
 	// newly retrieved, and should be cached in the config store.
 	cachedInfo *api.Info
 }
-
-var errAborted = fmt.Errorf("aborted")
 
 // NewAPIConnectionParams contains the parameters for creating a new Juju API
 // connection.

@@ -126,9 +126,9 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	_, err := api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "bad-tag"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
 
 	// Now set it to the right tag, and we should succeed.
 	info.ModelTag = s.State.ModelTag()
