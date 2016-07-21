@@ -4,6 +4,10 @@ from unittest import TestCase
 from mock import patch
 
 
+def autopatch(target, **kwargs):
+    return patch(target, autospec=True, **kwargs)
+
+
 class QuietTestCase(TestCase):
 
     def setUp(self):
