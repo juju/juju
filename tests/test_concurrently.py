@@ -49,7 +49,7 @@ class ConcurrentlyTest(TestCase):
             with parse_error(self) as err_stream:
                 concurrently.main(['-v', 'wrong="command'])
             self.assertIn(
-                "invalid task_definition value: 'wrong=\"command'",
+                """invalid task_definition value: 'wrong="command'""",
                 err_stream.getvalue())
         self.assertEqual('', self.log_stream.getvalue())
 
