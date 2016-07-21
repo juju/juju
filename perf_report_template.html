@@ -73,6 +73,12 @@
           </td>
         </tr>
         {% endfor %}
+        <tr>
+          <td>Cleanup/Delete</td>
+          <td>{{deployments.cleanup.start}}</td>
+          <td>{{deployments.cleanup.end}}</td>
+          <td>{{deployments.cleanup.seconds}} Seconds</td>
+        </tr>
       </table>
 
       <div class="page-header">
@@ -111,18 +117,30 @@
         </p>
       </blockquote>
 
-      <table class="table">
-        <tr>
-          <th>Timerange</th>
-          <th>Log message</th>
+      {% for date_stamp, values in log_message_chunks|dictsort %}
+      <table class="table table-condensed">
+        <tr class="success">
+          <th>This will be named (Bootstrap/Deploy/Delete etc.)</th>
+          <th>{{date_stamp}}</th>
         </tr>
-        {% for chunk in log_message_chunks %}
+        {% for log_detail in values|sort(attribute='timeframe') %}
+        <tr class="active">
+          <td colspan=2>
+            <small>
+              {{log_detail.timeframe}}
+            </small>
+          </td>
+        </tr>
         <tr>
-          <td>{{chunk.timeframe}}</td>
-          <td>{{chunk.message}}</td>
+          <td colspan=2>
+            <small>
+            {{log_detail.message}}
+            </small>
+          </td>
         </tr>
         {% endfor %}
       </table>
+      {% endfor %}
 
     </div>
   </body>

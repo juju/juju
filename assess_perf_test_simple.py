@@ -18,6 +18,7 @@ from textwrap import dedent
 from deploy_stack import (
     BootstrapManager,
 )
+from logbreakdown import breakdown_log_by_timeframes
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -175,14 +176,22 @@ log = logging.getLogger("assess_perf_test_simple")
 
 
 def assess_perf_test_simple(bs_manager, upload_tools):
-    bs_start = datetime.now()
+    # XXX
+    # Find the actual cause for this!! (Something to do with the template and
+    # the logs.)
+    import sys
+    reload(sys)  # NOQA
+    sys.setdefaultencoding('utf-8')
+    # XXX
+
+    bs_start = datetime.utcnow()
     # Make sure you check the responsiveness of 'juju status'
     with bs_manager.booted_context(upload_tools):
         try:
             client = bs_manager.client
             admin_client = client.get_admin_client()
             admin_client.wait_for_started()
-            bs_end = datetime.now()
+            bs_end = datetime.utcnow()
             bootstrap_timing = TimingData(bs_start, bs_end)
 
             setup_system_monitoring(admin_client)
@@ -201,19 +210,36 @@ def assess_perf_test_simple(bs_manager, upload_tools):
             admin_client.juju(
                 'scp', ('0:/tmp/mongodb-stats.log', results_dir)
             )
+            cleanup_start = datetime.utcnow()
+    # Cleanup happens when we move out of context
+    cleanup_end = datetime.utcnow()
+    cleanup_timing = TimingData(cleanup_start, cleanup_end)
+    deployments = dict(
+        bootstrap=bootstrap_timing,
+        deploys=[deploy_details],
+        cleanup=cleanup_timing,
+    )
 
-            deployments = dict(
-                bootstrap=bootstrap_timing, deploys=[deploy_details])
-            generate_reports(results_dir, deployments)
+    # Could be smarter about this.
+    controller_log_file = os.path.join(
+        bs_manager.log_dir,
+        'controller',
+        'machine-0',
+        'machine-0.log.gz')
+
+    generate_reports(controller_log_file, results_dir, deployments)
 
 
-def generate_reports(results_dir, deployments):
+def generate_reports(controller_log, results_dir, deployments):
     """Generate reports and graphs from run results."""
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
     swap_image = generate_swap_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
     mongo_image = generate_mongo_graph_image(results_dir)
+
+    log_message_chunks = get_log_message_in_timed_chunks(
+        controller_log, deployments)
 
     details = dict(
         cpu_graph=cpu_image,
@@ -222,27 +248,41 @@ def generate_reports(results_dir, deployments):
         network_graph=network_image,
         mongo_graph=mongo_image,
         deployments=deployments,
-        log_message_chunks=[
-            dict(
-                timeframe='02:40:27 - 2:40:47',
-                message="<br/>".join([
-                    "2016-07-19 02:40:27 INFO juju.apiserver request_notifier.go:78 [16] user-admin@local API connection terminated after 244.262266ms",
-                    "2016-07-19 02:40:27 INFO juju.apiserver request_notifier.go:68 [18] API connection from 10.194.140.1:52650",
-                    ". . .",
-                    "2016-07-19 02:40:41 INFO juju.apiserver request_notifier.go:68 [20] API connection from 10.194.140.1:52692",
-                    "2016-07-19 02:40:41 INFO juju.apiserver request_notifier.go:78 [20] user-admin@local API connection terminated after 37.649557ms"])),
-            dict(
-                timeframe='02:40:47 - 2:41:07',
-                message="<br/>".join([
-                    "2016-47-19 02:40:48 INFO juju.apiserver request_notifier.go:78 [1486] user-admin@local API connection terminated after 37.836893ms",
-                    "2016-07-19 02:40:49 INFO juju.apiserver request_notifier.go:68 [1487] API connection from 10.194.140.1:35212",
-                    ". . . ",
-                    "2016-07-19 02:41:05 INFO juju.apiserver.metricsender metricsender.go:74 nothing to send",
-                    "2016-07-19 02:41:05 INFO juju.apiserver.metricsender metricsender.go:114 metrics collection summary: sent:0 unsent:0 (0 sent metrics stored)"]))
-        ]
+        log_message_chunks=log_message_chunks
     )
 
     create_html_report(results_dir, details)
+
+
+def get_log_message_in_timed_chunks(log_file, deployments):
+    # get timeframesfor the different actions.
+    # Hmm, these are actually stored as datetime objects, no need for the
+    # string conversions etc.
+    bootstrap_timings = (
+        deployments['bootstrap'].start, deployments['bootstrap'].end)
+
+    deploy_timings = [
+        (d.timings.start, d.timings.end)
+        for d in deployments['deploys']]
+
+    all_timings = [bootstrap_timings] + deploy_timings
+
+    raw_details = breakdown_log_by_timeframes(log_file, all_timings)
+
+    event_details = dict()
+    # Outer-layer (i.e. event)
+    for event_range in raw_details.keys():
+        event_details[event_range] = []
+
+        for log_range in raw_details[event_range].keys():
+            timeframe = log_range
+            message = '<br/>'.join(raw_details[event_range][log_range])
+            event_details[event_range].append(
+                dict(
+                    timeframe=timeframe,
+                    message=message))
+
+    return event_details
 
 
 def create_html_report(results_dir, details):
@@ -561,12 +601,14 @@ def get_duration_points(rrd_file):
 def assess_deployment_perf(client):
     # This is where multiple services are started either at the same time
     # or one after the other etc.
-    deploy_start = datetime.now()
+    deploy_start = datetime.utcnow()
 
-    client.deploy('cs:bundle/wiki-simple-0')
+    # bundle_name = 'cs:bundle/wiki-simple-0'
+    bundle_name = 'cs:ubuntu'
+    client.deploy(bundle_name)
     client.wait_for_started()
 
-    deploy_end = datetime.now()
+    deploy_end = datetime.utcnow()
     deploy_timing = TimingData(deploy_start, deploy_end)
 
     # get details like unit count etc.
@@ -574,8 +616,7 @@ def assess_deployment_perf(client):
 
     # ensure the service is responding.
     # Collect data results.
-    return DeployDetails(
-        'cs:bundle/wiki-simple-0', client_details, deploy_timing)
+    return DeployDetails(bundle_name, client_details, deploy_timing)
 
 
 def get_client_details(client):
@@ -627,7 +668,6 @@ def setup_system_monitoring(admin_client):
     # netin/netout)
     # for line in stat_json:
     #     convert line to epoch seconds
-
 
 
 def parse_args(argv):
