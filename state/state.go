@@ -147,7 +147,7 @@ func (st *State) ControllerUUID() string {
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")
 	}
 	return errors.Trace(err)
@@ -158,7 +158,7 @@ func (st *State) RemoveAllModelDocs() error {
 // is "importing".
 func (st *State) RemoveImportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being imported for migration")
 	}
 	return errors.Trace(err)
@@ -169,7 +169,7 @@ func (st *State) RemoveImportingModelDocs() error {
 // is "exporting".
 func (st *State) RemoveExportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being exported for migration")
 	}
 	return errors.Trace(err)
@@ -200,15 +200,14 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		ops = append(ops, decHostedModelCountOp())
 	}
 
+	var rawCollections []string
 	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global {
 			continue
 		}
 		if info.rawAccess {
-			if err := st.removeAllInCollectionRaw(name); err != nil {
-				return errors.Trace(err)
-			}
+			rawCollections = append(rawCollections, name)
 			continue
 		}
 
@@ -216,8 +215,20 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		// Make sure we gate everything on the model assertion.
+		ops = append([]txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: modelAssertion,
+		}}, ops...)
 		err = st.runTransaction(ops)
 		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// Now remove raw collections
+	for _, name := range rawCollections {
+		if err := st.removeAllInCollectionRaw(name); err != nil {
 			return errors.Trace(err)
 		}
 	}
