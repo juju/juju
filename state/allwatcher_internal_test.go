@@ -939,71 +939,82 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+	// The return values for the setup and trigger functions are the
+	// number of changes to expect.
 	for i, test := range []struct {
 		about        string
-		setUpState   func(*State)
-		triggerEvent func(*State)
+		setUpState   func(*State) int
+		triggerEvent func(*State) int
 	}{
 		{
 			about: "machines",
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				m0, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m0.Id(), gc.Equals, "0")
+				return 1
 			},
 		}, {
 			about: "applications",
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				return 1
 			},
 		}, {
 			about: "units",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				return 1
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				svc, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
 				_, err = svc.AddUnit()
 				c.Assert(err, jc.ErrorIsNil)
+				return 3
 			},
 		}, {
 			about: "relations",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+				return 2
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				eps, err := st.InferEndpoints("mysql", "wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddRelation(eps...)
 				c.Assert(err, jc.ErrorIsNil)
+				return 3
 			},
 		}, {
 			about: "annotations",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				m, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
+				return 1
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
 				err = st.SetAnnotations(m, map[string]string{"foo": "bar"})
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
 		}, {
 			about: "statuses",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				m, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				err = m.SetProvisioned("inst-id", "fake_nonce", nil)
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
@@ -1015,35 +1026,40 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				}
 				err = m.SetStatus(sInfo)
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
 		}, {
 			about: "constraints",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				return 1
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				svc, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
 				cpuCores := uint64(99)
 				err = svc.SetConstraints(constraints.Value{CpuCores: &cpuCores})
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
 		}, {
 			about: "settings",
-			setUpState: func(st *State) {
+			setUpState: func(st *State) int {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				return 1
 			},
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				svc, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
 		}, {
 			about: "blocks",
-			triggerEvent: func(st *State) {
+			triggerEvent: func(st *State) int {
 				m, found, err := st.GetBlockForType(DestroyBlock)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(found, jc.IsFalse)
@@ -1051,6 +1067,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 
 				err = st.SwitchBlockOn(DestroyBlock, "test block")
 				c.Assert(err, jc.ErrorIsNil)
+				return 1
 			},
 		},
 	} {
@@ -1060,17 +1077,15 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				c.Logf("Making changes to model %s", st.ModelUUID())
 
 				if test.setUpState != nil {
-					test.setUpState(st)
+					expected := test.setUpState(st)
 					// Consume events from setup.
-					w.AssertChanges(c)
-					w.AssertNoChange(c)
+					w.AssertChanges(c, expected)
 					otherW.AssertNoChange(c)
 				}
 
-				test.triggerEvent(st)
+				expected := test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
-				w.AssertChanges(c)
-				w.AssertNoChange(c)
+				w.AssertChanges(c, expected)
 				otherW.AssertNoChange(c)
 			}
 			otherState := s.newState(c)
@@ -3116,23 +3131,26 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 	}
 }
 
-func (tw *testWatcher) AssertChanges(c *gc.C) {
+func (tw *testWatcher) AssertChanges(c *gc.C, expected int) {
 	var count int
 	tw.st.StartSync()
+	maxWait := time.After(testing.LongWait)
 done:
 	for {
 		select {
 		case d := <-tw.deltas:
-			if len(d) == 0 {
+			count += len(d)
+			if count == expected {
 				break done
 			}
-			count += len(d)
-		case <-time.After(testing.LongWait):
-			// no change detected
+		case <-maxWait:
+			// insufficient changes seen
 			break done
 		}
 	}
-	c.Assert(count, jc.GreaterThan, 0)
+	// ensure there are no more than we expect
+	tw.AssertNoChange(c)
+	c.Assert(count, gc.Equals, expected)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
