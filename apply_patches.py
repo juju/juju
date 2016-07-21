@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import gettext
 import os
 import subprocess
 import sys
@@ -41,16 +42,21 @@ def main(argv):
     try:
         patches = sorted(os.listdir(args.patchdir))
     except OSError as e:
-        parser.error("Could not list patchdir: {}".format(e))
+        parser.error("Could not list patch directory: {}".format(e))
     if not os.path.isdir(args.srctree):
-        parser.error("Given srctree '{}' not a directory".format(args.srctree))
-    print("Applying {} patches".format(len(patches)))
+        parser.error("Source tree '{}' not a directory".format(args.srctree))
+    patch_count = len(patches)
+    print(gettext.ngettext(
+        u"Applying {} patch", u"Applying {} patches", patch_count).format(
+        patch_count), file=sys.stderr)
     for patch in patches:
         patch_path = os.path.join(args.patchdir, patch)
         if apply_patch(patch_path, args.srctree, args.dry_run, args.verbose):
-            print("Failed to apply patch '{}'".format(patch))
+            print(gettext.gettext(
+                u"Failed to apply patch '{}'").format(patch), file=sys.stderr)
             return 1
-        print("Applied patch '{}'".format(patch))
+        print(gettext.gettext(
+            u"Applied patch '{}'").format(patch), file=sys.stderr)
     return 0
 
 
