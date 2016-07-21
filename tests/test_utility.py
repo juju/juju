@@ -370,7 +370,7 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
-        self.assertEqual(args.logs, os.getcwd())
+        self.assertEqual(args.logs, None)
 
         temp_env_name_arg = args.temp_env_name.split("-")
         temp_env_name_ts = temp_env_name_arg[1]
