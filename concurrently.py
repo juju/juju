@@ -20,17 +20,27 @@ __metaclass__ = type
 log = logging.getLogger("concurrently")
 
 
+def task_definition(name_commandline):
+    name, commandline = name_commandline.split('=', 1)
+    command = shlex.split(commandline)
+    return name, command
+
+
 class Task:
 
-    def __init__(self, name_commdline, log_dir='.'):
-        self.name, self.commandline = name_commdline.split('=', 1)
-        self.command = shlex.split(self.commandline)
+    def __init__(self, name, command, log_dir='.'):
+        self.name = name
+        self.command = command
         self.out_log_name = os.path.join(
             log_dir, '{}-out.log'.format(self.name))
         self.err_log_name = os.path.join(
             log_dir, '{}-err.log'.format(self.name))
         self.returncode = None
         self.proc = None
+
+    @classmethod
+    def from_arg(cls, name_commandline, log_dir='.'):
+        return cls(*task_definition(name_commandline), log_dir=log_dir)
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -96,7 +106,7 @@ def parse_args(argv=None):
         '-l', '--log_dir', default='.', type=os.path.expanduser,
         help='The path to store the logs for each task.')
     parser.add_argument(
-        'tasks', nargs='+', default=[],
+        'tasks', nargs='+', default=[], type=task_definition,
         help="one or more tasks to run in the form of name='cmc -opt arg'.")
     return parser.parse_args(argv)
 
@@ -105,7 +115,7 @@ def main(argv=None):
     """Run many tasks concurrently."""
     args = parse_args(argv)
     configure_logging(args.verbose)
-    tasks = [Task(t, args.log_dir) for t in args.tasks]
+    tasks = [Task(*t, log_dir=args.log_dir) for t in args.tasks]
     try:
         names = [t.name for t in tasks]
         log.debug('Running these tasks {}'.format(names))
