@@ -200,7 +200,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		ops = append(ops, decHostedModelCountOp())
 	}
 
-	// Add all per-model docs to the txn.
+	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global {
 			continue
@@ -211,16 +211,18 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 			continue
 		}
-		// TODO(rog): 2016-05-06 lp:1579010
-		// We can end up with an enormous transaction here,
-		// because we'll have one operation for each document in the
-		// whole model.
-		var err error
-		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
+
+		ops, err := st.removeAllInCollectionOps(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = st.runTransaction(ops)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	// Run the remaining ops to remove the model.
 	return st.runTransaction(ops)
 }
 
@@ -233,9 +235,9 @@ func (st *State) removeAllInCollectionRaw(name string) error {
 	return errors.Trace(err)
 }
 
-// appendRemoveAllInCollectionOps appends to ops operations to
+// removeAllInCollectionOps appends to ops operations to
 // remove all the documents in the given named collection.
-func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 	coll, closer := st.getCollection(name)
 	defer closer()
 
@@ -244,6 +246,7 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var ops []txn.Op
 	for _, id := range ids {
 		ops = append(ops, txn.Op{
 			C:      name,
