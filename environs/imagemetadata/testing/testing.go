@@ -35,8 +35,8 @@ func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMet
 	return ParseMetadataFromStorage(c, stor)
 }
 
-// ParseMetadataFromStorage loads ImageMetadata from the specified storage reader.
-func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
+// ParseIndexMetadataFromStorage loads Indices from the specified storage reader.
+func ParseIndexMetadataFromStorage(c *gc.C, stor storage.StorageReader) *simplestreams.IndexMetadata {
 	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "images", simplestreams.DEFAULT_CLOUD_DATA, false)
 
 	// Find the simplestreams index file.
@@ -54,6 +54,13 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
 	c.Assert(imageIndexMetadata, gc.NotNil)
+	return imageIndexMetadata
+}
+
+// ParseMetadataFromStorage loads ImageMetadata from the specified storage reader.
+func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
+	imageIndexMetadata := ParseIndexMetadataFromStorage(c, stor)
+	c.Assert(imageIndexMetadata, gc.NotNil)
 
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
@@ -63,6 +70,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Parse the products file metadata.
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "images", simplestreams.DEFAULT_CLOUD_DATA, false)
 	url, err := source.URL(imageIndexMetadata.ProductsFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
