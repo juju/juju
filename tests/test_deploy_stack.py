@@ -1044,7 +1044,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             series='angsty', agent_url='qux', agent_stream='escaped',
             region='eu-west-northwest-5', logs=None, keep_env=True)
         with patch('deploy_stack.client_from_config') as fc_mock:
-            bs_manager = BootstrapManager.from_args(args)
+            with patch('utility.os.makedirs'):
+                bs_manager = BootstrapManager.from_args(args)
         fc_mock.assert_called_once_with('foo', 'bar', debug=True)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
