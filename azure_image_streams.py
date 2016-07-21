@@ -60,6 +60,11 @@ ITEM_NAMES = {
 }
 
 
+# Thorough investigation has not found an equivalent for these in the
+# Azure-ARM image repository.
+EXPECTED_MISSING = frozenset({('12.04.2-LTS', '12.04.201212180')})
+
+
 def get_azure_credentials(all_credentials):
     """Return the subscription_id and credentials for Azure.
 
@@ -76,30 +81,37 @@ def get_azure_credentials(all_credentials):
         )
 
 
-def predict_urns(items, locations):
-    location_map = dict((l.display_name, l.name) for l in locations)
-    for item in items:
-        sku, version = parse_id(item.data['id'])
-        yield 'Canonical:UbuntuServer:{0}:{1}'.format(sku, version)
-
-
 def parse_id(item_id):
+    """Parse an old-style item-id to determine sku and version.
+
+    From old-style ID, we ignore the first 32 chars.
+    From "Ubuntu-14_04-LTS-amd64-server-20140416.1-en-us-30GB", we extract
+    "14_04-LTS", "20140416" and "1"
+    We convert to the sku 14.04.0-LTS and the version to 201404161.  (If there
+    was no ".1", we'd use "0".)
+    Note that for LTS only, the sku's version number always has a third digit
+    (patchlevel).
+
+    For 16.04.0-LTS, anything with beta in the id has the sku overriden to
+    '16.04-beta'
+    """
     match = re.match(
-        '^.{32}__Ubuntu-(.*)-.*-server-(\d+)(\.(\d+))?(\-.*)?-.{2}-.{2}-\d+GB$',
-        item_id)
+        '^.{32}__Ubuntu-(.*)-.*-server-(\d+)(\.(\d+))?(\-([^\d]*)\d+)?'
+        '-.{2}-.{2}-\d+GB$', item_id)
     sku = match.group(1)
     sku = sku.replace('_', '.')
+    # Prepare to manipulate the sku's version number.
     sku_sections = sku.split('-')
+    if match.group(6) == 'beta' and len(sku_sections) > 1:
+        sku_sections[1:] = ['beta']
     sku_num = sku_sections[0]
     sku_num_parts = sku_num.split('.')
-    # foo-LTS typically has a three-part version number, which foo typically
-    # does not.
-    if len(sku_num_parts) < 3 and len(sku_sections) > 1:
+    # foo-LTS always has a three-part version number, but for non-LTS, no third
+    # digit should be added.
+    if len(sku_num_parts) < 3 and sku_sections[1:] == ['LTS']:
         sku_num_parts.append('0')
     sku_num = '.'.join(sku_num_parts)
     sku = '-'.join([sku_num] + sku_sections[1:])
-    if sku == '16.04.0-LTS' and 'beta' in item_id:
-        sku = '16.04-beta'
     version = '.'.join(sku_num_parts[0:2] + [match.group(2)])
     number = match.group(4)
     version = version.split('-')[0]
@@ -111,6 +123,7 @@ def parse_id(item_id):
 
 
 def arm_item_exists(client, location, full_spec):
+    """Return True if the full_spec exists on Azure-ARM, else False."""
     try:
         result = client.virtual_machine_images.get(
             location, *full_spec)
@@ -122,7 +135,8 @@ def arm_item_exists(client, location, full_spec):
         return True
 
 
-def make_arm_item(item, urn, endpoint):
+def convert_item_to_arm(item, urn, endpoint):
+    """Return the ARM equivalent of an item, given a urn + endpoint."""
     data = dict(item.data)
     data.pop('crsn', None)
     data.update({'id': urn, 'endpoint': endpoint})
@@ -130,30 +144,42 @@ def make_arm_item(item, urn, endpoint):
                 item.item_name, data=data)
 
 
-def get_arm_items(client, items, locations):
+def sku_version_items(items):
+    """Return a sorted list of tuples of (sku, version, item).
+
+    The items' ids must support parse_id.
+    """
     sort_items = []
     for item in items:
         sku, version = parse_id(item.data['id'])
         sort_items.append((sku, version, item))
     sort_items.sort()
+    return sort_items
+
+
+def convert_cloud_images_items(client, locations, items):
+    """Convert cloud-images Azure data to Azure-ARM data."""
     arm_items = []
     endpoint = client.config.base_url
     location_map = dict((l.display_name, l.name) for l in locations)
     unknown_locations = set()
-    for sku, version, item in sort_items:
-        location = location_map.get(item.data['region'])
+    for sku, version, item in sku_version_items(items):
+        location_display_name = item.data['region']
+        location = location_map.get(location_display_name)
         if location is None:
-            unknown_locations.add(location)
+            unknown_locations.add(location_display_name)
             continue
         full_spec = ('Canonical', 'UbuntuServer', sku, version)
         urn = ':'.join(full_spec)
         if not arm_item_exists(client, location, full_spec):
-            sys.stderr.write('{} not in {}\n'.format(urn, location))
+            if (sku, version) not in EXPECTED_MISSING:
+                raise AssertionError('{} not in {}\n'.format(urn, location))
             continue
-        arm_items.append(make_arm_item(item, urn, endpoint))
-    sys.stderr.write('Unknown locations: {}\n'.format(','.format(
-        unknown_locations)))
-    return arm_items
+        if (sku, version) in EXPECTED_MISSING:
+            raise AssertionError(
+                'Unexpectedly found {} in {}\n'.format(urn, location))
+        arm_items.append(convert_item_to_arm(item, urn, endpoint))
+    return arm_items, unknown_locations
 
 
 def make_spec_items(client, full_spec, locations):
@@ -222,13 +248,17 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
 
 
 class ItemList(mirrors.BasicMirrorWriter):
+    """A class that can retrieve the items from a given url.
+
+    Based on sstream-query.
+    """
 
     @classmethod
-    def from_url(cls, url):
+    def items_from_url(cls, url):
         source = mirrors.UrlMirrorReader(url)
         target = cls()
         target.sync(source, 'com.ubuntu.cloud:released:azure.sjson')
-        return target
+        return target.items
 
     def __init__(self):
         self.config = {}
@@ -242,7 +272,6 @@ class ItemList(mirrors.BasicMirrorWriter):
         self.items.append(dict_to_item(data))
 
 
-
 def make_azure_items(all_credentials):
     """Make simplestreams Items for existing Azure images.
 
@@ -251,13 +280,29 @@ def make_azure_items(all_credentials):
     all_credentials is a dict of credentials in the credentials.yaml
     structure, used to create Azure credentials.
     """
-    item_list = ItemList.from_url(
-        'http://cloud-images.ubuntu.com/releases/streams/v1')
     subscription_id, credentials = get_azure_credentials(all_credentials)
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     locations = sub_client.subscriptions.list_locations(subscription_id)
-    items = get_arm_items(client, item_list.items, locations)
+    ci_items = ItemList.items_from_url(
+        'http://cloud-images.ubuntu.com/releases/streams/v1')
+    items, unknown_locations = convert_cloud_images_items(
+        client, locations, ci_items)
+    sys.stderr.write('Unknown locations: {}\n'.format(', '.join(
+        sorted(unknown_locations))))
+    items.extend(find_spec_items(client, locations))
+    return items
+
+
+def find_spec_items(client, locations):
+    """Make simplestreams Items for existing Azure images.
+
+    All versions of all images matching IMAGE_SPEC will be returned.
+
+    all_credentials is a dict of credentials in the credentials.yaml
+    structure, used to create Azure credentials.
+    """
+    items = []
     for full_spec in IMAGE_SPEC:
         items.extend(make_spec_items(client, full_spec, locations))
     return items
