@@ -491,31 +491,27 @@ class BootstrapManager:
         if bootstrap_host is not None:
             self.known_hosts['0'] = bootstrap_host
 
-
-
     @classmethod
     def from_args(cls, args):
-        def _generate_default_clean_dir(temp_env_name):
-            """Creates a new unique directory for logging and returns the name"""
-            logging.info('temp_env {}'.format(temp_env_name))
-            test_name = temp_env_name.split('-')[0]
+        if not args.logs:
+            logging.info('Environment {}'.format(args.temp_env_name))
+            test_name = args.temp_env_name.split('-')[0]
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            log_dir = os.path.join('/tmp', temp_env_name, 'logs', timestamp)
+            log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
 
             try:
                 os.makedirs(log_dir)
                 logging.info('Created logging directory {}'.format(log_dir))
             except OSError as e:
                 if e.errno == errno.EEXIST:
-                    logging.warn('"Directory {} already exists'.format(log_dir))
+                    logging.warn('"Directory {} already exists'.format(
+                                 log_dir))
                 else:
-                    logging.warn('Failed to create logging directory: {} ' +
-                                  log_dir +
-                                  '. Please specify empty folder or try again')
-                    raise
-            return log_dir
-        if not args.logs:
-           args.logs = _generate_default_clean_dir(args.temp_env_name)
+                    raise('Failed to create logging directory: {} ' +
+                          log_dir +
+                          '. Please specify empty folder or try again')
+
+            args.logs = log_dir
 
         if args.juju_bin == 'FAKE':
             env = SimpleEnvironment.from_config(args.env)

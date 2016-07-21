@@ -1060,7 +1060,6 @@ class TestBootstrapManager(FakeHomeTestCase):
         logs_ts = logs_arg[4]
         self.assertEqual(logs_arg[1:4], ['tmp', 'baz', 'logs'])
         self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
-        #self.assertEqual('/tmp/baz/logs/', bs_manager.log_dir)
         jes_enabled = bs_manager.client.is_jes_enabled.return_value
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
