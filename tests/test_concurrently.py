@@ -32,8 +32,21 @@ class ConcurrentlyTest(TestCase):
     def test_main_error(self, se_mock):
         with patch('concurrently.run_all', side_effect=ValueError('bad')):
             returncode = concurrently.main(['-v', 'one=foo a b', 'two=bar c'])
-        self.assertEqual(253, returncode)
-        self.assertIn('ERROR bad', self.log_stream.getvalue())
+        self.assertEqual(126, returncode)
+        self.assertIn('ERROR Script failed', self.log_stream.getvalue())
+        self.assertIn('ValueError: bad', self.log_stream.getvalue())
+
+    def test_max_failure_returncode(self):
+        """With many tasks the return code is clamped to under 127."""
+        definitions = ["t{}=job".format(i) for i in range(101)]
+        with patch('concurrently.run_all') as r_mock:
+            with patch('concurrently.summarise_tasks',
+                       return_value=101) as s_mock:
+                returncode = concurrently.main(['-v', '-l', '.'] + definitions)
+        self.assertEqual(100, returncode)
+        tasks = map(concurrently.Task, definitions)
+        r_mock.assert_called_once_with(tasks)
+        s_mock.assert_called_once_with(tasks)
 
     def test_parse_args(self):
         args = concurrently.parse_args(
@@ -53,7 +66,16 @@ class ConcurrentlyTest(TestCase):
         task_one.returncode = 1
         self.assertEqual(1, concurrently.summarise_tasks(tasks))
         task_two.returncode = 3
-        self.assertEqual(3, concurrently.summarise_tasks(tasks))
+        self.assertEqual(2, concurrently.summarise_tasks(tasks))
+
+    def test_summarise_is_not_summing(self):
+        """Exit codes must not be 0 for failed tasks when truncated to char."""
+        task_one = concurrently.Task('one=foo a')
+        task_one.returncode = 255
+        task_two = concurrently.Task('two=bar b')
+        task_two.returncode = 1
+        tasks = [task_one, task_two]
+        self.assertNotEqual(0, concurrently.summarise_tasks(tasks) & 255)
 
     def test_run_all(self):
         task_one = concurrently.Task('one=foo a')
