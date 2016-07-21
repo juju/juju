@@ -1,11 +1,8 @@
-from __future__ import print_function
-
 from contextlib import contextmanager
 from datetime import datetime
 import random
 import shutil
 import string
-import sys
 from tempfile import mkdtemp
 
 
@@ -52,8 +49,3 @@ def get_random_hex_string(size=64):
 def write_file(path, contents):
     with open(path, 'w') as f:
         f.write(contents)
-
-
-def print_now(message):
-    print(message)
-    sys.stdout.flush()

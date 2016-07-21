@@ -1,8 +1,10 @@
 """Tests for apply_patches script used in tarball building."""
 
+import contextlib
 import mock
 import os
 import StringIO
+import sys
 import unittest
 
 from apply_patches import (
@@ -94,6 +96,17 @@ class TestApplyPatches(unittest.TestCase):
 
 class TestMain(unittest.TestCase):
 
+    @contextlib.contextmanager
+    def patch_output(self):
+        messages = []
+
+        def fake_print(message, file=None):
+            self.assertEqual(file, sys.stderr)
+            messages.append(message)
+
+        with mock.patch("apply_patches.print", fake_print, create=True):
+            yield messages
+
     def test_no_patchdir(self):
         stream = StringIO.StringIO()
         with temp_dir() as basedir:
@@ -113,24 +126,22 @@ class TestMain(unittest.TestCase):
             stream.getvalue(), "Source tree '.*/missing' not a directory")
 
     def test_one_patch(self):
-        messages = []
         with temp_dir() as basedir:
             patchdir = os.path.join(basedir, "patches")
             os.mkdir(patchdir)
             patchfile = os.path.join(patchdir, "sample.patch")
             open(patchfile, "w").close()
-            with mock. patch("utils.print_now", messages.append):
+            with self.patch_output() as messages:
                 with mock.patch(
                         "apply_patches.apply_patch", return_value=0,
                         autospec=True) as ap_mock:
                     main(["test", patchdir, basedir])
             ap_mock.assert_called_once_with(patchfile, basedir, False, False)
-        self.assertEqual(messages, [
-            u"Applying 1 patch", u"Applied patch 'sample.patch'"
-        ])
+            self.assertEqual(messages, [
+                u"Applying 1 patch", u"Applied patch 'sample.patch'"
+            ])
 
     def test_bad_patches(self):
-        messages = []
         with temp_dir() as basedir:
             patchdir = os.path.join(basedir, "patches")
             os.mkdir(patchdir)
@@ -138,29 +149,28 @@ class TestMain(unittest.TestCase):
             open(patch_a, "w").close()
             patch_b = os.path.join(patchdir, "b.patch")
             open(patch_b, "w").close()
-            with mock. patch("utils.print_now", messages.append):
+            with self.patch_output() as messages:
                 with mock.patch(
                         "apply_patches.apply_patch", return_value=1,
                         autospec=True) as ap_mock:
                     main(["test", "--verbose", patchdir, basedir])
             ap_mock.assert_called_once_with(patch_a, basedir, False, True)
-        self.assertEqual(messages, [
-            u"Applying 2 patches", u"Failed to apply patch 'a.patch'"
-        ])
+            self.assertEqual(messages, [
+                u"Applying 2 patches", u"Failed to apply patch 'a.patch'"
+            ])
 
     def test_bad_patch_aborts(self):
-        messages = []
         with temp_dir() as basedir:
             patchdir = os.path.join(basedir, "patches")
             os.mkdir(patchdir)
             patchfile = os.path.join(patchdir, "a.patch")
             open(patchfile, "w").close()
-            with mock. patch("utils.print_now", messages.append):
+            with self.patch_output() as messages:
                 with mock.patch(
                         "apply_patches.apply_patch", return_value=1,
                         autospec=True) as ap_mock:
                     main(["test", patchdir, basedir])
             ap_mock.assert_called_once_with(patchfile, basedir, False, False)
-        self.assertEqual(messages, [
-            u"Applying 1 patch", u"Failed to apply patch 'a.patch'"
-        ])
+            self.assertEqual(messages, [
+                u"Applying 1 patch", u"Failed to apply patch 'a.patch'"
+            ])
