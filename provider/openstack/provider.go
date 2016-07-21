@@ -228,7 +228,7 @@ type Environ struct {
 var _ environs.Environ = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ state.Prechecker = (*Environ)(nil)
-var _ state.InstanceDistributor = (*Environ)(nil)
+var _ instance.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {

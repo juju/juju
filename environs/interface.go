@@ -11,11 +11,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
+	config.Validator
+	ProviderCredentials
+
 	// RestrictedConfigAttributes are provider specific attributes stored in
 	// the config that really cannot or should not be changed across
 	// environments running inside a single juju server.
@@ -43,19 +45,10 @@ type EnvironProvider interface {
 	// prepared environment.
 	Open(cfg *config.Config) (Environ, error)
 
-	// Validate ensures that config is a valid configuration for this
-	// provider, applying changes to it if necessary, and returns the
-	// validated configuration.
-	// If old is not nil, it holds the previous environment configuration
-	// for consideration when validating changes.
-	Validate(cfg, old *config.Config) (valid *config.Config, err error)
-
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
-
-	ProviderCredentials
 }
 
 // ProviderSchema can be implemented by a provider to provide
@@ -241,7 +234,20 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	state.Prechecker
+	// PrecheckInstance performs a preflight check on the specified
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this model.
+	//
+	// PrecheckInstance is best effort, and not guaranteed to eliminate
+	// all invalid parameters. If PrecheckInstance returns nil, it is not
+	// guaranteed that the constraints are valid; if a non-nil error is
+	// returned, then the constraints are definitely invalid.
+	//
+	// TODO(axw) find a home for state.Prechecker that isn't state and
+	// isn't environs, so both packages can refer to it. Maybe the
+	// constraints package? Can't be instance, because constraints
+	// import instance...
+	PrecheckInstance(series string, cons constraints.Value, placement string) error
 }
 
 // Firewaller exposes methods for managing network ports.

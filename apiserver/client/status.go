@@ -311,7 +311,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -342,7 +342,7 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 // fetchAllApplicationsAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
-	st stateInterface,
+	st Backend,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
@@ -393,7 +393,7 @@ func fetchAllApplicationsAndUnits(
 // to have the relations for each service. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // service that used to happen in processServiceRelations().
-func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
+func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err

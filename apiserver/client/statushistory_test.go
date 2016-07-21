@@ -28,11 +28,19 @@ type statusHistoryTestSuite struct {
 
 func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{}
-	client.PatchState(s, s.st)
 	tag := names.NewUserTag("user")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = client.NewClient(nil, nil, authorizer)
+	s.api, err = client.NewClient(
+		s.st,
+		nil, // modelconfig API
+		nil, // resources
+		authorizer,
+		nil, // statusSetter
+		nil, // toolsFinder
+		nil, // newEnviron
+		nil, // blockChecker
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -211,7 +219,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 }
 
 type mockState struct {
-	client.StateInterface
+	client.Backend
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
 }

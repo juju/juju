@@ -119,7 +119,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	// provisioner needs to be able to test pathological
 	// scenarios where a machine exists in state with
 	// invalid environment config.
-	dummy.SetStatePolicy(nil)
+	dummy.SetNewStatePolicy(nil)
 
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -182,7 +182,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, agent.BootstrapNonce)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
-	s.provisioner = s.st.Provisioner()
+	s.provisioner = apiprovisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 }
 

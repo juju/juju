@@ -3,8 +3,6 @@
 
 package client
 
-import "github.com/juju/juju/state"
-
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges
@@ -18,19 +16,3 @@ var (
 )
 
 type MachineAndContainers machineAndContainers
-
-var (
-	GetEnvironment = &getEnvironment
-)
-
-type StateInterface stateInterface
-
-type Patcher interface {
-	PatchValue(ptr, value interface{})
-}
-
-func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) stateInterface {
-		return st
-	})
-}

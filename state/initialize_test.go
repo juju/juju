@@ -47,7 +47,7 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 		modelTag,
 		statetesting.NewMongoInfo(),
 		mongotest.DialOpts(),
-		state.Policy(nil),
+		state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st

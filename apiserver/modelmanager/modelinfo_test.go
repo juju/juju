@@ -71,13 +71,13 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, s.authorizer)
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
 }

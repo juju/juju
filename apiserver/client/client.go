@@ -21,17 +21,18 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
-	common.RegisterStandardFacade("Client", 1, NewClient)
+	common.RegisterStandardFacade("Client", 1, newClient)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor stateInterface
+	stateAccessor Backend
 	auth          facade.Authorizer
 	resources     facade.Resources
 	client        *Client
@@ -45,43 +46,70 @@ type API struct {
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
 func (api *API) state() *state.State {
-	return api.stateAccessor.(*stateShim).State
+	return api.stateAccessor.(stateShim).State
 }
 
 // Client serves client-specific API methods.
 type Client struct {
-	api   *API
-	check *common.BlockChecker
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPI
+
+	api        *API
+	newEnviron func() (environs.Environ, error)
+	check      *common.BlockChecker
 }
 
-var getState = func(st *state.State) stateInterface {
-	return &stateShim{st}
-}
-
-// NewClient creates a new instance of the Client Facade.
-func NewClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
-	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+func newClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	newEnviron := func() (environs.Environ, error) {
+		return environs.GetEnviron(configGetter, environs.New)
 	}
+	blockChecker := common.NewBlockChecker(st)
 	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiState := getState(st)
-	urlGetter := common.NewToolsURLGetter(apiState.ModelUUID(), apiState)
+	return NewClient(
+		NewStateBackend(st),
+		modelConfigAPI,
+		resources,
+		authorizer,
+		statusSetter,
+		toolsFinder,
+		newEnviron,
+		blockChecker,
+	)
+}
+
+// NewClient creates a new instance of the Client Facade.
+func NewClient(
+	st Backend,
+	modelConfigAPI *modelconfig.ModelConfigAPI,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	statusSetter *common.StatusSetter,
+	toolsFinder *common.ToolsFinder,
+	newEnviron func() (environs.Environ, error),
+	blockChecker *common.BlockChecker,
+) (*Client, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
 	client := &Client{
-		api: &API{
-			stateAccessor: apiState,
+		modelConfigAPI,
+		&API{
+			stateAccessor: st,
 			auth:          authorizer,
 			resources:     resources,
-			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
-			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
+			statusSetter:  statusSetter,
+			toolsFinder:   toolsFinder,
 		},
-		check:          common.NewBlockChecker(st),
-		ModelConfigAPI: modelConfigAPI,
+		newEnviron,
+		blockChecker,
 	}
 	return client, nil
 }
@@ -388,12 +416,8 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		return errors.Trace(err)
 	}
 	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll do a very basic check to ensure the
-	cfg, err := c.api.stateAccessor.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env, err := getEnvironment(cfg)
+	// we'll do a very basic check to ensure the environment is accessible.
+	env, err := c.newEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -401,14 +425,6 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		return err
 	}
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
-}
-
-var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return env, nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade

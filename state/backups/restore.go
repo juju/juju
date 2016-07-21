@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -137,7 +138,7 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 
 // assign to variables for testing purposes.
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
-var environsNewStatePolicy = environs.NewStatePolicy
+var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
 // newStateConnection tries to connect to the newly restored controller.
 func newStateConnection(modelTag names.ModelTag, info *mongo.MongoInfo) (*state.State, error) {
@@ -153,8 +154,9 @@ func newStateConnection(modelTag names.ModelTag, info *mongo.MongoInfo) (*state.
 		newStateConnMinAttempts = 8
 	)
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
+	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(modelTag, info, mongoDefaultDialOpts(), environsNewStatePolicy())
+		st, err = state.Open(modelTag, info, mongoDefaultDialOpts(), environsGetNewPolicyFunc(getEnviron))
 		if err == nil {
 			return st, nil
 		}

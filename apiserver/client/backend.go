@@ -28,9 +28,9 @@ type Unit interface {
 	AgentHistory() status.StatusHistoryGetter
 }
 
-// stateInterface contains the state.State methods used in this package,
+// Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
-type stateInterface interface {
+type Backend interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
 	Application(string) (*state.Application, error)
@@ -65,11 +65,15 @@ type stateInterface interface {
 	APIHostPorts() ([][]network.HostPort, error)
 }
 
+func NewStateBackend(st *state.State) Backend {
+	return stateShim{st}
+}
+
 type stateShim struct {
 	*state.State
 }
 
-func (s *stateShim) Unit(name string) (Unit, error) {
+func (s stateShim) Unit(name string) (Unit, error) {
 	u, err := s.State.Unit(name)
 	if err != nil {
 		return nil, err

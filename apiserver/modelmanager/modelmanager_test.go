@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
@@ -105,7 +106,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, s.authoriser)
+	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -281,7 +282,7 @@ func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("other@local"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, authoriser)
+	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
 	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
@@ -326,7 +327,9 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), s.authoriser,
+		common.NewModelManagerBackend(s.State),
+		stateenvirons.EnvironConfigGetter{s.State},
+		s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -336,7 +339,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), anAuthoriser,
+		common.NewModelManagerBackend(s.State), nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -346,7 +349,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), anAuthoriser,
+		common.NewModelManagerBackend(s.State), nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -574,7 +577,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), s.authoriser,
+		common.NewModelManagerBackend(st), nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -598,7 +601,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), s.authoriser,
+		common.NewModelManagerBackend(st), nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -623,7 +626,7 @@ func (s *modelManagerStateSuite) TestUserDestroysOtherModelDenied(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), s.authoriser,
+		common.NewModelManagerBackend(st), nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

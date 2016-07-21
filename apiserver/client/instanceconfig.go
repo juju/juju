@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // InstanceConfig returns information from the environment config that
@@ -52,7 +53,8 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "getting state model")
 	}
 	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
-	toolsFinder := common.NewToolsFinder(st, st, urlGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,

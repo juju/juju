@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -234,12 +233,6 @@ func (st *state) Client() *Client {
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
-}
-
-// Provisioner returns a version of the state that provides functionality
-// required by the provisioner worker.
-func (st *state) Provisioner() *provisioner.State {
-	return provisioner.NewState(st)
 }
 
 // Uniter returns a version of the state that provides functionality

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -410,7 +411,10 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	mongoInfo := s.State.MongoConnectionInfo()
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), environs.NewStatePolicy())
+	newPolicy := stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
 	if err != nil {
 		return nil, err
 	}

@@ -260,7 +260,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -369,7 +369,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -422,7 +422,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -449,7 +449,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -485,7 +485,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -506,7 +506,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -529,9 +529,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	}
 
 	// Check we can log in to mongo as admin.
-	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
 	info.Tag, info.Password = nil, testPassword
-	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -558,7 +557,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(testing.ModelTag, stateinfo, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err = state.Open(testing.ModelTag, stateinfo, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -599,7 +598,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -620,7 +619,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -690,7 +689,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	expectedSeries := make(set.Strings)
@@ -739,7 +738,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -874,7 +873,7 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

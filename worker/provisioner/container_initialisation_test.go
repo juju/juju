@@ -92,7 +92,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
-	pr := s.st.Provisioner()
+	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
@@ -248,7 +248,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 }
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
-	pr := s.st.Provisioner()
+	pr := apiprovisioner.NewState(s.st)
 	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())

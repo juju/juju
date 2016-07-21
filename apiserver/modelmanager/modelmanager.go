@@ -25,10 +25,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 )
 
@@ -59,12 +61,17 @@ type ModelManagerAPI struct {
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
 func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
-	return NewModelManagerAPI(common.NewModelManagerBackend(st), auth)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(st common.ModelManagerBackend, authorizer facade.Authorizer) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(
+	st common.ModelManagerBackend,
+	configGetter environs.EnvironConfigGetter,
+	authorizer facade.Authorizer,
+) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -81,7 +88,7 @@ func NewModelManagerAPI(st common.ModelManagerBackend, authorizer facade.Authori
 	return &ModelManagerAPI{
 		state:       st,
 		authorizer:  authorizer,
-		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
+		toolsFinder: common.NewToolsFinder(configGetter, st, urlGetter),
 		apiUser:     apiUser,
 		isAdmin:     isAdmin,
 	}, nil

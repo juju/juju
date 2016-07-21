@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -401,13 +402,16 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 
 	mongoInfo.Password = password
 	opts := mongotest.DialOpts()
-	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	st, err := state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}

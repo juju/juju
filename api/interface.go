@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -210,7 +209,6 @@ type Connection interface {
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	Firewaller() *firewaller.State
 	Upgrader() *upgrader.State

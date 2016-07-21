@@ -15,22 +15,14 @@ import (
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
-}
-
-func init() {
-	provider := mockEnvironProvider{}
-	environs.RegisterProvider("mock", provider)
 }
 
 type baseImageMetadataSuite struct {
@@ -56,7 +48,9 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
 
 	var err error
-	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
+	s.api, err = imagemetadata.CreateAPI(s.state, func() (environs.Environ, error) {
+		return &mockEnviron{}, nil
+	}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -136,21 +130,9 @@ func (m *mockModel) CloudRegion() string {
 }
 
 func testConfig(c *gc.C) *config.Config {
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":       "mock",
-		"controller": true,
-	})
-	env, err := bootstrap.Prepare(
-		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			ControllerName:   "dummycontroller",
-			BaseConfig:       attrs,
-			CloudName:        "dummy",
-			AdminSecret:      "admin-secret",
-		},
-	)
+	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"type": "mock",
+	}))
 	c.Assert(err, jc.ErrorIsNil)
-	return env.Config()
+	return cfg
 }

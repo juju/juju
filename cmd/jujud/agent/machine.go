@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
@@ -63,6 +64,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -743,7 +745,12 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(
+		agentConfig.Model(), info, mongo.DefaultDialOpts(),
+		stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -780,7 +787,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
-	pr := st.Provisioner()
+	pr := apiprovisioner.NewState(st)
 	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := pr.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
@@ -1285,7 +1292,11 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, dialOpts,
+		stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	)
 	if err != nil {
 		return nil, nil, err
 	}
