@@ -49,10 +49,7 @@ func newServer(c *gc.C) *sshServer {
 func (s *sshServer) run(c *gc.C) {
 	netconn, err := s.listener.Accept()
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := netconn.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
+	defer netconn.Close()
 	conn, chans, reqs, err := cryptossh.NewServerConn(netconn, s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.client = cryptossh.NewClient(conn, chans, reqs)
