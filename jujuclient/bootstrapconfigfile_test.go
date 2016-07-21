@@ -32,6 +32,7 @@ controllers:
       type: ec2
     credential: default
     cloud: aws
+    type: ec2
     region: us-east-1
     endpoint: https://us-east-1.amazonaws.com
   mallards:
@@ -42,6 +43,7 @@ controllers:
       name: admin
       type: maas
     cloud: maas
+    type: maas
     region: 127.0.0.1
 `
 
@@ -57,6 +59,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 		},
 		Credential:    "default",
 		Cloud:         "aws",
+		CloudType:     "ec2",
 		CloudRegion:   "us-east-1",
 		CloudEndpoint: "https://us-east-1.amazonaws.com",
 	},
@@ -70,6 +73,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 			"name": "admin",
 		},
 		Cloud:       "maas",
+		CloudType:   "maas",
 		CloudRegion: "127.0.0.1",
 	},
 }

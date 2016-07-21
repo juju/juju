@@ -71,18 +71,6 @@ func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	return cfg.Apply(envConfig.attrs)
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	if _, err := p.validate(cfg, nil); err != nil {
-		return nil, err
-	}
-	envConfig := newModelConfig(cfg, cfg.UnknownAttrs())
-	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
-		return nil, err
-	}
-	return p.open(envConfig)
-}
-
 func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	_, err := p.validate(cfg, nil)
 	if err != nil {

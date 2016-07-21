@@ -135,6 +135,7 @@ func (c *restoreCommand) Init(args []string) error {
 
 type restoreBootstrapParams struct {
 	ControllerConfig controller.Config
+	CloudType        string
 	CloudName        string
 	CloudRegion      string
 	CredentialName   string
@@ -159,7 +160,7 @@ func (c *restoreCommand) getEnviron(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	provider, err := environs.Provider(params.Config.Type())
+	provider, err := environs.Provider(config.CloudType)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -205,6 +206,7 @@ func (c *restoreCommand) getEnviron(
 	env, err := environs.New(cfg)
 	return env, &restoreBootstrapParams{
 		ControllerConfig: controllerCfg,
+		CloudType:        config.CloudType,
 		CloudName:        config.Cloud,
 		CloudRegion:      config.CloudRegion,
 		CredentialName:   config.Credential,

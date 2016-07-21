@@ -49,16 +49,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return env, nil
-}
-
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil

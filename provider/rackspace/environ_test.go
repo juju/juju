@@ -107,6 +107,11 @@ func (p *fakeEnviron) Open(cfg *config.Config) (environs.Environ, error) {
 	return nil, nil
 }
 
+func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	e.Push("PrepareForBootstrap", ctx)
+	return nil
+}
+
 func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, params)
 	return nil, nil

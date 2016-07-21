@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/vsphere"
 )
 
@@ -53,12 +52,6 @@ func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
-}
-
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(testing.BootstrapContext(c), s.Config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(env, gc.NotNil)
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {

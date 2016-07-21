@@ -149,22 +149,6 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	cfg *config.Config,
-) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// Verify credentials.
-	if err := authenticateClient(e.(*Environ)); err != nil {
-		return nil, err
-	}
-	return e, nil
-}
-
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -558,6 +542,15 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 		}
 	}
 	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+}
+
+// PrepareForBootstrap is specified in the Environ interface.
+func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	// Verify credentials.
+	if err := authenticateClient(e); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {

@@ -136,6 +136,16 @@ func (env *environ) Config() *config.Config {
 	return cfg
 }
 
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := env.verifyCredentials(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring

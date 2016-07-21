@@ -117,6 +117,15 @@ func (env *joyentEnviron) Config() *config.Config {
 	return env.Ecfg().Config
 }
 
+func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, args)
 }

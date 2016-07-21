@@ -636,5 +636,11 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 	if !ok {
 		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
 	}
+	if cfg.CloudType == "" {
+		// TODO(axw) 2016-07-25 #1603841
+		// Drop this when we get to 2.0. This exists only for
+		// compatibility with previous beta releases.
+		cfg.CloudType, _ = cfg.Config["type"].(string)
+	}
 	return &cfg, nil
 }

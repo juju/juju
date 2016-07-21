@@ -88,20 +88,6 @@ func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env.(*maasEnviron)); err != nil {
-			return nil, err
-		}
-	}
-	return env, nil
-}
-
 func verifyCredentials(env *maasEnviron) error {
 	// Verify we can connect to the server and authenticate.
 	if env.usingMAAS2() {

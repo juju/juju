@@ -101,6 +101,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 			"extra": "value",
 		},
 		Credential:    "my-credential",
+		CloudType:     "maas",
 		Cloud:         "mallards",
 		CloudRegion:   "mallards1",
 		CloudEndpoint: "http://mallards.local/MAAS",

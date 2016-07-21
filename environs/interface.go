@@ -31,9 +31,6 @@ type EnvironProvider interface {
 	// local files, etc are not available.
 	PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error)
 
-	// PrepareForBootstrap prepares an environment for use.
-	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
-
 	// BootstrapConfig produces the configuration for the initial controller
 	// model, based on the provided arguments. BootstrapConfig is expected
 	// to produce a deterministic output. Any unique values should be based
@@ -166,6 +163,13 @@ type ConfigGetter interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
+	// PrepareForBootstrap prepares an environment for bootstrapping.
+	//
+	// This will be called very early in the bootstrap procedure, to
+	// give an Environ a chance to perform interactive operations that
+	// are required for bootstrapping.
+	PrepareForBootstrap(ctx BootstrapContext) error
+
 	// Bootstrap creates a new instance with the series and architecture
 	// of its choice, constrained to those of the available tools, and
 	// returns the instance's architecture, series, and a function that

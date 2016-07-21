@@ -803,7 +803,9 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config:         cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
+	env, err := provider.Open(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.PrepareForBootstrap(nullContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)

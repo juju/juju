@@ -167,8 +167,11 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	env, err := p.PrepareForBootstrap(ctx, cfg)
+	env, err := p.Open(cfg)
 	if err != nil {
+		return nil, details, errors.Trace(err)
+	}
+	if err := env.PrepareForBootstrap(ctx); err != nil {
 		return nil, details, errors.Trace(err)
 	}
 
@@ -207,6 +210,7 @@ func prepare(
 	details.ModelUUID = cfg.UUID()
 	details.ControllerDetails.Cloud = args.CloudName
 	details.ControllerDetails.CloudRegion = args.CloudRegion
+	details.BootstrapConfig.CloudType = cfg.Type()
 	details.BootstrapConfig.Cloud = args.CloudName
 	details.BootstrapConfig.CloudRegion = args.CloudRegion
 	details.CloudEndpoint = args.CloudEndpoint
