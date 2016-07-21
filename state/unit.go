@@ -349,9 +349,6 @@ func (u *Unit) Destroy() (err error) {
 func (u *Unit) eraseHistory() error {
 	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
-	// txn and non-txn operations in the same collection without clear and
-	// detailed reasoning for so doing.
 	historyW := history.Writeable()
 
 	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {

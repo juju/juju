@@ -355,6 +355,7 @@ func allCollections() collectionSchema {
 		storageConstraintsC: {},
 		statusesC:           {},
 		statusesHistoryC: {
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},

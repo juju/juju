@@ -147,7 +147,7 @@ func (st *State) ControllerUUID() string {
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")
 	}
 	return errors.Trace(err)
@@ -158,7 +158,7 @@ func (st *State) RemoveAllModelDocs() error {
 // is "importing".
 func (st *State) RemoveImportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being imported for migration")
 	}
 	return errors.Trace(err)
@@ -169,7 +169,7 @@ func (st *State) RemoveImportingModelDocs() error {
 // is "exporting".
 func (st *State) RemoveExportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being exported for migration")
 	}
 	return errors.Trace(err)
@@ -200,27 +200,40 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		ops = append(ops, decHostedModelCountOp())
 	}
 
-	// Add all per-model docs to the txn.
+	var rawCollections []string
+	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global {
 			continue
 		}
 		if info.rawAccess {
-			if err := st.removeAllInCollectionRaw(name); err != nil {
-				return errors.Trace(err)
-			}
+			rawCollections = append(rawCollections, name)
 			continue
 		}
-		// TODO(rog): 2016-05-06 lp:1579010
-		// We can end up with an enormous transaction here,
-		// because we'll have one operation for each document in the
-		// whole model.
-		var err error
-		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
+
+		ops, err := st.removeAllInCollectionOps(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Make sure we gate everything on the model assertion.
+		ops = append([]txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: modelAssertion,
+		}}, ops...)
+		err = st.runTransaction(ops)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
+	// Now remove raw collections
+	for _, name := range rawCollections {
+		if err := st.removeAllInCollectionRaw(name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Run the remaining ops to remove the model.
 	return st.runTransaction(ops)
 }
 
@@ -233,9 +246,9 @@ func (st *State) removeAllInCollectionRaw(name string) error {
 	return errors.Trace(err)
 }
 
-// appendRemoveAllInCollectionOps appends to ops operations to
+// removeAllInCollectionOps appends to ops operations to
 // remove all the documents in the given named collection.
-func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 	coll, closer := st.getCollection(name)
 	defer closer()
 
@@ -244,6 +257,7 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var ops []txn.Op
 	for _, id := range ids {
 		ops = append(ops, txn.Op{
 			C:      name,
