@@ -158,19 +158,3 @@ class TestMain(unittest.TestCase):
             self.assertEqual(messages, [
                 u"Applying 2 patches", u"Failed to apply patch 'a.patch'"
             ])
-
-    def test_bad_patch_aborts(self):
-        with temp_dir() as basedir:
-            patchdir = os.path.join(basedir, "patches")
-            os.mkdir(patchdir)
-            patchfile = os.path.join(patchdir, "a.patch")
-            open(patchfile, "w").close()
-            with self.patch_output() as messages:
-                with mock.patch(
-                        "apply_patches.apply_patch", return_value=1,
-                        autospec=True) as ap_mock:
-                    main(["test", patchdir, basedir])
-            ap_mock.assert_called_once_with(patchfile, basedir, False, False)
-            self.assertEqual(messages, [
-                u"Applying 1 patch", u"Failed to apply patch 'a.patch'"
-            ])
