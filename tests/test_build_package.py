@@ -40,8 +40,10 @@ from build_package import (
     SourceFile,
     teardown_lxc,
 )
-from utils import (
+from tests import (
     autopatch,
+)
+from utils import (
     temp_dir,
 )
 

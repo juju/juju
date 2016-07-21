@@ -22,8 +22,10 @@ from crossbuild import (
     run_command,
     working_directory,
 )
-from utils import (
+from tests import (
     autopatch,
+)
+from utils import (
     temp_dir,
 )
 
