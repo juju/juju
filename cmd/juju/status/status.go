@@ -122,7 +122,7 @@ var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "connecting to API")
 	}
 	defer apiclient.Close()
 

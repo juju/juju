@@ -231,7 +231,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 
-	controllerModel, err := s.store.ModelByName(controllerName, bootstrap.ControllerModelName)
+	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
 
@@ -395,7 +395,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "default")
+	c.Assert(modelName, gc.Equals, "admin@local/default")
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
@@ -591,11 +591,11 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
-		s.writeControllerModelAccountInfo(c, "foo", "bar", "foobar@local")
+		s.writeControllerModelAccountInfo(c, "foo", "foobar@local/bar", "foobar@local")
 		return nil, fmt.Errorf("mock-prepare")
 	})
 
-	s.writeControllerModelAccountInfo(c, "olddevcontroller", "fredmodel", "fred@local")
+	s.writeControllerModelAccountInfo(c, "olddevcontroller", "fred@local/fredmodel", "fred@local")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
@@ -606,14 +606,14 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	c.Assert(accountDetails.User, gc.Equals, "fred@local")
 	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentModel, gc.Equals, "fredmodel")
+	c.Assert(currentModel, gc.Equals, "fred@local/fredmodel")
 }
 
 func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
 	s.patchVersionAndSeries(c, "raring")
 
-	s.writeControllerModelAccountInfo(c, "devcontroller", "fredmodel", "fred@local")
+	s.writeControllerModelAccountInfo(c, "devcontroller", "fred@local/fredmodel", "fred@local")
 
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
@@ -627,7 +627,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	c.Assert(accountDetails.User, gc.Equals, "fred@local")
 	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentModel, gc.Equals, "fredmodel")
+	c.Assert(currentModel, gc.Equals, "fred@local/fredmodel")
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {

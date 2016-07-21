@@ -63,8 +63,8 @@ type accountsCollection struct {
 	ControllerAccounts map[string]AccountDetails `yaml:"controllers"`
 }
 
-// TODO(axw) 2016-07-14 #NNN
-// Drop this code once we get to 2.0-beta13.
+// TODO(axw) 2016-07-14 #1603841
+// Drop this code once we get to 2.0.
 func migrateLegacyAccounts(data []byte) error {
 	type legacyControllerAccounts struct {
 		Accounts       map[string]AccountDetails `yaml:"accounts"`
