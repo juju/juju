@@ -23,6 +23,11 @@ from simplestreams.json2streams import (
 from simplestreams import util
 
 
+AWS = 'aws'
+AZURE = 'azure'
+ALL = 'all'
+
+
 class WindowsFriendlyNamer(JujuFileNamer):
 
     @classmethod
@@ -37,8 +42,15 @@ def get_parameters(argv=None):
     creds_filename is the filename to get credentials from.
     """
     parser = ArgumentParser(description=dedent("""
-        Write image streams for AWS images.  Only CentOS 7 is currently
-        supported."""))
+        Query cloud API and write image streams.  AWS is written by default,
+        and Azure optionally.  CentOS 7 is supported on AWS and Azure.  Azure
+        additionally supports Windows.
+
+        The credentials.yaml in JUJU_DATA is used to look up credentials.
+        """))
+    parser.add_argument('cloud',
+                        help='The cloud to generate streams for.',
+                        choices={ALL, AWS, AZURE})
     parser.add_argument('streams', help='The directory to write streams to.')
     args = parser.parse_args(argv)
     try:
@@ -48,7 +60,9 @@ def get_parameters(argv=None):
               ' credentials.yaml.', file=sys.stderr)
         sys.exit(1)
     creds_filename = os.path.join(juju_data, 'credentials.yaml')
-    return args.streams, creds_filename
+    azure = args.cloud in {AZURE, ALL}
+    aws = args.cloud in {AWS, ALL}
+    return args.streams, creds_filename, aws, azure
 
 
 def make_aws_credentials(creds):
@@ -191,20 +205,16 @@ def make_item(image, now):
         })
 
 
-def write_streams(credentials, china_credentials, now, streams):
-    """Write image streams for Centos 7.
+def write_item_streams(items, out_dir):
+    """Write image streams for supplied items.
 
-    :param credentials: The standard AWS credentials.
-    :param china_credentials: The AWS China crentials.
-    :param now: The current datetime.
-    :param streams: The directory to store streams metadata in.
+    :param items: The Items to write to simplestreams.
+    :param out_dir: The directory to store streams metadata in.
     """
-    items = [make_item(i, now) for i in iter_centos_images(
-        credentials, china_credentials)]
     updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
-    write_juju_streams(streams, trees, updated, [
+    write_juju_streams(out_dir, trees, updated, [
         'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
 
 
@@ -231,14 +241,26 @@ def write_juju_streams(out_d, trees, updated, sticky):
     return out_filenames
 
 
-def main():
-    streams, creds_filename = get_parameters()
-    with open(creds_filename) as creds_file:
-        all_credentials = yaml.safe_load(creds_file)['credentials']
+def make_aws_items(all_credentials, now):
     credentials = make_aws_credentials(all_credentials['aws'])
     china_credentials = make_aws_credentials(all_credentials['aws-china'])
+    return [make_item(i, now) for i in
+            iter_centos_images(credentials, china_credentials)]
+
+
+def main():
+    streams, creds_filename, aws, azure = get_parameters()
+    with open(creds_filename) as creds_file:
+        all_credentials = yaml.safe_load(creds_file)['credentials']
     now = datetime.utcnow()
-    write_streams(credentials, china_credentials, now, streams)
+    items = []
+    if aws:
+        items.extend(make_aws_items(all_credentials, now))
+    if azure:
+        # Avoid breakage for aws streams if azure libs not installed.
+        from azure_image_streams import make_azure_items
+        items.extend(make_azure_items(all_credentials))
+    write_item_streams(items, streams)
 
 
 if __name__ == '__main__':
