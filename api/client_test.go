@@ -456,7 +456,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
 }
 
-func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
+func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// Passing in the correct model UUID should work
@@ -472,13 +472,13 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "dead-beef-123456"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
-	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.

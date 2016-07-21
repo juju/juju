@@ -182,9 +182,9 @@ var errorTransformTests = []struct {
 	code:   "",
 }, {
 	err:        common.UnknownModelError("dead-beef-123456"),
-	code:       params.CodeNotFound,
+	code:       params.CodeModelNotFound,
 	status:     http.StatusNotFound,
-	helperFunc: params.IsCodeNotFound,
+	helperFunc: params.IsCodeModelNotFound,
 }, {
 	err:    nil,
 	code:   "",
@@ -232,12 +232,9 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeNoAddressSet,
 			params.CodeUpgradeInProgress,
 			params.CodeMachineHasAttachedStorage,
-			params.CodeDischargeRequired:
+			params.CodeDischargeRequired,
+			params.CodeModelNotFound:
 			continue
-		case params.CodeNotFound:
-			if common.IsUnknownModelError(t.err) {
-				continue
-			}
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
 			continue

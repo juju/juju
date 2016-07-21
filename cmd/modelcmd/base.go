@@ -105,13 +105,42 @@ func (c *JujuCommandBase) NewAPIRoot(
 			accountDetails = &jujuclient.AccountDetails{}
 		}
 	}
-	params, err := c.NewAPIConnectionParams(
+	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return juju.NewAPIConnection(params)
+	conn, err := juju.NewAPIConnection(param)
+	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {
+		return nil, c.missingModelError(store, controllerName, modelName)
+	}
+	return conn, err
+}
+
+func (c *JujuCommandBase) missingModelError(store jujuclient.ClientStore, controllerName, modelName string) error {
+	// First, we'll try and clean up the missing model from the local cache.
+	err := store.RemoveModel(controllerName, modelName)
+	if err != nil {
+		logger.Warningf("cannot remove unknown model from cache: %v", err)
+	}
+	currentModel, err := store.CurrentModel(controllerName)
+	if err != nil {
+		logger.Warningf("cannot read current model: %v", err)
+	} else if currentModel == modelName {
+		if err := store.SetCurrentModel(controllerName, ""); err != nil {
+			logger.Warningf("cannot reset current model: %v", err)
+		}
+	}
+	errorMessage := "model %q has been removed from the controller, run 'juju models' and switch to one of them."
+	modelInfoMessage := "\nThere are %d accessible models on controller %q."
+	models, err := store.AllModels(controllerName)
+	if err == nil {
+		modelInfoMessage = fmt.Sprintf(modelInfoMessage, len(models), controllerName)
+	} else {
+		modelInfoMessage = ""
+	}
+	return errors.Errorf(errorMessage+modelInfoMessage, modelName)
 }
 
 // NewAPIConnectionParams returns a juju.NewAPIConnectionParams with the

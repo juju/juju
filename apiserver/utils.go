@@ -45,12 +45,10 @@ type validateArgs struct {
 func validateModelUUID(args validateArgs) (string, error) {
 	ssState := args.statePool.SystemState()
 	if args.modelUUID == "" {
-		// We allow the modelUUID to be empty for 2 cases
-		// 1) Compatibility with older clients
-		// 2) TODO: server a limited API at the root (empty modelUUID)
-		//    with just the user manager and model manager
-		//    if the connection comes over a sufficiently up to date
-		//    login command.
+		// We allow the modelUUID to be empty so that:
+		//    TODO: server a limited API at the root (empty modelUUID)
+		//    just the user manager and model manager are able to accept
+		//    requests that don't require a modelUUID, like add-model.
 		if args.strict {
 			return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 		}
