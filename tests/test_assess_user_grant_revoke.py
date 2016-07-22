@@ -23,14 +23,14 @@ from assess_user_grant_revoke import (
     parse_args,
     register_user,
 )
+from fakejuju import (
+    fake_juju_client,
+    FakeBackend,
+)
 from jujupy import JUJU_DEV_FEATURE_FLAGS
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import (
-    fake_juju_client,
-    FakeBackend,
 )
 
 

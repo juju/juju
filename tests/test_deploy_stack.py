@@ -45,6 +45,10 @@ from deploy_stack import (
     retain_config,
     update_env,
 )
+from fakejuju import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+)
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -73,8 +77,6 @@ from tests import (
 )
 from tests.test_jujupy import (
     assert_juju_call,
-    fake_juju_client,
-    fake_juju_client_optional_jes,
     FakePopen,
     observable_temp_file,
 )
