@@ -71,6 +71,12 @@ func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, new
 
 	regions := make(map[string]bool)
 	var allCloudSpecs = []simplestreams.CloudSpec{}
+	// Each metadata item defines its own cloud specification.
+	// However, when we combine metadata items in the file, we do not want to
+	// repeat common cloud specifications in index definition.
+	// Since region name and endpoint have 1:1 correspondence,
+	// only one distinct cloud specification for each region
+	// is being collected.
 	addDistinctCloudSpec := func(im *ImageMetadata) {
 		if _, ok := regions[im.RegionName]; !ok {
 			regions[im.RegionName] = true

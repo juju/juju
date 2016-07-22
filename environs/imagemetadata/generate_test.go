@@ -269,7 +269,7 @@ func (s *generateSuite) TestWriteIndexRegionOnce(c *gc.C) {
 	err = imagemetadata.MergeAndWriteMetadata("raring", newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 
-	foundIndex := testing.ParseIndexMetadataFromStorage(c, targetStorage)
+	foundIndex, _ := testing.ParseIndexMetadataFromStorage(c, targetStorage)
 	expectedCloudSpecs := []simplestreams.CloudSpec{*cloudSpec}
 	c.Assert(foundIndex.Clouds, jc.SameContents, expectedCloudSpecs)
 }
@@ -310,7 +310,7 @@ func (s *generateSuite) TestWriteDistinctIndexRegions(c *gc.C) {
 	err = imagemetadata.MergeAndWriteMetadata("raring", newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 
-	foundIndex := testing.ParseIndexMetadataFromStorage(c, targetStorage)
+	foundIndex, _ := testing.ParseIndexMetadataFromStorage(c, targetStorage)
 	expectedCloudSpecs = append(expectedCloudSpecs, *cloudSpec)
 	c.Assert(foundIndex.Clouds, jc.SameContents, expectedCloudSpecs)
 }
