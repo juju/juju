@@ -64,9 +64,10 @@ class TestGetAzureCredentials(TestCase):
             tenant='tenant-id1',
             )
 
+
 def make_id(patch='_5', build_number='.4', lts=True, beta=False):
-    sku_suffix='-LTS' if lts else ''
-    beta_suffix='-beta256' if beta else ''
+    sku_suffix = '-LTS' if lts else ''
+    beta_suffix = '-beta256' if beta else ''
     variables = {
         'patch': patch,
         'sku_suffix': sku_suffix,
@@ -188,7 +189,6 @@ def make_item_expected(item_id=None, region=None, endpoint=None):
     urn = ':'.join(full_spec)
     expected_item = convert_item_to_arm(old_item, urn, endpoint)
     return old_item, full_spec, expected_item
-
 
 
 class TestConvertCloudImagesItems(TestCase):

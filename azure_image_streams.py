@@ -70,6 +70,7 @@ EXPECTED_MISSING = frozenset({('12.04.2-LTS', '12.04.201212180')})
 class MissingImage(Exception):
     """Raised when an expected image is not present."""
 
+
 class UnexpectedImage(Exception):
     """Raised when an image not expected is present."""
 
@@ -133,8 +134,7 @@ def parse_id(item_id):
 def arm_image_exists(client, location, full_spec):
     """Return True if the full_spec exists on Azure-ARM, else False."""
     try:
-        result = client.virtual_machine_images.get(
-            location, *full_spec)
+        client.virtual_machine_images.get(location, *full_spec)
     except CloudError as e:
         if e.message != 'Artifact: VMImage was not found.':
             raise
