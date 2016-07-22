@@ -71,18 +71,17 @@ func (c *switchCommand) Init(args []string) error {
 }
 
 func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
-	store := modelcmd.QualifyingClientStore{c.Store}
 
 	// Get the current name for logging the transition or printing
 	// the current controller/model.
-	currentControllerName, err := store.CurrentController()
+	currentControllerName, err := c.Store.CurrentController()
 	if errors.IsNotFound(err) {
 		currentControllerName = ""
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 	if c.Target == "" {
-		currentName, err := c.name(store, currentControllerName, true)
+		currentName, err := c.name(currentControllerName, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -92,7 +91,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
 		return nil
 	}
-	currentName, err := c.name(store, currentControllerName, false)
+	currentName, err := c.name(currentControllerName, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,16 +114,16 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// If the target identifies a controller, then set that as the current controller.
 	var newControllerName = c.Target
-	if _, err = store.ControllerByName(c.Target); err == nil {
+	if _, err = c.Store.ControllerByName(c.Target); err == nil {
 		if newControllerName == currentControllerName {
 			newName = currentName
 			return nil
 		} else {
-			newName, err = c.name(store, newControllerName, false)
+			newName, err = c.name(newControllerName, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			return errors.Trace(store.SetCurrentController(newControllerName))
+			return errors.Trace(c.Store.SetCurrentController(newControllerName))
 		}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -136,28 +135,25 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// case, the model must exist in the current controller.
 	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
 	if newControllerName != "" {
-		if _, err = store.ControllerByName(newControllerName); err != nil {
+		if _, err = c.Store.ControllerByName(newControllerName); err != nil {
 			return errors.Trace(err)
 		}
+		newName = modelcmd.JoinModelName(newControllerName, modelName)
 	} else {
 		if currentControllerName == "" {
 			return unknownSwitchTargetError(c.Target)
 		}
 		newControllerName = currentControllerName
+		newName = modelcmd.JoinModelName(newControllerName, modelName)
 	}
-	modelName, err = store.QualifiedModelName(newControllerName, modelName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newName = modelcmd.JoinModelName(newControllerName, modelName)
 
-	err = store.SetCurrentModel(newControllerName, modelName)
+	err = c.Store.SetCurrentModel(newControllerName, modelName)
 	if errors.IsNotFound(err) {
 		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(store, newControllerName); err != nil {
+		if err := c.RefreshModels(c.Store, newControllerName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}
-		err := store.SetCurrentModel(newControllerName, modelName)
+		err := c.Store.SetCurrentModel(newControllerName, modelName)
 		if errors.IsNotFound(err) {
 			return unknownSwitchTargetError(c.Target)
 		} else if err != nil {
@@ -167,7 +163,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 	if currentControllerName != newControllerName {
-		if err := store.SetCurrentController(newControllerName); err != nil {
+		if err := c.Store.SetCurrentController(newControllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -189,11 +185,11 @@ func logSwitch(ctx *cmd.Context, oldName string, newName *string) {
 // name returns the name of the current model for the specified controller
 // if one is set, otherwise the controller name with an indicator that it
 // is the name of a controller and not a model.
-func (c *switchCommand) name(store jujuclient.ModelGetter, controllerName string, machineReadable bool) (string, error) {
+func (c *switchCommand) name(controllerName string, machineReadable bool) (string, error) {
 	if controllerName == "" {
 		return "", nil
 	}
-	modelName, err := store.CurrentModel(controllerName)
+	modelName, err := c.Store.CurrentModel(controllerName)
 	if err == nil {
 		return modelcmd.JoinModelName(controllerName, modelName), nil
 	}

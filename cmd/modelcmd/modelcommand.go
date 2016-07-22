@@ -275,9 +275,8 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	store := w.ClientStore()
 	if store == nil {
 		store = jujuclient.NewFileClientStore()
+		w.SetClientStore(store)
 	}
-	store = QualifyingClientStore{store}
-	w.SetClientStore(store)
 	if !w.skipFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.

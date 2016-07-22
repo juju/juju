@@ -239,9 +239,8 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	store := w.ClientStore()
 	if store == nil {
 		store = jujuclient.NewFileClientStore()
+		w.SetClientStore(store)
 	}
-	store = QualifyingClientStore{store}
-	w.SetClientStore(store)
 	if w.setFlags {
 		if w.controllerName == "" && w.useDefaultControllerName {
 			currentController, err := store.CurrentController()

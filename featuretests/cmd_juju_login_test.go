@@ -5,7 +5,6 @@ package featuretests
 
 import (
 	"io"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -14,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -22,11 +20,6 @@ import (
 
 type cmdLoginSuite struct {
 	jujutesting.JujuConnSuite
-}
-
-func (s *cmdLoginSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	os.Setenv(osenv.JujuModelEnvKey, "")
 }
 
 func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Context {

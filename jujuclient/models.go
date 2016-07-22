@@ -4,14 +4,11 @@
 package jujuclient
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -79,8 +76,8 @@ type ControllerModels struct {
 	CurrentModel string `yaml:"current-model,omitempty"`
 }
 
-// TODO(axw) 2016-07-14 #1603841
-// Drop this code once we get to 2.0.
+// TODO(axw) 2016-07-14 #NNN
+// Drop this code once we get to 2.0-beta13.
 func migrateLegacyModels(data []byte) error {
 	accounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -124,31 +121,4 @@ func migrateLegacyModels(data []byte) error {
 		return WriteModelsFile(result)
 	}
 	return nil
-}
-
-// JoinOwnerModelName returns a model name qualified with the model owner.
-func JoinOwnerModelName(owner names.UserTag, modelName string) string {
-	return fmt.Sprintf("%s/%s", owner.Canonical(), modelName)
-}
-
-// IsQualifiedModelName returns true if the provided model name is qualified
-// with an owner. The name is assumed to be either a valid qualified model
-// name, or a valid unqualified model name.
-func IsQualifiedModelName(name string) bool {
-	return strings.ContainsRune(name, '/')
-}
-
-// SplitModelName splits a qualified model name into the model and owner
-// name components.
-func SplitModelName(name string) (string, names.UserTag, error) {
-	i := strings.IndexRune(name, '/')
-	if i < 0 {
-		return "", names.UserTag{}, errors.NotValidf("unqualified model name %q", name)
-	}
-	owner := name[:i]
-	if !names.IsValidUser(owner) {
-		return "", names.UserTag{}, errors.NotValidf("user name %q", owner)
-	}
-	name = name[i+1:]
-	return name, names.NewUserTag(owner), nil
 }

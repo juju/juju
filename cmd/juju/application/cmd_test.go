@@ -54,7 +54,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 	if com.NumUnits == 0 {
 		com.NumUnits = 1
 	}
-	com.SetClientStore(modelcmd.QualifyingClientStore{store})
+	com.SetClientStore(store)
 	com.SetModelName("controller")
 }
 

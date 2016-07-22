@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -131,10 +130,6 @@ func decorateAndWriteInfo(
 	details prepareDetails,
 	controllerName, modelName string,
 ) error {
-	qualifiedModelName := jujuclient.JoinOwnerModelName(
-		names.NewUserTag(details.AccountDetails.User),
-		modelName,
-	)
 	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
@@ -144,10 +139,10 @@ func decorateAndWriteInfo(
 	if err := store.UpdateAccount(controllerName, details.AccountDetails); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.UpdateModel(controllerName, qualifiedModelName, details.ModelDetails); err != nil {
+	if err := store.UpdateModel(controllerName, modelName, details.ModelDetails); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(controllerName, qualifiedModelName); err != nil {
+	if err := store.SetCurrentModel(controllerName, modelName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
