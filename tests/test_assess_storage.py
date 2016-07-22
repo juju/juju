@@ -48,22 +48,18 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_storage.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_storage.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch("assess_storage.assess_storage",
-                                   autospec=True) as mock_assess:
-                            main(argv)
+                with patch("deploy_stack.client_from_config",
+                           return_value=client) as mock_c:
+                    with patch("assess_storage.assess_storage",
+                               autospec=True) as mock_assess:
+                        main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, 'trusty')
 

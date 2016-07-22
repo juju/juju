@@ -76,6 +76,10 @@ for super_cmd in [SYSTEM, CONTROLLER]:
 log = logging.getLogger("jujupy")
 
 
+class IncompatibleConfigClass(Exception):
+    """Raised when a client is initialised with the wrong config class."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -157,10 +161,10 @@ def coalesce_agent_status(agent_item):
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
-    env = SimpleEnvironment.from_config(env_name)
+    client = client_from_config(env_name, juju_path, debug)
     if temp_env_name is not None:
-        env.set_model_name(temp_env_name)
-    return EnvJujuClient.by_version(env, juju_path, debug)
+        client.env.set_model_name(temp_env_name)
+    return client
 
 
 class CannotConnectEnv(subprocess.CalledProcessError):
@@ -205,6 +209,195 @@ def temp_yaml_file(yaml_dict):
         yield temp_file.name
     finally:
         os.unlink(temp_file.name)
+
+
+class SimpleEnvironment:
+
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
+        self.user_name = None
+        if controller is None:
+            controller = Controller(environment)
+        self.controller = controller
+        self.environment = environment
+        self.config = config
+        self.juju_home = juju_home
+        if self.config is not None:
+            self.local = bool(self.config.get('type') == 'local')
+            self.kvm = (
+                self.local and bool(self.config.get('container') == 'kvm'))
+            self.maas = bool(self.config.get('type') == 'maas')
+            self.joyent = bool(self.config.get('type') == 'joyent')
+        else:
+            self.local = False
+            self.kvm = False
+            self.maas = False
+            self.joyent = False
+
+    def clone(self, model_name=None):
+        config = deepcopy(self.config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = model_name
+        result = self.__class__(model_name, config, self.juju_home,
+                                self.controller)
+        result.local = self.local
+        result.kvm = self.kvm
+        result.maas = self.maas
+        result.joyent = self.joyent
+        return result
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.environment != other.environment:
+            return False
+        if self.config != other.config:
+            return False
+        if self.local != other.local:
+            return False
+        if self.maas != other.maas:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
+
+    def set_model_name(self, model_name, set_controller=True):
+        if set_controller:
+            self.controller.name = model_name
+        self.environment = model_name
+        self.config['name'] = model_name
+
+    @classmethod
+    def from_config(cls, name):
+        return cls._from_config(name)
+
+    @classmethod
+    def _from_config(cls, name):
+        config, selected = get_selected_environment(name)
+        if name is None:
+            name = selected
+        return cls(name, config)
+
+    def needs_sudo(self):
+        return self.local
+
+    @contextmanager
+    def make_jes_home(self, juju_home, dir_name, new_config):
+        home_path = jes_home_path(juju_home, dir_name)
+        if os.path.exists(home_path):
+            rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_yaml(home_path, new_config)
+        yield home_path
+
+    def dump_yaml(self, path, config):
+        dump_environments_yaml(path, config)
+
+
+class JujuData(SimpleEnvironment):
+
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
+        if juju_home is None:
+            juju_home = get_juju_home()
+        super(JujuData, self).__init__(environment, config, juju_home,
+                                       controller)
+        self.credentials = {}
+        self.clouds = {}
+
+    def clone(self, model_name=None):
+        result = super(JujuData, self).clone(model_name)
+        result.credentials = deepcopy(self.credentials)
+        result.clouds = deepcopy(self.clouds)
+        return result
+
+    @classmethod
+    def from_env(cls, env):
+        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data.load_yaml()
+        return juju_data
+
+    def load_yaml(self):
+        try:
+            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+                self.credentials = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read credentials file: {}'.format(str(e)))
+            self.credentials = {}
+        try:
+            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+                self.clouds = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read clouds file: {}'.format(str(e)))
+            # Default to an empty clouds file.
+            self.clouds = {'clouds': {}}
+
+    @classmethod
+    def from_config(cls, name):
+        juju_data = cls._from_config(name)
+        juju_data.load_yaml()
+        return juju_data
+
+    def dump_yaml(self, path, config):
+        """Dump the configuration files to the specified path.
+
+        config is unused, but is accepted for compatibility with
+        SimpleEnvironment and make_jes_home().
+        """
+        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
+            yaml.safe_dump(self.credentials, f)
+        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
+            yaml.safe_dump(self.clouds, f)
+
+    def find_endpoint_cloud(self, cloud_type, endpoint):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != cloud_type:
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def get_cloud(self):
+        provider = self.config['type']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
+            return 'aws-china'
+        if provider not in ('maas', 'openstack'):
+            return {
+                'ec2': 'aws',
+                'gce': 'google',
+            }.get(provider, provider)
+        if provider == 'maas':
+            endpoint = self.config['maas-server']
+        elif provider == 'openstack':
+            endpoint = self.config['auth-url']
+        return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_region(self):
+        provider = self.config['type']
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                return self.config['location'].replace(' ', '').lower()
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider == 'manual':
+            return self.config['bootstrap-host']
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
 
 
 class Status:
@@ -560,6 +753,48 @@ class Juju1XBackend(Juju2A2Backend):
                 args)
 
 
+def get_client_class(version):
+    if version.startswith('1.16'):
+        raise Exception('Unsupported juju: %s' % version)
+    elif re.match('^1\.22[.-]', version):
+        client_class = EnvJujuClient22
+    elif re.match('^1\.24[.-]', version):
+        client_class = EnvJujuClient24
+    elif re.match('^1\.25[.-]', version):
+        client_class = EnvJujuClient25
+    elif re.match('^1\.26[.-]', version):
+        client_class = EnvJujuClient26
+    elif re.match('^1\.', version):
+        client_class = EnvJujuClient1X
+    # Ensure alpha/beta number matches precisely
+    elif re.match('^2\.0-alpha1([^\d]|$)', version):
+        client_class = EnvJujuClient2A1
+    elif re.match('^2\.0-alpha2([^\d]|$)', version):
+        client_class = EnvJujuClient2A2
+    elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
+        client_class = EnvJujuClient2B2
+    elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
+        client_class = EnvJujuClient2B3
+    elif re.match('^2\.0-(beta7)([^\d]|$)', version):
+        client_class = EnvJujuClient2B7
+    elif re.match('^2\.0-beta8([^\d]|$)', version):
+        client_class = EnvJujuClient2B8
+    else:
+        client_class = EnvJujuClient
+    return client_class
+
+
+def client_from_config(config, juju_path, debug=False):
+    version = EnvJujuClient.get_version(juju_path)
+    client_class = get_client_class(version)
+    env = client_class.config_class.from_config(config)
+    if juju_path is None:
+        full_path = EnvJujuClient.get_full_path()
+    else:
+        full_path = os.path.abspath(juju_path)
+    return client_class(env, version, full_path, debug=debug)
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -582,6 +817,8 @@ class EnvJujuClient:
                                            LXD_MACHINE])
 
     default_backend = Juju2Backend
+
+    config_class = JujuData
 
     status_class = Status
 
@@ -643,41 +880,15 @@ class EnvJujuClient:
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
-    @classmethod
-    def by_version(cls, env, juju_path=None, debug=False):
-        version = cls.get_version(juju_path)
+    def clone_path_cls(self, juju_path):
+        """Clone using the supplied path to determine the class."""
+        version = self.get_version(juju_path)
+        cls = get_client_class(version)
         if juju_path is None:
-            full_path = cls.get_full_path()
+            full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        elif re.match('^1\.22[.-]', version):
-            client_class = EnvJujuClient22
-        elif re.match('^1\.24[.-]', version):
-            client_class = EnvJujuClient24
-        elif re.match('^1\.25[.-]', version):
-            client_class = EnvJujuClient25
-        elif re.match('^1\.26[.-]', version):
-            client_class = EnvJujuClient26
-        elif re.match('^1\.', version):
-            client_class = EnvJujuClient1X
-        # Ensure alpha/beta number matches precisely
-        elif re.match('^2\.0-alpha1([^\d]|$)', version):
-            client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-alpha2([^\d]|$)', version):
-            client_class = EnvJujuClient2A2
-        elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
-            client_class = EnvJujuClient2B2
-        elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
-            client_class = EnvJujuClient2B3
-        elif re.match('^2\.0-(beta7)([^\d]|$)', version):
-            client_class = EnvJujuClient2B7
-        elif re.match('^2\.0-beta8([^\d]|$)', version):
-            client_class = EnvJujuClient2B8
-        else:
-            client_class = EnvJujuClient
-        return client_class(env, version, full_path, debug=debug)
+        return self.clone(version=version, full_path=full_path, cls=cls)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
@@ -804,9 +1015,7 @@ class EnvJujuClient:
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:
@@ -1117,9 +1326,7 @@ class EnvJujuClient:
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
     def _get_substrate_constraints(self):
-        if self.env.maas:
-            return 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
         else:
@@ -1128,10 +1335,7 @@ class EnvJujuClient:
     def quickstart(self, bundle_template, upload_tools=False):
         """quickstart, using sudo if necessary."""
         bundle = self.format_bundle(bundle_template)
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        else:
-            constraints = 'mem=2G'
+        constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
@@ -1717,9 +1921,7 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:
@@ -1763,10 +1965,12 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
 
     default_backend = Juju2A2Backend
 
+    config_class = SimpleEnvironment
+
     @classmethod
     def _get_env(cls, env):
         if isinstance(env, JujuData):
-            raise ValueError(
+            raise IncompatibleConfigClass(
                 'JujuData cannot be used with {}'.format(cls.__name__))
         return env
 
@@ -2389,195 +2593,6 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
-
-
-class SimpleEnvironment:
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
-        self.user_name = None
-        if controller is None:
-            controller = Controller(environment)
-        self.controller = controller
-        self.environment = environment
-        self.config = config
-        self.juju_home = juju_home
-        if self.config is not None:
-            self.local = bool(self.config.get('type') == 'local')
-            self.kvm = (
-                self.local and bool(self.config.get('container') == 'kvm'))
-            self.maas = bool(self.config.get('type') == 'maas')
-            self.joyent = bool(self.config.get('type') == 'joyent')
-        else:
-            self.local = False
-            self.kvm = False
-            self.maas = False
-            self.joyent = False
-
-    def clone(self, model_name=None):
-        config = deepcopy(self.config)
-        if model_name is None:
-            model_name = self.environment
-        else:
-            config['name'] = model_name
-        result = self.__class__(model_name, config, self.juju_home,
-                                self.controller)
-        result.local = self.local
-        result.kvm = self.kvm
-        result.maas = self.maas
-        result.joyent = self.joyent
-        return result
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        if self.environment != other.environment:
-            return False
-        if self.config != other.config:
-            return False
-        if self.local != other.local:
-            return False
-        if self.maas != other.maas:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self == other
-
-    def set_model_name(self, model_name, set_controller=True):
-        if set_controller:
-            self.controller.name = model_name
-        self.environment = model_name
-        self.config['name'] = model_name
-
-    @classmethod
-    def from_config(cls, name):
-        return cls._from_config(name)
-
-    @classmethod
-    def _from_config(cls, name):
-        config, selected = get_selected_environment(name)
-        if name is None:
-            name = selected
-        return cls(name, config)
-
-    def needs_sudo(self):
-        return self.local
-
-    @contextmanager
-    def make_jes_home(self, juju_home, dir_name, new_config):
-        home_path = jes_home_path(juju_home, dir_name)
-        if os.path.exists(home_path):
-            rmtree(home_path)
-        os.makedirs(home_path)
-        self.dump_yaml(home_path, new_config)
-        yield home_path
-
-    def dump_yaml(self, path, config):
-        dump_environments_yaml(path, config)
-
-
-class JujuData(SimpleEnvironment):
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
-        if juju_home is None:
-            juju_home = get_juju_home()
-        super(JujuData, self).__init__(environment, config, juju_home,
-                                       controller)
-        self.credentials = {}
-        self.clouds = {}
-
-    def clone(self, model_name=None):
-        result = super(JujuData, self).clone(model_name)
-        result.credentials = deepcopy(self.credentials)
-        result.clouds = deepcopy(self.clouds)
-        return result
-
-    @classmethod
-    def from_env(cls, env):
-        juju_data = cls(env.environment, env.config, env.juju_home)
-        juju_data.load_yaml()
-        return juju_data
-
-    def load_yaml(self):
-        try:
-            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
-                self.credentials = yaml.safe_load(f)
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise RuntimeError(
-                    'Failed to read credentials file: {}'.format(str(e)))
-            self.credentials = {}
-        try:
-            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-                self.clouds = yaml.safe_load(f)
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise RuntimeError(
-                    'Failed to read clouds file: {}'.format(str(e)))
-            # Default to an empty clouds file.
-            self.clouds = {'clouds': {}}
-
-    @classmethod
-    def from_config(cls, name):
-        juju_data = cls._from_config(name)
-        juju_data.load_yaml()
-        return juju_data
-
-    def dump_yaml(self, path, config):
-        """Dump the configuration files to the specified path.
-
-        config is unused, but is accepted for compatibility with
-        SimpleEnvironment and make_jes_home().
-        """
-        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
-            yaml.safe_dump(self.credentials, f)
-        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
-            yaml.safe_dump(self.clouds, f)
-
-    def find_endpoint_cloud(self, cloud_type, endpoint):
-        for cloud, cloud_config in self.clouds['clouds'].items():
-            if cloud_config['type'] != cloud_type:
-                continue
-            if cloud_config['endpoint'] == endpoint:
-                return cloud
-        raise LookupError('No such endpoint: {}'.format(endpoint))
-
-    def get_cloud(self):
-        provider = self.config['type']
-        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
-        # Model CLI specification
-        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
-            return 'aws-china'
-        if provider not in ('maas', 'openstack'):
-            return {
-                'ec2': 'aws',
-                'gce': 'google',
-            }.get(provider, provider)
-        if provider == 'maas':
-            endpoint = self.config['maas-server']
-        elif provider == 'openstack':
-            endpoint = self.config['auth-url']
-        return self.find_endpoint_cloud(provider, endpoint)
-
-    def get_region(self):
-        provider = self.config['type']
-        if provider == 'azure':
-            if 'tenant-id' not in self.config:
-                return self.config['location'].replace(' ', '').lower()
-            return self.config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return 'localhost'
-        elif provider == 'manual':
-            return self.config['bootstrap-host']
-        elif provider in ('maas', 'manual'):
-            return None
-        else:
-            return self.config['region']
 
 
 class GroupReporter:

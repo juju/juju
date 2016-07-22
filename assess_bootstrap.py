@@ -11,8 +11,7 @@ from deploy_stack import (
     tear_down,
     )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
+    client_from_config,
     )
 from utility import (
     configure_logging,
@@ -29,8 +28,7 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
     with scoped_environ():
         juju_bin = os.path.dirname(os.path.abspath(juju))
         os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
-        client = EnvJujuClient.by_version(SimpleEnvironment.from_config(env),
-                                          juju, debug)
+        client = client_from_config(env, juju, debug)
     jes_enabled = client.is_jes_enabled()
     if temp_env_name is None:
         temp_env_name = client.env.environment
