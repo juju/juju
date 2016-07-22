@@ -5921,7 +5921,7 @@ class TestStatus(FakeHomeTestCase):
                     'juju-status': {
                         'current': 'error',
                         'message': failure}
-                     },
+                    },
                 }
             }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
@@ -5943,7 +5943,7 @@ class TestStatus(FakeHomeTestCase):
                     'juju-status': {
                         'current': 'error',
                         'message': failure}
-                     },
+                    },
                 }
             }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:

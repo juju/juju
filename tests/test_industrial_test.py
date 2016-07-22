@@ -1185,8 +1185,8 @@ class TestSteppedStageAttempt(JujuPyTestCase):
 
 def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
     return EnvJujuClient(
-            JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-            version, full_path)
+        JujuData(name, {'type': 'fake', 'region': 'regionx'}),
+        version, full_path)
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):

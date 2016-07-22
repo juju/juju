@@ -89,7 +89,7 @@ def ssh(client, machine, cmd):
         except subprocess.CalledProcessError as e:
             # If the connection to the host failed, try again in a couple of
             # seconds. This is usually due to heavy load.
-            if (attempt < attempts - 1 and
+            if(attempt < attempts - 1 and
                re.search('ssh_exchange_identification: '
                          'Connection closed by remote host', e.stderr)):
                 time.sleep(back_off)
@@ -319,7 +319,7 @@ def _assessment_iteration(client, containers):
     assess_network_traffic(client, containers)
 
 
-def cd_assess_container_networking(client, types, hosts, containers):
+def _assess_container_networking(client, types, hosts, containers):
     """Run _assessment_iteration on all useful combinations of containers
     :param client: Juju client
     :param args: Parsed command line arguments

@@ -9,7 +9,6 @@ import os
 import subprocess
 import shlex
 import sys
-import traceback
 
 from utility import configure_logging
 
