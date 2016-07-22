@@ -1373,7 +1373,7 @@ class TestEnvJujuClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
+                    '--constraints', 'mem=2G', 'maas', 'foo/asdf',
                     '--config', config_file.name, '--default-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
@@ -2936,7 +2936,7 @@ class TestEnvJujuClient(ClientTest):
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
-            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+            ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
@@ -3379,7 +3379,7 @@ class TestEnvJujuClient2B2(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
+                    '--constraints', 'mem=2G', 'maas', 'foo/asdf',
                     '--config', config_file.name, '--agent-version', '2.0'),
                 include_e=False)
 
@@ -3619,7 +3619,7 @@ class TestEnvJujuClient1X(ClientTest):
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
@@ -4869,7 +4869,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
-            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+            ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
