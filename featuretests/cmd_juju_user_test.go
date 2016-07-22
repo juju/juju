@@ -120,7 +120,7 @@ func (s *UserSuite) TestRemoveUserPrompt(c *gc.C) {
 	expected := `
 WARNING! This command will remove the user "jjam" from the "kontroll" controller.
 
-Continue [y/N]? `[1:]
+Continue (y/N)? `[1:]
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
 	ctx, _ := s.RunUserCommand(c, "", "remove-user", "jjam")
 	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)
