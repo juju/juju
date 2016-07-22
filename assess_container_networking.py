@@ -319,7 +319,7 @@ def _assessment_iteration(client, containers):
     assess_network_traffic(client, containers)
 
 
-def _assess_container_networking(client, types, hosts, containers):
+def cd_assess_container_networking(client, types, hosts, containers):
     """Run _assessment_iteration on all useful combinations of containers
     :param client: Juju client
     :param args: Parsed command line arguments

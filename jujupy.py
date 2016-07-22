@@ -926,15 +926,9 @@ class EnvJujuClient:
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
         timeout = kwargs.get('timeout')
-        try:
-            username = self.env.user_name
-            return self._backend.get_juju_output(
-                command, args, self.used_feature_flags, self.env.juju_home,
-                model, timeout, user_name=username)
-        except Exception:
-            return self._backend.get_juju_output(
-                command, args, self.used_feature_flags, self.env.juju_home,
-                model, timeout)
+        return self._backend.get_juju_output(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, timeout, user_name=self.env.user_name)
 
     def show_status(self):
         """Print the status to output."""
@@ -1621,6 +1615,52 @@ class EnvJujuClient:
     def logout_user(self):
         """Logout an user"""
         self.juju('logout', (), include_e=False)
+
+    def register_user(self, user, fake_home):
+        """Register `user` for the `client` return the cloned client used."""
+        username = user.name
+        controller_name = '{}_controller'.format(username)
+
+        model = self.env.environment
+        token = self.add_user(username, models=model + ',controller',
+                              permissions=user.permissions)
+        user_client, user_env = self.create_cloned_environment(fake_home,
+                                                               controller_name)
+
+        try:
+            child = user_client.expect(
+                'register', (token), extra_env=user_env, include_e=False)
+            child.expect('(?i)name')
+            child.sendline(username + '_controller')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise Exception(
+                    'Registering user failed: pexpect session still alive')
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
+        return user_client
+
+    def create_cloned_environment(self, cloned_juju_home, controller_name):
+        """Create a cloned environment"""
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        user_client_env = user_client._shell_environ()
+        return user_client, user_client_env
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with a model."""
+        if model is None:
+            model = self.model_name
+        self.juju('grant', (user_name, model, '--acl', permission),
+                  include_e=False)
 
 
 class EnvJujuClient2B8(EnvJujuClient):
@@ -2355,6 +2395,7 @@ class SimpleEnvironment:
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
+        self.user_name = None
         if controller is None:
             controller = Controller(environment)
         self.controller = controller

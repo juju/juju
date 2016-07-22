@@ -141,14 +141,6 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
-    def add_user(self, name, permission):
-        state = FakeEnvironmentState()
-        self.users[name] = {'state': state, 'permission': permission}
-        self.shares.append(name)
-        state.controller = self
-        state.controller.state = 'created'
-        return state
-
     def require_controller(self, operation, name):
         if name != self.controller_model.name:
             raise ControllerOperation(operation)
@@ -451,7 +443,6 @@ class FakeBackend:
                        self.controller_state.models.values()]
         return {'models': [{'name': n} for n in model_names]}
 
-
     def list_users(self):
         user_names = [name for name in
                       self.controller_state.users.keys()]
@@ -466,7 +457,7 @@ class FakeBackend:
 
     def show_user(self, user_name):
         if user_name is None:
-            raise JujuAssertionError("No user specified")
+            raise Exception("No user specified")
         if user_name == 'admin':
             user_status = {'user-name': user_name, 'display-name': user_name}
         else:
@@ -588,9 +579,13 @@ class FakeBackend:
             if command == 'revoke':
                 user_name = args[2]
                 permissions = args[5]
-                if self.controller_state.users[user_name]['permission'] == permissions:
-                    self.controller_state.shares.remove(user_name)
-                    self.controller_state.users[user_name]['permission'] = ''
+                per = self.controller_state.users[user_name]['permission']
+                if per == permissions:
+                    if permissions == 'read':
+                        self.controller_state.shares.remove(user_name)
+                        per = ''
+                    else:
+                        per = 'read'
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
@@ -3096,7 +3091,8 @@ class TestEnvJujuClient(ClientTest):
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
             frozenset(
-                ['address-allocation', 'migration']), 'foo', 'name:name', None)
+                ['address-allocation', 'migration']), 'foo',
+            'name:name', None, user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -3298,6 +3294,35 @@ class TestEnvJujuClient(ClientTest):
             expected_args = _get_expected_args(permissions=permissions)
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
+
+    def test_disable_user(self):
+        env = JujuData('foo')
+        username = 'fakeuser'
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.disable_user(username)
+        mock.assert_called_with(
+            'disable-user', ('fakeuser',),
+            include_e=False)
+
+    def test_enable_user(self):
+        env = JujuData('foo')
+        username = 'fakeuser'
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.enable_user(username)
+        mock.assert_called_with(
+            'enable-user', ('fakeuser',),
+            include_e=False)
+
+    def test_logout_user(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.logout_user()
+        mock.assert_called_with(
+            'logout', (),
+            include_e=False)
 
 
 class TestEnvJujuClient2B8(ClientTest):
@@ -5233,7 +5258,8 @@ class TestEnvJujuClient1X(ClientTest):
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
             frozenset(
-                ['address-allocation', 'migration']), 'foo', 'name', None)
+                ['address-allocation', 'migration']),
+            'foo', 'name', None, user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
