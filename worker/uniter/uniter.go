@@ -521,10 +521,12 @@ func (u *Uniter) acquireExecutionLock() (mutex.Releaser, error) {
 		Delay:  250 * time.Millisecond,
 		Cancel: u.catacomb.Dying(),
 	}
+	logger.Debugf("acquire lock %q for uniter hook execution", u.hookLockName)
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("lock %q acquired", u.hookLockName)
 	return releaser, nil
 }
 
