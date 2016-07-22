@@ -160,10 +160,13 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		Delay:  time.Second,
 		Cancel: abort,
 	}
+	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
+	logger.Debugf("lock %q acquired", cs.initLockName)
+	defer logger.Debugf("release lock %q for container initialisation", cs.initLockName)
 	defer releaser.Release()
 
 	if err := initialiser.Initialise(); err != nil {

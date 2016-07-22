@@ -73,6 +73,7 @@ func (x *executor) Run(op Operation) (runErr error) {
 		if err != nil {
 			return errors.Annotate(err, "could not acquire lock")
 		}
+		defer logger.Debugf("lock released")
 		defer releaser.Release()
 	}
 

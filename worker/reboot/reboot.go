@@ -78,12 +78,14 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 		if _, err := mutex.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
+		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
 		return worker.ErrRebootMachine
 	case params.ShouldShutdown:
 		logger.Debugf("acquiring mutex %q for shutdown", r.machineLockName)
 		if _, err := mutex.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
+		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
 		return worker.ErrShutdownMachine
 	default:
 		return nil
