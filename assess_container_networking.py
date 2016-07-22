@@ -24,7 +24,7 @@ from jujupy import (
     KVM_MACHINE,
     LXC_MACHINE,
     LXD_MACHINE,
-    )
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -89,7 +89,7 @@ def ssh(client, machine, cmd):
         except subprocess.CalledProcessError as e:
             # If the connection to the host failed, try again in a couple of
             # seconds. This is usually due to heavy load.
-            if(attempt < attempts - 1 and
+            if (attempt < attempts - 1 and
                re.search('ssh_exchange_identification: '
                          'Connection closed by remote host', e.stderr)):
                 time.sleep(back_off)
@@ -299,7 +299,7 @@ def assess_internet_connection(client, targets):
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
         if d:
             rc = client.juju('ssh', ('--proxy', target,
-                             'ping -c1 -q ' + d.group(1)), check=False)
+                                     'ping -c1 -q ' + d.group(1)), check=False)
             if rc != 0:
                 raise ValueError('%s unable to ping default route' % target)
         else:
@@ -333,21 +333,21 @@ def cd_assess_container_networking(client, types, hosts, containers):
         test_containers = [
             containers[container_type][hosts[0]][0],
             containers[container_type][hosts[1]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
 
     if KVM_MACHINE in types and LXC_MACHINE in types:
         test_containers = [
             containers[LXC_MACHINE][hosts[0]][0],
             containers[KVM_MACHINE][hosts[0]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
 
         # Test with an LXC and a KVM on different machines
         test_containers = [
             containers[LXC_MACHINE][hosts[0]][0],
             containers[KVM_MACHINE][hosts[1]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
 
 
