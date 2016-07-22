@@ -164,19 +164,19 @@ class TestConvertItemToARM(TestCase):
     def test_convert_item_to_arm(self, item_id=None):
         item = make_old_item(item_id)
         arm_item = convert_item_to_arm(
-            item, 'ww:xx:yy:zz', 'http://example.com/arm')
+            item, 'ww:xx:yy:zz', 'http://example.com/arm', 'westeros')
         self.assertEqual(arm_item, Item('aa', 'bb', 'cc', '99', {
             'id': 'ww:xx:yy:zz',
             'foo': 'bar',
             'endpoint': 'http://example.com/arm',
-            'region': 'Westeros',
+            'region': 'westeros',
             }))
 
     def test_discard_crsn(self):
         item = make_old_item()
         item.data['crsn'] = 'asdf'
         arm_item = convert_item_to_arm(
-            item, 'ww:xx:yy:zz', 'http://example.com/arm')
+            item, 'ww:xx:yy:zz', 'http://example.com/arm', 'westeros')
         self.assertNotIn('crsn', arm_item.data)
 
 
@@ -187,7 +187,8 @@ def make_item_expected(item_id=None, region=None, endpoint=None):
     sku, version = parse_id(old_item.data['id'])
     full_spec = (CANONICAL, UBUNTU_SERVER, sku, version)
     urn = ':'.join(full_spec)
-    expected_item = convert_item_to_arm(old_item, urn, endpoint)
+    arm_region = old_item.data['region'].lower().replace(' ', '')
+    expected_item = convert_item_to_arm(old_item, urn, endpoint, arm_region)
     return old_item, full_spec, expected_item
 
 
@@ -243,7 +244,7 @@ class TestMakeItem(TestCase):
         offer = 'CentOS' if centos else 'bar'
         release = 'centos7' if centos else 'win95'
         full_spec = (release, 'foo', offer, 'baz')
-        region_name = 'Canada East'
+        region_name = 'canadaeast'
         endpoint = 'http://example.org'
         return make_item('1', 'pete', full_spec, region_name, endpoint)
 
@@ -256,7 +257,7 @@ class TestMakeItem(TestCase):
             'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
-                'region': 'Canada East',
+                'region': 'canadaeast',
                 'id': 'foo:bar:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
@@ -272,7 +273,7 @@ class TestMakeItem(TestCase):
             'caee1i3', {
                 'arch': 'amd64',
                 'virt': 'Hyper-V',
-                'region': 'Canada East',
+                'region': 'canadaeast',
                 'id': 'foo:CentOS:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
@@ -304,10 +305,10 @@ def make_expected(client, versions, specs):
     expected_items = []
     expected_calls = []
     for spec in specs:
-        expected_calls.append(call('region1', *spec[1:]))
+        expected_calls.append(call('canadaeast', *spec[1:]))
         for num, version in enumerate(versions):
             expected_items.append(
-                make_item(str(num), version, spec, 'Canada East',
+                make_item(str(num), version, spec, 'canadaeast',
                           client.config.base_url))
     return expected_calls, expected_items
 
@@ -316,7 +317,7 @@ class TestMakeSpecItems(TestCase):
 
     def test_make_spec_items(self):
         client = mock_compute_client(['1', '2'])
-        locations = [mock_location('region1', 'Canada East')]
+        locations = [mock_location('canadaeast', 'Canada East')]
         items = list(make_spec_items(client, IMAGE_SPEC[0], locations))
         expected_calls, expected_items = make_expected(
             client, ['1', '2'], [IMAGE_SPEC[0]])

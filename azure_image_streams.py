@@ -33,32 +33,32 @@ IMAGE_SPEC = [
 
 
 ITEM_NAMES = {
-    "Australia East": "auee1i3",
-    "Australia Southeast": "ause1i3",
-    "Brazil South": "brss1i3",
-    "Canada Central": "cacc1i3",
-    "Canada East": "caee1i3",
-    "Central India": "incc1i3",
-    "Central US": "uscc1i3",
-    "China East": "cnee1i3",
-    "China North": "cnnn1i3",
-    "East Asia": "asee1i3",
-    "East US 2": "usee2i3",
-    "East US": "usee1i3",
-    "Japan East": "jpee1i3",
-    "Japan West": "jpww1i3",
-    "North Central US": "usnc1i3",
-    "North Europe": "eunn1i3",
-    "South Central US": "ussc1i3",
-    "Southeast Asia": "asse1i3",
-    "South India": "inss1i3",
-    "UK North": "gbnn1i3",
-    "UK South 2": "gbss2i3",
-    "West Central US": "uswc1i3",
-    "West Europe": "euww1i3",
-    "West India": "inww1i3",
-    "West US 2": "usww2i3",
-    "West US": "usww1i3",
+    "australiaeast": "auee1i3",
+    "australiasoutheast": "ause1i3",
+    "brazilsouth": "brss1i3",
+    "canadacentral": "cacc1i3",
+    "canadaeast": "caee1i3",
+    "centralindia": "incc1i3",
+    "centralus": "uscc1i3",
+    "chinaeast": "cnee1i3",
+    "chinanorth": "cnnn1i3",
+    "eastasia": "asee1i3",
+    "eastus2": "usee2i3",
+    "eastus": "usee1i3",
+    "japaneast": "jpee1i3",
+    "japanwest": "jpww1i3",
+    "northcentralus": "usnc1i3",
+    "northeurope": "eunn1i3",
+    "southcentralus": "ussc1i3",
+    "southeastasia": "asse1i3",
+    "southindia": "inss1i3",
+    "uknorth": "gbnn1i3",
+    "uksouth2": "gbss2i3",
+    "westcentralus": "uswc1i3",
+    "westeurope": "euww1i3",
+    "westindia": "inww1i3",
+    "westus2": "usww2i3",
+    "westus": "usww1i3",
 }
 
 
@@ -143,11 +143,11 @@ def arm_image_exists(client, location, full_spec):
         return True
 
 
-def convert_item_to_arm(item, urn, endpoint):
+def convert_item_to_arm(item, urn, endpoint, region):
     """Return the ARM equivalent of an item, given a urn + endpoint."""
     data = dict(item.data)
     data.pop('crsn', None)
-    data.update({'id': urn, 'endpoint': endpoint})
+    data.update({'id': urn, 'endpoint': endpoint, 'region': region})
     return Item(item.content_id, item.product_name, item.version_name,
                 item.item_name, data=data)
 
@@ -186,7 +186,7 @@ def convert_cloud_images_items(client, locations, items):
         if (sku, version) in EXPECTED_MISSING:
             raise UnexpectedImage(
                 'Unexpectedly found {} in {}\n'.format(urn, location))
-        arm_items.append(convert_item_to_arm(item, urn, endpoint))
+        arm_items.append(convert_item_to_arm(item, urn, endpoint, location))
     return arm_items, unknown_locations
 
 
@@ -212,7 +212,7 @@ def make_spec_items(client, full_spec, locations):
             continue
         for version in versions:
             location_versions.setdefault(
-                version.name, set()).add(location.display_name)
+                version.name, set()).add(location.name)
     lv2 = sorted(location_versions.items(), key=lambda x: [
         int(ns) for ns in x[0].split('.')])
     for num, (version, v_locations) in enumerate(lv2):
