@@ -30,7 +30,7 @@ A new development release of Juju, {version}, is here!
 
 If you are running ubuntu, you can get it from the juju devel ppa:
 
-    sudo apt-add-repository ppa/devel
+    sudo apt-add-repository ppa:juju/devel
     sudo apt update; sudo apt install juju-2.0
 
 Windows, Centos, and OS X users can get a corresponding installer at:
