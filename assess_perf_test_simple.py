@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import argparse
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 from datetime import datetime
 from jinja2 import Template
@@ -14,6 +14,8 @@ import sys
 import subprocess
 import time
 from textwrap import dedent
+
+from fixtures import EnvironmentVariable
 
 from deploy_stack import (
     BootstrapManager,
@@ -261,23 +263,53 @@ def get_log_message_in_timed_chunks(log_file, deployments):
     bootstrap_timings = (
         deployments['bootstrap'].start, deployments['bootstrap'].end)
 
+    cleanup_timings = (
+        deployments['cleanup'].start, deployments['cleanup'].end)
+
     deploy_timings = [
         (d.timings.start, d.timings.end)
         for d in deployments['deploys']]
 
-    all_timings = [bootstrap_timings] + deploy_timings
+    # name_lookup = {
+    #     '2016-07-21 08:33:12 - 2016-07-21 08:38:15': 'Bootstrap',
+    #     '2016-07-21 08:39:46 - 2016-07-21 08:42:42': 'Delpoy',
+    #     '2016-07-21 08:42:43 - 2016-07-21 08:43:14': 'Kill Controller',
+    # }
+
+    def _render_ds_string(start, end):
+        return '{} - {}'.format(start, end)
+
+    bs_name = _render_ds_string(
+        deployments['bootstrap'].start,
+        deployments['bootstrap'].end)
+
+    cleanup_name = _render_ds_string(
+        deployments['cleanup'].start,
+        deployments['cleanup'].end)
+
+    name_lookup = {
+        bs_name: 'Bootstrap',
+        cleanup_name: 'Kill-Controller',
+    }
+    for dep in deployments['deploys']:
+        name_range = _render_ds_string(
+            dep.timings.start, dep.timings.end)
+        name_lookup[name_range] = dep.name
+
+    all_timings = [bootstrap_timings] + deploy_timings + [cleanup_timings]
 
     raw_details = breakdown_log_by_timeframes(log_file, all_timings)
 
-    event_details = dict()
+    event_details = defaultdict(defaultdict)
     # Outer-layer (i.e. event)
     for event_range in raw_details.keys():
-        event_details[event_range] = []
+        event_details[event_range]['name'] = name_lookup[event_range]
+        event_details[event_range]['logs'] = []
 
         for log_range in raw_details[event_range].keys():
             timeframe = log_range
             message = '<br/>'.join(raw_details[event_range][log_range])
-            event_details[event_range].append(
+            event_details[event_range]['logs'].append(
                 dict(
                     timeframe=timeframe,
                     message=message))
@@ -381,11 +413,12 @@ def _rrd_network_graph(start, end, rrd_path, output_file):
         rrd_path=rrd_path,
         start=start,
         end=end))
-    with temp_dir() as temp:
-        script_path = os.path.abspath(os.path.join(temp, 'network.sh'))
-        with open(script_path, 'wt') as f:
-            f.write(script_text)
-        subprocess.check_call(['sh', script_path])
+    with EnvironmentVariable('TZ', 'UTC'):
+        with temp_dir() as temp:
+            script_path = os.path.abspath(os.path.join(temp, 'network.sh'))
+            with open(script_path, 'wt') as f:
+                f.write(script_text)
+            subprocess.check_call(['sh', script_path])
 
 
 def _rrd_swap_graph(start, end, rrd_path, output_file):
@@ -414,11 +447,12 @@ def _rrd_swap_graph(start, end, rrd_path, output_file):
         rrd_path=rrd_path,
         start=start,
         end=end))
-    with temp_dir() as temp:
-        script_path = os.path.abspath(os.path.join(temp, 'swap.sh'))
-        with open(script_path, 'wt') as f:
-            f.write(script_text)
-        subprocess.check_call(['sh', script_path])
+    with EnvironmentVariable('TZ', 'UTC'):
+        with temp_dir() as temp:
+            script_path = os.path.abspath(os.path.join(temp, 'swap.sh'))
+            with open(script_path, 'wt') as f:
+                f.write(script_text)
+            subprocess.check_call(['sh', script_path])
 
 
 def _rrd_memory_graph(start, end, rrd_path, output_file):
@@ -451,11 +485,12 @@ def _rrd_memory_graph(start, end, rrd_path, output_file):
         rrd_path=rrd_path,
         start=start,
         end=end))
-    with temp_dir() as temp:
-        script_path = os.path.abspath(os.path.join(temp, 'memory.sh'))
-        with open(script_path, 'wt') as f:
-            f.write(script_text)
-        subprocess.check_call(['sh', script_path])
+    with EnvironmentVariable('TZ', 'UTC'):
+        with temp_dir() as temp:
+            script_path = os.path.abspath(os.path.join(temp, 'memory.sh'))
+            with open(script_path, 'wt') as f:
+                f.write(script_text)
+            subprocess.check_call(['sh', script_path])
 
 
 def _rrd_mongdb_graph(start, end, rrd_path, output_file):
@@ -510,11 +545,12 @@ def _rrd_mongdb_graph(start, end, rrd_path, output_file):
         end=end
     ))
 
-    with temp_dir() as temp:
-        script_path = os.path.abspath(os.path.join(temp, 'mongo.sh'))
-        with open(script_path, 'wt') as f:
-            f.write(script_text)
-        subprocess.check_call(['sh', script_path])
+    with EnvironmentVariable('TZ', 'UTC'):
+        with temp_dir() as temp:
+            script_path = os.path.abspath(os.path.join(temp, 'mongo.sh'))
+            with open(script_path, 'wt') as f:
+                f.write(script_text)
+            subprocess.check_call(['sh', script_path])
 
 
 def _rrd_cpu_graph(start, end, rrd_path, output_file):
@@ -577,11 +613,12 @@ def _rrd_cpu_graph(start, end, rrd_path, output_file):
         end=end
     ))
 
-    with temp_dir() as temp:
-        script_path = os.path.abspath(os.path.join(temp, 'cpu.sh'))
-        with open(script_path, 'wt') as f:
-            f.write(script_text)
-        subprocess.check_call(['sh', script_path])
+    with EnvironmentVariable('TZ', 'UTC'):
+        with temp_dir() as temp:
+            script_path = os.path.abspath(os.path.join(temp, 'cpu.sh'))
+            with open(script_path, 'wt') as f:
+                f.write(script_text)
+            subprocess.check_call(['sh', script_path])
 
 
 def get_duration_points(rrd_file):
@@ -683,22 +720,25 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     assess_perf_test_simple(bs_manager, args.upload_tools)
 
-    # # deploy
+    # # # deploy
     # deploy = TimingData(
-    #     '\'cs:bundle/wiki-simple-0\' #1',
-    #     start=datetime(2016, 7, 19, 2, 40, 27, 855692),
-    #     end=datetime(2016, 7, 19, 2, 51, 51, 910747))
+    #     datetime(2016, 7, 19, 2, 40, 27, 855692),
+    #     datetime(2016, 7, 19, 2, 51, 51, 910747))
     # deploy2 = TimingData(
-    #     '(another) \'cs:bundle/wiki-simple-0\' #2',
-    #     start=datetime(2016, 7, 19, 2, 51, 59, 910747),
-    #     end=datetime(2016, 7, 19, 3, 2, 30, 910747))
+    #     datetime(2016, 7, 19, 2, 51, 59, 910747),
+    #     datetime(2016, 7, 19, 3, 2, 30, 910747))
     # # bootstrap:
     # bootstrap = TimingData(
-    #     'Bootstrap',
-    #     start=datetime(2016, 7, 19, 2, 33, 41, 5351),
-    #     end=datetime(2016, 7, 19, 2, 39, 45, 16832))
-    # timings = dict(bootstrap=bootstrap, deploys=[deploy, deploy2])
-    # generate_reports('/tmp/example_collection/', timings)
+    #     datetime(2016, 7, 19, 2, 33, 41, 5351),
+    #     datetime(2016, 7, 19, 2, 39, 45, 16832))
+    # timings = dict(
+    #     bootstrap=bootstrap,
+    #     deploys=[
+    #         DeployDetails('blah', dict(), deploy),
+    #         DeployDetails('blah2', dict(), deploy2)
+    #     ],
+    #     cleanup=bootstrap)
+    # generate_reports('', '/tmp/example_collection/', timings)
 
     return 0
 

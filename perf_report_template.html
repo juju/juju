@@ -17,6 +17,13 @@
        integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r"
        crossorigin="anonymous">
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script
+       src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+       integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+       crossorigin="anonymous"></script>
+
     <title>Simple performance/scale reporting</title>
 
   </head>
@@ -117,30 +124,61 @@
         </p>
       </blockquote>
 
-      {% for date_stamp, values in log_message_chunks|dictsort %}
-      <table class="table table-condensed">
-        <tr class="success">
-          <th>This will be named (Bootstrap/Deploy/Delete etc.)</th>
-          <th>{{date_stamp}}</th>
-        </tr>
-        {% for log_detail in values|sort(attribute='timeframe') %}
-        <tr class="active">
-          <td colspan=2>
-            <small>
-              {{log_detail.timeframe}}
-            </small>
-          </td>
-        </tr>
-        <tr>
-          <td colspan=2>
-            <small>
-            {{log_detail.message}}
-            </small>
-          </td>
-        </tr>
+      <ul class="nav nav-tabs" role="tablist">
+        {% for date_stamp, values in log_message_chunks|dictsort %}
+        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
+        <li
+           role="presentation"
+           {% if loop.index == 1 %}
+           class="active"
+           {% endif %}
+           >
+          <a
+             href="#{{safe_date_stamp}}"
+             aria-controls="{{safe_date_stamp}}"
+             role="tab"
+             data-toggle="tab">
+            {{values.name}}
+          </a>
+        </li>
         {% endfor %}
-      </table>
-      {% endfor %}
+      </ul>
+
+      <div class="tab-content">
+        {% for date_stamp, values in log_message_chunks|dictsort %}
+        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
+        <div
+           role="tabpanel"
+           class="tab-pane {% if loop.index == 1 %}active{% endif %}"
+           id="{{safe_date_stamp}}">
+          <h4>Bootstrap Logs</h4>
+          Log period: {{date_stamp}}
+          <table class="table table-condensed">
+            {% for log_detail in values.logs|sort(attribute='timeframe') %}
+            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "") %}
+            <tr
+               data-toggle="collapse"
+               data-target="#{{safe_timeframe}}"
+               class="clickable">
+              <td>
+                + {{log_detail.timeframe}}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div id="{{safe_timeframe}}" class="collapse">
+                  <small>
+                    {{log_detail.message}}
+                  </small>
+                </div>
+              </td>
+            </tr>
+            {%endfor%}
+
+          </table>
+        </div>
+        {% endfor %}
+      </div>
 
     </div>
   </body>
