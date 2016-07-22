@@ -37,20 +37,18 @@ class ConcurrentlyTest(TestCase):
         self.assertIn('ValueError: bad', self.log_stream.getvalue())
 
     def test_bad_task_missing_name(self):
-        with patch('concurrently.run_all', autospec=True) as r_mock:
-            with parse_error(self) as err_stream:
-                concurrently.main(['-v', 'bad'])
-            self.assertIn(
-                "invalid task_definition value: 'bad'", err_stream.getvalue())
+        with parse_error(self) as err_stream:
+            concurrently.main(['-v', 'bad'])
+        self.assertIn(
+            "invalid task_definition value: 'bad'", err_stream.getvalue())
         self.assertEqual('', self.log_stream.getvalue())
 
     def test_bad_task_bad_lex(self):
-        with patch('concurrently.run_all', autospec=True) as r_mock:
-            with parse_error(self) as err_stream:
-                concurrently.main(['-v', 'wrong="command'])
-            self.assertIn(
-                """invalid task_definition value: 'wrong="command'""",
-                err_stream.getvalue())
+        with parse_error(self) as err_stream:
+            concurrently.main(['-v', 'wrong="command'])
+        self.assertIn(
+            """invalid task_definition value: 'wrong="command'""",
+            err_stream.getvalue())
         self.assertEqual('', self.log_stream.getvalue())
 
     def test_max_failure_returncode(self):
