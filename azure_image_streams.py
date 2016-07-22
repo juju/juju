@@ -17,8 +17,10 @@ from simplestreams import mirrors
 from simplestreams import util
 
 
+CANONICAL = 'Canonical'
 MS_VSTUDIO = 'MicrosoftVisualStudio'
 MS_SERVER = 'MicrosoftWindowsServer'
+UBUNTU_SERVER = 'UbuntuServer'
 WINDOWS = 'Windows'
 WINDOWS_SERVER = 'WindowsServer'
 IMAGE_SPEC = [
@@ -63,6 +65,13 @@ ITEM_NAMES = {
 # Thorough investigation has not found an equivalent for these in the
 # Azure-ARM image repository.
 EXPECTED_MISSING = frozenset({('12.04.2-LTS', '12.04.201212180')})
+
+
+class MissingImage(Exception):
+    """Raised when an expected image is not present."""
+
+class UnexpectedImage(Exception):
+    """Raised when an image not expected is present."""
 
 
 def get_azure_credentials(all_credentials):
@@ -168,14 +177,14 @@ def convert_cloud_images_items(client, locations, items):
         if location is None:
             unknown_locations.add(location_display_name)
             continue
-        full_spec = ('Canonical', 'UbuntuServer', sku, version)
+        full_spec = (CANONICAL, UBUNTU_SERVER, sku, version)
         urn = ':'.join(full_spec)
         if not arm_image_exists(client, location, full_spec):
             if (sku, version) not in EXPECTED_MISSING:
-                raise AssertionError('{} not in {}\n'.format(urn, location))
+                raise MissingImage('{} not in {}\n'.format(urn, location))
             continue
         if (sku, version) in EXPECTED_MISSING:
-            raise AssertionError(
+            raise UnexpectedImage(
                 'Unexpectedly found {} in {}\n'.format(urn, location))
         arm_items.append(convert_item_to_arm(item, urn, endpoint))
     return arm_items, unknown_locations
