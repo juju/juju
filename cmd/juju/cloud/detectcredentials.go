@@ -329,7 +329,7 @@ func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, dis
 }
 
 func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.Reader) (string, error) {
-	fmt.Fprint(out, "Save any? Type number, or Q to quit, then enter. ")
+	fmt.Fprint(out, "Select a credential to save by number, or type Q to quit: ")
 	defer out.Write([]byte{'\n'})
 	input, err := readLine(in)
 	if err != nil {
@@ -339,7 +339,7 @@ func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.R
 }
 
 func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, defaultCloudName, cloudType string) (string, error) {
-	text := fmt.Sprintf(`Enter cloud to which the credential belongs, or Q to quit [%s] `, defaultCloudName)
+	text := fmt.Sprintf(`Select the cloud it belongs to, or type Q to quit [%s]: `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
 	input, err := readLine(in)

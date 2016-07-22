@@ -211,7 +211,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName 
 		if err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q\n\n", modelName)
+		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q.\n\n", modelName)
 	} else {
 		fmt.Fprintf(ctx.Stderr, `
 There are %d models available. Use "juju switch" to select
@@ -362,8 +362,8 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-const errControllerConflicts = `WARNING: the controller proposed %q which clashes with an` +
-	` existing controller. The two controllers are entirely different.
+const errControllerConflicts = `WARNING: The controller proposed %q which clashes with an existing` +
+	` controller. The two controllers are entirely different.
 
 `
 
@@ -373,11 +373,12 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
 		suggestedName = ""
 	}
-	setMsg := "Please set a name for this controller"
+	var setMsg string
+	setMsg = "Enter a name for this controller: "
 	if suggestedName != "" {
-		setMsg = setMsg + " (" + suggestedName + ")"
+		setMsg = fmt.Sprintf("Enter a name for this controller [%s]: ",
+			suggestedName)
 	}
-	setMsg = setMsg + ":"
 	fmt.Fprintf(stderr, setMsg)
 	defer stderr.Write([]byte{'\n'})
 	name, err := c.readLine(stdin)
