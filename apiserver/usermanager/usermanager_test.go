@@ -4,6 +4,7 @@
 package usermanager_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -177,13 +178,13 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockAddUser")
 	result, err := s.usermanager.AddUser(args)
-	// Check that the call is blocked
+	// Check that the call is blocked.
 	s.AssertBlocked(c, err, "TestBlockAddUser")
-	c.Assert(result.Results, gc.HasLen, 1)
-	//check that user is not created
+	// Check that there's no results.
+	c.Assert(result.Results, gc.HasLen, 0)
+	//check that user is not created.
 	foobarTag := names.NewLocalUserTag("foobar")
-	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{})
-	// Check that the call results in a new user being created
+	// Check that the call results in a new user being created.
 	_, err = s.State.User(foobarTag)
 	c.Assert(err, gc.ErrorMatches, `user "foobar" not found`)
 }
@@ -201,8 +202,14 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	_, err = usermanager.AddUser(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	got, err := usermanager.AddUser(args)
+
+	for _, result := range got.Results {
+		c.Check(errors.Cause(result.Error), jc.DeepEquals,
+			&params.Error{Message: "permission denied", Code: "unauthorized access"})
+	}
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -351,8 +358,12 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	_, err = usermanager.DisableUser(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	got, err := usermanager.DisableUser(args)
+	for _, result := range got.Results {
+		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
+	}
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,8 +381,12 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	_, err = usermanager.EnableUser(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	got, err := usermanager.EnableUser(args)
+	for _, result := range got.Results {
+		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
+	}
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -589,4 +604,199 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
+	tag := "not-a-tag"
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: tag}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Assert(err, gc.Equals, nil)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: "\"not-a-tag\" is not a valid tag",
+	})
+}
+
+func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
+	tag := "user-harvey"
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: tag}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Assert(err, gc.Equals, nil)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: "failed to delete user \"harvey\": user \"harvey\" not found",
+		Code:    "not found",
+	})
+}
+
+func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+
+	expectedError := fmt.Sprintf("%q user not found", jjam.Name())
+
+	// Remove the user
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+
+	c.Check(got.Results[0].Error, gc.IsNil) // Uses gc.IsNil as it's a typed nil.
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check if deleted.
+	err = jjam.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(jjam.IsDeleted(), jc.IsTrue)
+
+	// Try again and verify we get the expected error.
+	got, err = s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(got.Results, gc.HasLen, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+		Code:    "user not found",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+	// Create a user to delete jjam.
+	chuck := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "chuck",
+		NoModelUser: true,
+	})
+
+	// Authenticate as chuck.
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, s.resources, apiservertesting.FakeAuthorizer{
+			Tag: chuck.Tag(),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the user exists.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ui.Results, gc.HasLen, 1)
+	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+
+	// Remove jjam as chuck and fail.
+	got, err := usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(got.Results, gc.HasLen, 1)
+	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
+		&params.Error{Message: "permission denied", Code: "unauthorized access"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure jjam is still around.
+	err = jjam.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "jimmyjam",
+		NoModelUser: true,
+	})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, s.resources, apiservertesting.FakeAuthorizer{
+			Tag: jjam.Tag(),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the user exists.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ui.Results, gc.HasLen, 1)
+	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+
+	// Remove the user as the user
+	got, err := usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
+		&params.Error{Message: "permission denied", Code: "unauthorized access"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check if deleted.
+	err = jjam.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
+
+	expectedError := "cannot delete controller owner \"admin\""
+
+	// Remove admin as admin.
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try again to see if we succeeded.
+	got, err = s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+	c.Assert(got.Results, gc.HasLen, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(ui.Results, gc.HasLen, 1)
+
+}
+
+func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
+	// Create users.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "jimmyjam",
+	})
+	alice := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "alice",
+	})
+	bob := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bob",
+	})
+
+	// Get a handle on the current model.
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := model.Users()
+
+	// Make sure the users exist.
+	var userNames []string
+	for _, u := range users {
+		userNames = append(userNames, u.UserTag().Name())
+	}
+	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
+
+	// Remove 2 users.
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{
+			{Tag: jjam.Tag().String()},
+			{Tag: alice.Tag().String()},
+		}})
+	c.Check(got.Results, gc.HasLen, 2)
+	var paramErr *params.Error
+	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure users were deleted.
+	err = jjam.Refresh()
+	c.Assert(jjam.IsDeleted(), jc.IsTrue)
+	err = alice.Refresh()
+	c.Assert(alice.IsDeleted(), jc.IsTrue)
+
 }

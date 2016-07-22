@@ -165,6 +165,7 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 	case params.CodeUnauthorized:
 		status = http.StatusUnauthorized
 	case params.CodeNotFound,
+		params.CodeUserNotFound,
 		params.CodeModelNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
@@ -201,6 +202,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUnauthorized
 	case errors.IsNotFound(err):
 		code = params.CodeNotFound
+	case errors.IsUserNotFound(err):
+		code = params.CodeUserNotFound
 	case errors.IsAlreadyExists(err):
 		code = params.CodeAlreadyExists
 	case errors.IsNotAssigned(err):
@@ -284,6 +287,8 @@ func RestoreError(err error) error {
 		// TODO(ericsnow) UnknownModelError should be handled here too.
 		// ...by parsing msg?
 		return errors.NewNotFound(nil, msg)
+	case params.IsCodeUserNotFound(err):
+		return errors.NewUserNotFound(nil, msg)
 	case params.IsCodeAlreadyExists(err):
 		return errors.NewAlreadyExists(nil, msg)
 	case params.IsCodeNotAssigned(err):

@@ -58,6 +58,7 @@ func (e Error) GoString() string {
 // The Code constants hold error codes for some kinds of error.
 const (
 	CodeNotFound                  = "not found"
+	CodeUserNotFound              = "user not found"
 	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
@@ -110,6 +111,10 @@ func IsCodeActionNotAvailable(err error) bool {
 
 func IsCodeNotFound(err error) bool {
 	return ErrCode(err) == CodeNotFound
+}
+
+func IsCodeUserNotFound(err error) bool {
+	return ErrCode(err) == CodeUserNotFound
 }
 
 func IsCodeModelNotFound(err error) bool {

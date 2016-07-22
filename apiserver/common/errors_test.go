@@ -39,6 +39,11 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
+	err:        errors.UserNotFoundf("xxxx"),
+	code:       params.CodeUserNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeUserNotFound,
+}, {
 	err:        errors.Unauthorizedf("hello"),
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
