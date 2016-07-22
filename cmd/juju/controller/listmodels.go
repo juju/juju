@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -30,14 +29,13 @@ func NewListModelsCommand() cmd.Command {
 // current user can access on the current controller.
 type modelsCommand struct {
 	modelcmd.ControllerCommandBase
-	out          cmd.Output
-	all          bool
-	loggedInUser string
-	user         string
-	listUUID     bool
-	exactTime    bool
-	modelAPI     ModelManagerAPI
-	sysAPI       ModelsSysAPI
+	out       cmd.Output
+	all       bool
+	user      string
+	listUUID  bool
+	exactTime bool
+	modelAPI  ModelManagerAPI
+	sysAPI    ModelsSysAPI
 }
 
 var listModelsDoc = `
@@ -111,35 +109,28 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 // ModelSet contains the set of models known to the client,
 // and UUID of the current model.
 type ModelSet struct {
-	Models []common.ModelInfo `yaml:"models" json:"models"`
-
-	// CurrentModel is the name of the current model, qualified for the
-	// user for which we're listing models. i.e. for the user admin@local,
-	// and the model admin@local/foo, this field will contain "foo"; for
-	// bob@local and the same model, the field will contain "admin/foo".
-	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-
-	// CurrentModelQualified is the fully qualified name for the current
-	// model, i.e. having the format $owner/$model.
-	CurrentModelQualified string `yaml:"-" json:"-"`
+	Models       []common.ModelInfo `yaml:"models" json:"models"`
+	CurrentModel string             `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 }
 
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
-	if err != nil {
-		return err
+	if c.user == "" {
+		accountDetails, err := c.ClientStore().AccountDetails(
+			c.ControllerName(),
+		)
+		if err != nil {
+			return err
+		}
+		c.user = accountDetails.User
 	}
-	c.loggedInUser = accountDetails.User
 
 	// First get a list of the models.
 	var models []base.UserModel
+	var err error
 	if c.all {
 		models, err = c.getAllModels()
 	} else {
-		if c.user == "" {
-			c.user = accountDetails.User
-		}
 		models, err = c.getUserModels()
 	}
 	if err != nil {
@@ -168,21 +159,11 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	modelSet.CurrentModelQualified = current
 	modelSet.CurrentModel = current
-	if c.user != "" {
-		userForListing := names.NewUserTag(c.user)
-		unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
-		if err == nil {
-			modelSet.CurrentModel = ownerQualifiedModelName(
-				unqualifiedModelName, owner, userForListing,
-			)
-		}
-	}
-
 	if err := c.out.Write(ctx, modelSet); err != nil {
 		return err
 	}
+
 	if len(models) == 0 && c.out.Name() == "tabular" {
 		// When the output is tabular, we inform the user when there
 		// are no models available, and tell them how to go about
@@ -251,18 +232,6 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
-
-	// We need the tag of the user for which we're listing models,
-	// and for the logged-in user. We use these below when formatting
-	// the model display names.
-	loggedInUser := names.NewUserTag(c.loggedInUser)
-	userForLastConn := loggedInUser
-	var userForListing names.UserTag
-	if c.user != "" {
-		userForListing = names.NewUserTag(c.user)
-		userForLastConn = userForListing
-	}
-
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -279,16 +248,16 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 	}
 	fmt.Fprintf(tw, "\tOWNER\tSTATUS\tLAST CONNECTION\n")
 	for _, model := range modelSet.Models {
-		owner := names.NewUserTag(model.Owner)
-		name := ownerQualifiedModelName(model.Name, owner, userForListing)
-		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
+		name := model.Name
+		if name == modelSet.CurrentModel {
 			name += "*"
 		}
 		fmt.Fprintf(tw, "%s", name)
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
-		lastConnection := model.Users[userForLastConn.Canonical()].LastConnection
+		user := names.NewUserTag(c.user).Canonical()
+		lastConnection := model.Users[user].LastConnection
 		if lastConnection == "" {
 			lastConnection = "never connected"
 		}
@@ -296,20 +265,4 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 	return out.Bytes(), nil
-}
-
-// ownerQualifiedModelName returns the model name qualified with the
-// model owner if the owner is not the same as the given canonical
-// user name. If the owner is a local user, we omit the domain.
-func ownerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Canonical() == user.Canonical() {
-		return modelName
-	}
-	var ownerName string
-	if owner.IsLocal() {
-		ownerName = owner.Name()
-	} else {
-		ownerName = owner.Canonical()
-	}
-	return fmt.Sprintf("%s/%s", ownerName, modelName)
 }

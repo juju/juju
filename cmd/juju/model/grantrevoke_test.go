@@ -47,11 +47,11 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	s.store.Models = map[string]*jujuclient.ControllerModels{
 		controllerName: {
 			Models: map[string]jujuclient.ModelDetails{
-				"bob@local/foo":    jujuclient.ModelDetails{fooModelUUID},
-				"bob@local/bar":    jujuclient.ModelDetails{barModelUUID},
-				"bob@local/baz":    jujuclient.ModelDetails{bazModelUUID},
-				"bob@local/model1": jujuclient.ModelDetails{model1ModelUUID},
-				"bob@local/model2": jujuclient.ModelDetails{model2ModelUUID},
+				"foo":    jujuclient.ModelDetails{fooModelUUID},
+				"bar":    jujuclient.ModelDetails{barModelUUID},
+				"baz":    jujuclient.ModelDetails{bazModelUUID},
+				"model1": jujuclient.ModelDetails{model1ModelUUID},
+				"model2": jujuclient.ModelDetails{model2ModelUUID},
 			},
 		},
 	}

@@ -23,7 +23,6 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
@@ -33,14 +32,13 @@ import (
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	apiConnection            *mockAPIConnection
-	store                    *jujuclienttesting.MemStore
-	apiOpenError             error
-	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
-	listModelsControllerName string
-	listModelsUserName       string
-	server                   *httptest.Server
-	httpHandler              http.Handler
+	apiConnection               *mockAPIConnection
+	store                       *jujuclienttesting.MemStore
+	apiOpenError                error
+	refreshModels               func(jujuclient.ClientStore, string) error
+	refreshModelsControllerName string
+	server                      *httptest.Server
+	httpHandler                 http.Handler
 }
 
 var _ = gc.Suite(&RegisterSuite{})
@@ -60,12 +58,10 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		controllerTag: testing.ModelTag,
 		addr:          serverURL.Host,
 	}
-	s.listModelsControllerName = ""
-	s.listModelsUserName = ""
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-		s.listModelsControllerName = controllerName
-		s.listModelsUserName = userName
-		return nil, nil
+	s.refreshModelsControllerName = ""
+	s.refreshModels = func(store jujuclient.ClientStore, controllerName string) error {
+		s.refreshModelsControllerName = controllerName
+		return nil
 	}
 
 	s.store = jujuclienttesting.NewMemStore()
@@ -86,7 +82,7 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 }
 
 func (s *RegisterSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
-	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
+	command := controller.NewRegisterCommandForTest(s.apiOpen, s.refreshModels, s.store)
 	err := testing.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -147,8 +143,7 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
 	ctx := s.testRegister(c, "")
-	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
-	c.Assert(s.listModelsUserName, gc.Equals, "bob@local")
+	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 Please set a name for this controller (controller-name):
@@ -165,31 +160,29 @@ of a model to grant access to that model with "juju grant".
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-		return []base.UserModel{{
-			Name:  "theoneandonly",
-			Owner: "bob@local",
-			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
-		}}, nil
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "theoneandonly", jujuclient.ModelDetails{
+			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
 	}
 	s.testRegister(c, "")
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
-		gc.Equals, "bob@local/theoneandonly",
+		gc.Equals, "theoneandonly",
 	)
 }
 
 func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-		return []base.UserModel{{
-			Name:  "model1",
-			Owner: "bob@local",
-			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
-		}, {
-			Name:  "model2",
-			Owner: "bob@local",
-			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b55",
-		}}, nil
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		for _, name := range [...]string{"model1", "model2"} {
+			err := store.UpdateModel(controller, name, jujuclient.ModelDetails{
+				ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		return nil
 	}
 	ctx := s.testRegister(c, "")
 
@@ -327,12 +320,12 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 		CACert:         testing.CACert,
 	})
 
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-		return []base.UserModel{{
-			Name:  "model-name",
-			Owner: "bob@local",
-			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
-		}}, nil
+	s.refreshModels = func(store jujuclient.ClientStore, controller string) error {
+		err := store.UpdateModel(controller, "controller-name", jujuclient.ModelDetails{
+			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
 	}
 
 	ctx := s.testRegister(c, "you must specify a non-empty controller name")

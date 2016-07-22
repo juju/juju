@@ -25,8 +25,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -41,7 +39,7 @@ of a model to grant access to that model with "juju grant".`[1:])
 func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
-	cmd.listModelsFunc = cmd.listModels
+	cmd.refreshModels = cmd.RefreshModels
 	cmd.store = jujuclient.NewFileClientStore()
 	return modelcmd.WrapBase(cmd)
 }
@@ -50,10 +48,10 @@ func NewRegisterCommand() cmd.Command {
 // information.
 type registerCommand struct {
 	modelcmd.JujuCommandBase
-	apiOpen        api.OpenFunc
-	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
-	store          jujuclient.ClientStore
-	EncodedData    string
+	apiOpen       api.OpenFunc
+	refreshModels func(_ jujuclient.ClientStore, controller string) error
+	store         jujuclient.ClientStore
+	EncodedData   string
 }
 
 var usageRegisterSummary = `
@@ -104,12 +102,11 @@ func (c *registerCommand) Init(args []string) error {
 
 func (c *registerCommand) Run(ctx *cmd.Context) error {
 
-	store := modelcmd.QualifyingClientStore{c.store}
-	registrationParams, err := c.getParameters(ctx, store)
+	registrationParams, err := c.getParameters(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = store.ControllerByName(registrationParams.controllerName)
+	_, err = c.store.ControllerByName(registrationParams.controllerName)
 	if err == nil {
 		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
 	} else if !errors.IsNotFound(err) {
@@ -162,7 +159,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
-	if err := store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
@@ -173,27 +170,16 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		User:     registrationParams.userTag.Canonical(),
 		Macaroon: string(macaroonJSON),
 	}
-	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
+	if err := c.store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
-	// list the models available.
-	models, err := c.listModelsFunc(store, registrationParams.controllerName, accountDetails.User)
-	if err != nil {
+	// refresh the connection information.
+	if err := c.refreshModels(c.store, registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range models {
-		owner := names.NewUserTag(model.Owner)
-		if err := store.UpdateModel(
-			registrationParams.controllerName,
-			jujuclient.JoinOwnerModelName(owner, model.Name),
-			jujuclient.ModelDetails{model.UUID},
-		); err != nil {
-			return errors.Annotate(err, "storing model details")
-		}
-	}
-	if err := store.SetCurrentController(registrationParams.controllerName); err != nil {
+	if err := c.store.SetCurrentController(registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -201,31 +187,27 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, store, registrationParams.controllerName, accountDetails.User, models)
+	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName)
 }
 
-func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-	api, err := c.NewAPIRoot(store, controllerName, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer api.Close()
-	mm := modelmanager.NewClient(api)
-	return mm.ListModels(userName)
-}
-
-func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclient.ClientStore, controllerName, userName string, models []base.UserModel) error {
-	if len(models) == 0 {
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName string) error {
+	models, err := c.store.AllModels(controllerName)
+	if errors.IsNotFound(err) {
 		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
 		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 
 	// If we get to here, there is at least one model.
 	if len(models) == 1 {
 		// There is exactly one model shared,
 		// so set it as the current model.
-		modelName := models[0].Name
-		err := store.SetCurrentModel(controllerName, modelName)
+		var modelName string
+		for modelName = range models {
+			// Loop exists only to obtain one and only key.
+		}
+		err := c.store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -235,22 +217,11 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 There are %d models available. Use "juju switch" to select
 one of them:
 `, len(models))
-		user := names.NewUserTag(userName)
-		ownerModelNames := make(set.Strings)
-		otherModelNames := make(set.Strings)
-		for _, model := range models {
-			if model.Owner == userName {
-				ownerModelNames.Add(model.Name)
-				continue
-			}
-			owner := names.NewUserTag(model.Owner)
-			modelName := ownerQualifiedModelName(model.Name, owner, user)
-			otherModelNames.Add(modelName)
+		modelNames := make(set.Strings)
+		for modelName := range models {
+			modelNames.Add(modelName)
 		}
-		for _, modelName := range ownerModelNames.SortedValues() {
-			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
-		}
-		for _, modelName := range otherModelNames.SortedValues() {
+		for _, modelName := range modelNames.SortedValues() {
 			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
 		}
 		fmt.Fprintln(ctx.Stderr)
@@ -269,7 +240,7 @@ type registrationParams struct {
 
 // getParameters gets all of the parameters required for registering, prompting
 // the user as necessary.
-func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.ClientStore) (*registrationParams, error) {
+func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, error) {
 
 	// Decode key, username, controller addresses from the string supplied
 	// on the command line.
@@ -292,7 +263,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.Clien
 	copy(params.key[:], info.SecretKey)
 
 	// Prompt the user for the controller name.
-	controllerName, err := c.promptControllerName(store, info.ControllerName, ctx.Stderr, ctx.Stdin)
+	controllerName, err := c.promptControllerName(info.ControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -396,8 +367,8 @@ const errControllerConflicts = `WARNING: the controller proposed %q which clashe
 
 `
 
-func (c *registerCommand) promptControllerName(store jujuclient.ClientStore, suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
-	_, err := store.ControllerByName(suggestedName)
+func (c *registerCommand) promptControllerName(suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
+	_, err := c.store.ControllerByName(suggestedName)
 	if err == nil {
 		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
 		suggestedName = ""
