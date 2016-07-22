@@ -43,19 +43,16 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageModel
-	JobManageNetworking
 )
 
 var (
 	jobNames = map[MachineJob]multiwatcher.MachineJob{
-		JobHostUnits:        multiwatcher.JobHostUnits,
-		JobManageModel:      multiwatcher.JobManageModel,
-		JobManageNetworking: multiwatcher.JobManageNetworking,
+		JobHostUnits:   multiwatcher.JobHostUnits,
+		JobManageModel: multiwatcher.JobManageModel,
 	}
 	jobMigrationValue = map[MachineJob]string{
-		JobHostUnits:        "host-units",
-		JobManageModel:      "api-server",
-		JobManageNetworking: "manage-networking",
+		JobHostUnits:   "host-units",
+		JobManageModel: "api-server",
 	}
 )
 
@@ -64,7 +61,6 @@ func AllJobs() []MachineJob {
 	return []MachineJob{
 		JobHostUnits,
 		JobManageModel,
-		JobManageNetworking,
 	}
 }
 
@@ -886,14 +882,6 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
 	ops = append(ops, volumeOps...)
-	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, address := range ipAddresses {
-		logger.Tracef("creating op to set IP addr %q to Dead", address.Value())
-		ops = append(ops, ensureIPAddressDeadOp(address))
-	}
 	logger.Tracef("removing machine %q", m.Id())
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -1361,37 +1349,8 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
-	var addressesToSet []network.Address
-	if !m.IsContainer() {
-		// Check addresses first. We'll only add those addresses
-		// which are not in the IP address collection.
-		ipAddresses, closer := m.st.getCollection(legacyipaddressesC)
-		defer closer()
-
-		addressValues := make([]string, len(addresses))
-		for i, address := range addresses {
-			addressValues[i] = address.Value
-		}
-		ipDocs := []ipaddressDoc{}
-		sel := bson.D{{"value", bson.D{{"$in", addressValues}}}, {"state", AddressStateAllocated}}
-		err := ipAddresses.Find(sel).All(&ipDocs)
-		if err != nil {
-			return err
-		}
-		ipDocValues := set.NewStrings()
-		for _, ipDoc := range ipDocs {
-			ipDocValues.Add(ipDoc.Value)
-		}
-		for _, address := range addresses {
-			if !ipDocValues.Contains(address.Value) {
-				addressesToSet = append(addressesToSet, address)
-			}
-		}
-	} else {
-		// Containers will set all addresses.
-		addressesToSet = make([]network.Address, len(addresses))
-		copy(addressesToSet, addresses)
-	}
+	addressesToSet := make([]network.Address, len(addresses))
+	copy(addressesToSet, addresses)
 
 	// Update addresses now.
 	network.SortAddresses(addressesToSet)

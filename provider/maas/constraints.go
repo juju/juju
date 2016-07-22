@@ -26,7 +26,7 @@ var unsupportedConstraints = []string{
 func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := environ.SupportedArchitectures()
+	supportedArches, err := environ.getSupportedArchitectures()
 	if err != nil {
 		return nil, err
 	}

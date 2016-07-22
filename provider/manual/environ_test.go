@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -118,12 +117,6 @@ exit 0
 	}
 }
 
-func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
-	arches, err := s.env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
-}
-
 func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 	_, ok := environs.SupportsNetworking(s.env)
 	c.Assert(ok, jc.IsFalse)
@@ -196,7 +189,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 		c.Logf("test %d", i)
 		outputResult = test.output
 		errResult = test.err
-		instances, err := s.env.ControllerInstances()
+		instances, err := s.env.ControllerInstances("not-used")
 		if test.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
@@ -210,14 +203,14 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *gc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
-	_, err := s.env.ControllerInstances()
+	_, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *gc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	_, err := s.env.ControllerInstances()
+	_, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, gc.ErrorMatches, "abc: .*")
 }
 
@@ -227,7 +220,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *gc.C) {
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	instances, err := s.env.ControllerInstances()
+	instances, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

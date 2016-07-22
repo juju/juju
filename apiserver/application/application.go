@@ -14,6 +14,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
@@ -41,14 +42,14 @@ type Application interface {
 type API struct {
 	check      *common.BlockChecker
 	state      *state.State
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns a new application API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -124,18 +125,6 @@ func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 
 	// Try to find the charm URL in state first.
 	ch, err := st.Charm(curl)
-	// TODO(wallyworld) - remove for 2.0 beta4
-	if errors.IsNotFound(err) {
-		// Clients written to expect 1.16 compatibility require this next block.
-		if curl.Schema != "cs" {
-			return errors.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-		}
-		if err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
-			URL: args.CharmUrl,
-		}); err == nil {
-			ch, err = st.Charm(curl)
-		}
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -557,13 +546,20 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
-	outEps := make(map[string]charm.Relation)
+	outEps := make(map[string]params.CharmRelation)
 	for _, inEp := range inEps {
 		outEp, err := rel.Endpoint(inEp.ApplicationName)
 		if err != nil {
 			return params.AddRelationResults{}, err
 		}
-		outEps[inEp.ApplicationName] = outEp.Relation
+		outEps[inEp.ApplicationName] = params.CharmRelation{
+			Name:      outEp.Relation.Name,
+			Role:      string(outEp.Relation.Role),
+			Interface: outEp.Relation.Interface,
+			Optional:  outEp.Relation.Optional,
+			Limit:     outEp.Relation.Limit,
+			Scope:     string(outEp.Relation.Scope),
+		}
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }

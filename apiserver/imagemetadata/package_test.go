@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -52,7 +53,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
-	s.state = s.constructState(testConfig(c))
+	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
 
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
@@ -70,7 +71,7 @@ const (
 	environConfig  = "environConfig"
 )
 
-func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
+func (s *baseImageMetadataSuite) constructState(cfg *config.Config, model imagemetadata.Model) *mockState {
 	return &mockState{
 		Stub: &gitjujutesting.Stub{},
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -85,6 +86,9 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 		environConfig: func() (*config.Config, error) {
 			return cfg, nil
 		},
+		model: func() (imagemetadata.Model, error) {
+			return model, nil
+		},
 	}
 }
 
@@ -95,6 +99,7 @@ type mockState struct {
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error
 	deleteMetadata func(imageId string) error
 	environConfig  func() (*config.Config, error)
+	model          func() (imagemetadata.Model, error)
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -117,18 +122,33 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 	return st.environConfig()
 }
 
+func (st *mockState) Model() (imagemetadata.Model, error) {
+	st.Stub.MethodCall(st, "Model")
+	return st.model()
+}
+
+type mockModel struct {
+	cloudRegion string
+}
+
+func (m *mockModel) CloudRegion() string {
+	return m.cloudRegion
+}
+
 func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":       "mock",
 		"controller": true,
 	})
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: "dummycontroller",
-			BaseConfig:     attrs,
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   "dummycontroller",
+			BaseConfig:       attrs,
+			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

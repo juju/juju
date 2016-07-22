@@ -52,7 +52,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 func (c *showModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-model",
-		Purpose: "shows information about the current or specified model",
+		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
 	}
 }
@@ -76,7 +76,6 @@ func (c *showModelCommand) Run(ctx *cmd.Context) (err error) {
 	store := c.ClientStore()
 	modelDetails, err := store.ModelByName(
 		c.ControllerName(),
-		c.AccountName(),
 		c.ModelName(),
 	)
 	if err != nil {

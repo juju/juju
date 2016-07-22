@@ -29,8 +29,8 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Accounts["foo"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "bar@baz",
+	store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar@local",
 	}
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "foo")
@@ -41,8 +41,8 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	// controller file.
 	store := jujuclienttesting.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Accounts["explicit"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "bar@baz",
+	store.Accounts["explicit"] = jujuclient.AccountDetails{
+		User: "bar@local",
 	}
 	store.Controllers["explicit"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "explicit", "-c", "explicit")

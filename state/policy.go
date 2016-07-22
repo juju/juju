@@ -31,10 +31,6 @@ type Policy interface {
 	// or an error.
 	ConfigValidator(providerType string) (ConfigValidator, error)
 
-	// EnvironCapability takes a *config.Config and returns an EnvironCapability
-	// or an error.
-	EnvironCapability(*config.Config) (EnvironCapability, error)
-
 	// ConstraintsValidator takes a *config.Config and SupportedArchitecturesQuerier
 	// to return a constraints.Validator or an error.
 	ConstraintsValidator(*config.Config, SupportedArchitecturesQuerier) (constraints.Validator, error)
@@ -62,20 +58,6 @@ type Prechecker interface {
 // to check validity of new configuration attributes before applying them to state.
 type ConfigValidator interface {
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
-}
-
-// EnvironCapability implements access to metadata about the capabilities
-// of an model.
-type EnvironCapability interface {
-	// SupportedArchitectures returns the image architectures which can
-	// be hosted by this model.
-	SupportedArchitectures() ([]string, error)
-
-	// SupportsUnitAssignment returns an error which, if non-nil, indicates
-	// that the model does not support unit placement. If the model
-	// does not support unit placement, then machines may not be created
-	// without units, and units cannot be placed explcitly.
-	SupportsUnitPlacement() error
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
@@ -167,29 +149,6 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return nil, fmt.Errorf("policy returned nil configValidator without an error")
 	}
 	return configValidator.Validate(cfg, old)
-}
-
-// supportsUnitPlacement calls the state's assigned policy, if non-nil,
-// to obtain an EnvironCapability, and calls SupportsUnitPlacement if a
-// non-nil EnvironCapability is returned.
-func (st *State) supportsUnitPlacement() error {
-	if st.policy == nil {
-		return nil
-	}
-	cfg, err := st.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	capability, err := st.policy.EnvironCapability(cfg)
-	if errors.IsNotImplemented(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if capability == nil {
-		return fmt.Errorf("policy returned nil EnvironCapability without an error")
-	}
-	return capability.SupportsUnitPlacement()
 }
 
 // InstanceDistributor is a policy interface that is provided

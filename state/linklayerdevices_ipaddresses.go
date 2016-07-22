@@ -88,9 +88,6 @@ func IsValidAddressConfigMethod(value string) bool {
 
 // Address represents the state of an IP address assigned to a link-layer
 // network device on a machine.
-//
-// TODO(dimitern): Rename to IPAddress once the IPAddress type is gone
-// along with the addressable containers handling code?
 type Address struct {
 	st  *State
 	doc ipAddressDoc
@@ -327,4 +324,20 @@ func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultD
 	}
 
 	return errors.Trace(iter.Close())
+}
+
+// AllIPAddresses returns all ip addresses in the model.
+func (st *State) AllIPAddresses() (addresses []*Address, err error) {
+	addressesCollection, closer := st.getCollection(ipAddressesC)
+	defer closer()
+
+	sdocs := []ipAddressDoc{}
+	err = addressesCollection.Find(bson.D{}).All(&sdocs)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all ip addresses")
+	}
+	for _, a := range sdocs {
+		addresses = append(addresses, newIPAddress(st, a))
+	}
+	return addresses, nil
 }

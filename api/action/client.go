@@ -5,7 +5,6 @@ package action
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -101,22 +100,21 @@ func (c *Client) applicationsCharmActions(arg params.Entities) (params.Applicati
 
 // ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 // get the charm.Actions for a single Service by tag.
-func (c *Client) ApplicationCharmActions(arg params.Entity) (*charm.Actions, error) {
-	none := &charm.Actions{}
+func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.ActionSpec, error) {
 	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
 	results, err := c.applicationsCharmActions(tags)
 	if err != nil {
-		return none, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return none, errors.Errorf("%d results, expected 1", len(results.Results))
+		return nil, errors.Errorf("%d results, expected 1", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return none, result.Error
+		return nil, result.Error
 	}
 	if result.ApplicationTag != arg.Tag {
-		return none, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
+		return nil, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
 }

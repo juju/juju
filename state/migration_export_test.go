@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -111,11 +111,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("apt-mirror", "http://mirror")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,11 +122,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
-
-	// Remove all controller and cloud config before comparison.
-	controller.RemoveControllerAttributes(modelAttrs)
-	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
@@ -163,7 +153,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ModelReadAccess,
+		Access:    description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(bob, lastConnection)
@@ -184,20 +174,28 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.ReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.ReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
@@ -216,8 +214,11 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,12 +236,65 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(container.Tag(), gc.Equals, nested.MachineTag())
 }
 
-func (s *MigrationExportSuite) TestServices(c *gc.C) {
+func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	// Create two devices, first with all fields set, second just to show that
+	// we do both.
+	sda := state.BlockDeviceInfo{
+		DeviceName:     "sda",
+		DeviceLinks:    []string{"some", "data"},
+		Label:          "sda-label",
+		UUID:           "some-uuid",
+		HardwareId:     "magic",
+		BusAddress:     "bus stop",
+		Size:           16 * 1024 * 1024 * 1024,
+		FilesystemType: "ext4",
+		InUse:          true,
+		MountPoint:     "/",
+	}
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
+	err := machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	machines := model.Machines()
+	c.Assert(machines, gc.HasLen, 1)
+	exported := machines[0]
+
+	devices := exported.BlockDevices()
+	c.Assert(devices, gc.HasLen, 2)
+	ex1, ex2 := devices[0], devices[1]
+
+	c.Check(ex1.Name(), gc.Equals, "sda")
+	c.Check(ex1.Links(), jc.DeepEquals, []string{"some", "data"})
+	c.Check(ex1.Label(), gc.Equals, "sda-label")
+	c.Check(ex1.UUID(), gc.Equals, "some-uuid")
+	c.Check(ex1.HardwareID(), gc.Equals, "magic")
+	c.Check(ex1.BusAddress(), gc.Equals, "bus stop")
+	c.Check(ex1.Size(), gc.Equals, uint64(16*1024*1024*1024))
+	c.Check(ex1.FilesystemType(), gc.Equals, "ext4")
+	c.Check(ex1.InUse(), jc.IsTrue)
+	c.Check(ex1.MountPoint(), gc.Equals, "/")
+
+	c.Check(ex2.Name(), gc.Equals, "sdb")
+	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
+}
+
+func (s *MigrationExportSuite) TestApplications(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -275,15 +329,18 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
 }
 
-func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
+func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
@@ -301,6 +358,10 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
@@ -323,6 +384,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
+	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -336,6 +398,16 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
+
+	versionHistory := exported.WorkloadVersionHistory()
+	// There are extra entries at the start that we don't care about.
+	c.Assert(len(versionHistory) >= 4, jc.IsTrue)
+	versions := make([]string, 4)
+	for i, status := range versionHistory[:4] {
+		versions[i] = status.Message()
+	}
+	// The exporter reads history in reverse time order.
+	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {
@@ -436,6 +508,135 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+}
+
+func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces := model.Spaces()
+	c.Assert(spaces, gc.HasLen, 1)
+	space := spaces[0]
+	c.Assert(space.Name(), gc.Equals, "one")
+	c.Assert(space.ProviderID(), gc.Equals, "provider")
+	c.Assert(space.Public(), jc.IsTrue)
+}
+
+func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "one"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "two"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "three"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Spaces(), gc.HasLen, 3)
+}
+
+func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices := model.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 1)
+	device := devices[0]
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, string(state.EthernetDevice))
+}
+
+func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:             "10.0.0.0/24",
+		ProviderId:       network.Id("foo"),
+		VLANTag:          64,
+		AvailabilityZone: "bar",
+		SpaceName:        "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets := model.Subnets()
+	c.Assert(subnets, gc.HasLen, 1)
+	subnet := subnets[0]
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+}
+
+func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:       "foo",
+		ConfigMethod:     state.StaticAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "bar",
+		DNSServers:       []string{"bam", "mam"},
+		DNSSearchDomains: []string{"weeee"},
+		GatewayAddress:   "0.1.2.1",
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := model.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	addr := addresses[0]
+	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
+	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
+	c.Assert(addr.DeviceName(), gc.Equals, "foo")
+	c.Assert(addr.ConfigMethod(), gc.Equals, string(state.StaticAddress))
+	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
+	c.Assert(addr.ProviderID(), gc.Equals, "bar")
+	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
+	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
+	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+}
+
+func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	keys := model.SSHHostKeys()
+	c.Assert(keys, gc.HasLen, 1)
+	key := keys[0]
+	c.Assert(key.MachineID(), gc.Equals, machine.Id())
+	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
 type goodToken struct{}

@@ -23,8 +23,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelsC,
 		modelUsersC,
 		modelUserLastConnectionC,
+		permissionsC,
 		settingsC,
 		sequenceC,
+		sshHostKeysC,
 		statusesC,
 		statusesHistoryC,
 
@@ -45,6 +47,15 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// relation
 		relationsC,
 		relationScopesC,
+
+		// networking
+		ipAddressesC,
+		spacesC,
+		linkLayerDevicesC,
+		subnetsC,
+
+		// storage
+		blockDevicesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -52,6 +63,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// Clouds aren't migrated. They must exist in the
+		// target controller already.
+		cloudsC,
 		// Cloud credentials aren't migrated. They must exist in the
 		// target controller already.
 		cloudCredentialsC,
@@ -87,6 +101,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		migrationsC,
 		migrationsStatusC,
 		migrationsActiveC,
+		migrationsMinionSyncC,
 
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
@@ -106,17 +121,19 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// separately.
 		modelEntityRefsC,
 
-		// This has been deprecated in 2.0, and should not contain any data
-		// we actually care about migrating.
-		legacyipaddressesC,
+		// This is marked as deprecated, and should probably be removed.
+		actionresultsC,
 
-		// The SSH host keys for each machine will be reported as each
-		// machine agent starts up.
-		sshHostKeysC,
+		// These are recreated whilst migrating other network entities.
+		providerIDsC,
+		linkLayerDevicesRefsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
+		// model configuration
+		globalSettingsC,
+
 		// model
 		cloudimagemetadataC,
 
@@ -130,7 +147,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		blockDevicesC,
 		filesystemsC,
 		filesystemAttachmentsC,
 		storageInstancesC,
@@ -139,21 +155,13 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumesC,
 		volumeAttachmentsC,
 
-		// network
-		ipAddressesC,
-		providerIDsC,
-		linkLayerDevicesC,
-		linkLayerDevicesRefsC,
-		subnetsC,
-		spacesC,
-
 		// actions
 		actionsC,
 		actionNotificationsC,
-		actionresultsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
+		auditingC,
 	)
 
 	envCollections := set.NewStrings()
@@ -184,6 +192,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
+		"Cloud",
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
@@ -203,9 +212,18 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
-		"Access",
 	)
 	s.AssertExportedFields(c, modelUserDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		"ID",
+		"ObjectGlobalKey",
+		"SubjectGlobalKey",
+		"Access",
+	)
+	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
@@ -493,6 +511,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
+		"VirtType",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }
@@ -509,6 +528,115 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 		"Updated",
 	)
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// Always alive, not explicitly exported.
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"IsPublic",
+		"ProviderId",
+	)
+	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+		// We manage machine through containment.
+		"Machine",
+	)
+	migrated := set.NewStrings(
+		"BlockDevices",
+	)
+	s.AssertExportedFields(c, blockDevicesDoc{}, migrated.Union(ignored))
+	// The meat is in the type stored in "BlockDevices".
+	migrated = set.NewStrings(
+		"DeviceName",
+		"DeviceLinks",
+		"Label",
+		"UUID",
+		"HardwareId",
+		"BusAddress",
+		"Size",
+		"FilesystemType",
+		"InUse",
+		"MountPoint",
+	)
+	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
+}
+
+func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+
+		// Currently unused (never set or exposed).
+		"IsPublic",
+	)
+	migrated := set.NewStrings(
+		"CIDR",
+		"VLANTag",
+		"SpaceName",
+		"ProviderId",
+		"AvailabilityZone",
+	)
+	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"MachineID",
+		"ProviderID",
+		"Name",
+		"MTU",
+		"Type",
+		"MACAddress",
+		"IsAutoStart",
+		"IsUp",
+		"ParentName",
+	)
+	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
+	ignored := set.NewStrings()
+	migrated := set.NewStrings(
+		"Keys",
+	)
+	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

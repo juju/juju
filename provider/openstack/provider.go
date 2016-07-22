@@ -108,7 +108,7 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
@@ -146,7 +146,7 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
@@ -198,15 +198,13 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
-	// archMutex gates access to supportedArchitectures
+	// archMutex gates access to cachedSupportedArchitectures
 	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
+	// cachedSupportedArchitectures caches the architectures
 	// for which images can be instantiated.
-	supportedArchitectures []string
+	cachedSupportedArchitectures []string
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -409,26 +407,6 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *Environ) SupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
@@ -441,7 +419,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.SupportedArchitectures()
+	supportedArches, err := e.supportedArchitectures()
 	if err != nil {
 		return nil, err
 	}
@@ -458,6 +436,25 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
+}
+
+func (e *Environ) supportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.cachedSupportedArchitectures != nil {
+		return e.cachedSupportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.cachedSupportedArchitectures, err
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
@@ -573,9 +570,9 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *Environ) ControllerInstances() ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
-	instances, err := e.AllInstances()
+	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -867,6 +864,9 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -964,13 +964,14 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	var apiPort int
-	if args.InstanceConfig.Bootstrap != nil {
-		apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
 	} else {
+		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -1213,32 +1214,31 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	filter := e.machinesFilter()
-	allInstances, err := e.allControllerManagedInstances(filter, e.ecfg().useFloatingIP())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID := e.Config().UUID()
-	matching := make([]instance.Instance, 0, len(allInstances))
-	for _, inst := range allInstances {
-		if inst.(*openstackInstance).serverDetail.Metadata[tags.JujuModel] != modelUUID {
-			continue
-		}
-		matching = append(matching, inst)
-	}
-	return matching, nil
+	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
+	return e.allInstances(filter, tagFilter, e.ecfg().useFloatingIP())
 }
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allControllerManagedInstances(filter *nova.Filter, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+func (e *Environ) allControllerManagedInstances(controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuController, controllerUUID}
+	return e.allInstances(nil, tagFilter, updateFloatingIPAddresses)
+}
+
+type tagValue struct {
+	tag, value string
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allInstances(filter *nova.Filter, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
 	servers, err := e.nova().ListServersDetail(filter)
 	if err != nil {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
-	controllerUUID := e.Config().ControllerUUID()
 	for _, server := range servers {
-		if server.Metadata[tags.JujuController] != controllerUUID {
+		if server.Metadata[tagFilter.tag] != tagFilter.value {
 			continue
 		}
 		if e.isAliveServer(server) {
@@ -1264,24 +1264,29 @@ func (e *Environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg := e.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// In case any hosted environment hasn't been cleaned up yet,
-		// we also attempt to delete their resources when the controller
-		// environment is destroyed.
-		if err := e.destroyControllerManagedEnvirons(); err != nil {
-			return errors.Annotate(err, "destroying managed environs")
-		}
-	}
 	// Delete all security groups remaining in the model.
-	return e.firewaller.DeleteAllGroups()
+	return e.firewaller.DeleteAllModelGroups()
+}
+
+// DestroyController implements the Environ interface.
+func (e *Environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return errors.Annotate(err, "destroying controller model")
+	}
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
+	}
+	return e.firewaller.DeleteAllControllerGroups(controllerUUID)
 }
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
-// environment's controller.
-func (e *Environ) destroyControllerManagedEnvirons() error {
+// models's controller.
+func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error {
 	// Terminate all instances managed by the controller.
-	insts, err := e.allControllerManagedInstances(nil, false)
+	insts, err := e.allControllerManagedInstances(controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1297,7 +1302,7 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	cfg := e.Config()
 	storageAdapter, err := newOpenstackStorageAdapter(cfg)
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(storageAdapter, cfg.ControllerUUID())
+		volIds, err := allControllerManagedVolumes(storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
@@ -1313,7 +1318,7 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Security groups for hosted models are destroyed by the
-	// DeleteAllGroups method call from Destroy().
+	// DeleteAllControllerGroups method call from Destroy().
 	return nil
 }
 

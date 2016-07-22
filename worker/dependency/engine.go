@@ -189,11 +189,14 @@ func (engine *Engine) Report() map[string]interface{} {
 		// oneShotDying approach in loop means that it can continue to
 		// process requests until the last possible moment. Only once
 		// loop has exited do we fall back to this report.
-		return map[string]interface{}{
+		report := map[string]interface{}{
 			KeyState:     "stopped",
-			KeyError:     engine.Wait(),
 			KeyManifolds: engine.manifoldsReport(),
 		}
+		if err := engine.Wait(); err != nil {
+			report[KeyError] = err.Error()
+		}
+		return report
 	}
 }
 
@@ -210,11 +213,14 @@ func (engine *Engine) liveReport() map[string]interface{} {
 			reportError = engine.worstError
 		}
 	}
-	return map[string]interface{}{
+	report := map[string]interface{}{
 		KeyState:     state,
-		KeyError:     reportError,
 		KeyManifolds: engine.manifoldsReport(),
 	}
+	if reportError != nil {
+		report[KeyError] = reportError.Error()
+	}
+	return report
 }
 
 // manifoldsReport collects and returns information about the engine's manifolds
@@ -223,13 +229,20 @@ func (engine *Engine) liveReport() map[string]interface{} {
 func (engine *Engine) manifoldsReport() map[string]interface{} {
 	manifolds := map[string]interface{}{}
 	for name, info := range engine.current {
-		manifolds[name] = map[string]interface{}{
+		report := map[string]interface{}{
 			KeyState:       info.state(),
-			KeyError:       info.err,
 			KeyInputs:      engine.manifolds[name].Inputs,
-			KeyReport:      info.report(),
 			KeyResourceLog: resourceLogReport(info.resourceLog),
 		}
+		if info.err != nil {
+			report[KeyError] = info.err.Error()
+		}
+		if reporter, ok := info.worker.(Reporter); ok {
+			if reporter != engine {
+				report[KeyReport] = reporter.Report()
+			}
+		}
+		manifolds[name] = report
 	}
 	return manifolds
 }
@@ -627,15 +640,6 @@ func (info workerInfo) state() string {
 		return "started"
 	}
 	return "stopped"
-}
-
-// report returns any available report from the worker. If the worker is not
-// a Reporter, or is not present, this method will return nil.
-func (info workerInfo) report() map[string]interface{} {
-	if reporter, ok := info.worker.(Reporter); ok {
-		return reporter.Report()
-	}
-	return nil
 }
 
 // installTicket is used by engine to induce installation of a named manifold

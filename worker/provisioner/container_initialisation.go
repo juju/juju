@@ -6,10 +6,11 @@ package provisioner
 import (
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -28,15 +29,13 @@ import (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner                worker.Runner
-	supportedContainers   []instance.ContainerType
-	imageURLGetter        container.ImageURLGetter
-	provisioner           *apiprovisioner.State
-	machine               *apiprovisioner.Machine
-	config                agent.Config
-	initLock              *fslock.Lock
-	addressableContainers bool
-	enableNAT             bool
+	runner              worker.Runner
+	supportedContainers []instance.ContainerType
+	imageURLGetter      container.ImageURLGetter
+	provisioner         *apiprovisioner.State
+	machine             *apiprovisioner.Machine
+	config              agent.Config
+	initLockName        string
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -57,7 +56,7 @@ type ContainerSetupParams struct {
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
-	InitLock            *fslock.Lock
+	InitLockName        string
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
@@ -71,7 +70,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		provisioner:         params.Provisioner,
 		config:              params.Config,
 		workerName:          params.WorkerName,
-		initLock:            params.InitLock,
+		initLockName:        params.InitLockName,
 	}
 }
 
@@ -93,7 +92,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 // Handle is called whenever containers change on the machine being watched.
 // Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
-func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resultError error) {
+func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
 	if len(containerIds) == 0 {
 		return nil
@@ -106,7 +105,7 @@ func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resu
 		if atomic.LoadInt32(cs.setupDone[containerType]) != 0 {
 			continue
 		}
-		if err := cs.initialiseAndStartProvisioner(containerType); err != nil {
+		if err := cs.initialiseAndStartProvisioner(abort, containerType); err != nil {
 			logger.Errorf("starting container provisioner for %v: %v", containerType, err)
 			// Just because dealing with one type of container fails, we won't exit the entire
 			// function because we still want to try and start other container types. So we
@@ -119,7 +118,7 @@ func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resu
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) (resultError error) {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, containerType instance.ContainerType) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
@@ -144,19 +143,31 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
-	if err := cs.runInitialiser(containerType, initialiser); err != nil {
+	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
 	logger.Debugf("running initialiser for %s containers", containerType)
-	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+	spec := mutex.Spec{
+		Name:  cs.initLockName,
+		Clock: clock.WallClock,
+		// If we don't get the lock straigh away, there is no point trying multiple
+		// times per second for an operation that is likelty to ake multiple seconds.
+		Delay:  time.Second,
+		Cancel: abort,
+	}
+	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
-	defer cs.initLock.Unlock()
+	logger.Debugf("lock %q acquired", cs.initLockName)
+	defer logger.Debugf("release lock %q for container initialisation", cs.initLockName)
+	defer releaser.Release()
 
 	if err := initialiser.Initialise(); err != nil {
 		return errors.Trace(err)
@@ -192,21 +203,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	// Enable IP forwarding and ARP proxying if needed.
-	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
-		if err := setIPAndARPForwarding(true); err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		cs.addressableContainers = true
-		logger.Infof("enabled IP forwarding and ARP proxying for containers")
-	}
-
-	// Enable NAT if needed.
-	if nat := managerConfig.PopValue(container.ConfigEnableNAT); nat != "" {
-		cs.enableNAT = true
-		logger.Infof("enabling NAT for containers")
-	}
-
 	switch containerType {
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
@@ -214,7 +210,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.provisioner,
 			cs.config,
 			managerConfig,
-			cs.enableNAT,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
@@ -235,7 +230,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.provisioner,
 			manager,
 			cs.config,
-			cs.enableNAT,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new lxd broker")
@@ -265,16 +259,7 @@ func containerManagerConfig(
 }
 
 // Override for testing.
-var (
-	StartProvisioner = startProvisionerWorker
-
-	sysctlConfig = "/etc/sysctl.conf"
-)
-
-const (
-	ipForwardSysctlKey = "net.ipv4.ip_forward"
-	arpProxySysctlKey  = "net.ipv4.conf.all.proxy_arp"
-)
+var StartProvisioner = startProvisionerWorker
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
@@ -298,47 +283,4 @@ func startProvisionerWorker(
 		}
 		return w, nil
 	})
-}
-
-// setIPAndARPForwarding enables or disables IP and ARP forwarding on
-// the machine. This is needed when the machine needs to host
-// addressable containers.
-var setIPAndARPForwarding = func(enabled bool) error {
-	val := "0"
-	if enabled {
-		val = "1"
-	}
-
-	runCmds := func(keyAndVal string) (err error) {
-
-		defer errors.DeferredAnnotatef(&err, "cannot set %s", keyAndVal)
-
-		commands := []string{
-			// Change it immediately:
-			fmt.Sprintf("sysctl -w %s", keyAndVal),
-
-			// Change it also on next boot:
-			fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
-		}
-		for _, cmd := range commands {
-			result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf(
-				"command %q returned: code: %d, stdout: %q, stderr: %q",
-				cmd, result.Code, string(result.Stdout), string(result.Stderr),
-			)
-			if result.Code != 0 {
-				return errors.Errorf("unexpected exit code %d", result.Code)
-			}
-		}
-		return nil
-	}
-
-	err := runCmds(fmt.Sprintf("%s=%s", ipForwardSysctlKey, val))
-	if err != nil {
-		return err
-	}
-	return runCmds(fmt.Sprintf("%s=%s", arpProxySysctlKey, val))
 }

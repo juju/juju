@@ -6,9 +6,7 @@ package charms_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charms"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -17,20 +15,16 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type baseCharmsSuite struct {
+type charmsSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
-}
-
-type charmsSuite struct {
-	baseCharmsSuite
 	api *charms.API
 }
 
 var _ = gc.Suite(&charmsSuite{})
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
-	s.baseCharmsSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
 	auth := testing.FakeAuthorizer{
@@ -41,33 +35,58 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&baseCharmsSuite{})
-
-func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
+func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 	var clientCharmInfoTests = []struct {
-		about           string
-		charm           string
-		url             string
-		expectedActions *charm.Actions
-		err             string
+		about    string
+		charm    string
+		url      string
+		expected params.CharmInfo
+		err      string
 	}{
 		{
 			about: "dummy charm which contains an expectedActions spec",
 			charm: "dummy",
 			url:   "local:quantal/dummy-1",
-			expectedActions: &charm.Actions{
-				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": {
-						Description: "Take a snapshot of the database.",
-						Params: map[string]interface{}{
-							"type":        "object",
-							"title":       "snapshot",
-							"description": "Take a snapshot of the database.",
-							"properties": map[string]interface{}{
-								"outfile": map[string]interface{}{
-									"default":     "foo.bz2",
-									"description": "The file to write out to.",
-									"type":        "string",
+			expected: params.CharmInfo{
+				Revision: 1,
+				URL:      "local:quantal/dummy-1",
+				Config: map[string]params.CharmOption{
+					"skill-level": params.CharmOption{
+						Type:        "int",
+						Description: "A number indicating skill."},
+					"title": params.CharmOption{
+						Type:        "string",
+						Description: "A descriptive title used for the application.",
+						Default:     "My Title"},
+					"outlook": params.CharmOption{
+						Type:        "string",
+						Description: "No default outlook."},
+					"username": params.CharmOption{
+						Type:        "string",
+						Description: "The name of the initial account (given admin permissions).",
+						Default:     "admin001"},
+				},
+				Meta: &params.CharmMeta{
+					Name:           "dummy",
+					Summary:        "That's a dummy charm.",
+					Description:    "This is a longer description which\npotentially contains multiple lines.\n",
+					Subordinate:    false,
+					MinJujuVersion: "0.0.0",
+				},
+				Actions: &params.CharmActions{
+					ActionSpecs: map[string]params.CharmActionSpec{
+						"snapshot": params.CharmActionSpec{
+							Description: "Take a snapshot of the database.",
+							Params: map[string]interface{}{
+								"title":       "snapshot",
+								"description": "Take a snapshot of the database.",
+								"type":        "object",
+								"properties": map[string]interface{}{
+									"outfile": map[string]interface{}{
+										"type":        "string",
+										"description": "The file to write out to.",
+										"default":     "foo.bz2",
+									},
 								},
 							},
 						},
@@ -79,18 +98,74 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "retrieves charm info",
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
-				"fakeaction": {
-					Description: "No description",
-					Params: map[string]interface{}{
-						"type":        "object",
-						"title":       "fakeaction",
-						"description": "No description",
-						"properties":  map[string]interface{}{},
+			url:   "local:quantal/wordpress-3",
+			expected: params.CharmInfo{
+				Revision: 3,
+				URL:      "local:quantal/wordpress-3",
+				Config: map[string]params.CharmOption{
+					"blog-title": params.CharmOption{Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
+				Meta: &params.CharmMeta{
+					Name:        "wordpress",
+					Summary:     "Blog engine",
+					Description: "A pretty popular blog engine",
+					Subordinate: false,
+					Provides: map[string]params.CharmRelation{
+						"logging-dir": params.CharmRelation{
+							Name:      "logging-dir",
+							Role:      "provider",
+							Interface: "logging",
+							Scope:     "container",
+						},
+						"monitoring-port": params.CharmRelation{
+							Name:      "monitoring-port",
+							Role:      "provider",
+							Interface: "monitoring",
+							Scope:     "container",
+						},
+						"url": params.CharmRelation{
+							Name:      "url",
+							Role:      "provider",
+							Interface: "http",
+							Scope:     "global",
+						},
+					},
+					Requires: map[string]params.CharmRelation{
+						"cache": params.CharmRelation{
+							Name:      "cache",
+							Role:      "requirer",
+							Interface: "varnish",
+							Optional:  true,
+							Limit:     2,
+							Scope:     "global",
+						},
+						"db": params.CharmRelation{
+							Name:      "db",
+							Role:      "requirer",
+							Interface: "mysql",
+							Limit:     1,
+							Scope:     "global",
+						},
+					},
+					ExtraBindings: map[string]string{
+						"admin-api": "admin-api",
+						"foo-bar":   "foo-bar",
+						"db-client": "db-client",
+					},
+					MinJujuVersion: "0.0.0",
+				},
+				Actions: &params.CharmActions{
+					ActionSpecs: map[string]params.CharmActionSpec{
+						"fakeaction": params.CharmActionSpec{
+							Description: "No description",
+							Params: map[string]interface{}{
+								"properties":  map[string]interface{}{},
+								"description": "No description",
+								"type":        "object",
+								"title":       "fakeaction"},
+						},
 					},
 				},
-			}},
-			url: "local:quantal/wordpress-3",
+			},
 		},
 		{
 			about: "invalid URL",
@@ -108,30 +183,41 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "unknown charm",
 			charm: "wordpress",
 			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found \(not found\)`,
+			err:   `charm "cs:missing/one-1" not found`,
 		},
 	}
 
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
-		aCharm := s.AddTestingCharm(c, t.charm)
-		info, err := s.APIState.Client().CharmInfo(t.url)
+		s.AddTestingCharm(c, t.charm)
+		info, err := s.api.CharmInfo(params.CharmURL{t.url})
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		expected := &api.CharmInfo{
-			Revision: aCharm.Revision(),
-			URL:      aCharm.URL().String(),
-			Config:   aCharm.Config(),
-			Meta:     aCharm.Meta(),
-			Actions:  aCharm.Actions(),
-		}
-		c.Check(info, jc.DeepEquals, expected)
-		c.Check(info.Actions, jc.DeepEquals, t.expectedActions)
+		c.Check(info, jc.DeepEquals, t.expected)
 	}
 }
+
+func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(
+		c, &factory.CharmParams{Name: "metered", URL: "cs:xenial/metered"})
+	info, err := s.api.CharmInfo(params.CharmURL{
+		URL: meteredCharm.URL().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := &params.CharmMetrics{
+		Metrics: map[string]params.CharmMetric{
+			"pings": params.CharmMetric{
+				Type:        "gauge",
+				Description: "Description of the metric."},
+			"juju-units": params.CharmMetric{
+				Type:        "",
+				Description: ""}}}
+	c.Assert(info.Metrics, jc.DeepEquals, expected)
+}
+
 func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
 	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
 }
@@ -156,8 +242,8 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 
 func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	metered, err := s.api.IsMetered(params.CharmInfo{
-		CharmURL: charm.URL().String(),
+	metered, err := s.api.IsMetered(params.CharmURL{
+		URL: charm.URL().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsFalse)
@@ -165,8 +251,8 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	metered, err := s.api.IsMetered(params.CharmInfo{
-		CharmURL: meteredCharm.URL().String(),
+	metered, err := s.api.IsMetered(params.CharmURL{
+		URL: meteredCharm.URL().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsTrue)

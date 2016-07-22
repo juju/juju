@@ -31,12 +31,14 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
@@ -133,19 +135,44 @@ func (st *State) IsController() bool {
 	return st.modelTag == st.controllerTag
 }
 
+// ControllerUUID returns the model UUID for the controller model
+// of this state instance.
+func (st *State) ControllerUUID() string {
+	return st.controllerTag.Id()
+}
+
 // RemoveAllModelDocs removes all documents from multi-model
 // collections. The model should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
-	return st.removeAllModelDocs(bson.D{{"life", Dead}})
+	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not dead")
+	}
+	return errors.Trace(err)
 }
 
 // RemoveImportingModelDocs removes all documents from multi-model collections
 // for the current model. This method asserts that the model's migration mode
 // is "importing".
 func (st *State) RemoveImportingModelDocs() error {
-	return st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not being imported for migration")
+	}
+	return errors.Trace(err)
+}
+
+// RemoveExportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "exporting".
+func (st *State) RemoveExportingModelDocs() error {
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not being exported for migration")
+	}
+	return errors.Trace(err)
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
@@ -173,27 +200,40 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		ops = append(ops, decHostedModelCountOp())
 	}
 
-	// Add all per-model docs to the txn.
+	var rawCollections []string
+	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global {
 			continue
 		}
 		if info.rawAccess {
-			if err := st.removeAllInCollectionRaw(name); err != nil {
-				return errors.Trace(err)
-			}
+			rawCollections = append(rawCollections, name)
 			continue
 		}
-		// TODO(rog): 2016-05-06 lp:1579010
-		// We can end up with an enormous transaction here,
-		// because we'll have one operation for each document in the
-		// whole model.
-		var err error
-		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
+
+		ops, err := st.removeAllInCollectionOps(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Make sure we gate everything on the model assertion.
+		ops = append([]txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: modelAssertion,
+		}}, ops...)
+		err = st.runTransaction(ops)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
+	// Now remove raw collections
+	for _, name := range rawCollections {
+		if err := st.removeAllInCollectionRaw(name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Run the remaining ops to remove the model.
 	return st.runTransaction(ops)
 }
 
@@ -206,9 +246,9 @@ func (st *State) removeAllInCollectionRaw(name string) error {
 	return errors.Trace(err)
 }
 
-// appendRemoveAllInCollectionOps appends to ops operations to
+// removeAllInCollectionOps appends to ops operations to
 // remove all the documents in the given named collection.
-func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 	coll, closer := st.getCollection(name)
 	defer closer()
 
@@ -217,6 +257,7 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var ops []txn.Op
 	for _, id := range ids {
 		ops = append(ops, txn.Op{
 			C:      name,
@@ -752,8 +793,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return env, nil
 	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.IPAddressTag:
-		return st.IPAddressByTag(tag)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
 	case names.CharmTag:
@@ -939,6 +978,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				), "")
 			}
 		}
+	}
+
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	for _, placement := range args.Placement {
@@ -1270,34 +1317,6 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		// Otherwise use an existing machine.
 		return st.Machine(data.machineId)
 	}
-}
-
-// AddIPAddress creates and returns a new IP address. It can return an
-// error satisfying IsNotValid() or IsAlreadyExists() when the addr
-// does not contain a valid IP, or when addr is already added.
-func (st *State) AddIPAddress(addr network.Address, subnetID string) (*IPAddress, error) {
-	return addIPAddress(st, addr, subnetID)
-}
-
-// IPAddress returns an existing IP address from the state.
-func (st *State) IPAddress(value string) (*IPAddress, error) {
-	return ipAddress(st, value)
-}
-
-// IPAddressByTag returns an existing IP address from the state
-// identified by its tag.
-func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
-	return ipAddressByTag(st, tag)
-}
-
-// AllocatedIPAddresses returns all the allocated addresses for a machine
-func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
-	return fetchIPAddresses(st, bson.D{{"machineid", machineId}})
-}
-
-// DeadIPAddresses returns all IP addresses with a Life of Dead
-func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return fetchIPAddresses(st, isDeadDoc)
 }
 
 // Service returns a service state by name.
@@ -1782,6 +1801,9 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 
 	var doc controllersDoc
 	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("controllers document")
+	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
@@ -1939,6 +1961,20 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
+}
+
+// PutAuditEntryFn returns a function which will persist
+// audit.AuditEntry instances to the database.
+func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
+	insert := func(collectionName string, docs ...interface{}) error {
+		collection, closeCollection := st.getCollection(collectionName)
+		defer closeCollection()
+
+		writeableCollection := collection.Writeable()
+
+		return errors.Trace(writeableCollection.Insert(docs...))
+	}
+	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
 var tagPrefix = map[byte]string{

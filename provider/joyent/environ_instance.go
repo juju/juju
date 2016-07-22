@@ -65,7 +65,7 @@ var unsupportedConstraints = []string{
 func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.SupportedArchitectures()
+	supportedArches, err := env.getSupportedArchitectures()
 	if err != nil {
 		return nil, err
 	}

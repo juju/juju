@@ -21,9 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -53,16 +51,11 @@ var sampleConfig = testing.Attrs{
 	"type":                      "my-type",
 	"name":                      "my-name",
 	"uuid":                      testing.ModelTag.Id(),
-	"controller-uuid":           testing.ModelTag.Id(),
 	"authorized-keys":           testing.FakeAuthKeys,
 	"firewall-mode":             config.FwInstance,
-	"admin-secret":              "foo",
 	"unknown":                   "my-unknown",
-	"ca-cert":                   caCert,
 	"ssl-hostname-verification": true,
 	"development":               false,
-	"state-port":                1234,
-	"api-port":                  4321,
 	"default-series":            series.LatestLts(),
 }
 
@@ -82,10 +75,9 @@ var testResourceTagsMap = map[string]string{
 var quotedPathSeparator = regexp.QuoteMeta(string(os.PathSeparator))
 
 var minimalConfigAttrs = testing.Attrs{
-	"type":            "my-type",
-	"name":            "my-name",
-	"uuid":            testing.ModelTag.Id(),
-	"controller-uuid": testing.ModelTag.Id(),
+	"type": "my-type",
+	"name": "my-name",
+	"uuid": testing.ModelTag.Id(),
 }
 
 var modelNameErr = "%q is not a valid name: model names may only contain lowercase letters, digits and hyphens"
@@ -134,112 +126,28 @@ var configTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 		}),
 	}, {
-		about:       "Load authorized-keys from path",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys-path": "~/.ssh/authorized_keys2",
-		}),
-	}, {
-		about:       "CA cert & key from path",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert-path":        "cacert2.pem",
-			"ca-private-key-path": "cakey2.pem",
-		}),
-	}, {
-		about:       "CA cert & key from path; cert attribute set too",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert-path":        "cacert2.pem",
-			"ca-cert":             "ignored",
-			"ca-private-key-path": "cakey2.pem",
-		}),
-	}, {
-		about:       "CA cert & key from ~ path",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert-path":        "~/othercert.pem",
-			"ca-private-key-path": "~/otherkey.pem",
-		}),
-	}, {
-		about:       "CA cert and key as attributes",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert":        caCert,
-			"ca-private-key": caKey,
-		}),
-	}, {
-		about:       "Mismatched CA cert and key",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert":        caCert,
-			"ca-private-key": caKey2,
-		}),
-		err: "bad CA certificate/key in configuration: .*tls: private key does not match public key",
-	}, {
-		about:       "Invalid CA cert",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert": invalidCACert,
-		}),
-		err: `bad CA certificate/key in configuration: (asn1:|ASN\.1) syntax error:.*`,
-	}, {
-		about:       "Invalid CA key",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert":        caCert,
-			"ca-private-key": invalidCAKey,
-		}),
-		err: "bad CA certificate/key in configuration: .*tls:.*",
-	}, {
-		about:       "CA cert specified as non-existent file",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-cert-path": "no-such-file",
-		}),
-		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
-	}, {
-		about:       "CA key specified as non-existent file",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ca-private-key-path": "no-such-file",
-		}),
-		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
-	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"agent-version":   "1.2.3",
+			"agent-version": "1.2.3",
 		}),
 	}, {
 		about:       "Specified development flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     true,
-		}),
-	}, {
-		about:       "Specified admin secret",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     false,
-			"admin-secret":    "pork",
+			"development": true,
 		}),
 	}, {
 		about:       "Invalid development flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     "invalid",
+			"development": "invalid",
 		}),
 		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "Invalid disable-network-management flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys":            testing.FakeAuthKeys,
 			"disable-network-management": "invalid",
 		}),
 		err: `disable-network-management: expected bool, got string\("invalid"\)`,
@@ -290,8 +198,7 @@ var configTests = []configTest{
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"agent-version":   "2",
+			"agent-version": "2",
 		}),
 		err: `invalid agent version in model configuration: "2"`,
 	}, {
@@ -357,6 +264,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": "",
 		}),
+		err: `firewall-mode: expected one of \[instance global none\], got ""`,
 	}, {
 		about:       "Instance firewall mode",
 		useDefaults: config.UseDefaults,
@@ -381,7 +289,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": "illegal",
 		}),
-		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
+		err: `firewall-mode: expected one of \[instance global none\], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
@@ -459,71 +367,6 @@ var configTests = []configTest{
 			"agent-stream": "proposed",
 		}),
 	}, {
-		about:       "Explicit state port",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"state-port": 37042,
-		}),
-	}, {
-		about:       "Invalid state port",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"state-port": "illegal",
-		}),
-		err: `state-port: expected number, got string\("illegal"\)`,
-	}, {
-		about:       "Explicit API port",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"api-port": 77042,
-		}),
-	}, {
-		about:       "Invalid API port",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"api-port": "illegal",
-		}),
-		err: `api-port: expected number, got string\("illegal"\)`,
-	}, {
-		about:       "Explicit bootstrap timeout",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-timeout": 300,
-		}),
-	}, {
-		about:       "Invalid bootstrap timeout",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-timeout": "illegal",
-		}),
-		err: `bootstrap-timeout: expected number, got string\("illegal"\)`,
-	}, {
-		about:       "Explicit bootstrap retry delay",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-retry-delay": 5,
-		}),
-	}, {
-		about:       "Invalid bootstrap retry delay",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-retry-delay": "illegal",
-		}),
-		err: `bootstrap-retry-delay: expected number, got string\("illegal"\)`,
-	}, {
-		about:       "Explicit bootstrap addresses delay",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-addresses-delay": 15,
-		}),
-	}, {
-		about:       "Invalid bootstrap addresses delay",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"bootstrap-addresses-delay": "illegal",
-		}),
-		err: `bootstrap-addresses-delay: expected number, got string\("illegal"\)`,
-	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -539,26 +382,6 @@ var configTests = []configTest{
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig,
 	}, {
-		about:       "No defaults: with ca-cert-path",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"ca-cert-path": "arble"}),
-		err:         `attribute "ca-cert-path" is not allowed in configuration`,
-	}, {
-		about:       "No defaults: with ca-private-key-path",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"ca-private-key-path": "arble"}),
-		err:         `attribute "ca-private-key-path" is not allowed in configuration`,
-	}, {
-		about:       "No defaults: with authorized-keys-path",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"authorized-keys-path": "arble"}),
-		err:         `attribute "authorized-keys-path" is not allowed in configuration`,
-	}, {
-		about:       "No defaults: missing authorized-keys",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Delete("authorized-keys"),
-		err:         `authorized-keys missing from model configuration`,
-	}, {
 		about:       "Config settings from juju actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
@@ -571,11 +394,9 @@ var configTests = []configTest{
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
-			"ca-cert":                   caCert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
 			"uuid":                      testing.ModelTag.Id(),
-			"controller-uuid":           testing.ModelTag.Id(),
 		},
 	}, {
 		about:       "TestMode flag specified",
@@ -588,12 +409,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
-		}),
-	}, {
-		about:       "valid controller-uuid",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"controller-uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
 		}),
 	}, {
 		about:       "invalid uuid 1",
@@ -617,13 +432,8 @@ var configTests = []configTest{
 		}),
 		err: `empty uuid in model configuration`,
 	},
-	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
-	// TODO(rog) reinstate these tests when we can lose
-	// backward compatibility with pre-1.13 config.
-	// missingAttributeNoDefault("state-port"),
-	// missingAttributeNoDefault("api-port"),
 	{
 		about:       "Explicit apt-mirror",
 		useDefaults: config.UseDefaults,
@@ -652,36 +462,76 @@ var configTests = []configTest{
 			"resource-tags": []string{"a"},
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
-	},
-	{
-		about:       "Invalid identity URL value",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"identity-url": "%",
-		}),
-		err: `invalid identity URL: parse %: invalid URL escape "%"`,
 	}, {
-		about:       "Not using https in identity URL",
+		about:       "Invalid syslog ca cert format",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"identity-url": "http://test-identity",
+			"type":               "my-type",
+			"name":               "my-name",
+			"logforward-enabled": true,
+			"syslog-host":        "localhost:1234",
+			"syslog-ca-cert":     "abc",
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
 		}),
-		err: `URL needs to be https`,
-	},
-	{
-		about:       "Invalid identity public key",
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: no certificates found`,
+	}, {
+		about:       "Invalid syslog ca cert",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"identity-public-key": "_",
+			"type":               "my-type",
+			"name":               "my-name",
+			"logforward-enabled": true,
+			"syslog-host":        "localhost:1234",
+			"syslog-ca-cert":     invalidCACert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
 		}),
-		err: `invalid identity public key: cannot decode base64 key: illegal base64 data at input byte 0`,
-	},
-	{
-		about:       "Valid identity URL and public key values",
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`,
+	}, {
+		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"identity-url":        "https://test-identity",
-			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
+			"logforward-enabled": true,
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": invalidCACert,
+			"syslog-client-key":  caKey,
+		}),
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: asn1: syntax error: data truncated`,
+	}, {
+		about:       "invalid syslog key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logforward-enabled": true,
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  invalidCAKey,
+		}),
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`,
+	}, {
+		about:       "Mismatched syslog cert and key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logforward-enabled": true,
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey2,
+		}),
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
+	}, {
+		about:       "Valid syslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"logforward-enabled": true,
+			"syslog-host":        "localhost:1234",
+			"syslog-ca-cert":     testing.CACert,
+			"syslog-client-cert": testing.ServerCert,
+			"syslog-client-key":  testing.ServerKey,
 		}),
 	},
 }
@@ -706,140 +556,12 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{".ssh/identity.pub", "identity"},
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
-		{".local/share/juju/my-name-cert.pem", caCert},
-		{".local/share/juju/my-name-private-key.pem", caKey},
-		{".local/share/juju/cacert2.pem", caCert2},
-		{".local/share/juju/cakey2.pem", caKey2},
-		{"othercert.pem", caCert3},
-		{"otherkey.pem", caKey3},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
 		test.check(c, s.FakeHomeSuite.Home)
 	}
-}
-
-var noCertFilesTests = []configTest{
-	{
-		about:       "Unspecified certificate and key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
-		},
-	}, {
-		about:       "Unspecified certificate, specified key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
-			"ca-private-key":  caKey,
-		},
-		err: "bad CA certificate/key in configuration: .*tls:.*",
-	},
-}
-
-func (s *ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
-	for i, test := range noCertFilesTests {
-		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.FakeHomeSuite.Home)
-	}
-}
-
-var emptyCertFilesTests = []configTest{
-	{
-		about:       "Cert unspecified; key specified",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
-			"ca-private-key":  caKey,
-		},
-		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
-	}, {
-		about:       "Cert and key unspecified",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
-		},
-		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
-	}, {
-		about:       "Cert specified, key unspecified",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
-			"ca-cert":         caCert,
-		},
-		err: fmt.Sprintf(`file ".*%smy-name-private-key.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
-	}, /* {
-		about: "Cert and key specified as absent",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"authorized-keys": testing.FakeAuthKeys,
-			"ca-cert":         "",
-			"ca-private-key":  "",
-		},
-	}, {
-		about: "Cert specified as absent",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"authorized-keys": testing.FakeAuthKeys,
-			"ca-cert":         "",
-		},
-		err: "bad CA certificate/key in configuration: crypto/tls: .*",
-	}, */
-}
-
-func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
-	files := []gitjujutesting.TestFile{
-		{".local/share/juju/my-name-cert.pem", ""},
-		{".local/share/juju/my-name-private-key.pem", ""},
-	}
-	s.FakeHomeSuite.Home.AddFiles(c, files...)
-
-	for i, test := range emptyCertFilesTests {
-		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.FakeHomeSuite.Home)
-	}
-}
-
-func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
-	// Server-side there is no juju home.
-	osenv.SetJujuXDGDataHome("")
-	attrs := testing.Attrs{
-		"type":            "my-type",
-		"name":            "my-name",
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
-		"authorized-keys": testing.FakeAuthKeys,
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-
-	_, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, gc.ErrorMatches, "empty ca-private-key in model configuration")
 }
 
 func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
@@ -869,27 +591,8 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(agentVersion, gc.Equals, version.Zero)
 	}
 
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
-	if statePort, ok := test.attrs["state-port"]; ok {
-		c.Assert(controllerCfg.StatePort(), gc.Equals, statePort)
-	}
-	if apiPort, ok := test.attrs["api-port"]; ok {
-		c.Assert(controllerCfg.APIPort(), gc.Equals, apiPort)
-	}
 	if expected, ok := test.attrs["uuid"]; ok {
 		c.Assert(cfg.UUID(), gc.Equals, expected)
-	}
-	if expected, ok := test.attrs["controller-uuid"]; ok {
-		c.Assert(controllerCfg.ControllerUUID(), gc.Equals, expected)
-	}
-	if identityURL, ok := test.attrs["identity-url"]; ok {
-		c.Assert(controllerCfg.IdentityURL(), gc.Equals, identityURL)
-	}
-	if identityPublicKey, ok := test.attrs["identity-public-key"]; ok {
-		var pk bakery.PublicKey
-		err := pk.UnmarshalText([]byte(identityPublicKey.(string)))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(controllerCfg.IdentityPublicKey(), gc.DeepEquals, &pk)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -909,54 +612,35 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), gc.Equals, m)
 	}
-	if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
-		c.Assert(cfg.AdminSecret(), gc.Equals, secret)
-	}
 
-	if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, home.FileContents(c, path))
-		c.Assert(cfg.AllAttrs()["authorized-keys-path"], gc.IsNil)
-	} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
-	} else {
-		// Content of all the files that are read by default.
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
-	}
+	keys, _ := test.attrs["authorized-keys"].(string)
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
 
-	cert, certPresent := controllerCfg.CACert()
-	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
-		c.Assert(certPresent, jc.IsTrue)
-		c.Assert(string(cert), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
-		c.Assert(certPresent, jc.IsTrue)
-		c.Assert(string(cert), gc.Equals, v)
+	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
+	if v, ok := test.attrs["logforward-enabled"].(bool); ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.Enabled, gc.Equals, v)
+	}
+	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.CACert, gc.Equals, v)
 	} else if ok {
-		c.Check(cert, gc.HasLen, 0)
-		c.Assert(certPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".local/share/juju/my-name-cert.pem") {
-		c.Assert(certPresent, jc.IsTrue)
-		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
-	} else {
-		c.Check(cert, gc.HasLen, 0)
-		c.Assert(certPresent, jc.IsFalse)
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.CACert, gc.Equals, "")
 	}
-
-	key, keyPresent := controllerCfg.CAPrivateKey()
-	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
-		c.Assert(keyPresent, jc.IsTrue)
-		c.Assert(string(key), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
-		c.Assert(keyPresent, jc.IsTrue)
-		c.Assert(string(key), gc.Equals, v)
+	if v, ok := test.attrs["syslog-client-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientCert, gc.Equals, v)
 	} else if ok {
-		c.Check(key, gc.HasLen, 0)
-		c.Assert(keyPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".local/share/juju/my-name-private-key.pem") {
-		c.Assert(keyPresent, jc.IsTrue)
-		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
-	} else {
-		c.Check(key, gc.HasLen, 0)
-		c.Assert(keyPresent, jc.IsFalse)
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientCert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["syslog-client-key"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientKey, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientKey, gc.Equals, "")
 	}
 
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
@@ -970,25 +654,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
-	sshOpts := cfg.BootstrapSSHOpts()
-	test.assertDuration(
-		c,
-		"bootstrap-timeout",
-		sshOpts.Timeout,
-		config.DefaultBootstrapSSHTimeout,
-	)
-	test.assertDuration(
-		c,
-		"bootstrap-retry-delay",
-		sshOpts.RetryDelay,
-		config.DefaultBootstrapSSHRetryDelay,
-	)
-	test.assertDuration(
-		c,
-		"bootstrap-addresses-delay",
-		sshOpts.AddressesDelay,
-		config.DefaultBootstrapSSHAddressesDelay,
-	)
 
 	if v, ok := test.attrs["image-stream"]; ok {
 		c.Assert(cfg.ImageStream(), gc.Equals, v)
@@ -1053,19 +718,11 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"type":                      "my-type",
 		"name":                      "my-name",
 		"uuid":                      "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
-		"controller-uuid":           "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
-		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
-		"bootstrap-timeout":         3600,
-		"bootstrap-retry-delay":     30,
-		"bootstrap-addresses-delay": 10,
 		"default-series":            series.LatestLts(),
 		"test-mode":                 false,
 	}
@@ -1074,7 +731,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["set-numa-control-policy"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1085,16 +741,14 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
-		"name":            "new-name",
-		"uuid":            "6216dfc3-6e82-408f-9f74-8565e63e6158",
-		"controller-uuid": "6216dfc3-6e82-408f-9f74-8565e63e6158",
-		"new-unknown":     "my-new-unknown",
+		"name":        "new-name",
+		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
+		"new-unknown": "my-new-unknown",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs["name"] = "new-name"
 	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
-	attrs["controller-uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
@@ -1136,49 +790,10 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"firewall-mode": config.FwNone},
 	err:   `cannot change firewall-mode from "global" to "none"`,
 }, {
-	about: "Cannot change the state-port",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
-	new:   testing.Attrs{"state-port": 42},
-	err:   `cannot change state-port from 37017 to 42`,
-}, {
-	about: "Cannot change the api-port",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
-	new:   testing.Attrs{"api-port": 42},
-	err:   `cannot change api-port from 17070 to 42`,
-}, {
-	about: "Can change the state-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
-}, {
-	about: "Can change the api-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
-}, {
-	about: "Can change the state-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"state-port": config.DefaultStatePort},
-}, {
-	about: "Can change the api-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"api-port": config.DefaultAPIPort},
-}, {
-	about: "Cannot change the state-port from implicit-default to different value",
-	new:   testing.Attrs{"state-port": 42},
-	err:   `cannot change state-port from 37017 to 42`,
-}, {
-	about: "Cannot change the api-port from implicit-default to different value",
-	new:   testing.Attrs{"api-port": 42},
-	err:   `cannot change api-port from 17070 to 42`,
-}, {
-	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
-	new:   testing.Attrs{"bootstrap-timeout": 5},
-	err:   `cannot change bootstrap-timeout from 600 to 5`,
-}, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
-}, {
-	about: "Cannot change controller-uuid",
-	old:   testing.Attrs{"controller-uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
-	new:   testing.Attrs{"controller-uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
-	err:   "cannot change controller-uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1203,20 +818,17 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
-		{".local/share/juju/myenv-cert.pem", caCert},
-		{".local/share/juju/myenv-private-key.pem", caKey},
 	}...)
 }
 
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "myenv",
-		"type":            "other",
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
-		"known":           "this",
-		"unknown":         "that",
+		"name":    "myenv",
+		"type":    "other",
+		"uuid":    testing.ModelTag.Id(),
+		"known":   "this",
+		"unknown": "that",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1278,10 +890,9 @@ var emptyAttributeTests = []testAttr{
 func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "myenv",
-		"type":            "other",
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
+		"name": "myenv",
+		"type": "other",
+		"uuid": testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	warningTxt := `.* unknown config field %q.*`
@@ -1304,8 +915,7 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 	final := testing.Attrs{
 		"type": "my-type", "name": "my-name",
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
+		"uuid": testing.ModelTag.Id(),
 	}
 	for key, value := range explicit {
 		final[key] = value
@@ -1477,9 +1087,6 @@ func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	for name, field := range config.ConfigSchema {
 		orig[name] = field
 	}
-	for name, field := range controller.ConfigSchema {
-		orig[name] = field
-	}
 	c.Assert(schema, jc.DeepEquals, orig)
 	// Check that we actually returned a copy, not the original.
 	schema["foo"] = environschema.Attr{}
@@ -1500,9 +1107,6 @@ func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
 	delete(schema, "foo")
 	orig := make(environschema.Fields)
 	for name, field := range config.ConfigSchema {
-		orig[name] = field
-	}
-	for name, field := range controller.ConfigSchema {
 		orig[name] = field
 	}
 	c.Assert(schema, jc.DeepEquals, orig)
@@ -1578,20 +1182,6 @@ ERPyv2NQqIFQZIyzUP7LVRIWfpFFOo9/Ww/7s5Y=
 -----END RSA PRIVATE KEY-----
 `[1:]
 
-var caCert2 = `
------BEGIN CERTIFICATE-----
-MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMDhaFw0yMjExMDkxNjQ2MDhaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWjALBgkqhkiG9w0BAQEDSwAw
-SAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC+fJALJj+
-C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAaNmMGQwDgYDVR0PAQH/BAQDAgCkMBIG
-A1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFOsX/ZCqKzWCAaTTVcWsWKT5Msow
-MB8GA1UdIwQYMBaAFOsX/ZCqKzWCAaTTVcWsWKT5MsowMAsGCSqGSIb3DQEBBQNB
-AAVV57jetEzJQnjgBzhvx/UwauFn78jGhXfV5BrQmxIb4SF4DgSCFstPwUQOAr8h
-XXzJqBQH92KYmp+y3YXDoMQ=
------END CERTIFICATE-----
-`[1:]
-
 var caKey2 = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOQIBAAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC
@@ -1601,32 +1191,6 @@ UQIhAPD7jccIDUVm785E5eR9eisq0+xpgUIa24Jkn8cAlst5AiEAopxVFl1auer3
 GP2In3pjdL4ydzU/gcRcYisoJqwHpM8CIHtqmaXBPeq5WT9ukb5/dL3+5SJCtmxA
 jQMuvZWRe6khAiBvMztYtPSDKXRbCZ4xeQ+kWSDHtok8Y5zNoTeu4nvDrwIgb3Al
 fikzPveC5g6S6OvEQmyDz59tYBubm2XHgvxqww0=
------END RSA PRIVATE KEY-----
-`[1:]
-
-var caCert3 = `
------BEGIN CERTIFICATE-----
-MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMjlaFw0yMjExMDkxNjQ2MjlaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWjALBgkqhkiG9w0BAQEDSwAw
-SAJBAIW7CbHFJivvV9V6mO8AGzJS9lqjUf6MdEPsdF6wx2Cpzr/lSFIggCwRA138
-9MuFxflxb/3U8Nq+rd8rVtTgFMECAwEAAaNmMGQwDgYDVR0PAQH/BAQDAgCkMBIG
-A1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFJafrxqByMN9BwGfcmuF0Lw/1QII
-MB8GA1UdIwQYMBaAFJafrxqByMN9BwGfcmuF0Lw/1QIIMAsGCSqGSIb3DQEBBQNB
-AHq3vqNhxya3s33DlQfSj9whsnqM0Nm+u8mBX/T76TF5rV7+B33XmYzSyfA3yBi/
-zHaUR/dbHuiNTO+KXs3/+Y4=
------END CERTIFICATE-----
-`[1:]
-
-var caKey3 = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOgIBAAJBAIW7CbHFJivvV9V6mO8AGzJS9lqjUf6MdEPsdF6wx2Cpzr/lSFIg
-gCwRA1389MuFxflxb/3U8Nq+rd8rVtTgFMECAwEAAQJAaivPi4qJPrJb2onl50H/
-VZnWKqmljGF4YQDWduMEt7GTPk+76x9SpO7W4gfY490Ivd9DEXfbr/KZqhwWikNw
-LQIhALlLfRXLF2ZfToMfB1v1v+jith5onAu24O68mkdRc5PLAiEAuMJ/6U07hggr
-Ckf9OT93wh84DK66h780HJ/FUHKcoCMCIDsPZaJBpoa50BOZG0ZjcTTwti3BGCPf
-uZg+w0oCGz27AiEAsUCYKqEXy/ymHhT2kSecozYENdajyXvcaOG3EPkD3nUCICOP
-zatzs7c/4mx4a0JBG6Za0oEPUcm2I34is50KSohz
 -----END RSA PRIVATE KEY-----
 `[1:]
 

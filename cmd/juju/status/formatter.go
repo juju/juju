@@ -16,24 +16,24 @@ import (
 )
 
 type statusFormatter struct {
-	status    *params.FullStatus
-	model     modelStatus
-	relations map[int]params.RelationStatus
-	isoTime   bool
+	status         *params.FullStatus
+	controllerName string
+	relations      map[int]params.RelationStatus
+	isoTime        bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, modelStatus{}, isoTime)
+	return newStatusFormatter(status, "", isoTime)
 }
 
-func newStatusFormatter(status *params.FullStatus, model modelStatus, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
-		status:    status,
-		model:     model,
-		relations: make(map[int]params.RelationStatus),
-		isoTime:   isoTime,
+		status:         status,
+		controllerName: controllerName,
+		relations:      make(map[int]params.RelationStatus),
+		isoTime:        isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -45,11 +45,15 @@ func (sf *statusFormatter) format() formattedStatus {
 	if sf.status == nil {
 		return formattedStatus{}
 	}
-	model := sf.model
-	model.Version = sf.status.Model.Version
-	model.AvailableVersion = sf.status.Model.AvailableVersion
 	out := formattedStatus{
-		Model:        model,
+		Model: modelStatus{
+			Name:             sf.status.Model.Name,
+			Controller:       sf.controllerName,
+			Cloud:            sf.status.Model.Cloud,
+			CloudRegion:      sf.status.Model.CloudRegion,
+			Version:          sf.status.Model.Version,
+			AvailableVersion: sf.status.Model.AvailableVersion,
+		},
 		Machines:     make(map[string]machineStatus),
 		Applications: make(map[string]applicationStatus),
 	}
@@ -151,6 +155,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		SubordinateTo: application.SubordinateTo,
 		Units:         make(map[string]unitStatus),
 		StatusInfo:    sf.getServiceStatusInfo(application),
+		Version:       application.WorkloadVersion,
 	}
 	for k, m := range application.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{

@@ -4,10 +4,10 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/cmd/juju/block"
@@ -52,7 +52,7 @@ func (c *setCommand) Info() *cmd.Info {
 
 func (c *setCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no key, value pairs specified")
+		return errors.New("no key, value pairs specified")
 	}
 
 	options, err := keyvalues.Parse(args, true)
@@ -63,7 +63,7 @@ func (c *setCommand) Init(args []string) (err error) {
 	c.values = make(attributes)
 	for key, value := range options {
 		if key == "agent-version" {
-			return fmt.Errorf("agent-version must be set via upgrade-juju")
+			return errors.New("agent-version must be set via upgrade-juju")
 		}
 		c.values[key] = value
 	}

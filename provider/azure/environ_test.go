@@ -53,9 +53,11 @@ type environSuite struct {
 	sender        azuretesting.Senders
 	retryClock    mockClock
 
+	controllerUUID                string
 	tags                          map[string]*string
 	group                         *resources.ResourceGroup
 	vmSizes                       *compute.VirtualMachineSizeListResult
+	storageAccounts               []storage.Account
 	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
 	storageAccount                *storage.Account
 	storageAccountKeys            *storage.AccountKeys
@@ -88,9 +90,10 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	})
 
+	s.controllerUUID = testing.ModelTag.Id()
 	envTags := map[string]*string{
 		"juju-model-uuid":      to.StringPtr(testing.ModelTag.Id()),
-		"juju-controller-uuid": to.StringPtr(testing.ModelTag.Id()),
+		"juju-controller-uuid": to.StringPtr(s.controllerUUID),
 	}
 	s.tags = map[string]*string{
 		"juju-machine-name": to.StringPtr("machine-0"),
@@ -266,6 +269,8 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 							fakeStorageAccount,
 						)),
 					},
+					// 30 GiB is roughly 32 GB.
+					DiskSizeGB: to.IntPtr(32),
 				},
 			},
 			OsProfile: &compute.OSProfile{
@@ -289,7 +294,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
-	attrs = append([]testing.Attrs{{"storage-account": fakeStorageAccount}}, attrs...)
 	return openEnviron(c, s.provider, &s.sender, attrs...)
 }
 
@@ -357,13 +361,13 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 		s.makeSender(".*/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
-		s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys),
 	}
 }
 
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
+		s.storageAccountsSender(),
 		s.makeSender(".*/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
@@ -401,13 +405,22 @@ func (s *environSuite) vmSizesSender() *azuretesting.MockSender {
 	return s.makeSender(".*/vmSizes", s.vmSizes)
 }
 
+func (s *environSuite) storageAccountsSender() *azuretesting.MockSender {
+	accounts := []storage.Account{*s.storageAccount}
+	return s.makeSender(".*/storageAccounts", storage.AccountListResult{Value: &accounts})
+}
+
+func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
+	return s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
+}
+
 func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(v)
 	sender.PathPattern = pattern
 	return sender
 }
 
-func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParams {
+func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:246"},
@@ -425,6 +438,7 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 	c.Assert(err, jc.ErrorIsNil)
 
 	return environs.StartInstanceParams{
+		ControllerUUID: controllerUUID,
 		Tools:          makeToolsList(series),
 		InstanceConfig: icfg,
 	}
@@ -491,7 +505,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	result, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	result, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -501,7 +515,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 
 	arch := "amd64"
 	mem := uint64(3584)
-	rootDisk := uint64(29495) // ~30 GB
+	rootDisk := uint64(30 * 1024) // 30 GiB
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
@@ -534,15 +548,15 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	senders = append(senders, successSender)
 	s.sender = senders
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 8+failures)
-	s.assertStartInstanceRequests(c, s.requests[:8])
+	c.Assert(s.requests, gc.HasLen, 9+failures)
+	s.assertStartInstanceRequests(c, s.requests[:9])
 
 	// The last two requests should match the third-to-last, which
 	// is checked by assertStartInstanceRequests.
-	for i := 8; i < 8+failures; i++ {
+	for i := 9; i < 9+failures; i++ {
 		c.Assert(s.requests[i].Method, gc.Equals, "PUT")
 		assertCreateVirtualMachineRequestBody(c, s.requests[i], s.virtualMachine)
 	}
@@ -577,7 +591,7 @@ func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
 	}
 	s.sender = senders
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, gc.ErrorMatches, "creating virtual machine.*: max duration exceeded: .*failed with.*")
 
 	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
@@ -602,7 +616,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
 	unitsDeployed := "mysql/0 wordpress/0"
-	params := makeStartInstanceParams(c, "quantal")
+	params := makeStartInstanceParams(c, s.controllerUUID, "quantal")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
 	_, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -627,29 +641,31 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	s.virtualMachine.Properties.ProvisioningState = nil
 
 	// Validate HTTP request bodies.
-	c.Assert(requests, gc.HasLen, 8)
+	c.Assert(requests, gc.HasLen, 9)
 	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
-	c.Assert(requests[2].Method, gc.Equals, "GET") // skus
-	c.Assert(requests[3].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[3], s.publicIPAddress)
-	c.Assert(requests[4].Method, gc.Equals, "GET") // NICs
-	c.Assert(requests[5].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[5], s.newNetworkInterface)
+	c.Assert(requests[1].Method, gc.Equals, "GET") // storage accounts
+	c.Assert(requests[2].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+	c.Assert(requests[3].Method, gc.Equals, "GET") // skus
+	c.Assert(requests[4].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[4], s.publicIPAddress)
+	c.Assert(requests[5].Method, gc.Equals, "GET") // NICs
 	c.Assert(requests[6].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[6], s.jujuAvailabilitySet)
+	assertRequestBody(c, requests[6], s.newNetworkInterface)
 	c.Assert(requests[7].Method, gc.Equals, "PUT")
-	assertCreateVirtualMachineRequestBody(c, requests[7], s.virtualMachine)
+	assertRequestBody(c, requests[7], s.jujuAvailabilitySet)
+	c.Assert(requests[8].Method, gc.Equals, "PUT")
+	assertCreateVirtualMachineRequestBody(c, requests[8], s.virtualMachine)
 
 	return startInstanceRequests{
 		vmSizes:          requests[0],
-		subnet:           requests[1],
-		skus:             requests[2],
-		publicIPAddress:  requests[3],
-		nics:             requests[4],
-		networkInterface: requests[5],
-		availabilitySet:  requests[6],
-		virtualMachine:   requests[7],
+		storageAccounts:  requests[1],
+		subnet:           requests[2],
+		skus:             requests[3],
+		publicIPAddress:  requests[4],
+		nics:             requests[5],
+		networkInterface: requests[6],
+		availabilitySet:  requests[7],
+		virtualMachine:   requests[8],
 	}
 }
 
@@ -665,6 +681,7 @@ func assertCreateVirtualMachineRequestBody(c *gc.C, req *http.Request, expect *c
 
 type startInstanceRequests struct {
 	vmSizes          *http.Request
+	storageAccounts  *http.Request
 	subnet           *http.Request
 	skus             *http.Request
 	publicIPAddress  *http.Request
@@ -685,7 +702,8 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			AvailableTools: makeToolsList(series.LatestLts()),
+			ControllerConfig: testing.FakeControllerConfig(),
+			AvailableTools:   makeToolsList(series.LatestLts()),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -700,7 +718,6 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")  // subnet
 	c.Assert(s.requests[4].Method, gc.Equals, "POST") // check storage account name
 	c.Assert(s.requests[5].Method, gc.Equals, "PUT")  // create storage account
-	c.Assert(s.requests[6].Method, gc.Equals, "POST") // get storage account keys
 
 	assertRequestBody(c, s.requests[0], &s.group)
 
@@ -793,6 +810,8 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 		s.publicIPAddressesSender(
 			makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
 		),
+		s.storageAccountsSender(),
+		s.storageAccountKeysSender(),
 		s.makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
@@ -876,7 +895,7 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
 }
 
-func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
+func (s *environSuite) TestDestroyController(c *gc.C) {
 	groups := []resources.ResourceGroup{{
 		Name: to.StringPtr("group1"),
 	}, {
@@ -890,7 +909,7 @@ func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 	}
-	err := env.Destroy()
+	err := env.DestroyController(s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -910,7 +929,7 @@ func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 }
 
-func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
+func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	groups := []resources.ResourceGroup{
 		{Name: to.StringPtr("group1")},
 		{Name: to.StringPtr("group2")},
@@ -929,7 +948,7 @@ func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
 		errorSender1,                              // DELETE
 		errorSender2,                              // DELETE
 	}
-	destroyErr := env.Destroy()
+	destroyErr := env.DestroyController(s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -944,14 +963,9 @@ func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 
-	// The errors are guaranteed to be in the order that the names appeared
-	// in the list response.
-	firstErr := "foo"
-	secondErr := "bar"
-	if groupsDeleted[0] == "group2" {
-		firstErr, secondErr = secondErr, firstErr
-	}
-	c.Assert(destroyErr, gc.ErrorMatches,
-		`deleting resource group "group1":.* failed with `+firstErr+`; `+
-			`deleting resource group "group2":.* failed with `+secondErr)
+	c.Check(destroyErr, gc.ErrorMatches,
+		`deleting resource group "group1":.* failed with .*; `+
+			`deleting resource group "group2":.* failed with .*`)
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with foo.*")
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with bar.*")
 }

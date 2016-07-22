@@ -6,6 +6,7 @@ package model_test
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,6 +38,14 @@ func (f *fakeEnvAPI) Close() error {
 
 func (f *fakeEnvAPI) ModelGet() (map[string]interface{}, error) {
 	return f.values, nil
+}
+
+func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
+	result := make(config.ConfigValues)
+	for name, val := range f.values {
+		result[name] = config.ConfigValue{Value: val, Source: "model"}
+	}
+	return result, nil
 }
 
 func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {

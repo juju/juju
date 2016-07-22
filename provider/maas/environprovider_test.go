@@ -95,7 +95,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
+func (suite *EnvironProviderSuite) TestMAASServerFromEndpoint(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "maas",
 	})
@@ -103,8 +103,8 @@ func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:      config,
-		CloudRegion: "maas.testing",
+		Config:        config,
+		CloudEndpoint: "maas.testing",
 		Credentials: cloud.NewCredential(
 			cloud.OAuth1AuthType,
 			map[string]string{
@@ -127,7 +127,7 @@ func (suite *EnvironProviderSuite) TestPrepareSetsAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = providerInstance.PrepareForCreateEnvironment(config)
+	config, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, ok := config.UnknownAttrs()["maas-agent-name"]
@@ -145,7 +145,7 @@ func (suite *EnvironProviderSuite) TestPrepareExistingAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = providerInstance.PrepareForCreateEnvironment(config)
+	_, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 

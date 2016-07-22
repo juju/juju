@@ -6,7 +6,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/utils/exec"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
@@ -55,7 +54,7 @@ type CharmURLs struct {
 // of strings or an error.
 type StringsResult struct {
 	Error  *Error   `json:"error,omitempty"`
-	Result []string `json:"result"`
+	Result []string `json:"result,omitempty"`
 }
 
 // StringsResults holds the bulk operation result of an API call
@@ -306,6 +305,18 @@ type EntitiesCharmURL struct {
 	Entities []EntityCharmURL `json:"entities"`
 }
 
+// EntityWorkloadVersion holds the workload version for an entity.
+type EntityWorkloadVersion struct {
+	Tag             string `json:"tag"`
+	WorkloadVersion string `json:"workload-version"`
+}
+
+// EntityWorkloadVersions holds the parameters for setting the
+// workload version for a set of entities.
+type EntityWorkloadVersions struct {
+	Entities []EntityWorkloadVersion `json:"entities"`
+}
+
 // BytesResult holds the result of an API call that returns a slice
 // of bytes.
 type BytesResult struct {
@@ -355,10 +366,10 @@ type EntityStatus struct {
 
 // EntityStatusArgs holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
-	Tag    string                 `json:"Tag"`
-	Status string                 `json:"Status"`
-	Info   string                 `json:"Info"`
-	Data   map[string]interface{} `json:"Data"`
+	Tag    string                 `json:"tag"`
+	Status string                 `json:"status"`
+	Info   string                 `json:"info"`
+	Data   map[string]interface{} `json:"data"`
 }
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
@@ -368,8 +379,8 @@ type SetStatus struct {
 
 // ConstraintsResult holds machine constraints or an error.
 type ConstraintsResult struct {
-	Error       *Error `json:"error,omitempty"`
-	Constraints constraints.Value
+	Error       *Error            `json:"error,omitempty"`
+	Constraints constraints.Value `json:"constraints"`
 }
 
 // ConstraintsResults holds multiple constraints results.
@@ -452,7 +463,7 @@ type NotifyWatchResults struct {
 // (if any).
 type StringsWatchResult struct {
 	StringsWatcherId string   `json:"watcher-id"`
-	Changes          []string `json:"changes"`
+	Changes          []string `json:"changes,omitempty"`
 	Error            *Error   `json:"error,omitempty"`
 }
 
@@ -467,7 +478,7 @@ type StringsWatchResults struct {
 type EntitiesWatchResult struct {
 	// Note legacy serialization tag.
 	EntitiesWatcherId string   `json:"watcher-id"`
-	Changes           []string `json:"changes"`
+	Changes           []string `json:"changes,omitempty"`
 	Error             *Error   `json:"error,omitempty"`
 }
 
@@ -492,7 +503,7 @@ type RelationUnitsChange struct {
 
 	// Departed holds a set of units that have previously been reported to
 	// be in scope, but which no longer are.
-	Departed []string `json:"departed"`
+	Departed []string `json:"departed,omitempty"`
 }
 
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, baseline state
@@ -545,17 +556,19 @@ type CharmsResponse struct {
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands     string        `json:"comands"`
+	Commands     string        `json:"commands"`
 	Timeout      time.Duration `json:"timeout"`
-	Machines     []string      `json:"machines"`
-	Applications []string      `json:"applications"`
-	Units        []string      `json:"units"`
+	Machines     []string      `json:"machines,omitempty"`
+	Applications []string      `json:"applications,omitempty"`
+	Units        []string      `json:"units,omitempty"`
 }
 
 // RunResult contains the result from an individual run call on a machine.
 // UnitId is populated if the command was run inside the unit context.
 type RunResult struct {
-	exec.ExecResponse `json:"exec-response"`
+	Code   int    `json:"code-id"`
+	Stdout []byte `json:"stdout,omitempty"`
+	Stderr []byte `json:"stderr,omitempty"`
 	// FIXME: should be tags not id strings
 	MachineId string `json:"machine-id"`
 	UnitId    string `json:"unit-id"`
@@ -580,11 +593,12 @@ type ProvisioningInfo struct {
 	Series           string                    `json:"series"`
 	Placement        string                    `json:"placement"`
 	Jobs             []multiwatcher.MachineJob `json:"jobs"`
-	Volumes          []VolumeParams            `json:"volumes"`
-	Tags             map[string]string         `json:"tags"`
-	SubnetsToZones   map[string][]string       `json:"subnets-to-zones"`
-	ImageMetadata    []CloudImageMetadata      `json:"image-metadata"`
-	EndpointBindings map[string]string         `json:"endpoint-bindings"`
+	Volumes          []VolumeParams            `json:"volumes,omitempty"`
+	Tags             map[string]string         `json:"tags,omitempty"`
+	SubnetsToZones   map[string][]string       `json:"subnets-to-zones,omitempty"`
+	ImageMetadata    []CloudImageMetadata      `json:"image-metadata,omitempty"`
+	EndpointBindings map[string]string         `json:"endpoint-bindings,omitempty"`
+	ControllerConfig map[string]interface{}    `json:"controller-config,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

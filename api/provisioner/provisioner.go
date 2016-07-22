@@ -21,6 +21,7 @@ import (
 type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
+	*common.ControllerConfigAPI
 
 	facade base.FacadeCaller
 }
@@ -31,9 +32,10 @@ const provisionerFacade = "Provisioner"
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
 	return &State{
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
-		facade:       facadeCaller}
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		APIAddresser:        common.NewAPIAddresser(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		facade:              facadeCaller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -165,17 +167,14 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
-// PrepareContainerInterfaceInfo allocates an address and returns
-// information to configure networking for a container. It accepts
-// container tags as arguments. If the address allocation feature flag
-// is not enabled, it returns a NotSupported error.
+// PrepareContainerInterfaceInfo allocates an address and returns information to
+// configure networking for a container. It accepts container tags as arguments.
 func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
-// for a container. It accepts container tags as arguments. If the address
-// allocation feature flag is not enabled, it returns a NotSupported error.
+// for a container. It accepts container tags as arguments.
 func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }

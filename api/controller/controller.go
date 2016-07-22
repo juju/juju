@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -17,13 +18,18 @@ import (
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
+	*common.ControllerConfigAPI
 }
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Controller")
-	return &Client{ClientFacade: frontend, facade: backend}
+	return &Client{
+		ClientFacade:        frontend,
+		facade:              backend,
+		ControllerConfigAPI: common.NewControllerConfig(backend),
+	}
 }
 
 // AllModels allows controller administrators to get the list of all the
@@ -55,15 +61,11 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 func (c *Client) ModelConfig() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelConfig", nil, &result)
-	return result.Config, err
-}
-
-// ControllerConfig returns settings for the
-// controller itself.
-func (c *Client) ControllerConfig() (map[string]interface{}, error) {
-	result := params.ControllerConfigResult{}
-	err := c.facade.FacadeCall("ControllerConfig", nil, &result)
-	return result.Config, err
+	values := make(map[string]interface{})
+	for name, val := range result.Config {
+		values[name] = val.Value
+	}
+	return values, err
 }
 
 // DestroyController puts the controller model into a "dying" state,
@@ -206,5 +208,5 @@ func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error)
 	if result.Error != nil {
 		return "", errors.Trace(result.Error)
 	}
-	return result.Id, nil
+	return result.MigrationId, nil
 }

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -26,14 +27,15 @@ type AgentAPIV2 struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 
 	st   *state.State
-	auth common.Authorizer
+	auth facade.Authorizer
 }
 
 // NewAgentAPIV2 returns an object implementing version 2 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func NewAgentAPIV2(st *state.State, resources *common.Resources, auth common.Authorizer) (*AgentAPIV2, error) {
+func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV2, error) {
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -42,11 +44,12 @@ func NewAgentAPIV2(st *state.State, resources *common.Resources, auth common.Aut
 		return auth.AuthOwner, nil
 	}
 	return &AgentAPIV2{
-		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
-		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
-		ModelWatcher:      common.NewModelWatcher(st, resources, auth),
-		st:                st,
-		auth:              auth,
+		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
+		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		st:                  st,
+		auth:                auth,
 	}, nil
 }
 

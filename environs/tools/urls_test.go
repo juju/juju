@@ -13,11 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -43,12 +44,14 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"agent-metadata-url": toolsMetadataURL,
 		})
 	}
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: attrs["name"].(string),
-			BaseConfig:     attrs,
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   attrs["name"].(string),
+			BaseConfig:       attrs,
+			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +62,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", juju.JujuPublicKey}})
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey}})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
@@ -67,8 +70,8 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-tools-metadata-url/", juju.JujuPublicKey},
-		{"https://streams.canonical.com/juju/tools/", juju.JujuPublicKey},
+		{"config-tools-metadata-url/", keys.JujuPublicKey},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
 	})
 }
 
@@ -92,9 +95,9 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-tools-metadata-url/", juju.JujuPublicKey},
+		{"config-tools-metadata-url/", keys.JujuPublicKey},
 		{"betwixt/releases/", ""},
-		{"https://streams.canonical.com/juju/tools/", juju.JujuPublicKey},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
 	})
 }
 

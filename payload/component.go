@@ -8,3 +8,6 @@ package payload
 
 // ComponentName is the name of the Juju component for payload management.
 const ComponentName = "payloads"
+
+// FacadeName is the name of the api server facade.
+const FacadeName = "Payloads"

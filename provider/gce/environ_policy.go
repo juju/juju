@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -29,9 +28,7 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	return nil
 }
 
-// SupportedArchitectures returns the image architectures which can
-// be hosted by this environment.
-func (env *environ) SupportedArchitectures() ([]string, error) {
+func (env *environ) getSupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()
 	defer env.archLock.Unlock()
 
@@ -98,7 +95,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// vocab
 
-	supportedArches, err := env.SupportedArchitectures()
+	supportedArches, err := env.getSupportedArchitectures()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,19 +112,8 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// environ provides SupportsUnitPlacement (a method of the
-// state.EnvironCapatability interface) by embedding
-// common.SupportsUnitPlacementPolicy.
-
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.
 func (env *environ) SupportNetworks() bool {
 	return false
-}
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netID network.Id) (bool, error) {
-	return false, nil
 }

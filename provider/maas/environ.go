@@ -6,7 +6,6 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -31,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -41,8 +38,6 @@ import (
 )
 
 const (
-	// The string from the api indicating the dynamic range of a subnet.
-	dynamicRange = "dynamic-range"
 	// The version strings indicating the MAAS API version.
 	apiVersion1 = "1.0"
 	apiVersion2 = "2.0"
@@ -72,53 +67,12 @@ func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error)
 	})
 }
 
-func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
-	spacesJson, err := spaces.CallGet("", nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	spacesArray, err := spacesJson.GetArray()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetsMap := make(map[string]network.Id)
-	for _, spaceJson := range spacesArray {
-		spaceMap, err := spaceJson.GetMap()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		providerIdRaw, err := spaceMap["id"].GetFloat64()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
-		subnetsArray, err := spaceMap["subnets"].GetArray()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, subnetJson := range subnetsArray {
-			subnetMap, err := subnetJson.GetMap()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subnet, err := subnetMap["cidr"].GetString()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subnetsMap[subnet] = providerId
-		}
-	}
-	return subnetsMap, nil
-}
-
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
 	return err
 }
 
 type maasEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -171,10 +125,6 @@ func (env *maasEnviron) usingMAAS2() bool {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	if featureflag.Enabled(feature.AddressAllocation) {
-		logger.Warningf("address-allocation feature flag is no longer supported on MAAS and is ignored!")
-	}
-
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
 		return nil, err
@@ -188,21 +138,30 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 			}
 		}
 	}()
-	// Wait for bootstrap instance to change to deployed state.
-	if err := env.waitForNodeDeployment(result.Instance.Id()); err != nil {
-		return nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+
+	waitingFinalizer := func(
+		ctx environs.BootstrapContext,
+		icfg *instancecfg.InstanceConfig,
+		dialOpts environs.BootstrapDialOpts,
+	) error {
+		// Wait for bootstrap instance to change to deployed state.
+		if err := env.waitForNodeDeployment(result.Instance.Id(), dialOpts.Timeout); err != nil {
+			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+		}
+		return finalizer(ctx, icfg, dialOpts)
 	}
 
 	bsResult := &environs.BootstrapResult{
 		Arch:     *result.Hardware.Arch,
 		Series:   series,
-		Finalize: finalizer,
+		Finalize: waitingFinalizer,
 	}
 	return bsResult, nil
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
+func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	// TODO(wallyworld) - tag instances with controller UUID so we can use that
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
@@ -272,8 +231,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
+func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()
 	if env.supportedArchitectures != nil {
@@ -300,11 +258,6 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
-}
-
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	return false, errors.NotSupportedf("legacy address allocation")
 }
 
 // allArchitectures2 uses the MAAS2 controller to get architectures from boot
@@ -1050,21 +1003,15 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}, nil
 }
 
-// Override for testing.
-var nodeDeploymentTimeout = func(environ *maasEnviron) time.Duration {
-	sshTimeouts := environ.Config().BootstrapSSHOpts()
-	return sshTimeouts.Timeout
-}
-
-func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+func (environ *maasEnviron) waitForNodeDeployment(id instance.Id, timeout time.Duration) error {
 	if environ.usingMAAS2() {
-		return environ.waitForNodeDeployment2(id)
+		return environ.waitForNodeDeployment2(id, timeout)
 	}
 	systemId := extractSystemId(id)
 
 	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Total: nodeDeploymentTimeout(environ),
+		Total: timeout,
 	}
 
 	for a := longAttempt.Start(); a.Next(); {
@@ -1085,10 +1032,10 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
 
-func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id) error {
+func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id, timeout time.Duration) error {
 	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Total: nodeDeploymentTimeout(environ),
+		Total: timeout,
 	}
 
 	for a := longAttempt.Start(); a.Next(); {
@@ -1565,18 +1512,6 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
-// AllocateAddress requests an address to be allocated for the given instance on
-// the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) (err error) {
-	return errors.NotSupportedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
-	return errors.NotSupportedf("ReleaseAddress")
-}
-
 // subnetsFromNode fetches all the subnets for a specific node.
 func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
@@ -1620,101 +1555,6 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	return subnets, nil
 }
 
-// Deduce the allocatable portion of the subnet by subtracting the dynamic
-// range from the full subnet range.
-func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId string) (net.IP, net.IP, error) {
-	// Initialize the low and high bounds of the allocatable range to the
-	// whole CIDR. Reduce the scope of this when we find the dynamic range.
-	ip, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	// Skip IPv6 subnets until we can handle them correctly.
-	if ip.To4() == nil && ip.To16() != nil {
-		logger.Debugf("ignoring static IP range for IPv6 subnet %q", cidr)
-		return nil, nil, nil
-	}
-
-	// TODO(mfoord): needs updating to work with IPv6 as well.
-	lowBound, err := network.IPv4ToDecimal(ip)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	// Don't include the zero address in the allocatable bounds.
-	lowBound = lowBound + 1
-	ones, bits := ipnet.Mask.Size()
-	zeros := bits - ones
-	numIPs := uint32(1) << uint32(zeros)
-	highBound := lowBound + numIPs - 2
-
-	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
-
-	json, err := client.CallGet("reserved_ip_ranges", nil)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	jsonRanges, err := json.GetArray()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	for _, jsonRange := range jsonRanges {
-		rangeMap, err := jsonRange.GetMap()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		purposeArray, err := rangeMap["purpose"].GetArray()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		found := false
-		for _, jsonPurpose := range purposeArray {
-			purpose, err := jsonPurpose.GetString()
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-			if purpose == dynamicRange {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// This is not the range we're looking for
-			continue
-		}
-
-		start, err := rangeMap["start"].GetString()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		end, err := rangeMap["end"].GetString()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		dynamicLow, err := network.IPv4ToDecimal(net.ParseIP(start))
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		dynamicHigh, err := network.IPv4ToDecimal(net.ParseIP(end))
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		// We pick the larger of the two portions of the subnet around
-		// the dynamic range. Either ending one below the start of the
-		// dynamic range or starting one after the end.
-		above := highBound - dynamicHigh
-		below := dynamicLow - lowBound
-		if above > below {
-			lowBound = dynamicHigh + 1
-		} else {
-			highBound = dynamicLow - 1
-		}
-		break
-	}
-	return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
-}
-
 // subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
@@ -1743,18 +1583,12 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject, spaceId 
 		}
 		vid = int(vidFloat)
 	}
-	allocatableLow, allocatableHigh, err := environ.allocatableRangeForSubnet(cidr, subnetId)
-	if err != nil {
-		return subnetInfo, errors.Trace(err)
-	}
 
 	subnetInfo = network.SubnetInfo{
-		ProviderId:        network.Id(subnetId),
-		VLANTag:           vid,
-		CIDR:              cidr,
-		SpaceProviderId:   spaceId,
-		AllocatableIPLow:  allocatableLow,
-		AllocatableIPHigh: allocatableHigh,
+		ProviderId:      network.Id(subnetId),
+		VLANTag:         vid,
+		CIDR:            cidr,
+		SpaceProviderId: spaceId,
 	}
 	return subnetInfo, nil
 }
@@ -2111,6 +1945,12 @@ func (environ *maasEnviron) Destroy() error {
 		return errors.Trace(err)
 	}
 	return environ.Storage().RemoveAll()
+}
+
+// DestroyController implements the Environ interface.
+func (environ *maasEnviron) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return environ.Destroy()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

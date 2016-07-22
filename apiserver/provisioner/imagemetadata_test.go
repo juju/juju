@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
@@ -38,6 +39,7 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 	// Each individual tests will decide if it needs metadata there.
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:/daily")
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	useTestImageData(c, nil)
 }
 

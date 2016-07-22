@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -50,21 +51,27 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series: "quantal",
-				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
-				Series:      "quantal",
-				Constraints: template.Constraints,
-				Placement:   template.Placement,
-				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Constraints:      template.Constraints,
+				Placement:        template.Placement,
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -159,13 +166,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
-				Series:      "quantal",
-				Constraints: template.Constraints,
-				Placement:   template.Placement,
-				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Constraints:      template.Constraints,
+				Placement:        template.Placement,
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -186,16 +198,13 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	_, err = s.State.AddSpace("space2", "", nil, false) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:           42,
+		CIDR:             "10.10.{{.}}.0/24",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:          42,
 	})
 }
 
@@ -227,11 +236,16 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
-				Series: "quantal",
-				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ModelTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
@@ -310,13 +324,18 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series:      "quantal",
-				Constraints: template.Constraints,
-				Placement:   template.Placement,
-				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Constraints:      template.Constraints,
+				Placement:        template.Placement,
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -360,11 +379,16 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series: "quantal",
-				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),

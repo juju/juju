@@ -32,7 +32,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // BootstrapConfig implements environs.EnvironProvider.
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	return p.PrepareForCreateEnvironment(args.Config)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, args.Config)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
@@ -54,7 +54,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

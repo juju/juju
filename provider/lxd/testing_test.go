@@ -71,13 +71,12 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":            "lxd",
-		"remote-url":      "",
-		"client-cert":     "",
-		"client-key":      "",
-		"server-cert":     "",
-		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
+		"type":        "lxd",
+		"remote-url":  "",
+		"client-cert": "",
+		"client-key":  "",
+		"server-cert": "",
+		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
 
@@ -158,7 +157,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// nothing
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{
@@ -186,7 +185,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	s.Metadata = map[string]string{ // userdata
 		tags.JujuIsController: "true",
-		tags.JujuController:   s.Config.ControllerUUID(),
+		tags.JujuController:   testing.ModelTag.Id(),
 		tags.JujuModel:        s.Config.UUID(),
 		metadataKeyCloudInit:  string(userData),
 	}
@@ -204,6 +203,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -291,7 +291,6 @@ type BaseSuite struct {
 	Client     *StubClient
 	Firewaller *stubFirewaller
 	Common     *stubCommon
-	Policy     *stubPolicy
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -307,14 +306,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Client = &StubClient{Stub: s.Stub}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
-	s.Policy = &stubPolicy{stub: s.Stub}
 
 	// Patch out all expensive external deps.
 	s.Env.raw = &rawProvider{
-		lxdInstances:   s.Client,
-		lxdImages:      s.Client,
-		Firewaller:     s.Firewaller,
-		policyProvider: s.Policy,
+		lxdInstances: s.Client,
+		lxdImages:    s.Client,
+		Firewaller:   s.Firewaller,
 	}
 	s.Env.base = s.Common
 }
@@ -469,21 +466,6 @@ func (sc *stubCommon) DestroyEnv() error {
 	}
 
 	return nil
-}
-
-type stubPolicy struct {
-	stub *gitjujutesting.Stub
-
-	Arches []string
-}
-
-func (s *stubPolicy) SupportedArchitectures() ([]string, error) {
-	s.stub.AddCall("SupportedArchitectures")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Arches, nil
 }
 
 type StubClient struct {

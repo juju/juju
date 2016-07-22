@@ -62,6 +62,7 @@ type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
 	BootstrapParamsFile string
+	Timeout             time.Duration
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -82,6 +83,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
+	f.DurationVar(&c.Timeout, "timeout", time.Duration(0), "set the bootstrap timeout")
 }
 
 // Init initializes the command for running.
@@ -121,7 +123,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
-			multiwatcher.JobManageNetworking,
 		}
 	}
 
@@ -184,7 +185,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Annotate(err, "failed to generate system key")
 	}
 	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
+	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
@@ -232,8 +233,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Set a longer socket timeout than usual, as the machine
 		// will be starting up and disk I/O slower than usual. This
 		// has been known to cause timeouts in queries.
-		timeouts := controllerModelCfg.BootstrapSSHOpts()
-		dialOpts.SocketTimeout = timeouts.Timeout
+		dialOpts.SocketTimeout = c.Timeout
 		if dialOpts.SocketTimeout < minSocketTimeout {
 			dialOpts.SocketTimeout = minSocketTimeout
 		}
@@ -297,8 +297,8 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	// When bootstrapping, we need to allow enough time for mongo
 	// to start as there's no retry loop in place.
 	// 5 minutes should suffice.
-	bootstrapDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
-	dialInfo, err := mongo.DialInfo(info.Info, bootstrapDialOpts)
+	mongoDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
+	dialInfo, err := mongo.DialInfo(info.Info, mongoDialOpts)
 	if err != nil {
 		return err
 	}

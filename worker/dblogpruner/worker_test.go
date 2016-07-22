@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dblogpruner"
 )
@@ -107,7 +108,7 @@ func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 }
 
 func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("0"))
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("0"), version.Current)
 	defer dbLogger.Close()
 
 	for offset := 0; offset < count; offset++ {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -40,7 +41,11 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 func (s *watcherSuite) getFacade(c *gc.C, name string, version int, id string) interface{} {
 	factory, err := common.Facades.GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
-	facade, err := factory(nil, s.resources, s.authorizer, id)
+	facade, err := factory(facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -93,6 +98,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		MigrationId:    "id",
 		Attempt:        2,
 		Phase:          "READONLY",
 		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
@@ -123,7 +129,11 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(nil, s.resources, s.authorizer, id)
+	_, err = factory(facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+	})
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
@@ -148,7 +158,7 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) GetModelMigration() (state.ModelMigration, error) {
+func (b *fakeMigrationBackend) LatestModelMigration() (state.ModelMigration, error) {
 	if b.noMigration {
 		return nil, errors.NotFoundf("migration")
 	}
@@ -180,6 +190,10 @@ func MustParseHostPorts(hostports ...string) []network.HostPort {
 
 type fakeModelMigration struct {
 	state.ModelMigration
+}
+
+func (m *fakeModelMigration) Id() string {
+	return "id"
 }
 
 func (m *fakeModelMigration) Attempt() (int, error) {

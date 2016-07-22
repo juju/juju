@@ -8,12 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,8 +31,8 @@ var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	stateAccessor stateInterface
-	auth          common.Authorizer
-	resources     *common.Resources
+	auth          facade.Authorizer
+	resources     facade.Resources
 	client        *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
@@ -59,7 +58,7 @@ var getState = func(st *state.State) stateInterface {
 }
 
 // NewClient creates a new instance of the Client Facade.
-func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
+func NewClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -317,26 +316,6 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	charm, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-		Actions:  charm.Actions(),
-	}
-	return info, nil
-}
-
 // ModelInfo returns information about the current model (default
 // series and type).
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
@@ -352,6 +331,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:   config.PreferredSeries(conf),
+		Cloud:           model.Cloud(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: model.CloudCredential(),
 		ProviderType:    conf.Type(),
@@ -396,12 +376,50 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 // get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	// Get the existing model config from the state.
-	config, err := c.api.stateAccessor.ModelConfig()
+	values, err := c.api.stateAccessor.ModelConfigValues()
 	if err != nil {
 		return result, err
 	}
-	result.Config = config.AllAttrs()
+
+	// TODO(wallyworld) - this can be removed once credentials are properly
+	// managed outside of model config.
+	// Strip out any model config attributes that are credential attributes.
+	provider, err := environs.Provider(values[config.TypeKey].Value.(string))
+	if err != nil {
+		return result, err
+	}
+	credSchemas := provider.CredentialSchemas()
+	var allCredentialAttributes []string
+	for _, schema := range credSchemas {
+		for _, attr := range schema {
+			allCredentialAttributes = append(allCredentialAttributes, attr.Name)
+		}
+	}
+	isCredentialAttribute := func(attr string) bool {
+		for _, a := range allCredentialAttributes {
+			if a == attr {
+				return true
+			}
+		}
+		return false
+	}
+
+	result.Config = make(map[string]params.ConfigValue)
+	for attr, val := range values {
+		if isCredentialAttribute(attr) {
+			continue
+		}
+		// Authorized keys are able to be listed using
+		// juju ssh-keys and including them here just
+		// clutters everything.
+		if attr == config.AuthorizedKeysKey {
+			continue
+		}
+		result.Config[attr] = params.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
 	return result, nil
 }
 
@@ -529,15 +547,4 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyModel() (err error) {
-	if err := c.check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelTag := c.api.stateAccessor.ModelTag()
-	return errors.Trace(common.DestroyModel(c.api.state(), modelTag))
 }

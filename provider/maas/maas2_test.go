@@ -40,6 +40,7 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	testAttrs["maas-agent-name"] = "agent-prefix"
 
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := NewEnviron(cfg)

@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -45,7 +46,7 @@ func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p maasEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	attrs := cfg.UnknownAttrs()
 	oldName, found := attrs["maas-agent-name"]
 	if found && oldName != "" {
@@ -57,18 +58,16 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// For MAAS, either:
-	// 1. the endpoint from the cloud definition defines the MAAS server URL
-	//    (if a full cloud definition had been set up)
-	// 2. the region defines the MAAS server ip/host
-	//    (if the bootstrap shortcut is used)
-	server := args.CloudEndpoint
-	if server == "" && args.CloudRegion != "" {
-		server = fmt.Sprintf("http://%s/MAAS", args.CloudRegion)
-	}
-	if server == "" {
+	// For MAAS, the cloud endpoint may be either a full URL
+	// for the MAAS server, or just the IP/host.
+	if args.CloudEndpoint == "" {
 		return nil, errors.New("MAAS server not specified")
 	}
+	server := args.CloudEndpoint
+	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
+		server = fmt.Sprintf("http://%s/MAAS", args.CloudEndpoint)
+	}
+
 	attrs := map[string]interface{}{
 		"maas-server": server,
 	}
@@ -86,7 +85,7 @@ func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.

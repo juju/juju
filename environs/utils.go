@@ -66,8 +66,8 @@ func waitAnyInstanceAddresses(
 
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
-func APIInfo(uuid, caCert string, apiPort int, env Environ) (*api.Info, error) {
-	instanceIds, err := env.ControllerInstances()
+func APIInfo(controllerUUID, modelUUID, caCert string, apiPort int, env Environ) (*api.Info, error) {
+	instanceIds, err := env.ControllerInstances(controllerUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func APIInfo(uuid, caCert string, apiPort int, env Environ) (*api.Info, error) {
 	apiAddrs := network.HostPortsToStrings(
 		network.AddressesWithPort(addrs, apiPort),
 	)
-	modelTag := names.NewModelTag(uuid)
+	modelTag := names.NewModelTag(modelUUID)
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: caCert, ModelTag: modelTag}
 	return apiInfo, nil
 }

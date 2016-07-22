@@ -4,7 +4,6 @@
 package dummy_test
 
 import (
-	"net"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -20,15 +19,16 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
+
+const AdminSecret = "admin-secret"
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
@@ -59,7 +59,7 @@ func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
-	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {
@@ -70,7 +70,6 @@ func (s *liveSuite) TearDownSuite(c *gc.C) {
 
 func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 	s.BaseSuite.PatchValue(&dummy.LogDir, c.MkDir())
@@ -101,7 +100,6 @@ func (s *suite) TearDownSuite(c *gc.C) {
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
@@ -116,13 +114,15 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
-		environs.PrepareParams{
-			BaseConfig:     s.TestConfig,
-			ControllerName: s.TestConfig["name"].(string),
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			BaseConfig:       s.TestConfig,
+			ControllerName:   s.TestConfig["name"].(string),
+			CloudName:        "dummy",
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
@@ -131,11 +131,14 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerConfig: testing.FakeControllerConfig(),
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
+		AdminSecret:  AdminSecret,
+		CAPrivateKey: testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv
@@ -148,42 +151,9 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.AvailabilityZone, gc.IsNil)
-}
-
-func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
-	defer func() {
-		err := e.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	// By default, it's supported.
-	supported, err := e.SupportsAddressAllocation("any-id")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsTrue)
-
-	// Any subnet id with prefix "noalloc-" simulates address
-	// allocation is not supported.
-	supported, err = e.SupportsAddressAllocation("noalloc-foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
-
-	// Test we can induce an error for SupportsAddressAllocation.
-	s.breakMethods(c, e, "SupportsAddressAllocation")
-	supported, err = e.SupportsAddressAllocation("any-id")
-	c.Assert(err, gc.ErrorMatches, `dummy\.SupportsAddressAllocation is broken`)
-	c.Assert(supported, jc.IsFalse)
-
-	// Finally, test the method respects the feature flag when
-	// disabled.
-	s.SetFeatureFlags() // clear the flags.
-	supported, err = e.SupportsAddressAllocation("any-id")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(supported, jc.IsFalse)
 }
 
 func (s *suite) TestSupportsSpaces(c *gc.C) {
@@ -250,86 +220,6 @@ func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...str
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *suite) TestAllocateAddress(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
-	defer func() {
-		err := e.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
-	c.Assert(inst, gc.NotNil)
-	subnetId := network.Id("net1")
-
-	opc := make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-
-	// Test allocating a couple of addresses.
-	newAddress := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
-
-	newAddress = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
-
-	// Test we can induce errors.
-	s.breakMethods(c, e, "AllocateAddress")
-	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
-
-	// Finally, test the method respects the feature flag when
-	// disabled.
-	s.SetFeatureFlags() // clear the flags.
-	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (s *suite) TestReleaseAddress(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
-	defer func() {
-		err := e.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
-	c.Assert(inst, gc.NotNil)
-	subnetId := network.Id("net1")
-
-	opc := make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-
-	// Release a couple of addresses.
-	address := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
-	macAddress := "foobar"
-	hostname := "myhostname"
-	err := e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
-	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress, hostname)
-
-	address = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
-	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress, hostname)
-
-	// Test we can induce errors.
-	s.breakMethods(c, e, "ReleaseAddress")
-	address = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
-	c.Assert(err, gc.ErrorMatches, `dummy\.ReleaseAddress is broken`)
-
-	// Finally, test the method respects the feature flag when
-	// disabled.
-	s.SetFeatureFlags() // clear the flags.
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
@@ -391,52 +281,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, expectInfo)
 	assertInterfaces(c, e, opc, "i-42", expectInfo)
 
-	// Test that with instance id prefix "i-no-nics-" no results are
-	// returned.
-	info, err = e.NetworkInterfaces("i-no-nics-here")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 0)
-	assertInterfaces(c, e, opc, "i-no-nics-here", expectInfo[:0])
-
-	// Test that with instance id prefix "i-nic-no-subnet-" we get a result
-	// with no associated subnet.
-	expectInfo = []network.InterfaceInfo{{
-		DeviceIndex:   0,
-		ProviderId:    network.Id("dummy-eth0"),
-		InterfaceName: "eth0",
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		Disabled:      false,
-		NoAutoStart:   false,
-		ConfigType:    network.ConfigDHCP,
-	}}
-	info, err = e.NetworkInterfaces("i-nic-no-subnet-here")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	assertInterfaces(c, e, opc, "i-nic-no-subnet-here", expectInfo)
-
-	// Test that with instance id prefix "i-disabled-nic-" we get a result
-	// with only a disabled subnet.
-	expectInfo = []network.InterfaceInfo{{
-		ProviderId:       "dummy-eth2",
-		ProviderSubnetId: "dummy-disabled",
-		CIDR:             "0.30.0.0/24",
-		DeviceIndex:      2,
-		InterfaceName:    "eth2",
-		InterfaceType:    "ethernet",
-		VLANTag:          2,
-		MACAddress:       "aa:bb:cc:dd:ee:f2",
-		Disabled:         true,
-		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.30.0.2"),
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.30.0.1"),
-	}}
-	info, err = e.NetworkInterfaces("i-disabled-nic-here")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	assertInterfaces(c, e, opc, "i-disabled-nic-here", expectInfo)
-
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
 	info, err = e.NetworkInterfaces("i-any")
@@ -457,27 +301,11 @@ func (s *suite) TestSubnets(c *gc.C) {
 	expectInfo := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
-		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
 		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
-		CIDR:              "0.20.0.0/24",
-		ProviderId:        "dummy-public",
-		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+		CIDR:       "0.20.0.0/24",
+		ProviderId: "dummy-public",
 	}}
-	// Prepare a version of the above with no allocatable range to
-	// test the magic "i-no-alloc-" prefix below.
-	noallocInfo := make([]network.SubnetInfo, len(expectInfo))
-	for i, exp := range expectInfo {
-		pid := string(exp.ProviderId)
-		pid = strings.TrimPrefix(pid, "dummy-")
-		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
-		noallocInfo[i].AllocatableIPLow = nil
-		noallocInfo[i].AllocatableIPHigh = nil
-		noallocInfo[i].AvailabilityZones = exp.AvailabilityZones
-		noallocInfo[i].CIDR = exp.CIDR
-	}
 
 	ids := []network.Id{"dummy-private", "dummy-public", "foo-bar"}
 	netInfo, err := e.Subnets("i-foo", ids)
@@ -499,117 +327,11 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
 	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
 
-	// Test that using an instance id with prefix of either
-	// "i-no-subnets-" or "i-nic-no-subnet-"
-	// returns no results, regardless whether ids are given or not.
-	for _, instId := range []instance.Id{"i-no-subnets-foo", "i-nic-no-subnet-foo"} {
-		netInfo, err = e.Subnets(instId, nil)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(netInfo, gc.HasLen, 0)
-		assertSubnets(c, e, opc, instId, nil, expectInfo[:0])
-	}
-
-	netInfo, err = e.Subnets("i-no-subnets-foo", ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, gc.HasLen, 0)
-	assertSubnets(c, e, opc, "i-no-subnets-foo", ids, expectInfo[:0])
-
-	// Test the behavior with "i-no-alloc-" instance id prefix.
-	// When # is "all", all returned subnets have no allocatable range
-	// set and have provider ids with "noalloc-" prefix.
-	netInfo, err = e.Subnets("i-no-alloc-all", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, jc.DeepEquals, noallocInfo)
-	assertSubnets(c, e, opc, "i-no-alloc-all", nil, noallocInfo)
-
-	// When # is an integer, the #-th subnet in result has no
-	// allocatable range set and a provider id prefix "noalloc-".
-	netInfo, err = e.Subnets("i-no-alloc-0", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	expectResult := []network.SubnetInfo{noallocInfo[0], expectInfo[1]}
-	c.Assert(netInfo, jc.DeepEquals, expectResult)
-	assertSubnets(c, e, opc, "i-no-alloc-0", nil, expectResult)
-
-	netInfo, err = e.Subnets("i-no-alloc-1", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	expectResult = []network.SubnetInfo{expectInfo[0], noallocInfo[1]}
-	c.Assert(netInfo, jc.DeepEquals, expectResult)
-	assertSubnets(c, e, opc, "i-no-alloc-1", nil, expectResult)
-
-	// For the last case above, also test the error returned when # is
-	// not integer or it's out of range of the results (including when
-	// filtering by ids is applied).
-	netInfo, err = e.Subnets("i-no-alloc-foo", nil)
-	c.Assert(err, gc.ErrorMatches, `invalid index "foo"; expected int`)
-	c.Assert(netInfo, gc.HasLen, 0)
-
-	netInfo, err = e.Subnets("i-no-alloc-1", ids[:1])
-	c.Assert(err, gc.ErrorMatches, `index 1 out of range; expected 0..0`)
-	c.Assert(netInfo, gc.HasLen, 0)
-
-	netInfo, err = e.Subnets("i-no-alloc-2", ids)
-	c.Assert(err, gc.ErrorMatches, `index 2 out of range; expected 0..1`)
-	c.Assert(netInfo, gc.HasLen, 0)
-
 	// Test we can induce errors.
 	s.breakMethods(c, e, "Subnets")
 	netInfo, err = e.Subnets("i-any", nil)
 	c.Assert(err, gc.ErrorMatches, `dummy\.Subnets is broken`)
 	c.Assert(netInfo, gc.HasLen, 0)
-}
-
-func assertAllocateAddress(
-	c *gc.C,
-	e environs.Environ,
-	opc chan dummy.Operation,
-	expectInstId instance.Id,
-	expectSubnetId network.Id,
-	expectAddress network.Address,
-	expectMAC string,
-	expectHost string,
-) {
-	select {
-	case op := <-opc:
-		addrOp, ok := op.(dummy.OpAllocateAddress)
-		if !ok {
-			c.Fatalf("unexpected op: %#v", op)
-		}
-		c.Check(addrOp.SubnetId, gc.Equals, expectSubnetId)
-		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
-		c.Check(addrOp.Address, gc.Equals, expectAddress)
-		c.Check(addrOp.MACAddress, gc.Equals, expectMAC)
-		c.Check(addrOp.HostName, gc.Equals, expectHost)
-		return
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("time out wating for operation")
-	}
-}
-
-func assertReleaseAddress(
-	c *gc.C,
-	e environs.Environ,
-	opc chan dummy.Operation,
-	expectInstId instance.Id,
-	expectSubnetId network.Id,
-	expectAddress network.Address,
-	expectMAC string,
-	expectHost string,
-) {
-	select {
-	case op := <-opc:
-		addrOp, ok := op.(dummy.OpReleaseAddress)
-		if !ok {
-			c.Fatalf("unexpected op: %#v", op)
-		}
-		c.Check(addrOp.SubnetId, gc.Equals, expectSubnetId)
-		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
-		c.Check(addrOp.Address, gc.Equals, expectAddress)
-		c.Check(addrOp.MACAddress, gc.Equals, expectMAC)
-		c.Check(addrOp.HostName, gc.Equals, expectHost)
-		return
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("time out wating for operation")
-	}
 }
 
 func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []network.InterfaceInfo) {

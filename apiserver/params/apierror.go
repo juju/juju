@@ -59,6 +59,7 @@ func (e Error) GoString() string {
 const (
 	CodeNotFound                  = "not found"
 	CodeUserNotFound              = "user not found"
+	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
 	CodeCannotEnterScope          = "cannot enter scope"
@@ -86,6 +87,7 @@ const (
 	CodeMethodNotAllowed          = "method not allowed"
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
+	CodeRedirect                  = "redirection required"
 )
 
 // ErrCode returns the error code associated with
@@ -113,6 +115,10 @@ func IsCodeNotFound(err error) bool {
 
 func IsCodeUserNotFound(err error) bool {
 	return ErrCode(err) == CodeUserNotFound
+}
+
+func IsCodeModelNotFound(err error) bool {
+	return ErrCode(err) == CodeModelNotFound
 }
 
 func IsCodeUnauthorized(err error) bool {
@@ -218,4 +224,8 @@ func IsBadRequest(err error) bool {
 
 func IsMethodNotAllowed(err error) bool {
 	return ErrCode(err) == CodeMethodNotAllowed
+}
+
+func IsRedirect(err error) bool {
+	return ErrCode(err) == CodeRedirect
 }

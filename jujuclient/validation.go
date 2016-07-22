@@ -36,7 +36,8 @@ func ValidateAccountDetails(details AccountDetails) error {
 	// may use macaroons instead.
 	//
 	// TODO(axw) expand validation rules to check that at least
-	// one of Password or Macaroon is non-empty.
+	// one of Password or Macaroon is non-empty, for local users.
+	// External users may have neither.
 	return nil
 }
 

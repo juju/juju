@@ -4,8 +4,6 @@
 package params
 
 import (
-	"net"
-
 	"github.com/juju/juju/network"
 )
 
@@ -37,14 +35,6 @@ type Subnet struct {
 	// Zones contain one or more availability zones this subnet is
 	// associated with.
 	Zones []string `json:"zones"`
-
-	// StaticRangeLowIP (if available) is the lower bound of the
-	// subnet's static IP allocation range.
-	StaticRangeLowIP net.IP `json:"static-range-low-ip,omitempty"`
-
-	// StaticRangeHighIP (if available) is the higher bound of the
-	// subnet's static IP allocation range.
-	StaticRangeHighIP net.IP `json:"static-range-high-ip,omitempty"`
 
 	// Status returns the status of the subnet, whether it is in use, not
 	// in use or terminating.

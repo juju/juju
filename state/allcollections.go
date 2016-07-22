@@ -121,8 +121,12 @@ func allCollections() collectionSchema {
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
-		// one model migration document exists per environment.
+		// one model migration document exists per model.
 		migrationsActiveC: {global: true},
+
+		// This collection tracks migration progress reports from the
+		// migration minions.
+		migrationsMinionSyncC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -142,13 +146,20 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds cloud definitions.
+		cloudsC: {global: true},
+
 		// This collection holds users' cloud credentials.
 		cloudCredentialsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner"},
+				Key: []string{"owner", "cloud"},
 			}},
 		},
+
+		// This collection holds settings from various sources which
+		// are inherited and then forked by new models.
+		globalSettingsC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -172,10 +183,14 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
+		// This collection holds users related to a model and will be usde as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
+
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
-		// given collection.
-		modelUsersC: {},
+		// given operation.
+		permissionsC: {},
 
 		// This collection holds the last time the model user connected
 		// to the model.
@@ -284,18 +299,6 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with networking.
-		// TODO(dimitern): Remove the obsolete collections below once possible.
-		legacyipaddressesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"uuid"},
-			}, {
-				Key: []string{"model-uuid", "state"},
-			}, {
-				Key: []string{"model-uuid", "subnetid"},
-			}},
-		},
-		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC:          {},
 		spacesC:               {},
 		subnetsC:              {},
@@ -317,14 +320,18 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// TODO(ericsnow) Use a component-oriented registration mechanism...
-
 		// This collection holds information associated with charm payloads.
-		// See payload/persistence/mongo.go.
-		"payloads": {},
+		payloadsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "unitid"},
+			}, {
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 
 		// This collection holds information associated with charm resources.
-		// See resource/persistence/mongo.go.
+		// See resource/persistence/mongo.go, where it should never have
+		// been put in the first place.
 		"resources": {},
 
 		// -----
@@ -348,6 +355,7 @@ func allCollections() collectionSchema {
 		storageConstraintsC: {},
 		statusesC:           {},
 		statusesHistoryC: {
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},
@@ -362,6 +370,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditingC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -375,36 +388,41 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
-	legacyipaddressesC       = "ipaddresses"
 	leasesC                  = "leases"
 	machinesC                = "machines"
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
-	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
+	migrationsMinionSyncC    = "migrations.minionsync"
+	migrationsStatusC        = "migrations.status"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
+	payloadsC                = "payloads"
+	permissionsC             = "permissions"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
@@ -436,6 +454,5 @@ const (
 	usersC                   = "users"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
-	// "payloads" (see payload/persistence/mongo.go)
 	// "resources" (see resource/persistence/mongo.go)
 )

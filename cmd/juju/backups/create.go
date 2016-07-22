@@ -67,7 +67,7 @@ func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-backup",
 		Args:    "[<notes>]",
-		Purpose: "create a backup",
+		Purpose: "Create a backup.",
 		Doc:     createDoc,
 	}
 }
@@ -75,8 +75,8 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
-	f.StringVar(&c.Filename, "filename", notset, "download to this file")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive")
+	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 }
 
 // Init implements Command.Init.

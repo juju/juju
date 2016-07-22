@@ -4,10 +4,10 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -19,7 +19,7 @@ func NewUnsetCommand() cmd.Command {
 
 type unsetCommand struct {
 	modelcmd.ModelCommandBase
-	api  UnsetEnvironmentAPI
+	api  UnsetModelAPI
 	keys []string
 }
 
@@ -51,21 +51,21 @@ func (c *unsetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *unsetCommand) Init(args []string) (err error) {
+func (c *unsetCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no keys specified")
+		return errors.New("no keys specified")
 	}
 	c.keys = args
 	return nil
 }
 
-type UnsetEnvironmentAPI interface {
+type UnsetModelAPI interface {
 	Close() error
 	ModelGet() (map[string]interface{}, error)
 	ModelUnset(keys ...string) error
 }
 
-func (c *unsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
+func (c *unsetCommand) getAPI() (UnsetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

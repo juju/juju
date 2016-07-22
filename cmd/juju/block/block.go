@@ -67,7 +67,6 @@ type destroyCommand struct {
 }
 
 var destroyBlockDoc = `
-
 This command allows to block model destruction.
 
 To disable the block, run unblock command - see "juju help unblock". 
@@ -76,8 +75,8 @@ To by-pass the block, run destroy-model with --force option.
 "juju block destroy-model" only blocks destroy-model command.
    
 Examples:
-   To prevent the model from being destroyed:
-   juju block destroy-model
+    # To prevent the model from being destroyed:
+    juju block destroy-model
 
 `
 
@@ -86,7 +85,7 @@ Examples:
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-model",
-		Purpose: "block an operation that would destroy Juju model",
+		Purpose: "Block an operation that would destroy Juju model.",
 		Doc:     destroyBlockDoc,
 	}
 }
@@ -106,7 +105,6 @@ type removeCommand struct {
 }
 
 var removeBlockDoc = `
-
 This command allows to block all operations that would remove an object 
 from Juju model.
 
@@ -121,8 +119,8 @@ To by-pass the block, where available, run desired remove command with --force o
     remove-unit
    
 Examples:
-   To prevent the machines, applications, units and relations from being removed:
-   juju block remove-object
+    # To prevent the machines, applications, units and relations from being removed:
+    juju block remove-object
 
 `
 
@@ -131,7 +129,7 @@ Examples:
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-object",
-		Purpose: "block an operation that would remove an object",
+		Purpose: "Block an operation that would remove an object.",
 		Doc:     removeBlockDoc,
 	}
 }
@@ -151,7 +149,6 @@ type changeCommand struct {
 }
 
 var changeBlockDoc = `
-
 This command allows to block all operations that would alter
 Juju model.
 
@@ -191,8 +188,8 @@ To by-pass the block, where available, run desired remove command with --force o
     enable-user
    
 Examples:
-   To prevent changes to the model:
-   juju block all-changes
+    # To prevent changes to the model:
+    juju block all-changes
 
 `
 
@@ -201,7 +198,7 @@ Examples:
 func (c *changeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "all-changes",
-		Purpose: "block operations that could change Juju model",
+		Purpose: "Block operations that could change Juju model.",
 		Doc:     changeBlockDoc,
 	}
 }

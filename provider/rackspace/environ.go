@@ -10,11 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -30,10 +28,6 @@ var bootstrap = common.Bootstrap
 func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, params)
-}
-
-func isController(mcfg *instancecfg.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
 var waitSSH = common.WaitSSH
@@ -55,7 +49,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	}
 	if fwmode != config.FwNone {
 		interrupted := make(chan os.Signal, 1)
-		timeout := config.SSHTimeoutOpts{
+		timeout := environs.BootstrapDialOpts{
 			Timeout:        time.Minute * 5,
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,
@@ -66,10 +60,8 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		}
 		client := newInstanceConfigurator(addr)
 		apiPort := 0
-		if isController(args.InstanceConfig) && args.InstanceConfig.Bootstrap != nil {
-			// TODO(axw) 2016-06-01 #1587739
-			// We should be doing this for non-bootstrap machines as well.
-			apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)
 		if err != nil {

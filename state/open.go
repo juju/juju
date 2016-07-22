@@ -16,6 +16,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
@@ -120,9 +122,13 @@ type InitializeParams struct {
 	// the controller model to store in the controller.
 	CloudCredentials map[string]cloud.Credential
 
-	// ModelConfigDefaults contains default config attributes for
-	// models.
-	ModelConfigDefaults map[string]interface{}
+	// ControllerConfig contains config attributes for
+	// the controller.
+	ControllerConfig controller.Config
+
+	// ControllerInheritedConfig contains default config attributes for
+	// models on the specified cloud.
+	ControllerInheritedConfig map[string]interface{}
 
 	// Policy is the set of state policies to apply.
 	Policy Policy
@@ -145,7 +151,7 @@ func (p InitializeParams) Validate() error {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
-	controllerUUID := p.ControllerModelArgs.Config.ControllerUUID()
+	controllerUUID := p.ControllerConfig.ControllerUUID()
 	if uuid != controllerUUID {
 		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
@@ -158,14 +164,19 @@ func (p InitializeParams) Validate() error {
 	if p.Cloud.Type == "" {
 		return errors.NotValidf("empty Cloud")
 	}
-	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
+	if err := validateCloud(p.Cloud); err != nil {
+		return errors.Annotate(err, "validating cloud")
+	}
+	if _, err := validateCloudRegion(p.Cloud, p.CloudName, p.ControllerModelArgs.CloudRegion); err != nil {
 		return errors.Annotate(err, "validating controller model cloud region")
 	}
-	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
+	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
 	if _, err := validateCloudCredential(
-		p.Cloud, p.CloudCredentials,
+		p.Cloud,
+		p.CloudName,
+		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
 		p.ControllerModelArgs.Owner,
 	); err != nil {
@@ -209,7 +220,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ModelConfigDefaults)
+	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,12 +229,9 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	// Extract just the controller config.
-	controllerCfg := controller.ControllerConfig(args.ControllerModelArgs.Config.AllAttrs())
-
 	ops := []txn.Op{
 		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
@@ -233,30 +241,32 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud, args.CloudName),
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
-		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
-		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.ModelConfigDefaults),
+		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
+		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
-			args.ControllerModelArgs.Owner, args.CloudCredentials,
+			args.ControllerModelArgs.Owner,
+			args.CloudName,
+			args.CloudCredentials,
 		)
 		ops = append(ops, credentialsOps...)
 	}
@@ -272,8 +282,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interface{}) ([]txn.Op, error) {
-	if err := checkModelConfigDefaults(configDefaults); err != nil {
+func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
+	if err := checkControllerInheritedConfig(ControllerInheritedConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := checkModelConfig(args.Config); err != nil {
@@ -296,8 +306,8 @@ func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interfa
 	// UUID is also used as the controller UUID.
 	isHostedModel := controllerUUID != modelUUID
 
-	modelUserOp := createModelUserOp(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), ModelAdminAccess,
+	modelUserOps := createModelUserOps(
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
@@ -307,20 +317,37 @@ func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interfa
 		ops = append(ops, incHostedModelCountOp())
 	}
 
-	modelCfg := modelConfig(configDefaults, args.Config.AllAttrs())
+	// Create the final map of config attributes for the model.
+	// If we have ControllerInheritedConfig passed in, that means state
+	// is being initialised and there won't be any config sources
+	// in state.
+	var configSources []modelConfigSource
+	if len(ControllerInheritedConfig) > 0 {
+		configSources = []modelConfigSource{{
+			name: config.JujuControllerSource,
+			sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+				return ControllerInheritedConfig, nil
+			})}}
+	} else {
+		configSources = modelConfigSources(st)
+	}
+	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
-		createModelEntityRefsOp(st, modelUUID),
+		createModelEntityRefsOp(modelUUID),
 		createModelOp(
 			args.Owner,
 			args.Config.Name(),
 			modelUUID, controllerUUID,
-			args.CloudRegion, args.CloudCredential,
+			args.CloudName, args.CloudRegion, args.CloudCredential,
 			args.MigrationMode,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
-		modelUserOp,
 	)
+	ops = append(ops, modelUserOps...)
 	return ops, nil
 }
 

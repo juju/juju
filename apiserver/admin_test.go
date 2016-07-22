@@ -21,6 +21,8 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -53,10 +55,10 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
-	return s.setupServerForEnvironment(c, s.State.ModelTag())
+	return s.setupServerForModel(c, s.State.ModelTag())
 }
 
-func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
+func (s *baseLoginSuite) setupServerForModel(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
 	info, cleanup := s.setupServerForEnvironmentWithValidator(c, modelTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -489,7 +491,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err := st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -517,7 +519,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -576,11 +578,12 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 		s.State,
 		listener,
 		apiserver.ServerConfig{
-			Cert:      []byte(coretesting.ServerCert),
-			Key:       []byte(coretesting.ServerKey),
-			Validator: validator,
-			Tag:       names.NewMachineTag("0"),
-			LogDir:    c.MkDir(),
+			Cert:        []byte(coretesting.ServerCert),
+			Key:         []byte(coretesting.ServerKey),
+			Validator:   validator,
+			Tag:         names.NewMachineTag("0"),
+			LogDir:      c.MkDir(),
+			NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -620,7 +623,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
+	s.assertRemoteModel(c, st, s.State.ModelTag())
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
@@ -639,7 +642,7 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
+func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -653,11 +656,11 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 	err = st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("unknown model: %q", uuid),
-		Code:    "not found",
+		Code:    "model not found",
 	})
 }
 
-func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
+func (s *loginSuite) TestInvalidModel(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -669,11 +672,11 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "rubbish"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
 }
 
-func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
+func (s *loginSuite) TestOtherModel(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -688,10 +691,10 @@ func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
 
 	err := st.Login(envOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoteEnvironment(c, st, envState.ModelTag())
+	s.assertRemoteModel(c, st, envState.ModelTag())
 }
 
-func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
+func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// User credentials are checked against a global user list.
 	// Machine credentials are checked against environment specific
 	// machines, so this makes sure that the credential checking is
@@ -758,7 +761,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.ModelTag) {
+func (s *loginSuite) assertRemoteModel(c *gc.C, st api.Connection, expected names.ModelTag) {
 	// Look at what the api thinks it has.
 	tag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)

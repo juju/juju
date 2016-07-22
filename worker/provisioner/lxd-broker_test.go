@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	"runtime"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -28,11 +29,10 @@ import (
 
 type lxdBrokerSuite struct {
 	coretesting.BaseSuite
-	broker        environs.InstanceBroker
-	agentConfig   agent.ConfigSetterWriter
-	api           *fakeAPI
-	manager       *fakeContainerManager
-	possibleTools coretools.List
+	broker      environs.InstanceBroker
+	agentConfig agent.ConfigSetterWriter
+	api         *fakeAPI
+	manager     *fakeContainerManager
 }
 
 var _ = gc.Suite(&lxdBrokerSuite{})
@@ -45,15 +45,6 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
-	s.possibleTools = coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}, {
-		// non-host-arch tools should be filtered out by StartInstance
-		Version: version.MustParseBinary("2.3.4-quantal-arm64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
-	}}
 
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -70,28 +61,12 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, true)
+	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
-	machineNonce := "fake-nonce"
-	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	return instanceConfig
-}
-
-func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
-	instanceConfig := s.instanceConfig(c, machineId)
-	cons := constraints.Value{}
-	result, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:    cons,
-		Tools:          s.possibleTools,
-		InstanceConfig: instanceConfig,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return result.Instance
+func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) *environs.StartInstanceResult {
+	return callStartInstance(c, s, s.broker, machineId)
 }
 
 func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
@@ -111,6 +86,45 @@ func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
 }
 
+func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	patchResolvConf(s, c)
+
+	result := s.startInstance(c, "1/lxd/0")
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:         0,
+		CIDR:                "0.1.2.0/24",
+		InterfaceName:       "dummy0",
+		ParentInterfaceName: "lxdbr0",
+		MACAddress:          "aa:bb:cc:dd:ee:ff",
+		Address:             network.NewAddress("0.1.2.3"),
+		GatewayAddress:      network.NewAddress("0.1.2.1"),
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
+	})
+}
+
+func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+	patchResolvConf(s, c)
+
+	s.api.SetErrors(
+		nil, // ContainerConfig succeeds
+		errors.NotSupportedf("container address allocation"),
+	)
+	result := s.startInstance(c, "1/lxd/0")
+
+	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:         0,
+		InterfaceName:       "eth0",
+		InterfaceType:       network.EthernetInterface,
+		ConfigType:          network.ConfigDHCP,
+		ParentInterfaceName: "lxdbr0",
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
+	}})
+}
+
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Tools: coretools.List{{
@@ -118,7 +132,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 			Version: version.MustParseBinary("2.3.4-quantal-arm64"),
 			URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
 		}},
-		InstanceConfig: s.instanceConfig(c, "1/lxd/0"),
+		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),
 	})
 	c.Assert(err, gc.ErrorMatches, `need tools for arch amd64, only found \[arm64\]`)
 }

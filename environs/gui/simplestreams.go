@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -41,7 +41,7 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 	return simplestreams.NewURLSignedDataSource(
 		sourceDescription,
 		baseURL,
-		juju.JujuPublicKey,
+		keys.JujuPublicKey,
 		utils.VerifySSLHostnames,
 		simplestreams.DEFAULT_CLOUD_DATA,
 		requireSigned)

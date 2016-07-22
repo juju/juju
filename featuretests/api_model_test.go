@@ -87,12 +87,12 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 		{
 			UserName:       owner.UserName(),
 			DisplayName:    owner.DisplayName(),
-			Access:         "write",
+			Access:         "admin",
 			LastConnection: lastConnPointer(c, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
-			Access:         "write",
+			Access:         "admin",
 			LastConnection: lastConnPointer(c, modelUser),
 		},
 	})

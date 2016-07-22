@@ -7,11 +7,13 @@ package logsender
 
 import (
 	"io"
+	"net/url"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/version"
 )
 
 // LogWriter is the interface that allows sending log
@@ -36,7 +38,9 @@ func NewAPI(connector base.StreamConnector) *API {
 // LogWriter returns a new log writer interface value
 // which must be closed when finished with.
 func (api *API) LogWriter() (LogWriter, error) {
-	conn, err := api.connector.ConnectStream("/logsink", nil)
+	attrs := make(url.Values)
+	attrs.Set("jujuclientversion", version.Current.String())
+	conn, err := api.connector.ConnectStream("/logsink", attrs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
 	}

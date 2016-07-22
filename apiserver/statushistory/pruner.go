@@ -5,6 +5,7 @@ package statushistory
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -16,11 +17,11 @@ func init() {
 // API is the concrete implementation of the Pruner endpoint..
 type API struct {
 	st         *state.State
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns an API Instance.
-func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API, error) {
+func NewAPI(st *state.State, _ facade.Resources, auth facade.Authorizer) (*API, error) {
 	return &API{
 		st:         st,
 		authorizer: auth,

@@ -17,13 +17,16 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jjtesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
+	jtesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type apiclientSuite struct {
-	jujutesting.JujuConnSuite
+	jjtesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&apiclientSuite{})
@@ -123,9 +126,9 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	_, err := api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "bad-tag"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
 
 	// Now set it to the right tag, and we should succeed.
 	info.ModelTag = s.State.ModelTag()
@@ -153,6 +156,73 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	result, err := f(stopped)
 	c.Assert(err, gc.Equals, parallel.ErrStopped)
 	c.Assert(result, gc.IsNil)
+}
+
+func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
+	redirectToHosts := []string{"0.1.2.3:1234", "0.1.2.4:1235"}
+	redirectToCACert := "fake CA cert"
+
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
+		return &redirectAPI{
+			modelUUID:        modelUUID,
+			redirectToHosts:  redirectToHosts,
+			redirectToCACert: redirectToCACert,
+		}
+	})
+	defer srv.Close()
+
+	_, err := api.Open(&api.Info{
+		Addrs:    srv.Addrs,
+		CACert:   jtesting.CACert,
+		ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
+	}, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, `redirection to alternative server required`)
+
+	hps, _ := network.ParseHostPorts(redirectToHosts...)
+	c.Assert(errors.Cause(err), jc.DeepEquals, &api.RedirectError{
+		Servers: [][]network.HostPort{hps},
+		CACert:  redirectToCACert,
+	})
+}
+
+type redirectAPI struct {
+	redirected       bool
+	modelUUID        string
+	redirectToHosts  []string
+	redirectToCACert string
+}
+
+func (r *redirectAPI) Admin(id string) (*redirectAPIAdmin, error) {
+	return &redirectAPIAdmin{r}, nil
+}
+
+type redirectAPIAdmin struct {
+	r *redirectAPI
+}
+
+func (a *redirectAPIAdmin) Login(req params.LoginRequest) (params.LoginResultV1, error) {
+	if a.r.modelUUID != "beef1beef1-0000-0000-000011112222" {
+		return params.LoginResultV1{}, errors.New("logged into unexpected model")
+	}
+	a.r.redirected = true
+	return params.LoginResultV1{}, params.Error{
+		Message: "redirect",
+		Code:    params.CodeRedirect,
+	}
+}
+
+func (a *redirectAPIAdmin) RedirectInfo() (params.RedirectInfoResult, error) {
+	if !a.r.redirected {
+		return params.RedirectInfoResult{}, errors.New("not redirected")
+	}
+	hps, err := network.ParseHostPorts(a.r.redirectToHosts...)
+	if err != nil {
+		panic(err)
+	}
+	return params.RedirectInfoResult{
+		Servers: [][]params.HostPort{params.FromNetworkHostPorts(hps)},
+		CACert:  a.r.redirectToCACert,
+	}, nil
 }
 
 func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, modelUUID, tail string) {

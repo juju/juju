@@ -11,7 +11,6 @@ package apiserver
 // place, not scattering it across packages and depending on magic import lists.
 import (
 	_ "github.com/juju/juju/apiserver/action"
-	_ "github.com/juju/juju/apiserver/addresser"
 	_ "github.com/juju/juju/apiserver/agent"
 	_ "github.com/juju/juju/apiserver/agenttools"
 	_ "github.com/juju/juju/apiserver/annotations"
@@ -38,6 +37,7 @@ import (
 	_ "github.com/juju/juju/apiserver/keyupdater"
 	_ "github.com/juju/juju/apiserver/leadership"
 	_ "github.com/juju/juju/apiserver/lifeflag"
+	_ "github.com/juju/juju/apiserver/logfwd"
 	_ "github.com/juju/juju/apiserver/logger"
 	_ "github.com/juju/juju/apiserver/machine"
 	_ "github.com/juju/juju/apiserver/machineactions"

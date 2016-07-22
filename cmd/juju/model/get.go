@@ -4,13 +4,18 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 )
 
 func NewGetCommand() cmd.Command {
@@ -21,7 +26,7 @@ func NewGetCommand() cmd.Command {
 // the requested value in a format of the user's choosing.
 type getCommand struct {
 	modelcmd.ModelCommandBase
-	api GetEnvironmentAPI
+	api GetModelAPI
 	key string
 	out cmd.Output
 }
@@ -44,6 +49,7 @@ See also: models
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-model-config",
+		Aliases: []string{"model-config"},
 		Args:    "[<model key>]",
 		Purpose: "Displays configuration settings for a model.",
 		Doc:     strings.TrimSpace(getModelHelpDoc),
@@ -51,7 +57,11 @@ func (c *getCommand) Info() *cmd.Info {
 }
 
 func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": formatConfigTabular,
+	})
 }
 
 func (c *getCommand) Init(args []string) (err error) {
@@ -59,12 +69,13 @@ func (c *getCommand) Init(args []string) (err error) {
 	return
 }
 
-type GetEnvironmentAPI interface {
+type GetModelAPI interface {
 	Close() error
 	ModelGet() (map[string]interface{}, error)
+	ModelGetWithMetadata() (config.ConfigValues, error)
 }
 
-func (c *getCommand) getAPI() (GetEnvironmentAPI, error) {
+func (c *getCommand) getAPI() (GetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -78,17 +89,66 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	attrs, err := client.ModelGet()
+	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return err
 	}
 
 	if c.key != "" {
 		if value, found := attrs[c.key]; found {
-			return c.out.Write(ctx, value)
+			out, err := cmd.FormatSmart(value.Value)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(ctx.Stdout, "%v\n", string(out))
+			return nil
 		}
 		return fmt.Errorf("key %q not found in %q model.", c.key, attrs["name"])
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
+}
+
+// formatConfigTabular returns a tabular summary of config information.
+func formatConfigTabular(value interface{}) ([]byte, error) {
+	configValues, ok := value.(config.ConfigValues)
+	if !ok {
+		return nil, errors.Errorf("expected value of type %T, got %T", configValues, value)
+	}
+
+	var out bytes.Buffer
+	const (
+		// To format things into columns.
+		minwidth = 0
+		tabwidth = 1
+		padding  = 2
+		padchar  = ' '
+		flags    = 0
+	)
+	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	p := func(values ...string) {
+		text := strings.Join(values, "\t")
+		fmt.Fprintln(tw, text)
+	}
+	var valueNames []string
+	for name := range configValues {
+		valueNames = append(valueNames, name)
+	}
+	sort.Strings(valueNames)
+	p("ATTRIBUTE\tFROM\tVALUE")
+
+	for _, name := range valueNames {
+		info := configValues[name]
+		val, err := cmd.FormatSmart(info.Value)
+		if err != nil {
+			return nil, errors.Annotatef(err, "formatting value for %q", name)
+		}
+		// Some attribute values have a newline appended
+		// which makes the output messy.
+		valString := strings.TrimSuffix(string(val), "\n")
+		p(name, info.Source, valString)
+	}
+
+	tw.Flush()
+	return out.Bytes(), nil
 }

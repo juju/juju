@@ -86,7 +86,7 @@ func NewDetectCredentialsCommand() cmd.Command {
 func (c *detectCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "autoload-credentials",
-		Purpose: "looks for cloud credentials and caches those for use by Juju when bootstrapping",
+		Purpose: "Looks for cloud credentials and caches those for use by Juju when bootstrapping.",
 		Doc:     detectCredentialsDoc,
 	}
 }

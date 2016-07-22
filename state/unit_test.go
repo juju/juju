@@ -1771,3 +1771,25 @@ action-b-b:
 		c.Assert(action.Name(), gc.Matches, "^action-b-.")
 	}
 }
+
+func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
+	ch := state.AddTestingCharm(c, s.State, "dummy")
+	app := state.AddTestingService(c, s.State, "alexandrite", ch)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	version, err := unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "")
+
+	unit.SetWorkloadVersion("3.combined")
+	version, err = unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
+
+	regotUnit, err := s.State.Unit("alexandrite/0")
+	c.Assert(err, jc.ErrorIsNil)
+	version, err = regotUnit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
+}

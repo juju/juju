@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -65,14 +64,6 @@ type BackingSubnetInfo struct {
 	// networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
 
-	// AllocatableIPHigh and Low describe the allocatable portion of the
-	// subnet. The remainder, if any, is reserved by the provider.
-	// Either both of these must be set or neither, if they're empty it
-	// means that none of the subnet is allocatable. If present they must
-	// be valid IP addresses within the subnet CIDR.
-	AllocatableIPHigh string
-	AllocatableIPLow  string
-
 	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
@@ -117,9 +108,6 @@ type BackingSpace interface {
 type NetworkBacking interface {
 	// ModelConfig returns the current environment config.
 	ModelConfig() (*config.Config, error)
-
-	// ControllerConfig returns the current controller config.
-	ControllerConfig() (controller.Config, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).

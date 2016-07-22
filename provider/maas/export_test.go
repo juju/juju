@@ -11,8 +11,7 @@ import (
 )
 
 var (
-	ShortAttempt            = &shortAttempt
-	MaasStorageProviderType = maasStorageProviderType
+	ShortAttempt = &shortAttempt
 )
 
 func MAASAgentName(env environs.Environ) string {

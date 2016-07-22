@@ -7,9 +7,7 @@ package vsphere
 
 import (
 	"fmt"
-	"net"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -18,9 +16,7 @@ import (
 	"github.com/juju/govmomi/list"
 	"github.com/juju/govmomi/object"
 	"github.com/juju/govmomi/property"
-	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/mo"
-	"github.com/juju/govmomi/vim25/types"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
@@ -29,8 +25,10 @@ import (
 )
 
 const (
-	metadataKeyIsState   = "juju_is_state_key"
-	metadataValueIsState = "juju_is_value_value"
+	metadataKeyIsController     = "juju_is_controller_key"
+	metadataValueIsController   = "juju_is_controller_value"
+	metadataKeyControllerUUID   = "juju_controller_uuid_key"
+	metadataValueControllerUUID = "juju_controller_uuid_value"
 )
 
 type client struct {
@@ -72,14 +70,15 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 type instanceSpec struct {
-	machineID string
-	zone      *vmwareAvailZone
-	hwc       *instance.HardwareCharacteristics
-	img       *OvaFileMetadata
-	userData  []byte
-	sshKey    string
-	isState   bool
-	apiPort   int
+	machineID      string
+	zone           *vmwareAvailZone
+	hwc            *instance.HardwareCharacteristics
+	img            *OvaFileMetadata
+	userData       []byte
+	sshKey         string
+	isController   bool
+	controllerUUID string
+	apiPort        int
 }
 
 // CreateInstance create new vm in vsphere and run it
@@ -270,14 +269,6 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 	}
 
 	res := make([]network.SubnetInfo, 0)
-	req := &types.QueryIpPools{
-		This: *c.connection.ServiceContent.IpPoolManager,
-		Dc:   c.datacenter.Reference(),
-	}
-	ipPools, err := methods.QueryIpPools(context.TODO(), c.connection.Client, req)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	for _, vmNet := range vm.Guest.Net {
 		existId := false
 		for _, id := range ids {
@@ -289,53 +280,9 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 		if !existId {
 			continue
 		}
-		var netPool *types.IpPool
-		for _, pool := range ipPools.Returnval {
-			for _, association := range pool.NetworkAssociation {
-				if association.NetworkName == vmNet.Network {
-					netPool = &pool
-					break
-				}
-			}
-		}
-		subnet := network.SubnetInfo{
+		res = append(res, network.SubnetInfo{
 			ProviderId: network.Id(vmNet.Network),
-		}
-		if netPool != nil && netPool.Ipv4Config != nil {
-			low, high, err := c.ParseNetworkRange(netPool.Ipv4Config.Range)
-			if err != nil {
-				logger.Warningf(err.Error())
-			} else {
-				subnet.AllocatableIPLow = low
-				subnet.AllocatableIPHigh = high
-			}
-		}
-		res = append(res)
+		})
 	}
 	return res, nil
-}
-
-func (c *client) ParseNetworkRange(netRange string) (net.IP, net.IP, error) {
-	//netPool.Range is specified as a set of ranges separated with commas. One range is given by a start address, a hash (#), and the length of the range.
-	//For example:
-	//192.0.2.235 # 20 is the IPv4 range from 192.0.2.235 to 192.0.2.254
-	ranges := strings.Split(netRange, ",")
-	if len(ranges) > 0 {
-		rangeSplit := strings.Split(ranges[0], "#")
-		if len(rangeSplit) == 2 {
-			if rangeLen, err := strconv.ParseInt(rangeSplit[1], 10, 8); err == nil {
-				ipSplit := strings.Split(rangeSplit[0], ".")
-				if len(ipSplit) == 4 {
-					if lastSegment, err := strconv.ParseInt(ipSplit[3], 10, 8); err != nil {
-						lastSegment += rangeLen - 1
-						if lastSegment > 254 {
-							lastSegment = 254
-						}
-						return net.ParseIP(rangeSplit[0]), net.ParseIP(fmt.Sprintf("%s.%s.%s.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment)), nil
-					}
-				}
-			}
-		}
-	}
-	return nil, nil, errors.Errorf("can't parse netRange: %s", netRange)
 }

@@ -29,16 +29,6 @@ const (
 	// The below bits are internal book-keeping things, rather than
 	// configuration. Config is just what we have to work with.
 
-	// configAttrStorageAccount is the name of the storage account. We
-	// can't just use a well-defined name for the storage acocunt because
-	// storage account names must be globally unique; each storage account
-	// has an associated public DNS entry.
-	configAttrStorageAccount = "storage-account"
-
-	// configAttrStorageAccountKey is the primary key for the storage
-	// account.
-	configAttrStorageAccountKey = "storage-account-key"
-
 	// resourceNameLengthMax is the maximum length of resource
 	// names in Azure.
 	resourceNameLengthMax = 80
@@ -52,14 +42,10 @@ var configFields = schema.Fields{
 	configAttrSubscriptionId:     schema.String(),
 	configAttrTenantId:           schema.String(),
 	configAttrAppPassword:        schema.String(),
-	configAttrStorageAccount:     schema.String(),
-	configAttrStorageAccountKey:  schema.String(),
 	configAttrStorageAccountType: schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccount:     schema.Omit,
-	configAttrStorageAccountKey:  schema.Omit,
 	configAttrStorageAccountType: string(storage.StandardLRS),
 }
 
@@ -76,13 +62,7 @@ var requiredConfigAttributes = []string{
 var immutableConfigAttributes = []string{
 	configAttrSubscriptionId,
 	configAttrTenantId,
-	configAttrStorageAccount,
 	configAttrStorageAccountType,
-}
-
-var internalConfigAttributes = []string{
-	configAttrStorageAccount,
-	configAttrStorageAccountKey,
 }
 
 type azureModelConfig struct {
@@ -92,8 +72,6 @@ type azureModelConfig struct {
 	location           string // canonicalized
 	endpoint           string
 	storageEndpoint    string
-	storageAccount     string
-	storageAccountKey  string
 	storageAccountType storage.AccountType
 }
 
@@ -176,8 +154,6 @@ Please choose a model name of no more than %d characters.`,
 	subscriptionId := validated[configAttrSubscriptionId].(string)
 	tenantId := validated[configAttrTenantId].(string)
 	appPassword := validated[configAttrAppPassword].(string)
-	storageAccount, _ := validated[configAttrStorageAccount].(string)
-	storageAccountKey, _ := validated[configAttrStorageAccountKey].(string)
 	storageAccountType := validated[configAttrStorageAccountType].(string)
 
 	if newCfg.FirewallMode() == config.FwGlobal {
@@ -213,8 +189,6 @@ Please choose a model name of no more than %d characters.`,
 		location,
 		endpoint,
 		storageEndpointURL.Host,
-		storageAccount,
-		storageAccountKey,
 		storage.AccountType(storageAccountType),
 	}
 

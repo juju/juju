@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -23,7 +24,10 @@ var _ = gc.Suite(&BootstrapConfigFileSuite{})
 const testBootstrapConfigYAML = `
 controllers:
   aws-test:
-    config:
+    controller-config:
+      api-port: 17070
+      state-port: 37017
+    base-model-config:
       name: admin
       type: ec2
     credential: default
@@ -31,7 +35,10 @@ controllers:
     region: us-east-1
     endpoint: https://us-east-1.amazonaws.com
   mallards:
-    config:
+    controller-config:
+      api-port: 17070
+      state-port: 37017
+    base-model-config:
       name: admin
       type: maas
     cloud: maas
@@ -40,6 +47,10 @@ controllers:
 
 var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 	"aws-test": {
+		ControllerConfig: controller.Config{
+			"api-port":   17070,
+			"state-port": 37017,
+		},
 		Config: map[string]interface{}{
 			"type": "ec2",
 			"name": "admin",
@@ -50,6 +61,10 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 		CloudEndpoint: "https://us-east-1.amazonaws.com",
 	},
 	"mallards": {
+		ControllerConfig: controller.Config{
+			"api-port":   17070,
+			"state-port": 37017,
+		},
 		Config: map[string]interface{}{
 			"type": "maas",
 			"name": "admin",

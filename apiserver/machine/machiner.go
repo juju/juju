@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -32,13 +33,13 @@ type MachinerAPI struct {
 	*common.APIAddresser
 
 	st           *state.State
-	auth         common.Authorizer
+	auth         facade.Authorizer
 	getCanModify common.GetAuthFunc
 	getCanRead   common.GetAuthFunc
 }
 
 // NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

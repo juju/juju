@@ -65,6 +65,13 @@ func (s *ConstraintsSerializationSuite) TestNewConstraints(c *gc.C) {
 	c.Assert(instance.Tags(), jc.DeepEquals, []string{"much", "strong"})
 }
 
+func (s *ConstraintsSerializationSuite) TestNewConstraintsWithVirt(c *gc.C) {
+	args := s.allArgs()
+	args.VirtType = "kvm"
+	instance := newConstraints(args)
+	c.Assert(instance.VirtType(), gc.Equals, args.VirtType)
+}
+
 func (s *ConstraintsSerializationSuite) TestNewConstraintsEmpty(c *gc.C) {
 	instance := newConstraints(ConstraintsArgs{})
 	c.Assert(instance, gc.IsNil)
@@ -77,8 +84,16 @@ func (s *ConstraintsSerializationSuite) TestEmptyTagsAndSpaces(c *gc.C) {
 	c.Assert(instance.Spaces(), gc.IsNil)
 }
 
+func (s *ConstraintsSerializationSuite) TestEmptyVirt(c *gc.C) {
+	instance := newConstraints(ConstraintsArgs{Architecture: "amd64"})
+	c.Assert(instance.VirtType(), gc.Equals, "")
+}
+
 func (s *ConstraintsSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := newConstraints(s.allArgs())
+	s.assertParsingSerializedConstraints(c, newConstraints(s.allArgs()))
+}
+
+func (s *ConstraintsSerializationSuite) assertParsingSerializedConstraints(c *gc.C, initial Constraints) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -89,4 +104,10 @@ func (s *ConstraintsSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	instance, err := importConstraints(source)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instance, jc.DeepEquals, initial)
+}
+
+func (s *ConstraintsSerializationSuite) TestParsingSerializedVirt(c *gc.C) {
+	args := s.allArgs()
+	args.VirtType = "kvm"
+	s.assertParsingSerializedConstraints(c, newConstraints(args))
 }

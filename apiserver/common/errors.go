@@ -33,7 +33,7 @@ func (e *noAddressSetError) Error() string {
 }
 
 func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
-	return &noAddressSetError{unitTag, addressName}
+	return &noAddressSetError{unitTag: unitTag, addressName: addressName}
 }
 
 func isNoAddressSetError(err error) bool {
@@ -93,7 +93,6 @@ var (
 	ErrPerm               = errors.New("permission denied")
 	ErrNotLoggedIn        = errors.New("not logged in")
 	ErrUnknownWatcher     = errors.New("unknown watcher id")
-	ErrUnknownPinger      = errors.New("unknown pinger id")
 	ErrStoppedWatcher     = errors.New("watcher has been stopped")
 	ErrBadRequest         = errors.New("invalid request")
 	ErrTryAgain           = errors.New("try again")
@@ -165,7 +164,9 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 	switch err1.Code {
 	case params.CodeUnauthorized:
 		status = http.StatusUnauthorized
-	case params.CodeNotFound, params.CodeUserNotFound:
+	case params.CodeNotFound,
+		params.CodeUserNotFound,
+		params.CodeModelNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
 		status = http.StatusBadRequest
@@ -220,7 +221,7 @@ func ServerError(err error) *params.Error {
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
 	case isUnknownModelError(err):
-		code = params.CodeNotFound
+		code = params.CodeModelNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
 	case errors.IsBadRequest(err):

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ModelMigrationSuite struct {
@@ -56,6 +57,10 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +68,6 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	checkIdAndAttempt(c, mig, 0)
 
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
-
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "")
@@ -77,6 +81,9 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
 
 	assertMigrationActive(c, s.State2)
+
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Check(model.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
@@ -213,18 +220,18 @@ func (s *ModelMigrationSuite) TestMigrationToSameController(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "model already attached to target controller")
 }
 
-func (s *ModelMigrationSuite) TestGet(c *gc.C) {
+func (s *ModelMigrationSuite) TestLatestModelMigration(c *gc.C) {
 	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := s.State2.GetModelMigration()
+	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
 }
 
-func (s *ModelMigrationSuite) TestGetNotExist(c *gc.C) {
-	mig, err := s.State.GetModelMigration()
+func (s *ModelMigrationSuite) TestLatestModelMigrationNotExist(c *gc.C) {
+	mig, err := s.State.LatestModelMigration()
 	c.Check(mig, gc.IsNil)
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 }
@@ -237,7 +244,7 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		_, err := s.State2.CreateModelMigration(s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
 
-		mig, err := s.State2.GetModelMigration()
+		mig, err := s.State2.LatestModelMigration()
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
@@ -245,11 +252,27 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	}
 }
 
+func (s *ModelMigrationSuite) TestModelMigration(c *gc.C) {
+	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2, err := s.State2.ModelMigration(mig1.Id())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mig1.Id(), gc.Equals, mig2.Id())
+	c.Check(mig2.StartTime(), gc.Equals, s.clock.Now())
+}
+
+func (s *ModelMigrationSuite) TestModelMigrationNotFound(c *gc.C) {
+	_, err := s.State2.ModelMigration("does not exist")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, "migration not found")
+}
+
 func (s *ModelMigrationSuite) TestRefresh(c *gc.C) {
 	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := s.State2.GetModelMigration()
+	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mig1.SetPhase(migration.READONLY)
@@ -268,7 +291,7 @@ func (s *ModelMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.NotNil)
 
-	mig2, err := st.GetModelMigration()
+	mig2, err := st.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
 	phases := []migration.Phase{
@@ -330,6 +353,11 @@ func (s *ModelMigrationSuite) TestABORTCleanup(c *gc.C) {
 	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
+
+	// Model should be set back to active.
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
 }
 
 func (s *ModelMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
@@ -374,7 +402,7 @@ func (s *ModelMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	defer state.SetBeforeHooks(c, s.State2, func() {
-		mig, err := s.State2.GetModelMigration()
+		mig, err := s.State2.LatestModelMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
 	}).Check()
@@ -394,7 +422,7 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
-	mig2, err := s.State2.GetModelMigration()
+	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.StatusMessage(), gc.Equals, "")
@@ -411,7 +439,7 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchForModelMigration(c *gc.C) {
 	// Start watching for migration.
-	w, wc := s.createWatcher(c, s.State2)
+	w, wc := s.createMigrationWatcher(c, s.State2)
 	wc.AssertOneChange()
 
 	// Create the migration - should be reported.
@@ -437,19 +465,19 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationInProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start watching for a migration - the in progress one should be reported.
-	_, wc := s.createWatcher(c, s.State2)
+	_, wc := s.createMigrationWatcher(c, s.State2)
 	wc.AssertOneChange()
 }
 
 func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
-	_, wc2 := s.createWatcher(c, s.State2)
+	_, wc2 := s.createMigrationWatcher(c, s.State2)
 	wc2.AssertOneChange()
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
-	_, wc3 := s.createWatcher(c, State3)
+	_, wc3 := s.createMigrationWatcher(c, State3)
 	wc3.AssertOneChange()
 
 	// Create a migration for 2.
@@ -465,7 +493,7 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
 	wc3.AssertOneChange()
 }
 
-func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
+func (s *ModelMigrationSuite) createMigrationWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchForModelMigration()
@@ -517,14 +545,14 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	_, wc2 := s.createStatusWatcher(c, s.State2)
-	wc2.AssertOneChange()
+	wc2.AssertOneChange() // initial event
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createStatusWatcher(c, State3)
-	wc3.AssertOneChange()
+	wc3.AssertOneChange() // initial event
 
 	// Create a migration for 2.
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
@@ -545,13 +573,161 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	wc3.AssertNoChange()
 }
 
+func (s *ModelMigrationSuite) TestMinionReports(c *gc.C) {
+	// Create some machines and units to report with.
+	factory2 := factory.NewFactory(s.State2)
+	m0 := factory2.MakeMachine(c, nil)
+	u0 := factory2.MakeUnit(c, &factory.UnitParams{Machine: m0})
+	m1 := factory2.MakeMachine(c, nil)
+	m2 := factory2.MakeMachine(c, nil)
+
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	const phase = migration.QUIESCE
+	c.Assert(mig.MinionReport(m0.Tag(), phase, true), jc.ErrorIsNil)
+	c.Assert(mig.MinionReport(m1.Tag(), phase, false), jc.ErrorIsNil)
+	c.Assert(mig.MinionReport(u0.Tag(), phase, true), jc.ErrorIsNil)
+
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{m0.Tag(), u0.Tag()})
+	c.Check(reports.Failed, jc.SameContents, []names.Tag{m1.Tag()})
+	c.Check(reports.Unknown, jc.SameContents, []names.Tag{m2.Tag()})
+}
+
+func (s *ModelMigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {
+	// It should be OK for a minion report to arrive more than once
+	// for the same migration, agent and phase as long as the value of
+	// "success" is the same.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewMachineTag("42")
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+}
+
+func (s *ModelMigrationSuite) TestDuplicateMinionReportsDifferingSuccess(c *gc.C) {
+	// It is not OK for a minion report to arrive more than once for
+	// the same migration, agent and phase when the "success" value
+	// changes.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewMachineTag("42")
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+	err = mig.MinionReport(tag, migration.QUIESCE, false)
+	c.Check(err, gc.ErrorMatches,
+		fmt.Sprintf("conflicting reports received for %s/QUIESCE/machine-42", mig.Id()))
+}
+
+func (s *ModelMigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
+	// It is OK for a report to arrive for even a migration has moved
+	// on.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get another reference to the same migration.
+	migalt, err := s.State2.LatestModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Confirm that there's no reports when starting.
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, gc.HasLen, 0)
+
+	// Advance the migration
+	c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
+
+	// Submit minion report for the old phase.
+	tag := names.NewMachineTag("42")
+	c.Assert(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+
+	// The report should still have been recorded.
+	reports, err = migalt.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{tag})
+}
+
+func (s *ModelMigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
+	// Create a migration.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get another reference to the same migration.
+	migalt, err := s.State2.LatestModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Abort the migration.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+
+	// Confirm that there's no reports when starting.
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, gc.HasLen, 0)
+
+	// Submit a minion report for it.
+	tag := names.NewMachineTag("42")
+	c.Assert(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+
+	// The report should still have been recorded.
+	reports, err = migalt.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{tag})
+}
+
+func (s *ModelMigrationSuite) TestWatchMinionReports(c *gc.C) {
+	mig, wc := s.createMigAndWatchReports(c, s.State2)
+	wc.AssertOneChange() // initial event
+
+	// A report should trigger the watcher.
+	c.Assert(mig.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// A report for a different phase shouldn't trigger the watcher.
+	c.Assert(mig.MinionReport(names.NewMachineTag("1"), migration.IMPORT, true), jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *ModelMigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
+	mig, wc := s.createMigAndWatchReports(c, s.State2)
+	wc.AssertOneChange() // initial event
+
+	State3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { State3.Close() })
+	mig3, wc3 := s.createMigAndWatchReports(c, State3)
+	wc3.AssertOneChange() // initial event
+
+	// Ensure the correct watchers are triggered.
+	c.Assert(mig.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc3.AssertNoChange()
+
+	c.Assert(mig3.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertNoChange()
+	wc3.AssertOneChange()
+}
+
 func (s *ModelMigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
-	w, err := st.WatchMigrationStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	w := st.WatchMigrationStatus()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
+}
+
+func (s *ModelMigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
+	state.ModelMigration, statetesting.NotifyWatcherC,
+) {
+	mig, err := st.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := mig.WatchMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { statetesting.AssertStop(c, w) })
+	wc := statetesting.NewNotifyWatcherC(c, st, w)
+
+	return mig, wc
 }
 
 func assertPhase(c *gc.C, mig state.ModelMigration, phase migration.Phase) {

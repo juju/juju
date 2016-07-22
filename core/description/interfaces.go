@@ -36,6 +36,7 @@ type Model interface {
 	HasAnnotations
 	HasConstraints
 
+	Cloud() string
 	CloudRegion() string
 	CloudCredential() string
 	Tag() names.ModelTag
@@ -62,6 +63,21 @@ type Model interface {
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
 
+	Spaces() []Space
+	AddSpace(SpaceArgs) Space
+
+	LinkLayerDevices() []LinkLayerDevice
+	AddLinkLayerDevice(LinkLayerDeviceArgs) LinkLayerDevice
+
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
+	SSHHostKeys() []SSHHostKey
+	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -76,7 +92,9 @@ type User interface {
 	CreatedBy() names.UserTag
 	DateCreated() time.Time
 	LastConnection() time.Time
-	ReadOnly() bool
+	IsReadOnly() bool
+	IsReadWrite() bool
+	IsAdmin() bool
 }
 
 // Address represents an IP Address of some form.
@@ -137,6 +155,9 @@ type Machine interface {
 	// TODO:
 	// Storage
 
+	BlockDevices() []BlockDevice
+	AddBlockDevice(BlockDeviceArgs) BlockDevice
+
 	OpenedPorts() []OpenedPorts
 	AddOpenedPorts(OpenedPortsArgs) OpenedPorts
 
@@ -193,6 +214,8 @@ type Constraints interface {
 
 	Spaces() []string
 	Tags() []string
+
+	VirtType() string
 }
 
 // Status represents an agent, application, or workload status.
@@ -265,6 +288,11 @@ type Unit interface {
 	WorkloadStatusHistory() []Status
 	SetWorkloadStatusHistory([]StatusArgs)
 
+	WorkloadVersion() string
+
+	WorkloadVersionHistory() []Status
+	SetWorkloadVersionHistory([]StatusArgs)
+
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
 
@@ -305,4 +333,54 @@ type Endpoint interface {
 
 	Settings(unitName string) map[string]interface{}
 	SetUnitSettings(unitName string, settings map[string]interface{})
+}
+
+// Space represents a network space, which is a named collection of subnets.
+type Space interface {
+	Name() string
+	Public() bool
+	ProviderID() string
+}
+
+// LinkLayerDevice represents a link layer device.
+type LinkLayerDevice interface {
+	Name() string
+	MTU() uint
+	ProviderID() string
+	MachineID() string
+	Type() string
+	MACAddress() string
+	IsAutoStart() bool
+	IsUp() bool
+	ParentName() string
+}
+
+// Subnet represents a network subnet.
+type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
+}
+
+// IPAddress represents an IP address.
+type IPAddress interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
+}
+
+// SSHHostKey represents an ssh host key.
+type SSHHostKey interface {
+	MachineID() string
+	Keys() []string
 }

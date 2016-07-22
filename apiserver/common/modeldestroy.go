@@ -8,10 +8,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/state"
 )
 
-var sendMetrics = func(st *state.State) error {
+var sendMetrics = func(st metricsender.MetricsSenderBackend) error {
 	err := metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend())
 	return errors.Trace(err)
 }
@@ -21,8 +20,8 @@ var sendMetrics = func(st *state.State) error {
 // model. This function assumes that all necessary authentication checks
 // have been done. If the model is a controller hosting other
 // models, they will also be destroyed.
-func DestroyModelIncludingHosted(st *state.State, modelTag names.ModelTag) error {
-	return destroyModel(st, modelTag, true)
+func DestroyModelIncludingHosted(st ModelManagerBackend, systemTag names.ModelTag) error {
+	return destroyModel(st, systemTag, true)
 }
 
 // DestroyModel sets the environment to dying. Cleanup jobs then destroy
@@ -30,11 +29,11 @@ func DestroyModelIncludingHosted(st *state.State, modelTag names.ModelTag) error
 // model. This function assumes that all necessary authentication checks
 // have been done. An error will be returned if this model is a
 // controller hosting other model.
-func DestroyModel(st *state.State, modelTag names.ModelTag) error {
+func DestroyModel(st ModelManagerBackend, modelTag names.ModelTag) error {
 	return destroyModel(st, modelTag, false)
 }
 
-func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels bool) error {
+func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHostedModels bool) error {
 	var err error
 	if modelTag != st.ModelTag() {
 		if st, err = st.ForModel(modelTag); err != nil {
@@ -44,6 +43,14 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 	}
 
 	if destroyHostedModels {
+		// Check we are operating on the controller state.
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelTag.Id() != controllerCfg.ControllerUUID() {
+			return errors.Errorf("expected controller model UUID %v, got %v", modelTag.Id(), controllerCfg.ControllerUUID())
+		}
 		models, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
@@ -66,17 +73,17 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 		}
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if destroyHostedModels {
-		if err := env.DestroyIncludingHosted(); err != nil {
+		if err := model.DestroyIncludingHosted(); err != nil {
 			return err
 		}
 	} else {
-		if err = env.Destroy(); err != nil {
+		if err = model.Destroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}

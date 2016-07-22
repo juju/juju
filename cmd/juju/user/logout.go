@@ -13,15 +13,25 @@ import (
 )
 
 const logoutDoc = `
-Log out of the controller.
+If another client has logged in as the same user, they will remain logged
+in. This command only affects the local client.
 
-This command will remove the user credentials for the current
-or specified controller from the client system. This command
-will fail if you have not previously logged in with a password;
-you can override this behavior by passing --force.
+The command will fail if the user has not yet set a password
+(` + "`juju change-user-password`" + `). This scenario is only possible after 
+` + "`juju bootstrap`" + `since ` + "`juju register`" + ` sets a password. The
+failing behaviour can be overridden with the '--force' option.
 
-If another client has logged in as the same user, they will
-remain logged in. This command only affects the local client.
+If the same user is logged in with another client system, that user session
+will not be affected by this command; it only affects the local client.
+
+By default, the controller is the current controller.
+
+Examples:
+    juju logout
+
+See Also:
+    juju change-user-password
+    juju login
 
 `
 
@@ -40,7 +50,7 @@ type logoutCommand struct {
 func (c *logoutCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "logout",
-		Purpose: "logs out of the controller",
+		Purpose: "Logs a Juju user out of a controller.",
 		Doc:     logoutDoc,
 	}
 }
@@ -53,7 +63,7 @@ func (c *logoutCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "force logout when a locally recorded password is detected")
+	f.BoolVar(&c.Force, "force", false, "Force logout when a locally recorded password is detected")
 }
 
 // Run implements Command.Run.
@@ -74,7 +84,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 		if name == controllerName {
 			continue
 		}
-		_, err := store.CurrentAccount(name)
+		_, err := store.AccountDetails(name)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -94,15 +104,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *logoutCommand) logout(store jujuclient.ClientStore, controllerName string) error {
-	accountName, err := store.CurrentAccount(controllerName)
-	if errors.IsNotFound(err) {
-		// Not logged in; nothing else to do.
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	accountDetails, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if errors.IsNotFound(err) {
 		// Not logged in; nothing else to do.
 		return nil
@@ -130,7 +132,7 @@ this command again with the "--force" flag.
 	}
 
 	// Remove the account credentials.
-	if err := store.RemoveAccount(controllerName, accountName); err != nil {
+	if err := store.RemoveAccount(controllerName); err != nil {
 		return errors.Annotate(err, "failed to clear credentials")
 	}
 	return nil

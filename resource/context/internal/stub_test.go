@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"
@@ -25,6 +26,7 @@ type internalStub struct {
 	ReturnNewChecker              internal.ContentChecker
 	ReturnCreateWriter            io.WriteCloser
 	ReturnNewTempDir              string
+	ReturnFingerprintMatches      bool
 }
 
 func newInternalStub() *internalStub {
@@ -168,6 +170,14 @@ func (s *internalStub) Copy(target io.Writer, source io.Reader) error {
 	}
 
 	return nil
+}
+func (s *internalStub) FingerprintMatches(filename string, fp charmresource.Fingerprint) (bool, error) {
+	s.Stub.AddCall("FingerprintMatches", filename, fp)
+	if err := s.Stub.NextErr(); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return s.ReturnFingerprintMatches, nil
 }
 
 func (s *internalStub) Join(pth ...string) string {

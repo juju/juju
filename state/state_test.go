@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -177,7 +176,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 permissions doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -448,8 +447,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-				w, err := m.WatchForRebootEvent()
-				c.Assert(err, jc.ErrorIsNil)
+				w := m.WatchForRebootEvent()
 				return w
 			},
 			triggerEvent: func(st *state.State) {
@@ -1874,23 +1872,6 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
-func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
-	w := s.State.WatchIPAddresses()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent()
-
-	// add an IP address
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(addr.Value())
-
-	// Make it Dead: reported.
-	err = addr.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(addr.Value())
-}
-
 func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Alive model...
 	alive, err := s.State.Model()
@@ -2468,7 +2449,7 @@ func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -2476,7 +2457,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
 	defer st.Close()
 
 	err := st.RemoveImportingModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being imported for migration")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
@@ -2488,7 +2469,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being imported for migration")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
@@ -2503,6 +2484,46 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveExportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being exported for migration")
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsFailsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being exported for migration")
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can not find the user:envName unique index
@@ -2547,15 +2568,6 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	// Initially we get one change notification
-	wc.AssertOneChange()
-
-	// Updating shared model settings triggers the watcher.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "defaultModelSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("apt-mirror", "http://mirror")
-	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
@@ -3161,7 +3173,6 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	controller.RemoveControllerAttributes(attrs)
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
 }
 
@@ -4117,10 +4128,14 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

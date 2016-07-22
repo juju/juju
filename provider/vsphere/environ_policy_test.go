@@ -7,7 +7,6 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -19,13 +18,6 @@ type environPolSuite struct {
 }
 
 var _ = gc.Suite(&environPolSuite{})
-
-func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
-	archList, err := s.Env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(archList, jc.SameContents, []string{arch.AMD64})
-}
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.Env.ConstraintsValidator()
@@ -71,20 +63,6 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
 
 func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
 	isSupported := s.Env.SupportNetworks()
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocation(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("some-network")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocationEmpty(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(isSupported, jc.IsFalse)
 }

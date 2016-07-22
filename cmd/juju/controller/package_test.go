@@ -77,44 +77,28 @@ current-controller: mallards
 const testModelsYaml = `
 controllers:
   aws-test:
-    accounts:
-      admin@local:
-        models:
-          admin:
-            uuid: ghi
-        current-model: admin
+    models:
+      admin:
+        uuid: ghi
+    current-model: admin
   mallards:
-    accounts:
-      admin@local:
-        models:
-          admin:
-            uuid: abc
-          my-model:
-            uuid: def
-        current-model: my-model
+    models:
+      admin:
+        uuid: abc
+      my-model:
+        uuid: def
+    current-model: my-model
 `
 
 const testAccountsYaml = `
 controllers:
   aws-test:
-    accounts:
-      admin@local:
-        user: admin@local
-        password: hun+er2
+    user: admin@local
+    password: hun+er2
   mark-test-prodstack:
-    accounts:
-      admin@local:
-        user: admin@local
-        password: hunter2
+    user: admin@local
+    password: hunter2
   mallards:
-    accounts:
-      admin@local:
-        user: admin@local
-        password: hunter2
-      bob@local:
-        user: bob@local
-        password: huntert00
-      bob@remote:
-        user: bob@remote
-    current-account: admin@local
+    user: admin@local
+    password: hunter2
 `

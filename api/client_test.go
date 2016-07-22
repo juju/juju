@@ -168,7 +168,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `POST http://.+: the POST method is not allowed`)
 }
 
 func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
@@ -232,6 +232,28 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
 		}
 	}
+}
+
+func (s *clientSuite) TestOpenURIFound(c *gc.C) {
+	// Use tools download to test OpenURI
+	const toolsVersion = "2.0.0-xenial-ppc64"
+	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
+
+	client := s.APIState.Client()
+	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+
+	// The fake tools content will be the version number.
+	content, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, toolsVersion)
+}
+
+func (s *clientSuite) TestOpenURIError(c *gc.C) {
+	client := s.APIState.Client()
+	_, err := client.OpenURI("/tools/foobar", nil)
+	c.Assert(err, gc.ErrorMatches, ".+error parsing version.+")
 }
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
@@ -328,22 +350,6 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 		{UserName: "two"},
 		{UserName: "three"},
 	})
-}
-
-func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	client := s.APIState.Client()
-	var called bool
-	cleanup := api.PatchClientFacadeCall(client,
-		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyModel")
-			called = true
-			return nil
-		})
-	defer cleanup()
-
-	err := client.DestroyModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
@@ -450,7 +456,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
 }
 
-func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
+func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// Passing in the correct model UUID should work
@@ -466,13 +472,13 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "dead-beef-123456"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
-	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.

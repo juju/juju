@@ -96,7 +96,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
@@ -114,7 +113,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.ModelConfig
-		nil, // Backing.ControllerConfig
 		nil, // Provider.Open
 		nil, // ZonedEnviron.AvailabilityZones
 		errors.NotSupportedf("setting"), // Backing.SetAvailabilityZones
@@ -131,7 +129,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
@@ -149,7 +146,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.ModelConfig
-		nil, // Backing.ControllerConfig
 		nil, // Provider.Open
 		errors.NotValidf("foo"), // ZonedEnviron.AvailabilityZones
 	)
@@ -165,7 +161,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
 	)
@@ -209,7 +204,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.ModelConfig
-		nil, // Backing.ControllerConfig
 		errors.NotValidf("config"), // Provider.Open
 	)
 
@@ -224,7 +218,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	)
 }
@@ -249,7 +242,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	)
 }
@@ -409,18 +401,15 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 
 		// caching subnets (2nd attepmt): fails
 		nil, // BackingInstance.ModelConfig (2nd call)
-		nil, // BackingInstance.ControllerConfig (2nd call)
 		errors.NotFoundf("provider"), // ProviderInstance.Open (1st call)
 
 		// caching subnets (3rd attempt): fails
 		nil, // BackingInstance.ModelConfig (3rd call)
-		nil, // BackingInstance.ControllerConfig (3rd call)
 		nil, // ProviderInstance.Open (2nd call)
 		errors.NotFoundf("subnets"), // NetworkingEnvironInstance.Subnets (1st call)
 
 		// caching subnets (4th attempt): succeeds
 		nil, // BackingInstance.ModelConfig (4th call)
-		nil, // BackingInstance.ControllerConfig (4th call)
 		nil, // ProviderInstance.Open (3rd call)
 		nil, // NetworkingEnvironInstance.Subnets (2nd call)
 
@@ -485,24 +474,18 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		ProviderId:        "sn-ipv6",
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,
-		AllocatableIPHigh: "",
-		AllocatableIPLow:  "",
 		AvailabilityZones: []string{"zone1"},
 		SpaceName:         "dmz",
 	}, {
 		ProviderId:        "vlan-42",
 		CIDR:              "10.30.1.0/24",
 		VLANTag:           42,
-		AllocatableIPHigh: "",
-		AllocatableIPLow:  "",
 		AvailabilityZones: []string{"zone3"},
 		SpaceName:         "private",
 	}, {
 		ProviderId:        "sn-zadf00d",
 		CIDR:              "10.10.0.0/24",
 		VLANTag:           0,
-		AllocatableIPHigh: "10.10.0.100",
-		AllocatableIPLow:  "10.10.0.10",
 		AvailabilityZones: []string{"zone1"},
 		SpaceName:         "private",
 	}}
@@ -536,18 +519,15 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 
 		// caching subnets (2nd attepmt): fails
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 
 		// caching subnets (3rd attempt): fails
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 
 		// caching subnets (4th attempt): succeeds
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 
@@ -587,7 +567,6 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	// These calls always happen.
 	expectedCalls := []apiservertesting.StubMethodCall{
 		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("ControllerConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	}
 
@@ -646,7 +625,6 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 		// updateZones tries to constructs a ZonedEnviron with these calls.
 		zoneCalls := append([]apiservertesting.StubMethodCall{},
 			apiservertesting.BackingCall("ModelConfig"),
-			apiservertesting.BackingCall("ControllerConfig"),
 			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		)
 		// Receiver can differ according to envName, but

@@ -93,26 +93,19 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (prov *azureEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	env, err := newEnviron(prov, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")
 	}
-	return env.initResourceGroup()
+	if err := env.initResourceGroup(controllerUUID); err != nil {
+		return nil, errors.Annotate(err, "initializing resource group")
+	}
+	return env.Config(), nil
 }
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// Ensure that internal configuration is not specified, and then set
-	// what we can now. We only need to do this during bootstrap. Validate
-	// will check for changes later.
-	unknownAttrs := args.Config.UnknownAttrs()
-	for _, key := range internalConfigAttributes {
-		if _, ok := unknownAttrs[key]; ok {
-			return nil, errors.Errorf(`internal config %q must not be specified`, key)
-		}
-	}
-
 	attrs := map[string]interface{}{
 		configAttrLocation:        args.CloudRegion,
 		configAttrEndpoint:        args.CloudEndpoint,
@@ -152,9 +145,6 @@ func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]st
 	unknownAttrs := cfg.UnknownAttrs()
 	secretAttrs := map[string]string{
 		configAttrAppPassword: unknownAttrs[configAttrAppPassword].(string),
-	}
-	if storageAccountKey, ok := unknownAttrs[configAttrStorageAccountKey].(string); ok {
-		secretAttrs[configAttrStorageAccountKey] = storageAccountKey
 	}
 	return secretAttrs, nil
 }

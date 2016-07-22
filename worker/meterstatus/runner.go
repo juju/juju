@@ -4,13 +4,13 @@
 package meterstatus
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/uniter"
@@ -24,40 +24,37 @@ type HookRunner interface {
 
 // hookRunner implements functionality for running a hook.
 type hookRunner struct {
-	machineLock *fslock.Lock
-	config      agent.Config
-	tag         names.UnitTag
+	machineLockName string
+	config          agent.Config
+	tag             names.UnitTag
+	clock           clock.Clock
 }
 
-func NewHookRunner(tag names.UnitTag, lock *fslock.Lock, config agent.Config) HookRunner {
+func NewHookRunner(tag names.UnitTag, lockName string, config agent.Config, clock clock.Clock) HookRunner {
 	return &hookRunner{
-		tag:         tag,
-		machineLock: lock,
-		config:      config,
+		tag:             tag,
+		machineLockName: lockName,
+		config:          config,
+		clock:           clock,
 	}
 }
 
 // acquireExecutionLock acquires the machine-level execution lock and returns a function to be used
 // to unlock it.
-func (w *hookRunner) acquireExecutionLock(interrupt <-chan struct{}) (func() error, error) {
-	message := "running meter-status-changed hook"
-	logger.Tracef("lock: %v", message)
-	checkTomb := func() error {
-		select {
-		case <-interrupt:
-			return tomb.ErrDying
-		default:
-			return nil
-		}
+func (w *hookRunner) acquireExecutionLock(interrupt <-chan struct{}) (mutex.Releaser, error) {
+	spec := mutex.Spec{
+		Name:   w.machineLockName,
+		Clock:  w.clock,
+		Delay:  250 * time.Millisecond,
+		Cancel: interrupt,
 	}
-	message = fmt.Sprintf("%s: %s", w.tag.String(), message)
-	if err := w.machineLock.LockWithFunc(message, checkTomb); err != nil {
-		return nil, err
+	logger.Debugf("acquire lock %q for meter status hook execution", w.machineLockName)
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return func() error {
-		logger.Tracef("unlock: %v", message)
-		return w.machineLock.Unlock()
-	}, nil
+	logger.Debugf("lock %q acquired", w.machineLockName)
+	return releaser, nil
 }
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
@@ -69,15 +66,12 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runE
 		"JUJU_METER_INFO":   info,
 	})
 	r := runner.NewRunner(ctx, paths)
-	unlock, err := w.acquireExecutionLock(interrupt)
+	releaser, err := w.acquireExecutionLock(interrupt)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire machine lock")
 	}
-	defer func() {
-		unlockErr := unlock()
-		if unlockErr != nil {
-			logger.Criticalf("hook run resulted in error %v; unlock failure error: %v", runErr, unlockErr)
-		}
-	}()
+	// Defer the logging first so it is executed after the Release. LIFO.
+	defer logger.Debugf("release lock %q for meter status hook execution", w.machineLockName)
+	defer releaser.Release()
 	return r.RunHook(string(hooks.MeterStatusChanged))
 }

@@ -9,12 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
@@ -110,7 +108,7 @@ type AddRelation struct {
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
 // field maps application names to the involved endpoints.
 type AddRelationResults struct {
-	Endpoints map[string]charm.Relation `json:"endpoints"`
+	Endpoints map[string]CharmRelation `json:"endpoints"`
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
@@ -142,11 +140,11 @@ type AddMachineParams struct {
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
-	Disks []storage.Constraints `json:"disks"`
+	Disks []storage.Constraints `json:"disks,omitempty"`
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
-	Placement *instance.Placement `json:"placement"`
+	Placement *instance.Placement `json:"placement,omitempty"`
 
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
@@ -208,13 +206,13 @@ type ApplicationDeploy struct {
 	CharmUrl         string                         `json:"charm-url"`
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config"`
+	Config           map[string]string              `json:"config,omitempty"`
 	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
 	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement"`
-	Storage          map[string]storage.Constraints `json:"storage"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings"`
-	Resources        map[string]string              `json:"resources"`
+	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources        map[string]string              `json:"resources,omitempty"`
 }
 
 // ApplicationUpdate holds the parameters for making the application Update call.
@@ -224,7 +222,7 @@ type ApplicationUpdate struct {
 	ForceCharmUrl   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
 	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings"`
+	SettingsStrings map[string]string  `json:"settings,omitempty"`
 	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
 	Constraints     *constraints.Value `json:"constraints,omitempty"`
 }
@@ -244,7 +242,7 @@ type ApplicationSetCharm struct {
 	ForceSeries bool `json:"force-series"`
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
-	ResourceIDs map[string]string `json:"resource-ids"`
+	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
@@ -279,6 +277,7 @@ type ApplicationGetResults struct {
 	Charm       string                 `json:"charm"`
 	Config      map[string]interface{} `json:"config"`
 	Constraints constraints.Value      `json:"constraints"`
+	Series      string                 `json:"series"`
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.
@@ -425,13 +424,14 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.URL `json:"references"`
+	References []string `json:"references"`
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
 type ResolveCharmResult struct {
-	URL   *charm.URL `json:"url,omitempty"`
-	Error string     `json:"error,omitempty"`
+	// URL is a string representation of charm.URL.
+	URL   string `json:"url,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // ResolveCharmResults holds results of the ResolveCharms call.
@@ -584,6 +584,18 @@ type LoginResult struct {
 	Facades        []FacadeVersions `json:"facades"`
 }
 
+// RedirectInfoResult holds the result of a RedirectInfo call.
+type RedirectInfoResult struct {
+	// Servers holds an entry for each server that holds the
+	// addresses for the server.
+	Servers [][]HostPort `json:"servers"`
+
+	// CACert holds the CA certificate for the server.
+	// TODO(rogpeppe) allow this to be empty if the
+	// server has a globally trusted certificate?
+	CACert string `json:"ca-cert"`
+}
+
 // ReauthRequest holds a challenge/response token meaningful to the identity
 // provider.
 type ReauthRequest struct {
@@ -600,6 +612,10 @@ type AuthUserInfo struct {
 	// Credentials contains an optional opaque credential value to be held by
 	// the client, if any.
 	Credentials *string `json:"credentials,omitempty"`
+
+	// ReadOnly holds whether the user has read-only access for the
+	// connected model.
+	ReadOnly bool `json:"read-only"`
 }
 
 // LoginResultV1 holds the result of an Admin v1 Login call.
@@ -752,11 +768,11 @@ type RebootActionResult struct {
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	Time     time.Time   `json:"t"`
-	Module   string      `json:"m"`
-	Location string      `json:"l"`
-	Level    loggo.Level `json:"v"`
-	Message  string      `json:"x"`
+	Time     time.Time `json:"t"`
+	Module   string    `json:"m"`
+	Location string    `json:"l"`
+	Level    string    `json:"v"`
+	Message  string    `json:"x"`
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.

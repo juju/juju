@@ -51,11 +51,8 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
-	s.store.Accounts[controllerName] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"bob@local": {User: "bob@local"},
-		},
-		CurrentAccount: "bob@local",
+	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
+		User: "bob@local",
 	}
 	s.store.Credentials["aws"] = cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
@@ -148,7 +145,7 @@ func (s *addSuite) TestAddExistingName(c *gc.C) {
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
 	// model with the same name.
-	err := s.store.UpdateModel("test-master", "bob@local", "test", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("test-master", "test", jujuclient.ModelDetails{
 		"stale-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +153,7 @@ func (s *addSuite) TestAddExistingName(c *gc.C) {
 	_, err = s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	details, err := s.store.ModelByName("test-master", "bob@local", "test")
+	details, err := s.store.ModelByName("test-master", "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -278,7 +275,7 @@ func (s *addSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ModelByName("test-master", "bob@local", "test")
+	_, err = s.store.ModelByName("test-master", "test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -286,7 +283,7 @@ func (s *addSuite) TestAddStoresValues(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "bob@local", "test")
+	model, err := s.store.ModelByName("test-master", "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -296,9 +293,7 @@ func (s *addSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Creating a model for another user does not update the model cache.
-	_, err = s.store.ModelByName("test-master", "bob@local", "test")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.store.ModelByName("test-master", "zeus@local", "test")
+	_, err = s.store.ModelByName("test-master", "test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -335,12 +330,12 @@ type fakeCloudAPI struct {
 	controller.CloudAPI
 }
 
-func (c *fakeCloudAPI) Credentials(names.UserTag) (map[string]cloud.Credential, error) {
+func (c *fakeCloudAPI) Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error) {
 	return map[string]cloud.Credential{
 		"default": cloud.NewEmptyCredential(),
 	}, nil
 }
 
-func (c *fakeCloudAPI) UpdateCredentials(names.UserTag, map[string]cloud.Credential) error {
+func (c *fakeCloudAPI) UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error {
 	return nil
 }

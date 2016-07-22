@@ -35,11 +35,6 @@ func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigVali
 	return Provider(providerType)
 }
 
-func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
-	// Environ implements state.EnvironCapability.
-	return New(cfg)
-}
-
 func (environStatePolicy) ConstraintsValidator(cfg *config.Config, querier state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 	env, err := New(cfg)
 	if err != nil {

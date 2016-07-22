@@ -24,7 +24,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
@@ -116,7 +116,7 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
@@ -158,18 +158,26 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hwc := testing.AssertStartInstance(c, env, "100")
+	inst, hwc := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -178,9 +186,13 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -236,7 +248,7 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
-	inst, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,14 +256,17 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances(inst0.Id(), inst1.Id())
-		c.Assert(err, jc.ErrorIsNil)
+		// StopInstances deletes machines in parallel but the Joyent
+		// API test double isn't goroutine-safe so stop them one at a
+		// time. See https://pad.lv/1604514
+		c.Check(env.StopInstances(inst0.Id()), jc.ErrorIsNil)
+		c.Check(env.StopInstances(inst1.Id()), jc.ErrorIsNil)
 	}()
 
 	for i, test := range instanceGathering {
@@ -285,11 +300,15 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 

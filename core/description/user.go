@@ -22,7 +22,7 @@ type UserArgs struct {
 	CreatedBy      names.UserTag
 	DateCreated    time.Time
 	LastConnection time.Time
-	ReadOnly       bool
+	Access         Access
 }
 
 func newUser(args UserArgs) *user {
@@ -31,7 +31,7 @@ func newUser(args UserArgs) *user {
 		DisplayName_: args.DisplayName,
 		CreatedBy_:   args.CreatedBy.Canonical(),
 		DateCreated_: args.DateCreated,
-		ReadOnly_:    args.ReadOnly,
+		Access_:      args.Access,
 	}
 	if !args.LastConnection.IsZero() {
 		value := args.LastConnection
@@ -45,10 +45,10 @@ type user struct {
 	DisplayName_ string    `yaml:"display-name,omitempty"`
 	CreatedBy_   string    `yaml:"created-by"`
 	DateCreated_ time.Time `yaml:"date-created"`
+	Access_      Access    `yaml:"access"`
 	// Can't use omitempty with time.Time, it just doesn't work,
 	// so use a pointer in the struct.
 	LastConnection_ *time.Time `yaml:"last-connection,omitempty"`
-	ReadOnly_       bool       `yaml:"read-only,omitempty"`
 }
 
 // Name implements User.
@@ -80,9 +80,19 @@ func (u *user) LastConnection() time.Time {
 	return *u.LastConnection_
 }
 
-// ReadOnly implements User.
-func (u *user) ReadOnly() bool {
-	return u.ReadOnly_
+// IsRead implements User.
+func (u *user) IsReadOnly() bool {
+	return u.Access_ == ReadAccess
+}
+
+// IsReadWrite implements User.
+func (u *user) IsReadWrite() bool {
+	return u.Access_ == WriteAccess
+}
+
+// IsAdmin implements User.
+func (u *user) IsAdmin() bool {
+	return u.Access_ == AdminAccess
 }
 
 func importUsers(source map[string]interface{}) ([]*user, error) {
@@ -132,6 +142,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		"read-only":       schema.Bool(),
 		"date-created":    schema.Time(),
 		"last-connection": schema.Time(),
+		"access":          accessField(),
 	}
 
 	// Some values don't have to be there.
@@ -154,7 +165,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		DisplayName_: valid["display-name"].(string),
 		CreatedBy_:   valid["created-by"].(string),
 		DateCreated_: valid["date-created"].(time.Time),
-		ReadOnly_:    valid["read-only"].(bool),
+		Access_:      valid["access"].(Access),
 	}
 
 	lastConn := valid["last-connection"].(time.Time)

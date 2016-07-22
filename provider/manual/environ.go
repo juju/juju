@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
@@ -45,8 +44,6 @@ var (
 )
 
 type manualEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
 	ubuntuUserInited    bool
@@ -84,11 +81,6 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
-	return arch.AllSupportedArches, nil
-}
-
 // Bootstrap is specified on the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	envConfig := e.envConfig()
@@ -104,7 +96,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	if err != nil {
 		return nil, err
 	}
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = &hc
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
@@ -122,7 +114,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances() ([]instance.Id, error) {
+func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	arg0 := filepath.Base(os.Args[0])
 	if arg0 != names.Jujud {
 		// Not running inside the controller, so we must
@@ -242,6 +234,11 @@ exit 0
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	return err
+}
+
+// DestroyController implements the Environ interface.
+func (e *manualEnviron) DestroyController(controllerUUID string) error {
+	return e.Destroy()
 }
 
 func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {

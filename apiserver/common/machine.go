@@ -30,8 +30,6 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 		return state.JobHostUnits, nil
 	case multiwatcher.JobManageModel:
 		return state.JobManageModel, nil
-	case multiwatcher.JobManageNetworking:
-		return state.JobManageNetworking, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}

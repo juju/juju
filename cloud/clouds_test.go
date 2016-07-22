@@ -61,7 +61,7 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	rackspace := clouds["rackspace"]
-	c.Assert(rackspace.AuthTypes, jc.SameContents, []cloud.AuthType{"access-key", "userpass"})
+	c.Assert(rackspace.AuthTypes, jc.SameContents, cloud.AuthTypes{"access-key", "userpass"})
 }
 
 func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {

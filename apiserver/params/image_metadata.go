@@ -53,10 +53,10 @@ type CloudImageMetadata struct {
 	VirtType string `json:"virt-type,omitempty"`
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
-	RootStorageType string `json:"root-storage_type,omitempty"`
+	RootStorageType string `json:"root-storage-type,omitempty"`
 
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize *uint64 `json:"root-storage_size,omitempty"`
+	RootStorageSize *uint64 `json:"root-storage-size,omitempty"`
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `json:"source"`

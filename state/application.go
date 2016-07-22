@@ -964,12 +964,17 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
+	workloadVersionDoc := statusDoc{
+		Status:  status.StatusUnknown,
+		Updated: now.UnixNano(),
+	}
 
 	ops := addUnitOps(s.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: unitStatusDoc,
-		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  unitStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
+		meterStatusDoc:     &meterStatusDoc{Code: MeterNotSet.String()},
 	})
 
 	ops = append(ops, storageOps...)
@@ -993,6 +998,7 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// them cleanly.
 	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
 	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(s.st, globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
@@ -1069,7 +1075,6 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO(ericsnow) Use a generic registry instead.
 	resOps, err := removeUnitResourcesOps(s.st, u.doc.Application, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)

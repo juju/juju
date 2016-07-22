@@ -24,6 +24,13 @@ import (
 // AuthType is the type of authentication used by the cloud.
 type AuthType string
 
+// AuthTypes is defined to allow sorting AuthType slices.
+type AuthTypes []AuthType
+
+func (a AuthTypes) Len() int           { return len(a) }
+func (a AuthTypes) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AuthTypes) Less(i, j int) bool { return a[i] < a[j] }
+
 const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"
@@ -41,6 +48,9 @@ const (
 	// a JSON file.
 	JSONFileAuthType AuthType = "jsonfile"
 
+	// CertificateAuthType is an authentication type using certificates.
+	CertificateAuthType AuthType = "certificate"
+
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"
@@ -52,7 +62,7 @@ type Cloud struct {
 	Type string
 
 	// AuthTypes are the authentication modes supported by the cloud.
-	AuthTypes []AuthType
+	AuthTypes AuthTypes
 
 	// Endpoint is the default endpoint for the cloud regions, may be
 	// overridden by a region.
@@ -173,7 +183,18 @@ func RegionByName(regions []Region, name string) (*Region, error) {
 		}
 		return &region, nil
 	}
-	return nil, errors.NotFoundf("region %q", name)
+	return nil, errors.NewNotFound(nil, fmt.Sprintf(
+		"region %q not found (expected one of %q)",
+		name, cloudRegionNames(regions),
+	))
+}
+
+func cloudRegionNames(regions []Region) []string {
+	names := make([]string, len(regions))
+	for i, region := range regions {
+		names[i] = region.Name
+	}
+	return names
 }
 
 // JujuPublicCloudsPath is the location where public cloud information is

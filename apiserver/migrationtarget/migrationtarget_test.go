@@ -11,12 +11,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -35,13 +36,15 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: "dummycontroller",
-			BaseConfig:     dummy.SampleConfig(),
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			ControllerName:   "dummycontroller",
+			BaseConfig:       dummy.SampleConfig(),
+			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,7 +66,11 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := factory(s.State, s.resources, s.authorizer, "")
+	api, err := factory(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
 }

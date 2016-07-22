@@ -26,8 +26,6 @@ type baseProvider interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 	uuid string
 	raw  *rawProvider
@@ -164,21 +162,21 @@ func (env *environ) Destroy() error {
 			return errors.Trace(err)
 		}
 	}
-	cfg := env.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// This is the controller model, so we'll make sure
-		// there are no resources for hosted models remaining.
-		if err := env.destroyHostedModelResources(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (env *environ) destroyHostedModelResources() error {
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	return env.destroyHostedModelResources(controllerUUID)
+}
+
+func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	// Destroy all instances where juju-controller-uuid,
 	// but not juju-model-uuid, matches env.uuid.
 	prefix := env.namespace.Prefix()
@@ -193,7 +191,7 @@ func (env *environ) destroyHostedModelResources() error {
 		if metadata[tags.JujuModel] == env.uuid {
 			continue
 		}
-		if metadata[tags.JujuController] != env.uuid {
+		if metadata[tags.JujuController] != controllerUUID {
 			continue
 		}
 		names = append(names, string(inst.Id()))

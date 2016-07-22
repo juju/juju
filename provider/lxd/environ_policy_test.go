@@ -57,7 +57,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	cons := constraints.MustParse("arch=i386")
 	placement := ""
@@ -74,17 +74,8 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown placement directive: .*`)
 }
 
-func (s *environPolSuite) TestSupportedArchitecturesOkay(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
-
-	archList, err := s.Env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(archList, jc.SameContents, []string{arch.AMD64})
-}
-
 func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,7 +98,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +126,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +138,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,7 +146,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64\\]")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
@@ -170,7 +161,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
-	s.Policy.Arches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,20 +178,6 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 
 func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
 	isSupported := s.Env.SupportNetworks()
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocation(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("some-network")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocationEmpty(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(isSupported, jc.IsFalse)
 }

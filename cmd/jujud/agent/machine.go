@@ -10,13 +10,16 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -40,7 +43,9 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -87,15 +92,20 @@ var (
 	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
-	// intercept calls to the functions.
+	// intercept calls to the functions. In every case, they should
+	// be expressed as explicit dependencies, but nobody has yet had
+	// the intestinal fortitude to untangle this package. Be that
+	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	modelManifolds        = model.Manifolds
 	newSingularRunner     = singular.New
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker = mongoupgrader.New
 	reportOpenedState     = func(*state.State) {}
+
+	modelManifolds   = model.Manifolds
+	machineManifolds = machine.Manifolds
 )
 
 // Variable to override in tests, default is true
@@ -437,7 +447,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err != nil {
 			return nil, err
 		}
-		manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,
@@ -788,10 +798,6 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
-	initLock, err := cmdutil.HookExecutionLock(agentConfig.DataDir())
-	if err != nil {
-		return err
-	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	modelUUID, err := st.ModelTag()
 	if err != nil {
@@ -827,7 +833,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLock:            initLock,
+		InitLockName:        agent.MachineLockName,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
@@ -878,8 +884,6 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 		switch job {
 		case state.JobHostUnits:
 			// Implemented elsewhere with workers that use the API.
-		case state.JobManageNetworking:
-			// Not used by state workers.
 		case state.JobManageModel:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
@@ -1051,7 +1055,20 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	if err != nil {
 		return nil, err
 	}
-	w, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+
+	// TODO(katco): We should be doing something more serious than
+	// logging audit errors. Failures in the auditing systems should
+	// stop the api server until the problem can be corrected.
+	auditErrorHandler := func(err error) {
+		logger.Criticalf("%v", err)
+	}
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot fetch the controller config")
+	}
+
+	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
 		Tag:         tag,
@@ -1059,11 +1076,82 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		LogDir:      logDir,
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
+		NewObserver: newObserverFn(
+			controllerConfig,
+			clock.WallClock,
+			jujuversion.Current,
+			agentConfig.Model().Id(),
+			newAuditEntrySink(st, logDir),
+			auditErrorHandler,
+		),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
-	return w, nil
+
+	return server, nil
+}
+
+func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
+	persistFn := st.PutAuditEntryFn()
+	fileSinkFn := audit.NewLogFileSink(logDir)
+	return func(entry audit.AuditEntry) error {
+		// We don't care about auditing anything but user actions.
+		if _, err := names.ParseUserTag(entry.OriginName); err != nil {
+			return nil
+		}
+		// TODO(wallyworld) - Pinger requests should not originate as a user action.
+		if strings.HasPrefix(entry.Operation, "Pinger:") {
+			return nil
+		}
+		persistErr := persistFn(entry)
+		sinkErr := fileSinkFn(entry)
+		if persistErr == nil {
+			return errors.Annotate(sinkErr, "cannot save audit record to file")
+		}
+		if sinkErr == nil {
+			return errors.Annotate(persistErr, "cannot save audit record to database")
+		}
+		return errors.Annotate(persistErr, "cannot save audit record to file or database")
+	}
+}
+
+func newObserverFn(
+	controllerConfig controller.Config,
+	clock clock.Clock,
+	jujuServerVersion version.Number,
+	modelUUID string,
+	persistAuditEntry audit.AuditEntrySinkFn,
+	auditErrorHandler observer.ErrorHandler,
+) observer.ObserverFactory {
+
+	var observerFactories []observer.ObserverFactory
+
+	// Common logging of RPC requests
+	var connectionID int64
+	observerFactories = append(observerFactories, func() observer.Observer {
+		logger := loggo.GetLogger("juju.apiserver")
+		ctx := observer.RequestObserverContext{
+			Clock:  clock,
+			Logger: logger,
+		}
+		return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
+	})
+
+	// Auditing observer
+	// TODO(katco): Auditing needs feature tests (lp:1604551)
+	if controllerConfig.AuditingEnabled() {
+		observerFactories = append(observerFactories, func() observer.Observer {
+			ctx := &observer.AuditContext{
+				JujuServerVersion: jujuServerVersion,
+				ModelUUID:         modelUUID,
+			}
+			return observer.NewAudit(ctx, persistAuditEntry, auditErrorHandler)
+		})
+	}
+
+	return observer.ObserverFactoryMultiplexer(observerFactories...)
+
 }
 
 // limitLogins is called by the API server for each login attempt.

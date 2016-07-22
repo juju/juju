@@ -5,7 +5,7 @@ package cloudconfig
 
 // Generated code - do not edit.
 
-const UserDataScript = `
+const UserDataScript = `#ps1_sysnative
 $ErrorActionPreference = "Stop"
 $userdata=@"
 %s

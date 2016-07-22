@@ -9,10 +9,17 @@ import (
 	"github.com/juju/version"
 )
 
+// ConfigValue encapsulates a configuration
+// value and its source.
+type ConfigValue struct {
+	Value  interface{} `json:"value"`
+	Source string      `json:"source"`
+}
+
 // ModelConfigResults contains the result of client API calls
 // to get model config values.
 type ModelConfigResults struct {
-	Config map[string]interface{} `json:"config"`
+	Config map[string]ConfigValue `json:"config"`
 }
 
 // ModelSet contains the arguments for ModelSet client API
@@ -36,15 +43,15 @@ type SetModelAgentVersion struct {
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	// The json names for the fields below are as per the older
-	// field names for backward compatability. New fields are
+	// field names for backward compatibility. New fields are
 	// camel-cased for consistency within this type only.
-	Name           string `json:"name"`
-	UUID           string `json:"uuid"`
-	ControllerUUID string `json:"controller-uuid"`
-	ProviderType   string `json:"provider-type"`
-	DefaultSeries  string `json:"default-series"`
-	CloudRegion    string `json:"cloud-region,omitempty"`
-	// TODO(axw) make sure we're setting this everywhere
+	Name            string `json:"name"`
+	UUID            string `json:"uuid"`
+	ControllerUUID  string `json:"controller-uuid"`
+	ProviderType    string `json:"provider-type"`
+	DefaultSeries   string `json:"default-series"`
+	Cloud           string `json:"cloud"`
+	CloudRegion     string `json:"cloud-region,omitempty"`
 	CloudCredential string `json:"cloud-credential,omitempty"`
 
 	// OwnerTag is the tag of the user that owns the model.
@@ -139,6 +146,7 @@ type ModelAccessPermission string
 
 // Model access permissions that may be set on a user.
 const (
+	ModelAdminAccess ModelAccessPermission = "admin"
 	ModelReadAccess  ModelAccessPermission = "read"
 	ModelWriteAccess ModelAccessPermission = "write"
 )

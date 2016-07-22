@@ -55,6 +55,7 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Cloud:              dbModel.Cloud(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
@@ -83,6 +84,24 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relations(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.spaces(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.subnets(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.ipaddresses(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.linklayerdevices(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -154,8 +173,18 @@ func (e *exporter) modelUsers() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	for _, user := range users {
+		var access string
+		switch {
+		case user.IsAdmin():
+			access = string(description.AdminAccess)
+		case user.IsReadWrite():
+			access = string(description.WriteAccess)
+		default:
+			access = string(description.ReadAccess)
+
+		}
+
 		lastConn := lastConnections[strings.ToLower(user.UserName())]
 		arg := description.UserArgs{
 			Name:           user.UserTag(),
@@ -163,7 +192,7 @@ func (e *exporter) modelUsers() error {
 			CreatedBy:      names.NewUserTag(user.CreatedBy()),
 			DateCreated:    user.DateCreated(),
 			LastConnection: lastConn,
-			ReadOnly:       user.ReadOnly(),
+			Access:         stringToAccess(access),
 		}
 		e.model.AddUser(arg)
 	}
@@ -177,17 +206,13 @@ func (e *exporter) machines() error {
 	}
 	e.logger.Debugf("found %d machines", len(machines))
 
-	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
-	defer closer()
-
-	var instData []instanceData
-	instances := make(map[string]instanceData)
-	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
-		return errors.Annotate(err, "instance data")
+	instances, err := e.loadMachineInstanceData()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	e.logger.Debugf("found %d instanceData", len(instData))
-	for _, data := range instData {
-		instances[data.MachineId] = data
+	blockDevices, err := e.loadMachineBlockDevices()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Read all the open ports documents.
@@ -217,7 +242,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, portsData)
+		exMachine, err := e.newMachine(exParent, machine, instances, portsData, blockDevices)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -227,7 +252,39 @@ func (e *exporter) machines() error {
 	return nil
 }
 
-func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc) (description.Machine, error) {
+func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
+	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
+	defer closer()
+
+	var instData []instanceData
+	instances := make(map[string]instanceData)
+	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
+		return nil, errors.Annotate(err, "instance data")
+	}
+	e.logger.Debugf("found %d instanceData", len(instData))
+	for _, data := range instData {
+		instances[data.MachineId] = data
+	}
+	return instances, nil
+}
+
+func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
+	coll, closer := e.st.getCollection(blockDevicesC)
+	defer closer()
+
+	var deviceData []blockDevicesDoc
+	result := make(map[string][]BlockDeviceInfo)
+	if err := coll.Find(nil).All(&deviceData); err != nil {
+		return nil, errors.Annotate(err, "block devices")
+	}
+	e.logger.Debugf("found %d block device records", len(deviceData))
+	for _, data := range deviceData {
+		result[data.Machine] = data.BlockDevices
+	}
+	return result, nil
+}
+
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -271,6 +328,23 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+	// We don't rely on devices being there. If they aren't, we get an empty slice,
+	// which is fine to iterate over with range.
+	for _, device := range blockDevices[machine.doc.Id] {
+		exMachine.AddBlockDevice(description.BlockDeviceArgs{
+			Name:           device.DeviceName,
+			Links:          device.DeviceLinks,
+			Label:          device.Label,
+			UUID:           device.UUID,
+			HardwareID:     device.HardwareId,
+			BusAddress:     device.BusAddress,
+			Size:           device.Size,
+			FilesystemType: device.FilesystemType,
+			InUse:          device.InUse,
+			MountPoint:     device.MountPoint,
+		})
+	}
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
@@ -482,9 +556,14 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
+		workloadVersion, err := unit.WorkloadVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
+			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
 			MeterStatusCode: unitMeterStatus.Code,
 			MeterStatusInfo: unitMeterStatus.Info,
@@ -498,7 +577,8 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
-		// workload uses globalKey, agent uses globalAgentKey.
+		// workload uses globalKey, agent uses globalAgentKey,
+		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
@@ -506,12 +586,16 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
 		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
+
 		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
 		exUnit.SetAgentStatus(statusArgs)
 		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+
+		workloadVersionKey := unit.globalWorkloadVersionKey()
+		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
 		tools, err := unit.AgentTools()
 		if err != nil {
@@ -582,6 +666,109 @@ func (e *exporter) relations() error {
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
+	}
+	return nil
+}
+
+func (e *exporter) spaces() error {
+	spaces, err := e.st.AllSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d spaces", len(spaces))
+
+	for _, space := range spaces {
+		e.model.AddSpace(description.SpaceArgs{
+			Name:       space.Name(),
+			Public:     space.IsPublic(),
+			ProviderID: string(space.ProviderId()),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) linklayerdevices() error {
+	linklayerdevices, err := e.st.AllLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip devices", len(linklayerdevices))
+	for _, device := range linklayerdevices {
+		e.model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+			ProviderID:  string(device.ProviderID()),
+			MachineID:   device.MachineID(),
+			Name:        device.Name(),
+			MTU:         device.MTU(),
+			Type:        string(device.Type()),
+			MACAddress:  device.MACAddress(),
+			IsAutoStart: device.IsAutoStart(),
+			IsUp:        device.IsUp(),
+			ParentName:  device.ParentName(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) subnets() error {
+	subnets, err := e.st.AllSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d subnets", len(subnets))
+
+	for _, subnet := range subnets {
+		e.model.AddSubnet(description.SubnetArgs{
+			CIDR:             subnet.CIDR(),
+			ProviderId:       string(subnet.ProviderId()),
+			VLANTag:          subnet.VLANTag(),
+			AvailabilityZone: subnet.AvailabilityZone(),
+			SpaceName:        subnet.SpaceName(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) ipaddresses() error {
+	ipaddresses, err := e.st.AllIPAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
+	for _, addr := range ipaddresses {
+		e.model.AddIPAddress(description.IPAddressArgs{
+			ProviderID:       string(addr.ProviderID()),
+			DeviceName:       addr.DeviceName(),
+			MachineID:        addr.MachineID(),
+			SubnetCIDR:       addr.SubnetCIDR(),
+			ConfigMethod:     string(addr.ConfigMethod()),
+			Value:            addr.Value(),
+			DNSServers:       addr.DNSServers(),
+			DNSSearchDomains: addr.DNSSearchDomains(),
+			GatewayAddress:   addr.GatewayAddress(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) sshHostKeys() error {
+	machines, err := e.st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, machine := range machines {
+		keys, err := e.st.GetSSHHostKeys(machine.MachineTag())
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
+			MachineID: machine.Id(),
+			Keys:      keys,
+		})
 	}
 	return nil
 }
@@ -758,7 +945,10 @@ func (e *exporter) readAllStatusHistory() error {
 	count := 0
 	e.statusHistory = make(map[string][]historicalStatusDoc)
 	var doc historicalStatusDoc
-	iter := statuses.Find(nil).Sort("-updated").Iter()
+	// In tests, sorting by time can leave the results
+	// underconstrained - include document id for deterministic
+	// ordering in those cases.
+	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		history := e.statusHistory[doc.GlobalKey]
@@ -878,6 +1068,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		RootDisk:     optionalInt("rootdisk"),
 		Spaces:       optionalStringSlice("spaces"),
 		Tags:         optionalStringSlice("tags"),
+		VirtType:     optionalString("virttype"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)

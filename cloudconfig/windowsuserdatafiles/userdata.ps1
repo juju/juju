@@ -1,3 +1,4 @@
+#ps1_sysnative
 $ErrorActionPreference = "Stop"
 $userdata=@"
 %s

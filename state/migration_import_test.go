@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -57,6 +58,10 @@ func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State)
 
 	newModel, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
+	// add the cleanup here to close the model.
+	s.AddCleanup(func(c *gc.C) {
+		c.Check(newSt.Close(), jc.ErrorIsNil)
+	})
 	return newModel, newSt
 }
 
@@ -134,9 +139,9 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	access := state.ModelAdminAccess
+	access := description.AdminAccess
 	if readOnly {
-		access = state.ModelReadAccess
+		access = description.ReadAccess
 	}
 	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
@@ -156,7 +161,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
 	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
 	c.Assert(newUser.DateCreated(), gc.Equals, oldUser.DateCreated())
-	c.Assert(newUser.ReadOnly(), gc.Equals, oldUser.ReadOnly())
+	c.Assert(newUser.IsReadOnly(), gc.Equals, newUser.IsReadOnly())
 
 	connTime, err := oldUser.LastConnection()
 	if state.IsNeverConnectedError(err) {
@@ -184,7 +189,6 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
 	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	// Check the import values of the users.
 	for _, user := range []*state.ModelUser{bravo, charlie, delta} {
@@ -240,7 +244,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(allMachines, gc.HasLen, 2)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	importedMachines, err := newSt.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,40 +273,70 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
-func (s *MigrationImportSuite) TestServices(c *gc.C) {
-	// Add a service with both settings and leadership settings.
+func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	// Create two devices, first with all fields set, second just to show that
+	// we do both.
+	sda := state.BlockDeviceInfo{
+		DeviceName:     "sda",
+		DeviceLinks:    []string{"some", "data"},
+		Label:          "sda-label",
+		UUID:           "some-uuid",
+		HardwareId:     "magic",
+		BusAddress:     "bus stop",
+		Size:           16 * 1024 * 1024 * 1024,
+		FilesystemType: "ext4",
+		InUse:          true,
+		MountPoint:     "/",
+	}
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
+	err := machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	imported, err := newSt.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices, err := newSt.BlockDevices(imported.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
+}
+
+func (s *MigrationImportSuite) TestApplications(c *gc.C) {
+	// Add a application with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
 		Constraints: cons,
 	})
-	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
+	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.SetMetricCredentials([]byte("sekrit"))
+	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	// Expose the service.
-	c.Assert(service.SetExposed(), jc.ErrorIsNil)
-	err = s.State.SetAnnotations(service, testAnnotations)
+	// Expose the application.
+	c.Assert(application.SetExposed(), jc.ErrorIsNil)
+	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, status.StatusActive, 5)
+	s.primeStatusHistory(c, application, status.StatusActive, 5)
 
-	allServices, err := s.State.AllApplications()
+	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allServices, gc.HasLen, 1)
+	c.Assert(allApplications, gc.HasLen, 1)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
-	importedServices, err := newSt.AllApplications()
+	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedServices, gc.HasLen, 1)
+	c.Assert(importedApplications, gc.HasLen, 1)
 
-	exported := allServices[0]
-	imported := importedServices[0]
+	exported := allApplications[0]
+	imported := importedApplications[0]
 
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
@@ -323,7 +356,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newSt, imported)
-	s.checkStatusHistory(c, service, imported, 5)
+	s.checkStatusHistory(c, application, imported, 5)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,12 +364,11 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
-func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
+func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 	s.makeApplicationWithLeader(c, "mysql", 2, 1)
 	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	leaders := make(map[string]string)
 	leases, err := state.LeadershipLeases(newSt)
@@ -351,11 +383,20 @@ func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G")
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Value) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
 	err := exported.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
+	err = exported.SetWorkloadVersion("amethyst")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,19 +404,21 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.primeStatusHistory(c, exported.Agent(), status.StatusIdle, 5)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
-	importedServices, err := newSt.AllApplications()
+	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedServices, gc.HasLen, 1)
+	c.Assert(importedApplications, gc.HasLen, 1)
 
-	importedUnits, err := importedServices[0].AllUnits()
+	importedUnits, err := importedApplications[0].AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedUnits, gc.HasLen, 1)
 	imported := importedUnits[0]
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	version, err := imported.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, "amethyst")
 
 	exportedMachineId, err := exported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -396,6 +439,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.assertAnnotations(c, newSt, imported)
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
+	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,7 +465,6 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	newWordpress, err := newSt.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,7 +490,6 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	// Even though the opened ports document is stored with the
 	// machine, the only way to easily access it is through the units.
@@ -464,23 +506,34 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
+	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	_, newSt := s.importModel(c)
+
+	imported, err := newSt.Space(space.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(imported.Name(), gc.Equals, space.Name())
+	c.Assert(imported.ProviderId(), gc.Equals, space.ProviderId())
+	c.Assert(imported.IsPublic(), gc.Equals, space.IsPublic())
+}
+
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dead)
 }
 
 func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 
-func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
+func (s *MigrationImportSuite) TestDestroyModelWithApplication(c *gc.C) {
 	s.Factory.MakeApplication(c, nil)
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 
@@ -490,6 +543,176 @@ func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life)
+}
+
+func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	devices, err := newSt.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 1)
+	device := devices[0]
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
+}
+
+func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	machine2 := s.Factory.MakeMachineNested(c, machine.Id(), &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := []state.LinkLayerDeviceArgs{{
+		Name: "foo",
+		Type: state.BridgeDevice,
+	}, {
+		Name:       "bar",
+		ParentName: "foo",
+		Type:       state.EthernetDevice,
+	}}
+	for _, args := range deviceArgs {
+		err := machine.SetLinkLayerDevices(args)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	machine2DeviceArgs := state.LinkLayerDeviceArgs{
+		Name:       "baz",
+		ParentName: fmt.Sprintf("m#%v#d#foo", machine.Id()),
+		Type:       state.EthernetDevice,
+	}
+	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	devices, err := newSt.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 3)
+	var parent *state.LinkLayerDevice
+	others := []*state.LinkLayerDevice{}
+	for _, device := range devices {
+		if device.Name() == "foo" {
+			parent = device
+		} else {
+			others = append(others, device)
+		}
+	}
+	// Assert we found the parent.
+	c.Assert(others, gc.HasLen, 2)
+	err = parent.Remove()
+	c.Assert(err, gc.ErrorMatches, `.*parent device "foo" has 2 children.*`)
+	err = others[0].Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = parent.Remove()
+	c.Assert(err, gc.ErrorMatches, `.*parent device "foo" has 1 children.*`)
+	err = others[1].Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = parent.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
+	original, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:             "10.0.0.0/24",
+		ProviderId:       network.Id("foo"),
+		VLANTag:          64,
+		AvailabilityZone: "bar",
+		SpaceName:        "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	subnet, err := newSt.Subnet(original.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+}
+
+func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:       "foo",
+		ConfigMethod:     state.StaticAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "bar",
+		DNSServers:       []string{"bam", "mam"},
+		DNSSearchDomains: []string{"weeee"},
+		GatewayAddress:   "0.1.2.1",
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	addresses, _ := newSt.AllIPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	addr := addresses[0]
+	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
+	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
+	c.Assert(addr.DeviceName(), gc.Equals, "foo")
+	c.Assert(addr.ConfigMethod(), gc.Equals, state.StaticAddress)
+	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
+	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
+	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
+	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
+	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+}
+
+func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	machine2, err := newSt.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

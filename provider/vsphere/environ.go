@@ -22,8 +22,6 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name   string
 	client *client
 
@@ -113,4 +111,9 @@ var DestroyEnv = common.Destroy
 // known environment.
 func (env *environ) Destroy() error {
 	return DestroyEnv(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	return env.Destroy()
 }

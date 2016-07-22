@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/meterstatus"
 	"github.com/juju/juju/apiserver/params"
@@ -43,8 +44,8 @@ type UniterAPIV3 struct {
 	meterstatus.MeterStatus
 
 	st            *state.State
-	auth          common.Authorizer
-	resources     *common.Resources
+	auth          facade.Authorizer
+	resources     facade.Resources
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
 	unit          *state.Unit
@@ -53,7 +54,7 @@ type UniterAPIV3 struct {
 }
 
 // NewUniterAPIV4 creates a new instance of the Uniter API, version 3.
-func NewUniterAPIV4(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
+func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
@@ -640,6 +641,75 @@ func (u *UniterAPIV3) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorRes
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WorkloadVersion returns the workload version for all given units or services.
+func (u *UniterAPIV3) WorkloadVersion(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+	for i, entity := range args.Entities {
+		resultItem := &result.Results[i]
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			resultItem.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		version, err := unit.WorkloadVersion()
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		resultItem.Result = version
+	}
+	return result, nil
+}
+
+// SetWorkloadVersion sets the workload version for each given unit. An error will
+// be returned if a unit is dead.
+func (u *UniterAPIV3) SetWorkloadVersion(args params.EntityWorkloadVersions) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		resultItem := &result.Results[i]
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			resultItem.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		err = unit.SetWorkloadVersion(entity.WorkloadVersion)
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+		}
 	}
 	return result, nil
 }
@@ -1248,7 +1318,7 @@ func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Uni
 		Life: params.Life(rel.Life().String()),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
-			Relation:        ep.Relation,
+			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
 		},
 	}, nil
 }
@@ -1405,8 +1475,8 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 
 func leadershipSettingsAccessorFactory(
 	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
+	resources facade.Resources,
+	auth facade.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
 	registerWatcher := func(serviceId string) (string, error) {
 		service, err := st.Application(serviceId)

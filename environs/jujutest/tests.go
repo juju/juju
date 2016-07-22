@@ -32,10 +32,11 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	TestConfig    coretesting.Attrs
-	Credential    cloud.Credential
-	CloudEndpoint string
-	CloudRegion   string
+	TestConfig     coretesting.Attrs
+	Credential     cloud.Credential
+	CloudEndpoint  string
+	CloudRegion    string
+	ControllerUUID string
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 
@@ -56,20 +57,22 @@ func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 
 // PrepareParams returns the environs.PrepareParams that will be used to call
 // environs.Prepare.
-func (t *Tests) PrepareParams(c *gc.C) environs.PrepareParams {
+func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 	testConfigCopy := t.TestConfig.Merge(nil)
 
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.PrepareParams{
-		BaseConfig:     testConfigCopy,
-		Credential:     credential,
-		ControllerName: t.TestConfig["name"].(string),
-		CloudName:      t.TestConfig["type"].(string),
-		CloudEndpoint:  t.CloudEndpoint,
-		CloudRegion:    t.CloudRegion,
+	return bootstrap.PrepareParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BaseConfig:       testConfigCopy,
+		Credential:       credential,
+		ControllerName:   t.TestConfig["name"].(string),
+		CloudName:        t.TestConfig["type"].(string),
+		CloudEndpoint:    t.CloudEndpoint,
+		CloudRegion:      t.CloudRegion,
+		AdminSecret:      AdminSecret,
 	}
 }
 
@@ -79,8 +82,8 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 }
 
 // PrepareWithParams prepares an instance of the testing environment.
-func (t *Tests) PrepareWithParams(c *gc.C, params environs.PrepareParams) environs.Environ {
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
+func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.BaseConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -90,7 +93,7 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 	args := t.PrepareParams(c)
 	args.BaseConfig = coretesting.Attrs(args.BaseConfig).Merge(badConfig)
 
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 	c.Assert(e, gc.IsNil)
 	return err
@@ -106,6 +109,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclienttesting.NewMemStore()
+	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -125,7 +129,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.AssertStartInstance(c, e, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -133,7 +137,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.AssertStartInstance(c, e, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
@@ -177,7 +181,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	args := bootstrap.BootstrapParams{
-		CloudName: t.TestConfig["type"].(string),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},
@@ -187,18 +192,20 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 		CloudRegion:         t.CloudRegion,
 		CloudCredential:     &credential,
 		CloudCredentialName: "credential",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        coretesting.CAKey,
 	}
 
 	e := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerInstances, err := e.ControllerInstances()
+	controllerInstances, err := e.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
 	e2 := t.Open(c, e.Config())
-	controllerInstances2, err := e2.ControllerInstances()
+	controllerInstances2, err := e2.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
 	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)

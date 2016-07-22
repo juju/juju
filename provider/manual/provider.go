@@ -46,32 +46,20 @@ func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p manualProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	var bootstrapHost string
-	switch {
-	case args.CloudEndpoint != "":
-		// If an endpoint is specified, then we expect that the user
-		// has specified in their clouds.yaml a region with the
-		// bootstrap host as the endpoint.
-		bootstrapHost = args.CloudEndpoint
-	case args.CloudRegion != "":
-		// If only a region is specified, then we expect that the user
-		// has run "juju bootstrap manual/<host>", and treat the region
-		// name as the name of the bootstrap machine.
-		bootstrapHost = args.CloudRegion
-	default:
+	if args.CloudEndpoint == "" {
 		return nil, errors.Errorf(
 			"missing address of host to bootstrap: " +
 				`please specify "juju bootstrap manual/<host>"`,
 		)
 	}
 	cfg, err := args.Config.Apply(map[string]interface{}{
-		"bootstrap-host": bootstrapHost,
+		"bootstrap-host": args.CloudEndpoint,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

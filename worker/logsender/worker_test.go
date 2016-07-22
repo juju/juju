@@ -18,6 +18,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -76,7 +77,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 	// database.
 	var expectedDocs []bson.M
 	for i := 0; i < logCount; i++ {
-		ts := time.Now().Truncate(time.Millisecond)
+		ts := time.Now()
 		location := fmt.Sprintf("loc%d", i)
 		message := fmt.Sprintf("%d", i)
 
@@ -89,8 +90,9 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		}
 
 		expectedDocs = append(expectedDocs, bson.M{
-			"t": ts,
+			"t": ts.UnixNano(),
 			"e": s.State.ModelUUID(),
+			"r": version.Current.String(),
 			"n": s.machineTag.String(),
 			"m": "logsender-test",
 			"l": location,
@@ -131,7 +133,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 
 	// Send a log record which indicates some messages after it were
 	// dropped.
-	ts := time.Now().Truncate(time.Millisecond)
+	ts := time.Now()
 	logsCh <- &logsender.LogRecord{
 		Time:         ts,
 		Module:       "aaa",
@@ -171,8 +173,9 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "message0")
 	delete(docs[1], "_id")
 	c.Assert(docs[1], gc.DeepEquals, bson.M{
-		"t": ts, // Should share timestamp with previous message.
+		"t": ts.UnixNano(), // Should share timestamp with previous message.
 		"e": s.State.ModelUUID(),
+		"r": version.Current.String(),
 		"n": s.machineTag.String(),
 		"m": "juju.worker.logsender",
 		"l": "",

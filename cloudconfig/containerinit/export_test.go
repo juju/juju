@@ -7,5 +7,4 @@ package containerinit
 var (
 	NetworkInterfacesFile          = &networkInterfacesFile
 	NewCloudInitConfigWithNetworks = newCloudInitConfigWithNetworks
-	ShutdownInitCommands           = shutdownInitCommands
 )

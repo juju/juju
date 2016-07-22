@@ -20,11 +20,8 @@ var logger = loggo.GetLogger("juju.worker.migrationminion")
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
-
-	// Watch returns a watcher which reports when the status changes
-	// for the migration for the model associated with the API
-	// connection.
 	Watch() (watcher.MigrationStatusWatcher, error)
+	Report(migrationId string, phase migration.Phase, success bool) error
 }
 
 // Config defines the operation of a Worker.
@@ -108,7 +105,7 @@ func (w *Worker) loop() error {
 func (w *Worker) handle(status watcher.MigrationStatus) error {
 	logger.Infof("migration phase is now: %s", status.Phase)
 
-	if status.Phase == migration.NONE {
+	if !status.Phase.IsRunning() {
 		return w.config.Guard.Unlock()
 	}
 
@@ -120,42 +117,44 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 	}
 
 	switch status.Phase {
-	case migration.QUIESCE:
-		// TODO(mjs) - once Will's stable mode work comes
-		// together this worker will only start up when a
-		// migration is active. Here the minion should report
-		// to the controller that it is running so that the
-		// migration can progress to READONLY.
-	case migration.VALIDATION:
-		// TODO(mjs) - check connection to the target
-		// controller here and report success/failure.
 	case migration.SUCCESS:
-		err := w.doSUCCESS(status.TargetAPIAddrs, status.TargetCACert)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	case migration.ABORT:
-		// TODO(mjs) - exit here once Will's stable mode work
-		// comes together. The minion is done if these phases
-		// are reached.
+		err = w.callAndReport(w.doSUCCESS, status)
 	default:
 		// The minion doesn't need to do anything for other
 		// migration phases.
 	}
-	return nil
+	return errors.Trace(err)
 }
 
-func (w *Worker) doSUCCESS(targetAddrs []string, caCert string) error {
-	hps, err := apiAddrsToHostPorts(targetAddrs)
+func (w *Worker) callAndReport(f func(watcher.MigrationStatus) error, status watcher.MigrationStatus) error {
+	callErr := f(status)
+	reportErr := w.report(status, callErr == nil)
+
+	// The error from the call is more important than the failure to
+	// report.
+	err := reportErr
+	if callErr != nil {
+		err = callErr
+	}
+	return errors.Trace(err)
+}
+
+func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
+	hps, err := apiAddrsToHostPorts(status.TargetAPIAddrs)
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
 	}
 	err = w.config.Agent.ChangeConfig(func(conf agent.ConfigSetter) error {
 		conf.SetAPIHostPorts(hps)
-		conf.SetCACert(caCert)
+		conf.SetCACert(status.TargetCACert)
 		return nil
 	})
 	return errors.Annotate(err, "setting agent config")
+}
+
+func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
+	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
+	return errors.Trace(err)
 }
 
 func apiAddrsToHostPorts(addrs []string) ([][]network.HostPort, error) {

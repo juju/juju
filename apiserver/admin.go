@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
 	"github.com/juju/juju/rpc"
@@ -22,14 +23,14 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {
 	srv         *Server
 	root        *apiHandler
-	reqNotifier *requestNotifier
+	apiObserver observer.Observer
 
 	mu       sync.Mutex
 	loggedIn bool
@@ -119,7 +120,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		if kind != names.MachineTagKind {
 			return fail, errors.Trace(err)
 		}
-		entity, err = a.checkCredsOfControllerMachine(req)
+		entity, err = a.checkControllerMachineCreds(req)
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
@@ -131,9 +132,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	a.root.entity = entity
 
-	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag().String())
-	}
+	a.apiObserver.Login(entity.Tag().String())
 
 	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
@@ -146,18 +145,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var envUser *state.ModelUser
+	var modelUser *state.ModelUser
 	// Send back user info if user
 	if isUser && !serverOnlyLogin {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
-		envUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
+		modelUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
 		if err != nil {
 			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
 		}
-		if envUser.ReadOnly() {
+		maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
+		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
 	}
@@ -200,8 +200,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		loginResult.Facades = facades
 	}
 
-	if envUser != nil {
-		authedApi = newClientAuthRoot(authedApi, envUser)
+	if modelUser != nil {
+		authedApi = newClientAuthRoot(authedApi, modelUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
@@ -209,27 +209,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	return loginResult, nil
 }
 
-// checkCredsOfControllerMachine checks the special case of a controller
-// machine creating an API connection for a different model so it can
-// run API workers for that model to do things like provisioning
-// machines.
-func (a *admin) checkCredsOfControllerMachine(req params.LoginRequest) (state.Entity, error) {
-	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machine, ok := entity.(*state.Machine)
-	if !ok {
-		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
-	}
-	for _, job := range machine.Jobs() {
-		if job == state.JobManageModel {
-			return entity, nil
-		}
-	}
-	// The machine does exist in the controller model, but it
-	// doesn't manage models, so reject it.
-	return nil, errors.Trace(common.ErrPerm)
+func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
+	return checkControllerMachineCreds(a.srv.state, req, a.srv.authCtxt)
 }
 
 func (a *admin) maintenanceInProgress() bool {
@@ -295,6 +276,28 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 		lastLogin = &userLastLogin
 	}
 	return entity, lastLogin, nil
+}
+
+// checkControllerMachineCreds checks the special case of a controller
+// machine creating an API connection for a different model so it can
+// run workers that act on behalf of a hosted model.
+func checkControllerMachineCreds(
+	controllerSt *state.State,
+	req params.LoginRequest,
+	authenticator authentication.EntityAuthenticator,
+) (state.Entity, error) {
+	entity, _, err := doCheckCreds(controllerSt, req, false, authenticator)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if machine, ok := entity.(*state.Machine); !ok {
+		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
+	} else if !machine.IsManager() {
+		// The machine exists in the controller model, but it doesn't
+		// manage models, so reject it.
+		return nil, errors.Trace(common.ErrPerm)
+	}
+	return entity, nil
 }
 
 // loginEntity defines the interface needed to log in as a user.

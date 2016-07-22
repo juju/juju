@@ -25,37 +25,36 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
 const (
-	InstanceDataC     = instanceDataC
 	MachinesC         = machinesC
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
-	SettingsC         = settingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
 )
 
 var (
-	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	ControllerAvailable           = &controllerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	NowToTheSecond                = nowToTheSecond
-	PickAddress                   = &pickAddress
-	AddVolumeOps                  = (*State).addVolumeOps
-	CombineMeterStatus            = combineMeterStatus
-	ApplicationGlobalKey          = applicationGlobalKey
-	ReadSettings                  = readSettings
-	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
-	MergeBindings                 = mergeBindings
-	UpgradeInProgressError        = errUpgradeInProgress
+	BinarystorageNew                     = &binarystorageNew
+	ImageStorageNewStorage               = &imageStorageNewStorage
+	MachineIdLessThan                    = machineIdLessThan
+	ControllerAvailable                  = &controllerAvailable
+	GetOrCreatePorts                     = getOrCreatePorts
+	GetPorts                             = getPorts
+	NowToTheSecond                       = nowToTheSecond
+	AddVolumeOps                         = (*State).addVolumeOps
+	CombineMeterStatus                   = combineMeterStatus
+	ApplicationGlobalKey                 = applicationGlobalKey
+	ReadSettings                         = readSettings
+	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	MergeBindings                        = mergeBindings
+	UpgradeInProgressError               = errUpgradeInProgress
 )
 
 type (
@@ -433,12 +432,13 @@ func MakeLogDoc(
 ) *logDoc {
 	return &logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      t.UnixNano(),
 		ModelUUID: modelUUID,
 		Entity:    entity.String(),
+		Version:   version.Current.String(),
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     int(level),
 		Message:   msg,
 	}
 }

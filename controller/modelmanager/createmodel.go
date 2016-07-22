@@ -53,6 +53,7 @@ type ModelConfigCreator struct {
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
 	isAdmin bool,
+	controllerUUID string,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -79,7 +80,6 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
-	attrs[controller.ControllerUUIDKey] = baseAttrs[controller.ControllerUUIDKey]
 
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.
@@ -90,13 +90,18 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(isAdmin, base, attrs)
+	cfg, err := finalizeConfig(isAdmin, controllerUUID, base, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	attrs = cfg.AllAttrs()
-	// Strip out all controller values except uuid before checking validity.
-	controller.RemoveControllerAttributes(attrs)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
+		if _, ok := attrs[attr]; ok {
+			return nil, errors.Errorf("unexpected controller attribute %q in model config", attr)
+		}
+	}
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
@@ -189,26 +194,25 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 // finalizeConfig creates the config object from attributes, calls
 // PrepareForCreateEnvironment, and then finally validates the config
 // before returning it.
-func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
-	provider, err := environs.Provider(controllerCfg.Type())
+func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
+	provider, err := environs.Provider(controllerModelCfg.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if isAdmin {
-		// If the user is an administrator, and has not supplied authorized-keys,
-		// copy across authorized-keys from the controller model.
-		const key = "authorized-keys"
-		if _, ok := attrs[key]; !ok {
-			attrs[key] = controllerCfg.AllAttrs()[key]
-		}
-	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
 
-	cfg, err = provider.PrepareForCreateEnvironment(cfg)
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot remove controller attributes")
+	}
+
+	cfg, err = provider.PrepareForCreateEnvironment(controllerUUID, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

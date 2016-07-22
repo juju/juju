@@ -14,11 +14,13 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -163,13 +165,15 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		env, err := environs.Prepare(
+		env, err := bootstrap.Prepare(
 			modelcmd.BootstrapContext(testing.Context(c)),
 			jujuclienttesting.NewMemStore(),
-			environs.PrepareParams{
-				ControllerName: "dummycontroller",
-				BaseConfig:     dummy.SampleConfig(),
-				CloudName:      "dummy",
+			bootstrap.PrepareParams{
+				ControllerConfig: testing.FakeControllerConfig(),
+				ControllerName:   "dummycontroller",
+				BaseConfig:       dummy.SampleConfig(),
+				CloudName:        "dummy",
+				AdminSecret:      "admin-secret",
 			},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -251,6 +255,7 @@ func (s *regionMetadataSuite) SetUpSuite(c *gc.C) {
 	s.env = &mockEnviron{}
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Prepare mock http transport for overriding metadata and images output in tests.
 	useTestImageData(c, testImagesData)
 }
@@ -311,7 +316,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, saveMetadata)
+	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -426,7 +431,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, saveMetadata, environConfig, saveMetadata)
+	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata, environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
