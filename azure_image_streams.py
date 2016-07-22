@@ -114,7 +114,6 @@ def parse_id(item_id):
     sku = '-'.join([sku_num] + sku_sections[1:])
     version = '.'.join(sku_num_parts[0:2] + [match.group(2)])
     number = match.group(4)
-    version = version.split('-')[0]
     if number is not None:
         version += number
     else:
@@ -122,7 +121,7 @@ def parse_id(item_id):
     return sku, version
 
 
-def arm_item_exists(client, location, full_spec):
+def arm_image_exists(client, location, full_spec):
     """Return True if the full_spec exists on Azure-ARM, else False."""
     try:
         result = client.virtual_machine_images.get(
@@ -171,7 +170,7 @@ def convert_cloud_images_items(client, locations, items):
             continue
         full_spec = ('Canonical', 'UbuntuServer', sku, version)
         urn = ':'.join(full_spec)
-        if not arm_item_exists(client, location, full_spec):
+        if not arm_image_exists(client, location, full_spec):
             if (sku, version) not in EXPECTED_MISSING:
                 raise AssertionError('{} not in {}\n'.format(urn, location))
             continue
