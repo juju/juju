@@ -218,7 +218,7 @@ func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
 }
 
 func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
-	s.assertCheckProviderAPI(c, fmt.Errorf("instances error"), "cannot make API call to provider: instances error")
+	s.assertCheckProviderAPI(c, errors.New("instances error"), "cannot make API call to provider: instances error")
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
@@ -729,131 +729,6 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "private")
-}
-
-func (s *serverSuite) TestClientModelGet(c *gc.C) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := make(map[string]params.ConfigValue)
-	for name, val := range modelConfig.AllAttrs() {
-		cfg[name] = params.ConfigValue{
-			Value:  val,
-			Source: "model",
-		}
-	}
-	delete(cfg, "authorized-keys")
-	c.Assert(result.Config, gc.DeepEquals, cfg)
-}
-
-func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, found := modelConfig.AllAttrs()[key]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(value, gc.Equals, expected)
-}
-
-func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := modelConfig.AllAttrs()[key]
-	c.Assert(found, jc.IsFalse)
-}
-
-func (s *serverSuite) TestClientModelSet(c *gc.C) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := modelConfig.AllAttrs()["some-key"]
-	c.Assert(found, jc.IsFalse)
-
-	params := params.ModelSet{
-		Config: map[string]interface{}{
-			"some-key":  "value",
-			"other-key": "other value"},
-	}
-	err = s.client.ModelSet(params)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValue(c, "some-key", "value")
-	s.assertEnvValue(c, "other-key", "other value")
-}
-
-func (s *serverSuite) TestClientModelSetImmutable(c *gc.C) {
-	// The various immutable config values are tested in
-	// environs/config/config_test.go, so just choosing one here.
-	params := params.ModelSet{
-		Config: map[string]interface{}{"firewall-mode": "global"},
-	}
-	err := s.client.ModelSet(params)
-	c.Check(err, gc.ErrorMatches, `cannot change firewall-mode from .* to "global"`)
-}
-
-func (s *serverSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
-	err := s.client.ModelSet(params.ModelSet{args})
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *serverSuite) TestBlockChangesClientModelSet(c *gc.C) {
-	s.BlockAllChanges(c, "TestBlockChangesClientModelSet")
-	args := map[string]interface{}{"some-key": "value"}
-	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
-}
-
-func (s *serverSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
-	args := params.ModelSet{
-		map[string]interface{}{"agent-version": "9.9.9"},
-	}
-	err := s.client.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
-
-	// It's okay to pass env back with the same agent-version.
-	result, err := s.client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config["agent-version"], gc.NotNil)
-	args.Config["agent-version"] = result.Config["agent-version"].Value
-	err = s.client.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestClientModelUnset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.ModelUnset{[]string{"abc"}}
-	err = s.client.ModelUnset(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValueMissing(c, "abc")
-}
-
-func (s *serverSuite) TestBlockClientModelUnset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.BlockAllChanges(c, "TestBlockClientModelUnset")
-
-	args := params.ModelUnset{[]string{"abc"}}
-	err = s.client.ModelUnset(args)
-	s.AssertBlocked(c, err, "TestBlockClientModelUnset")
-}
-
-func (s *serverSuite) TestClientModelUnsetMissing(c *gc.C) {
-	// It's okay to unset a non-existent attribute.
-	args := params.ModelUnset{[]string{"not_there"}}
-	err := s.client.ModelUnset(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestClientModelUnsetError(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// "type" may not be removed, and this will cause an error.
-	// If any one attribute's removal causes an error, there
-	// should be no change.
-	args := params.ModelUnset{[]string{"abc", "type"}}
-	err = s.client.ModelUnset(args)
-	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
-	s.assertEnvValue(c, "abc", 123)
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {

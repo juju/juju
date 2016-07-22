@@ -473,6 +473,9 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
 		return fakeAPI, nil
 	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
 	cmd := newUpgradeJujuCommand(nil)
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools", "-m", "dummy-model")
 	c.Assert(err, gc.ErrorMatches, "--upload-tools can only be used with the controller model")
@@ -876,6 +879,9 @@ func (a *fakeUpgradeJujuAPI) reset() {
 
 func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return a, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
 		return a, nil
 	})
 }

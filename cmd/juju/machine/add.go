@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
@@ -93,6 +94,7 @@ func NewAddCommand() cmd.Command {
 type addCommand struct {
 	modelcmd.ModelCommandBase
 	api               AddMachineAPI
+	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the model default-series
 	Series string
@@ -140,7 +142,7 @@ func (c *addCommand) Init(args []string) error {
 		return err
 	}
 	if c.NumMachines > 1 && c.Placement != nil && c.Placement.Directive != "" {
-		return fmt.Errorf("cannot use -n when specifying a placement directive")
+		return errors.New("cannot use -n when specifying a placement directive")
 	}
 	return nil
 }
@@ -149,9 +151,13 @@ type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	ModelGet() (map[string]interface{}, error)
 	ModelUUID() (string, error)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+}
+
+type ModelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+	Close() error
 }
 
 type MachineManagerAPI interface {
@@ -167,6 +173,18 @@ func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
+}
+
+func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+	if c.modelConfigAPI != nil {
+		return c.modelConfigAPI, nil
+	}
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return modelconfig.NewClient(api), nil
+
 }
 
 func (c *addCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
@@ -204,7 +222,12 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	configAttrs, err := client.ModelGet()
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer modelConfigClient.Close()
+	configAttrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -295,7 +318,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	if len(errs) == 1 {
-		fmt.Fprintf(ctx.Stderr, "failed to create 1 machine\n")
+		fmt.Fprint(ctx.Stderr, "failed to create 1 machine\n")
 		return errs[0]
 	}
 	if len(errs) > 1 {

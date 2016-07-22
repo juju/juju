@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -235,44 +234,6 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
-}
-
-// ModelGet returns all model settings.
-func (c *Client) ModelGet() (map[string]interface{}, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	values := make(map[string]interface{})
-	for name, val := range result.Config {
-		values[name] = val.Value
-	}
-	return values, err
-}
-
-// ModelGetWithMetadata returns all model settings along with extra
-// metadata like the source of the setting value.
-func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	values := make(config.ConfigValues)
-	for name, val := range result.Config {
-		values[name] = config.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
-		}
-	}
-	return values, err
-}
-
-// ModelSet sets the given key-value pairs in the model.
-func (c *Client) ModelSet(config map[string]interface{}) error {
-	args := params.ModelSet{Config: config}
-	return c.facade.FacadeCall("ModelSet", args, nil)
-}
-
-// ModelUnset sets the given key-value pairs in the model.
-func (c *Client) ModelUnset(keys ...string) error {
-	args := params.ModelUnset{Keys: keys}
-	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
 // SetModelAgentVersion sets the model agent-version setting
