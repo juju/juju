@@ -6,15 +6,11 @@ dt_format = '%Y-%m-%d %H:%M:%S'
 
 
 def main():
-    # used for initial testing.
+    # testing
     timestamps = [
-        ('2016-07-21 08:33:12', '2016-07-21 08:38:15'),
-        ('2016-07-21 08:39:46', '2016-07-21 08:42:42'),
-        ('2016-07-21 08:42:43', '2016-07-21 08:43:14'),
-    ]
-    timestamps = [
-        ('2016-07-20 22:40:52', '2016-07-20 22:44:48'),  # Bootstrap
-        ('2016-07-20 22:46:01', '2016-07-20 22:57:13')   # Deploy
+        ('2016-07-22 01:09:01', '2016-07-22 01:12:59'),
+        ('2016-07-22 01:14:12', '2016-07-22 01:16:56'),
+        ('2016-07-22 01:16:57', '2016-07-22 01:17:29'),
     ]
 
     breakdown_log_by_timeframes('./machine-0.log.gz', timestamps)
@@ -63,13 +59,22 @@ def breakdown_log_by_timeframes(log_file, timestamps):
 def get_timerange_logs(log_file, timestamps):
     log_breakdown = dict()
     previous_line = None
-    # with open('./machine-0.log', 'rt') as f:
+    no_content = None
     with gzip.open(log_file, 'rt') as f:
+        log_lines = []
         for log_range in timestamps:
-            range_start = log_range[0]
             range_end = log_range[1]
-            log_lines = []
-            range_str = '{} - {}'.format(range_start, range_end)
+            if no_content is not None:
+                # Extend the range until we get something in the logs.
+                range_start = no_content
+                no_content = None
+                range_str = '{} - {} (condensed)'.format(
+                    range_start, range_end)
+                # Don't reset log_lines as it may contain previous details.
+            else:
+                log_lines = []
+                range_start = log_range[0]
+                range_str = '{} - {}'.format(range_start, range_end)
 
             if previous_line:
                 if log_line_within_start_range(previous_line, range_start):
@@ -80,17 +85,17 @@ def get_timerange_logs(log_file, timestamps):
                 if log_line_within_start_range(line, range_start):
                     break
             else:
-                print('LOG: failed to find start')
+                # Likely because the log cuts off before the action is
+                # considered complete (i.e. teardown).
+                print('LOG: failed to find start line.')
                 # continue?
                 break
 
             # It it's out of range of the end range then there is nothing for
             # this time period.
             if not log_line_within_end_range(line, range_end):
-                # do we actually need to add blank string? Perhaps just no
-                # addition is fine.
-                log_breakdown[range_str] = ['No log contents']
                 previous_line = line
+                no_content = range_start
                 continue
 
             log_lines.append(line)

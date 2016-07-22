@@ -146,7 +146,7 @@
 
       <div class="tab-content">
         {% for date_stamp, values in log_message_chunks|dictsort %}
-        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
+        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
         <div
            role="tabpanel"
            class="tab-pane {% if loop.index == 1 %}active{% endif %}"
@@ -155,7 +155,7 @@
           Log period: {{date_stamp}}
           <table class="table table-condensed">
             {% for log_detail in values.logs|sort(attribute='timeframe') %}
-            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "") %}
+            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
             <tr
                data-toggle="collapse"
                data-target="#{{safe_timeframe}}"
