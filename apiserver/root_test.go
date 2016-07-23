@@ -21,58 +21,66 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type rootSuite struct {
+type pingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&rootSuite{})
+var _ = gc.Suite(&pingSuite{})
 
-var allowedDiscardedMethods = []string{
-	"AuthClient",
-	"AuthModelManager",
-	"AuthMachineAgent",
-	"AuthOwner",
-	"AuthUnitAgent",
-	"FindMethod",
-	"GetAuthEntity",
-	"GetAuthTag",
-}
-
-func (r *rootSuite) TestPingTimeout(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeout(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 50*time.Millisecond)
+	clock := testing.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
-		time.Sleep(10 * time.Millisecond)
+		waitAlarm(c, clock)
+		clock.Advance(10 * time.Millisecond)
 		timeout.Ping()
 	}
-	// Expect action to be executed about 50ms after last ping.
-	broken := time.Now()
-	var closed time.Time
+
+	waitAlarm(c, clock)
+	clock.Advance(49 * time.Millisecond)
 	select {
-	case closed = <-closedc:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("action never executed")
+	case <-triggered:
+		c.Fatalf("action triggered early")
+	case <-time.After(testing.ShortWait):
 	}
-	closeDiff := closed.Sub(broken) / time.Millisecond
-	c.Assert(50 <= closeDiff && closeDiff <= 100, jc.IsTrue)
+
+	clock.Advance(time.Millisecond)
+	select {
+	case <-triggered:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("action never triggered")
+	}
 }
 
-func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 20*time.Millisecond)
-	timeout.Ping()
+	clock := testing.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
+
+	waitAlarm(c, clock)
 	timeout.Stop()
+	clock.Advance(time.Hour)
+
 	// The action should never trigger
 	select {
-	case <-closedc:
+	case <-triggered:
 		c.Fatalf("action triggered after Stop()")
 	case <-time.After(testing.ShortWait):
+	}
+}
+
+func waitAlarm(c *gc.C, clock *testing.Clock) {
+	select {
+	case <-time.After(testing.LongWait):
+		c.Fatalf("alarm never set")
+	case <-clock.Alarms():
 	}
 }
 
@@ -101,6 +109,12 @@ type badType struct{}
 func (badType) Exposed() error {
 	return fmt.Errorf("badType.Exposed was not to be exposed")
 }
+
+type rootSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&rootSuite{})
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 	root := apiserver.TestingApiRoot(nil)

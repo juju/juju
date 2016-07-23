@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -49,8 +50,8 @@ func newAuthContext(st *state.State) (*authContext, error) {
 		return nil, errors.Trace(err)
 	}
 	ctxt.userAuth.Service = &expirableStorageBakeryService{bakeryService, key, store, nil}
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	ctxt.userAuth.Clock = state.GetClock()
+	// TODO(fwereade) 2016-07-21 there should be a clock parameter
+	ctxt.userAuth.Clock = clock.WallClock
 	return ctxt, nil
 }
 
