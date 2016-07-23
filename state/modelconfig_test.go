@@ -23,6 +23,9 @@ type ModelConfigSuite struct {
 var _ = gc.Suite(&ModelConfigSuite{})
 
 func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
+	s.ControllerInheritedConfig = map[string]interface{}{
+		"apt-mirror": "http://cloud-mirror",
+	}
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
@@ -84,6 +87,44 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 	updateAttrs := map[string]interface{}{"api-port": 1234}
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
+}
+
+func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
+	attrs := map[string]interface{}{
+		"apt-mirror":    "http://different-mirror",
+		"arbitrary-key": "shazam!",
+	}
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	allAttrs := cfg.AllAttrs()
+	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
+	_, ok := allAttrs["arbitrary-key"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
+	attrs := map[string]interface{}{
+		"apt-mirror":    "http://different-mirror",
+		"arbitrary-key": "shazam!",
+	}
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateModelConfig(map[string]interface{}{
+		"apt-mirror": "http://another-mirror",
+	}, []string{"apt-mirror", "arbitrary-key"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	allAttrs := cfg.AllAttrs()
+	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
+	_, ok := allAttrs["arbitrary-key"]
+	c.Assert(ok, jc.IsFalse)
 }
 
 type ModelConfigSourceSuite struct {
