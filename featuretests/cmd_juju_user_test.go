@@ -116,6 +116,34 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
 
+func (s *UserSuite) TestRemoveUserPrompt(c *gc.C) {
+	expected := `
+WARNING! This command will remove the user "jjam" from the "kontroll" controller.
+
+Continue (y/N)? `[1:]
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	ctx, _ := s.RunUserCommand(c, "", "remove-user", "jjam")
+	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)
+}
+
+func (s *UserSuite) TestRemoveUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	_, err := s.RunUserCommand(c, "", "remove-user", "-y", "jjam")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
+}
+
+func (s *UserSuite) TestRemoveUserLongForm(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	_, err := s.RunUserCommand(c, "", "remove-user", "--yes", "jjam")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
+}
+
 func (s *UserSuite) TestUserList(c *gc.C) {
 	ctx, err := s.RunUserCommand(c, "", "list-users")
 	c.Assert(err, jc.ErrorIsNil)

@@ -43,7 +43,8 @@ See also:
     show-user
     disable-user
     enable-user
-    change-user-password`[1:]
+    change-user-password
+    remove-user`[1:]
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
