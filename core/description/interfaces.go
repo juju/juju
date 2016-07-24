@@ -24,6 +24,13 @@ type HasConstraints interface {
 	SetConstraints(ConstraintsArgs)
 }
 
+// HasStatus defines the common methods for setting and getting  status
+// entries for the various entities.
+type HasStatus interface {
+	Status() Status
+	SetStatus(StatusArgs)
+}
+
 // HasStatusHistory defines the common methods for setting and
 // getting historical status entries for the various entities.
 type HasStatusHistory interface {
@@ -119,6 +126,7 @@ type AgentTools interface {
 type Machine interface {
 	HasAnnotations
 	HasConstraints
+	HasStatus
 	HasStatusHistory
 
 	Id() string
@@ -148,9 +156,6 @@ type Machine interface {
 
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
-
-	Status() Status
-	SetStatus(StatusArgs)
 
 	// TODO:
 	// Storage
@@ -230,6 +235,7 @@ type Status interface {
 type Application interface {
 	HasAnnotations
 	HasConstraints
+	HasStatus
 	HasStatusHistory
 
 	Tag() names.ApplicationTag
@@ -250,9 +256,6 @@ type Application interface {
 	LeadershipSettings() map[string]interface{}
 
 	MetricsCredentials() []byte
-
-	Status() Status
-	SetStatus(StatusArgs)
 
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
@@ -383,4 +386,39 @@ type IPAddress interface {
 type SSHHostKey interface {
 	MachineID() string
 	Keys() []string
+}
+
+// Volume represents a volume (disk, logical volume, etc.) in the model.
+type Volume interface {
+	HasStatus
+	HasStatusHistory
+
+	Tag() names.VolumeTag
+	Name() string
+	// Link to Storage...
+
+	Binding() names.Tag
+
+	Provisioned() bool
+
+	Size() uint64
+	Pool() string
+
+	// These three attributes are only valid if the volume is provisioned.
+
+	HardwareID() string
+	VolumeID() string
+	Persistent() bool
+
+	Attachments() []VolumeAttachment
+}
+
+// VolumeAttachment represents a volume attached to a machine.
+type VolumeAttachment interface {
+	MachineID() string
+
+	ReadOnly() bool
+	DeviceName() string
+	DeviceLink() string
+	BusAddress() string
 }
