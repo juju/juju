@@ -330,6 +330,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+install -D -m 644 /dev/null '/etc/profile.d/juju-introspection.sh'
+printf '%s\\n' '.*' > '/etc/profile.d/juju-introspection.sh'
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -387,6 +389,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+install -D -m 644 /dev/null '/etc/profile.d/juju-introspection.sh'
+printf '%s\\n' '.*' > '/etc/profile.d/juju-introspection.sh'
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju

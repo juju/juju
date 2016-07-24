@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -80,6 +81,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
+
+		// The introspection worker provides debugging information over
+		// an abstract domain socket - linux only (for now).
+		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
+			AgentName:  agentName,
+			WorkerFunc: introspection.NewWorker,
+		}),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -265,6 +273,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
+	introspectionName        = "introspection"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"

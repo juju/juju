@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -122,6 +123,14 @@ var (
 		"unit-agent-deployer",
 	}
 )
+
+// Some workers only exist on certain operating systems.
+func init() {
+	if runtime.GOOS == "linux" {
+		alwaysMachineWorkers = append(alwaysMachineWorkers, "introspection")
+		alwaysUnitWorkers = append(alwaysUnitWorkers, "introspection")
+	}
+}
 
 type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
 
