@@ -302,6 +302,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	if featureflag.Enabled(feature.Migration) {
 		r.Register(newMigrateCommand())
 	}
+	if featureflag.Enabled(feature.DeveloperMode) {
+		r.Register(model.NewDumpCommand())
+	}
 
 	// Manage and control actions
 	r.Register(action.NewStatusCommand())

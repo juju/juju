@@ -39,8 +39,9 @@ Examples:
 
     juju unset-model-config api-port test-mode
 
-See also: set-model-config
-          get-model-config
+See also:
+    set-model-config
+    get-model-config
 `
 
 func (c *unsetCommand) Info() *cmd.Info {

@@ -51,10 +51,10 @@ This command only starts a model migration - it does not wait for its
 completion. The progress of a migration can be tracked using the
 "status" command and by consulting the logs.
 
-See Also:
-   juju help login
-   juju help controllers
-   juju help status
+See also:
+    login
+    controllers
+    status
 `
 
 // Info implements cmd.Command.

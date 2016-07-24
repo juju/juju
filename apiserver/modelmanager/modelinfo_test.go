@@ -221,6 +221,16 @@ type mockState struct {
 	creds           map[string]cloud.Credential
 }
 
+type fakeModelDescription struct {
+	description.Model `yaml:"-"`
+
+	UUID string `yaml:"model-uuid"`
+}
+
+func (st *mockState) Export() (description.Model, error) {
+	return &fakeModelDescription{UUID: st.uuid}, nil
+}
+
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
 	return st.uuid

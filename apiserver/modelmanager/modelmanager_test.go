@@ -84,6 +84,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		model: &mockModel{
 			owner: names.NewUserTag("admin@local"),
 			life:  state.Alive,
+			tag:   coretesting.ModelTag,
 			cfg:   cfg,
 			status: status.StatusInfo{
 				Status: status.StatusAvailable,
@@ -230,6 +231,70 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `no such credential "bar"`)
+}
+
+func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
+	results := s.api.DumpModels(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: "application-foo",
+	}, {
+		Tag: s.st.ModelTag().String(),
+	}}})
+
+	c.Assert(results.Results, gc.HasLen, 3)
+	bad, notApp, good := results.Results[0], results.Results[1], results.Results[2]
+	c.Check(bad.Result, gc.IsNil)
+	c.Check(bad.Error.Message, gc.Equals, `"bad-tag" is not a valid tag`)
+
+	c.Check(notApp.Result, gc.IsNil)
+	c.Check(notApp.Error.Message, gc.Equals, `"application-foo" is not a valid model tag`)
+
+	c.Check(good.Error, gc.IsNil)
+	c.Check(good.Result, jc.DeepEquals, map[string]interface{}{
+		"model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	})
+}
+
+func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
+	s.st.SetErrors(errors.NotFoundf("boom"))
+	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
+	models := params.Entities{[]params.Entity{{Tag: tag.String()}}}
+	results := s.api.DumpModels(models)
+
+	calls := s.st.Calls()
+	c.Logf("%#v", calls)
+	lastCall := calls[len(calls)-1]
+	c.Check(lastCall.FuncName, gc.Equals, "ForModel")
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Result, gc.IsNil)
+	c.Assert(result.Error, gc.NotNil)
+	c.Check(result.Error.Code, gc.Equals, `not found`)
+	c.Check(result.Error.Message, gc.Equals, `id not found`)
+}
+
+func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
+	s.st.SetErrors(nil, errors.New("boom"))
+
+	authoriser := apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("other@local"),
+	}
+	api, err := modelmanager.NewModelManagerAPI(&s.st, authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+
+	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
+	results := api.DumpModels(models)
+
+	calls := s.st.Calls()
+	lastCall := calls[len(calls)-1]
+	c.Check(lastCall.FuncName, gc.Equals, "ModelUser")
+
+	result := results.Results[0]
+	c.Assert(result.Result, gc.IsNil)
+	c.Assert(result.Error, gc.NotNil)
+	c.Check(result.Error.Message, gc.Equals, `boom`)
 }
 
 // modelManagerStateSuite contains end-to-end tests.

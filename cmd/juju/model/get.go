@@ -42,9 +42,10 @@ Examples:
     juju get-model-config default-series
     juju get-model-config -m mymodel type
 
-See also: models
-          set-model-config
-          unset-model-config
+See also:
+    models
+    set-model-config
+    unset-model-config
 `
 
 func (c *getCommand) Info() *cmd.Info {
