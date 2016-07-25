@@ -78,6 +78,12 @@ func (env *environ) Config() *config.Config {
 	return env.ecfg.Config
 }
 
+// PrepareForBootstrap is defined by Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	logger.Infof("preparing model %q", env.name)
+	return nil
+}
+
 // Bootstrap initializes the state for the environment, possibly
 // starting one or more instances.  If the configuration's
 // AdminSecret is non-empty, the administrator password on the

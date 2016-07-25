@@ -336,7 +336,9 @@ func prepareForBootstrap(
 		Credentials:          fakeUserPassCredential(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(ctx, cfg)
+	env, err := provider.Open(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.PrepareForBootstrap(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

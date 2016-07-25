@@ -92,32 +92,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return cfg, nil
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	cfg *config.Config,
-) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	env := e.(*environ)
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env); err != nil {
-			return nil, err
-		}
-	}
-
-	apiClient, ecfg := env.ec2(), env.ecfg()
-	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return e, nil
-}
-
 // Validate is specified in the EnvironProvider interface.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	newEcfg, err := validateConfig(cfg, old)

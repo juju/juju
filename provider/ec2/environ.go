@@ -127,6 +127,23 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env); err != nil {
+			return err
+		}
+	}
+
+	apiClient, ecfg := env.ec2(), env.ecfg()
+	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
+	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
 }

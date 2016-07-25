@@ -161,3 +161,8 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
 	})
 }
+
+func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
+	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
+	c.Assert(err, jc.ErrorIsNil)
+}

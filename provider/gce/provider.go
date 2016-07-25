@@ -66,20 +66,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := env.gce.VerifyCredentials(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return env, nil
-}
-
 // Schema returns the configuration schema for an environment.
 func (environProvider) Schema() environschema.Fields {
 	fields, err := config.Schema(configSchema)

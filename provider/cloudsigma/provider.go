@@ -110,12 +110,6 @@ func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*co
 	return cfg, nil
 }
 
-// PrepareForBootstrap is defined by EnvironProvider.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing model %q", cfg.Name())
-	return providerInstance.Open(cfg)
-}
-
 // Validate ensures that config is a valid configuration for this
 // provider, applying changes to it if necessary, and returns the
 // validated configuration.

@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -117,10 +116,4 @@ func (s *ProviderFunctionalSuite) TestBootstrapConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
-}
-
-func (s *ProviderFunctionalSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(env, gc.NotNil)
 }

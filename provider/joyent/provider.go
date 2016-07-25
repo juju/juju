@@ -79,20 +79,6 @@ func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*joyentEnviron)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return e, nil
-}
-
 const unauthorisedMessage = `
 Please ensure the SSH access key you have specified is correct.
 You can create or import an SSH key via the "Account Summary"

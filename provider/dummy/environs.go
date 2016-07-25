@@ -554,11 +554,6 @@ func (p *environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg
 	return cfg, nil
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	return p.Open(cfg)
-}
-
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	ecfg, err := p.newConfig(args.Config)
@@ -635,6 +630,11 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	if placement != "" && placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", placement)
 	}
+	return nil
+}
+
+// PrepareForBootstrap is specified in the Environ interface.
+func (p *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 

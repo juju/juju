@@ -65,9 +65,12 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	if err != nil {
 		return nil, err
 	}
+	env, err := manual.ProviderInstance.Open(testConfig)
+	if err != nil {
+		return nil, err
+	}
 	ctx := envtesting.BootstrapContext(c)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(ctx, testConfig)
-	return ctx, err
+	return ctx, env.PrepareForBootstrap(ctx)
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {

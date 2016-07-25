@@ -77,6 +77,9 @@ type BootstrapConfig struct {
 	// Cloud is the name of the cloud to create the Juju controller in.
 	Cloud string `yaml:"cloud"`
 
+	// CloudType is the type of the cloud to create the Juju controller in.
+	CloudType string `yaml:"type"`
+
 	// CloudRegion is the name of the region of the cloud to create
 	// the Juju controller in. This will be empty for clouds without
 	// regions.

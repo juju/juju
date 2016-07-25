@@ -89,6 +89,16 @@ func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnvir
 	return &env, nil
 }
 
+// PrepareForBootstrap is specified in the Environ interface.
+func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,

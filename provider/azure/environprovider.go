@@ -126,20 +126,6 @@ func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigP
 	return cfg, nil
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := prov.Open(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env.(*azureEnviron)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return env, nil
-}
-
 // SecretAttrs is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	unknownAttrs := cfg.UnknownAttrs()

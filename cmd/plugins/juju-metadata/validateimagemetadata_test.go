@@ -113,6 +113,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		Config:      ec2Config.AllAttrs(),
 		Cloud:       "ec2",
+		CloudType:   "ec2",
 		CloudRegion: "us-east-1",
 	}
 
@@ -140,6 +141,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
 		Config:               azureConfig.AllAttrs(),
 		Cloud:                "azure",
+		CloudType:            "azure",
 		CloudRegion:          "West US",
 		CloudEndpoint:        "https://management.azure.com",
 		CloudStorageEndpoint: "https://core.windows.net",

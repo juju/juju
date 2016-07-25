@@ -184,7 +184,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 		if model.bootstrapCfg != nil {
 			s.store.BootstrapConfig[controllerName] = jujuclient.BootstrapConfig{
-				Config: createBootstrapInfo(c, "admin"),
+				Config:    createBootstrapInfo(c, "admin"),
+				CloudType: "dummy",
 			}
 		}
 
@@ -285,7 +286,7 @@ func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
-		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
+		"getting controller environ: getting model config from API: controller \"test3\" not found",
 	)
 	checkControllerExistsInStore(c, "test3", s.store)
 }
@@ -351,7 +352,8 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		User: "admin@local",
 	}
 	s.store.BootstrapConfig["test1"] = jujuclient.BootstrapConfig{
-		Config: createBootstrapInfo(c, "admin"),
+		Config:    createBootstrapInfo(c, "admin"),
+		CloudType: "dummy",
 	}
 }
 

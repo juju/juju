@@ -71,6 +71,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.BootstrapConfig["testing"] = jujuclient.BootstrapConfig{
 		Cloud:       "mycloud",
+		CloudType:   "dummy",
 		CloudRegion: "a-region",
 		Config: map[string]interface{}{
 			"type": "dummy",

@@ -35,24 +35,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(args.ControllerUUID, args.Config)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// TODO(ericsnow) Do some of what happens in local provider's
-	// PrepareForBootstrap()? Only if "remote" is local host?
-
-	env, err := newEnviron(cfg, newRawProvider)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if ctx.ShouldVerifyCredentials() {
-		if err := env.verifyCredentials(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return env, nil
-}
-
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil

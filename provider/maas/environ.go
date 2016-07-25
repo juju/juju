@@ -123,6 +123,16 @@ func (env *maasEnviron) usingMAAS2() bool {
 	return env.apiVersion == apiVersion2
 }
 
+// PrepareForBootstrap is specified in the Environ interface.
+func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
