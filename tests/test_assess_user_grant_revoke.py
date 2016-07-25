@@ -10,14 +10,18 @@ import os
 import StringIO
 from subprocess import CalledProcessError
 
+import pexpect
+
 from assess_user_grant_revoke import (
-    assert_read_model,
+    assert_read,
     assert_user_permissions,
-    assert_write_model,
+    assert_write,
     assess_user_grant_revoke,
+    create_cloned_environment,
     JujuAssertionError,
     main,
     parse_args,
+    register_user,
 )
 from jujupy import JUJU_DEV_FEATURE_FLAGS
 from tests import (
@@ -108,60 +112,47 @@ class TestMain(TestCase):
 class TestAsserts(TestCase):
 
     def test_assert_user_permissions(self):
-        User = namedtuple('user', ['name', 'permissions', 'expect'])
-        read_user = User('readuser', 'read',
-                         [True, False, False, False, False, False])
-        write_user = User('writeuser', 'write',
-                          [True, True, False, True, False, False])
-        admin_user = User('adminuser', 'admin',
-                          [True, True, True, True, False, False])
-        users = [read_user, write_user, admin_user]
+        user = namedtuple('user', ['name', 'permissions', 'expect'])
+        read_user = user('readuser', 'read', [True, False, False, False])
+        write_user = user('adminuser', 'write', [True, True, True, False])
+        users = [read_user, write_user]
 
         for user in users:
             fake_client = fake_juju_client()
             fake_admin_client = fake_juju_client()
-            ac = patch("assess_user_grant_revoke.assert_admin_controller",
-                       return_value=True)
             with patch("jujupy.EnvJujuClient.revoke", return_value=True):
-                with patch("assess_user_grant_revoke.assert_read_model",
+                with patch("assess_user_grant_revoke.assert_read",
                            return_value=True) as read_mock:
-                    with patch("assess_user_grant_revoke.assert_write_model",
+                    with patch("assess_user_grant_revoke.assert_write",
                                return_value=True) as write_mock:
-                        with ac as admin_mock:
-                            assert_user_permissions(user, fake_client,
-                                                    fake_admin_client)
-                            self.assertEqual(read_mock.call_count, 2)
-                            self.assertEqual(write_mock.call_count, 2)
-                            self.assertEqual(admin_mock.call_count, 2)
+                        assert_user_permissions(user, fake_client,
+                                                fake_admin_client)
+                        self.assertEqual(read_mock.call_count, 2)
+                        self.assertEqual(write_mock.call_count, 2)
 
-    def test_assert_read_model(self):
+    def test_assert_read(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'show_status', return_value=True):
-            assert_read_model(fake_client, 'read', True)
+            assert_read(fake_client, True)
             with self.assertRaises(JujuAssertionError):
-                assert_read_model(fake_client, 'read', False)
+                assert_read(fake_client, False)
         with patch.object(fake_client, 'show_status', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            assert_read_model(fake_client, 'read', False)
+            assert_read(fake_client, False)
             with self.assertRaises(JujuAssertionError):
-                assert_read_model(fake_client, 'read', True)
+                assert_read(fake_client, True)
 
-    def test_assert_write_model(self):
+    def test_assert_write(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'deploy', return_value=True):
-            with patch.object(fake_client, 'remove_service', autospec=True):
-                assert_write_model(fake_client, 'write', True)
+            assert_write(fake_client, True)
             with self.assertRaises(JujuAssertionError):
-                with patch.object(fake_client, 'remove_service',
-                                  autospec=True):
-                    assert_write_model(fake_client, 'write', False)
+                assert_write(fake_client, False)
         with patch.object(fake_client, 'deploy', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            assert_write_model(fake_client, 'write', False)
+            assert_write(fake_client, False)
             with self.assertRaises(JujuAssertionError):
-                with patch.object(fake_client, 'remove_service',
-                                  autospec=True):
-                    assert_write_model(fake_client, 'write', True)
+                assert_write(fake_client, True)
 
 
 def make_fake_client():
@@ -178,53 +169,70 @@ class TestAssess(TestCase):
     def test_user_grant_revoke(self):
         fake_client = make_fake_client()
         fake_client.bootstrap()
-        assert_read_calls = [True, False, True, True, True, True]
-        assert_write_calls = [False, False, True, False, True, True]
-        assert_admin_calls = [False, False, False, False, True, True]
-        cpass = patch("assess_user_grant_revoke.assert_change_password",
-                      autospec=True)
-        able = patch("assess_user_grant_revoke.assert_disable_enable",
-                     autospec=True)
-        log = patch("assess_user_grant_revoke.assert_logout_login",
-                    autospec=True)
-        expect = patch("jujupy.EnvJujuClient.expect",
-                       autospec=True)
-        read = patch("assess_user_grant_revoke.assert_read_model",
-                     autospec=True)
-        write = patch("assess_user_grant_revoke.assert_write_model",
-                      autospec=True)
-        admin = patch("assess_user_grant_revoke.assert_admin_controller",
-                      autospec=True)
-        rm = patch("utility.wait_for_removed_services",
-                   autospec=True)
-        with cpass as pass_mock, able as able_mock, log as log_mock:
-            with read as read_mock, write as write_mock, admin as admin_mock:
-                with expect as expect_mock:
-                    expect_mock.return_value.isalive.return_value = False
-                    with rm:
-                        assess_user_grant_revoke(fake_client)
 
-                        self.assertEqual(pass_mock.call_count, 1)
-                        self.assertEqual(able_mock.call_count, 1)
-                        self.assertEqual(log_mock.call_count, 1)
+        user = namedtuple('user', ['name', 'permissions', 'expect'])
+        read_user = user('readuser', 'read', [True, False, False, False])
+        write_user = user('adminuser', 'write', [True, True, True, False])
 
-                        self.assertEqual(read_mock.call_count, 6)
-                        self.assertEqual(write_mock.call_count, 6)
-                        self.assertEqual(admin_mock.call_count, 6)
+        with patch("assess_user_grant_revoke.register_user",
+                   return_value=True) as reg_mock:
+            with patch("assess_user_grant_revoke.assert_user_permissions",
+                       autospec=True) as perm_mock:
+                assess_user_grant_revoke(fake_client)
 
-                        read_calls = [
-                            call[0][2] for call in
-                            read_mock.call_args_list]
-                        write_calls = [
-                            call[0][2] for call in
-                            write_mock.call_args_list]
-                        admin_calls = [
-                            call[0][2] for call in
-                            admin_mock.call_args_list]
+                self.assertEqual(reg_mock.call_count, 2)
+                self.assertEqual(perm_mock.call_count, 2)
 
-                        self.assertEqual(read_calls,
-                                         assert_read_calls)
-                        self.assertEqual(write_calls,
-                                         assert_write_calls)
-                        self.assertEqual(admin_calls,
-                                         assert_admin_calls)
+                read_user_call, write_user_call = perm_mock.call_args_list
+                read_user_args, read_user_kwargs = read_user_call
+                write_user_args, write_user_kwargs = write_user_call
+
+                self.assertEqual(read_user_args[0], read_user)
+                self.assertEqual(read_user_args[2], fake_client)
+                self.assertEqual(write_user_args[0], write_user)
+                self.assertEqual(write_user_args[2], fake_client)
+
+    def test_create_cloned_environment(self):
+        fake_client = make_fake_client()
+        fake_client.bootstrap()
+        fake_client_environ = fake_client._shell_environ()
+        controller_name = 'user_controller'
+        cloned, cloned_environ = create_cloned_environment(
+            fake_client,
+            'fakehome',
+            controller_name
+        )
+        self.assertIs(fake_client.__class__, type(cloned))
+        self.assertEqual(cloned.env.juju_home, 'fakehome')
+        self.assertNotEqual(cloned_environ, fake_client_environ)
+        self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
+        self.assertEqual(cloned.env.controller.name, controller_name)
+        self.assertEqual(fake_client.env.controller.name, 'name')
+
+    def test_register_user(self):
+        FakeUser = namedtuple('user', ['name', 'permissions'])
+        user = FakeUser('fakeuser', 'read')
+
+        class FakeClient:
+            """Lightweight fake client for testing."""
+            def add_user(self, username, permissions):
+                return 'token'
+
+            def expect(self, *args, **kwargs):
+                return PexpectInteraction(
+                    [
+                        user.name + '_controller',
+                        user.name + '_password',
+                        user.name + '_password',
+                        pexpect.EOF],
+                    [
+                        '(?i)name',
+                        '(?i)password',
+                        '(?i)password',
+                        pexpect.EOF])
+
+        fake_client = FakeClient()
+        with patch(
+                'assess_user_grant_revoke.create_cloned_environment',
+                return_value=(fake_client, {})):
+            register_user(user, fake_client, '/tmp/dir/path')

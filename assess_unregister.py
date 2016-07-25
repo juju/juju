@@ -25,6 +25,7 @@ from textwrap import dedent
 
 from assess_user_grant_revoke import (
     User,
+    register_user,
 )
 from deploy_stack import (
     BootstrapManager,
@@ -47,7 +48,7 @@ def assess_unregister(client):
     user = User('testuser', 'read', [])
     user_controller_name = '{}_controller'.format(user.name)
     with temp_dir() as fake_home:
-        user_client = client.register_user(user, fake_home)
+        user_client = register_user(user, client, fake_home)
         assert_controller_list(
             user_client,
             [user_controller_name])

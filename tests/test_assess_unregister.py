@@ -63,13 +63,12 @@ class TestAssess(TestCase):
 
     def test_unregister(self):
         fake_user = Mock()
-        with patch('jujupy.EnvJujuClient.register_user',
-                   return_value=fake_user):
-            with patch.object(
-                    a_unreg, 'assert_controller_list',
-                    autospec=True) as mock_assert_list:
-                with patch.object(
-                        a_unreg, 'assert_switch_raises_error', autospec=True):
+        with patch.object(a_unreg, 'register_user',
+                          return_value=fake_user):
+            with patch.object(a_unreg, 'assert_controller_list',
+                              autospec=True) as mock_assert_list:
+                with patch.object(a_unreg, 'assert_switch_raises_error',
+                                  autospec=True):
                     fake_client = Mock(wraps=fake_juju_client())
                     fake_client.env.controller.name = 'testing-controller'
                     fake_client.bootstrap()
