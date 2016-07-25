@@ -127,6 +127,13 @@ class FakeControllerState:
     def __init__(self):
         self.state = 'not-bootstrapped'
         self.models = {}
+        self.users = {
+            'admin': {
+                'state': '',
+                'permission': 'write'
+            }
+        }
+        self.shares = ['admin']
 
     def add_model(self, name):
         state = FakeEnvironmentState()
@@ -471,6 +478,45 @@ class FakeBackend:
                        self.controller_state.models.values()]
         return {'models': [{'name': n} for n in model_names]}
 
+    def list_users(self):
+        user_names = [name for name in
+                      self.controller_state.users.keys()]
+        user_list = []
+        for n in user_names:
+            if n == 'admin':
+                append_dict = {'user-name': n, 'display-name': n}
+            else:
+                append_dict = {'user-name': n, 'display-name': ''}
+            user_list.append(append_dict)
+        return user_list
+
+    def show_user(self, user_name):
+        if user_name is None:
+            raise Exception("No user specified")
+        if user_name == 'admin':
+            user_status = {'user-name': user_name, 'display-name': user_name}
+        else:
+            user_status = {'user-name': user_name, 'display-name': ''}
+        return user_status
+
+    def list_shares(self):
+        share_names = self.controller_state.shares
+        permissions = []
+        for key, value in self.controller_state.users.iteritems():
+            if key in share_names:
+                permissions.append(value['permission'])
+        share_list = {}
+        for i, (share_name, permission) in enumerate(
+                zip(share_names, permissions)):
+            name = share_name + '@local'
+            share_list[name] = {'display-name': share_name,
+                                'access': permission}
+            if name != 'admin@local':
+                share_list[name].pop('display-name')
+            else:
+                share_list[name]['access'] = 'admin'
+        return share_list
+
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
         if model is not None:
@@ -566,6 +612,16 @@ class FakeBackend:
                 parser.add_argument('model_name')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
+            if command == 'revoke':
+                user_name = args[2]
+                permissions = args[5]
+                per = self.controller_state.users[user_name]['permission']
+                if per == permissions:
+                    if permissions == 'read':
+                        self.controller_state.shares.remove(user_name)
+                        per = ''
+                    else:
+                        per = 'read'
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
@@ -576,7 +632,7 @@ class FakeBackend:
 
     @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None):
+                        juju_home, model=None, timeout=None, user_name=None):
         if 'service' in command:
             raise Exception('No service')
         self._log_command(command, args, model, logging.DEBUG)
@@ -597,6 +653,12 @@ class FakeBackend:
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':
             return yaml.safe_dump(self.list_models())
+        if command == 'list-users':
+            return json.dumps(self.list_users())
+        if command == 'list-shares':
+            return json.dumps(self.list_shares())
+        if command == 'show-user':
+            return json.dumps(self.show_user(user_name))
         if command == 'add-user':
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):
@@ -606,6 +668,9 @@ class FakeBackend:
             info_string = \
                 'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
                 .format(username, username, permissions, model)
+            self.controller_state.users.update(
+                {username: {'state': '', 'permission': permissions}})
+            self.controller_state.shares.append(username)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
@@ -3045,7 +3110,8 @@ class TestEnvJujuClient(ClientTest):
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
             frozenset(
-                ['address-allocation', 'migration']), 'foo', 'name:name', None)
+                ['address-allocation', 'migration']), 'foo',
+            'name:name', None, user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -3247,6 +3313,46 @@ class TestEnvJujuClient(ClientTest):
             expected_args = _get_expected_args(permissions=permissions)
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
+
+    def test_disable_user(self):
+        env = JujuData('foo')
+        username = 'fakeuser'
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.disable_user(username)
+        mock.assert_called_with(
+            'disable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
+
+    def test_enable_user(self):
+        env = JujuData('foo')
+        username = 'fakeuser'
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.enable_user(username)
+        mock.assert_called_with(
+            'enable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
+
+    def test_logout(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.logout()
+        mock.assert_called_with(
+            'logout', ('-c', 'foo'), include_e=False)
+
+    def test_create_cloned_environment(self):
+        fake_client = fake_juju_client()
+        fake_client.bootstrap()
+        # fake_client_environ = fake_client._shell_environ()
+        controller_name = 'user_controller'
+        cloned = fake_client.create_cloned_environment(
+            'fakehome',
+            controller_name
+        )
+        self.assertIs(fake_client.__class__, type(cloned))
+        self.assertEqual(cloned.env.juju_home, 'fakehome')
+        self.assertEqual(cloned.env.controller.name, controller_name)
+        self.assertEqual(fake_client.env.controller.name, 'name')
 
 
 class TestEnvJujuClient2B8(ClientTest):
@@ -5070,7 +5176,8 @@ class TestEnvJujuClient1X(ClientTest):
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
             frozenset(
-                ['address-allocation', 'migration']), 'foo', 'name', None)
+                ['address-allocation', 'migration']),
+            'foo', 'name', None, user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
