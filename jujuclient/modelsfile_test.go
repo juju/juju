@@ -24,28 +24,28 @@ const testModelsYAML = `
 controllers:
   ctrl:
     models:
-      admin:
+      admin@local/admin:
         uuid: ghi
   kontroll:
     models:
-      admin:
+      admin@local/admin:
         uuid: abc
-      my-model:
+      admin@local/my-model:
         uuid: def
-    current-model: my-model
+    current-model: admin@local/my-model
 `
 
 var testControllerModels = map[string]*jujuclient.ControllerModels{
 	"kontroll": {
 		Models: map[string]jujuclient.ModelDetails{
-			"admin":    kontrollAdminModelDetails,
-			"my-model": kontrollMyModelModelDetails,
+			"admin@local/admin":    kontrollAdminModelDetails,
+			"admin@local/my-model": kontrollMyModelModelDetails,
 		},
-		CurrentModel: "my-model",
+		CurrentModel: "admin@local/my-model",
 	},
 	"ctrl": {
 		Models: map[string]jujuclient.ModelDetails{
-			"admin": ctrlAdminModelDetails,
+			"admin@local/admin": ctrlAdminModelDetails,
 		},
 	},
 }

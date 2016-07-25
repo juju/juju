@@ -129,7 +129,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		return expectState, nil
 	}
 
-	st, err := newAPIConnectionFromNames(c, "noconfig", "admin", store, apiOpen)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -145,7 +145,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err = newAPIConnectionFromNames(c, "noconfig", "admin", stubStore, apiOpen)
+	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -206,7 +206,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 		return nil, fmt.Errorf("OpenAPI called too many times")
 	}
 
-	st0, err := newAPIConnectionFromNames(c, "ctl", "admin", store, redirOpen)
+	st0, err := newAPIConnectionFromNames(c, "ctl", "admin@local/admin", store, redirOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openCount, gc.Equals, 2)
 	st := st0.(*mockAPIState)
@@ -260,7 +260,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = store.UpdateModel(controllerName, "admin", jujuclient.ModelDetails{
+	err = store.UpdateModel(controllerName, "admin@local/admin", jujuclient.ModelDetails{
 		fakeUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)

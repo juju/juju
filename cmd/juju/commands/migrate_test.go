@@ -50,7 +50,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the model to migrate in the config.
-	err = s.store.UpdateModel("source", "model", jujuclient.ModelDetails{
+	err = s.store.UpdateModel("source", "source@local/model", jujuclient.ModelDetails{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
