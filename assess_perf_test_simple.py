@@ -6,7 +6,6 @@ from __future__ import print_function
 import argparse
 from collections import defaultdict, namedtuple
 from datetime import datetime
-from jinja2 import Template
 import logging
 import os
 import sys
@@ -15,6 +14,7 @@ import time
 from textwrap import dedent
 
 import rrdtool
+from jinja2 import Template
 from fixtures import EnvironmentVariable
 
 from deploy_stack import (
@@ -191,6 +191,17 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     with bs_manager.booted_context(upload_tools):
         try:
             client = bs_manager.client
+            # Work around mysql charm wanting 80% memory.
+            if client.env.get_cloud() == 'lxd':
+                constraint_cmd = [
+                    'lxc',
+                    'profile',
+                    'set',
+                    'juju-{}'.format(client.env.environment),
+                    'limits.memory',
+                    '2GB'
+                ]
+                subprocess.check_output(constraint_cmd)
             admin_client = client.get_admin_client()
             admin_client.wait_for_started()
             bs_end = datetime.utcnow()
@@ -209,9 +220,12 @@ def assess_perf_test_simple(bs_manager, upload_tools):
                  results_dir)
             )
 
-            admin_client.juju(
-                'scp', ('0:/tmp/mongodb-stats.log', results_dir)
-            )
+            try:
+                admin_client.juju(
+                    'scp', ('0:/tmp/mongodb-stats.log', results_dir)
+                )
+            except subprocess.CalledProcessError as e:
+                log.error('Failed to copy mongodb stats: {}'.format(e))
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -381,7 +395,9 @@ def create_network_report_graph(rrd_dir, output_dir):
 
 def generate_mongo_graph_image(results_dir):
     dest_path = os.path.join(results_dir, 'mongodb')
-    create_mongodb_rrd_file(results_dir, dest_path)
+
+    if not create_mongodb_rrd_file(results_dir, dest_path):
+        return None
     return generate_graph_image(
         results_dir, 'mongodb', create_mongodb_report_graph)
 
@@ -394,6 +410,13 @@ def create_mongodb_report_graph(rrd_dir, output_dir):
 def create_mongodb_rrd_file(results_dir, destination_dir):
     os.mkdir(destination_dir)
     source_file = os.path.join(results_dir, 'mongodb-stats.log')
+
+    if not os.path.exists(source_file):
+        log.warning(
+            'Not creating mongodb rrd. Source file not found ({})'.format(
+                source_file))
+        return False
+
     dest_file = os.path.join(destination_dir, 'mongodb.rrd')
 
     first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
@@ -417,6 +440,7 @@ def create_mongodb_rrd_file(results_dir, destination_dir):
             u=int(entry[3]),
             d=int(entry[4]))
         rrdtool.update(dest_file, update_details)
+    return True
 
 
 def get_mongodb_stat_data(log_file):
@@ -722,16 +746,12 @@ def setup_system_monitoring(admin_client):
         'sudo apt-get update',
         'sudo apt-get install --yes --allow-unauthenticated mongodb-org-tools daemon',
         'sudo chmod +x /tmp/runner.sh',
-        'daemon /tmp/runner.sh',
     ]
     full_command = " && ".join(commands)
     admin_client.juju('ssh', ('0', '--', full_command))
 
-    # create rrd database.
-    # values for insert, query, update, delete. (then maybe vsize, res?
-    # netin/netout)
-    # for line in stat_json:
-    #     convert line to epoch seconds
+    # Start collection
+    admin_client.juju('ssh', ('0', '--', 'daemon /tmp/runner.sh'))
 
 
 def parse_args(argv):
