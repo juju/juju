@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -249,7 +250,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				args, addrs, jobs, sharedSecret,
 			},
 			dialOpts,
-			environs.NewStatePolicy(),
+			stateenvirons.GetNewPolicyFunc(
+				stateenvirons.GetNewEnvironFunc(environs.New),
+			),
 		)
 		return stateErr
 	})

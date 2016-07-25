@@ -80,6 +80,7 @@ type State struct {
 	session       *mgo.Session
 	database      Database
 	policy        Policy
+	newPolicy     NewPolicyFunc
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -273,7 +274,7 @@ func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 func (st *State) ForModel(model names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		model, session, st.mongoInfo, st.policy,
+		model, session, st.mongoInfo, st.newPolicy,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -14,11 +14,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	coretools "github.com/juju/juju/tools"
 )
 
 func init() {
-	common.RegisterStandardFacade("AgentTools", 1, NewAgentToolsAPI)
+	common.RegisterStandardFacade("AgentTools", 1, newAgentToolsAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.model")
@@ -27,24 +28,35 @@ var (
 	findTools = tools.FindTools
 )
 
-type stateInterface interface {
-	ModelGetter
-	environs.EnvironConfigGetter
-}
-
 // AgentToolsAPI implements the API used by the machine model worker.
 type AgentToolsAPI struct {
-	st         stateInterface
-	authorizer facade.Authorizer
+	modelGetter ModelGetter
+	newEnviron  newEnvironFunc
+	authorizer  facade.Authorizer
 	// tools lookup
 	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
 }
 
+func newAgentToolsAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
+	newEnviron := func() (environs.Environ, error) {
+		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
+		return newEnviron(st)
+	}
+	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, authorizer)
+}
+
 // NewAgentToolsAPI creates a new instance of the Model API.
-func NewAgentToolsAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
+func NewAgentToolsAPI(
+	modelGetter ModelGetter,
+	newEnviron func() (environs.Environ, error),
+	findTools func(environs.Environ, int, int, string, coretools.Filter) (coretools.List, error),
+	envVersionUpdate func(*state.Model, version.Number) error,
+	authorizer facade.Authorizer,
+) (*AgentToolsAPI, error) {
 	return &AgentToolsAPI{
-		st:               st,
+		modelGetter:      modelGetter,
+		newEnviron:       newEnviron,
 		authorizer:       authorizer,
 		findTools:        findTools,
 		envVersionUpdate: envVersionUpdate,
@@ -56,18 +68,17 @@ type ModelGetter interface {
 	Model() (*state.Model, error)
 }
 
+type newEnvironFunc func() (environs.Environ, error)
 type toolsFinder func(environs.Environ, int, int, string, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Model, version.Number) error
 
-var newEnvirons = environs.New
-
-func checkToolsAvailability(getter environs.EnvironConfigGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
+func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
 	currentVersion, ok := modelCfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil
 	}
 
-	env, err := environs.GetEnviron(getter, newEnvirons)
+	env, err := newEnviron()
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot make model")
 	}
@@ -99,8 +110,8 @@ func envVersionUpdate(env *state.Model, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver)
 }
 
-func updateToolsAvailability(st stateInterface, finder toolsFinder, update envVersionUpdater) error {
-	model, err := st.Model()
+func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc, finder toolsFinder, update envVersionUpdater) error {
+	model, err := modelGetter.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")
 	}
@@ -108,7 +119,7 @@ func updateToolsAvailability(st stateInterface, finder toolsFinder, update envVe
 	if err != nil {
 		return errors.Annotate(err, "cannot get config")
 	}
-	ver, err := checkToolsAvailability(st, cfg, finder)
+	ver, err := checkToolsAvailability(newEnviron, cfg, finder)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// No newer tools, so exit silently.
@@ -129,5 +140,5 @@ func (api *AgentToolsAPI) UpdateToolsAvailable() error {
 	if !api.authorizer.AuthModelManager() {
 		return common.ErrPerm
 	}
-	return updateToolsAvailability(api.st, api.findTools, api.envVersionUpdate)
+	return updateToolsAvailability(api.modelGetter, api.newEnviron, api.findTools, api.envVersionUpdate)
 }

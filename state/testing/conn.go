@@ -20,7 +20,7 @@ import (
 // Initialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, policy state.Policy) *state.State {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, newPolicy state.NewPolicyFunc) *state.State {
 	if cfg == nil {
 		cfg = testing.ModelConfig(c)
 	}
@@ -44,7 +44,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
-		Policy:        policy,
+		NewPolicy:     newPolicy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
@@ -66,6 +66,6 @@ func NewMongoInfo() *mongo.MongoInfo {
 func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
 	cfg := testing.ModelConfig(c)
-	policy := MockPolicy{}
-	return Initialize(c, owner, cfg, nil, &policy)
+	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
+	return Initialize(c, owner, cfg, nil, newPolicy)
 }

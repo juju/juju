@@ -18,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -42,7 +41,7 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -605,7 +604,7 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -636,7 +635,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 

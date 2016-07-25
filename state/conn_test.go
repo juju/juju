@@ -35,7 +35,9 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	c.Log("SetUpTest")
 
 	cs.policy = statetesting.MockPolicy{}
-	cs.StateSuite.Policy = &cs.policy
+	cs.StateSuite.NewPolicy = func(*state.State) state.Policy {
+		return &cs.policy
+	}
 
 	cs.StateSuite.SetUpTest(c)
 

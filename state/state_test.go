@@ -72,7 +72,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -137,14 +137,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
-	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.ModelTag(), gc.Equals, s.modelTag)
@@ -154,7 +154,7 @@ func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -163,7 +163,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -274,7 +274,7 @@ type MultiEnvStateSuite struct {
 
 func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -2615,7 +2615,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), nil)
 	if err == nil {
 		err = st.Close()
 	}
@@ -2644,7 +2644,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(testing.ModelTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -2660,7 +2660,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	t0 := time.Now()
 	st, err := state.Open(testing.ModelTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -3329,7 +3329,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3367,7 +3367,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

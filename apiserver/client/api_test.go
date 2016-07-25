@@ -16,7 +16,6 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -129,7 +128,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(s.State.ModelTag(), stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	}, environs.NewStatePolicy())
+	}, nil)
 	if err == nil {
 		st.Close()
 	}

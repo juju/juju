@@ -13,11 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/metricsender"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -216,9 +214,8 @@ func (s *destroyModelSuite) TestBlockChangesDestroyModel(c *gc.C) {
 
 type destroyTwoModelsSuite struct {
 	testing.JujuConnSuite
-	otherState       *state.State
-	otherModelOwner  names.UserTag
-	otherModelClient *client.Client
+	otherState      *state.State
+	otherModelOwner names.UserTag
 
 	modelManager      common.ModelManagerBackend
 	otherModelManager common.ModelManagerBackend
@@ -240,15 +237,6 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	s.modelManager = common.NewModelManagerBackend(s.State)
 	s.otherModelManager = common.NewModelManagerBackend(s.otherState)
 	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
-
-	// get the client for the other model
-	auth := apiservertesting.FakeAuthorizer{
-		Tag:            s.otherModelOwner,
-		EnvironManager: false,
-	}
-	s.otherModelClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
-	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 func (s *destroyTwoModelsSuite) TestCleanupModelResources(c *gc.C) {

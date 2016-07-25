@@ -22,11 +22,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if u.st.policy == nil {
 		return candidates, nil
 	}
-	cfg, err := u.st.ModelConfig()
-	if err != nil {
-		return nil, err
-	}
-	distributor, err := u.st.policy.InstanceDistributor(cfg)
+	distributor, err := u.st.policy.InstanceDistributor()
 	if errors.IsNotImplemented(err) {
 		return candidates, nil
 	} else if err != nil {

@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -196,7 +197,7 @@ type OpPutFile struct {
 type environProvider struct {
 	mu                     sync.Mutex
 	ops                    chan<- Operation
-	statePolicy            state.Policy
+	newStatePolicy         state.NewPolicyFunc
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
 	apiPort                int
@@ -214,7 +215,7 @@ func ApiPort(p environs.EnvironProvider) int {
 type environState struct {
 	name            string
 	ops             chan<- Operation
-	statePolicy     state.Policy
+	newStatePolicy  state.NewPolicyFunc
 	mu              sync.Mutex
 	maxId           int // maximum instance id allocated so far.
 	maxAddr         int // maximum allocated address last byte
@@ -254,9 +255,11 @@ func init() {
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:                    discardOperations,
-	state:                  make(map[string]*environState),
-	statePolicy:            environs.NewStatePolicy(),
+	ops:   discardOperations,
+	state: make(map[string]*environState),
+	newStatePolicy: stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	),
 	supportsSpaces:         true,
 	supportsSpaceDiscovery: false,
 }
@@ -280,7 +283,9 @@ func Reset(c *gc.C) {
 		err := gitjujutesting.MgoServer.Reset()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	dummy.statePolicy = environs.NewStatePolicy()
+	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
 }
@@ -348,13 +353,13 @@ func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
 }
 
 // newState creates the state for a new environment with the given name.
-func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
+func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyFunc) *environState {
 	s := &environState{
-		name:        name,
-		ops:         ops,
-		statePolicy: policy,
-		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[network.PortRange]bool),
+		name:           name,
+		ops:            ops,
+		newStatePolicy: newStatePolicy,
+		insts:          make(map[instance.Id]*dummyInstance),
+		globalPorts:    make(map[network.PortRange]bool),
 	}
 	return s
 }
@@ -370,11 +375,11 @@ func (s *environState) listenAPI() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// SetStatePolicy sets the state.Policy to use when a
+// SetNewStatePolicyFunc sets the state.NewPolicyFunc to use when a
 // controller is initialised by dummy.
-func SetStatePolicy(policy state.Policy) {
+func SetNewStatePolicy(newStatePolicy state.NewPolicyFunc) {
 	dummy.mu.Lock()
-	dummy.statePolicy = policy
+	dummy.newStatePolicy = newStatePolicy
 	dummy.mu.Unlock()
 }
 
@@ -585,7 +590,7 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	// The environment has not been prepared, so create it and record it.
 	// We don't start listening for State or API connections until
 	// PrepareForBootstrapConfig has been called.
-	envState = newState(name, p.ops, p.statePolicy)
+	envState = newState(name, p.ops, p.newStatePolicy)
 	cfg := args.Config
 	if ecfg.controller() {
 		p.apiPort = envState.listenAPI()
@@ -710,7 +715,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				CloudCredentials: cloudCredentials,
 				MongoInfo:        info,
 				MongoDialOpts:    mongotest.DialOpts(),
-				Policy:           estate.statePolicy,
+				NewPolicy:        estate.newStatePolicy,
 			})
 			if err != nil {
 				return err

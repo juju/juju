@@ -186,7 +186,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy(),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -292,7 +292,7 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -316,7 +316,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy())
+	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -372,13 +372,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	st, _, err = agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {
 		st.Close()
@@ -420,7 +420,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

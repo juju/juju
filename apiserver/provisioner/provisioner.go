@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 )
@@ -49,10 +50,11 @@ type ProvisionerAPI struct {
 	*common.ToolsFinder
 	*common.ToolsGetter
 
-	st          *state.State
-	resources   facade.Resources
-	authorizer  facade.Authorizer
-	getAuthFunc common.GetAuthFunc
+	st           *state.State
+	resources    facade.Resources
+	authorizer   facade.Authorizer
+	configGetter environs.EnvironConfigGetter
+	getAuthFunc  common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -97,6 +99,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ProvisionerAPI{
 		Remover:              common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
@@ -110,11 +113,12 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:  common.NewControllerConfig(st),
 		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
-		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
+		ToolsFinder:          common.NewToolsFinder(configGetter, st, urlGetter),
+		ToolsGetter:          common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,
+		configGetter:         configGetter,
 		getAuthFunc:          getAuthFunc,
 	}, nil
 }
@@ -709,7 +713,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.st)
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}

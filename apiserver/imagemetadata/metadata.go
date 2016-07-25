@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
@@ -32,12 +33,14 @@ func init() {
 // for loud image metadata manipulations.
 type API struct {
 	metadata   metadataAcess
+	newEnviron func() (environs.Environ, error)
 	authorizer facade.Authorizer
 }
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
 	st metadataAcess,
+	newEnviron func() (environs.Environ, error),
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -47,6 +50,7 @@ func createAPI(
 
 	return &API{
 		metadata:   st,
+		newEnviron: newEnviron,
 		authorizer: authorizer,
 	}, nil
 }
@@ -57,7 +61,10 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	return createAPI(getState(st), resources, authorizer)
+	newEnviron := func() (environs.Environ, error) {
+		return stateenvirons.GetNewEnvironFunc(environs.New)(st)
+	}
+	return createAPI(getState(st), newEnviron, resources, authorizer)
 }
 
 // List returns all found cloud image metadata that satisfy
@@ -203,11 +210,7 @@ func (api *API) UpdateFromPublishedImages() error {
 }
 
 func (api *API) retrievePublished() error {
-	envCfg, err := api.metadata.ModelConfig()
-	if err != nil {
-		return errors.Annotatef(err, "getting environ config")
-	}
-	env, err := environs.New(envCfg)
+	env, err := api.newEnviron()
 	if err != nil {
 		return errors.Annotatef(err, "getting environ")
 	}

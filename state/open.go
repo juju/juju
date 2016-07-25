@@ -32,8 +32,8 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
-	st, err := open(tag, info, opts, policy)
+func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
+	st, err := open(tag, info, opts, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,7 +52,7 @@ func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	return st, nil
 }
 
-func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -82,7 +82,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 		tag = ssInfo.ModelTag
 	}
 
-	st, err := newState(tag, session, info, policy)
+	st, err := newState(tag, session, info, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,8 +130,9 @@ type InitializeParams struct {
 	// models on the specified cloud.
 	ControllerInheritedConfig map[string]interface{}
 
-	// Policy is the set of state policies to apply.
-	Policy Policy
+	// NewPolicy is a function that returns the set of state policies
+	// to apply.
+	NewPolicy NewPolicyFunc
 
 	// MongoInfo contains the information required to address and
 	// authenticate with Mongo.
@@ -196,7 +197,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.Policy)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -387,7 +388,7 @@ func isUnauthorized(err error) bool {
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, err error) {
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, newPolicy NewPolicyFunc) (_ *State, err error) {
 
 	defer func() {
 		if err != nil {
@@ -406,13 +407,17 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 	}
 
 	// Create State.
-	return &State{
+	st := &State{
 		modelTag:  modelTag,
 		mongoInfo: mongoInfo,
 		session:   session,
 		database:  database,
-		policy:    policy,
-	}, nil
+		newPolicy: newPolicy,
+	}
+	if newPolicy != nil {
+		st.policy = newPolicy(st)
+	}
+	return st, nil
 }
 
 // MongoConnectionInfo returns information for connecting to mongo

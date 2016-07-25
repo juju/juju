@@ -187,7 +187,6 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig)
 	c.Assert(saved, jc.SameContents, []cloudimagemetadata.Metadata{})
 }
 
@@ -218,24 +217,6 @@ func (e *mockEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   "dummy_region",
 		Endpoint: "https://anywhere",
 	}, nil
-}
-
-// mockEnvironProvider is the smallest possible provider to
-// test image metadata retrieval with region support.
-type mockEnvironProvider struct {
-	environs.EnvironProvider
-}
-
-func (p mockEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	return args.Config, nil
-}
-
-func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, *config.Config) (environs.Environ, error) {
-	return &mockEnviron{}, nil
-}
-
-func (p mockEnvironProvider) Open(*config.Config) (environs.Environ, error) {
-	return &mockEnviron{}, nil
 }
 
 var _ = gc.Suite(&regionMetadataSuite{})
@@ -316,7 +297,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -431,7 +412,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, environConfig, "Model", saveMetadata, environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 

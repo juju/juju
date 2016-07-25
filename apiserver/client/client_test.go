@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -45,7 +47,8 @@ import (
 
 type serverSuite struct {
 	baseSuite
-	client *client.Client
+	client     *client.Client
+	newEnviron func() (environs.Environ, error)
 }
 
 var _ = gc.Suite(&serverSuite{})
@@ -61,7 +64,29 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
-	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
+	urlGetter := common.NewToolsURLGetter(s.State.ModelUUID(), s.State)
+	configGetter := stateenvirons.EnvironConfigGetter{s.State}
+	statusSetter := common.NewStatusSetter(s.State, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, s.State, urlGetter)
+	s.newEnviron = func() (environs.Environ, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
+	newEnviron := func() (environs.Environ, error) {
+		return s.newEnviron()
+	}
+	blockChecker := common.NewBlockChecker(s.State)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(s.State, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	s.client, err = client.NewClient(
+		client.NewStateBackend(s.State),
+		modelConfigAPI,
+		common.NewResources(),
+		auth,
+		statusSetter,
+		toolsFinder,
+		newEnviron,
+		blockChecker,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -196,9 +221,9 @@ func (m *mockEnviron) AllInstances() ([]instance.Instance, error) {
 
 func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
 	env := &mockEnviron{err: envError}
-	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
+	s.newEnviron = func() (environs.Environ, error) {
 		return env, nil
-	})
+	}
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}

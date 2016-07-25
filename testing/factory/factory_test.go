@@ -32,7 +32,9 @@ type factorySuite struct {
 var _ = gc.Suite(&factorySuite{})
 
 func (s *factorySuite) SetUpTest(c *gc.C) {
-	s.Policy = new(statetesting.MockPolicy)
+	s.NewPolicy = func(*state.State) state.Policy {
+		return &statetesting.MockPolicy{}
+	}
 	s.StateSuite.SetUpTest(c)
 	s.Factory = factory.NewFactory(s.State)
 }

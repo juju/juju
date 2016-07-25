@@ -59,7 +59,7 @@ func InitializeState(
 	c agent.ConfigSetter,
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
-	policy state.Policy,
+	newPolicy state.NewPolicyFunc,
 ) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(agent.BootstrapMachineId) {
 		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
@@ -103,7 +103,7 @@ func InitializeState(
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		MongoInfo:                 info,
 		MongoDialOpts:             dialOpts,
-		Policy:                    policy,
+		NewPolicy:                 newPolicy,
 	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)

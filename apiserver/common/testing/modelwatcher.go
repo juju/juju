@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -45,6 +46,7 @@ func NewModelWatcherTest(
 func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher, hasSecrets bool) {
 	envConfig, err := s.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 
 	result, err := envWatcher.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +55,7 @@ func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher, h
 	// If the implementor doesn't provide secrets, we need to replace the config
 	// values in our environment to compare against with the secrets replaced.
 	if !hasSecrets {
-		env, err := environs.New(envConfig)
+		env, err := newEnviron(s.st)
 		c.Assert(err, jc.ErrorIsNil)
 		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
 		c.Assert(err, jc.ErrorIsNil)
