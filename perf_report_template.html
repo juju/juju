@@ -31,15 +31,7 @@
     <div class="container" role="main">
 
       <div class="page-header">
-        <h1>Test outline</h1>
-      </div>
-      <ul>
-        <li>Run a simple bootstrap</li>
-        <li>Deploying charm: 'cs:bundle/wiki-simple-0'</li>
-      </ul>
-
-      <div class="page-header">
-        <h2>Timings</h2>
+        <h2>Action Timings</h2>
       </div>
 
       <blockquote>
@@ -119,8 +111,7 @@
       </div>
       <blockquote>
         <p>
-          Table of the relevent log broken down into 20 sec blocks (to match up
-          with the graph granularity).
+          Logs broken down into 20 second chunks (to match the graphs.)
         </p>
       </blockquote>
 
@@ -151,17 +142,18 @@
            role="tabpanel"
            class="tab-pane {% if loop.index == 1 %}active{% endif %}"
            id="{{safe_date_stamp}}">
-          <h4>Bootstrap Logs</h4>
-          Log period: {{date_stamp}}
-          <table class="table table-condensed">
+          <h4 class="text-center">Log period: <b>{{date_stamp}}</b></h4>
+          <table class="table table-condensed table-bordered">
             {% for log_detail in values.logs|sort(attribute='timeframe') %}
             {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
             <tr
                data-toggle="collapse"
                data-target="#{{safe_timeframe}}"
-               class="clickable">
+               style="cursor: pointer;"
+               class="clickable active">
               <td>
-                + {{log_detail.timeframe}}
+                <span class="glyphicon glyphicon-chevron-down" aria-hidden="true"></span>
+                {{log_detail.timeframe}}
               </td>
             </tr>
             <tr>
@@ -181,5 +173,8 @@
       </div>
 
     </div>
+    <footer style="background-color: #f5f5f5; height: 25px; border-top: 1px solid lightgray; padding-left: 12px;">
+      Juju Performance/Scale testing
+    </footer>
   </body>
 </html>
