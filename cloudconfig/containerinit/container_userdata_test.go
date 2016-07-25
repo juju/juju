@@ -77,21 +77,23 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   true,
 	}}
 	s.expectedSampleConfig = `
-auto eth0 eth1 eth3 lo
-
+auto lo
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
   dns-search bar foo
 
+auto eth0
 iface eth0 inet static
   address 0.1.2.3/24
   gateway 0.1.2.1
 
+auto eth1
 iface eth1 inet static
   address 0.1.2.4/24
 
 iface eth2 inet dhcp
 
+auto eth3
 iface eth3 inet dhcp
 
 iface eth4 inet manual
@@ -102,21 +104,23 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
-  auto eth0 eth1 eth3 lo
-
+  auto lo
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
     dns-search bar foo
 
+  auto eth0
   iface eth0 inet static
     address 0.1.2.3/24
     gateway 0.1.2.1
 
+  auto eth1
   iface eth1 inet static
     address 0.1.2.4/24
 
   iface eth2 inet dhcp
 
+  auto eth3
   iface eth3 inet dhcp
 
   iface eth4 inet manual
@@ -124,10 +128,10 @@ bootcmd:
 `[1:]
 
 	s.expectedFallbackConfig = `
-auto eth0 lo
-
+auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet dhcp
 `
 	s.expectedFallbackUserData = `
@@ -136,10 +140,10 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
-  auto eth0 lo
-
+  auto lo
   iface lo inet loopback
 
+  auto eth0
   iface eth0 inet dhcp
   ' > '%[1]s'
 `[1:]
