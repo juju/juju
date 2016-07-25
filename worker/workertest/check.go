@@ -97,3 +97,21 @@ func DirtyKill(c *gc.C, w worker.Worker) {
 	err := CheckKill(c, w)
 	c.Logf("ignoring error: %v", err)
 }
+
+// CheckNilOrKill has no effect if w is nil; otherwise, it fails the test
+// and tries to stop the (non-nil) worker via CleanKill(). It's suitable
+// for testing constructor failure:
+//
+//     someWorker, err := some.NewWorker(badConfig)
+//     workertest.CheckNilOrKill(c, someWorker)
+//     c.Check(err, ...
+//
+// ...because it will do the right thing if your constructor succeeds
+// unexpectedly, and make every effort to prevent a rogue worker living
+// beyond its test.
+func CheckNilOrKill(c *gc.C, w worker.Worker) {
+	if !c.Check(w, gc.IsNil) {
+		c.Logf("stopping rogue worker...")
+		CleanKill(c, w)
+	}
+}

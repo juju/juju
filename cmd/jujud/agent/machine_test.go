@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -358,22 +357,6 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	c.Logf("test agent stopped successfully.")
-}
-
-func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
-		started.trigger()
-		return newDummyWorker()
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	started.assertTriggered(c, "resumer worker to start")
 }
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {

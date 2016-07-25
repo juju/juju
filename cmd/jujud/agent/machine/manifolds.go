@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 
@@ -113,7 +115,7 @@ type ManifoldsConfig struct {
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
 
-	// Clock is used by the storageprovisioner worker.
+	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 }
 
@@ -401,6 +403,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Interval:      time.Minute,
+			NewFacade:     resumer.NewFacade,
+			NewWorker:     resumer.NewWorker,
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
