@@ -72,7 +72,7 @@ def list_users(client):
     users_list = json.loads(client.get_juju_output('list-users', '--format',
                                                    'json', include_e=False))
     for user in users_list:
-        """Pop date-created and last-connection if existed for comparison"""
+        # Pop date-created and last-connection if existed for comparison
         user.pop("date-created", None)
         user.pop("last-connection", None)
     return users_list
@@ -83,7 +83,7 @@ def list_shares(client):
     share_list = json.loads(client.get_juju_output('list-shares', '--format',
                                                    'json', include_e=False))
     for key, value in share_list.iteritems():
-        """Pop last-connection if existed for comparison"""
+        # Pop last-connection if existed for comparison
         value.pop("last-connection", None)
     return share_list
 
@@ -92,7 +92,7 @@ def show_user(client):
     """Test showing a user's status"""
     user_status = json.loads(client.get_juju_output('show-user', '--format',
                                                     'json', include_e=False))
-    """Pop date-created and last-connection if existed for comparison"""
+    # Pop date-created and last-connection if existed for comparison
     user_status.pop("date-created", None)
     user_status.pop("last-connection", None)
     return user_status
