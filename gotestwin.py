@@ -8,32 +8,40 @@ from os.path import (
     join,
 )
 import subprocess
+import sys
 
 
-def main():
-    scripts = dirname(__file__)
+SCRIPTS = dirname(__file__)
+
+
+def main(argv=None):
     parser = ArgumentParser()
     parser.add_argument('host', help='The machine to test on.')
-    parser.add_argument('revision', help='The revision-build to test.')
+    parser.add_argument('revision_or_tarfile',
+                        help='The revision-build or tarfile path to test.')
     parser.add_argument('package', nargs='?', default='github.com/juju/juju',
                         help='The package to test.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    juju_ci_path = join(scripts, 'jujuci.py')
-    downloaded = subprocess.check_output([
-        juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*.tar.gz',
-        './'])
+    if args.revision_or_tarfile.endswith('tar.gz'):
+        downloaded = args.revision_or_tarfile
+    else:
+        revision = args.revision_or_tarfile
+        juju_ci_path = join(SCRIPTS, 'jujuci.py')
+        downloaded = subprocess.check_output([
+            juju_ci_path, 'get', '-b', revision, 'build-revision',
+            '*.tar.gz', './'])
+        subprocess.check_call([
+            juju_ci_path, 'get-build-vars', '--summary', revision])
     (tarfile,) = [basename(l) for l in downloaded.splitlines()]
 
-    subprocess.check_call([
-        juju_ci_path, 'get-build-vars', '--summary', args.revision])
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
             'install': {'ci': [
                 tarfile,
-                join(scripts, 'gotesttarfile.py'),
-                join(scripts, 'jujucharm.py'),
-                join(scripts, 'utility.py'),
+                join(SCRIPTS, 'gotesttarfile.py'),
+                join(SCRIPTS, 'jujucharm.py'),
+                join(SCRIPTS, 'utility.py'),
                 ]},
             'command': [
                 'python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
@@ -41,7 +49,7 @@ def main():
                 ]},
              temp_file)
     juju_home = os.environ.get('JUJU_HOME',
-                               join(dirname(scripts), 'cloud-city'))
+                               join(dirname(SCRIPTS), 'cloud-city'))
     subprocess.check_call([
         'workspace-run', '-v', '-i', join(juju_home, 'staging-juju-rsa'),
         'temp-config.yaml', 'Administrator@{}'.format(args.host)
@@ -49,4 +57,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

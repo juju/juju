@@ -183,7 +183,7 @@ class TestAssessResources(TestCase):
                  '47c431e882785a0bf8dc70b42995db388575', 1024 * 1024, 1800,
                  1800, deploy=False, resource_file='/tmp/fake')]
         self.assertEqual(mock_p.mock_calls, calls)
-        mock_fdf.assert_called_once_with('/tmp/fake', 1024 * 1024)
+        mock_fdf.assert_called_once_with('/tmp/fake', size=1024 * 1024)
         mock_lt.assert_called_once_with(None, 1800, 1800)
 
     def test_large_tests(self):

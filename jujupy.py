@@ -879,16 +879,6 @@ class EnvJujuClient:
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
-    @classmethod
-    def by_version(cls, env, juju_path=None, debug=False):
-        version = cls.get_version(juju_path)
-        if juju_path is None:
-            full_path = cls.get_full_path()
-        else:
-            full_path = os.path.abspath(juju_path)
-        client_class = get_client_class(version)
-        return client_class(env, version, full_path, debug=debug)
-
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""
         version = self.get_version(juju_path)
@@ -1024,9 +1014,7 @@ class EnvJujuClient:
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:
@@ -1337,9 +1325,7 @@ class EnvJujuClient:
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
     def _get_substrate_constraints(self):
-        if self.env.maas:
-            return 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
         else:
@@ -1348,10 +1334,7 @@ class EnvJujuClient:
     def quickstart(self, bundle_template, upload_tools=False):
         """quickstart, using sudo if necessary."""
         bundle = self.format_bundle(bundle_template)
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        else:
-            constraints = 'mem=2G'
+        constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
@@ -1879,9 +1862,7 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:

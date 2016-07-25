@@ -306,6 +306,39 @@ class FakeEnvironmentState:
         return {'machines': machines, 'applications': services}
 
 
+class AutoloadCredentials:
+
+    def __init__(self, backend, juju_home, extra_env):
+        self.backend = backend
+        self.juju_home = juju_home
+        self.extra_env = extra_env
+        self.last_expect = None
+        self.cloud = None
+
+    def expect(self, line):
+        self.last_expect = line
+
+    def sendline(self, line):
+        if self.last_expect == (
+                '(Select the cloud it belongs to|'
+                'Enter cloud to which the credential).* Q to quit.*'):
+            self.cloud = line
+
+    def isalive(self):
+        juju_data = JujuData('foo', juju_home=self.juju_home)
+        juju_data.load_yaml()
+        creds = juju_data.credentials.setdefault('credentials', {})
+        creds.update({self.cloud: {self.extra_env['OS_USERNAME']: {
+            'domain-name': '',
+            'auth-type': 'userpass',
+            'username': self.extra_env['OS_USERNAME'],
+            'password': self.extra_env['OS_PASSWORD'],
+            'tenant-name': self.extra_env['OS_TENANT_NAME'],
+            }}})
+        juju_data.dump_yaml(self.juju_home, {})
+        return False
+
+
 class FakeBackend:
     """A fake juju backend for tests.
 
@@ -584,6 +617,11 @@ class FakeBackend:
             self.controller_state.require_controller('backup', model)
             return 'juju-backup-0.tar.gz'
         return ''
+
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        if command == 'autoload-credentials':
+            return AutoloadCredentials(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass
@@ -1167,133 +1205,6 @@ class TestEnvJujuClient(ClientTest):
         juju_mock.assert_called_with(
             'upgrade-juju', ('--upload-tools',))
 
-    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
-    def test_by_version(self, gfp_mock):
-        def juju_cmd_iterator():
-            yield '1.17'
-            yield '1.16'
-            yield '1.16.1'
-            yield '1.15'
-            yield '1.22.1'
-            yield '1.24-alpha1'
-            yield '1.24.7'
-            yield '1.25.1'
-            yield '1.26.1'
-            yield '1.27.1'
-            yield '2.0-alpha1'
-            yield '2.0-alpha2'
-            yield '2.0-alpha3'
-            yield '2.0-beta1'
-            yield '2.0-beta2'
-            yield '2.0-beta3'
-            yield '2.0-beta4'
-            yield '2.0-beta5'
-            yield '2.0-beta6'
-            yield '2.0-beta7'
-            yield '2.0-beta8'
-            yield '2.0-beta9'
-            yield '2.0-beta10'
-            yield '2.0-delta1'
-
-        context = patch.object(
-            EnvJujuClient, 'get_version',
-            side_effect=juju_cmd_iterator().send)
-        with context:
-            self.assertIs(EnvJujuClient1X,
-                          type(EnvJujuClient.by_version(None)))
-            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
-                EnvJujuClient.by_version(None)
-            with self.assertRaisesRegexp(Exception,
-                                         'Unsupported juju: 1.16.1'):
-                EnvJujuClient.by_version(None)
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(EnvJujuClient1X, type(client))
-            self.assertEqual('1.15', client.version)
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient22)
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient24)
-            self.assertEqual(client.version, '1.24-alpha1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient24)
-            self.assertEqual(client.version, '1.24.7')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient25)
-            self.assertEqual(client.version, '1.25.1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient26)
-            self.assertEqual(client.version, '1.26.1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient1X)
-            self.assertEqual(client.version, '1.27.1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A1)
-            self.assertEqual(client.version, '2.0-alpha1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A2)
-            self.assertEqual(client.version, '2.0-alpha2')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-alpha3')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-beta1')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-beta2')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta3')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta4')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta5')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta6')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B7)
-            self.assertEqual(client.version, '2.0-beta7')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B8)
-            self.assertEqual(client.version, '2.0-beta8')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-beta9')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-beta10')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-delta1')
-            with self.assertRaises(StopIteration):
-                EnvJujuClient.by_version(None)
-
-    def test_by_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            client = EnvJujuClient.by_version(None, 'foo/bar/qux')
-        vsn.assert_called_once_with(('foo/bar/qux', '--version'))
-        self.assertNotEqual(client.full_path, 'foo/bar/qux')
-        self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
-
-    def test_by_version_keep_home(self):
-        env = JujuData({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
-            EnvJujuClient.by_version(env, 'foo/bar/qux')
-        self.assertEqual('/foo/bar', env.juju_home)
-
-    def test_clone_path_cls(self):
-        client = fake_juju_client()
-        with patch.object(client, 'get_version',
-                          return_value='2.0-beta3') as gv_mock:
-            clone = client.clone_path_cls('a/b/c')
-        self.assertIs(type(clone), EnvJujuClient2B3)
-        gv_mock.assert_called_once_with('a/b/c')
-        self.assertEqual(clone.full_path, os.path.abspath('a/b/c'))
-        self.assertEqual(clone.version, '2.0-beta3')
-
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
                                 debug=True)
@@ -1463,7 +1374,7 @@ class TestEnvJujuClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
+                    '--constraints', 'mem=2G', 'maas', 'foo/asdf',
                     '--config', config_file.name, '--default-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
@@ -3026,7 +2937,7 @@ class TestEnvJujuClient(ClientTest):
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
-            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+            ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
@@ -3469,7 +3380,7 @@ class TestEnvJujuClient2B2(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
+                    '--constraints', 'mem=2G', 'maas', 'foo/asdf',
                     '--config', config_file.name, '--agent-version', '2.0'),
                 include_e=False)
 
@@ -3660,119 +3571,6 @@ class TestEnvJujuClient1X(ClientTest):
         with self.assertRaises(UpgradeMongoNotSupported):
             client.upgrade_mongo()
 
-    @patch.object(EnvJujuClient1X, 'get_full_path', return_value='fake-path')
-    def test_by_version(self, gfp_mock):
-        def juju_cmd_iterator():
-            yield '1.17'
-            yield '1.16'
-            yield '1.16.1'
-            yield '1.15'
-            yield '1.22.1'
-            yield '1.24-alpha1'
-            yield '1.24.7'
-            yield '1.25.1'
-            yield '1.26.1'
-            yield '1.27.1'
-            yield '2.0-alpha1'
-            yield '2.0-alpha2'
-            yield '2.0-alpha3'
-            yield '2.0-beta1'
-            yield '2.0-beta2'
-            yield '2.0-beta3'
-            yield '2.0-beta4'
-            yield '2.0-beta5'
-            yield '2.0-beta6'
-            yield '2.0-beta7'
-            yield '2.0-beta8'
-            yield '2.0-beta9'
-            yield '2.0-delta1'
-
-        context = patch.object(
-            EnvJujuClient1X, 'get_version',
-            side_effect=juju_cmd_iterator().send)
-        with context:
-            self.assertIs(EnvJujuClient1X,
-                          type(EnvJujuClient1X.by_version(None)))
-            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
-                EnvJujuClient1X.by_version(None)
-            with self.assertRaisesRegexp(Exception,
-                                         'Unsupported juju: 1.16.1'):
-                EnvJujuClient1X.by_version(None)
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(EnvJujuClient1X, type(client))
-            self.assertEqual('1.15', client.version)
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient22)
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient24)
-            self.assertEqual(client.version, '1.24-alpha1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient24)
-            self.assertEqual(client.version, '1.24.7')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient25)
-            self.assertEqual(client.version, '1.25.1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient26)
-            self.assertEqual(client.version, '1.26.1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient1X)
-            self.assertEqual(client.version, '1.27.1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A1)
-            self.assertEqual(client.version, '2.0-alpha1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A2)
-            self.assertEqual(client.version, '2.0-alpha2')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-alpha3')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-beta1')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B2)
-            self.assertEqual(client.version, '2.0-beta2')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta3')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta4')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta5')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B3)
-            self.assertEqual(client.version, '2.0-beta6')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B7)
-            self.assertEqual(client.version, '2.0-beta7')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B8)
-            self.assertEqual(client.version, '2.0-beta8')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-beta9')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-delta1')
-            with self.assertRaises(StopIteration):
-                EnvJujuClient1X.by_version(None)
-
-    def test_by_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            client = EnvJujuClient1X.by_version(None, 'foo/bar/qux')
-        vsn.assert_called_once_with(('foo/bar/qux', '--version'))
-        self.assertNotEqual(client.full_path, 'foo/bar/qux')
-        self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
-
-    def test_by_version_keep_home(self):
-        env = SimpleEnvironment({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value=' 1.27'):
-            EnvJujuClient1X.by_version(env, 'foo/bar/qux')
-        self.assertEqual('/foo/bar', env.juju_home)
-
     def test_get_cache_path(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', juju_home='/foo/'),
                                  '1.27', 'full/path', debug=True)
@@ -3822,7 +3620,7 @@ class TestEnvJujuClient1X(ClientTest):
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
@@ -5072,7 +4870,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
-            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+            ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
@@ -6029,7 +5827,7 @@ class TestStatus(FakeHomeTestCase):
                     'juju-status': {
                         'current': 'error',
                         'message': failure}
-                     },
+                    },
                 }
             }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
@@ -6051,7 +5849,7 @@ class TestStatus(FakeHomeTestCase):
                     'juju-status': {
                         'current': 'error',
                         'message': failure}
-                     },
+                    },
                 }
             }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:

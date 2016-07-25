@@ -365,33 +365,26 @@ class TestAddBasicTestingArguments(TestCase):
     def test_no_args(self):
         cmd_line = []
         parser = add_basic_testing_arguments(ArgumentParser())
-        with patch('utility.os.makedirs'):
-            with patch('utility.os.getenv', return_value=''):
-                args = parser.parse_args(cmd_line)
+        with patch('utility.os.getenv', return_value=''):
+            args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
-        logs_arg = args.logs.split("/")
-        logs_ts = logs_arg[4]
-        self.assertEqual(logs_arg[1:4], ['tmp', 'test_utility', 'logs'])
-        self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
+        self.assertEqual(args.logs, None)
 
-        temp_env_name_arg = args.temp_env_name.split("_")
-        temp_env_name_ts = temp_env_name_arg[2]
-        self.assertEqual(temp_env_name_arg[0:2], ['test', 'utility'])
+        temp_env_name_arg = args.temp_env_name.split("-")
+        temp_env_name_ts = temp_env_name_arg[1]
+        self.assertEqual(temp_env_name_arg[0:1], ['testutility'])
         self.assertTrue(temp_env_name_ts,
                         datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
-        self.assertEqual(temp_env_name_arg[3:5], ['temp', 'env'])
-
-        self.assertEqual(logs_ts, temp_env_name_ts)
+        self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
 
     def test_default_binary(self):
         cmd_line = []
-        with patch('utility.os.makedirs'):
-            with patch('utility.os.getenv', return_value='/tmp'):
-                with patch('utility.os.path.isfile', return_value=True):
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    args = parser.parse_args(cmd_line)
+        with patch('utility.os.getenv', return_value='/tmp'):
+            with patch('utility.os.path.isfile', return_value=True):
+                parser = add_basic_testing_arguments(ArgumentParser())
+                args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/tmp/bin/juju')
 
     def test_positional_args(self):
@@ -441,6 +434,18 @@ class TestAddBasicTestingArguments(TestCase):
             self.assertEqual(warned, [])
         self.assertEqual("", self.log_stream.getvalue())
 
+    def test_no_warn_on_help(self):
+        """Special case help should not generate a warning"""
+        with warnings.catch_warnings(record=True) as warned:
+            with patch('utility.sys.exit'):
+                parser = add_basic_testing_arguments(ArgumentParser())
+                cmd_line = ['-h']
+                parser.parse_args(cmd_line)
+                cmd_line = ['--help']
+                parser.parse_args(cmd_line)
+
+            self.assertEqual(warned, [])
+
     def test_warn_on_nonexistent_directory_creation(self):
         with warnings.catch_warnings(record=True) as warned:
             log_dir = mkdtemp()
@@ -453,25 +458,6 @@ class TestAddBasicTestingArguments(TestCase):
                 str(warned[0].message),
                 r"Not a directory " + log_dir)
             self.assertEqual("", self.log_stream.getvalue())
-
-    def test_warn_on_directory_creation_failure(self):
-        with warnings.catch_warnings(record=True) as warned:
-            with patch('utility.os.makedirs', side_effect=OSError):
-                cmd_line = []
-                try:
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    parser.parse_args(cmd_line)
-                except OSError:
-                    # we catch our thrown OSError
-                    pass
-                else:
-                    self.fail('No exception thrown after' +
-                              ' directory creation failure')
-                self.assertEqual(len(warned), 1)
-                self.assertRegexpMatches(
-                    str(warned[0].message),
-                    r"Failed to create logging directory: /tmp/test_utility/" +
-                    "logs/.*. Please specify empty folder or try again")
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']

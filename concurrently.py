@@ -9,7 +9,6 @@ import os
 import subprocess
 import shlex
 import sys
-import traceback
 
 from utility import configure_logging
 
@@ -20,17 +19,27 @@ __metaclass__ = type
 log = logging.getLogger("concurrently")
 
 
+def task_definition(name_commandline):
+    name, commandline = name_commandline.split('=', 1)
+    command = shlex.split(commandline)
+    return name, command
+
+
 class Task:
 
-    def __init__(self, name_commdline, log_dir='.'):
-        self.name, self.commandline = name_commdline.split('=', 1)
-        self.command = shlex.split(self.commandline)
+    def __init__(self, name, command, log_dir='.'):
+        self.name = name
+        self.command = command
         self.out_log_name = os.path.join(
             log_dir, '{}-out.log'.format(self.name))
         self.err_log_name = os.path.join(
             log_dir, '{}-err.log'.format(self.name))
         self.returncode = None
         self.proc = None
+
+    @classmethod
+    def from_arg(cls, name_commandline, log_dir='.'):
+        return cls(*task_definition(name_commandline), log_dir=log_dir)
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -71,9 +80,9 @@ def run_all(tasks):
 
 
 def summarise_tasks(tasks):
-    """Return of sum of tasks returncodes."""
-    returncode = max([t.returncode for t in tasks])
-    if returncode == 0:
+    """Log summary of results and returns the number of tasks that failed."""
+    failed_count = sum(t.returncode != 0 for t in tasks)
+    if not failed_count:
         log.debug('SUCCESS')
     else:
         log.debug('FAIL')
@@ -81,7 +90,7 @@ def summarise_tasks(tasks):
             if task.returncode != 0:
                 log.error('{} failed with {}\nSee {}'.format(
                           task.name, task.returncode, task.err_log_name))
-    return returncode
+    return failed_count
 
 
 def parse_args(argv=None):
@@ -96,27 +105,24 @@ def parse_args(argv=None):
         '-l', '--log_dir', default='.', type=os.path.expanduser,
         help='The path to store the logs for each task.')
     parser.add_argument(
-        'tasks', nargs='+', default=[],
+        'tasks', nargs='+', default=[], type=task_definition,
         help="one or more tasks to run in the form of name='cmc -opt arg'.")
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     """Run many tasks concurrently."""
-    returncode = 254
     args = parse_args(argv)
     configure_logging(args.verbose)
-    tasks = [Task(t, args.log_dir) for t in args.tasks]
+    tasks = [Task(*t, log_dir=args.log_dir) for t in args.tasks]
     try:
         names = [t.name for t in tasks]
         log.debug('Running these tasks {}'.format(names))
         run_all(list(tasks))
-        returncode = summarise_tasks(tasks)
-    except Exception as e:
-        log.error(str(e))
-        log.error(traceback.print_exc())
-        return 253
-    return returncode
+    except Exception:
+        log.exception("Script failed while running tasks")
+        return 126
+    return min(100, summarise_tasks(tasks))
 
 
 if __name__ == '__main__':
