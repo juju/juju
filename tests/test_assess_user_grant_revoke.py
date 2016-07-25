@@ -11,9 +11,9 @@ import StringIO
 from subprocess import CalledProcessError
 
 from assess_user_grant_revoke import (
-    assert_read,
+    assert_read_model,
     assert_user_permissions,
-    assert_write,
+    assert_write_model,
     assess_user_grant_revoke,
     JujuAssertionError,
     main,
@@ -120,47 +120,48 @@ class TestAsserts(TestCase):
         for user in users:
             fake_client = fake_juju_client()
             fake_admin_client = fake_juju_client()
+            ac = patch("assess_user_grant_revoke.assert_admin_controller",
+                       return_value=True)
             with patch("jujupy.EnvJujuClient.revoke", return_value=True):
-                with patch("assess_user_grant_revoke.assert_read",
+                with patch("assess_user_grant_revoke.assert_read_model",
                            return_value=True) as read_mock:
-                    with patch("assess_user_grant_revoke.assert_write",
+                    with patch("assess_user_grant_revoke.assert_write_model",
                                return_value=True) as write_mock:
-                        with patch("assess_user_grant_revoke.assert_admin",
-                                   return_value=True) as admin_mock:
+                        with ac as admin_mock:
                             assert_user_permissions(user, fake_client,
                                                     fake_admin_client)
                             self.assertEqual(read_mock.call_count, 2)
                             self.assertEqual(write_mock.call_count, 2)
                             self.assertEqual(admin_mock.call_count, 2)
 
-    def test_assert_read(self):
+    def test_assert_read_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'show_status', return_value=True):
-            assert_read(fake_client, 'read', True)
+            assert_read_model(fake_client, 'read', True)
             with self.assertRaises(JujuAssertionError):
-                assert_read(fake_client, 'read', False)
+                assert_read_model(fake_client, 'read', False)
         with patch.object(fake_client, 'show_status', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            assert_read(fake_client, 'read', False)
+            assert_read_model(fake_client, 'read', False)
             with self.assertRaises(JujuAssertionError):
-                assert_read(fake_client, 'read', True)
+                assert_read_model(fake_client, 'read', True)
 
-    def test_assert_write(self):
+    def test_assert_write_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'deploy', return_value=True):
             with patch.object(fake_client, 'remove_service', autospec=True):
-                assert_write(fake_client, 'write', True)
+                assert_write_model(fake_client, 'write', True)
             with self.assertRaises(JujuAssertionError):
                 with patch.object(fake_client, 'remove_service',
                                   autospec=True):
-                    assert_write(fake_client, 'write', False)
+                    assert_write_model(fake_client, 'write', False)
         with patch.object(fake_client, 'deploy', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            assert_write(fake_client, 'write', False)
+            assert_write_model(fake_client, 'write', False)
             with self.assertRaises(JujuAssertionError):
                 with patch.object(fake_client, 'remove_service',
                                   autospec=True):
-                    assert_write(fake_client, 'write', True)
+                    assert_write_model(fake_client, 'write', True)
 
 
 def make_fake_client():
@@ -188,11 +189,11 @@ class TestAssess(TestCase):
                     autospec=True)
         expect = patch("jujupy.EnvJujuClient.expect",
                        autospec=True)
-        read = patch("assess_user_grant_revoke.assert_read",
+        read = patch("assess_user_grant_revoke.assert_read_model",
                      autospec=True)
-        write = patch("assess_user_grant_revoke.assert_write",
+        write = patch("assess_user_grant_revoke.assert_write_model",
                       autospec=True)
-        admin = patch("assess_user_grant_revoke.assert_admin",
+        admin = patch("assess_user_grant_revoke.assert_admin_controller",
                       autospec=True)
         rm = patch("utility.wait_for_removed_services",
                    autospec=True)
@@ -227,19 +228,3 @@ class TestAssess(TestCase):
                                          assert_write_calls)
                         self.assertEqual(admin_calls,
                                          assert_admin_calls)
-
-    def test_create_cloned_environment(self):
-        fake_client = make_fake_client()
-        fake_client.bootstrap()
-        fake_client_environ = fake_client._shell_environ()
-        controller_name = 'user_controller'
-        cloned, cloned_environ = fake_client.create_cloned_environment(
-            'fakehome',
-            controller_name
-        )
-        self.assertIs(fake_client.__class__, type(cloned))
-        self.assertEqual(cloned.env.juju_home, 'fakehome')
-        self.assertNotEqual(cloned_environ, fake_client_environ)
-        self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
-        self.assertEqual(cloned.env.controller.name, controller_name)
-        self.assertEqual(fake_client.env.controller.name, 'name')

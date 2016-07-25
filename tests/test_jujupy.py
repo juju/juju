@@ -505,10 +505,11 @@ class FakeBackend:
             if key in share_names:
                 permissions.append(value['permission'])
         share_list = {}
-        for i in xrange(len(share_names)):
-            name = share_names[i] + '@local'
-            share_list[name] = {'display-name': share_names[i],
-                                'access': permissions[i]}
+        for i, (share_name, permission) in enumerate(
+                zip(share_names, permissions)):
+            name = share_name + '@local'
+            share_list[name] = {'display-name': share_name,
+                                'access': permission}
             if name != 'admin@local':
                 share_list[name].pop('display-name')
             else:
@@ -3319,8 +3320,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'juju') as mock:
             client.disable_user(username)
         mock.assert_called_with(
-            'disable-user', ('fakeuser',),
-            include_e=False)
+            'disable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
 
     def test_enable_user(self):
         env = JujuData('foo')
@@ -3329,17 +3329,29 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'juju') as mock:
             client.enable_user(username)
         mock.assert_called_with(
-            'enable-user', ('fakeuser',),
-            include_e=False)
+            'enable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
 
-    def test_logout_user(self):
+    def test_logout(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju') as mock:
-            client.logout_user()
+            client.logout()
         mock.assert_called_with(
-            'logout', (),
-            include_e=False)
+            'logout', ('-c', 'foo'), include_e=False)
+
+    def test_create_cloned_environment(self):
+        fake_client = fake_juju_client()
+        fake_client.bootstrap()
+        # fake_client_environ = fake_client._shell_environ()
+        controller_name = 'user_controller'
+        cloned = fake_client.create_cloned_environment(
+            'fakehome',
+            controller_name
+        )
+        self.assertIs(fake_client.__class__, type(cloned))
+        self.assertEqual(cloned.env.juju_home, 'fakehome')
+        self.assertEqual(cloned.env.controller.name, controller_name)
+        self.assertEqual(fake_client.env.controller.name, 'name')
 
 
 class TestEnvJujuClient2B8(ClientTest):

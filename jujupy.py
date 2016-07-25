@@ -1810,17 +1810,17 @@ class EnvJujuClient:
 
     def disable_user(self, user_name):
         """Disable an user"""
-        self.juju('disable-user', (user_name,), include_e=False)
+        self.controller_juju('disable-user', (user_name,))
 
     def enable_user(self, user_name):
         """Enable an user"""
-        self.juju('enable-user', (user_name,), include_e=False)
+        self.controller_juju('enable-user', (user_name,))
 
-    def logout_user(self):
+    def logout(self):
         """Logout an user"""
-        self.juju('logout', (), include_e=False)
+        self.controller_juju('logout', ())
 
-    def register_user(self, user, fake_home):
+    def register_user(self, user, juju_home):
         """Register `user` for the `client` return the cloned client used."""
         username = user.name
         controller_name = '{}_controller'.format(username)
@@ -1828,12 +1828,12 @@ class EnvJujuClient:
         model = self.env.environment
         token = self.add_user(username, models=model + ',controller',
                               permissions=user.permissions)
-        user_client, user_env = self.create_cloned_environment(fake_home,
-                                                               controller_name)
+        user_client = self.create_cloned_environment(juju_home,
+                                                     controller_name)
 
         try:
             child = user_client.expect(
-                'register', (token), extra_env=user_env, include_e=False)
+                'register', (token), include_e=False)
             child.expect('(?i)name')
             child.sendline(username + '_controller')
             child.expect('(?i)password')
@@ -1856,8 +1856,8 @@ class EnvJujuClient:
         user_client.env.juju_home = cloned_juju_home
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
-        user_client_env = user_client._shell_environ()
-        return user_client, user_client_env
+        # user_client_env = user_client._shell_environ()
+        return user_client
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with a model."""
