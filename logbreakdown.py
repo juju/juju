@@ -69,12 +69,13 @@ def get_timerange_logs(log_file, timestamps):
                 range_start = no_content
                 no_content = None
                 range_str = '{} - {} (condensed)'.format(
-                    range_start, range_end)
+                    range_start.strftime('%T'), range_end.strftime('%T'))
                 # Don't reset log_lines as it may contain previous details.
             else:
                 log_lines = []
                 range_start = log_range[0]
-                range_str = '{} - {}'.format(range_start, range_end)
+                range_str = '{} - {}'.format(
+                    range_start.strftime('%T'), range_end.strftime('%T'))
 
             if previous_line:
                 if log_line_within_start_range(previous_line, range_start):
