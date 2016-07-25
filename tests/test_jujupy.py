@@ -320,7 +320,8 @@ class AutoloadCredentials:
 
     def sendline(self, line):
         if self.last_expect == (
-                'Enter cloud to which the credential belongs, or Q to quit.*'):
+                '(Select the cloud it belongs to|'
+                'Enter cloud to which the credential).* Q to quit.*'):
             self.cloud = line
 
     def isalive(self):
