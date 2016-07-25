@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import argparse
 from collections import defaultdict, namedtuple
-from contextlib import contextmanager
 from datetime import datetime
 from jinja2 import Template
 import logging
@@ -15,6 +14,7 @@ import subprocess
 import time
 from textwrap import dedent
 
+import rrdtool
 from fixtures import EnvironmentVariable
 
 from deploy_stack import (
@@ -380,13 +380,61 @@ def create_network_report_graph(rrd_dir, output_dir):
 
 
 def generate_mongo_graph_image(results_dir):
+    dest_path = os.path.join(results_dir, 'mongodb')
+    create_mongodb_rrd_file(results_dir, dest_path)
     return generate_graph_image(
-        results_dir, 'aggregation-cpu-average', create_mongodb_report_graph)
+        results_dir, 'mongodb', create_mongodb_report_graph)
 
 
 def create_mongodb_report_graph(rrd_dir, output_dir):
     return create_report_graph(
         rrd_dir, output_dir, 'mongodb', _rrd_mongdb_graph)
+
+
+def create_mongodb_rrd_file(results_dir, destination_dir):
+    os.mkdir(destination_dir)
+    source_file = os.path.join(results_dir, 'mongodb-stats.log')
+    dest_file = os.path.join(destination_dir, 'mongodb.rrd')
+
+    first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
+    rrdtool.create(
+        dest_file,
+        '--start', '{}-10'.format(first_ts),
+        '--step', '5',
+        'DS:insert:GAUGE:600:0:1000',
+        'DS:query:GAUGE:600:0:1000',
+        'DS:update:GAUGE:600:0:1000',
+        'DS:delete:GAUGE:600:0:1000',
+        'RRA:MIN:0.5:1:1200',
+        'RRA:MAX:0.5:1:1200',
+        'RRA:AVERAGE:0.5:1:120'
+    )
+    for entry in all_data:
+        update_details = '{time}:{i}:{q}:{u}:{d}'.format(
+            time=entry[0],
+            i=int(entry[1]),
+            q=int(entry[2]),
+            u=int(entry[3]),
+            d=int(entry[4]))
+        rrdtool.update(dest_file, update_details)
+
+
+def get_mongodb_stat_data(log_file):
+    data_lines = []
+    with open(log_file, 'rt') as f:
+        for line in f:
+            details = line.split()
+            raw_time = details[-1]
+            epoch = int(
+                time.mktime(
+                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+            data_lines.append((
+                epoch,
+                int(details[0].replace('*', '')),
+                int(details[1].replace('*', '')),
+                int(details[2].replace('*', '')),
+                int(details[3].replace('*', ''))))
+    return data_lines[0][0], data_lines[-1][0], data_lines
 
 
 def _rrd_network_graph(start, end, rrd_path, output_file):
@@ -439,9 +487,9 @@ def _rrd_swap_graph(start, end, rrd_path, output_file):
     "CDEF:free_stk=free_nnl" \
     "CDEF:used_stk=used_nnl" \
     "AREA:free_stk#ffffff" \
-    "LINE1:free_stk#ffffff:free" \
+    "LINE1:free_stk#ffffff: free" \
     "AREA:used_stk#ffebbf" \
-    "LINE1:used_stk#ffb000:used"
+    "LINE1:used_stk#ffb000: used"
     """.format(
         output_file=output_file,
         rrd_path=rrd_path,
@@ -494,63 +542,42 @@ def _rrd_memory_graph(start, end, rrd_path, output_file):
 
 
 def _rrd_mongdb_graph(start, end, rrd_path, output_file):
-    script_text = dedent("""\
-    rrdtool graph {output_file} -a PNG --full-size-mode \
-    -s '{start}' -e '{end}' -w '800' -h '600' \
-    '-n' \
-    'DEFAULT:0:Bitstream Vera Sans' \
-    '-v' \
-    'Count' \
-    '-r' \
-    '-u' \
-    '100' \
-    '-t' \
-    'Mongo Statistics' \
-    'DEF:idle_avg={rrd_path}/cpu-idle.rrd:value:AVERAGE' \
-    'CDEF:idle_nnl=idle_avg,UN,0,idle_avg,IF' \
-    'DEF:wait_avg={rrd_path}/cpu-wait.rrd:value:AVERAGE' \
-    'CDEF:wait_nnl=wait_avg,UN,0,wait_avg,IF' \
-    'DEF:nice_avg={rrd_path}/cpu-nice.rrd:value:AVERAGE' \
-    'CDEF:nice_nnl=nice_avg,UN,0,nice_avg,IF' \
-    'DEF:user_avg={rrd_path}/cpu-user.rrd:value:AVERAGE' \
-    'CDEF:user_nnl=user_avg,UN,0,user_avg,IF' \
-    'DEF:system_avg={rrd_path}/cpu-system.rrd:value:AVERAGE' \
-    'CDEF:system_nnl=system_avg,UN,0,system_avg,IF' \
-    'DEF:softirq_avg={rrd_path}/cpu-softirq.rrd:value:AVERAGE' \
-    'CDEF:softirq_nnl=softirq_avg,UN,0,softirq_avg,IF' \
-    'DEF:interrupt_avg={rrd_path}/cpu-interrupt.rrd:value:AVERAGE' \
-    'CDEF:interrupt_nnl=interrupt_avg,UN,0,interrupt_avg,IF' \
-    'DEF:steal_avg={rrd_path}/cpu-steal.rrd:value:AVERAGE' \
-    'CDEF:steal_nnl=steal_avg,UN,0,steal_avg,IF' \
-    'CDEF:steal_stk=steal_nnl' \
-    'CDEF:interrupt_stk=interrupt_nnl,steal_stk,+' \
-    'CDEF:softirq_stk=softirq_nnl,interrupt_stk,+' \
-    'CDEF:system_stk=system_nnl,softirq_stk,+' \
-    'CDEF:user_stk=user_nnl,system_stk,+' \
-    'CDEF:nice_stk=nice_nnl,user_stk,+' \
-    'CDEF:wait_stk=wait_nnl,nice_stk,+' \
-    'CDEF:idle_stk=idle_nnl,wait_stk,+' \
-    'AREA:idle_stk#ffffff' \
-    'LINE1:idle_stk#ffffff: insert' \
-    'AREA:wait_stk#ffebbf' \
-    'LINE1:wait_stk#ffb000: query' \
-    'AREA:nice_stk#bff7bf' \
-    'LINE1:nice_stk#00e000: update' \
-    'AREA:user_stk#bfbfff' \
-    'LINE1:user_stk#0000ff: delete'
-    """.format(
-        output_file=output_file,
-        rrd_path=rrd_path,
-        start=start,
-        end=end
-    ))
-
     with EnvironmentVariable('TZ', 'UTC'):
-        with temp_dir() as temp:
-            script_path = os.path.abspath(os.path.join(temp, 'mongo.sh'))
-            with open(script_path, 'wt') as f:
-                f.write(script_text)
-            subprocess.check_call(['sh', script_path])
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '-e', str(end),
+            '--full-size-mode',
+            '-w', '800',
+            '-h', '600',
+            '-n', 'DEFAULT:0:Bitstream Vera Sans',
+            '-v', 'Queries',
+            '--alt-autoscale-max',
+            '-t', 'MongoDB Actions',
+            'DEF:insert_max={rrd}:insert:MAX'.format(
+                rrd=os.path.join(rrd_path, 'mongodb.rrd')),
+            'DEF:query_max={rrd}:query:MAX'.format(
+                rrd=os.path.join(rrd_path, 'mongodb.rrd')),
+            'DEF:update_max={rrd}:update:MAX'.format(
+                rrd=os.path.join(rrd_path, 'mongodb.rrd')),
+            'DEF:delete_max={rrd}:delete:MAX'.format(
+                rrd=os.path.join(rrd_path, 'mongodb.rrd')),
+            'CDEF:insert_nnl=insert_max,UN,0,insert_max,IF',
+            'CDEF:query_nnl=query_max,UN,0,query_max,IF',
+            'CDEF:update_nnl=update_max,UN,0,update_max,IF',
+            'CDEF:delete_nnl=delete_max,UN,0,delete_max,IF',
+            'CDEF:delete_stk=delete_nnl',
+            'CDEF:update_stk=update_nnl',
+            'CDEF:query_stk=query_nnl',
+            'CDEF:insert_stk=insert_nnl',
+            'AREA:insert_stk#bff7bf80',
+            'LINE1:insert_stk#00E000: insert',
+            'AREA:query_stk#bfbfff80',
+            'LINE1:query_stk#0000FF: query',
+            'AREA:update_stk#ffebbf80',
+            'LINE1:update_stk#FFB000: update',
+            'AREA:delete_stk#ffbfbf80',
+            'LINE1:delete_stk#FF0000: delete')
 
 
 def _rrd_cpu_graph(start, end, rrd_path, output_file):
@@ -591,21 +618,21 @@ def _rrd_cpu_graph(start, end, rrd_path, output_file):
     'CDEF:wait_stk=wait_nnl,nice_stk,+' \
     'CDEF:idle_stk=idle_nnl,wait_stk,+' \
     'AREA:idle_stk#ffffff' \
-    'LINE1:idle_stk#ffffff:idle     ' \
+    'LINE1:idle_stk#ffffff: idle     ' \
     'AREA:wait_stk#ffebbf' \
-    'LINE1:wait_stk#ffb000:wait     ' \
+    'LINE1:wait_stk#ffb000: wait     ' \
     'AREA:nice_stk#bff7bf' \
-    'LINE1:nice_stk#00e000:nice     ' \
+    'LINE1:nice_stk#00e000: nice     ' \
     'AREA:user_stk#bfbfff' \
-    'LINE1:user_stk#0000ff:user     ' \
+    'LINE1:user_stk#0000ff: user     ' \
     'AREA:system_stk#ffbfbf' \
-    'LINE1:system_stk#ff0000:system   ' \
+    'LINE1:system_stk#ff0000: system   ' \
     'AREA:softirq_stk#ffbfff' \
-    'LINE1:softirq_stk#ff00ff:softirq  ' \
+    'LINE1:softirq_stk#ff00ff: softirq  ' \
     'AREA:interrupt_stk#e7bfe7' \
-    'LINE1:interrupt_stk#a000a0:interrupt' \
+    'LINE1:interrupt_stk#a000a0: interrupt' \
     'AREA:steal_stk#bfbfbf' \
-    'LINE1:steal_stk#000000:steal'
+    'LINE1:steal_stk#000000: steal'
     """.format(
         output_file=output_file,
         rrd_path=rrd_path,
