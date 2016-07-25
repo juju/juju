@@ -24,6 +24,22 @@
        integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
        crossorigin="anonymous"></script>
 
+    <!-- WIP stylings for table collapse. -->
+    <style type="text/css" media="screen">
+      table.table tr.clickable td:first-child:before {
+      content: " \25b2 ";
+      font-weight: bold;
+      padding-left: 8px;
+      padding-right: 8px;
+      }
+      table.table tr.collapsed td:first-child:before {
+      content: " \25bc ";
+      font-weight: bold;
+      padding-left: 8px;
+      padding-right: 8px;
+      }
+    </style>
+
     <title>Simple performance/scale reporting</title>
 
   </head>
@@ -145,14 +161,13 @@
           <h4 class="text-center">Log period: <b>{{date_stamp}}</b></h4>
           <table class="table table-condensed table-bordered">
             {% for log_detail in values.logs|sort(attribute='timeframe') %}
-            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
+            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
             <tr
                data-toggle="collapse"
                data-target="#{{safe_timeframe}}"
                style="cursor: pointer;"
-               class="clickable active">
+               class="clickable active collapsed">
               <td>
-                <span class="glyphicon glyphicon-chevron-down" aria-hidden="true"></span>
                 {{log_detail.timeframe}}
               </td>
             </tr>
