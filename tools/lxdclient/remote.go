@@ -12,7 +12,7 @@ import (
 
 const (
 	// remoteLocalName is a specific remote name in the default LXD config.
-	// See https://github.com/lxc/lxd/blob/master/config.go:defaultRemote.
+	// See https://github.com/lxc/lxd/blob/master/config.go:DefaultRemotes.
 	remoteLocalName  = "local"
 	remoteIDForLocal = remoteLocalName
 )
@@ -127,8 +127,6 @@ func (r Remote) withLocalDefaults() Remote {
 		r.Protocol = LXDProtocol
 	}
 
-	// TODO(ericsnow) Set r.Cert to nil?
-
 	return r
 }
 
@@ -173,12 +171,11 @@ func (r Remote) validateLocal() error {
 	return nil
 }
 
-// UsingTCP converts the remote into a non-local version. For
-// non-local remotes this is a no-op.
+// UsingTCP converts the remote into a non-local version. For non-local remotes
+// this is a no-op.
 //
-// For a "local" remote (see Local), the remote is changed to a one
-// with the host set to the IP address of the local lxcbr0 bridge
-// interface. The remote is also set up for remote access, setting
+// For a "local" remote (see Local), the remote is changed to a one with the
+// host set to "127.0.0.1". The remote is also set up for remote access, setting
 // the cert if not already set.
 func (r Remote) UsingTCP() (Remote, error) {
 	// Note that r is a value receiver, so it is an implicit copy.
@@ -187,7 +184,14 @@ func (r Remote) UsingTCP() (Remote, error) {
 		return r, nil
 	}
 
+	r.Host = "127.0.0.1"
+
 	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
 
-	return r.WithDefaults()
+	r, err := r.WithDefaults()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
+
+	return r, nil
 }
