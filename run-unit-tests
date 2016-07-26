@@ -12,7 +12,6 @@ export JOB_NAME
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
-ROBUST="false"
 REVISION_BUILD="none"
 USE_PPA=""
 INSTALL_DEPS=""
@@ -28,10 +27,6 @@ while [[ "${1-}" != "" ]]; do
             ;;
         --retry)
             RETRY="true"
-            ;;
-        --robust)
-            ROBUST="true"
-            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
             ;;
         --safe)
             GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
@@ -61,7 +56,7 @@ while [[ "${1-}" != "" ]]; do
             USE_TMPFS="true"
             ;;
         --race)
-            GOTESTCMD="$GOTESTCMD -race -test.timeout=1800s"
+            GOTESTCMD="$GOTESTCMD -race -test.timeout=2400s"
             ;;
     esac
     shift
@@ -222,16 +217,6 @@ make setup-lxd || true
 go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
-elif [[ "$ROBUST" == "true" ]]; then
-    JUJUD_PACKAGES=\$(go list github.com/juju/juju/... |
-        grep 'juju/juju/cmd/jujud')
-    OTHER_PACKAGES=\$(go list github.com/juju/juju/... |
-        grep -v 'juju/juju/cmd/jujud')
-    for packages in "\$JUJUD_PACKAGES" "\$OTHER_PACKAGES"; do
-        $GOTESTCMD \$packages
-        sudo killall -SIGABRT /usr/bin/mongod || true
-        sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    done
 elif [[  "$GOTESTCMD" != "go test"  ]]; then
     $GOTESTCMD ./...
 else
