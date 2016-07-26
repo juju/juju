@@ -575,8 +575,8 @@ func newStubMasterFacade(stub *jujutesting.Stub, now time.Time) *stubMasterFacad
 		stub:           stub,
 		watcherChanges: make(chan struct{}, 999),
 		status: coremigration.MigrationStatus{
+			MigrationId:      "model-uuid:2",
 			ModelUUID:        "model-uuid",
-			Attempt:          2,
 			Phase:            coremigration.QUIESCE,
 			PhaseChangedTime: now,
 			TargetInfo: coremigration.TargetInfo{

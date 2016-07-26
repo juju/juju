@@ -50,7 +50,7 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 // model migration.
 func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
-	var status params.FullMigrationStatus
+	var status params.MasterMigrationStatus
 	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
@@ -78,8 +78,8 @@ func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 	}
 
 	return migration.MigrationStatus{
+		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
-		Attempt:          status.Attempt,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{

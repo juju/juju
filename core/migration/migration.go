@@ -10,14 +10,13 @@ import (
 )
 
 // MigrationStatus returns the details for a migration as needed by
-// the migration master worker.
+// the migrationmaster worker.
 type MigrationStatus struct {
+	// MigrationId hold the unique id for the migration.
+	MigrationId string
+
 	// ModelUUID holds the UUID of the model being migrated.
 	ModelUUID string
-
-	// Attempt specifies the migration attempt number. This is
-	// incremeted for each attempt to migrate a model.
-	Attempt int
 
 	// Phases indicates the current migration phase.
 	Phase Phase

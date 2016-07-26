@@ -91,7 +91,7 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 
 	status, err := api.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, params.FullMigrationStatus{
+	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
 		Spec: params.ModelMigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
 			TargetInfo: params.ModelMigrationTargetInfo{
@@ -102,7 +102,7 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 				Password:      "secret",
 			},
 		},
-		Attempt:          1,
+		MigrationId:      "id",
 		Phase:            "READONLY",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
