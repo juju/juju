@@ -185,7 +185,6 @@ func isSupportedLxdVersion(version string) bool {
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(remote Remote) (*lxd.Client, error) {
 	host := remote.Host
-	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
 
 	if remote.ID() == remoteIDForLocal && host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
@@ -196,6 +195,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 			host = net.JoinHostPort(host, lxdshared.DefaultPort)
 		}
 	}
+	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
 
 	clientCert := ""
 	if remote.Cert != nil && remote.Cert.CertPEM != nil {
