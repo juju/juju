@@ -3213,11 +3213,11 @@ mysql      maintenance true    cs:quantal/mysql-1
 wordpress  active      true    cs:quantal/wordpress-3
 
 [Units]
-ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE
-mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things
-  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs
-wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns
-  logging/0 active         idle                              dummyenv-1.dns
+ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PUBLIC-ADDRESS PORTS MESSAGE
+mysql/0     maintenance    idle        1.2.3   2       dummyenv-2.dns       installing all the things
+  logging/1 error          idle                        dummyenv-2.dns       somehow lost in all those logs
+wordpress/0 active         idle        1.2.3   1       dummyenv-1.dns       
+  logging/0 active         idle                        dummyenv-1.dns       
 
 [Machines]
 ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
@@ -3282,7 +3282,7 @@ NAME       STATUS EXPOSED CHARM
 foo               false         
 
 [Units] 
-ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
+ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PUBLIC-ADDRESS PORTS MESSAGE                           
 foo/0   maintenance    executing                                        (config-changed) doing some work  
 foo/1   maintenance    executing                                        (backup database) doing some work 
 
