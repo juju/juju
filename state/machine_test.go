@@ -2270,3 +2270,60 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 	_, err = m.AddAction("benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 }
+
+func (s *MachineSuite) makeDeadMachine(c *gc.C) *state.Machine {
+	m, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	return m
+}
+
+func (s *MachineSuite) TestAddingAndClearingMachineRemoval(c *gc.C) {
+	m1 := s.makeDeadMachine(c)
+	m2 := s.makeDeadMachine(c)
+
+	err := m1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	removals, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(removals, jc.SameContents, []string{m1.Id(), m2.Id()})
+
+	err = s.State.ClearMachineRemovals([]string{m1.Id()})
+	c.Assert(err, jc.ErrorIsNil)
+	removals2, err := s.State.AllMachineRemovals()
+	c.Check(removals2, jc.SameContents, []string{m2.Id()})
+}
+
+func (s *MachineSuite) createRemovalWatcher(c *gc.C, st *state.State) (
+	state.NotifyWatcher, testing.NotifyWatcherC,
+) {
+	w := st.WatchMachineRemovals()
+	s.AddCleanup(func(c *gc.C) { testing.AssertStop(c, w) })
+	return w, testing.NewNotifyWatcherC(c, st, w)
+}
+
+func (s *MachineSuite) TestWatchMachineRemovals(c *gc.C) {
+	w, wc := s.createRemovalWatcher(c, s.State)
+	wc.AssertOneChange() // Initial event.
+
+	m1 := s.makeDeadMachine(c)
+	m2 := s.makeDeadMachine(c)
+
+	err := m1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	err = m2.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	s.State.ClearMachineRemovals([]string{m1.Id(), m2.Id()})
+	wc.AssertOneChange()
+
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}

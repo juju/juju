@@ -828,6 +828,21 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
+// machineRemovalDoc stores information needed to clean up provider
+// resources once the machine has been removed.
+type machineRemovalDoc struct {
+	DocID     string `bson:"_id"`
+	MachineID string `bson:"machineid"`
+}
+
+func addMachineRemovalOp(machineID string) txn.Op {
+	return txn.Op{
+		C:      machineRemovalsC,
+		Id:     machineID,
+		Insert: &machineRemovalDoc{MachineID: machineID},
+	}
+}
+
 // Remove removes the machine from state. It will fail if the machine
 // is not Dead.
 func (m *Machine) Remove() (err error) {
@@ -855,6 +870,7 @@ func (m *Machine) Remove() (err error) {
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.st, m.globalKey()),
+		addMachineRemovalOp(m.Id()),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {

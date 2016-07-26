@@ -1978,6 +1978,34 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
+func (st *State) AllMachineRemovals() ([]string, error) {
+	removals, close := st.getCollection(machineRemovalsC)
+	defer close()
+
+	var docs []machineRemovalDoc
+	err := removals.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]string, len(docs))
+	for i, doc := range docs {
+		results[i] = doc.MachineID
+	}
+	return results, nil
+}
+
+func (st *State) ClearMachineRemovals(ids []string) error {
+	ops := make([]txn.Op, len(ids))
+	for i, id := range ids {
+		ops[i] = txn.Op{
+			C:      machineRemovalsC,
+			Id:     id,
+			Remove: true,
+		}
+	}
+	return st.runTransaction(ops)
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",
