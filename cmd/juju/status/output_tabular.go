@@ -193,13 +193,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.WorkloadStatusInfo.Current,
 			u.JujuStatusInfo.Current,
 			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			strings.Join(u.OpenedPorts, ","),
 			message,
 		)
 	}
 
-	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE")
+	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PUBLIC-ADDRESS", "PORTS", "MESSAGE")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
