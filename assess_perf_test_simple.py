@@ -691,8 +691,9 @@ def assess_deployment_perf(client):
     # or one after the other etc.
     deploy_start = datetime.utcnow()
 
+    bundle_name = 'cs:~landscape/bundle/landscape-scalable'
     # bundle_name = 'cs:bundle/wiki-simple-0'
-    bundle_name = 'cs:ubuntu'
+    # bundle_name = 'cs:ubuntu'
     client.deploy(bundle_name)
     client.wait_for_started()
 

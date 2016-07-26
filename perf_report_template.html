@@ -89,7 +89,7 @@
         </tr>
         {% endfor %}
         <tr>
-          <td>Cleanup/Delete</td>
+          <td>Kill Controller</td>
           <td>{{deployments.cleanup.start}}</td>
           <td>{{deployments.cleanup.end}}</td>
           <td>{{deployments.cleanup.seconds}} Seconds</td>
@@ -113,8 +113,8 @@
       <h2>Memory Usage</h2>
       <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
 
-      <h2>Swap Usage</h2>
-      <img src="file://{{swap_graph}}" alt="Swap Usage Graph" />
+      <!-- <h2>Swap Usage</h2> -->
+      <!-- <img src="file://{{swap_graph}}" alt="Swap Usage Graph" /> -->
 
       <h2>Network Usage</h2>
       <img src="file://{{network_graph}}" alt="Network Usage Graph" />
