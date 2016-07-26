@@ -47,7 +47,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestClientModelGet(c *gc.C) {
+func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, gc.DeepEquals, map[string]params.ConfigValue{
@@ -68,7 +68,7 @@ func (s *modelconfigSuite) assertConfigValueMissing(c *gc.C, key string) {
 	c.Assert(found, jc.IsFalse)
 }
 
-func (s *modelconfigSuite) TestClientModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestModelSet(c *gc.C) {
 	params := params.ModelSet{
 		Config: map[string]interface{}{
 			"some-key":  "value",
@@ -104,7 +104,7 @@ func (s *modelconfigSuite) TestBlockChangesClientModelSet(c *gc.C) {
 	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
 }
 
-func (s *modelconfigSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
+func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
 		"agent-version": "1.2.3.4",
 	}))
@@ -125,7 +125,7 @@ func (s *modelconfigSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestClientModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -145,7 +145,7 @@ func (s *modelconfigSuite) TestBlockClientModelUnset(c *gc.C) {
 	s.assertBlocked(c, err, "TestBlockClientModelUnset")
 }
 
-func (s *modelconfigSuite) TestClientModelUnsetMissing(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
 	args := params.ModelUnset{[]string{"not_there"}}
 	err := s.api.ModelUnset(args)

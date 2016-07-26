@@ -46,6 +46,26 @@ func checkModelConfig(cfg *config.Config) error {
 	return nil
 }
 
+// inheritedConfigAttributes returns the merged collection of inherited config
+// values used as model defaults when adding models or unsetting values.
+func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
+	configSources := modelConfigSources(st)
+	values := make(attrValues)
+	for _, src := range configSources {
+		cfg, err := src.sourceFunc()
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading %s settings", src.name)
+		}
+		for attrName, value := range cfg {
+			values[attrName] = value
+		}
+	}
+	return values, nil
+}
+
 // ModelConfigValues returns the config values for the model represented
 // by this state.
 func (st *State) ModelConfigValues() (config.ConfigValues, error) {
@@ -138,6 +158,31 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 		return nil
 	}
 
+	if len(removeAttrs) > 0 {
+		var removed []string
+		if updateAttrs == nil {
+			updateAttrs = make(map[string]interface{})
+		}
+		// For each removed attribute, pick up any inherited value
+		// and if there's one, use that.
+		inherited, err := st.inheritedConfigAttributes()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, attr := range removeAttrs {
+			// We we are updating an attribute, that takes
+			// precedence over removing.
+			if _, ok := updateAttrs[attr]; ok {
+				continue
+			}
+			if val, ok := inherited[attr]; ok {
+				updateAttrs[attr] = val
+			} else {
+				removed = append(removed, attr)
+			}
+		}
+		removeAttrs = removed
+	}
 	// TODO(axw) 2013-12-6 #1167616
 	// Ensure that the settings on disk have not changed
 	// underneath us. The settings changes are actually
@@ -191,14 +236,14 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuControllerSource, st.ControllerInheritedConfig},
+		{config.JujuControllerSource, st.controllerInheritedConfig},
 		// We will also support local cloud region, tenant, user etc
 	}
 }
 
-// ControllerInheritedConfig returns the inherited config values
+// controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
-func (st *State) ControllerInheritedConfig() (attrValues, error) {
+func (st *State) controllerInheritedConfig() (attrValues, error) {
 	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
