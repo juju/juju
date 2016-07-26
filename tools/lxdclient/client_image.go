@@ -144,7 +144,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			context: fmt.Sprintf("copying image for %s from %s: %%s", name, source.URL()),
 			forward: forwarder.Forward,
 		}
-		err = source.CopyImage(target, i.raw, []string{name}, adapter.copyProgress)
+		err = source.CopyImage(series, i.raw, []string{name}, adapter.copyProgress)
 		return errors.Annotatef(err, "unable to get LXD image for %s", name)
 	}
 	return lastErr
