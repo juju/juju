@@ -6,15 +6,12 @@
 package lxdclient_test
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -427,12 +424,6 @@ type remoteFunctionalSuite struct {
 }
 
 func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
-	if _, err := net.InterfaceByName(network.DefaultLXDBridge); err != nil {
-		c.Skip("network bridge interface not found")
-	}
-	if _, err := utils.GetAddressForInterface(network.DefaultLXDBridge); err != nil {
-		c.Skip(fmt.Sprintf("no IPv4 address available for %s", network.DefaultLXDBridge))
-	}
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	remote := lxdclient.Remote{
