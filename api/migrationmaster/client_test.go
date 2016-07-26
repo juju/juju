@@ -65,8 +65,8 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	controllerUUID := utils.MustNewUUID().String()
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
-		out := result.(*params.FullMigrationStatus)
-		*out = params.FullMigrationStatus{
+		out := result.(*params.MasterMigrationStatus)
+		*out = params.MasterMigrationStatus{
 			Spec: params.ModelMigrationSpec{
 				ModelTag: names.NewModelTag(modelUUID).String(),
 				TargetInfo: params.ModelMigrationTargetInfo{
@@ -77,7 +77,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 					Password:      "secret",
 				},
 			},
-			Attempt:          3,
+			MigrationId:      "id",
 			Phase:            "READONLY",
 			PhaseChangedTime: timestamp,
 		}
@@ -88,8 +88,8 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	status, err := client.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
+		MigrationId:      "id",
 		ModelUUID:        modelUUID,
-		Attempt:          3,
 		Phase:            migration.READONLY,
 		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{

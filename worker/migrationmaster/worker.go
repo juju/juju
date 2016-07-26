@@ -471,11 +471,9 @@ func truncDuration(d time.Duration) time.Duration {
 }
 
 func validateMinionReports(reports coremigration.MinionReports, status coremigration.MigrationStatus) error {
-	// TODO(mjs) the migration id should be part of the status response.
-	migId := fmt.Sprintf("%s:%d", status.ModelUUID, status.Attempt)
-	if reports.MigrationId != migId {
+	if reports.MigrationId != status.MigrationId {
 		return errors.Errorf("unexpected migration id in minion reports, got %v, expected %v",
-			reports.MigrationId, migId)
+			reports.MigrationId, status.MigrationId)
 	}
 	if reports.Phase != status.Phase {
 		return errors.Errorf("minion reports phase (%s) does not match migration phase (%s)",
