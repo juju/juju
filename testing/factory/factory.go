@@ -81,6 +81,7 @@ type ServiceParams struct {
 	Name    string
 	Charm   *state.Charm
 	Creator names.Tag
+	Storage map[string]state.StorageConstraints
 	Status  *state.StatusInfo
 }
 
@@ -332,7 +333,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil, nil)
+	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, params.Storage, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
