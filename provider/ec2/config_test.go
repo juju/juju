@@ -431,7 +431,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.check(c)
 }
 
-func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -446,7 +446,7 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",
@@ -475,7 +475,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",

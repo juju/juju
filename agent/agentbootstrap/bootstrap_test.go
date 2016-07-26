@@ -142,7 +142,7 @@ LXC_BRIDGE="ignored"`[1:])
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
-	modelCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+	modelCfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Config:         modelCfg,
 	})

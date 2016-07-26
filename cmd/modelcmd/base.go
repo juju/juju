@@ -342,7 +342,7 @@ func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*conf
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
-func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.BootstrapConfigParams, error) {
+func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	return bootstrapConfigGetter{store}.getBootstrapConfigParams
 }
 
@@ -359,10 +359,10 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return provider.BootstrapConfig(*params)
+	return provider.PrepareConfig(*params)
 }
 
-func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.BootstrapConfigParams, error) {
+func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
 	}
@@ -410,7 +410,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return bootstrapConfig, &environs.BootstrapConfigParams{
+	return bootstrapConfig, &environs.PrepareConfigParams{
 		controllerDetails.ControllerUUID,
 		environs.CloudSpec{
 			bootstrapConfig.CloudType,

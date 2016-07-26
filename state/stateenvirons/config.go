@@ -34,14 +34,6 @@ func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, 
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-	if regionName != "" {
-		region, err := cloud.RegionByName(modelCloud.Regions, regionName)
-		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
-		}
-		modelCloud.Endpoint = region.Endpoint
-		modelCloud.StorageEndpoint = region.StorageEndpoint
-	}
 
 	var credential *cloud.Credential
 	if credentialName != "" {
@@ -57,14 +49,7 @@ func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, 
 		credential = &credentialValue
 	}
 
-	return environs.CloudSpec{
-		modelCloud.Type,
-		cloudName,
-		regionName,
-		modelCloud.Endpoint,
-		modelCloud.StorageEndpoint,
-		credential,
-	}, nil
+	return environs.MakeCloudSpec(modelCloud, cloudName, regionName, credential)
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,

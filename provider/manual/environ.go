@@ -80,7 +80,7 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.envConfig()); err != nil {
 		return err
@@ -88,7 +88,12 @@ func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 	return nil
 }
 
-// Bootstrap is specified on the Environ interface.
+// Create is part of the Environ interface.
+func (e *manualEnviron) Create(environs.CreateParams) error {
+	return nil
+}
+
+// Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	provisioned, err := manualCheckProvisioned(e.host)
 	if err != nil {

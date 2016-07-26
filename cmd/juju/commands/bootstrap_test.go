@@ -752,7 +752,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(bootstrapConfig.CloudType)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := provider.BootstrapConfig(*params)
+	cfg, err := provider.PrepareConfig(*params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := environs.New(environs.OpenParams{

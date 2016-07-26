@@ -114,8 +114,8 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	c.Check(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *ProviderFunctionalSuite) TestBootstrapConfig(c *gc.C) {
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: s.Config,
 	})
 	c.Assert(err, jc.ErrorIsNil)

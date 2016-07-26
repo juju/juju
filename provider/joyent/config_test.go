@@ -274,12 +274,12 @@ var bootstrapConfigTests = []struct {
 	expect: validAttrs(),
 }}
 
-func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfig(c *gc.C) {
 	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
+		preparedConfig, err := jp.Provider.PrepareConfig(environs.PrepareConfigParams{
 			Config: testConfig,
 			Cloud:  s.cloudSpec(),
 		})

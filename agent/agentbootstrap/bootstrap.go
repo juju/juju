@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -142,6 +143,17 @@ func InitializeState(
 	}
 	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
 
+	// Construct a CloudSpec to pass on to NewModelConfig below.
+	cloudSpec, err := environs.MakeCloudSpec(
+		args.ControllerCloud,
+		args.ControllerCloudName,
+		args.ControllerCloudRegion,
+		args.ControllerCloudCredential,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	// TODO(axw) we shouldn't be adding credentials to model config.
 	if args.ControllerCloudCredential != nil {
 		for k, v := range args.ControllerCloudCredential.Attributes() {
@@ -149,8 +161,9 @@ func InitializeState(
 		}
 	}
 	controllerUUID := args.ControllerConfig.ControllerUUID()
-	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
-		modelmanager.IsAdmin, controllerUUID, args.ControllerModelConfig, attrs,
+	creator := modelmanager.ModelConfigCreator{Provider: environs.Provider}
+	hostedModelConfig, err := creator.NewModelConfig(
+		cloudSpec, controllerUUID, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")

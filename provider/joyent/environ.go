@@ -117,6 +117,14 @@ func (env *joyentEnviron) Config() *config.Config {
 	return env.Ecfg().Config
 }
 
+// Create is part of the Environ interface.
+func (env *joyentEnviron) Create(environs.CreateParams) error {
+	if err := verifyCredentials(env); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {

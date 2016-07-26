@@ -92,20 +92,8 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 	}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	env, err := newEnviron(prov, cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
-	}
-	if err := env.initResourceGroup(controllerUUID); err != nil {
-		return nil, errors.Annotate(err, "initializing resource group")
-	}
-	return env.Config(), nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	attrs := map[string]interface{}{
 		configAttrLocation:        args.Cloud.Region,
 		configAttrEndpoint:        args.Cloud.Endpoint,

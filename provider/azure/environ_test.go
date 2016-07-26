@@ -331,7 +331,7 @@ func prepareForBootstrap(
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	cfg, err := provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud:  fakeCloudSpec(),
 	})

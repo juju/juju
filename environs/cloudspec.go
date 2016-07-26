@@ -5,8 +5,9 @@ package environs
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
 	names "gopkg.in/juju/names.v2"
+
+	jujucloud "github.com/juju/juju/cloud"
 )
 
 // CloudSpec describes a specific cloud configuration, for the purpose
@@ -31,7 +32,7 @@ type CloudSpec struct {
 	// Credential is the cloud credential to use to authenticate
 	// with the cloud, or nil if the cloud does not require any
 	// credentials.
-	Credential *cloud.Credential
+	Credential *jujucloud.Credential
 }
 
 // Validate validates that the CloudSpec is well-formed. It does
@@ -44,4 +45,26 @@ func (cs CloudSpec) Validate() error {
 		return errors.NotValidf("cloud name %q", cs.Name)
 	}
 	return nil
+}
+
+// MakeCloudSpec returns a CloudSpec from the given
+// Cloud, cloud and region names, and credential.
+func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
+	cloudSpec := CloudSpec{
+		Type:            cloud.Type,
+		Name:            cloudName,
+		Region:          cloudRegionName,
+		Endpoint:        cloud.Endpoint,
+		StorageEndpoint: cloud.StorageEndpoint,
+		Credential:      credential,
+	}
+	if cloudRegionName != "" {
+		cloudRegion, err := jujucloud.RegionByName(cloud.Regions, cloudRegionName)
+		if err != nil {
+			return CloudSpec{}, errors.Annotate(err, "getting cloud region definition")
+		}
+		cloudSpec.Endpoint = cloudRegion.Endpoint
+		cloudSpec.StorageEndpoint = cloudRegion.StorageEndpoint
+	}
+	return cloudSpec, nil
 }

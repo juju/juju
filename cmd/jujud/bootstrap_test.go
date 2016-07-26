@@ -798,7 +798,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = cfg.UUID()
-	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Config:         cfg,
 	})

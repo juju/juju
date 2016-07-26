@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
@@ -118,7 +118,10 @@ type ConfigSource interface {
 }
 
 func (mm *ModelManagerAPI) newModelConfig(
-	args params.ModelCreateArgs, controllerUUID string, source ConfigSource, credential *cloud.Credential,
+	cloudSpec environs.CloudSpec,
+	args params.ModelCreateArgs,
+	controllerUUID string,
+	source ConfigSource,
 ) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the model config together in the
@@ -140,8 +143,8 @@ func (mm *ModelManagerAPI) newModelConfig(
 
 	// Copy credential attributes across to model config.
 	// TODO(axw) credentials should not be going into model config.
-	if credential != nil {
-		for key, value := range credential.Attributes() {
+	if cloudSpec.Credential != nil {
+		for key, value := range cloudSpec.Credential.Attributes() {
 			joint[key] = value
 		}
 	}
@@ -154,6 +157,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 		return nil, errors.Trace(err)
 	}
 	creator := modelmanager.ModelConfigCreator{
+		Provider: environs.Provider,
 		FindTools: func(n version.Number) (tools.List, error) {
 			result, err := mm.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
@@ -164,7 +168,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 			return result.List, nil
 		},
 	}
-	return creator.NewModelConfig(mm.isAdmin, controllerUUID, baseConfig, joint)
+	return creator.NewModelConfig(cloudSpec, controllerUUID, baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
@@ -197,6 +201,11 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	}
 
 	cloudName := controllerModel.Cloud()
+	cloud, err := mm.state.Cloud(cloudName)
+	if err != nil {
+		return result, errors.Annotate(err, "getting cloud definition")
+	}
+
 	cloudCredentialName := args.CloudCredential
 	if cloudCredentialName == "" {
 		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
@@ -206,13 +215,9 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 			// cloud credential, and if so, use it? For now, we
 			// require the user to specify a credential unless
 			// the cloud does not require one.
-			controllerCloud, err := mm.state.Cloud(controllerModel.Cloud())
-			if err != nil {
-				return result, errors.Trace(err)
-			}
 			var hasEmpty bool
-			for _, authType := range controllerCloud.AuthTypes {
-				if authType != cloud.EmptyAuthType {
+			for _, authType := range cloud.AuthTypes {
+				if authType != jujucloud.EmptyAuthType {
 					continue
 				}
 				hasEmpty = true
@@ -224,12 +229,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		}
 	}
 
-	cloudRegion := args.CloudRegion
-	if cloudRegion == "" {
-		cloudRegion = controllerModel.CloudRegion()
+	cloudRegionName := args.CloudRegion
+	if cloudRegionName == "" {
+		cloudRegionName = controllerModel.CloudRegion()
 	}
 
-	var credential *cloud.Credential
+	var credential *jujucloud.Credential
 	if cloudCredentialName != "" {
 		ownerCredentials, err := mm.state.CloudCredentials(ownerTag, controllerModel.Cloud())
 		if err != nil {
@@ -244,14 +249,33 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		credential = &elem
 	}
 
+	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudName, cloudRegionName, credential)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	controllerCfg, err := mm.state.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := mm.newModelConfig(args, controllerCfg.ControllerUUID(), controllerModel, credential)
+	newConfig, err := mm.newModelConfig(cloudSpec, args, controllerCfg.ControllerUUID(), controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
+	}
+
+	// Create the Environ.
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: newConfig,
+	})
+	if err != nil {
+		return result, errors.Annotate(err, "failed to open environ")
+	}
+	if err := env.Create(environs.CreateParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+	}); err != nil {
+		return result, errors.Annotate(err, "failed to create environ")
 	}
 
 	// NOTE: check the agent-version of the config, and if it is > the current
@@ -259,7 +283,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
 		CloudName:       cloudName,
-		CloudRegion:     cloudRegion,
+		CloudRegion:     cloudRegionName,
 		CloudCredential: cloudCredentialName,
 		Config:          newConfig,
 		Owner:           ownerTag,

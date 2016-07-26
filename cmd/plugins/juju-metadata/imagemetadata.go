@@ -39,7 +39,7 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := provider.BootstrapConfig(*params)
+	cfg, err := provider.PrepareConfig(*params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

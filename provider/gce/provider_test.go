@@ -42,8 +42,8 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Assert(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+func (s *providerSuite) TestPrepareConfig(c *gc.C) {
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: s.Config,
 		Cloud:  makeTestCloudSpec(),
 	})

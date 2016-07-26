@@ -53,10 +53,10 @@ func fakeUserPassCredential() *cloud.Credential {
 	return &cred
 }
 
-func (s *environProviderSuite) TestBootstrapConfig(c *gc.C) {
+func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 	cfg := makeTestModelConfig(c)
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environs.CloudSpec{
 			Region:          "westus",

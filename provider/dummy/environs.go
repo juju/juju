@@ -554,24 +554,8 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 	return nil
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	// NOTE: this check might appear redundant, but it's not: some tests
-	// (apiserver/modelmanager) inject a string value and determine that
-	// the config is validated later; validating here would render that
-	// test meaningless.
-	if cfg.AllAttrs()["controller"] == true {
-		// NOTE: cfg.Apply *does* validate, but we're only adding a
-		// valid value so it doesn't matter.
-		return cfg.Apply(map[string]interface{}{
-			"controller": false,
-		})
-	}
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
@@ -581,11 +565,23 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 
 	controllerUUID := args.ControllerUUID
 	if controllerUUID != args.Config.UUID() {
-		return nil, errors.Errorf("invalid bootstrap config, model UUID %v doesn't equal controller UUID %v", controllerUUID, args.Config.UUID())
+		// NOTE: this check might appear redundant, but it's not: some tests
+		// (apiserver/modelmanager) inject a string value and determine that
+		// the config is validated later; validating here would render that
+		// test meaningless.
+		if args.Config.AllAttrs()["controller"] == true {
+			// NOTE: cfg.Apply *does* validate, but we're only adding a
+			// valid value so it doesn't matter.
+			return args.Config.Apply(map[string]interface{}{
+				"controller": false,
+			})
+		}
+		return args.Config, nil
 	}
+
 	envState, ok := p.state[controllerUUID]
 	if ok {
-		// BootstrapConfig is expected to return the same result given
+		// PrepareConfig is expected to return the same result given
 		// the same input. We assume that the args are the same for a
 		// previously prepared/bootstrapped controller.
 		return envState.bootstrapConfig, nil
@@ -600,7 +596,7 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 
 	// The environment has not been prepared, so create it and record it.
 	// We don't start listening for State or API connections until
-	// PrepareForBootstrapConfig has been called.
+	// PrepareForBootstrap has been called.
 	envState = newState(name, p.ops, p.newStatePolicy)
 	cfg := args.Config
 	if ecfg.controller() {
@@ -649,8 +645,13 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	return nil
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
-func (p *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+// Create is part of the EnvironProvider interface.
+func (e *environ) Create(environs.CreateParams) error {
+	return nil
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 
