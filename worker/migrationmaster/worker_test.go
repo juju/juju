@@ -20,7 +20,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/workertest"
@@ -147,7 +146,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+	c.Assert(errors.Cause(err), gc.Equals, migrationmaster.ErrMigrated)
 
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
@@ -197,7 +196,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+	c.Assert(errors.Cause(err), gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -232,7 +231,7 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	defer workertest.DirtyKill(c, worker)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+	c.Assert(errors.Cause(err), gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -328,7 +327,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	s.triggerMigration()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -354,7 +353,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	s.triggerMigration()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -379,7 +378,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	s.triggerMigration()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -438,7 +437,7 @@ func (s *Suite) TestMinionWaitSUCCESSFailedMachine(c *gc.C) {
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(err, gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -465,7 +464,7 @@ func (s *Suite) TestMinionWaitSUCCESSFailedUnit(c *gc.C) {
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(err, gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
@@ -501,7 +500,7 @@ func (s *Suite) TestMinionWaitSUCCESSTimeout(c *gc.C) {
 	s.clock.Advance(15 * time.Minute)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(err, gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},

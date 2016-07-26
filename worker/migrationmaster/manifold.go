@@ -79,10 +79,27 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return worker, nil
 }
 
+func errorFilter(err error) error {
+	switch err {
+	case ErrMigrated:
+		// If the model has migrated, the migrationmaster should no
+		// longer be running.
+		return dependency.ErrUninstall
+	case ErrInactive:
+		// If the migration is no longer active, restart the
+		// migrationmaster immediately so it can wait for the next
+		// attempt.
+		return dependency.ErrBounce
+	default:
+		return err
+	}
+}
+
 // Manifold packages a Worker for use in a dependency.Engine.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName, config.FortressName},
 		Start:  config.start,
+		Filter: errorFilter,
 	}
 }
