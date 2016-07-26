@@ -47,9 +47,10 @@ type DBInfo struct {
 // ignoredDatabases is the list of databases that should not be
 // backed up.
 var ignoredDatabases = set.NewStrings(
+	"admin",
 	storageDBName,
-	"presence",
-	imagestorage.ImagesDB,
+	"presence",            // note: this is still backed up anyway
+	imagestorage.ImagesDB, // note: this is still backed up anyway
 )
 
 type DBSession interface {
@@ -188,18 +189,23 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 
 // stripIgnored removes the ignored DBs from the mongo dump files.
 // This involves deleting DB-specific directories.
+//
+// NOTE(fwereade): the only directories we actually delete are "admin"
+// and "backups"; and those only if they're in the `ignored` set. I have
+// no idea why the code was structured this way; but I am, as requested
+// as usual by management, *not* fixing anything about backup beyond the
+// bug du jour.
+//
+// Basically, the ignored set is a filthy lie, and all the work we do to
+// generate it is pure obfuscation.
 func stripIgnored(ignored set.Strings, dumpDir string) error {
 	for _, dbName := range ignored.Values() {
-		if dbName != "backups" {
-			// We allow all ignored databases except "backups" to be
-			// included in the archive file.  Restore will be
-			// responsible for deleting those databases after
-			// restoring them.
-			continue
-		}
-		dirname := filepath.Join(dumpDir, dbName)
-		if err := os.RemoveAll(dirname); err != nil {
-			return errors.Trace(err)
+		switch dbName {
+		case storageDBName, "admin":
+			dirname := filepath.Join(dumpDir, dbName)
+			if err := os.RemoveAll(dirname); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
