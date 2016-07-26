@@ -397,20 +397,6 @@ func newStore() *multiwatcherStore {
 	}
 }
 
-// All returns all the entities stored in the Store,
-// oldest first. It is only exposed for testing purposes.
-func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
-	entities := make([]multiwatcher.EntityInfo, 0, a.list.Len())
-	for e := a.list.Front(); e != nil; e = e.Next() {
-		entry := e.Value.(*entityEntry)
-		if entry.removed {
-			continue
-		}
-		entities = append(entities, entry.info)
-	}
-	return entities
-}
-
 // add adds a new entity with the given id and associated
 // information to the list.
 func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
