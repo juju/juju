@@ -34,10 +34,6 @@ log = logging.getLogger("assess_log_forward")
 
 
 def assess_log_forward(bs_dummy, bs_rsyslog, upload_tools):
-    check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools)
-
-
-def check_logfwd_enabled_after_bootstrap(bs_dummy, bs_rsyslog, upload_tools):
     """Ensure logs are forwarded after forwarding enabled after bootstrapping.
 
     Given 2 controllers set rsyslog and dummy:
