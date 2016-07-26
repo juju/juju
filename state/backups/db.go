@@ -355,6 +355,13 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 }
 
 func (md *mongoRestorer32) options(dumpDir string) []string {
+	// note the batchSize, which is known to mitigate EOF errors
+	// seen when using mongorestore; as seen and reported in
+	// https://jira.mongodb.org/browse/TOOLS-939 -- not guaranteed
+	// to *help* with lp:1605653, but observed not to hurt.
+	//
+	// The value of 100 was chosen because it's more pessimistic
+	// than the "1000" that many report success using in the bug.
 	options := []string{
 		"--ssl",
 		"--authenticationDatabase", "admin",
@@ -363,6 +370,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 		"--password", md.Password,
 		"--drop",
 		"--oplogReplay",
+		"--batchSize", "100",
 		dumpDir,
 	}
 	return options
