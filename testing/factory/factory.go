@@ -91,6 +91,7 @@ type ApplicationParams struct {
 	Charm       *state.Charm
 	Status      *status.StatusInfo
 	Settings    map[string]interface{}
+	Storage     map[string]state.StorageConstraints
 	Constraints constraints.Value
 }
 
@@ -396,6 +397,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		Name:        params.Name,
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
+		Storage:     params.Storage,
 		Constraints: params.Constraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)

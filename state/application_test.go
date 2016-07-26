@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ServiceSuite struct {
@@ -2160,6 +2161,16 @@ storage:
       range: 0-
 `
 
+const oneRequiredOneOptionalStorageMeta = `
+storage:
+  data0:
+    type: block
+  data1:
+    type: block
+    multiple:
+      range: 0-
+`
+
 const twoRequiredStorageMeta = `
 storage:
   data0:
@@ -2240,12 +2251,46 @@ func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error 
 	return svc.SetCharm(cfg)
 }
 
-func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
+func (s *ServiceSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
 	err := s.setCharmFromMeta(c,
-		mysqlBaseMeta+twoOptionalStorageMeta,
-		mysqlBaseMeta+oneOptionalStorageMeta,
+		mysqlBaseMeta+oneRequiredOneOptionalStorageMeta,
+		mysqlBaseMeta+oneRequiredStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": storage "data1" removed`)
+	c.Assert(err, jc.ErrorIsNil)
+	// It's valid to remove optional storage so long
+	// as it is not in use.
+}
+
+func (s *ServiceSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	oldMeta := mysqlBaseMeta + oneRequiredOneOptionalStorageMeta
+	newMeta := mysqlBaseMeta + oneRequiredStorageMeta
+	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+	svc := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "test",
+		Charm: oldCh,
+		Storage: map[string]state.StorageConstraints{
+			"data0": {Count: 1},
+			"data1": {Count: 1},
+		},
+	})
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// Adding a unit will cause the storage to be in-use.
+		_, err := svc.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	cfg := state.SetCharmConfig{Charm: newCh}
+	err := svc.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": in-use storage "data1" removed`)
+}
+
+func (s *ServiceSuite) TestSetCharmRequiredStorageRemoved(c *gc.C) {
+	err := s.setCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": required storage "data0" removed`)
 }
 
 func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
