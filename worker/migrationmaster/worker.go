@@ -20,16 +20,21 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 )
 
 var (
 	logger = loggo.GetLogger("juju.worker.migrationmaster")
 
-	// ErrDoneForNow indicates a temporary issue was encountered and
-	// that the worker should restart and retry.
-	ErrDoneForNow = errors.New("done for now")
+	// ErrInactive is returned when the migration is no longer active
+	// (probably aborted). In this case the migrationmaster should be
+	// restarted so that it can wait for the next migration attempt.
+	ErrInactive = errors.New("migration is no longer active")
+
+	// ErrMigrated is returned when the model has migrated to another
+	// server. The migrationmaster should not be restarted again in
+	// this case.
+	ErrMigrated = errors.New("model has migrated")
 )
 
 const (
@@ -209,12 +214,11 @@ func (w *Worker) run() error {
 		status.Phase = phase
 
 		if modelHasMigrated(phase) {
-			// TODO(mjs) - use manifold Filter so that the dep engine
-			// error types aren't required here.
-			return dependency.ErrUninstall
+			return ErrMigrated
 		} else if phase.IsTerminal() {
-			// Some other terminal phase, exit and try again.
-			return ErrDoneForNow
+			// Some other terminal phase (aborted), exit and try
+			// again.
+			return ErrInactive
 		}
 	}
 }
@@ -393,7 +397,7 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 			return empty, errors.Annotate(err, "retrieving migration status")
 		}
 		if modelHasMigrated(status.Phase) {
-			return empty, dependency.ErrUninstall
+			return empty, ErrMigrated
 		}
 		if !status.Phase.IsTerminal() {
 			return status, nil
