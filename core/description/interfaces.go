@@ -394,10 +394,9 @@ type Volume interface {
 	HasStatusHistory
 
 	Tag() names.VolumeTag
-	Name() string
 	// Link to Storage...
 
-	Binding() names.Tag
+	Binding() (names.Tag, error)
 
 	Provisioned() bool
 
@@ -411,11 +410,12 @@ type Volume interface {
 	Persistent() bool
 
 	Attachments() []VolumeAttachment
+	AddAttachment(VolumeAttachmentArgs) VolumeAttachment
 }
 
 // VolumeAttachment represents a volume attached to a machine.
 type VolumeAttachment interface {
-	MachineID() string
+	Machine() names.MachineTag
 
 	ReadOnly() bool
 	DeviceName() string
