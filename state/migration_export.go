@@ -104,6 +104,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.volumes(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -1113,4 +1116,101 @@ func (e *exporter) logExtras() {
 	for key, doc := range e.annotations {
 		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
 	}
+}
+
+func (e *exporter) volumes() error {
+	coll, closer := e.st.getCollection(volumesC)
+	defer closer()
+
+	attachments, err := e.readVolumeAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc volumeDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		vol := &volume{e.st, doc}
+		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
+	args := description.VolumeArgs{
+		Tag:     vol.VolumeTag(),
+		Binding: vol.LifeBinding(),
+		// TODO: add storage link
+	}
+	logger.Debugf("addVolume: %#v", vol.doc)
+	if info, err := vol.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.HardwareID = info.HardwareId
+		args.VolumeID = info.VolumeId
+		args.Persistent = info.Persistent
+	} else {
+		params, _ := vol.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+		// Possibly set the binding and storage if they are unset.
+		if args.Binding == nil {
+			args.Binding = params.binding
+		}
+	}
+
+	globalKey := vol.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for volume %s", vol.doc.Name)
+	}
+
+	exVolume := e.model.AddVolume(args)
+	exVolume.SetStatus(statusArgs)
+	exVolume.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	if count := len(volAttachments); count != vol.doc.AttachmentCount {
+		return errors.Errorf("volume attachment count mismatch, have %d, expected %d",
+			count, vol.doc.AttachmentCount)
+	}
+	for _, doc := range volAttachments {
+		va := volumeAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.VolumeAttachmentArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.ReadOnly = info.ReadOnly
+			args.DeviceName = info.DeviceName
+			args.DeviceLink = info.DeviceLink
+			args.BusAddress = info.BusAddress
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+		}
+		exVolume.AddAttachment(args)
+	}
+	return nil
+}
+
+func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
+	coll, closer := e.st.getCollection(volumeAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]volumeAttachmentDoc)
+	var doc volumeAttachmentDoc
+
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Volume] = append(result[doc.Volume], doc)
+	}
+	return result, nil
 }

@@ -397,7 +397,7 @@ type Volume interface {
 	HasStatusHistory
 
 	Tag() names.VolumeTag
-	// Link to Storage...
+	// TODO: Link to Storage when we add storage
 
 	Binding() (names.Tag, error)
 
@@ -405,8 +405,6 @@ type Volume interface {
 
 	Size() uint64
 	Pool() string
-
-	// These three attributes are only valid if the volume is provisioned.
 
 	HardwareID() string
 	VolumeID() string
