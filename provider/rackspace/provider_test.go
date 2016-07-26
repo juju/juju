@@ -56,8 +56,8 @@ type fakeProvider struct {
 	testing.Stub
 }
 
-func (p *fakeProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	p.MethodCall(p, "Open", cfg)
+func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	p.MethodCall(p, "Open", args)
 	return nil, nil
 }
 

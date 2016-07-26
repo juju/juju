@@ -745,11 +745,9 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	p, err := environs.Provider("dummy")
-	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := modelcmd.NewGetBootstrapConfigFunc(s.store)("devcontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := p.Open(cfg)
+	env, err := environs.New(environs.OpenParams{cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c))
 	c.Assert(err, jc.ErrorIsNil)

@@ -515,12 +515,12 @@ type StubProvider struct {
 
 var _ environs.EnvironProvider = (*StubProvider)(nil)
 
-func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	sp.MethodCall(sp, "Open", cfg)
+func (sp *StubProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	sp.MethodCall(sp, "Open", args.Config)
 	if err := sp.NextErr(); err != nil {
 		return nil, err
 	}
-	switch cfg.Name() {
+	switch args.Config.Name() {
 	case StubEnvironName:
 		return EnvironInstance, nil
 	case StubZonedEnvironName:
@@ -530,7 +530,7 @@ func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	case StubZonedNetworkingEnvironName:
 		return ZonedNetworkingEnvironInstance, nil
 	}
-	panic("unexpected model name: " + cfg.Name())
+	panic("unexpected model name: " + args.Config.Name())
 }
 
 // GoString implements fmt.GoStringer.

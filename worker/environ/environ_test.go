@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/workertest"
@@ -72,7 +71,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
 			Observer: context,
-			NewEnvironFunc: func(*config.Config) (environs.Environ, error) {
+			NewEnvironFunc: func(environs.OpenParams) (environs.Environ, error) {
 				return nil, errors.NotValidf("config")
 			},
 		})
@@ -165,7 +164,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
 			Observer: context,
-			NewEnvironFunc: func(*config.Config) (environs.Environ, error) {
+			NewEnvironFunc: func(environs.OpenParams) (environs.Environ, error) {
 				env := &mockEnviron{}
 				env.SetErrors(errors.New("SetConfig is broken"))
 				return env, nil

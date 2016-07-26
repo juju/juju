@@ -21,12 +21,12 @@ type environProvider struct {
 var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
 	// TODO(ericsnow) do something similar to correctLocalhostURLs()
 	// (in provider/local/environprovider.go)?
 
-	env, err := newEnviron(cfg, newRawProvider)
+	env, err := newEnviron(args.Config, newRawProvider)
 	return env, errors.Trace(err)
 }
 

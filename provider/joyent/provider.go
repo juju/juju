@@ -118,8 +118,8 @@ func credentials(cfg *environConfig) (*auth.Credentials, error) {
 	}, nil
 }
 
-func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (joyentProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	env, err := newEnviron(args.Config)
 	if err != nil {
 		return nil, err
 	}

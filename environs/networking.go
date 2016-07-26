@@ -6,6 +6,7 @@ package environs
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -60,4 +61,21 @@ type NetworkingEnviron interface {
 func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
+}
+
+// SupportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func SupportsSpaces(env Environ) bool {
+	netEnv, ok := supportsNetworking(env)
+	if !ok {
+		return false
+	}
+	ok, err := netEnv.SupportsSpaces()
+	if err != nil {
+		if !errors.IsNotSupported(err) {
+			logger.Errorf("checking model spaces support failed with: %v", err)
+		}
+		return false
+	}
+	return ok
 }

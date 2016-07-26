@@ -166,7 +166,7 @@ func doTest(s *ConfigSuite, i int, test configtest, c *gc.C) {
 	attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 	attrs["private-key"] = s.privateKeyData
 	testConfig := newConfig(c, attrs)
-	environ, err := environs.New(testConfig)
+	environ, err := environs.New(environs.OpenParams{testConfig})
 	if test.err == "" {
 		c.Check(err, jc.ErrorIsNil)
 		if err != nil {
@@ -237,7 +237,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(baseConfig)
+		environ, err := environs.New(environs.OpenParams{baseConfig})
 		c.Assert(err, jc.ErrorIsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)

@@ -70,9 +70,9 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 }
 
 // Open is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening model %q", cfg.Name())
-	environ, err := newEnviron(prov, cfg)
+func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Debugf("opening model %q", args.Config.Name())
+	environ, err := newEnviron(prov, args.Config)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")
 	}

@@ -71,15 +71,15 @@ func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	return cfg.Apply(envConfig.attrs)
 }
 
-func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	_, err := p.validate(cfg, nil)
+func (p manualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	_, err := p.validate(args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
 	// validate adds missing manual-specific config attributes
 	// with their defaults in the result; we don't wnat that in
 	// Open.
-	envConfig := newModelConfig(cfg, cfg.UnknownAttrs())
+	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
 	return p.open(envConfig)
 }
 

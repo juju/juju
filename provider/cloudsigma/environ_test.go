@@ -46,7 +46,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(baseConfig)
+	env, err := environs.New(environs.OpenParams{baseConfig})
 	c.Assert(err, gc.IsNil)
 	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 
@@ -89,7 +89,7 @@ func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(baseConfig)
+	env, err := environs.New(environs.OpenParams{baseConfig})
 	c.Assert(err, gc.IsNil)
 	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 

@@ -144,6 +144,6 @@ func (e *mockEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func newMockEnviron(cfg *config.Config) (environs.Environ, error) {
-	return &mockEnviron{cfg: cfg}, nil
+func newMockEnviron(args environs.OpenParams) (environs.Environ, error) {
+	return &mockEnviron{cfg: args.Config}, nil
 }

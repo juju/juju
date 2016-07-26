@@ -34,7 +34,7 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	e, err := p.Open(cfg)
+	e, err := p.Open(environs.OpenParams{cfg})
 	if err != nil {
 		return nil, err
 	}
@@ -49,11 +49,11 @@ func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg 
 }
 
 // Open is specified in the EnvironProvider interface.
-func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
+func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
 	e := new(environ)
-	e.name = cfg.Name()
-	err := e.SetConfig(cfg)
+	e.name = args.Config.Name()
+	err := e.SetConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}

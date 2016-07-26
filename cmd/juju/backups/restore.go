@@ -34,7 +34,8 @@ import (
 // NewRestoreCommand returns a command used to restore a backup.
 func NewRestoreCommand() cmd.Command {
 	restoreCmd := &restoreCommand{}
-	restoreCmd.getEnvironFunc = restoreCmd.getEnviron
+	restoreCmd.newEnvironFunc = environs.New
+	restoreCmd.getRebootstrapParamsFunc = restoreCmd.getRebootstrapParams
 	restoreCmd.newAPIClientFunc = func() (RestoreAPI, error) {
 		return restoreCmd.newClient()
 	}
@@ -53,10 +54,11 @@ type restoreCommand struct {
 	bootstrap   bool
 	uploadTools bool
 
-	newAPIClientFunc func() (RestoreAPI, error)
-	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error)
-	getArchiveFunc   func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
-	waitForAgentFunc func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
+	newAPIClientFunc         func() (RestoreAPI, error)
+	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
+	getRebootstrapParamsFunc func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
+	getArchiveFunc           func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
+	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
 }
 
 // RestoreAPI is used to invoke various API calls.
@@ -142,31 +144,32 @@ type restoreBootstrapParams struct {
 	Credential       cloud.Credential
 	AdminSecret      string
 	CAPrivateKey     string
+	ModelConfig      *config.Config
 }
 
-// getEnviron returns the environ for the specified controller, or
-// mocked out environ for testing.
-func (c *restoreCommand) getEnviron(
+// getRebootstrapParams returns the params for rebootstrapping the
+// specified controller.
+func (c *restoreCommand) getRebootstrapParams(
 	controllerName string, meta *params.BackupsMetadataResult,
-) (environs.Environ, *restoreBootstrapParams, error) {
-	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
-	// with a flag to specify a restore file. When we do that, we'll need
-	// to extract the CA cert from the backup, and we'll need to reset the
-	// password after restore so the admin user can login.
-	// We also need to store things like the admin-secret, controller
-	// certificate etc with the backup.
+) (*restoreBootstrapParams, error) {
+	// TODO(axw) delete this and -b. We will update bootstrap with a flag
+	// to specify a restore file. When we do that, we'll need to extract
+	// the CA cert from the backup, and we'll need to reset the password
+	// after restore so the admin user can login. We also need to store
+	// things like the admin-secret, controller certificate etc with the
+	// backup.
 	store := c.ClientStore()
 	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	provider, err := environs.Provider(config.CloudType)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	cfg, err := provider.BootstrapConfig(*params)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Get the local admin user so we can use the password as the admin secret.
@@ -179,11 +182,11 @@ func (c *restoreCommand) getEnviron(
 		// No relevant local admin user so generate a new secret.
 		buf := make([]byte, 16)
 		if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-			return nil, nil, errors.Annotate(err, "generating new admin secret")
+			return nil, errors.Annotate(err, "generating new admin secret")
 		}
 		adminSecret = fmt.Sprintf("%x", buf)
 	} else {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Turn on safe mode so that the newly bootstrapped instance
@@ -193,7 +196,7 @@ func (c *restoreCommand) getEnviron(
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 
 	controllerCfg := make(controller.Config)
@@ -203,8 +206,7 @@ func (c *restoreCommand) getEnviron(
 	controllerCfg[controller.ControllerUUIDKey] = params.ControllerUUID
 	controllerCfg[controller.CACertKey] = meta.CACert
 
-	env, err := environs.New(cfg)
-	return env, &restoreBootstrapParams{
+	return &restoreBootstrapParams{
 		ControllerConfig: controllerCfg,
 		CloudType:        config.CloudType,
 		CloudName:        config.Cloud,
@@ -212,39 +214,16 @@ func (c *restoreCommand) getEnviron(
 		CredentialName:   config.Credential,
 		Credential:       params.Credentials,
 		AdminSecret:      adminSecret,
-	}, err
+		ModelConfig:      cfg,
+	}, nil
 }
 
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	env, params, err := c.getEnvironFunc(c.ControllerName(), meta)
+	params, err := c.getRebootstrapParamsFunc(c.ControllerName(), meta)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	instanceIds, err := env.ControllerInstances(params.ControllerConfig.ControllerUUID())
-	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
-		return errors.Annotatef(err, "cannot determine controller instances")
-	}
-	if len(instanceIds) > 0 {
-		inst, err := env.Instances(instanceIds)
-		if err == nil {
-			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
-		}
-		if err != environs.ErrNoInstances {
-			return errors.Annotatef(err, "cannot detect whether old instance is still running")
-		}
-	}
-
-	// We require a hosted model config to bootstrap. We'll fill in some defaults
-	// just to get going. The restore will clear the initial state.
-	hostedModelUUID, err := utils.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	hostedModelConfig := map[string]interface{}{
-		"name":         "default",
-		config.UUIDKey: hostedModelUUID.String(),
 	}
 
 	cloudParam, err := cloud.CloudByName(params.CloudName)
@@ -286,6 +265,36 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		}
 	} else if err != nil {
 		return errors.Trace(err)
+	}
+
+	env, err := c.newEnvironFunc(environs.OpenParams{params.ModelConfig})
+	if err != nil {
+		return errors.Annotate(err, "opening environ for rebootstrapping")
+	}
+
+	instanceIds, err := env.ControllerInstances(params.ControllerConfig.ControllerUUID())
+	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
+		return errors.Annotatef(err, "cannot determine controller instances")
+	}
+	if len(instanceIds) > 0 {
+		inst, err := env.Instances(instanceIds)
+		if err == nil {
+			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		}
+		if err != environs.ErrNoInstances {
+			return errors.Annotatef(err, "cannot detect whether old instance is still running")
+		}
+	}
+
+	// We require a hosted model config to bootstrap. We'll fill in some defaults
+	// just to get going. The restore will clear the initial state.
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	hostedModelConfig := map[string]interface{}{
+		"name":         "default",
+		config.UUIDKey: hostedModelUUID.String(),
 	}
 
 	// We may have previous controller metadata. We need to replace that so it

@@ -91,7 +91,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		environ, err := environs.New(testConfig)
+		environ, err := environs.New(environs.OpenParams{testConfig})
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
 			attrs := environ.Config().AllAttrs()
@@ -177,7 +177,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(baseConfig)
+		environ, err := environs.New(environs.OpenParams{baseConfig})
 		c.Assert(err, gc.IsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
@@ -195,13 +195,6 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 			}
 		}
 	}
-}
-
-func (s *configSuite) TestConfigName(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	environ, err := environs.New(baseConfig)
-	c.Assert(err, gc.IsNil)
-	c.Check(environ.Config().Name(), gc.Equals, "testname")
 }
 
 func (s *configSuite) TestModelConfig(c *gc.C) {

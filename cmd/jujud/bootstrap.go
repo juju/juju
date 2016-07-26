@@ -128,7 +128,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(args.ControllerModelConfig)
+	env, err := environs.New(environs.OpenParams{args.ControllerModelConfig})
 	if err != nil {
 		return err
 	}

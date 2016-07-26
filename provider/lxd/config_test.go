@@ -321,7 +321,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(testConfig)
+		environ, err := environs.New(environs.OpenParams{testConfig})
 
 		// Check the result
 		if test.err != "" {
@@ -421,7 +421,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(s.config)
+		environ, err := environs.New(environs.OpenParams{s.config})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)

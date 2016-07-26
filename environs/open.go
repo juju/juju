@@ -6,7 +6,6 @@ package environs
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -14,12 +13,12 @@ import (
 const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
-func New(config *config.Config) (Environ, error) {
-	p, err := Provider(config.Type())
+func New(args OpenParams) (Environ, error) {
+	p, err := Provider(args.Config.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.Open(config)
+	return p.Open(args)
 }
 
 // Destroy destroys the controller and, if successful,

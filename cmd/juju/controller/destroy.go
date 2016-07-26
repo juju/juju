@@ -369,7 +369,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(cfg)
+	return environs.New(environs.OpenParams{cfg})
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
@@ -389,7 +389,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(cfg)
+	return environs.New(environs.OpenParams{cfg})
 }
 
 func confirmDestruction(ctx *cmd.Context, controllerName string) error {
