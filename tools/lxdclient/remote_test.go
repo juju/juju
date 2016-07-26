@@ -413,7 +413,7 @@ func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 		Protocol: lxdclient.LXDProtocol,
 		Cert:     s.Cert,
 	}
-	nonlocal, err := remote.UsingTCP()
+	nonlocal, err := remote.UsingTCP("")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(nonlocal, jc.DeepEquals, remote)
@@ -431,7 +431,7 @@ func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
 		Host: "",
 		Cert: nil,
 	}
-	nonlocal, err := remote.UsingTCP()
+	nonlocal, err := remote.UsingTCP("lo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkValidRemote(c, &nonlocal)

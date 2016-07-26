@@ -16,12 +16,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 	lxdshared "github.com/lxc/lxd/shared"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/network"
-	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.tools.lxdclient")
