@@ -82,6 +82,7 @@ type Facade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
+	ModelUUID       string
 	Facade          Facade
 	Guard           fortress.Guard
 	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
@@ -93,6 +94,9 @@ type Config struct {
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
+	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}

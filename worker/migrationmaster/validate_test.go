@@ -27,6 +27,12 @@ func (*ValidateSuite) TestValid(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (*ValidateSuite) TestMissingModelUUID(c *gc.C) {
+	config := validConfig()
+	config.ModelUUID = ""
+	checkNotValid(c, config, "empty ModelUUID not valid")
+}
+
 func (*ValidateSuite) TestMissingGuard(c *gc.C) {
 	config := validConfig()
 	config.Guard = nil
@@ -71,6 +77,7 @@ func (*ValidateSuite) TestMissingClock(c *gc.C) {
 
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
+		ModelUUID:       "uuid",
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },

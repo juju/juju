@@ -102,6 +102,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
+		ModelUUID:       "uuid",
 		Facade:          s.masterFacade,
 		Guard:           newStubGuard(s.stub),
 		APIOpen:         s.apiOpen,
