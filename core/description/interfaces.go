@@ -88,6 +88,9 @@ type Model interface {
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
+	Volumes() []Volume
+	AddVolume(VolumeArgs) Volume
+
 	Validate() error
 }
 
