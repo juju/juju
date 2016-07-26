@@ -218,6 +218,13 @@ func (s *CatacombSuite) TestStoppedWorkerErrorDoesNotOverwriteNonNil(c *gc.C) {
 	w.assertDead(c)
 }
 
+func (s *CatacombSuite) TestPanicWorkerStillStops(c *gc.C) {
+	err := s.fix.run(c, func() {
+		panic("failed to startup")
+	})
+	c.Check(err, gc.ErrorMatches, "panic resulted in: failed to startup")
+}
+
 func (s *CatacombSuite) TestAddWhenDyingStopsWorker(c *gc.C) {
 	err := s.fix.run(c, func() {
 		w := s.fix.startErrorWorker(c, nil)
