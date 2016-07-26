@@ -3388,11 +3388,11 @@ info               mysql      logging    subordinate
 db                 mysql      wordpress  regular
 logging-directory  wordpress  logging    subordinate
 
-UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE
-mysql/0      maintenance  idle   2               controller-2.dns  installing all the things
-  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs
-wordpress/0  active       idle   1               controller-1.dns  
-  logging/0  active       idle                   controller-1.dns  
+UNIT         WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
+mysql/0      maintenance  idle   2        controller-2.dns         installing all the things
+  logging/1  error        idle            controller-2.dns         somehow lost in all those logs
+wordpress/0  active       idle   1        controller-1.dns         
+  logging/0  active       idle            controller-1.dns         
 
 MACHINE  STATE    DNS               INS-ID        SERIES   AZ
 0        started  controller-0.dns  controller-0  quantal  us-east-1a
@@ -3445,7 +3445,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
 APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo                   false                   0    
 
-UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+UNIT   WORKLOAD     AGENT      MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
 
@@ -3537,7 +3537,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
 APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo                   false                   0    
 
-UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+UNIT   WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0                                                   
 foo/1                                                   
 
