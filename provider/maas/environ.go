@@ -2199,3 +2199,32 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
 	return finalInterfaces, nil
 }
+
+func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+	if !env.usingMAAS2() {
+		return env.releaseContainerAddresses1(interfaces)
+	}
+	return env.releaseContainerAddresses2(interfaces)
+}
+
+func (env *maasEnviron) releaseContainerAddresses1(interfaces []network.InterfaceInfo) error {
+	return nil
+}
+
+func (env *maasEnviron) releaseContainerAddresses2(interfaces []network.InterfaceInfo) error {
+	macAddresses := make([]string, len(interfaces))
+	for i, info := range interfaces {
+		macAddresses[i] = info.MACAddress
+	}
+	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: macAddresses})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, device := range devices {
+		err = device.Delete()
+		if err != nil {
+			return errors.Annotatef(err, "deleting device %s", device.SystemID())
+		}
+	}
+	return nil
+}

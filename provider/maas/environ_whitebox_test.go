@@ -1098,3 +1098,7 @@ func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
 		"acquire", "acquire",
 	})
 }
+
+func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
+	c.Fatalf("write me!")
+}
