@@ -104,7 +104,7 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.volumes(); err != nil {
+	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1118,6 +1118,13 @@ func (e *exporter) logExtras() {
 	}
 }
 
+func (e *exporter) storage() error {
+	if err := e.volumes(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (e *exporter) volumes() error {
 	coll, closer := e.st.getCollection(volumesC)
 	defer closer()
@@ -1207,11 +1214,13 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 
 	result := make(map[string][]volumeAttachmentDoc)
 	var doc volumeAttachmentDoc
-
+	var count int
 	iter := coll.Find(nil).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
+		count++
 	}
+	e.logger.Debugf("read %d volume attachment documents", count)
 	return result, nil
 }

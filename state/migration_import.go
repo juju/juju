@@ -114,6 +114,10 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "ipaddresses")
 	}
 
+	if err := restore.storage(); err != nil {
+		return nil, nil, errors.Annotate(err, "storage")
+	}
+
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
 	// we don't start model workers for it before the migration process
@@ -1080,6 +1084,9 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 			Updated:    statusVal.Updated().UnixNano(),
 		}
 	}
+	if len(docs) == 0 {
+		return nil
+	}
 
 	statusHistory, closer := i.st.getCollection(statusesHistoryC)
 	defer closer()
@@ -1127,4 +1134,109 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 		result.VirtType = &virt
 	}
 	return result
+}
+
+func (i *importer) storage() error {
+	if err := i.volumes(); err != nil {
+		return errors.Annotate(err, "volumes")
+	}
+	return nil
+}
+
+func (i *importer) volumes() error {
+	i.logger.Debugf("importing volumes")
+	for _, volume := range i.model.Volumes() {
+		err := i.addVolume(volume)
+		if err != nil {
+			i.logger.Errorf("error importing volume %s: %s", volume.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing volumes succeeded")
+	return nil
+}
+
+func (i *importer) addVolume(volume description.Volume) error {
+
+	attachments := volume.Attachments()
+	tag := volume.Tag()
+	var binding string
+	bindingTag, err := volume.Binding()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if bindingTag != nil {
+		binding = bindingTag.String()
+	}
+	var params *VolumeParams
+	var info *VolumeInfo
+	if volume.Provisioned() {
+		info = &VolumeInfo{
+			HardwareId: volume.HardwareID(),
+			Size:       volume.Size(),
+			Pool:       volume.Pool(),
+			VolumeId:   volume.VolumeID(),
+			Persistent: volume.Persistent(),
+		}
+	} else {
+		params = &VolumeParams{
+			Size: volume.Size(),
+			Pool: volume.Pool(),
+		}
+	}
+	doc := volumeDoc{
+		Name: tag.Id(),
+		// TODO: add storage ID
+		// StorageId: ...,
+		// Life: ..., // TODO: import life, default is Alive
+		Binding:         binding,
+		Params:          params,
+		Info:            info,
+		AttachmentCount: len(attachments),
+	}
+	status := i.makeStatusDoc(volume.Status())
+	ops := i.st.newVolumeOps(doc, status)
+
+	for _, attachment := range attachments {
+		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
+	}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := i.importStatusHistory(volumeGlobalKey(tag.Id()), volume.StatusHistory()); err != nil {
+		return errors.Annotate(err, "status history")
+	}
+	return nil
+}
+
+func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment) txn.Op {
+	var info *VolumeAttachmentInfo
+	var params *VolumeAttachmentParams
+	if attachment.Provisioned() {
+		info = &VolumeAttachmentInfo{
+			DeviceName: attachment.DeviceName(),
+			DeviceLink: attachment.DeviceLink(),
+			BusAddress: attachment.BusAddress(),
+			ReadOnly:   attachment.ReadOnly(),
+		}
+	} else {
+		params = &VolumeAttachmentParams{
+			ReadOnly: attachment.ReadOnly(),
+		}
+	}
+
+	machineId := attachment.Machine().Id()
+	return txn.Op{
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(machineId, volID),
+		Assert: txn.DocMissing,
+		Insert: &volumeAttachmentDoc{
+			Volume:  volID,
+			Machine: machineId,
+			Params:  params,
+			Info:    info,
+		},
+	}
 }

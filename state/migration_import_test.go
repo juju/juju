@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -556,9 +557,6 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -595,9 +593,6 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -638,9 +633,6 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	subnet, err := newSt.Subnet(original.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
@@ -677,9 +669,6 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	addresses, _ := newSt.AllIPAddresses()
 	c.Assert(addresses, gc.HasLen, 1)
@@ -704,15 +693,84 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	machine2, err := newSt.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
+}
+
+func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", "loop")
+	defer registry.ResetEnvironStorageProviders("someprovider")
+
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume:     state.VolumeParams{Size: 4000},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first volume is called "0/0" - although I don't know why.
+	volTag := names.NewVolumeTag("0/0")
+	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	volume, err := newSt.Volume(volTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO: check status
+	// TODO: check storage instance
+	info, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info.HardwareId, gc.Equals, "magic")
+	c.Check(info.Persistent, jc.IsTrue)
+	c.Check(info.Pool, gc.Equals, "loop")
+	c.Check(info.Size, gc.Equals, uint64(1500))
+	c.Check(info.VolumeId, gc.Equals, "volume id")
+
+	attachment, err := newSt.VolumeAttachment(machineTag, volTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attInfo, err := attachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attInfo.BusAddress, gc.Equals, "bus address")
+	c.Check(attInfo.DeviceLink, gc.Equals, "device link")
+	c.Check(attInfo.DeviceName, gc.Equals, "device name")
+	c.Check(attInfo.ReadOnly, jc.IsTrue)
+
+	volTag = names.NewVolumeTag("0/1")
+	volume, err = newSt.Volume(volTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	params, needsProvisioning := volume.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(params.Pool, gc.Equals, "loop")
+	c.Check(params.Size, gc.Equals, uint64(4000))
+
+	attachment, err = newSt.VolumeAttachment(machineTag, volTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attParams, needsProvisioning := attachment.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(attParams.ReadOnly, jc.IsTrue)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

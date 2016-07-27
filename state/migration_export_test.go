@@ -685,6 +685,8 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Assert(volumes, gc.HasLen, 2)
 	provisioned, notProvisioned := volumes[0], volumes[1]
 
+	// TODO: check status
+
 	c.Check(provisioned.Tag(), gc.Equals, volTag)
 	binding, err := provisioned.Binding()
 	c.Check(err, jc.ErrorIsNil)
