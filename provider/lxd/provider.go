@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 type environProvider struct {
@@ -88,10 +89,7 @@ func (environProvider) DetectRegions() ([]cloud.Region, error) {
 	// For now we just return a hard-coded "localhost" region,
 	// i.e. the local LXD daemon. We may later want to detect
 	// locally-configured remotes.
-	// TODO (anastasiamac 2016-04-14) When/If this value changes,
-	// verify that juju/juju/cloud/clouds.go#BuiltInClouds
-	// with lxd type are up to-date.
-	return []cloud.Region{{Name: "localhost"}}, nil
+	return []cloud.Region{{Name: lxdnames.DefaultRegion}}, nil
 }
 
 // Schema returns the configuration schema for an environment.

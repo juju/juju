@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -339,11 +340,6 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--clouds", "--regions", "aws"},
 	err:  `--clouds and --regions can't be used together`,
 }}
-
-func (s *BootstrapSuite) TestRunControllerNameMissing(c *gc.C) {
-	_, err := coretesting.RunCommand(c, s.newBootstrapCommand())
-	c.Check(err, gc.ErrorMatches, "controller name and cloud name are required")
-}
 
 func (s *BootstrapSuite) TestRunCloudNameMissing(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "my-controller")
@@ -754,6 +750,33 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 
 	// Now check the available tools which are the 1.2.0 envtools.
 	checkTools(c, env, v120All)
+}
+
+func (s *BootstrapSuite) TestInteractiveBootstrap(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	cmd := s.newBootstrapCommand()
+	err := coretesting.InitCommand(cmd, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := coretesting.Context(c)
+	out := bytes.Buffer{}
+	ctx.Stdin = strings.NewReader(`
+dummy-cloud
+region-1
+my-dummy-cloud
+`[1:])
+	ctx.Stdout = &out
+	err = cmd.Run(ctx)
+	if err != nil {
+		c.Logf(out.String())
+	}
+	c.Assert(err, jc.ErrorIsNil)
+
+	name := s.store.CurrentControllerName
+	c.Assert(name, gc.Equals, "my-dummy-cloud")
+	controller := s.store.Controllers[name]
+	c.Assert(controller.Cloud, gc.Equals, "dummy-cloud")
+	c.Assert(controller.CloudRegion, gc.Equals, "region-1")
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {

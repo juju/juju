@@ -191,3 +191,17 @@ clouds:
 `[1:]
 	s.assertCompareClouds(c, metadata, false)
 }
+
+func (s *cloudSuite) TestRegionNames(c *gc.C) {
+	regions := []cloud.Region{
+		{Name: "mars"},
+		{Name: "earth"},
+		{Name: "jupiter"},
+	}
+
+	names := cloud.RegionNames(regions)
+	c.Assert(names, gc.DeepEquals, []string{"earth", "jupiter", "mars"})
+
+	c.Assert(cloud.RegionNames([]cloud.Region{}), gc.HasLen, 0)
+	c.Assert(cloud.RegionNames(nil), gc.HasLen, 0)
+}
