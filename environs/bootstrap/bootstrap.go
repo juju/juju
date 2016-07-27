@@ -96,6 +96,14 @@ type BootstrapParams struct {
 	// across all models in the same controller on the bootstrap cloud.
 	ControllerInheritedConfig map[string]interface{}
 
+	// RegionInheritedConfig is a map[string]cloud.RegionConfigAttrs type where
+	// cloud.RegionConfigAttrs is a map[string]interface{} type. The purpose of
+	// defining types is simply to reduce the headache of parsing a nested
+	// map[string]map[string]interface{} where RegionInheritedConfig is used.
+	// It holds region specific configuration attributes to be shared across
+	// all models in the camp controller on a particular cloud.
+	RegionInheritedConfig cloud.RegionConfig
+
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
 	// config.
@@ -387,6 +395,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	icfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	icfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
+	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {

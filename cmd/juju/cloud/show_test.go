@@ -70,3 +70,36 @@ config:
   bootstrap-timeout: 1800
 `[1:])
 }
+
+func (s *showSuite) TestShowWithRegionConfig(c *gc.C) {
+	data := `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+    region-config:
+      london:
+        bootstrap-timeout: 1800
+`[1:]
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+
+	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "local:homestack")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, gc.Equals, `
+defined: local
+type: openstack
+auth-types: [userpass, access-key]
+endpoint: http://homestack
+regions:
+  london:
+    endpoint: http://london/1.0
+region-config:
+  london:
+    bootstrap-timeout: 1800
+`[1:])
+}

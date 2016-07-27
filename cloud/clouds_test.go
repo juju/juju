@@ -84,6 +84,46 @@ func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
+	clouds, err := cloud.ParseCloudMetadata([]byte(`clouds:
+  testing:
+    type: dummy
+    config:
+      k1: v1
+      k2: 2.0
+    region-config:
+      region1:
+        mascot: [eggs, ham]
+      region2:
+        mascot: glenda
+      region3:
+        mascot:  gopher 
+`))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	testingCloud := clouds["testing"]
+	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Type: "dummy",
+		Config: map[string]interface{}{
+			"k1": "v1",
+			"k2": float64(2.0),
+		},
+		RegionConfig: cloud.RegionConfig{
+			"region1": cloud.RegionAttrs{
+				"mascot": []interface{}{"eggs", "ham"},
+			},
+
+			"region2": cloud.RegionAttrs{
+				"mascot": "glenda",
+			},
+
+			"region3": cloud.RegionAttrs{
+				"mascot": "gopher",
+			},
+		},
+	})
+}
+
 func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata("badfile.yaml")
 	c.Assert(err, jc.ErrorIsNil)

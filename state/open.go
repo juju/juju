@@ -263,6 +263,13 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
 	}
+	for k, v := range args.Cloud.RegionConfig {
+		// Create an entry keyed on cloudname#<key>, value for each region in
+		// region-config. The values here are themselves
+		// map[string]interface{}.
+		ops = append(ops, createSettingsOp(globalSettingsC, args.CloudName+"#"+k, v))
+	}
+
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
 			args.ControllerModelArgs.Owner,

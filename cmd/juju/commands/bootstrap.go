@@ -686,6 +686,7 @@ to clean up the model.`[1:])
 		CloudCredentialName:       credentialName,
 		ControllerConfig:          controllerConfig,
 		ControllerInheritedConfig: inheritedControllerAttrs,
+		RegionInheritedConfig:     cloud.RegionConfig,
 		HostedModelConfig:         hostedModelConfig,
 		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
 		AdminSecret:               bootstrapConfig.AdminSecret,
