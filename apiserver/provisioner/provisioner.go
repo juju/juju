@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
@@ -49,6 +50,7 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
+	cloudspec.CloudSpecAPI
 
 	st           *state.State
 	resources    facade.Resources
@@ -115,6 +117,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:          common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:          common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
+		CloudSpecAPI:         cloudspec.NewCloudSpecForModel(st.ModelTag(), configGetter.CloudSpec),
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,

@@ -14,10 +14,12 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -43,6 +45,8 @@ type Controller interface {
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
+
 	state      *state.State
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -74,12 +78,16 @@ func NewControllerAPI(
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
-		state:               st,
-		authorizer:          authorizer,
-		apiUser:             apiUser,
-		resources:           resources,
+		CloudSpecAPI: cloudspec.NewCloudSpecForModel(
+			st.ModelTag(), environConfigGetter.CloudSpec,
+		),
+		state:      st,
+		authorizer: authorizer,
+		apiUser:    apiUser,
+		resources:  resources,
 	}, nil
 }
 

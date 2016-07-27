@@ -8,10 +8,12 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -28,6 +30,7 @@ type FirewallerAPI struct {
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
+	cloudspec.CloudSpecAPI
 
 	st            *state.State
 	resources     facade.Resources
@@ -91,6 +94,9 @@ func NewFirewallerAPI(
 		accessMachine,
 	)
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
+	cloudSpecAPI := cloudspec.NewCloudSpecForModel(st.ModelTag(), environConfigGetter.CloudSpec)
+
 	return &FirewallerAPI{
 		LifeGetter:           lifeGetter,
 		ModelWatcher:         modelWatcher,
@@ -98,6 +104,7 @@ func NewFirewallerAPI(
 		UnitsWatcher:         unitsWatcher,
 		ModelMachinesWatcher: machinesWatcher,
 		InstanceIdGetter:     instanceIdGetter,
+		CloudSpecAPI:         cloudSpecAPI,
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,
