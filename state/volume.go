@@ -459,16 +459,16 @@ func isVolumeInherentlyMachineBound(st *State, tag names.VolumeTag) (bool, error
 		if err != nil {
 			return false, errors.Trace(err)
 		}
+		if provider.Scope() == storage.ScopeMachine {
+			// Any storage created by a machine must be destroyed
+			// along with the machine.
+			return true, nil
+		}
 		if provider.Dynamic() {
-			// Even machine-scoped storage could be provisioned
-			// while the machine is Dying, and we don't know at
-			// this layer whether or not it will be Persistent.
-			//
-			// TODO(axw) extend storage provider interface to
-			// determine up-front whether or not a volume will
-			// be persistent. This will have to depend on the
-			// machine type, since, e.g., loop devices will
-			// outlive LXC containers.
+			// We don't know ahead of time whether the storage
+			// will be Persistent, so we assume it will be, and
+			// rely on the environment-level storage provisioner
+			// to clean up.
 			return false, nil
 		}
 		// Volume is static, so even if it is provisioned, it will

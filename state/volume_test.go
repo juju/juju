@@ -739,13 +739,12 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
 
 	// Cannot advance to Dead while there are persistent, or
-	// unprovisioned dynamic volumes (regardless of scope).
+	// unprovisioned environ-scoped dynamic volumes.
 	err = machine.EnsureDead()
 	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
-	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1 volume-0-2\\]")
+	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/1"))
-	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/2"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
@@ -758,9 +757,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	for _, v := range allVolumes {
 		remaining.Add(v.Tag().String())
 	}
-	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
-		"volume-0", "volume-0-1", "volume-0-2",
-	})
+	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{"volume-0", "volume-0-1"})
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
