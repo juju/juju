@@ -53,3 +53,9 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
 	c.Check(err, jc.ErrorIsNil)
 }
+
+func (s *environSuite) TestSupportsNetworking(c *gc.C) {
+	var _ environs.Networking = s.Env
+	_, ok := environs.SupportsNetworking(s.Env)
+	c.Assert(ok, jc.IsTrue)
+}
