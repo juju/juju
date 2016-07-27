@@ -100,7 +100,17 @@ func (t configTest) check(c *gc.C) {
 	}
 	defer restoreEnvVars(savedVars)
 
-	e, err := environs.New(environs.OpenParams{cfg})
+	cloudSpec := environs.CloudSpec{
+		Type:     "openstack",
+		Name:     "openstack",
+		Endpoint: "http://auth",
+		Region:   "Configtest",
+	}
+
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 

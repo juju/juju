@@ -50,6 +50,9 @@ type EnvironProvider interface {
 
 // OpenParams contains the parameters for EnvironProvider.Open.
 type OpenParams struct {
+	// Cloud is the cloud specification to use to connect to the cloud.
+	Cloud CloudSpec
+
 	// Config is the base configuration for the provider.
 	Config *config.Config
 }

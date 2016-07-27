@@ -19,10 +19,11 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -49,6 +50,7 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
+	cloud      environs.CloudSpec
 	env        map[string]interface{}
 	destroyAll bool
 	blocks     []params.ModelBlockInfo
@@ -59,6 +61,14 @@ type fakeDestroyAPI struct {
 func (f *fakeDestroyAPI) Close() error {
 	f.MethodCall(f, "Close")
 	return f.NextErr()
+}
+
+func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	f.MethodCall(f, "CloudSpec", tag)
+	if err := f.NextErr(); err != nil {
+		return environs.CloudSpec{}, err
+	}
+	return f.cloud, nil
 }
 
 func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
@@ -132,6 +142,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
+		cloud:     dummy.SampleCloudSpec(),
 		envStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil

@@ -75,7 +75,10 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 	if cfg == nil {
 		cfg = s.baseConfig
 	}
-	environ, err := environs.New(environs.OpenParams{cfg})
+	environ, err := environs.New(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: cfg,
+	})
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)

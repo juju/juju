@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -155,7 +156,7 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Added 'new-model' model for user 'admin'
+Added 'new-model' model with credential 'cred' for user 'admin'
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
@@ -177,6 +178,14 @@ Added 'new-model' model for user 'admin'
 }
 
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
+	s.testControllerDestroy(c, false)
+}
+
+func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
+	s.testControllerDestroy(c, true)
+}
+
+func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
@@ -215,9 +224,23 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		}
 	}()
 
+	if forceAPI {
+		// Remove bootstrap config from the client store,
+		// forcing the command to use the API.
+		err := os.Remove(jujuclient.JujuBootstrapConfigPath())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	ops := make(chan dummy.Operation, 1)
+	dummy.Listen(ops)
+
 	s.run(c, "destroy-controller", "kontroll", "-y", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
+
+	destroyOp := (<-ops).(dummy.OpDestroy)
+	c.Assert(destroyOp.Env, gc.Equals, "controller")
+	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")

@@ -77,7 +77,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create environ: config not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "ModelConfig")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
 }
 
@@ -101,10 +101,31 @@ func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 	})
 }
 
+func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
+	cloudSpec := environs.CloudSpec{
+		Name:   "foo",
+		Type:   "bar",
+		Region: "baz",
+	}
+	fix := &fixture{cloud: cloudSpec}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+			NewEnvironFunc: func(args environs.OpenParams) (environs.Environ, error) {
+				c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
+				return nil, errors.NotValidf("cloud spec")
+			},
+		})
+		c.Check(err, gc.ErrorMatches, `cannot create environ: cloud spec not valid`)
+		c.Check(tracker, gc.IsNil)
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
+	})
+}
+
 func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			nil, errors.New("grrk splat"),
+			nil, nil, errors.New("grrk splat"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -117,7 +138,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot watch environ config: grrk splat")
-		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
 	})
 }
 
@@ -134,14 +155,14 @@ func (s *TrackerSuite) TestWatchCloses(c *gc.C) {
 		context.CloseNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "environ config watch closed")
-		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
 	})
 }
 
 func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			nil, nil, errors.New("blam ouch"),
+			nil, nil, nil, errors.New("blam ouch"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -155,7 +176,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 		context.SendNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot read environ config: blam ouch")
-		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }
 
@@ -176,7 +197,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		context.SendNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update environ config: SetConfig is broken")
-		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }
 
@@ -217,6 +238,6 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 			}
 			break
 		}
-		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
+		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }

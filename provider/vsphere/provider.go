@@ -30,6 +30,10 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 }
 
 // BootstrapConfig implements environs.EnvironProvider.
+//
+// TODO(axw) 2016-07-29 #1607620
+// We should be extracting the endpoint and region
+// in this method, and using them as host/datacenter.
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	cfg := args.Config
 	switch authType := args.Cloud.Credential.AuthType(); authType {

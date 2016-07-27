@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -96,6 +97,13 @@ type AgentEntity interface {
 	EnsureDeader
 	Remover
 	NotifyWatcherFactory
+}
+
+// CloudAccessor defines the methods needed to
+// access cloud information.
+type CloudAccessor interface {
+	Cloud(string) (cloud.Cloud, error)
+	CloudCredentials(user names.UserTag, cloud string) (map[string]cloud.Credential, error)
 }
 
 // ModelAccessor defines the methods needed to watch for model

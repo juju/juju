@@ -57,17 +57,21 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
+	cloudSpec := environs.CloudSpec{
+		Endpoint: endpoint,
+		Region:   region,
+	}
 	testConfig, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: testConfig,
-		Cloud: environs.CloudSpec{
-			Endpoint: endpoint,
-			Region:   region,
-		},
+		Cloud:  cloudSpec,
 	})
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(environs.OpenParams{testConfig})
+	env, err := manual.ProviderInstance.Open(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: testConfig,
+	})
 	if err != nil {
 		return nil, err
 	}

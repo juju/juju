@@ -148,7 +148,10 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	env, err := p.Open(environs.OpenParams{cfg})
+	env, err := p.Open(environs.OpenParams{
+		Cloud:  args.Cloud,
+		Config: cfg,
+	})
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}

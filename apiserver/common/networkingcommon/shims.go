@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // NOTE: All of the following code is only tested with a feature test.
@@ -81,18 +81,14 @@ func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
 }
 
 func NewStateShim(st *state.State) *stateShim {
-	return &stateShim{st: st}
+	return &stateShim{stateenvirons.EnvironConfigGetter{st}, st}
 }
 
 // stateShim forwards and adapts state.State methods to Backing
 // method.
 type stateShim struct {
-	NetworkBacking
+	stateenvirons.EnvironConfigGetter
 	st *state.State
-}
-
-func (s *stateShim) ModelConfig() (*config.Config, error) {
-	return s.st.ModelConfig()
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {

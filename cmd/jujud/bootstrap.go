@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -128,7 +129,30 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(environs.OpenParams{args.ControllerModelConfig})
+	cloudEndpoint := args.ControllerCloud.Endpoint
+	cloudStorageEndpoint := args.ControllerCloud.StorageEndpoint
+	if args.ControllerCloudRegion != "" {
+		region, err := cloud.RegionByName(
+			args.ControllerCloud.Regions,
+			args.ControllerCloudRegion,
+		)
+		if err != nil {
+			return errors.Annotate(err, "getting cloud region")
+		}
+		cloudEndpoint = region.Endpoint
+		cloudStorageEndpoint = region.StorageEndpoint
+	}
+	env, err := environs.New(environs.OpenParams{
+		Cloud: environs.CloudSpec{
+			Type:            args.ControllerCloud.Type,
+			Name:            args.ControllerCloudName,
+			Region:          args.ControllerCloudRegion,
+			Endpoint:        cloudEndpoint,
+			StorageEndpoint: cloudStorageEndpoint,
+			Credential:      args.ControllerCloudCredential,
+		},
+		Config: args.ControllerModelConfig,
+	})
 	if err != nil {
 		return err
 	}

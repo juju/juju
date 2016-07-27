@@ -183,7 +183,10 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := providerInstance.Open(environs.OpenParams{config})
+	env, err := providerInstance.Open(environs.OpenParams{
+		Cloud:  suite.cloudSpec(),
+		Config: config,
+	})
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.
