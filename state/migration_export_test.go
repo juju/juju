@@ -699,6 +699,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
 	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
 	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
@@ -718,6 +719,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
 	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.DeviceName(), gc.Equals, "")
 	c.Check(attachment.DeviceLink(), gc.Equals, "")

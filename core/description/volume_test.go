@@ -189,6 +189,7 @@ func (s *VolumeAttachmentSerializationSuite) SetUpTest(c *gc.C) {
 func testVolumeAttachmentMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"machine-id":  "42",
+		"provisioned": true,
 		"read-only":   true,
 		"device-name": "sdd",
 		"device-link": "link?",
@@ -202,11 +203,12 @@ func testVolumeAttachment() *volumeAttachment {
 
 func testVolumeAttachmentArgs() VolumeAttachmentArgs {
 	return VolumeAttachmentArgs{
-		Machine:    names.NewMachineTag("42"),
-		ReadOnly:   true,
-		DeviceName: "sdd",
-		DeviceLink: "link?",
-		BusAddress: "nfi",
+		Machine:     names.NewMachineTag("42"),
+		Provisioned: true,
+		ReadOnly:    true,
+		DeviceName:  "sdd",
+		DeviceLink:  "link?",
+		BusAddress:  "nfi",
 	}
 }
 
@@ -214,6 +216,7 @@ func (s *VolumeAttachmentSerializationSuite) TestNewVolumeAttachment(c *gc.C) {
 	attachment := testVolumeAttachment()
 
 	c.Check(attachment.Machine(), gc.Equals, names.NewMachineTag("42"))
+	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "sdd")
 	c.Check(attachment.DeviceLink(), gc.Equals, "link?")

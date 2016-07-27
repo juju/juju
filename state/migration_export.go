@@ -1186,6 +1186,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
 			args.ReadOnly = info.ReadOnly
 			args.DeviceName = info.DeviceName
 			args.DeviceLink = info.DeviceLink

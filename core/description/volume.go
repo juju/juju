@@ -36,11 +36,12 @@ type volumeAttachments struct {
 }
 
 type volumeAttachment struct {
-	MachineID_  string `yaml:"machine-id"`
-	ReadOnly_   bool   `yaml:"read-only"`
-	DeviceName_ string `yaml:"device-name"`
-	DeviceLink_ string `yaml:"device-link"`
-	BusAddress_ string `yaml:"bus-address"`
+	MachineID_   string `yaml:"machine-id"`
+	Provisioned_ bool   `yaml:"provisioned"`
+	ReadOnly_    bool   `yaml:"read-only"`
+	DeviceName_  string `yaml:"device-name"`
+	DeviceLink_  string `yaml:"device-link"`
+	BusAddress_  string `yaml:"bus-address"`
 }
 
 // VolumeArgs is an argument struct used to add a volume to the Model.
@@ -273,26 +274,33 @@ func importVolumeV1(source map[string]interface{}) (*volume, error) {
 // VolumeAttachmentArgs is an argument struct used to add information about the
 // cloud instance to a Volume.
 type VolumeAttachmentArgs struct {
-	Machine    names.MachineTag
-	ReadOnly   bool
-	DeviceName string
-	DeviceLink string
-	BusAddress string
+	Machine     names.MachineTag
+	Provisioned bool
+	ReadOnly    bool
+	DeviceName  string
+	DeviceLink  string
+	BusAddress  string
 }
 
 func newVolumeAttachment(args VolumeAttachmentArgs) *volumeAttachment {
 	return &volumeAttachment{
-		MachineID_:  args.Machine.Id(),
-		ReadOnly_:   args.ReadOnly,
-		DeviceName_: args.DeviceName,
-		DeviceLink_: args.DeviceLink,
-		BusAddress_: args.BusAddress,
+		MachineID_:   args.Machine.Id(),
+		Provisioned_: args.Provisioned,
+		ReadOnly_:    args.ReadOnly,
+		DeviceName_:  args.DeviceName,
+		DeviceLink_:  args.DeviceLink,
+		BusAddress_:  args.BusAddress,
 	}
 }
 
 // Machine implements VolumeAttachment
 func (a *volumeAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(a.MachineID_)
+}
+
+// Provisioned implements VolumeAttachment
+func (a *volumeAttachment) Provisioned() bool {
+	return a.Provisioned_
 }
 
 // ReadOnly implements VolumeAttachment
@@ -357,6 +365,7 @@ var volumeAttachmentDeserializationFuncs = map[int]volumeAttachmentDeserializati
 func importVolumeAttachmentV1(source map[string]interface{}) (*volumeAttachment, error) {
 	fields := schema.Fields{
 		"machine-id":  schema.String(),
+		"provisioned": schema.Bool(),
 		"read-only":   schema.Bool(),
 		"device-name": schema.String(),
 		"device-link": schema.String(),
@@ -373,11 +382,12 @@ func importVolumeAttachmentV1(source map[string]interface{}) (*volumeAttachment,
 	// contains fields of the right type.
 
 	result := &volumeAttachment{
-		MachineID_:  valid["machine-id"].(string),
-		ReadOnly_:   valid["read-only"].(bool),
-		DeviceName_: valid["device-name"].(string),
-		DeviceLink_: valid["device-link"].(string),
-		BusAddress_: valid["bus-address"].(string),
+		MachineID_:   valid["machine-id"].(string),
+		Provisioned_: valid["provisioned"].(bool),
+		ReadOnly_:    valid["read-only"].(bool),
+		DeviceName_:  valid["device-name"].(string),
+		DeviceLink_:  valid["device-link"].(string),
+		BusAddress_:  valid["bus-address"].(string),
 	}
 	return result, nil
 }

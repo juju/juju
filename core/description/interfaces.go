@@ -417,7 +417,7 @@ type Volume interface {
 // VolumeAttachment represents a volume attached to a machine.
 type VolumeAttachment interface {
 	Machine() names.MachineTag
-
+	Provisioned() bool
 	ReadOnly() bool
 	DeviceName() string
 	DeviceLink() string
