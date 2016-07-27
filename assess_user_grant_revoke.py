@@ -140,14 +140,15 @@ def assert_write_model(client, permission, has_permission):
 def assert_admin_controller(client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
     if has_permission:
-        code = ''.join(random.choice(
-            string.ascii_letters + string.digits) for _ in xrange(4))
-        try:
-            client.add_user(permission + code, permissions='read')
-        except subprocess.CalledProcessError:
-            raise JujuAssertionError(
-                'User could not add user with {} permission'.format(
-                    permission))
+        for user_permission in ['read', 'write', 'admin']:
+            code = ''.join(random.choice(
+                string.ascii_letters + string.digits) for _ in xrange(4))
+            try:
+                client.add_user(permission + code, permissions=user_permission)
+            except subprocess.CalledProcessError:
+                raise JujuAssertionError(
+                    'User could not add {} user with {} permission'.format(
+                        user_permission, permission))
     else:
         try:
             client.add_user(permission + 'false', permissions='read')

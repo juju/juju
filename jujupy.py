@@ -1856,7 +1856,6 @@ class EnvJujuClient:
         user_client.env.juju_home = cloned_juju_home
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
-        # user_client_env = user_client._shell_environ()
         return user_client
 
     def grant(self, user_name, permission, model=None):
