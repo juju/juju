@@ -168,14 +168,14 @@ func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "theoneandonly",
-			Owner: "bob@local",
+			Owner: "carol@local",
 			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
 		}}, nil
 	}
 	s.testRegister(c, "")
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
-		gc.Equals, "bob@local/theoneandonly",
+		gc.Equals, "carol@local/theoneandonly",
 	)
 }
 

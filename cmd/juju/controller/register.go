@@ -224,7 +224,9 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 	if len(models) == 1 {
 		// There is exactly one model shared,
 		// so set it as the current model.
-		modelName := models[0].Name
+		model := models[0]
+		owner := names.NewUserTag(model.Owner)
+		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
