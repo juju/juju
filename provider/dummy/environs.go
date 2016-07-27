@@ -1537,3 +1537,7 @@ func delay() {
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
+
+func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
+}
