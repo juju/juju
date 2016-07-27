@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -102,7 +103,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
-		ModelUUID:       "uuid",
+		ModelUUID:       utils.MustNewUUID().String(),
 		Facade:          s.masterFacade,
 		Guard:           newStubGuard(s.stub),
 		APIOpen:         s.apiOpen,

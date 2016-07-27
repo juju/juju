@@ -24,8 +24,6 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.worker.migrationmaster")
-
 	// ErrInactive is returned when the migration is no longer active
 	// (probably aborted). In this case the migrationmaster should be
 	// restarted so that it can wait for the next migration attempt.
@@ -126,8 +124,17 @@ func New(config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Soon we will get model specific logs generated in the
+	// controller logged against the model. Until then, distinguish
+	// the logs from different migrationmaster insteads using the
+	// model UUID suffix.
+	loggerName := "juju.worker.migrationmaster:" + config.ModelUUID[len(config.ModelUUID)-6:]
+	logger := loggo.GetLogger(loggerName)
+
 	w := &Worker{
 		config: config,
+		logger: logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -144,6 +151,7 @@ func New(config Config) (*Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+	logger   loggo.Logger
 }
 
 // Kill implements worker.Worker.
@@ -168,9 +176,6 @@ func (w *Worker) run() error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(mjs) - log messages should indicate the model name and
-	// UUID. Independent logger per migration instance?
 
 	phase := status.Phase
 	for {
@@ -211,7 +216,7 @@ func (w *Worker) run() error {
 			return w.catacomb.ErrDying()
 		}
 
-		logger.Infof("setting migration phase to %s", phase)
+		w.logger.Infof("setting migration phase to %s", phase)
 		if err := w.config.Facade.SetPhase(phase); err != nil {
 			return errors.Annotate(err, "failed to set phase")
 		}
@@ -252,39 +257,39 @@ func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	logger.Infof("exporting model")
+	w.logger.Infof("exporting model")
 	serialized, err := w.config.Facade.Export()
 	if err != nil {
-		logger.Errorf("model export failed: %v", err)
+		w.logger.Errorf("model export failed: %v", err)
 		return coremigration.ABORT, nil
 	}
 
-	logger.Infof("opening API connection to target controller")
+	w.logger.Infof("opening API connection to target controller")
 	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
-		logger.Errorf("failed to connect to target controller: %v", err)
+		w.logger.Errorf("failed to connect to target controller: %v", err)
 		return coremigration.ABORT, nil
 	}
 	defer conn.Close()
 
-	logger.Infof("importing model into target controller")
+	w.logger.Infof("importing model into target controller")
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Import(serialized.Bytes)
 	if err != nil {
-		logger.Errorf("failed to import model into target controller: %v", err)
+		w.logger.Errorf("failed to import model into target controller: %v", err)
 		return coremigration.ABORT, nil
 	}
 
-	logger.Infof("opening API connection for target model")
+	w.logger.Infof("opening API connection for target model")
 	targetModelConn, err := w.openAPIConnForModel(targetInfo, modelUUID)
 	if err != nil {
-		logger.Errorf("failed to open connection to target model: %v", err)
+		w.logger.Errorf("failed to open connection to target model: %v", err)
 		return coremigration.ABORT, nil
 	}
 	defer targetModelConn.Close()
 	targetModelClient := targetModelConn.Client()
 
-	logger.Infof("uploading binaries into target model")
+	w.logger.Infof("uploading binaries into target model")
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
@@ -294,7 +299,7 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 		ToolsUploader:   targetModelClient,
 	})
 	if err != nil {
-		logger.Errorf("failed migration binaries: %v", err)
+		w.logger.Errorf("failed migration binaries: %v", err)
 		return coremigration.ABORT, nil
 	}
 
@@ -355,7 +360,7 @@ func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) 
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt.
-		logger.Errorf("failed to reverse model import: %v", err)
+		w.logger.Errorf("failed to reverse model import: %v", err)
 	}
 	return coremigration.ABORTDONE, nil
 }
@@ -420,7 +425,7 @@ func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy
 	clk := w.config.Clock
 	maxWait := maxMinionWait - clk.Now().Sub(status.PhaseChangedTime)
 	timeout := clk.After(maxWait)
-	logger.Infof("waiting for minions to report back for migration phase %s (will wait up to %s)",
+	w.logger.Infof("waiting for minions to report back for migration phase %s (will wait up to %s)",
 		status.Phase, truncDuration(maxWait))
 
 	watch, err := w.config.Facade.WatchMinionReports()
@@ -440,7 +445,7 @@ func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy
 			return w.catacomb.ErrDying()
 
 		case <-timeout:
-			logger.Errorf(formatMinionTimeout(reports, status))
+			w.logger.Errorf(formatMinionTimeout(reports, status))
 			return errors.Trace(errMinionReportTimeout)
 
 		case <-watch.Changes():
@@ -454,13 +459,13 @@ func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy
 			}
 			failures := len(reports.FailedMachines) + len(reports.FailedUnits)
 			if failures > 0 {
-				logger.Errorf(formatMinionFailure(reports))
+				w.logger.Errorf(formatMinionFailure(reports))
 				if waitPolicy == failFast {
 					return errors.Trace(errMinionReportFailed)
 				}
 			}
 			if reports.UnknownCount == 0 {
-				logger.Infof(formatMinionWaitDone(reports))
+				w.logger.Infof(formatMinionWaitDone(reports))
 				if failures > 0 {
 					return errors.Trace(errMinionReportFailed)
 				}
@@ -468,7 +473,7 @@ func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy
 			}
 
 		case <-logProgress:
-			logger.Infof(formatMinionWaitUpdate(reports, status))
+			w.logger.Infof(formatMinionWaitUpdate(reports, status))
 			logProgress = clk.After(minionWaitLogInterval)
 		}
 	}
