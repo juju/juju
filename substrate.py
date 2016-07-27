@@ -658,7 +658,7 @@ def run_instances(count, job_name, series, region=None):
     ami = get_ami.query_ami(series, "amd64", region=region)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm3.large', '-g', 'manual-juju-test', ami]
+        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = dict(parse_euca(run_output)).keys()
     for remaining in until_timeout(300):
