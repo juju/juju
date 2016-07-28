@@ -100,6 +100,15 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 	return c.caller.FacadeCall("SetPhase", args, nil)
 }
 
+// SetStatusMessage sets a human readable message regarding the
+// progress of a migration.
+func (c *Client) SetStatusMessage(message string) error {
+	args := params.SetMigrationStatusMessageArgs{
+		Message: message,
+	}
+	return c.caller.FacadeCall("SetStatusMessage", args, nil)
+}
+
 // Export returns a serialized representation of the model associated
 // with the API connection. The charms used by the model are also
 // returned.

@@ -126,6 +126,30 @@ func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *ClientSuite) TestSetStatusMessage(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.SetStatusMessage("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.SetStatusMessage", []interface{}{"", expectedArg}},
+	})
+}
+
+func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.SetStatusMessage("foo")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
