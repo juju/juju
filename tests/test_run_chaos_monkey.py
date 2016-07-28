@@ -12,20 +12,11 @@ from chaos import MonkeyRunner
 from jujupy import (
     EnvJujuClient,
     JujuData,
-    SimpleEnvironment,
     )
 from run_chaos_monkey import (
     get_args,
     run_while_healthy_or_timeout,
     )
-
-
-def fake_EnvJujuClient_by_version(env, path=None, debug=None):
-    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
-
-
-def fake_SimpleEnvironment_from_config(name):
-    return SimpleEnvironment(name, {})
 
 
 class TestRunChaosMonkey(TestCase):

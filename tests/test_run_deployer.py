@@ -80,15 +80,12 @@ class TestMain(tests.FakeHomeTestCase):
         args = ['bundles', 'an-env', '/bin/juju', 'logs', 'deployer-env']
         env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
-        with patch('jujupy.SimpleEnvironment.from_config',
-                   return_value=env) as e_mock:
-            with patch('jujupy.EnvJujuClient.by_version',
-                       return_value=client) as c_mock:
-                with patch('run_deployer.boot_context'):
-                    with patch('run_deployer.assess_deployer') as ad_mock:
-                        main(args)
-        e_mock.assert_called_once_with('an-env')
-        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        with patch('run_deployer.client_from_config',
+                   return_value=client) as c_mock:
+            with patch('run_deployer.boot_context'):
+                with patch('run_deployer.assess_deployer') as ad_mock:
+                    main(args)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
 
     def test_basic_args_native_deploy(self):
@@ -98,16 +95,13 @@ class TestMain(tests.FakeHomeTestCase):
                 'verify_mediawiki_bundle.py']
         env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
-        with patch('jujupy.SimpleEnvironment.from_config',
-                   return_value=env) as e_mock:
-            with patch('jujupy.EnvJujuClient.by_version',
-                       return_value=client) as c_mock:
-                with patch('run_deployer.boot_context'):
-                    with patch('run_deployer.assess_deployer') as ad_mock:
-                        with patch('run_deployer.run_command') as mb_mock:
-                            main(args)
-        e_mock.assert_called_once_with('an-env')
-        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        with patch('run_deployer.client_from_config',
+                   return_value=client) as c_mock:
+            with patch('run_deployer.boot_context'):
+                with patch('run_deployer.assess_deployer') as ad_mock:
+                    with patch('run_deployer.run_command') as mb_mock:
+                        main(args)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         mb_mock.assert_called_once_with(['verify_mediawiki_bundle.py',
@@ -121,16 +115,13 @@ class TestMain(tests.FakeHomeTestCase):
                 'verify_landscape_bundle.py']
         env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
-        with patch('jujupy.SimpleEnvironment.from_config',
-                   return_value=env) as e_mock:
-            with patch('jujupy.EnvJujuClient.by_version',
-                       return_value=client) as c_mock:
-                with patch('run_deployer.boot_context'):
-                    with patch('run_deployer.assess_deployer') as ad_mock:
-                            with patch('run_deployer.run_command') as rc:
-                                main(args)
-        e_mock.assert_called_once_with('an-env')
-        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        with patch('run_deployer.client_from_config',
+                   return_value=client) as c_mock:
+            with patch('run_deployer.boot_context'):
+                with patch('run_deployer.assess_deployer') as ad_mock:
+                        with patch('run_deployer.run_command') as rc:
+                            main(args)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         rc.assert_called_once_with(['verify_landscape_bundle.py',
@@ -194,7 +185,6 @@ class TestAssessDeployer(tests.TestCase):
         self.assertEqual(
             ch_mock.call_args_list, [call('/tmp/check', 'foo', environ)] * 2)
 
-    @patch('run_deployer.SimpleEnvironment.from_config')
     @patch('run_deployer.boot_context', autospec=True)
     def test_run_deployer_upgrade(self, *args):
         args = self.make_args(
@@ -202,8 +192,7 @@ class TestAssessDeployer(tests.TestCase):
             upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
         client = fake_juju_client()
         client.bootstrap()
-        with patch('run_deployer.EnvJujuClient.by_version',
-                   return_value=client):
+        with patch('run_deployer.client_from_config', return_value=client):
             with patch('run_deployer.apply_condition') as ac_mock:
                 with patch('run_deployer.assess_upgrade') as au_mock:
                     assess_deployer(args, client, 600, 1800)
