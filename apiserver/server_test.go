@@ -426,46 +426,60 @@ func (r *fakeResource) Stop() error {
 	return nil
 }
 
-func (s *serverSuite) TestApiHandlerHasPermission(c *gc.C) {
+func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.ControllerTag) {
 	u, err := s.State.AddUser("foobar", "Foo Bar", "password", "read")
 	c.Assert(err, jc.ErrorIsNil)
-	user, err := names.ParseUserTag("user-foobar")
+	user := u.UserTag()
+
+	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
+	cu, err := s.State.UserAccess(user, ctag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cu.Access, gc.Equals, description.LoginAccess)
+	return u, ctag
+}
+
+func (s *serverSuite) TestApiHandlerHasPermissionLogin(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
 
 	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
-	cu, err := s.State.ControllerUser(user)
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, false)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+}
+
+func (s *serverSuite) TestApiHandlerHasPermissionAdmodel(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
+	user := u.UserTag()
+
+	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	ua, err := s.State.SetUserAccess(user, ctag, description.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cu.Access(), gc.Equals, description.LoginAccess)
+	c.Assert(ua.Access, gc.Equals, description.AddModelAccess)
 
-	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
-	hasPermission := handler.HasPermission(description.LoginAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
-	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
-	c.Assert(hasPermission, jc.IsFalse)
-	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
-	c.Assert(hasPermission, jc.IsFalse)
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+}
 
-	err = cu.SetAccess(description.AddModelAccess)
+func (s *serverSuite) TestApiHandlerHasPermissionSuperUser(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
+	user := u.UserTag()
+
+	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	ua, err := s.State.SetUserAccess(user, ctag, description.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ua.Access, gc.Equals, description.SuperuserAccess)
 
-	hasPermission = handler.HasPermission(description.LoginAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
-	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
-	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
-	c.Assert(hasPermission, jc.IsFalse)
-
-	err = cu.SetAccess(description.SuperuserAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	hasPermission = handler.HasPermission(description.LoginAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
-	hasPermission = handler.HasPermission(description.AddModelAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
-	hasPermission = handler.HasPermission(description.SuperuserAccess, ctag)
-	c.Assert(hasPermission, jc.IsTrue)
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, true)
 }
 
 func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {

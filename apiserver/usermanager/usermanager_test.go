@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -71,7 +72,7 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *userManagerSuite) assertAddUser(c *gc.C, access params.ModelAccessPermission, sharedModelTags []string) {
+func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermission, sharedModelTags []string) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
@@ -100,7 +101,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, access params.ModelAccessPermi
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	s.assertAddUser(c, params.ModelAccessPermission(""), nil)
+	s.assertAddUser(c, params.UserAccessPermission(""), nil)
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
@@ -142,7 +143,7 @@ func (s *userManagerSuite) TestAddWriteAccessUser(c *gc.C) {
 	s.addUserWithSharedModel(c, params.ModelWriteAccess)
 }
 
-func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAccessPermission) {
+func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.UserAccessPermission) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
@@ -155,11 +156,11 @@ func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAc
 	c.Assert(err, jc.ErrorIsNil)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
-		modelUserTags[i] = u.UserTag()
-		if u.UserName() == "foobar" {
-			c.Assert(u.IsReadOnly(), gc.Equals, access == params.ModelReadAccess)
-		} else if u.UserName() == "admin" {
-			c.Assert(u.IsReadOnly(), gc.Equals, false)
+		modelUserTags[i] = u.UserTag
+		if u.UserName == "foobar" {
+			c.Assert(u.Access, gc.Equals, description.ReadAccess)
+		} else if u.UserName == "admin" {
+			c.Assert(u.Access, gc.Equals, description.AdminAccess)
 		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
@@ -777,7 +778,7 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	// Make sure the users exist.
 	var userNames []string
 	for _, u := range users {
-		userNames = append(userNames, u.UserTag().Name())
+		userNames = append(userNames, u.UserTag.Name())
 	}
 	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
 

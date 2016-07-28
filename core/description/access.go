@@ -36,7 +36,7 @@ const (
 	// AddModelAccess allows user to add new models in subjects supporting it.
 	AddModelAccess Access = "addmodel"
 
-	// SuperUserAccess allows user unrestricted permissions in the subject.
+	// SuperuserAccess allows user unrestricted permissions in the subject.
 	SuperuserAccess Access = "superuser"
 )
 
@@ -50,9 +50,29 @@ func (a Access) Validate() error {
 	return errors.NotValidf("access level %s", a)
 }
 
+// ValidateModelAccess returns error if the passed access is not a valid
+// model access level.
+func ValidateModelAccess(access Access) error {
+	switch access {
+	case ReadAccess, WriteAccess, AdminAccess:
+		return nil
+	}
+	return errors.NotValidf("%q model access", access)
+}
+
+//ValidateControllerAccess returns error if the passed access is not a valid
+// controller access level.
+func ValidateControllerAccess(access Access) error {
+	switch access {
+	case LoginAccess, AddModelAccess, SuperuserAccess:
+		return nil
+	}
+	return errors.NotValidf("%q controller access", access)
+}
+
 // EqualOrGreaterAccessThan returns true if the provided access is equal or
 // less than the current.
-func (a Access) EqualOrGreaterAccessThan(access Access) bool {
+func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
 	if a == access {
 		return true
 	}
@@ -67,7 +87,17 @@ func (a Access) EqualOrGreaterAccessThan(access Access) bool {
 	case AdminAccess:
 		return access == ReadAccess ||
 			access == WriteAccess
-	// Controller permissions
+	}
+	return false
+}
+
+func (a Access) EqualOrGreaterControllerAccessThan(access Access) bool {
+	if a == access {
+		return true
+	}
+	switch a {
+	case UndefinedAccess:
+		return false
 	case LoginAccess:
 		return access == UndefinedAccess
 	case AddModelAccess:
@@ -77,32 +107,6 @@ func (a Access) EqualOrGreaterAccessThan(access Access) bool {
 		return access == UndefinedAccess ||
 			access == LoginAccess ||
 			access == AddModelAccess
-	}
-	return false
-}
-
-// LessAccessThan returns true if the provided access is greater than
-// the current.
-func (a Access) LessAccessThan(access Access) bool {
-	switch a {
-	case UndefinedAccess:
-		return access == ReadAccess ||
-			access == WriteAccess ||
-			access == AdminAccess ||
-			access == LoginAccess ||
-			access == AddModelAccess ||
-			access == SuperuserAccess
-	case ReadAccess:
-		return access == WriteAccess ||
-			access == AdminAccess
-	case WriteAccess:
-		return access == AdminAccess
-	// Controller permissions
-	case LoginAccess:
-		return access == AddModelAccess ||
-			access == SuperuserAccess
-	case AddModelAccess:
-		return access == SuperuserAccess
 	}
 	return false
 }

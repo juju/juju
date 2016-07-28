@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -58,8 +59,9 @@ type Backend interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
-	RemoveModelUser(names.UserTag) error
+	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
+	RemoveUserAccess(names.UserTag, names.Tag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error
 	APIHostPorts() ([][]network.HostPort, error)

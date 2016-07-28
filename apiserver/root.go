@@ -349,45 +349,42 @@ func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
 }
 
-type userWithPermissions interface {
-	Access() description.Access
+// HasPermission returns true if the logged in user can perform <operation> on <target>.
+func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) (bool, error) {
+	return hasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
 }
 
-// HasPermission returns
-func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) bool {
-	var user userWithPermissions
-	userTag, ok := r.entity.Tag().(names.UserTag)
-	if !ok {
-		return false
-	}
+type userAccessFunc func(names.UserTag, names.Tag) (description.UserAccess, error)
 
-	var err error
-	targetKind := target.Kind()
-	switch targetKind {
-	case names.ControllerTagKind:
-		user, err = r.state.ControllerUser(userTag)
-	case names.ModelTagKind:
-		user, err = r.state.ModelUser(userTag)
-	default:
-		return false
-	}
-	if err != nil {
-		logger.Errorf("while obtaining %s user: %v", targetKind, err)
-		return false
-	}
+func hasPermission(userGetter userAccessFunc, entity names.Tag,
+	operation description.Access, target names.Tag) (bool, error) {
+	validForKind := false
 
-	userAccess := user.Access()
-	if !userAccess.EqualOrGreaterAccessThan(operation) {
-		return false
-	}
 	switch operation {
 	case description.LoginAccess, description.AddModelAccess, description.SuperuserAccess:
-		return targetKind == names.ControllerTagKind
+		validForKind = target.Kind() == names.ControllerTagKind
 	case description.ReadAccess, description.WriteAccess, description.AdminAccess:
-		return targetKind == names.ModelTagKind
+		validForKind = target.Kind() == names.ModelTagKind
+	}
+	if !validForKind {
+		return false, nil
 	}
 
-	return false
+	userTag, ok := entity.(names.UserTag)
+	if !ok {
+		return false, errors.NotValidf("obtaining permission for subject kind %q", entity.Kind())
+	}
+
+	user, err := userGetter(userTag, target)
+	if err != nil {
+		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
+	}
+	modelPermission := user.Access.EqualOrGreaterModelAccessThan(operation) && target.Kind() == names.ModelTagKind
+	controllerPermission := user.Access.EqualOrGreaterControllerAccessThan(operation) && target.Kind() == names.ControllerTagKind
+	if !controllerPermission && !modelPermission {
+		return false, nil
+	}
+	return true, nil
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

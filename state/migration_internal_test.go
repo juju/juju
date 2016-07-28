@@ -210,16 +210,16 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// ModelUUID shouldn't be exported, and is inherited
+		// ObjectUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"ModelUUID",
+		"ObjectUUID",
 		// Tracked fields:
 		"UserName",
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
 	)
-	s.AssertExportedFields(c, modelUserDoc{}, fields)
+	s.AssertExportedFields(c, userAccessDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -693,14 +694,14 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
 }
 
-func addModelUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
+func addModelUsers(c *gc.C, st *state.State) (expected []description.UserAccess) {
 	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
-	owner, err := st.ModelUser(testAdmin)
+	owner, err := st.UserAccess(testAdmin, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
-	return []*state.ModelUser{
+	return []description.UserAccess{
 		// we expect the owner to be an existing model user
 		owner,
 		// add new users to the model
@@ -710,13 +711,13 @@ func addModelUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
 	}
 }
 
-func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []*state.ModelUser) {
+func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []description.UserAccess) {
 	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
 	for i, obtained := range obtainedUsers {
-		c.Assert(obtained.ModelTag().Id(), gc.Equals, expectedUsers[i].ModelTag().Id())
-		c.Assert(obtained.UserName(), gc.Equals, expectedUsers[i].UserName())
-		c.Assert(obtained.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
-		c.Assert(obtained.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
+		c.Assert(obtained.Object.Id(), gc.Equals, expectedUsers[i].Object.Id())
+		c.Assert(obtained.UserTag, gc.Equals, expectedUsers[i].UserTag)
+		c.Assert(obtained.DisplayName, gc.Equals, expectedUsers[i].DisplayName)
+		c.Assert(obtained.CreatedBy, gc.Equals, expectedUsers[i].CreatedBy)
 	}
 }
 

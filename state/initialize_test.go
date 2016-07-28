@@ -135,10 +135,10 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, owner)
 	// Check that the owner has an ModelUser created for the bootstrapped model.
-	modelUser, err := s.State.ModelUser(model.Owner())
+	modelUser, err := s.State.UserAccess(model.Owner(), model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserTag(), gc.Equals, owner)
-	c.Assert(modelUser.ModelTag(), gc.Equals, model.Tag())
+	c.Assert(modelUser.UserTag, gc.Equals, owner)
+	c.Assert(modelUser.Object, gc.Equals, model.Tag())
 
 	// Check that the model can be found through the tag.
 	entity, err = s.State.FindEntity(modelTag)

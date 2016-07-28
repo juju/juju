@@ -102,10 +102,10 @@ type ModelInfoListResults struct {
 // model. Owners of a model can see this information for all users
 // who have access, so it should not include sensitive information.
 type ModelUserInfo struct {
-	UserName       string                `json:"user"`
-	DisplayName    string                `json:"display-name"`
-	LastConnection *time.Time            `json:"last-connection"`
-	Access         ModelAccessPermission `json:"access"`
+	UserName       string               `json:"user"`
+	DisplayName    string               `json:"display-name"`
+	LastConnection *time.Time           `json:"last-connection"`
+	Access         UserAccessPermission `json:"access"`
 }
 
 // ModelUserInfoResult holds the result of an ModelUserInfo call.
@@ -125,10 +125,10 @@ type ModifyModelAccessRequest struct {
 }
 
 type ModifyModelAccess struct {
-	UserTag  string                `json:"user-tag"`
-	Action   ModelAction           `json:"action"`
-	Access   ModelAccessPermission `json:"access"`
-	ModelTag string                `json:"model-tag"`
+	UserTag  string               `json:"user-tag"`
+	Action   ModelAction          `json:"action"`
+	Access   UserAccessPermission `json:"access"`
+	ModelTag string               `json:"model-tag"`
 }
 
 // ModelAction is an action that can be performed on a model.
@@ -140,13 +140,13 @@ const (
 	RevokeModelAccess ModelAction = "revoke"
 )
 
-// ModelAccessPermission is the type of permission that a user has to access a
+// UserAccessPermission is the type of permission that a user has to access a
 // model.
-type ModelAccessPermission string
+type UserAccessPermission string
 
 // Model access permissions that may be set on a user.
 const (
-	ModelAdminAccess ModelAccessPermission = "admin"
-	ModelReadAccess  ModelAccessPermission = "read"
-	ModelWriteAccess ModelAccessPermission = "write"
+	ModelAdminAccess UserAccessPermission = "admin"
+	ModelReadAccess  UserAccessPermission = "read"
+	ModelWriteAccess UserAccessPermission = "write"
 )

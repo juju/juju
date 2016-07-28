@@ -102,9 +102,7 @@ type User interface {
 	CreatedBy() names.UserTag
 	DateCreated() time.Time
 	LastConnection() time.Time
-	IsReadOnly() bool
-	IsReadWrite() bool
-	IsAdmin() bool
+	Access() Access
 }
 
 // Address represents an IP Address of some form.

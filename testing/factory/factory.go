@@ -46,14 +46,13 @@ func NewFactory(st *state.State) *Factory {
 
 // UserParams defines the parameters for creating a user with MakeUser.
 type UserParams struct {
-	Name                string
-	DisplayName         string
-	Password            string
-	Creator             names.Tag
-	NoModelUser         bool
-	Disabled            bool
-	Access              description.Access
-	ExpectedCreateError string
+	Name        string
+	DisplayName string
+	Password    string
+	Creator     names.Tag
+	NoModelUser bool
+	Disabled    bool
+	Access      description.Access
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -185,13 +184,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	if params.ExpectedCreateError != "" {
-		c.Assert(err, gc.ErrorMatches, params.ExpectedCreateError)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoModelUser {
-		_, err := factory.st.AddModelUser(state.ModelUserSpec{
+		_, err := factory.st.AddModelUser(state.UserAccessSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -210,7 +205,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 // attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) description.UserAccess {
 	if params == nil {
 		params = &ModelUserParams{}
 	}
@@ -230,7 +225,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
+	modelUser, err := factory.st.AddModelUser(state.UserAccessSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,

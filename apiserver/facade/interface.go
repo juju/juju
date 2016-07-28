@@ -94,8 +94,8 @@ type Authorizer interface {
 	AuthClient() bool
 
 	// HasPermission returns true if the given access is allowed for the given
-	// terget by the authenticated entity.
-	HasPermission(operation description.Access, target names.Tag) bool
+	// target by the authenticated entity.
+	HasPermission(operation description.Access, target names.Tag) (bool, error)
 }
 
 // Resources allows you to store and retrieve Resource implementations.

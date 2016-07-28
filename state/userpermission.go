@@ -45,9 +45,25 @@ func (st *State) userPermission(objectKey, subjectKey string) (*permission, erro
 	permissions, closer := st.getCollection(permissionsC)
 	defer closer()
 
-	err := permissions.FindId(permissionID(objectKey, subjectKey)).One(&userPermission.doc)
+	id := permissionID(objectKey, subjectKey)
+	err := permissions.FindId(st.docID(id)).One(&userPermission.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", subjectKey)
+		return nil, errors.NotFoundf("user permissions for user %q", id)
+	}
+	return userPermission, nil
+
+}
+
+// globalUserPermission returns a Permission for the given Subject and User.
+func (st *State) globalUserPermission(objectKey, subjectKey string) (*permission, error) {
+	userPermission := &permission{}
+	permissions, closer := st.getRawCollection(permissionsC)
+	defer closer()
+
+	id := permissionID(objectKey, subjectKey)
+	err := permissions.FindId(st.docID(id)).One(&userPermission.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
 	return userPermission, nil
 
@@ -73,10 +89,6 @@ func (p *permission) isReadWrite() bool {
 
 func (p *permission) access() description.Access {
 	return stringToAccess(p.doc.Access)
-}
-
-func (p *permission) isGreaterAccess(a description.Access) bool {
-	return stringToAccess(p.doc.Access).LessAccessThan(a)
 }
 
 func permissionID(objectKey, subjectKey string) string {

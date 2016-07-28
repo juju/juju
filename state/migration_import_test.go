@@ -139,39 +139,39 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
 }
 
-func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) description.UserAccess {
 	access := description.AdminAccess
 	if readOnly {
 		access = description.ReadAccess
 	}
-	user, err := s.State.AddModelUser(state.ModelUserSpec{
+	user, err := s.State.AddModelUser(state.UserAccessSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if !lastConnection.IsZero() {
-		err = state.UpdateModelUserLastConnection(user, lastConnection)
+		err = state.UpdateModelUserLastConnection(s.State, user, lastConnection)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
 }
 
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.ModelUser) {
-	c.Assert(newUser.UserName(), gc.Equals, oldUser.UserName())
-	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
-	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
-	c.Assert(newUser.DateCreated(), gc.Equals, oldUser.DateCreated())
-	c.Assert(newUser.IsReadOnly(), gc.Equals, newUser.IsReadOnly())
+func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser description.UserAccess) {
+	c.Assert(newUser.UserName, gc.Equals, oldUser.UserName)
+	c.Assert(newUser.DisplayName, gc.Equals, oldUser.DisplayName)
+	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
+	c.Assert(newUser.DateCreated, gc.Equals, oldUser.DateCreated)
+	c.Assert(newUser.Access, gc.Equals, newUser.Access)
 
-	connTime, err := oldUser.LastConnection()
+	connTime, err := s.State.LastModelConnection(oldUser.UserTag)
 	if state.IsNeverConnectedError(err) {
-		_, err := newUser.LastConnection()
+		_, err := s.State.LastModelConnection(newUser.UserTag)
 		// The new user should also return an error for last connection.
 		c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
-		newTime, err := newUser.LastConnection()
+		newTime, err := s.State.LastModelConnection(newUser.UserTag)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newTime, gc.Equals, connTime)
 	}
@@ -180,7 +180,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	// To be sure with this test, we create three env users, and remove
 	// the owner.
-	err := s.State.RemoveModelUser(s.Owner)
+	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lastConnection := state.NowToTheSecond()
@@ -192,8 +192,8 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	newModel, newSt := s.importModel(c)
 
 	// Check the import values of the users.
-	for _, user := range []*state.ModelUser{bravo, charlie, delta} {
-		newUser, err := newSt.ModelUser(user.UserTag())
+	for _, user := range []description.UserAccess{bravo, charlie, delta} {
+		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)
 	}

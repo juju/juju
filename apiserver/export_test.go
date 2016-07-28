@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -30,6 +31,7 @@ var (
 	BZMimeType                   = bzMimeType
 	JSMimeType                   = jsMimeType
 	SpritePath                   = spritePath
+	HasPermission                = hasPermission
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -104,7 +106,7 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 	return h, h.getResources()
 }
 
-// TestingApiHandlerWithEntity gives you the sane kind of ApiHandler than
+// TestingApiHandlerWithEntity gives you the sane kind of ApiHandler as
 // TestingApiHandler but sets the passed entity as the apiHandler
 // entity.
 func TestingApiHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
@@ -222,4 +224,10 @@ func PatchGetControllerCACert(p Patcher, caCert string) {
 // CleanupSuite
 type Patcher interface {
 	PatchValue(ptr, value interface{})
+}
+
+func AssertHasPermission(c *gc.C, handler *apiHandler, access description.Access, tag names.Tag, expect bool) {
+	hasPermission, err := handler.HasPermission(access, tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasPermission, gc.Equals, expect)
 }

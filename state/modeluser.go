@@ -17,37 +17,6 @@ import (
 	"github.com/juju/juju/core/description"
 )
 
-// ModelUser represents a user access to an model whereas the user
-// could represent a remote user or a user across multiple models the
-// model user always represents a single user for a single model.
-// There should be no more than one ModelUser per model.
-type ModelUser struct {
-	st              *State
-	doc             modelUserDoc
-	modelPermission *permission
-}
-
-// NewModelUser returns a ModelUser with permissions.
-func NewModelUser(st *State, doc modelUserDoc) (*ModelUser, error) {
-	mu := &ModelUser{
-		st:  st,
-		doc: doc,
-	}
-	if err := mu.refreshPermission(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return mu, nil
-}
-
-type modelUserDoc struct {
-	ID          string    `bson:"_id"`
-	ModelUUID   string    `bson:"model-uuid"`
-	UserName    string    `bson:"user"`
-	DisplayName string    `bson:"displayname"`
-	CreatedBy   string    `bson:"createdby"`
-	DateCreated time.Time `bson:"datecreated"`
-}
-
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
 // connects over the API. This update is not done using mgo.txn so the values
 // could well change underneath a normal transaction and as such, it should
@@ -60,108 +29,28 @@ type modelUserLastConnectionDoc struct {
 	LastConnection time.Time `bson:"last-connection"`
 }
 
-// Access returns the access level of this model user.
-func (e *ModelUser) Access() description.Access {
-	return e.modelPermission.access()
-}
-
-// ID returns the ID of the model user.
-func (e *ModelUser) ID() string {
-	return e.doc.ID
-}
-
-// ModelTag returns the model tag of the model user.
-func (e *ModelUser) ModelTag() names.ModelTag {
-	return names.NewModelTag(e.doc.ModelUUID)
-}
-
-// UserTag returns the tag for the model user.
-func (e *ModelUser) UserTag() names.UserTag {
-	return names.NewUserTag(e.doc.UserName)
-}
-
-// UserName returns the user name of the model user.
-func (e *ModelUser) UserName() string {
-	return e.doc.UserName
-}
-
-// DisplayName returns the display name of the model user.
-func (e *ModelUser) DisplayName() string {
-	return e.doc.DisplayName
-}
-
-// CreatedBy returns the user who created the model user.
-func (e *ModelUser) CreatedBy() string {
-	return e.doc.CreatedBy
-}
-
-// DateCreated returns the date the model user was created in UTC.
-func (e *ModelUser) DateCreated() time.Time {
-	return e.doc.DateCreated.UTC()
-}
-
-// refreshPermission reloads the permission for this model user from persistence.
-func (e *ModelUser) refreshPermission() error {
-	perm, err := e.st.userPermission(modelGlobalKey, e.globalKey())
-	if err != nil {
-		return errors.Annotate(err, "updating permission")
-	}
-	e.modelPermission = perm
-	return nil
-}
-
-// IsReadOnly returns whether or not the user has write access or only
-// read access to the model.
-func (e *ModelUser) IsReadOnly() bool {
-	return e.modelPermission.isReadOnly()
-}
-
-// IsAdmin is a convenience method that
-// returns whether or not the user has description.AdminAccess.
-func (e *ModelUser) IsAdmin() bool {
-	return e.modelPermission.isAdmin()
-}
-
-// IsReadWrite is a convenience method that
-// returns whether or not the user has description.WriteAccess.
-func (e *ModelUser) IsReadWrite() bool {
-	return e.modelPermission.isReadWrite()
-}
-
-// IsGreaterAccess returns true if provided access is higher than
-// the current one.
-func (e *ModelUser) IsGreaterAccess(a description.Access) bool {
-	return e.modelPermission.isGreaterAccess(a)
-}
-
-// SetAccess changes the user's access permissions on the model.
-func (e *ModelUser) SetAccess(access description.Access) error {
-	if err := access.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	op := updatePermissionOp(modelGlobalKey, e.globalKey(), access)
-	err := e.st.runTransaction([]txn.Op{op})
+// setModelAccess changes the user's access permissions on the model.
+func (st *State) setModelAccess(access description.Access, userGlobalKey string) error {
+	op := updatePermissionOp(modelGlobalKey, userGlobalKey, access)
+	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return e.refreshPermission()
+	return errors.Trace(err)
 }
 
-// LastConnection returns when this ModelUser last connected through the API
+// LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
-func (e *ModelUser) LastConnection() (time.Time, error) {
-	lastConnections, closer := e.st.getRawCollection(modelUserLastConnectionC)
+func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
+	lastConnections, closer := st.getRawCollection(modelUserLastConnectionC)
 	defer closer()
 
-	username := strings.ToLower(e.UserName())
+	username := user.Canonical()
 	var lastConn modelUserLastConnectionDoc
-	err := lastConnections.FindId(e.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
+	err := lastConnections.FindId(st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NeverConnectedError(e.UserName()))
+			err = errors.Wrap(err, NeverConnectedError(username))
 		}
 		return time.Time{}, errors.Trace(err)
 	}
@@ -185,13 +74,13 @@ func IsNeverConnectedError(err error) bool {
 	return ok
 }
 
-// UpdateLastConnection updates the last connection time of the model user.
-func (e *ModelUser) UpdateLastConnection() error {
-	return e.updateLastConnection(nowToTheSecond())
+// UpdateLastModelConnection updates the last connection time of the model user.
+func (st *State) UpdateLastModelConnection(user names.UserTag) error {
+	return st.updateLastModelConnection(user, nowToTheSecond())
 }
 
-func (e *ModelUser) updateLastConnection(when time.Time) error {
-	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
+func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {
+	lastConnections, closer := st.getCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -202,117 +91,62 @@ func (e *ModelUser) updateLastConnection(when time.Time) error {
 	session.SetSafe(&mgo.Safe{})
 
 	lastConn := modelUserLastConnectionDoc{
-		ID:             e.st.docID(strings.ToLower(e.UserName())),
-		ModelUUID:      e.ModelTag().Id(),
-		UserName:       e.UserName(),
+		ID:             st.docID(strings.ToLower(user.Canonical())),
+		ModelUUID:      st.ModelUUID(),
+		UserName:       user.Canonical(),
 		LastConnection: when,
 	}
 	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
 	return errors.Trace(err)
 }
 
-func (e *ModelUser) globalKey() string {
-	// TODO(perrito666) this asumes out of band knowledge of how modelUserID is crafted
-	username := strings.ToLower(e.UserName())
-	return userWithGlobalKey(username)
-}
-
-// ModelUser returns the model user.
-func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
-	modelUser := &ModelUser{st: st}
+// ModelUser a model userAccessDoc.
+func (st *State) modelUser(user names.UserTag) (userAccessDoc, error) {
+	modelUser := userAccessDoc{}
 	modelUsers, closer := st.getCollection(modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	err := modelUsers.FindId(username).One(&modelUser.doc)
+	err := modelUsers.FindId(username).One(&modelUser)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("model user %q", user.Canonical())
+		return userAccessDoc{}, errors.NotFoundf("model user %q", username)
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
-	modelUser.doc.DateCreated = modelUser.doc.DateCreated.UTC()
-	if err := modelUser.refreshPermission(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	modelUser.DateCreated = modelUser.DateCreated.UTC()
 	return modelUser, nil
-}
-
-// ModelUserSpec defines the attributes that can be set when adding a new
-// model user.
-type ModelUserSpec struct {
-	User        names.UserTag
-	CreatedBy   names.UserTag
-	DisplayName string
-	Access      description.Access
-}
-
-// AddModelUser adds a new user to the database.
-func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
-	// Ensure local user exists in state before adding them as an model user.
-	if spec.User.IsLocal() {
-		localUser, err := st.User(spec.User)
-		if err != nil {
-			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", spec.User.Name()))
-		}
-		if spec.DisplayName == "" {
-			spec.DisplayName = localUser.DisplayName()
-		}
-	}
-
-	// Ensure local createdBy user exists.
-	if spec.CreatedBy.IsLocal() {
-		if _, err := st.User(spec.CreatedBy); err != nil {
-			return nil, errors.Annotatef(err, "createdBy user %q does not exist locally", spec.CreatedBy.Name())
-		}
-	}
-
-	modelUUID := st.ModelUUID()
-	ops := createModelUserOps(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.Access)
-	err := st.runTransaction(ops)
-	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.ModelUser(spec.User)
-}
-
-// modelUserID returns the document id of the model user
-func modelUserID(user names.UserTag) string {
-	username := user.Canonical()
-	return strings.ToLower(username)
 }
 
 func createModelUserOps(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access description.Access) []txn.Op {
 	creatorname := createdBy.Canonical()
-	doc := &modelUserDoc{
-		ID:          modelUserID(user),
-		ModelUUID:   modelUUID,
+	doc := &userAccessDoc{
+		ID:          userAccessID(user),
+		ObjectUUID:  modelUUID,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(modelGlobalKey, userWithGlobalKey(modelUserID(user)), access),
+		createPermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user)), access),
 		{
 			C:      modelUsersC,
-			Id:     modelUserID(user),
+			Id:     userAccessID(user),
 			Assert: txn.DocMissing,
 			Insert: doc,
 		},
 	}
+
 	return ops
 }
 
-// RemoveModelUser removes a user from the database.
-func (st *State) RemoveModelUser(user names.UserTag) error {
+// removeModelUser removes a user from the database.
+func (st *State) removeModelUser(user names.UserTag) error {
 	ops := []txn.Op{
-		removePermissionOp(modelGlobalKey, userWithGlobalKey(modelUserID(user))),
+		removePermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
-			Id:     modelUserID(user),
+			Id:     userAccessID(user),
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
@@ -360,15 +194,15 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
-	var userSlice []modelUserDoc
-	err := modelUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	var userSlice []userAccessDoc
+	err := modelUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
 
 	var result []*UserModel
 	for _, doc := range userSlice {
-		modelTag := names.NewModelTag(doc.ModelUUID)
+		modelTag := names.NewModelTag(doc.ObjectUUID)
 		env, err := st.GetModel(modelTag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -394,7 +228,7 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	subjectGlobalKey := userWithGlobalKey(username)
+	subjectGlobalKey := userGlobalKey(username)
 
 	// TODO(perrito666) 20160606 this is prone to errors, it will just
 	// yield ErrPerm and be hard to trace, use ModelUser and Permission.

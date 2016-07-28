@@ -46,7 +46,7 @@ func (c *Client) AddUser(
 		modelTags[i] = names.NewModelTag(uuid).String()
 	}
 
-	var accessPermission params.ModelAccessPermission
+	var accessPermission params.UserAccessPermission
 	var err error
 	if len(modelTags) > 0 {
 		accessPermission, err = modelmanager.ParseModelAccess(access)

@@ -31,9 +31,10 @@ func (s *ControllerUserSuite) TestDefaultAccessControllerUser(c *gc.C) {
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	t := user.Tag()
 	userTag := t.(names.UserTag)
-	controllerUser, err := s.State.ControllerUser(userTag)
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access(), gc.Equals, description.LoginAccess)
+	c.Assert(controllerUser.Access, gc.Equals, description.LoginAccess)
 }
 
 func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
@@ -44,54 +45,42 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	t := user.Tag()
 	userTag := t.(names.UserTag)
-	controllerUser, err := s.State.ControllerUser(userTag)
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access(), gc.Equals, description.LoginAccess)
+	c.Assert(controllerUser.Access, gc.Equals, description.LoginAccess)
 
-	controllerUser.SetAccess(description.AddModelAccess)
+	s.State.SetUserAccess(userTag, ctag, description.AddModelAccess)
 
-	controllerUser, err = s.State.ControllerUser(user.UserTag())
-	c.Assert(controllerUser.Access(), gc.Equals, description.AddModelAccess)
+	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
+	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
 }
 
-//---------
 func (s *ControllerUserSuite) TestRemoveControllerUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validUsername"})
-	_, err := s.State.ControllerUser(user.UserTag())
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	_, err := s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.RemoveControllerUser(user.UserTag())
+	err = s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.ControllerUser(user.UserTag())
+	_, err = s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-// TestCaseSensitiveControllerUserErrors tests that the user id is not case sensitive
-// and adding two times the same username with different capitalization will
-// fail, even though it is actually testing the mechanism for AddUser (which fails
-// before controller user adding) the test is here in case anyone changes the
-// logic behind Adding regular users and forgets to do the same for ControllerUsers.
-func (s *ControllerUserSuite) TestCaseSensitiveControllerUserErrors(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "VALIDuSERNAME"})
-	_, err := s.State.ControllerUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	user = s.Factory.MakeUser(c, &factory.UserParams{Name: "validUsername",
-		ExpectedCreateError: `user already exists`,
-		NoModelUser:         true})
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUserSucceeds(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{})
-	err := s.State.RemoveControllerUser(user.UserTag())
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{})
-	err := s.State.RemoveControllerUser(user.UserTag())
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveControllerUser(user.UserTag())
+	err = s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -6,9 +6,10 @@ package state
 import (
 	"strings"
 
-	"github.com/juju/juju/core/description"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/description"
 )
 
 type internalUserSuite struct {
@@ -33,15 +34,15 @@ func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	op = ops[1]
 	permdoc := op.Insert.(*permissionDoc)
 	c.Assert(permdoc.Access, gc.Equals, string(description.LoginAccess))
-	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerGlobalKey, userWithGlobalKey(strings.ToLower(tag.Canonical()))))
-	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userWithGlobalKey(strings.ToLower(tag.Canonical())))
+	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerGlobalKey, userGlobalKey(strings.ToLower(tag.Canonical()))))
+	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Canonical())))
 	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerGlobalKey)
 
 	// controller user
 	op = ops[2]
-	cudoc := op.Insert.(*controllerUserDoc)
+	cudoc := op.Insert.(*userAccessDoc)
 	c.Assert(cudoc.ID, gc.Equals, "admin@local")
-	c.Assert(cudoc.ControllerUUID, gc.Equals, s.state.ControllerUUID())
+	c.Assert(cudoc.ObjectUUID, gc.Equals, s.state.ControllerUUID())
 	c.Assert(cudoc.UserName, gc.Equals, "AdMiN@local")
 	c.Assert(cudoc.DisplayName, gc.Equals, "AdMiN")
 	c.Assert(cudoc.CreatedBy, gc.Equals, "AdMiN@local")

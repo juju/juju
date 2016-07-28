@@ -47,11 +47,11 @@ func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
-	lastConn, err := modelUser.LastConnection()
+	c.Assert(modelUser.UserName, gc.Equals, user.Canonical())
+	c.Assert(modelUser.CreatedBy.Canonical(), gc.Equals, s.AdminUserTag(c).Canonical())
+	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -74,9 +74,9 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.IsNil)
+	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
 }
 
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
@@ -84,7 +84,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "grant", username, "controller")
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.NotNil)
 

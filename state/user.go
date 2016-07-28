@@ -23,10 +23,10 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-const userGlobalKey = "us"
+const userGlobalKeyPrefix = "us"
 
-func userWithGlobalKey(userID string) string {
-	return fmt.Sprintf("%s#%s", userGlobalKey, userID)
+func userGlobalKey(userID string) string {
+	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
 }
 
 func (st *State) checkUserExists(name string) (bool, error) {

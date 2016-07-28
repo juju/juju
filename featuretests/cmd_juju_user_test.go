@@ -69,7 +69,7 @@ func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
-		modelUserTags[i] = u.UserTag()
+		modelUserTags[i] = u.UserTag
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
 		user.Tag().(names.UserTag),
