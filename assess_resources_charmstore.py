@@ -14,13 +14,15 @@ from uuid import uuid1
 
 import requests
 
-from jujucharm import CharmCommand
+from jujucharm import (
+    CharmCommand,
+    local_charm_path,
+)
 from utility import (
     configure_logging,
-    temp_dir,
     JujuAssertionError,
-    local_charm_path,
     scoped_environ,
+    temp_dir,
 )
 
 __metaclass__ = type

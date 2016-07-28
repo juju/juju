@@ -63,6 +63,14 @@ bzr pull -d ~/workspace-runner
 if [[ \$(uname) == "Linux" ]]; then
     cd ~/juju-ci-tools
     make install-deps
+    # The lsb_release package is broken in xenial and yakkety. The py2 module
+    # is missing.
+    if  [[ ! -f /usr/lib/python2.7/dist-packages/lsb_release.py ]]; then
+            sudo cp /usr/lib/python3/dist-packages/lsb_release.py \
+                    /usr/lib/python2.7/dist-packages/lsb_release.py
+    fi
+elif [[ \$(uname) == "Darwin" ]]; then
+    ~/juju-ci-tools/pipdeps.py install
 fi
 if [[ -d ~/ci-director ]]; then
     bzr pull -d ~/ci-director
@@ -78,6 +86,7 @@ update_windows() {
 bzr pull -d ./juju-release-tools
 bzr pull -d ./juju-ci-tools
 /cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
+python ./juju-ci-tools/pipdeps.py install
 EOT
 }
 
@@ -95,10 +104,6 @@ done
 SKIPPED=""
 for hostname in $MASTER $SLAVES; do
     update_jenkins $hostname || SKIPPED="$SKIPPED $hostname"
-    if [[ $hostname == "xenial-slave.vapour.ws" ]]; then
-        echo "Curtis removed juju-deployer package to test the branch."
-        ssh $hostname sudo apt-get remove -y juju-deployer python-jujuclient
-    fi
 done
 
 # win-slaves have a different user and directory layout tan POSIX hosts.

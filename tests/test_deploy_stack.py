@@ -2,6 +2,9 @@ from argparse import (
     Namespace,
 )
 from contextlib import contextmanager
+from datetime import (
+    datetime,
+)
 import json
 import logging
 import os
@@ -736,7 +739,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False)
+                call('show-status', '--format', 'yaml', controller=False)
             ],
             gjo_mock.call_args_list)
 
@@ -836,7 +839,7 @@ class TestDeployJob(FakeHomeTestCase):
     def ds_cxt(self):
         env = JujuData('foo', {})
         client = fake_EnvJujuClient(env)
-        bc_cxt = patch('jujupy.EnvJujuClient.by_version',
+        bc_cxt = patch('deploy_stack.client_from_config',
                        return_value=client)
         fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
                        return_value=env)
@@ -1015,15 +1018,12 @@ class TestBootstrapManager(FakeHomeTestCase):
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
             region='eu-west-northwest-5', logs='pine', keep_env=True)
-        with patch.object(SimpleEnvironment, 'from_config') as fc_mock:
-            with patch.object(EnvJujuClient, 'by_version') as bv_mock:
-                bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo')
-        bv_mock.assert_called_once_with(fc_mock.return_value, 'bar',
-                                        debug=True)
+        with patch('deploy_stack.client_from_config') as fc_mock:
+            bs_manager = BootstrapManager.from_args(args)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
         self.assertEqual('baz', bs_manager.temp_env_name)
-        self.assertIs(bv_mock.return_value, bs_manager.client)
-        self.assertIs(bv_mock.return_value, bs_manager.tear_down_client)
+        self.assertIs(fc_mock.return_value, bs_manager.client)
+        self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
         self.assertEqual('example.org', bs_manager.bootstrap_host)
         self.assertEqual(['example.com'], bs_manager.machines)
         self.assertEqual('angsty', bs_manager.series)
@@ -1032,6 +1032,35 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual('eu-west-northwest-5', bs_manager.region)
         self.assertIs(True, bs_manager.keep_env)
         self.assertEqual('pine', bs_manager.log_dir)
+        jes_enabled = bs_manager.client.is_jes_enabled.return_value
+        self.assertEqual(jes_enabled, bs_manager.permanent)
+        self.assertEqual(jes_enabled, bs_manager.jes_enabled)
+        self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+
+    def test_no_args(self):
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host='example.org', machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs=None, keep_env=True)
+        with patch('deploy_stack.client_from_config') as fc_mock:
+            with patch('utility.os.makedirs'):
+                bs_manager = BootstrapManager.from_args(args)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
+        self.assertEqual('baz', bs_manager.temp_env_name)
+        self.assertIs(fc_mock.return_value, bs_manager.client)
+        self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
+        self.assertEqual('example.org', bs_manager.bootstrap_host)
+        self.assertEqual(['example.com'], bs_manager.machines)
+        self.assertEqual('angsty', bs_manager.series)
+        self.assertEqual('qux', bs_manager.agent_url)
+        self.assertEqual('escaped', bs_manager.agent_stream)
+        self.assertEqual('eu-west-northwest-5', bs_manager.region)
+        self.assertIs(True, bs_manager.keep_env)
+        logs_arg = bs_manager.log_dir.split("/")
+        logs_ts = logs_arg[4]
+        self.assertEqual(logs_arg[1:4], ['tmp', 'baz', 'logs'])
+        self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
         jes_enabled = bs_manager.client.is_jes_enabled.return_value
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
@@ -1065,9 +1094,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             bootstrap_host=None, machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
             region='eu-west-northwest-5', logs='pine', keep_env=True)
-        with patch.object(SimpleEnvironment, 'from_config'):
-            with patch.object(EnvJujuClient, 'by_version'):
-                bs_manager = BootstrapManager.from_args(args)
+        with patch('deploy_stack.client_from_config'):
+            bs_manager = BootstrapManager.from_args(args)
         self.assertIs(None, bs_manager.bootstrap_host)
         self.assertEqual({}, bs_manager.known_hosts)
 

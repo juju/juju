@@ -11,11 +11,13 @@ from tempfile import NamedTemporaryFile
 from deploy_stack import (
     BootstrapManager,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    local_charm_path,
 )
 
 
