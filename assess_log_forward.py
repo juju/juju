@@ -123,11 +123,11 @@ def create_python_check_script(temp_dir, check_string):
                 time.sleep(1)
             else:
                 sys.exit(1)
-        print('Unexpected error with file check.')
-        sys.exit(2)
+    print('Unexpected error with file check.')
+    sys.exit(2)
     """.format(check=check_string))
 
-    script_path = os.path.join(temp_dir, 'syslog_check.sh')
+    script_path = os.path.join(temp_dir, 'syslog_check.py')
     with open(script_path, 'wt') as f:
         f.write(script_contents)
     return script_path
