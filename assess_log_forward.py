@@ -13,9 +13,9 @@ import logging
 import os
 import re
 import sys
+import socket
 import subprocess
 from textwrap import dedent
-import yaml
 
 from assess_model_migration import get_bootstrap_managers
 import certificates
@@ -224,11 +224,27 @@ def _get_rsyslog_details(cert_file, key_file, ip_address):
         key_contents = f.read()
 
     return {
-        'syslog-host': '{}:10514'.format(ip_address),
+        'syslog-host': '{}'.format(add_port_to_ip(ip_address, '10514')),
         'syslog-ca-cert': certificates.ca_pem_contents,
         'syslog-client-cert': cert_contents,
         'syslog-client-key': key_contents
     }
+
+
+def add_port_to_ip(ip_address, port):
+    """Return an ipv4/ipv6 address with port added to `ip_address`."""
+    try:
+        socket.inet_aton(ip_address)
+        return '{}:{}'.format(ip_address, port)
+    except socket.error:
+        try:
+            socket.inet_pton(socket.AF_INET6, ip_address)
+            return '[{}]:{}'.format(ip_address, port)
+        except socket.error:
+            pass
+    raise ValueError(
+        'IP Address "{}" is neither an ipv4 or ipv6 address.'.format(
+            ip_address))
 
 
 def install_rsyslog_config(client, config_dir, unit_machine):

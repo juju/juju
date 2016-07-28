@@ -50,7 +50,7 @@ class TestAssertRegex(TestCase):
 
     def test_default_message_check(self):
         self.assertTrue(
-            alf.get_assert_regex('').endswith('running\ jujud\ \[.*\]$"'))
+            alf.get_assert_regex('').endswith('.*$"'))
 
     def test_fails_when_uuid_doesnt_match(self):
         uuid = 'fail'
@@ -70,3 +70,27 @@ class TestAssertRegex(TestCase):
 
         self.assertIsNotNone(
             re.search(check, success))
+
+
+class TestAddPortToIP(TestCase):
+    def test_adds_port_to_ipv4(self):
+        ip_address = '192.168.1.1'
+        port = '123'
+        expected = '192.168.1.1:123'
+        self.assertEqual(
+            alf.add_port_to_ip(ip_address, port),
+            expected
+        )
+
+    def test_adds_port_to_ipv6(self):
+        ip_address = '1fff:0:a88:85a3::ac1f'
+        port = '123'
+        expected = '[1fff:0:a88:85a3::ac1f]:123'
+        self.assertEqual(
+            alf.add_port_to_ip(ip_address, port),
+            expected
+        )
+
+    def test_raises_ValueError_on_invalid_address(self):
+        with self.assertRaises(ValueError):
+            alf.add_port_to_ip('abc', 'abc')
