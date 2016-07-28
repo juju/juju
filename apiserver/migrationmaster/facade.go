@@ -117,6 +117,18 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 	return errors.Annotate(err, "failed to set phase")
 }
 
+// SetStatusMessage sets a human readable status message containing
+// information about the migration's progress. This will be shown in
+// status output shown to the end user.
+func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) error {
+	mig, err := api.backend.LatestModelMigration()
+	if err != nil {
+		return errors.Annotate(err, "could not get migration")
+	}
+	err = mig.SetStatusMessage(args.Message)
+	return errors.Annotate(err, "failed to set status message")
+}
+
 // Export serializes the model associated with the API connection.
 func (api *API) Export() (params.SerializedModel, error) {
 	var serialized params.SerializedModel
