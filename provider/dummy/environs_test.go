@@ -121,7 +121,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 			ControllerConfig: testing.FakeControllerConfig(),
 			BaseConfig:       s.TestConfig,
 			ControllerName:   s.TestConfig["name"].(string),
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      AdminSecret,
 		},
 	)

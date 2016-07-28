@@ -52,14 +52,14 @@ func (p manualProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	if args.CloudEndpoint == "" {
+	if args.Cloud.Endpoint == "" {
 		return nil, errors.Errorf(
 			"missing address of host to bootstrap: " +
 				`please specify "juju bootstrap manual/<host>"`,
 		)
 	}
 	cfg, err := args.Config.Apply(map[string]interface{}{
-		"bootstrap-host": args.CloudEndpoint,
+		"bootstrap-host": args.Cloud.Endpoint,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

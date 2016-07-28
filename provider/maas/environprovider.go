@@ -60,21 +60,21 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, 
 func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// For MAAS, the cloud endpoint may be either a full URL
 	// for the MAAS server, or just the IP/host.
-	if args.CloudEndpoint == "" {
+	if args.Cloud.Endpoint == "" {
 		return nil, errors.New("MAAS server not specified")
 	}
-	server := args.CloudEndpoint
+	server := args.Cloud.Endpoint
 	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
-		server = fmt.Sprintf("http://%s/MAAS", args.CloudEndpoint)
+		server = fmt.Sprintf("http://%s/MAAS", args.Cloud.Endpoint)
 	}
 
 	attrs := map[string]interface{}{
 		"maas-server": server,
 	}
 	// Add the credentials.
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.OAuth1AuthType:
-		credentialAttrs := args.Credentials.Attributes()
+		credentialAttrs := args.Cloud.Credential.Attributes()
 		for k, v := range credentialAttrs {
 			attrs[k] = v
 		}

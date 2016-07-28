@@ -104,7 +104,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			BaseConfig:       attrs,
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

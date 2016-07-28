@@ -28,17 +28,17 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.JSONFileAuthType:
-		var err error
-		filename := args.Credentials.Attributes()["file"]
-		args.Credentials, err = ParseJSONAuthFile(filename)
+		filename := args.Cloud.Credential.Attributes()["file"]
+		credential, err := ParseJSONAuthFile(filename)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		args.Cloud.Credential = &credential
 		fallthrough
 	case cloud.OAuth2AuthType:
-		credentialAttrs := args.Credentials.Attributes()
+		credentialAttrs := args.Cloud.Credential.Attributes()
 		var err error
 		cfg, err = args.Config.Apply(map[string]interface{}{
 			cfgProjectID:   credentialAttrs[cfgProjectID],
@@ -55,7 +55,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	// Ensure cloud info is in config.
 	var err error
 	cfg, err = cfg.Apply(map[string]interface{}{
-		cfgRegion: args.CloudRegion,
+		cfgRegion: args.Cloud.Region,
 		// TODO (anastasiamac 2016-06-09) at some stage will need to
 		//  also add endpoint and storage endpoint.
 	})

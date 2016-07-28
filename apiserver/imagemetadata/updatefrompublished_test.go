@@ -12,16 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
@@ -165,19 +162,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		env, err := bootstrap.Prepare(
-			modelcmd.BootstrapContext(testing.Context(c)),
-			jujuclienttesting.NewMemStore(),
-			bootstrap.PrepareParams{
-				ControllerConfig: testing.FakeControllerConfig(),
-				ControllerName:   "dummycontroller",
-				BaseConfig:       dummy.SampleConfig(),
-				CloudName:        "dummy",
-				AdminSecret:      "admin-secret",
-			},
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		return env.Config(), err
+		return config.New(config.UseDefaults, dummy.SampleConfig())
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {

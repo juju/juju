@@ -158,12 +158,15 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		BaseConfig:       t.TestConfig,
-		Credential:       credential,
-		CloudEndpoint:    t.CloudEndpoint,
-		CloudRegion:      t.CloudRegion,
-		ControllerName:   t.TestConfig["name"].(string),
-		CloudName:        t.TestConfig["type"].(string),
-		AdminSecret:      AdminSecret,
+		Cloud: environs.CloudSpec{
+			Type:       t.TestConfig["type"].(string),
+			Name:       t.TestConfig["type"].(string),
+			Region:     t.CloudRegion,
+			Endpoint:   t.CloudEndpoint,
+			Credential: &credential,
+		},
+		ControllerName: t.TestConfig["name"].(string),
+		AdminSecret:    AdminSecret,
 	}
 }
 

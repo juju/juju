@@ -431,16 +431,20 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "y",
+		},
+	)
 	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.AccessKeyAuthType,
-			map[string]string{
-				"access-key": "x",
-				"secret-key": "y",
-			},
-		),
-		CloudRegion: "test",
+		Cloud: environs.CloudSpec{
+			Type:       "ec2",
+			Region:     "test",
+			Credential: &credential,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := cfg.StorageDefaultBlockSource()
@@ -456,16 +460,20 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "y",
+		},
+	)
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:      config,
-		CloudRegion: "test",
-		Credentials: cloud.NewCredential(
-			cloud.AccessKeyAuthType,
-			map[string]string{
-				"access-key": "x",
-				"secret-key": "y",
-			},
-		),
+		Config: config,
+		Cloud: environs.CloudSpec{
+			Type:       "ec2",
+			Region:     "test",
+			Credential: &credential,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

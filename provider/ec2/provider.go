@@ -34,17 +34,15 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	e, err := p.Open(environs.OpenParams{cfg})
+	apiClient, _, ecfg, err := awsClients(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	env := e.(*environ)
-
-	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
+	modelName := cfg.Name()
+	vpcID := ecfg.vpcID()
 	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return cfg, nil
 }
 
@@ -64,15 +62,15 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
-		"region": args.CloudRegion,
+		"region": args.Cloud.Region,
 		// TODO(axw) stop relying on hard-coded
 		//           region endpoint information
 		//           in the provider, and use
 		//           args.CloudEndpoint here.
 	}
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.AccessKeyAuthType:
-		credentialAttrs := args.Credentials.Attributes()
+		credentialAttrs := args.Cloud.Credential.Attributes()
 		attrs["access-key"] = credentialAttrs["access-key"]
 		attrs["secret-key"] = credentialAttrs["secret-key"]
 	default:

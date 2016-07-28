@@ -107,13 +107,13 @@ func (prov *azureEnvironProvider) PrepareForCreateEnvironment(controllerUUID str
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	attrs := map[string]interface{}{
-		configAttrLocation:        args.CloudRegion,
-		configAttrEndpoint:        args.CloudEndpoint,
-		configAttrStorageEndpoint: args.CloudStorageEndpoint,
+		configAttrLocation:        args.Cloud.Region,
+		configAttrEndpoint:        args.Cloud.Endpoint,
+		configAttrStorageEndpoint: args.Cloud.StorageEndpoint,
 	}
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
-		for k, v := range args.Credentials.Attributes() {
+		for k, v := range args.Cloud.Credential.Attributes() {
 			attrs[k] = v
 		}
 	default:

@@ -60,17 +60,17 @@ func (joyentProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *co
 func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	attrs := map[string]interface{}{}
 	// Add the credential attributes to config.
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
-		credentialAttrs := args.Credentials.Attributes()
+		credentialAttrs := args.Cloud.Credential.Attributes()
 		for k, v := range credentialAttrs {
 			attrs[k] = v
 		}
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-	if args.CloudEndpoint != "" {
-		attrs[sdcUrl] = args.CloudEndpoint
+	if args.Cloud.Endpoint != "" {
+		attrs[sdcUrl] = args.Cloud.Endpoint
 	}
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {

@@ -91,7 +91,7 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		ControllerName:   controllerName,
 		BaseConfig:       dummy.SampleConfig(),
-		CloudName:        "dummy",
+		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)

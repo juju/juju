@@ -459,15 +459,18 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 }
 
 func bootstrapConfigParams(cfg *config.Config) environs.BootstrapConfigParams {
+	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username":    "user",
+		"password":    "secret",
+		"tenant-name": "sometenant",
+	})
 	return environs.BootstrapConfigParams{
 		Config: cfg,
-		Credentials: cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-			"username":    "user",
-			"password":    "secret",
-			"tenant-name": "sometenant",
-		}),
-		CloudRegion:   "region",
-		CloudEndpoint: "http://auth",
+		Cloud: environs.CloudSpec{
+			Region:     "region",
+			Endpoint:   "http://auth",
+			Credential: &credential,
+		},
 	}
 }
 

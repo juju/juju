@@ -61,7 +61,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		BaseConfig:       cfg.AllAttrs(),
-		CloudName:        "dummy",
+		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,7 +103,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		BaseConfig:       cfg.AllAttrs(),
-		CloudName:        "dummy",
+		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)

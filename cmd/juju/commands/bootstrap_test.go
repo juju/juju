@@ -1059,7 +1059,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/DUMMY")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
-	c.Assert(prepareParams.CloudRegion, gc.Equals, "dummy")
+	c.Assert(prepareParams.Cloud.Region, gc.Equals, "dummy")
 }
 
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {

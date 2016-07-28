@@ -278,12 +278,15 @@ func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
 			credentialAttrs[k] = fmt.Sprintf("%v", v)
 		}
 		testConfig := newConfig(c, attrs)
+		credential := cloud.NewCredential(
+			cloud.UserPassAuthType,
+			credentialAttrs,
+		)
 		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
 			Config: testConfig,
-			Credentials: cloud.NewCredential(
-				cloud.UserPassAuthType,
-				credentialAttrs,
-			),
+			Cloud: environs.CloudSpec{
+				Credential: &credential,
+			},
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)

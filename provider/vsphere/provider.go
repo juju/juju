@@ -32,9 +32,9 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 // BootstrapConfig implements environs.EnvironProvider.
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
-		credentialAttrs := args.Credentials.Attributes()
+		credentialAttrs := args.Cloud.Credential.Attributes()
 		var err error
 		cfg, err = cfg.Apply(map[string]interface{}{
 			cfgUser:     credentialAttrs["user"],

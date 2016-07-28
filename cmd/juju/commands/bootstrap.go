@@ -531,16 +531,19 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	environ, err := bootstrapPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		bootstrap.PrepareParams{
-			BaseConfig:           modelConfigAttrs,
-			ControllerConfig:     controllerConfig,
-			ControllerName:       c.controllerName,
-			CloudName:            c.Cloud,
-			CloudRegion:          region.Name,
-			CloudEndpoint:        region.Endpoint,
-			CloudStorageEndpoint: region.StorageEndpoint,
-			Credential:           *credential,
-			CredentialName:       credentialName,
-			AdminSecret:          bootstrapConfig.AdminSecret,
+			BaseConfig:       modelConfigAttrs,
+			ControllerConfig: controllerConfig,
+			ControllerName:   c.controllerName,
+			Cloud: environs.CloudSpec{
+				Type:            cloud.Type,
+				Name:            c.Cloud,
+				Region:          region.Name,
+				Endpoint:        region.Endpoint,
+				StorageEndpoint: region.StorageEndpoint,
+				Credential:      credential,
+			},
+			CredentialName: credentialName,
+			AdminSecret:    bootstrapConfig.AdminSecret,
 		},
 	)
 	if err != nil {

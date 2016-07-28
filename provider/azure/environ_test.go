@@ -329,11 +329,13 @@ func prepareForBootstrap(
 	cfg := makeTestModelConfig(c, attrs...)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
 	cfg, err := provider.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:               cfg,
-		CloudRegion:          "westus",
-		CloudEndpoint:        "https://management.azure.com",
-		CloudStorageEndpoint: "https://core.windows.net",
-		Credentials:          fakeUserPassCredential(),
+		Config: cfg,
+		Cloud: environs.CloudSpec{
+			Region:          "westus",
+			Endpoint:        "https://management.azure.com",
+			StorageEndpoint: "https://core.windows.net",
+			Credential:      fakeUserPassCredential(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.Open(environs.OpenParams{cfg})

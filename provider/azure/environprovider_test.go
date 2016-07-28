@@ -40,8 +40,8 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.sender = nil
 }
 
-func fakeUserPassCredential() cloud.Credential {
-	return cloud.NewCredential(
+func fakeUserPassCredential() *cloud.Credential {
+	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
 			"application-id":       "application-id",
@@ -50,17 +50,20 @@ func fakeUserPassCredential() cloud.Credential {
 			"application-password": "application-password",
 		},
 	)
+	return &cred
 }
 
 func (s *environProviderSuite) TestBootstrapConfig(c *gc.C) {
 	cfg := makeTestModelConfig(c)
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
 	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:               cfg,
-		CloudRegion:          "westus",
-		CloudEndpoint:        "https://api.azurestack.local",
-		CloudStorageEndpoint: "https://storage.azurestack.local",
-		Credentials:          fakeUserPassCredential(),
+		Config: cfg,
+		Cloud: environs.CloudSpec{
+			Region:          "westus",
+			Endpoint:        "https://api.azurestack.local",
+			StorageEndpoint: "https://storage.azurestack.local",
+			Credential:      fakeUserPassCredential(),
+		},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)

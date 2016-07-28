@@ -58,9 +58,11 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        testConfig,
-		CloudEndpoint: endpoint,
-		CloudRegion:   region,
+		Config: testConfig,
+		Cloud: environs.CloudSpec{
+			Endpoint: endpoint,
+			Region:   region,
+		},
 	})
 	if err != nil {
 		return nil, err

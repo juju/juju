@@ -211,6 +211,10 @@ func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
+	credential := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		CredentialsAttributes(attrs),
+	)
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
@@ -218,11 +222,11 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 			ControllerConfig: testing.FakeControllerConfig(),
 			BaseConfig:       attrs,
 			ControllerName:   attrs["name"].(string),
-			CloudName:        "joyent",
-			Credential: cloud.NewCredential(
-				cloud.UserPassAuthType,
-				CredentialsAttributes(attrs),
-			),
+			Cloud: environs.CloudSpec{
+				Type:       "joyent",
+				Name:       "joyent",
+				Credential: &credential,
+			},
 			AdminSecret: "sekrit",
 		},
 	)

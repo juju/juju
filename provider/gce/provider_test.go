@@ -41,17 +41,20 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 }
 
 func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
+	credential := cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{
+			"project-id":   "x",
+			"client-id":    "y",
+			"client-email": "zz@example.com",
+			"private-key":  "why",
+		},
+	)
 	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: s.Config,
-		Credentials: cloud.NewCredential(
-			cloud.OAuth2AuthType,
-			map[string]string{
-				"project-id":   "x",
-				"client-id":    "y",
-				"client-email": "zz@example.com",
-				"private-key":  "why",
-			},
-		),
+		Cloud: environs.CloudSpec{
+			Credential: &credential,
+		},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
