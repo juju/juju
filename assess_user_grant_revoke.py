@@ -207,6 +207,10 @@ def assert_change_password(client, user):
     if child.isalive():
         raise JujuAssertionError(
             'Changing user password failed: pexpect session still alive')
+    child.close()
+    if child.exitstatus != 0:
+        raise JujuAssertionError(
+            'Changing user password failed: pexpect process exited with {}'.format(child.exitstatus))
 
 
 def assert_disable_enable(controller_client, user):
@@ -230,7 +234,7 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     username = user.name
     controller_name = '{}_controller'.format(username)
     client = controller_client.create_cloned_environment(
-        fake_home, controller_name)
+        fake_home, controller_name, user.name)
     try:
         child = client.expect('login', (user.name, '-c', controller_name),
                               include_e=False)
@@ -240,6 +244,10 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
         if child.isalive():
             raise JujuAssertionError(
                 'Login user failed: pexpect session still alive')
+        child.close()
+        if child.exitstatus != 0:
+            raise JujuAssertionError(
+                'Login user failed: pexpect process exited with {}'.format(child.exitstatus))
     except pexpect.TIMEOUT:
         raise JujuAssertionError(
             'Login user failed: pexpect session timed out')

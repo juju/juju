@@ -40,9 +40,11 @@ from utility import (
     JujuResourceTimeout,
     pause,
     quote,
+    qualified_model_name,
     scoped_environ,
     split_address_port,
     temp_dir,
+    unqualified_model_name,
     until_timeout,
 )
 
@@ -239,7 +241,7 @@ class SimpleEnvironment:
         if model_name is None:
             model_name = self.environment
         else:
-            config['name'] = model_name
+            config['name'] = unqualified_model_name(model_name)
         result = self.__class__(model_name, config, self.juju_home,
                                 self.controller)
         result.local = self.local
@@ -268,7 +270,7 @@ class SimpleEnvironment:
         if set_controller:
             self.controller.name = model_name
         self.environment = model_name
-        self.config['name'] = model_name
+        self.config['name'] = unqualified_model_name(model_name)
 
     @classmethod
     def from_config(cls, name):
@@ -1095,6 +1097,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.env.user_name = 'admin@local'
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
@@ -1103,6 +1106,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.env.user_name = 'admin@local'
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
                 log.info('Waiting for bootstrap of {}.'.format(
@@ -1819,6 +1823,7 @@ class EnvJujuClient:
     def logout(self):
         """Logout an user"""
         self.controller_juju('logout', ())
+        self.env.user_name = ''
 
     def register_user(self, user, juju_home):
         """Register `user` for the `client` return the cloned client used."""
@@ -1829,7 +1834,8 @@ class EnvJujuClient:
         token = self.add_user(username, models=model + ',controller',
                               permissions=user.permissions)
         user_client = self.create_cloned_environment(juju_home,
-                                                     controller_name)
+                                                     controller_name,
+                                                     username)
 
         try:
             child = user_client.expect(
@@ -1847,13 +1853,16 @@ class EnvJujuClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
-        user_client.env.user_name = username
         return user_client
 
-    def create_cloned_environment(self, cloned_juju_home, controller_name):
+    def create_cloned_environment(self, cloned_juju_home, controller_name, user_name):
         """Create a cloned environment"""
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
+        if user_name != self.env.user_name:
+            user_client.env.user_name = user_name
+            user_client.env.environment = qualified_model_name(
+                user_client.env.environment, self.env.user_name)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
@@ -2176,7 +2185,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return unqualified_model_name(self.model_name)
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
@@ -2500,7 +2509,7 @@ def make_safe_config(client):
     config['test-mode'] = True
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
-    config['name'] = client.env.environment
+    config['name'] = unqualified_model_name(client.env.environment)
     if config['type'] == 'local':
         config.setdefault('root-dir', get_local_root(client.env.juju_home,
                           client.env))
