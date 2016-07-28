@@ -281,6 +281,13 @@ func (s *bootstrapSuite) TestBootstrapUploadTools(c *gc.C) {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
 
+	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
+	// such as s390.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		UploadTools:      true,
@@ -305,6 +312,8 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
 
+	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
+	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
