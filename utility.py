@@ -486,3 +486,20 @@ def wait_for_removed_services(client, charm):
         status = client.get_status()
         if charm not in status.get_applications():
             break
+
+
+def unqualified_model_name(model_name):
+    """Return the model name without the owner qualifier."""
+    return model_name.split('/', 1)[-1]
+
+
+def qualified_model_name(model_name, owner_name):
+    """Return the model name qualified with the given owner name."""
+    assert model_name != ''
+    assert owner_name != ''
+    parts = model_name.split('/', 1)
+    if len(parts) == 2 and parts[0] != owner_name:
+        raise ValueError(
+            'qualified model name {} with owner not matching {}'.format(
+                model_name, owner_name))
+    return '{}/{}'.format(owner_name, parts[-1])
