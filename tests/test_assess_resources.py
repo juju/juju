@@ -21,7 +21,11 @@ from utility import JujuAssertionError
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        args = parse_args(
+            ["an-env",
+             "/bin/juju",
+             "/tmp/logs",
+             "an-env-mod"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
@@ -40,23 +44,25 @@ class TestParseArgs(TestCase):
 class TestMain(TestCase):
 
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
+        argv = [
+            "an-env",
+            "/bin/juju",
+            "/tmp/logs",
+            "an-env-mod",
+            "--verbose",
+            ]
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_resources.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_resources.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
+                    with patch("deploy_stack.client_from_config",
                                return_value=client) as mock_c:
                         with patch("assess_resources.assess_resources",
                                    autospec=True) as mock_assess:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, make_args())
 
@@ -177,7 +183,7 @@ class TestAssessResources(TestCase):
                  '47c431e882785a0bf8dc70b42995db388575', 1024 * 1024, 1800,
                  1800, deploy=False, resource_file='/tmp/fake')]
         self.assertEqual(mock_p.mock_calls, calls)
-        mock_fdf.assert_called_once_with('/tmp/fake', 1024 * 1024)
+        mock_fdf.assert_called_once_with('/tmp/fake', size=1024 * 1024)
         mock_lt.assert_called_once_with(None, 1800, 1800)
 
     def test_large_tests(self):

@@ -7,9 +7,13 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
-    EnvJujuClient,
+    client_from_config,
     EnvJujuClient1X,
+    IncompatibleConfigClass,
     SimpleEnvironment,
     until_timeout,
     )
@@ -21,7 +25,6 @@ from deploy_stack import (
 from jujuci import add_credential_args
 from utility import (
     configure_logging,
-    local_charm_path,
 )
 
 
@@ -41,21 +44,26 @@ def prepare_dummy_env(client):
 
 def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
-    environment = SimpleEnvironment.from_config(base_env)
-    if agent_url is None:
-        environment.config.pop('tools-metadata-url', None)
     if initial == 'FAKE':
         from tests.test_jujupy import fake_juju_client
+        environment = SimpleEnvironment.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client
-    initial_client = EnvJujuClient.by_version(environment, initial,
-                                              debug=debug)
-    other_client = EnvJujuClient.by_version(initial_client.env, other,
-                                            debug=debug)
+    else:
+        initial_client = client_from_config(base_env, initial, debug=debug)
+        environment = initial_client.env
+    if agent_url is None:
+        environment.config.pop('tools-metadata-url', None)
+    other_client = initial_client.clone_path_cls(other)
     # System juju is assumed to be released and the best choice for tearing
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
-    released_client = EnvJujuClient.by_version(environment, debug=debug)
+    try:
+        released_client = initial_client.clone_path_cls(None)
+    except IncompatibleConfigClass:
+        # If initial_client's config class is incompatible with the system
+        # juju, use initial client for teardown.
+        released_client = initial_client
     # If released_client is a different major version, it cannot tear down
     # initial client, so use initial client for teardown.
     if (

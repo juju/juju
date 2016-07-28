@@ -10,6 +10,9 @@ from deploy_stack import (
     tear_down,
     update_env,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
     jes_home_path,
     make_client,
@@ -17,7 +20,6 @@ from jujupy import (
 )
 from utility import (
     add_basic_testing_arguments,
-    local_charm_path,
 )
 
 
