@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -94,17 +93,11 @@ func (c ModelConfigCreator) NewModelConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attrs = cfg.AllAttrs()
 
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		if _, ok := attrs[attr]; ok {
-			return nil, errors.Errorf("unexpected controller attribute %q in model config", attr)
-		}
-	}
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
+	attrs = cfg.AllAttrs()
 	for _, field := range restrictedFields {
 		if value, ok := attrs[field]; ok {
 			if serverValue := baseAttrs[field]; value != serverValue {
@@ -203,13 +196,6 @@ func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *con
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
-	}
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot remove controller attributes")
 	}
 
 	cfg, err = provider.PrepareForCreateEnvironment(controllerUUID, cfg)

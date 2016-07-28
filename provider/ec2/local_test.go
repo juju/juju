@@ -301,8 +301,8 @@ func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
 	t.makeTestingDefaultVPCUnavailable(c)
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
-	params.BaseConfig["vpc-id-force"] = true
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.ModelConfig["vpc-id-force"] = true
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
@@ -311,7 +311,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
 	const emptyVPCID = ""
 
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = emptyVPCID
+	params.ModelConfig["vpc-id"] = emptyVPCID
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, emptyVPCID)
 }
@@ -333,14 +333,14 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 
 func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = "none"
+	params.ModelConfig["vpc-id"] = "none"
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, ec2.VPCIDNone)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
@@ -1490,7 +1490,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BaseConfig:       localConfigAttrs,
+			ModelConfig:      localConfigAttrs,
 			ControllerName:   localConfigAttrs["name"].(string),
 			Cloud: environs.CloudSpec{
 				Type:       "ec2",

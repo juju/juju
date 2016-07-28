@@ -26,6 +26,7 @@ func MinimalConfigValues() map[string]interface{} {
 		"type":            "manual",
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ModelTag.Id(),
+		"firewall-mode":   "instance",
 		"bootstrap-host":  "hostname",
 		"bootstrap-user":  "",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need

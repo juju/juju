@@ -157,7 +157,7 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	}
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		BaseConfig:       t.TestConfig,
+		ModelConfig:      t.TestConfig,
 		Cloud: environs.CloudSpec{
 			Type:       t.TestConfig["type"].(string),
 			Name:       t.TestConfig["type"].(string),
@@ -808,7 +808,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":       "dummy storage",
 	})
 	args := t.prepareForBootstrapParams(c)
-	args.BaseConfig = dummyCfg
+	args.ModelConfig = dummyCfg
 	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		args,
@@ -822,7 +822,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":           "livetests",
 		"default-series": other.Series,
 	})
-	args.BaseConfig = attrs
+	args.ModelConfig = attrs
 	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)

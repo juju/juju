@@ -222,7 +222,9 @@ LXC_BRIDGE="ignored"`[1:])
 	newModelCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Add in the cloud attributes.
-	expectedAttrs := modelCfg.AllAttrs()
+	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 

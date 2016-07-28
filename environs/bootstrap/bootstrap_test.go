@@ -712,9 +712,10 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      password,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:          coretesting.FakeControllerConfig(),
+		ControllerInheritedConfig: map[string]interface{}{"ftp-proxy": "http://proxy"},
+		AdminSecret:               password,
+		CAPrivateKey:              coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg := env.instanceConfig
@@ -727,6 +728,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
 	})
+	c.Check(icfg.Bootstrap.ControllerInheritedConfig, gc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
 	controllerCfg := icfg.Controller.Config
 	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
 	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())

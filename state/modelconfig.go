@@ -69,7 +69,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 // ModelConfigValues returns the config values for the model represented
 // by this state.
 func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,7 +94,7 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 	// Figure out the source of each config attribute based
 	// on the current model values and the inherited values.
 	result := make(config.ConfigValues)
-	for attr, val := range modelSettings.Map() {
+	for attr, val := range cfg.AllAttrs() {
 		// Find the source of config for which the model
 		// value matches. If there's a match, the last match
 		// in the search order will be the source of config.
@@ -217,6 +217,8 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 			modelSettings.Delete(k)
 		}
 	}
+	// Some values require marshalling before storage.
+	validAttrs = config.CoerceForStorage(validAttrs)
 
 	modelSettings.Update(validAttrs)
 	_, ops := modelSettings.settingsUpdateOps()
@@ -236,10 +238,16 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
+		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
 		// We will also support local cloud region, tenant, user etc
 	}
 }
+
+const (
+	// controllerInheritedSettingsGlobalKey is the key for default settings shared across models.
+	controllerInheritedSettingsGlobalKey = "controller"
+)
 
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
@@ -278,4 +286,11 @@ func composeModelConfigAttributes(
 	}
 
 	return resultAttrs, nil
+}
+
+// ComposeNewModelConfig returns a complete map of config attributes suitable for
+// creating a new model, by combining user specified values with system defaults.
+func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
+	configSources := modelConfigSources(st)
+	return composeModelConfigAttributes(modelAttr, configSources...)
 }

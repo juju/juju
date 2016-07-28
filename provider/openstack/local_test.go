@@ -1821,7 +1821,7 @@ func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) boo
 	credential := makeCredential(cred)
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		BaseConfig:       attrs,
+		ModelConfig:      attrs,
 		ControllerName:   attrs["name"].(string),
 		Cloud: environs.CloudSpec{
 			Type:       "openstack",

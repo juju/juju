@@ -273,6 +273,16 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
+	st.MethodCall(st, "ComposeNewModelConfig")
+	attr := make(map[string]interface{})
+	for attrName, val := range modelAttr {
+		attr[attrName] = val
+	}
+	attr["something"] = "value"
+	return attr, st.NextErr()
+}
+
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{

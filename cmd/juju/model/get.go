@@ -88,6 +88,14 @@ func (c *getCommand) getAPI() (GetModelAPI, error) {
 	return modelconfig.NewClient(api), nil
 }
 
+func (c *getCommand) isModelAttrbute(attr string) bool {
+	switch attr {
+	case config.NameKey, config.TypeKey, config.UUIDKey:
+		return true
+	}
+	return false
+}
+
 func (c *getCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
@@ -98,6 +106,14 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return err
+	}
+
+	for attrName := range attrs {
+		// We don't want model attributes included, these are available
+		// via show-model.
+		if c.isModelAttrbute(attrName) {
+			delete(attrs, attrName)
+		}
 	}
 
 	if c.key != "" {

@@ -12,9 +12,6 @@ import (
 const (
 	// controllerSettingsGlobalKey is the key for the controller and its settings.
 	controllerSettingsGlobalKey = "controllerSettings"
-
-	// controllerInheritedSettingsGlobalKey is the key for default settings shared across models.
-	controllerInheritedSettingsGlobalKey = "controllerInheritedSettings"
 )
 
 // ControllerConfig returns the config values for the controller.

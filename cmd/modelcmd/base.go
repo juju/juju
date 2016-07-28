@@ -406,7 +406,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
 
-	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
+	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

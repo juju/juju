@@ -7,6 +7,10 @@ package config
 // After a call to UpdateModelConfig, any attributes added/removed
 // will have a source of JujuModelConfigSource.
 const (
+	// JujuDefaultSource is used to label model config attributes that
+	// come from hard coded defaults.
+	JujuDefaultSource = "default"
+
 	// JujuControllerSource is used to label model config attributes that
 	// come from those associated with the controller.
 	JujuControllerSource = "controller"

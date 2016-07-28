@@ -57,7 +57,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),
-			BaseConfig:       cfg.AllAttrs(),
+			ModelConfig:      cfg.AllAttrs(),
 			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},

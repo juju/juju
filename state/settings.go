@@ -226,7 +226,6 @@ func (s *Settings) Write() ([]ItemChange, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.disk = copyMap(s.core, nil)
 	return changes, nil
 }
 
@@ -317,7 +316,7 @@ func readSettings(st *State, collection, key string) (*Settings, error) {
 	return s, nil
 }
 
-var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
+var errSettingsExist = errors.New("cannot overwrite existing settings")
 
 func createSettingsOp(collection, key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)

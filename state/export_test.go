@@ -38,6 +38,7 @@ const (
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
 	GlobalSettingsC   = globalSettingsC
+	SettingsC         = settingsC
 )
 
 var (
@@ -53,6 +54,7 @@ var (
 	ApplicationGlobalKey                 = applicationGlobalKey
 	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
 )
