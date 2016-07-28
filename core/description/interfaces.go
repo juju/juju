@@ -24,7 +24,7 @@ type HasConstraints interface {
 	SetConstraints(ConstraintsArgs)
 }
 
-// HasStatus defines the common methods for setting and getting  status
+// HasStatus defines the common methods for setting and getting status
 // entries for the various entities.
 type HasStatus interface {
 	Status() Status

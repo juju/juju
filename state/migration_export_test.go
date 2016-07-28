@@ -661,7 +661,8 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
-	// We know that the first volume is called "0/0" - although I don't know why.
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
 	volTag := names.NewVolumeTag("0/0")
 	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",

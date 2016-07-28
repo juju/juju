@@ -718,19 +718,22 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 
 	// We know that the first volume is called "0/0" - although I don't know why.
 	volTag := names.NewVolumeTag("0/0")
-	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+	volInfo := state.VolumeInfo{
 		HardwareId: "magic",
 		Size:       1500,
+		Pool:       "loop",
 		VolumeId:   "volume id",
 		Persistent: true,
-	})
+	}
+	err := s.State.SetVolumeInfo(volTag, volInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+	volAttachmentInfo := state.VolumeAttachmentInfo{
 		DeviceName: "device name",
 		DeviceLink: "device link",
 		BusAddress: "bus address",
 		ReadOnly:   true,
-	})
+	}
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -742,20 +745,13 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	// TODO: check storage instance
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.HardwareId, gc.Equals, "magic")
-	c.Check(info.Persistent, jc.IsTrue)
-	c.Check(info.Pool, gc.Equals, "loop")
-	c.Check(info.Size, gc.Equals, uint64(1500))
-	c.Check(info.VolumeId, gc.Equals, "volume id")
+	c.Check(info, jc.DeepEquals, volInfo)
 
 	attachment, err := newSt.VolumeAttachment(machineTag, volTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attInfo, err := attachment.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(attInfo.BusAddress, gc.Equals, "bus address")
-	c.Check(attInfo.DeviceLink, gc.Equals, "device link")
-	c.Check(attInfo.DeviceName, gc.Equals, "device name")
-	c.Check(attInfo.ReadOnly, jc.IsTrue)
+	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
 
 	volTag = names.NewVolumeTag("0/1")
 	volume, err = newSt.Volume(volTag)

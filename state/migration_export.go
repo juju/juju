@@ -1143,6 +1143,9 @@ func (e *exporter) volumes() error {
 			return errors.Trace(err)
 		}
 	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read volumes")
+	}
 	return nil
 }
 
@@ -1166,10 +1169,6 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		logger.Debugf("  params %#v", params)
 		args.Size = params.Size
 		args.Pool = params.Pool
-		// Possibly set the binding and storage if they are unset.
-		if args.Binding == nil {
-			args.Binding = params.binding
-		}
 	}
 
 	globalKey := vol.globalKey()
@@ -1220,6 +1219,9 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
 	return result, nil
