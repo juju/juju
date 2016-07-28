@@ -19,8 +19,7 @@ from textwrap import dedent
 import pexpect
 
 from jujupy import (
-    EnvJujuClient,
-    JujuData,
+    client_from_config,
     )
 from utility import (
     configure_logging,
@@ -96,9 +95,9 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     with temp_dir() as tmp_dir:
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_juju_home), juju_bin, False)
-
+        client = client_from_config('local', juju_bin, False)
+        client.env.juju_home = tmp_juju_home
+        client.env.load_yaml()
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
 
         run_autoload_credentials(
@@ -127,8 +126,9 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
     with temp_dir() as tmp_dir:
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_juju_home), juju_bin, False)
+        client = client_from_config('local', juju_bin, False)
+        client.env.juju_home = tmp_juju_home
+        client.env.load_yaml()
 
         initial_details = cloud_details_fn(
             user, tmp_scratch_dir, client)

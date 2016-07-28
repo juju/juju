@@ -27,6 +27,7 @@ from jujupy import (
 from substrate import (
     AWSAccount,
     AzureAccount,
+    AzureARMAccount,
     convert_to_azure_ids,
     describe_instances,
     destroy_job_instances,
@@ -171,18 +172,17 @@ class TestTerminateInstances(TestCase):
 
     def test_terminate_maas(self):
         env = get_maas_env()
-        with patch('subprocess.check_call') as cc_mock:
-            terminate_instances(env, ['/A/B/C/D/node-3d/'])
-        expected = (
-            ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
-             'a:password:string'],
-        )
-        self.assertEqual(expected, cc_mock.call_args_list[0][0])
-        expected = (['maas', 'mas', 'machine', 'release', 'node-3d'],)
-        self.assertEqual(expected, cc_mock.call_args_list[1][0])
-        expected = (['maas', 'logout', 'mas'],)
-        self.assertEqual(expected, cc_mock.call_args_list[2][0])
-        self.assertEqual(3, len(cc_mock.call_args_list))
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with patch('subprocess.check_output', autospec=True,
+                       return_value='{}') as co_mock:
+                terminate_instances(env, ['/A/B/C/D/node-3d/'])
+        self.assertEquals(cc_mock.call_args_list, [
+            call(['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
+                  'a:password:string']),
+            call(['maas', 'logout', 'mas']),
+        ])
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'machine', 'release', 'node-3d'))
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Deleting /A/B/C/D/node-3d/.\n')
@@ -639,12 +639,6 @@ def make_sms(instance_ids):
     return client
 
 
-def get_azure_config():
-    return {
-        'type': 'azure', 'subscription_id': 'subscription_id',
-        'client_id': 'client_id', 'secret': 'secret', 'tenant': 'tenant'}
-
-
 class TestAzureAccount(TestCase):
 
     def test_manager_from_config(self):
@@ -694,13 +688,53 @@ class TestAzureAccount(TestCase):
         client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
         client.delete_hosted_service.assert_called_once_with('foo')
 
-    @patch('substrate.winazurearm.ARMClient.init_services',
+
+def get_azure_config():
+    return {
+        'type': 'azure',
+        'subscription-id': 'subscription-id',
+        'application-id': 'application-id',
+        'application-password': 'application-password',
+        'tenant-id': 'tenant-id'
+    }
+
+
+class TestAzureARMAccount(TestCase):
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_manager_from_config(self, is_mock):
+        config = get_azure_config()
+        with AzureARMAccount.manager_from_config(config) as substrate:
+            self.assertEqual(
+                substrate.arm_client.subscription_id, 'subscription-id')
+            self.assertEqual(substrate.arm_client.client_id, 'application-id')
+            self.assertEqual(
+                substrate.arm_client.secret, 'application-password')
+            self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
+            is_mock.assert_called_once_with(substrate.arm_client)
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_terminate_instances(self, is_mock):
+        config = get_azure_config()
+        arm_client = ARMClient(
+            config['subscription-id'], config['application-id'],
+            config['application-password'], config['tenant-id'])
+        account = AzureARMAccount(arm_client)
+        with patch('winazurearm.delete_instance', autospec=True) as di_mock:
+            account.terminate_instances(['foo-bar'])
+        di_mock.assert_called_once_with(
+            arm_client, 'foo-bar', resource_group=None)
+
+    @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
-            'subscription_id', 'client_id', 'secret', 'tenant')
+            'subscription-id', 'application-id', 'application-password',
+            'tenant-id')
         group = ResourceGroup(name='juju-controller-model-bar')
         virtual_machine = VirtualMachine('machine-0', 'abcd-1234')
         other_machine = VirtualMachine('machine-1', 'bcde-1234')
@@ -763,17 +797,18 @@ class TestMAASAccount(TestCase):
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_terminate_instances(self, cc_mock):
+    def test_terminate_instances(self):
         config = get_maas_env().config
         account = MAASAccount(
             config['name'], config['maas-server'], config['maas-oauth'])
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
-        account.terminate_instances(instance_ids)
-        cc_mock.assert_any_call(
-            ['maas', 'mas', 'machine', 'release', 'node-1d'])
-        cc_mock.assert_called_with(
-            ['maas', 'mas', 'machine', 'release', 'node-2d'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{}') as co_mock:
+            account.terminate_instances(instance_ids)
+        co_mock.assert_any_call(
+            ('maas', 'mas', 'machine', 'release', 'node-1d'))
+        co_mock.assert_called_with(
+            ('maas', 'mas', 'machine', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
         config = get_maas_env().config
@@ -785,7 +820,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             allocated = account.get_allocated_nodes()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
@@ -798,7 +833,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
@@ -812,7 +847,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual({}, ips)
 
 
@@ -836,17 +871,18 @@ class TestMAAS1Account(TestCase):
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_terminate_instances(self, cc_mock):
+    def test_terminate_instances(self):
         config = get_maas_env().config
         account = MAAS1Account(
             config['name'], config['maas-server'], config['maas-oauth'])
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
-        account.terminate_instances(instance_ids)
-        cc_mock.assert_any_call(
-            ['maas', 'mas', 'node', 'release', 'node-1d'])
-        cc_mock.assert_called_with(
-            ['maas', 'mas', 'node', 'release', 'node-2d'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{}') as co_mock:
+            account.terminate_instances(instance_ids)
+        co_mock.assert_any_call(
+            ('maas', 'mas', 'node', 'release', 'node-1d'))
+        co_mock.assert_called_with(
+            ('maas', 'mas', 'node', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
         config = get_maas_env().config
@@ -858,7 +894,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             allocated = account.get_allocated_nodes()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
@@ -871,7 +907,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
@@ -885,7 +921,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual({}, ips)
 
 
@@ -1011,6 +1047,20 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(open(substrate.service_client.cert_file).read(),
                              'ab\ncd\n')
         self.assertFalse(os.path.exists(substrate.service_client.cert_file))
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_make_substrate_manager_azure_arm(self, is_mock):
+        config = get_azure_config()
+        with make_substrate_manager(config) as substrate:
+            self.assertEqual(
+                substrate.arm_client.subscription_id, 'subscription-id')
+            self.assertEqual(
+                substrate.arm_client.client_id, 'application-id')
+            self.assertEqual(
+                substrate.arm_client.secret, 'application-password')
+            self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
+            is_mock.assert_called_once_with(substrate.arm_client)
 
     def test_make_substrate_manager_other(self):
         config = get_os_config()

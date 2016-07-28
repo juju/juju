@@ -11,11 +11,13 @@ from tempfile import NamedTemporaryFile
 from deploy_stack import (
     BootstrapManager,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    local_charm_path,
 )
 
 
@@ -151,6 +153,7 @@ def parse_args(argv):
                         help='The time to wait for agents to start')
     parser.add_argument('--resource-timeout', type=int, default=1800,
                         help='The time to wait for agents to start')
+
     return parser.parse_args(argv)
 
 

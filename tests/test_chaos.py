@@ -20,21 +20,12 @@ from chaos import (
 from jujupy import (
     EnvJujuClient,
     JujuData,
-    SimpleEnvironment,
     )
 from remote import SSHRemote
 from tests import FakeHomeTestCase
 from test_jujupy import (
     assert_juju_call,
     )
-
-
-def fake_EnvJujuClient_by_version(env, path=None, debug=None):
-    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
-
-
-def fake_SimpleEnvironment_from_config(name):
-    return SimpleEnvironment(name, {})
 
 
 class TestBackgroundChaos(FakeHomeTestCase):
@@ -332,7 +323,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False),
+                call('show-status', '--format', 'yaml', controller=False),
                 call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
                 call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
@@ -348,7 +339,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             monkey_runner.unleash_once()
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False),
+                call('show-status', '--format', 'yaml', controller=False),
                 call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',

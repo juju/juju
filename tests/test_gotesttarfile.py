@@ -24,7 +24,7 @@ class FakePopen(object):
         return None, None
 
 
-class gotesttarfileTestCase(TestCase):
+class GotesttarfileTestCase(TestCase):
 
     def test_run_success(self):
         env = {'a': 'b'}
@@ -69,8 +69,10 @@ class gotesttarfileTestCase(TestCase):
                     returncode = go_test_package(
                         'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        self.assertEqual(run_mock.call_count, 2)
+        self.assertEqual(run_mock.call_count, 3)
         args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'test', '-i', './...'],), args)
+        args, kwargs = run_mock.call_args_list[1]
         self.assertEqual(
             (['go', 'test', '-timeout=1200s', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
@@ -92,8 +94,12 @@ class gotesttarfileTestCase(TestCase):
                             returncode = go_test_package(
                                 'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
+        self.assertEqual(run_mock.call_count, 3)
         args, kwargs = run_mock.call_args_list[0]
-        self.assertEqual(run_mock.call_count, 2)
+        self.assertEqual(
+            (['powershell.exe', '-Command', 'go', 'test', '-i', './...'], ),
+            args)
+        args, kwargs = run_mock.call_args_list[1]
         self.assertEqual(
             (['powershell.exe', '-Command', 'go', 'test',
               '-timeout=1200s', './...'], ),
@@ -105,6 +111,22 @@ class gotesttarfileTestCase(TestCase):
         self.assertEqual(kwargs['env'].get('TEMP'), kwargs['env'].get('TMP'))
         run_mock.assert_called_with(
             ['taskkill.exe', '/F', '/FI', 'imagename eq mongod.exe'])
+
+    def test_go_test_package_compile_failure(self):
+        with temp_dir() as gopath:
+            package_path = os.path.join(
+                gopath, 'src', 'github.com', 'juju', 'juju')
+            os.makedirs(package_path)
+            with patch('gotesttarfile.run', return_value=1,
+                       autospec=True) as run_mock:
+                devnull = open(os.devnull, 'w')
+                with patch('sys.stdout', devnull):
+                    returncode = go_test_package(
+                        'github.com/juju/juju', 'go', gopath)
+        self.assertEqual(1, returncode)
+        self.assertEqual(run_mock.call_count, 1)
+        args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'test', '-i', './...'],), args)
 
     def test_parse_args(self):
         args = parse_args(

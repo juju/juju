@@ -28,7 +28,7 @@ def _get_ssh_script(ip):
 
 
 def _set_charm_store_ip(client, ip):
-    client.get_admin_client().juju('ssh', ('0', _get_ssh_script(ip)))
+    client.get_controller_client().juju('ssh', ('0', _get_ssh_script(ip)))
 
 
 def assess_deploy(client, charm):
