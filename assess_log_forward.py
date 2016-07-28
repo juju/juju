@@ -61,7 +61,7 @@ def assess_log_forward(bs_dummy, bs_rsyslog, upload_tools):
 
 def ensure_enabling_log_forwarding_forwards_previous_messages(rsyslog, dummy):
     """Assert when enabled log forwarding forwards messages from log start."""
-    uuid = get_controller_uuid(dummy)
+    uuid = dummy.get_controller_uuid()
 
     enable_log_forwarding(dummy)
     assert_initial_message_forwarded(rsyslog, uuid)
@@ -161,14 +161,6 @@ def enable_log_forwarding(client):
         ('-m', 'controller', 'logforward-enabled=true'), include_e=False)
 
 
-def get_controller_uuid(client):
-    name = client.env.controller.name
-    output_yaml = client.get_juju_output(
-        'show-controller', '--format', 'yaml', include_e=False)
-    output = yaml.safe_load(output_yaml)
-    return output[name]['details']['uuid']
-
-
 def update_client_config(client, rsyslog_details):
     client.env.config['logforward-enabled'] = False
     client.env.config.update(rsyslog_details)
@@ -180,8 +172,6 @@ def deploy_rsyslog(client):
     :returns: Configuration details needed: cert, ca, key and ip:port.
 
     """
-    # why doesn't the deploy name the application as expected?
-    # app_name = 'rsyslog-sink'
     app_name = 'rsyslog'
     client.deploy('rsyslog', (app_name))
     client.wait_for_started()
