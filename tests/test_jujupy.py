@@ -2278,6 +2278,35 @@ class TestEnvJujuClient(ClientTest):
             controller_name = client.get_controller_model_name()
         self.assertEqual('controller', controller_name)
 
+    def test_get_controller_uuid_returns_uuid(self):
+        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
+        yaml_string = dedent("""\
+        foo:
+          details:
+            uuid: {uuid}
+            api-endpoints: ['10.194.140.213:17070']
+            cloud: lxd
+            region: localhost
+          models:
+            controller:
+              uuid: {uuid}
+            default:
+              uuid: 772cdd39-b454-4bd5-8704-dc9aa9ff1750
+          current-model: default
+          account:
+            user: admin@local
+          bootstrap-config:
+            config:
+            cloud: lxd
+            cloud-type: lxd
+            region: localhost""".format(uuid=controller_uuid))
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=yaml_string):
+            self.assertEqual(
+                client.get_controller_uuid(),
+                controller_uuid
+            )
+
     def test_get_controller_client(self):
         client = EnvJujuClient(
             JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
