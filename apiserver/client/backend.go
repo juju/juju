@@ -63,6 +63,7 @@ type Backend interface {
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error
 	APIHostPorts() ([][]network.HostPort, error)
+	LatestModelMigration() (state.ModelMigration, error)
 }
 
 func NewStateBackend(st *state.State) Backend {
