@@ -21,6 +21,6 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	// Rackspace regions are expected to be uppercase, but Juju
 	// stores and displays them in lowercase in the CLI. Ensure
 	// they're uppercase when they get to the Rackspace API.
-	args.CloudRegion = strings.ToUpper(args.CloudRegion)
+	args.Cloud.Region = strings.ToUpper(args.Cloud.Region)
 	return p.EnvironProvider.BootstrapConfig(args)
 }

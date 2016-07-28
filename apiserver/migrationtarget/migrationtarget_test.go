@@ -15,10 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -36,19 +33,7 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
-	env, err := bootstrap.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
-		jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			ControllerName:   "dummycontroller",
-			BaseConfig:       dummy.SampleConfig(),
-			CloudName:        "dummy",
-			AdminSecret:      "admin-secret",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
+	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
 
 	// The call up to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.

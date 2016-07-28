@@ -6,7 +6,6 @@ package bootstrap
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,26 +30,9 @@ type PrepareParams struct {
 	// ControllerName is the name of the controller being prepared.
 	ControllerName string
 
-	// CloudName is the name of the cloud that the controller is being
-	// prepared for.
-	CloudName string
-
-	// CloudRegion is the name of the region of the cloud to create
-	// the Juju controller in. This will be empty for clouds without
-	// regions.
-	CloudRegion string
-
-	// CloudEndpoint is the location of the primary API endpoint to
-	// use when communicating with the cloud.
-	CloudEndpoint string
-
-	// CloudStorageEndpoint is the location of the API endpoint to use
-	// when communicating with the cloud's storage service. This will
-	// be empty for clouds that have no cloud-specific API endpoint.
-	CloudStorageEndpoint string
-
-	// Credential is the credential to use to bootstrap.
-	Credential cloud.Credential
+	// Cloud is the specification of the cloud that the controller is
+	// being prepared for.
+	Cloud environs.CloudSpec
 
 	// CredentialName is the name of the credential to use to bootstrap.
 	// This will be empty for auto-detected credentials.
@@ -68,7 +50,7 @@ func (p PrepareParams) Validate() error {
 	if p.ControllerName == "" {
 		return errors.NotValidf("empty controller name")
 	}
-	if p.CloudName == "" {
+	if p.Cloud.Name == "" {
 		return errors.NotValidf("empty cloud name")
 	}
 	if p.AdminSecret == "" {
@@ -161,8 +143,7 @@ func prepare(
 	}
 
 	cfg, err = p.BootstrapConfig(environs.BootstrapConfigParams{
-		args.ControllerConfig.ControllerUUID(), cfg, args.Credential, args.CloudRegion,
-		args.CloudEndpoint, args.CloudStorageEndpoint,
+		args.ControllerConfig.ControllerUUID(), args.Cloud, cfg,
 	})
 	if err != nil {
 		return nil, details, errors.Trace(err)
@@ -208,13 +189,13 @@ func prepare(
 	details.User = environs.AdminUser
 	details.Password = args.AdminSecret
 	details.ModelUUID = cfg.UUID()
-	details.ControllerDetails.Cloud = args.CloudName
-	details.ControllerDetails.CloudRegion = args.CloudRegion
-	details.BootstrapConfig.CloudType = cfg.Type()
-	details.BootstrapConfig.Cloud = args.CloudName
-	details.BootstrapConfig.CloudRegion = args.CloudRegion
-	details.CloudEndpoint = args.CloudEndpoint
-	details.CloudStorageEndpoint = args.CloudStorageEndpoint
+	details.ControllerDetails.Cloud = args.Cloud.Name
+	details.ControllerDetails.CloudRegion = args.Cloud.Region
+	details.BootstrapConfig.CloudType = args.Cloud.Type
+	details.BootstrapConfig.Cloud = args.Cloud.Name
+	details.BootstrapConfig.CloudRegion = args.Cloud.Region
+	details.CloudEndpoint = args.Cloud.Endpoint
+	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 
 	return env, details, nil

@@ -4,6 +4,9 @@
 package stateenvirons
 
 import (
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
@@ -12,6 +15,55 @@ import (
 // in terms of a *state.State.
 type EnvironConfigGetter struct {
 	*state.State
+}
+
+// CloudSpec implements environs.EnvironConfigGetter.
+func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+	model, err := g.Model()
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
+
+	cloudName := model.Cloud()
+	regionName := model.CloudRegion()
+	credentialName := model.CloudCredential()
+	modelOwner := model.Owner()
+
+	modelCloud, err := g.Cloud(cloudName)
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
+	if regionName != "" {
+		region, err := cloud.RegionByName(modelCloud.Regions, regionName)
+		if err != nil {
+			return environs.CloudSpec{}, errors.Trace(err)
+		}
+		modelCloud.Endpoint = region.Endpoint
+		modelCloud.StorageEndpoint = region.StorageEndpoint
+	}
+
+	var credential *cloud.Credential
+	if credentialName != "" {
+		credentials, err := g.CloudCredentials(modelOwner, cloudName)
+		if err != nil {
+			return environs.CloudSpec{}, errors.Trace(err)
+		}
+		var ok bool
+		credentialValue, ok := credentials[credentialName]
+		if !ok {
+			return environs.CloudSpec{}, errors.NotFoundf("credential %q", credentialName)
+		}
+		credential = &credentialValue
+	}
+
+	return environs.CloudSpec{
+		modelCloud.Type,
+		cloudName,
+		regionName,
+		modelCloud.Endpoint,
+		modelCloud.StorageEndpoint,
+		credential,
+	}, nil
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,

@@ -1818,15 +1818,19 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 }
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
+	credential := makeCredential(cred)
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		BaseConfig:       attrs,
 		ControllerName:   attrs["name"].(string),
-		Credential:       makeCredential(cred),
-		CloudName:        "openstack",
-		CloudEndpoint:    cred.URL,
-		CloudRegion:      cred.Region,
-		AdminSecret:      testing.AdminSecret,
+		Cloud: environs.CloudSpec{
+			Type:       "openstack",
+			Name:       "openstack",
+			Endpoint:   cred.URL,
+			Region:     cred.Region,
+			Credential: &credential,
+		},
+		AdminSecret: testing.AdminSecret,
 	}
 }
 

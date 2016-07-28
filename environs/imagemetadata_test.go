@@ -52,7 +52,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			BaseConfig:       attrs,
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

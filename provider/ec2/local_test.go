@@ -1477,23 +1477,27 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BaseConfig:       localConfigAttrs,
-			Credential: cloud.NewCredential(
-				cloud.AccessKeyAuthType,
-				map[string]string{
-					"access-key": "x",
-					"secret-key": "x",
-				},
-			),
-			ControllerName: localConfigAttrs["name"].(string),
-			CloudName:      "ec2",
-			CloudRegion:    "test",
-			AdminSecret:    testing.AdminSecret,
+			ControllerName:   localConfigAttrs["name"].(string),
+			Cloud: environs.CloudSpec{
+				Type:       "ec2",
+				Region:     "test",
+				Credential: &credential,
+			},
+			AdminSecret: testing.AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

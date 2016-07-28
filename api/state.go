@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
@@ -243,12 +242,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// Firewaller returns a version of the state that provides functionality
-// required by the firewaller worker.
-func (st *state) Firewaller() *firewaller.State {
-	return firewaller.NewState(st)
 }
 
 // Upgrader returns access to the Upgrader API

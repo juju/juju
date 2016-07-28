@@ -22,6 +22,20 @@ type EnvironProviderSuite struct {
 
 var _ = gc.Suite(&EnvironProviderSuite{})
 
+func (s *EnvironProviderSuite) cloudSpec() environs.CloudSpec {
+	credential := cloud.NewCredential(
+		cloud.OAuth1AuthType,
+		map[string]string{
+			"maas-oauth": "aa:bb:cc",
+		},
+	)
+	return environs.CloudSpec{
+		Type:       "maas",
+		Endpoint:   "http://maas.testing.invalid/maas/",
+		Credential: &credential,
+	}
+}
+
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *gc.C) {
 	const oauth = "aa:bb:cc"
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -47,14 +61,8 @@ func (suite *EnvironProviderSuite) TestCredentialsSetup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        config,
-		CloudEndpoint: "http://maas.testing.invalid/maas/",
-		Credentials: cloud.NewCredential(
-			cloud.OAuth1AuthType,
-			map[string]string{
-				"maas-oauth": "aa:bb:cc",
-			},
-		),
+		Config: config,
+		Cloud:  suite.cloudSpec(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -75,14 +83,8 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        config,
-		CloudEndpoint: "http://maas.testing.invalid/maas/",
-		Credentials: cloud.NewCredential(
-			cloud.OAuth1AuthType,
-			map[string]string{
-				"maas-oauth": "aa:bb:cc",
-			},
-		),
+		Config: config,
+		Cloud:  suite.cloudSpec(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -102,15 +104,12 @@ func (suite *EnvironProviderSuite) TestMAASServerFromEndpoint(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	cloudSpec := suite.cloudSpec()
+	cloudSpec.Endpoint = "maas.testing"
+
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        config,
-		CloudEndpoint: "maas.testing",
-		Credentials: cloud.NewCredential(
-			cloud.OAuth1AuthType,
-			map[string]string{
-				"maas-oauth": "aa:bb:cc",
-			},
-		),
+		Config: config,
+		Cloud:  cloudSpec,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,14 +157,8 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        config,
-		CloudEndpoint: "http://maas.testing.invalid/maas/",
-		Credentials: cloud.NewCredential(
-			cloud.OAuth1AuthType,
-			map[string]string{
-				"maas-oauth": "aa:bb:cc",
-			},
-		),
+		Config: config,
+		Cloud:  suite.cloudSpec(),
 	})
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }

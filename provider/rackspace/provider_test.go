@@ -42,11 +42,15 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
-	args := environs.BootstrapConfigParams{CloudRegion: "dfw"}
+	args := environs.BootstrapConfigParams{
+		Cloud: environs.CloudSpec{
+			Region: "dfw",
+		},
+	}
 	s.provider.BootstrapConfig(args)
 
 	expect := args
-	expect.CloudRegion = "DFW"
+	expect.Cloud.Region = "DFW"
 	s.innerProvider.CheckCalls(c, []testing.StubCall{
 		{"BootstrapConfig", []interface{}{expect}},
 	})

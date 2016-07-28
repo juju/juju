@@ -61,7 +61,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),
 			BaseConfig:       cfg.AllAttrs(),
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

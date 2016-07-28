@@ -43,12 +43,15 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 }
 
 func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
+	credential := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"user": "u", "password": "p"},
+	)
 	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: s.Config,
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{"user": "u", "password": "p"},
-		),
+		Cloud: environs.CloudSpec{
+			Credential: &credential,
+		},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)

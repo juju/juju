@@ -116,11 +116,11 @@ func (p EnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg 
 func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
-		"region":   args.CloudRegion,
-		"auth-url": args.CloudEndpoint,
+		"region":   args.Cloud.Region,
+		"auth-url": args.Cloud.Endpoint,
 	}
-	credentialAttrs := args.Credentials.Attributes()
-	switch authType := args.Credentials.AuthType(); authType {
+	credentialAttrs := args.Cloud.Credential.Attributes()
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
 		// TODO(axw) we need a way of saying to use legacy auth.
 		attrs["username"] = credentialAttrs["username"]

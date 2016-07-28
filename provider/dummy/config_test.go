@@ -35,7 +35,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			BaseConfig:       attrs,
 			ControllerName:   attrs["name"].(string),
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      AdminSecret,
 		},
 	)
@@ -99,7 +99,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 				ControllerConfig: testing.FakeControllerConfig(),
 				ControllerName:   cfg.Name(),
 				BaseConfig:       cfg.AllAttrs(),
-				CloudName:        "dummy",
+				Cloud:            dummy.SampleCloudSpec(),
 				AdminSecret:      AdminSecret,
 			},
 		)

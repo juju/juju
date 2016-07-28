@@ -106,8 +106,11 @@ func GetRebootstrapParamsFunc(cloud string) func(string, *params.BackupsMetadata
 	return func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
 		return &restoreBootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
-			CloudName:        cloud,
-			CloudRegion:      "a-region",
+			Cloud: environs.CloudSpec{
+				Type:   "lxd",
+				Name:   cloud,
+				Region: "a-region",
+			},
 		}, nil
 	}
 }

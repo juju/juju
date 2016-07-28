@@ -85,10 +85,10 @@ func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *c
 // BootstrapConfig is defined by EnvironProvider.
 func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
+	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
 		var err error
-		credentialAttributes := args.Credentials.Attributes()
+		credentialAttributes := args.Cloud.Credential.Attributes()
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"username": credentialAttributes["username"],
 			"password": credentialAttributes["password"],
@@ -101,8 +101,8 @@ func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*co
 	}
 	// Ensure cloud info is in config.
 	cfg, err := cfg.Apply(map[string]interface{}{
-		"region":   args.CloudRegion,
-		"endpoint": args.CloudEndpoint,
+		"region":   args.Cloud.Region,
+		"endpoint": args.Cloud.Endpoint,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

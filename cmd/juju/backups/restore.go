@@ -137,13 +137,9 @@ func (c *restoreCommand) Init(args []string) error {
 
 type restoreBootstrapParams struct {
 	ControllerConfig controller.Config
-	CloudType        string
-	CloudName        string
-	CloudRegion      string
+	Cloud            environs.CloudSpec
 	CredentialName   string
-	Credential       cloud.Credential
 	AdminSecret      string
-	CAPrivateKey     string
 	ModelConfig      *config.Config
 }
 
@@ -207,14 +203,11 @@ func (c *restoreCommand) getRebootstrapParams(
 	controllerCfg[controller.CACertKey] = meta.CACert
 
 	return &restoreBootstrapParams{
-		ControllerConfig: controllerCfg,
-		CloudType:        config.CloudType,
-		CloudName:        config.Cloud,
-		CloudRegion:      config.CloudRegion,
-		CredentialName:   config.Credential,
-		Credential:       params.Credentials,
-		AdminSecret:      adminSecret,
-		ModelConfig:      cfg,
+		controllerCfg,
+		params.Cloud,
+		config.Credential,
+		adminSecret,
+		cfg,
 	}, nil
 }
 
@@ -226,17 +219,17 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
-	cloudParam, err := cloud.CloudByName(params.CloudName)
+	cloudParam, err := cloud.CloudByName(params.Cloud.Name)
 	if errors.IsNotFound(err) {
-		provider, err := environs.Provider(params.CloudName)
+		provider, err := environs.Provider(params.Cloud.Type)
 		if errors.IsNotFound(err) {
-			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", params.CloudName, "juju update-clouds"))
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", params.Cloud.Name, "juju update-clouds"))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
 		detector, ok := provider.(environs.CloudRegionDetector)
 		if !ok {
-			return errors.Errorf("provider %q does not support detecting regions", params.CloudName)
+			return errors.Errorf("provider %q does not support detecting regions", params.Cloud.Type)
 		}
 		var cloudEndpoint string
 		regions, err := detector.DetectRegions()
@@ -246,11 +239,11 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 			// reinterpret the supplied region name as the
 			// cloud's endpoint. This enables the user to
 			// supply, for example, maas/<IP> or manual/<IP>.
-			if params.CloudRegion != "" {
-				cloudEndpoint = params.CloudRegion
+			if params.Cloud.Region != "" {
+				cloudEndpoint = params.Cloud.Region
 			}
 		} else if err != nil {
-			return errors.Annotatef(err, "detecting regions for %q cloud provider", params.CloudName)
+			return errors.Annotatef(err, "detecting regions for %q cloud provider", params.Cloud.Type)
 		}
 		schemas := provider.CredentialSchemas()
 		authTypes := make([]cloud.AuthType, 0, len(schemas))
@@ -258,7 +251,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 			authTypes = append(authTypes, authType)
 		}
 		cloudParam = &cloud.Cloud{
-			Type:      params.CloudName,
+			Type:      params.Cloud.Type,
 			AuthTypes: authTypes,
 			Endpoint:  cloudEndpoint,
 			Regions:   regions,
@@ -304,8 +297,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	details := jujuclient.ControllerDetails{
 		ControllerUUID: params.ControllerConfig.ControllerUUID(),
 		CACert:         meta.CACert,
-		Cloud:          params.CloudName,
-		CloudRegion:    params.CloudRegion,
+		Cloud:          params.Cloud.Name,
+		CloudRegion:    params.Cloud.Region,
 	}
 	err = store.UpdateController(c.ControllerName(), details)
 	if err != nil {
@@ -313,16 +306,12 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	}
 
 	bootVers := version.Current
-	var cred *cloud.Credential
-	if params.Credential.AuthType() != cloud.EmptyAuthType {
-		cred = &params.Credential
-	}
 	args := bootstrap.BootstrapParams{
 		Cloud:               *cloudParam,
-		CloudName:           params.CloudName,
-		CloudRegion:         params.CloudRegion,
+		CloudName:           params.Cloud.Name,
+		CloudRegion:         params.Cloud.Region,
 		CloudCredentialName: params.CredentialName,
-		CloudCredential:     cred,
+		CloudCredential:     params.Cloud.Credential,
 		ModelConstraints:    c.constraints,
 		UploadTools:         c.uploadTools,
 		BuildToolsTarball:   sync.BuildToolsTarball,
