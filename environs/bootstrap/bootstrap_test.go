@@ -276,6 +276,30 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	}
 }
 
+func (s *bootstrapSuite) TestBootstrapUploadTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		UploadTools:      true,
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildToolsTarball: func(ver *version.Number, _ string) (*sync.BuiltTools, error) {
+			c.Logf("BuildToolsTarball version %s", ver)
+			return &sync.BuiltTools{Dir: c.MkDir()}, nil
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the model config has the correct version set.
+	cfg := env.instanceConfig.Bootstrap.ControllerModelConfig
+	agentVersion, valid := cfg.AgentVersion()
+	c.Check(valid, jc.IsTrue)
+	c.Check(agentVersion.String(), gc.Equals, "1.99.0.1")
+}
+
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")

@@ -321,6 +321,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
+	// Make sure we have the most recent environ config as the specified
+	// tools version has been updated there.
+	cfg = environ.Config()
 	if err := finalizeInstanceBootstrapConfig(ctx, instanceConfig, args, cfg, customImageMetadata); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
