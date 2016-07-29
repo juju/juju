@@ -61,6 +61,10 @@ type Facade interface {
 	// migration.
 	SetPhase(coremigration.Phase) error
 
+	// SetStatusMessage sets a human readable message regarding the
+	// progress of a migration.
+	SetStatusMessage(string) error
+
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
@@ -241,55 +245,83 @@ func (w *Worker) killed() bool {
 	}
 }
 
+func (w *Worker) setInfoStatus(s string, a ...interface{}) {
+	w.setStatusAndLog(w.logger.Infof, s, a...)
+}
+
+func (w *Worker) setErrorStatus(s string, a ...interface{}) {
+	w.setStatusAndLog(w.logger.Errorf, s, a...)
+}
+
+func (w *Worker) setStatusAndLog(log func(string, ...interface{}), s string, a ...interface{}) {
+	message := fmt.Sprintf(s, a...)
+	log(message)
+	if err := w.setStatus(message); err != nil {
+		// Setting status isn't critical. If it fails, just logging
+		// the problem here and not passing it upstream makes things a
+		// lot clearer in the caller.
+		w.logger.Errorf("%s", err)
+	}
+}
+
+func (w *Worker) setStatus(message string) error {
+	err := w.config.Facade.SetStatusMessage(message)
+	return errors.Annotate(err, "failed to set status message")
+}
+
 func (w *Worker) doQUIESCE() (coremigration.Phase, error) {
 	// TODO(mjs) - Wait for all agents to report back.
+	// w.setInfoStatus("model quiescing to readonly mode")
 	return coremigration.READONLY, nil
 }
 
 func (w *Worker) doREADONLY() (coremigration.Phase, error) {
 	// TODO(mjs) - To be implemented.
+	// w.setInfoStatus("model in readonly mode")
 	return coremigration.PRECHECK, nil
 }
 
 func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
 	// TODO(mjs) - To be implemented.
+	// w.setInfoStatus("performing prechecks")
 	return coremigration.IMPORT, nil
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	w.logger.Infof("exporting model")
+	err := w.transferModel(targetInfo, modelUUID)
+	if err != nil {
+		w.setErrorStatus("model export failed: %v", err)
+		return coremigration.ABORT, nil
+	}
+	return coremigration.VALIDATION, nil
+}
+
+func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	w.setInfoStatus("exporting model")
 	serialized, err := w.config.Facade.Export()
 	if err != nil {
-		w.logger.Errorf("model export failed: %v", err)
-		return coremigration.ABORT, nil
+		return errors.Annotate(err, "model export failed")
 	}
 
-	w.logger.Infof("opening API connection to target controller")
+	w.setInfoStatus("importing model into target controller")
 	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
-		w.logger.Errorf("failed to connect to target controller: %v", err)
-		return coremigration.ABORT, nil
+		return errors.Annotate(err, "failed to connect to target controller")
 	}
 	defer conn.Close()
-
-	w.logger.Infof("importing model into target controller")
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Import(serialized.Bytes)
 	if err != nil {
-		w.logger.Errorf("failed to import model into target controller: %v", err)
-		return coremigration.ABORT, nil
+		return errors.Annotate(err, "failed to import model into target controller")
 	}
 
-	w.logger.Infof("opening API connection for target model")
+	w.setInfoStatus("uploading model binaries into target controller")
 	targetModelConn, err := w.openAPIConnForModel(targetInfo, modelUUID)
 	if err != nil {
-		w.logger.Errorf("failed to open connection to target model: %v", err)
-		return coremigration.ABORT, nil
+		return errors.Annotate(err, "failed to open connection to target model")
 	}
 	defer targetModelConn.Close()
 	targetModelClient := targetModelConn.Client()
-
-	w.logger.Infof("uploading binaries into target model")
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
@@ -298,12 +330,7 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 		ToolsDownloader: w.config.ToolsDownloader,
 		ToolsUploader:   targetModelClient,
 	})
-	if err != nil {
-		w.logger.Errorf("failed migration binaries: %v", err)
-		return coremigration.ABORT, nil
-	}
-
-	return coremigration.VALIDATION, nil
+	return errors.Annotate(err, "failed migration binaries")
 }
 
 func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
@@ -312,12 +339,14 @@ func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID str
 	// Once all agents have validated, activate the model.
 	err := w.activateModel(targetInfo, modelUUID)
 	if err != nil {
+		w.setErrorStatus("model activation failed %v", err)
 		return coremigration.ABORT, nil
 	}
 	return coremigration.SUCCESS, nil
 }
 
 func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	w.setInfoStatus("activating model in target controller")
 	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Trace(err)
@@ -330,7 +359,7 @@ func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID st
 }
 
 func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.Phase, error) {
-	err := w.waitForMinions(status, waitForAll)
+	err := w.waitForMinions(status, waitForAll, "migration successful")
 	switch errors.Cause(err) {
 	case nil, errMinionReportFailed, errMinionReportTimeout:
 		// There's no turning back from SUCCESS - any problems should
@@ -345,10 +374,12 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 
 func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
 	// TODO(mjs) - To be implemented.
+	// w.setInfoStatus("migration successful: transferring logs to target controller")
 	return coremigration.REAP, nil
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
+	w.setInfoStatus("migration successful: removing model from source controller")
 	err := w.config.Facade.Reap()
 	if err != nil {
 		return coremigration.REAPFAILED, errors.Trace(err)
@@ -357,10 +388,11 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+	w.setInfoStatus("migration aborted: removing model from target controller")
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
-		// efforts attempt.
-		w.logger.Errorf("failed to reverse model import: %v", err)
+		// efforts attempt so just report the error and proceed.
+		w.setErrorStatus("failed to remove model from target controller: %v", err)
 	}
 	return coremigration.ABORTDONE, nil
 }
@@ -418,14 +450,16 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 const failFast = false  // Stop waiting at first minion failure report
 const waitForAll = true // Wait for all minion reports to arrive (or timeout)
 
-var errMinionReportTimeout = errors.New("timed out waiting for all minions to report")
-var errMinionReportFailed = errors.New("one or more minions failed a migration phase")
+var errMinionReportTimeout = errors.New("timed out waiting for all agents to report")
+var errMinionReportFailed = errors.New("one or more agents failed a migration phase")
 
-func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy bool) error {
+func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy bool, infoPrefix string) error {
 	clk := w.config.Clock
 	maxWait := maxMinionWait - clk.Now().Sub(status.PhaseChangedTime)
 	timeout := clk.After(maxWait)
-	w.logger.Infof("waiting for minions to report back for migration phase %s (will wait up to %s)",
+
+	w.setInfoStatus("%s: waiting for agents to report back", infoPrefix)
+	w.logger.Infof("waiting for agents to report back for migration phase %s (will wait up to %s)",
 		status.Phase, truncDuration(maxWait))
 
 	watch, err := w.config.Facade.WatchMinionReports()
@@ -473,7 +507,7 @@ func (w *Worker) waitForMinions(status coremigration.MigrationStatus, waitPolicy
 			}
 
 		case <-logProgress:
-			w.logger.Infof(formatMinionWaitUpdate(reports, status))
+			w.setInfoStatus("%s: ", infoPrefix, formatMinionWaitUpdate(reports))
 			logProgress = clk.After(minionWaitLogInterval)
 		}
 	}
@@ -497,7 +531,7 @@ func validateMinionReports(reports coremigration.MinionReports, status coremigra
 
 func formatMinionTimeout(reports coremigration.MinionReports, status coremigration.MigrationStatus) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no agents reported in time for migration phase %s", status.Phase)
+		return fmt.Sprintf("no agents reported in time")
 	}
 
 	msg := "%s agents failed to report in time for migration phase %s including:"
@@ -521,13 +555,13 @@ func formatMinionFailure(reports coremigration.MinionReports) string {
 	return msg
 }
 
-func formatMinionWaitUpdate(reports coremigration.MinionReports, status coremigration.MigrationStatus) string {
+func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no reports from minions yet for %s", status.Phase)
+		return fmt.Sprintf("no reports from agents yet")
 	}
 
-	msg := fmt.Sprintf("waiting for minions to report for %s: %d succeeded, %d still to report",
-		reports.Phase, reports.SuccessCount, reports.UnknownCount)
+	msg := fmt.Sprintf("waiting for agents to report back: %d succeeded, %d still to report",
+		reports.SuccessCount, reports.UnknownCount)
 	failed := len(reports.FailedMachines) + len(reports.FailedUnits)
 	if failed > 0 {
 		msg += fmt.Sprintf(", %d failed", failed)
@@ -536,7 +570,7 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports, status coremigr
 }
 
 func formatMinionWaitDone(reports coremigration.MinionReports) string {
-	return fmt.Sprintf("completed waiting for minions to report for %s: %d succeeded, %d failed",
+	return fmt.Sprintf("completed waiting for agents to report for %s: %d succeeded, %d failed",
 		reports.Phase, reports.SuccessCount, len(reports.FailedMachines)+len(reports.FailedUnits))
 }
 
