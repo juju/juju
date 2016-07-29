@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/worker"
 )
 
@@ -318,6 +320,13 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 		ops = append(ops, incHostedModelCountOp())
 	}
 
+	// Create the default storage pools for the model.
+	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, defaultStoragePoolsOps...)
+
 	// Create the final map of config attributes for the model.
 	// If we have ControllerInheritedConfig passed in, that means state
 	// is being initialised and there won't be any config sources
@@ -357,6 +366,28 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
+	return ops, nil
+}
+
+func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
+	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(m, registry)
+	for _, providerType := range registry.StorageProviderTypes() {
+		p, err := registry.StorageProvider(providerType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := poolmanager.AddDefaultStoragePools(p, pm); err != nil {
+			return nil, errors.Annotatef(
+				err, "adding default storage pools for %q", providerType,
+			)
+		}
+	}
+
+	var ops []txn.Op
+	for key, settings := range m.Settings {
+		ops = append(ops, createSettingsOp(settingsC, key, settings))
+	}
 	return ops, nil
 }
 

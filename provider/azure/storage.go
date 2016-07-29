@@ -18,13 +18,14 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/storage"
 )
 
 const (
+	azureStorageProviderType = "azure"
+
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
 	//
 	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
@@ -42,9 +43,22 @@ const (
 	vhdExtension = ".vhd"
 )
 
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{azureStorageProviderType}
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == azureStorageProviderType {
+		return &azureStorageProvider{env}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
 // azureStorageProvider is a storage provider for Azure disks.
 type azureStorageProvider struct {
-	environProvider *azureEnvironProvider
+	env *azureEnviron
 }
 
 var _ storage.Provider = (*azureStorageProvider)(nil)
@@ -68,43 +82,42 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	return azureStorageConfig, nil
 }
 
-// ValidateConfig is defined on the Provider interface.
+// ValidateConfig is part of the Provider interface.
 func (e *azureStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newAzureStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 
-// Supports is defined on the Provider interface.
+// Supports is part of the Provider interface.
 func (e *azureStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
-// Scope is defined on the Provider interface.
+// Scope is part of the Provider interface.
 func (e *azureStorageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-// Dynamic is defined on the Provider interface.
+// Dynamic is part of the Provider interface.
 func (e *azureStorageProvider) Dynamic() bool {
 	return true
 }
 
-// VolumeSource is defined on the Provider interface.
-func (e *azureStorageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
+// DefaultPools is part of the Provider interface.
+func (e *azureStorageProvider) DefaultPools() []*storage.Config {
+	return nil
+}
+
+// VolumeSource is part of the Provider interface.
+func (e *azureStorageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	if err := e.ValidateConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := newEnviron(e.environProvider, environConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &azureVolumeSource{env}, nil
+	return &azureVolumeSource{e.env}, nil
 }
 
-// FilesystemSource is defined on the Provider interface.
-func (e *azureStorageProvider) FilesystemSource(
-	environConfig *config.Config, providerConfig *storage.Config,
-) (storage.FilesystemSource, error) {
+// FilesystemSource is part of the Provider interface.
+func (e *azureStorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 

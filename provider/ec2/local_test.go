@@ -647,8 +647,9 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
-	ebsProvider := ec2.EBSProvider()
-	vs, err := ebsProvider.VolumeSource(env.Config(), nil)
+	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),

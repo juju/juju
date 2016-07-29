@@ -4,14 +4,20 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,9 +61,10 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
-			CloudName: "dummy",
-			Owner:     s.owner,
-			Config:    modelCfg,
+			CloudName:               "dummy",
+			Owner:                   s.owner,
+			Config:                  modelCfg,
+			StorageProviderRegistry: provider.CommonStorageProviders(),
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -66,6 +73,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		},
 		MongoInfo:     info,
 		MongoDialOpts: mongotest.DialOpts(),
+		NewPolicy: func(*State) Policy {
+			return internalStatePolicy{}
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
@@ -75,4 +85,26 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+type internalStatePolicy struct{}
+
+func (internalStatePolicy) Prechecker() (Prechecker, error) {
+	return nil, errors.NotImplementedf("Prechecker")
+}
+
+func (internalStatePolicy) ConfigValidator() (config.Validator, error) {
+	return nil, errors.NotImplementedf("ConfigValidator")
+}
+
+func (internalStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+	return nil, errors.NotImplementedf("ConstraintsValidator")
+}
+
+func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
+	return nil, errors.NotImplementedf("InstanceDistributor")
+}
+
+func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	return provider.CommonStorageProviders(), nil
 }

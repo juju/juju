@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -48,6 +49,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		Volumes:     api,
 		Filesystems: api,
 		Life:        api,
+		Registry:    provider.CommonStorageProviders(),
 		Machines:    api,
 		Status:      api,
 		Clock:       config.Clock,

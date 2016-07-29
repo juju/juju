@@ -20,10 +20,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.storageprovisioner")
 
-func init() {
-	common.RegisterStandardFacade("StorageProvisioner", 2, NewStorageProvisionerAPI)
-}
-
 // StorageProvisionerAPI provides access to the Provisioner API facade.
 type StorageProvisionerAPI struct {
 	*common.LifeGetter
@@ -31,10 +27,11 @@ type StorageProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
-	st                       provisionerState
-	settings                 poolmanager.SettingsManager
+	st                       Backend
 	resources                facade.Resources
 	authorizer               facade.Authorizer
+	registry                 storage.ProviderRegistry
+	poolManager              poolmanager.PoolManager
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -42,16 +39,14 @@ type StorageProvisionerAPI struct {
 	getAttachmentAuthFunc    func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
-var getState = func(st *state.State) provisionerState {
-	return stateShim{st}
-}
-
-var getSettingsManager = func(st *state.State) poolmanager.SettingsManager {
-	return state.NewStateSettings(st)
-}
-
 // NewStorageProvisionerAPI creates a new server-side StorageProvisionerAPI facade.
-func NewStorageProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPI, error) {
+func NewStorageProvisionerAPI(
+	st Backend,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	registry storage.ProviderRegistry,
+	poolManager poolmanager.PoolManager,
+) (*StorageProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -159,18 +154,17 @@ func NewStorageProvisionerAPI(st *state.State, resources facade.Resources, autho
 			return false
 		}, nil
 	}
-	stateInterface := getState(st)
-	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
-		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
+		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
+		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
-		st:                       stateInterface,
-		settings:                 settings,
+		st:                       st,
 		resources:                resources,
 		authorizer:               authorizer,
+		registry:                 registry,
+		poolManager:              poolManager,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -554,7 +548,6 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	results := params.VolumeParamsResults{
 		Results: make([]params.VolumeParamsResult, len(args.Entities)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.Entity) (params.VolumeParams, error) {
 		tag, err := names.ParseVolumeTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
@@ -578,7 +571,9 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			return params.VolumeParams{}, err
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelCfg.UUID(), controllerCfg.ControllerUUID(), modelCfg, poolManager)
+			volume, storageInstance, modelCfg.UUID(), controllerCfg.ControllerUUID(),
+			modelCfg, s.poolManager, s.registry,
+		)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
@@ -645,7 +640,6 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 	results := params.FilesystemParamsResults{
 		Results: make([]params.FilesystemParamsResult, len(args.Entities)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.Entity) (params.FilesystemParams, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
@@ -665,7 +659,8 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 			return params.FilesystemParams{}, err
 		}
 		filesystemParams, err := storagecommon.FilesystemParams(
-			filesystem, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(), modelConfig, poolManager,
+			filesystem, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			modelConfig, s.poolManager, s.registry,
 		)
 		if err != nil {
 			return params.FilesystemParams{}, err
@@ -697,7 +692,6 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 	results := params.VolumeAttachmentParamsResults{
 		Results: make([]params.VolumeAttachmentParamsResult, len(args.Ids)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.MachineStorageId) (params.VolumeAttachmentParams, error) {
 		volumeAttachment, err := s.oneVolumeAttachment(arg, canAccess)
 		if err != nil {
@@ -726,7 +720,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
@@ -776,7 +770,6 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 	results := params.FilesystemAttachmentParamsResults{
 		Results: make([]params.FilesystemAttachmentParamsResult, len(args.Ids)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParams, error) {
 		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
 		if err != nil {
@@ -805,7 +798,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}

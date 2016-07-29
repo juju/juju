@@ -246,6 +246,7 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	storage.ProviderRegistry
 	name         string
 	modelUUID    string
 	cloud        environs.CloudSpec
@@ -390,14 +391,6 @@ func (s *environState) listenAPI() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// SetNewStatePolicyFunc sets the state.NewPolicyFunc to use when a
-// controller is initialised by dummy.
-func SetNewStatePolicy(newStatePolicy state.NewPolicyFunc) {
-	dummy.mu.Lock()
-	dummy.newStatePolicy = newStatePolicy
-	dummy.mu.Unlock()
-}
-
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
 func SetSupportsSpaces(supports bool) bool {
 	dummy.mu.Lock()
@@ -538,10 +531,11 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		return nil, err
 	}
 	env := &environ{
-		name:         ecfg.Name(),
-		modelUUID:    args.Config.UUID(),
-		cloud:        args.Cloud,
-		ecfgUnlocked: ecfg,
+		ProviderRegistry: StorageProviders(),
+		name:             ecfg.Name(),
+		modelUUID:        args.Config.UUID(),
+		cloud:            args.Cloud,
+		ecfgUnlocked:     ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -720,12 +714,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					Owner:           names.NewUserTag("admin@local"),
-					Config:          icfg.Bootstrap.ControllerModelConfig,
-					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
-					CloudName:       icfg.Bootstrap.ControllerCloudName,
-					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
-					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
+					Owner:                   names.NewUserTag("admin@local"),
+					Config:                  icfg.Bootstrap.ControllerModelConfig,
+					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:               icfg.Bootstrap.ControllerCloudName,
+					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
+					CloudCredential:         icfg.Bootstrap.ControllerCloudCredentialName,
+					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
 				CloudName:        icfg.Bootstrap.ControllerCloudName,

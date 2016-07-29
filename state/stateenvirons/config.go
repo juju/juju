@@ -5,7 +5,7 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -24,20 +24,28 @@ func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, 
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-
 	cloudName := model.Cloud()
 	regionName := model.CloudRegion()
 	credentialName := model.CloudCredential()
 	modelOwner := model.Owner()
+	return CloudSpec(g.State, cloudName, regionName, credentialName, modelOwner)
+}
 
-	modelCloud, err := g.Cloud(cloudName)
+// CloudSpec returns an environs.CloudSpec from a *state.State,
+// given the cloud, region and credential names.
+func CloudSpec(
+	accessor state.CloudAccessor,
+	cloudName, regionName, credentialName string,
+	credentialOwner names.UserTag,
+) (environs.CloudSpec, error) {
+	modelCloud, err := accessor.Cloud(cloudName)
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
 
 	var credential *cloud.Credential
 	if credentialName != "" {
-		credentials, err := g.CloudCredentials(modelOwner, cloudName)
+		credentials, err := accessor.CloudCredentials(credentialOwner, cloudName)
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}

@@ -32,7 +32,7 @@ var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
+	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender: mocks.NewSender(),
 	})
 }

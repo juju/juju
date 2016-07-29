@@ -99,10 +99,10 @@ type AgentEntity interface {
 	NotifyWatcherFactory
 }
 
-// CloudAccessor defines the methods needed to
-// access cloud information.
+// CloudAccessor defines the methods needed to obtain information
+// about clouds and credentials.
 type CloudAccessor interface {
-	Cloud(string) (cloud.Cloud, error)
+	Cloud(cloud string) (cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloud string) (map[string]cloud.Credential, error)
 }
 

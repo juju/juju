@@ -10,9 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/watcher"
 )
 
@@ -129,19 +127,19 @@ var errNonDynamic = errors.New("non-dynamic storage provider")
 // a map in-between calls to the volume/filesystem/attachment
 // event handlers.
 func volumeSource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	sourceName string,
 	providerType storage.ProviderType,
+	registry storage.ProviderRegistry,
 ) (storage.VolumeSource, error) {
-	provider, sourceConfig, err := sourceParams(providerType, sourceName, baseStorageDir)
+	provider, sourceConfig, err := sourceParams(baseStorageDir, sourceName, providerType, registry)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage source %q params", sourceName)
 	}
 	if !provider.Dynamic() {
 		return nil, errNonDynamic
 	}
-	source, err := provider.VolumeSource(environConfig, sourceConfig)
+	source, err := provider.VolumeSource(sourceConfig)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage source %q", sourceName)
 	}
@@ -156,23 +154,28 @@ func volumeSource(
 // a map in-between calls to the volume/filesystem/attachment
 // event handlers.
 func filesystemSource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	sourceName string,
 	providerType storage.ProviderType,
+	registry storage.ProviderRegistry,
 ) (storage.FilesystemSource, error) {
-	provider, sourceConfig, err := sourceParams(providerType, sourceName, baseStorageDir)
+	provider, sourceConfig, err := sourceParams(baseStorageDir, sourceName, providerType, registry)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage source %q params", sourceName)
 	}
-	source, err := provider.FilesystemSource(environConfig, sourceConfig)
+	source, err := provider.FilesystemSource(sourceConfig)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage source %q", sourceName)
 	}
 	return source, nil
 }
 
-func sourceParams(providerType storage.ProviderType, sourceName, baseStorageDir string) (storage.Provider, *storage.Config, error) {
+func sourceParams(
+	baseStorageDir string,
+	sourceName string,
+	providerType storage.ProviderType,
+	registry storage.ProviderRegistry,
+) (storage.Provider, *storage.Config, error) {
 	provider, err := registry.StorageProvider(providerType)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting provider")

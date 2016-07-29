@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -2240,7 +2238,6 @@ func storageRange(min, max int) string {
 }
 
 func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
@@ -2260,7 +2257,6 @@ func (s *ServiceSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldMeta := mysqlBaseMeta + oneRequiredOneOptionalStorageMeta
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)

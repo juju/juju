@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -87,11 +88,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:           owner,
-			Config:          cfg,
-			CloudName:       "dummy",
-			CloudRegion:     "some-region",
-			CloudCredential: "some-credential",
+			Owner:                   owner,
+			Config:                  cfg,
+			CloudName:               "dummy",
+			CloudRegion:             "some-region",
+			CloudCredential:         "some-credential",
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -172,9 +174,10 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	_, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    modelCfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  modelCfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -208,9 +211,10 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -259,9 +263,10 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -316,9 +321,10 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    bad,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  bad,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -364,9 +370,10 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     names.NewLocalUserTag("initialize-admin"),
-			Config:    modelCfg,
+			CloudName:               "dummy",
+			Owner:                   names.NewLocalUserTag("initialize-admin"),
+			Config:                  modelCfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

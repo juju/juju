@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -20,7 +19,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		volumeParams = append(volumeParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir, volumeParams,
+		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -129,7 +128,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir, volumeAttachmentParams,
+		ctx.config.StorageDir, volumeAttachmentParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -195,7 +194,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 		return errors.Trace(err)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir, volumeParams,
+		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -267,7 +266,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir, volumeAttachmentParams,
+		ctx.config.StorageDir, volumeAttachmentParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -325,9 +324,9 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 
 // volumeParamsBySource separates the volume parameters by volume source.
 func volumeParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.VolumeParams,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.VolumeParams, map[string]storage.VolumeSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -340,7 +339,7 @@ func volumeParamsBySource(
 			continue
 		}
 		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if errors.Cause(err) == errNonDynamic {
 			volumeSource = nil
@@ -381,9 +380,9 @@ func validateVolumeParams(
 
 // volumeAttachmentParamsBySource separates the volume attachment parameters by volume source.
 func volumeAttachmentParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.VolumeAttachmentParams,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.VolumeAttachmentParams, map[string]storage.VolumeSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -398,7 +397,7 @@ func volumeAttachmentParamsBySource(
 			continue
 		}
 		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "getting volume source")

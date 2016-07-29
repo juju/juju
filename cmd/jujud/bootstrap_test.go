@@ -57,7 +57,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -864,28 +863,4 @@ func (m b64yaml) encode() string {
 		panic(err)
 	}
 	return base64.StdEncoding.EncodeToString(data)
-}
-
-func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	settings := state.NewStateSettings(st)
-	pm := poolmanager.New(settings)
-	for _, p := range []string{"ebs-ssd"} {
-		_, err = pm.Get(p)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }

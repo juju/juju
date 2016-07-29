@@ -10,7 +10,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -22,8 +21,10 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		filesystemParams = append(filesystemParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir,
-		filesystemParams, ctx.managedFilesystemSource,
+		ctx.config.StorageDir,
+		filesystemParams,
+		ctx.managedFilesystemSource,
+		ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -124,11 +125,11 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 		filesystemAttachmentParams = append(filesystemAttachmentParams, args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.config.ModelConfig,
 		ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
 		ctx.managedFilesystemSource,
+		ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -194,8 +195,10 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 		return errors.Trace(err)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir,
-		filesystemParams, ctx.managedFilesystemSource,
+		ctx.config.StorageDir,
+		filesystemParams,
+		ctx.managedFilesystemSource,
+		ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -267,10 +270,11 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 		filesystemAttachmentParams = append(filesystemAttachmentParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.config.ModelConfig, ctx.config.StorageDir,
+		ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
 		ctx.managedFilesystemSource,
+		ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -328,10 +332,10 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 
 // filesystemParamsBySource separates the filesystem parameters by filesystem source.
 func filesystemParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.FilesystemParams,
 	managedFilesystemSource storage.FilesystemSource,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.FilesystemParams, map[string]storage.FilesystemSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -348,7 +352,7 @@ func filesystemParamsBySource(
 			continue
 		}
 		filesystemSource, err := filesystemSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if errors.Cause(err) == errNonDynamic {
 			filesystemSource = nil
@@ -390,11 +394,11 @@ func validateFilesystemParams(
 
 // filesystemAttachmentParamsBySource separates the filesystem attachment parameters by filesystem source.
 func filesystemAttachmentParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.FilesystemAttachmentParams,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	managedFilesystemSource storage.FilesystemSource,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.FilesystemAttachmentParams, map[string]storage.FilesystemSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -414,7 +418,7 @@ func filesystemAttachmentParamsBySource(
 			continue
 		}
 		filesystemSource, err := filesystemSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "getting filesystem source")

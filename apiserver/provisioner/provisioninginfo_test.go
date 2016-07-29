@@ -16,17 +16,12 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	storagedummy "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
-	s.registerStorageProviders(c, "static")
-
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -116,35 +111,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		vols[0], vols[1] = vols[1], vols[0]
 	}
 	c.Assert(result, jc.DeepEquals, expected)
-}
-
-func (s *withoutControllerSuite) registerStorageProviders(c *gc.C, names ...string) {
-	types := make([]storage.ProviderType, len(names))
-	for i, name := range names {
-		types[i] = storage.ProviderType(name)
-		if name == "dynamic" {
-			s.registerDynamicStorageProvider(c)
-		} else if name == "static" {
-			s.registerStaticStorageProvider(c)
-		} else {
-			c.Fatalf("unknown storage provider type: %q, expected static or dynamic", name)
-		}
-	}
-	registry.RegisterEnvironStorageProviders("dummy", types...)
-}
-
-func (s *withoutControllerSuite) registerDynamicStorageProvider(c *gc.C) {
-	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider("dynamic", nil)
-	})
-}
-
-func (s *withoutControllerSuite) registerStaticStorageProvider(c *gc.C) {
-	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider("static", nil)
-	})
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraints(c *gc.C) {
@@ -304,14 +270,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 }
 
 func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
-	s.registerStorageProviders(c, "dynamic", "static")
-
 	template := state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "dynamic"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "environscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}

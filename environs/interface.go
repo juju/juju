@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -151,6 +152,12 @@ type ConfigGetter interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
+	// Environ implements storage.ProviderRegistry for acquiring
+	// environ-scoped storage providers supported by the Environ.
+	// StorageProviders returned from Environ.StorageProvider will
+	// be scoped specifically to that Environ.
+	storage.ProviderRegistry
+
 	// PrepareForBootstrap prepares an environment for bootstrapping.
 	//
 	// This will be called very early in the bootstrap procedure, to

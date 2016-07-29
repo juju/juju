@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
@@ -52,17 +52,6 @@ func (s *ConfigSuite) TestMachineScopeStorageDir(c *gc.C) {
 	s.checkNotValid(c, "machine Scope with empty StorageDir not valid")
 }
 
-func (s *ConfigSuite) TestEnvironScopeModelConfig(c *gc.C) {
-	s.config.ModelConfig = nil
-	s.checkNotValid(c, "environ Scope with nil ModelConfig not valid")
-}
-
-func (s *ConfigSuite) TestMachineScopeModelConfig(c *gc.C) {
-	s.config = validMachineConfig()
-	s.config.ModelConfig = &config.Config{}
-	s.checkNotValid(c, "machine Scope with non-nil ModelConfig not valid")
-}
-
 func (s *ConfigSuite) TestNilVolumes(c *gc.C) {
 	s.config.Volumes = nil
 	s.checkNotValid(c, "nil Volumes not valid")
@@ -76,6 +65,11 @@ func (s *ConfigSuite) TestNilFilesystems(c *gc.C) {
 func (s *ConfigSuite) TestNilLife(c *gc.C) {
 	s.config.Life = nil
 	s.checkNotValid(c, "nil Life not valid")
+}
+
+func (s *ConfigSuite) TestNilRegistry(c *gc.C) {
+	s.config.Registry = nil
+	s.checkNotValid(c, "nil Registry not valid")
 }
 
 func (s *ConfigSuite) TestNilMachines(c *gc.C) {
@@ -102,7 +96,6 @@ func (s *ConfigSuite) checkNotValid(c *gc.C, match string) {
 func validEnvironConfig() storageprovisioner.Config {
 	cfg := almostValidConfig()
 	cfg.Scope = coretesting.ModelTag
-	cfg.ModelConfig = &config.Config{}
 	return cfg
 }
 
@@ -125,6 +118,9 @@ func almostValidConfig() storageprovisioner.Config {
 		}{},
 		Life: struct {
 			storageprovisioner.LifecycleManager
+		}{},
+		Registry: struct {
+			storage.ProviderRegistry
 		}{},
 		Machines: struct {
 			storageprovisioner.MachineAccessor

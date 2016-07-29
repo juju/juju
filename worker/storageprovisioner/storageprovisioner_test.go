@@ -13,10 +13,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -26,6 +24,7 @@ import (
 type storageProvisionerSuite struct {
 	coretesting.BaseSuite
 	provider                *dummyProvider
+	registry                storage.ProviderRegistry
 	managedFilesystemSource *mockManagedFilesystemSource
 }
 
@@ -34,10 +33,12 @@ var _ = gc.Suite(&storageProvisionerSuite{})
 func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}
-	registry.RegisterProvider("dummy", s.provider)
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider("dummy", nil)
-	})
+	s.registry = storage.StaticProviderRegistry{
+		map[storage.ProviderType]storage.Provider{
+			"dummy": s.provider,
+		},
+	}
+
 	s.managedFilesystemSource = nil
 	s.PatchValue(
 		storageprovisioner.NewManagedFilesystemSource,
@@ -60,10 +61,10 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Volumes:     newMockVolumeAccessor(),
 		Filesystems: newMockFilesystemAccessor(),
 		Life:        &mockLifecycleManager{},
+		Registry:    s.registry,
 		Machines:    newMockMachineAccessor(c),
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
-		ModelConfig: &config.Config{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,7 +125,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -180,7 +181,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
 		return nil, errors.New("should not be called")
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -220,7 +221,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	args := &workerArgs{volumes: volumeAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -289,7 +290,7 @@ func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -369,7 +370,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	args := &workerArgs{volumes: volumeAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -451,7 +452,7 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -554,6 +555,7 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 		life: &mockLifecycleManager{
 			life: life,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -654,6 +656,7 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 		life: &mockLifecycleManager{
 			life: life,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -721,7 +724,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor}
+	args := &workerArgs{filesystems: filesystemAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -742,7 +745,7 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -762,7 +765,7 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -827,7 +830,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		VolumeTag:  "volume-1",
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -908,7 +911,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		FilesystemTag: "filesystem-1",
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor}
+	args := &workerArgs{filesystems: filesystemAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -946,6 +949,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args := &workerArgs{
 		scope:       names.NewMachineTag("0"),
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1009,6 +1013,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args := &workerArgs{
 		scope:       names.NewMachineTag("0"),
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1068,18 +1073,19 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 	}
 
 	var volumeSource dummyVolumeSource
-	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
+	s.provider.volumeSourceFunc = func(sourceConfig *storage.Config) (storage.VolumeSource, error) {
 		return &volumeSource, nil
 	}
 
 	var filesystemSource dummyFilesystemSource
-	s.provider.filesystemSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+	s.provider.filesystemSourceFunc = func(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
 		return &filesystemSource, nil
 	}
 
 	args := &workerArgs{
 		volumes:     volumeAccessor,
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1120,7 +1126,7 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 		return nil, errors.New("belly up")
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -1143,7 +1149,7 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(
 		return []params.ErrorResult{{Error: &params.Error{Message: "message", Code: "code"}}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() {
 		err := worker.Wait()
@@ -1173,7 +1179,8 @@ func (s *storageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
 	}
 
 	args := &workerArgs{
-		life: &mockLifecycleManager{removeAttachments: removeAttachments},
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
@@ -1246,6 +1253,7 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1313,6 +1321,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1371,7 +1380,8 @@ func (s *storageProvisionerSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	}
 
 	args := &workerArgs{
-		life: &mockLifecycleManager{removeAttachments: removeAttachments},
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
@@ -1444,6 +1454,7 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1494,6 +1505,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1555,6 +1567,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1623,6 +1636,7 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1676,21 +1690,16 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.statusSetter == nil {
 		args.statusSetter = &mockStatusSetter{}
 	}
-	if args.modelConfig == nil {
-		if _, ok := args.scope.(names.ModelTag); ok {
-			args.modelConfig = &config.Config{}
-		}
-	}
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
 		Scope:       args.scope,
 		StorageDir:  storageDir,
 		Volumes:     args.volumes,
 		Filesystems: args.filesystems,
 		Life:        args.life,
+		Registry:    args.registry,
 		Machines:    args.machines,
 		Status:      args.statusSetter,
 		Clock:       args.clock,
-		ModelConfig: args.modelConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return worker
@@ -1701,10 +1710,10 @@ type workerArgs struct {
 	volumes      *mockVolumeAccessor
 	filesystems  *mockFilesystemAccessor
 	life         *mockLifecycleManager
+	registry     storage.ProviderRegistry
 	machines     *mockMachineAccessor
 	clock        clock.Clock
 	statusSetter *mockStatusSetter
-	modelConfig  *config.Config
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {

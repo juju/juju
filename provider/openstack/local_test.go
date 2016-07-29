@@ -56,7 +56,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -159,18 +158,8 @@ type localLiveSuite struct {
 }
 
 func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
-	// Override the cinder storage provider, since there is no test
-	// double for cinder.
-	old, err := registry.StorageProvider(openstack.CinderProviderType)
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterProvider(openstack.CinderProviderType, nil)
-	registry.RegisterProvider(
-		openstack.CinderProviderType,
-		openstack.NewCinderProvider(&mockAdapter{}),
-	)
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider(openstack.CinderProviderType, nil)
-		registry.RegisterProvider(openstack.CinderProviderType, old)
+	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
+		return &mockAdapter{}, nil
 	})
 }
 

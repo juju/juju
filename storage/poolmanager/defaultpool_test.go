@@ -4,36 +4,40 @@
 package poolmanager_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 type defaultStoragePoolsSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&defaultStoragePoolsSuite{})
 
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
-	p1, err := storage.NewConfig("pool1", storage.ProviderType("loop"), map[string]interface{}{"1": "2"})
-	p2, err := storage.NewConfig("pool2", storage.ProviderType("tmpfs"), map[string]interface{}{"3": "4"})
+	p1, err := storage.NewConfig("pool1", storage.ProviderType("whatever"), map[string]interface{}{"1": "2"})
 	c.Assert(err, jc.ErrorIsNil)
-	defaultPools := []*storage.Config{p1, p2}
-	poolmanager.RegisterDefaultStoragePools(defaultPools)
-
-	settings := state.NewStateSettings(s.State)
-	err = poolmanager.AddDefaultStoragePools(settings)
+	p2, err := storage.NewConfig("pool2", storage.ProviderType("whatever"), map[string]interface{}{"3": "4"})
 	c.Assert(err, jc.ErrorIsNil)
-	pm := poolmanager.New(settings)
-	for _, pool := range defaultPools {
-		p, err := pm.Get(pool.Name())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p.Provider(), gc.Equals, pool.Provider())
-		c.Assert(p.Attrs(), gc.DeepEquals, pool.Attrs())
+	provider := &dummystorage.StorageProvider{
+		DefaultPools_: []*storage.Config{p1, p2},
 	}
+
+	settings := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(settings, storage.StaticProviderRegistry{
+		map[storage.ProviderType]storage.Provider{"whatever": provider},
+	})
+
+	err = poolmanager.AddDefaultStoragePools(provider, pm)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(settings.Settings, jc.DeepEquals, map[string]map[string]interface{}{
+		"pool#pool1": map[string]interface{}{"1": "2", "name": "pool1", "type": "whatever"},
+		"pool#pool2": map[string]interface{}{"3": "4", "name": "pool2", "type": "whatever"},
+	})
 }

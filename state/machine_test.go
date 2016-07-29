@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -864,10 +864,9 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
 	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")

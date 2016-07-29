@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
@@ -422,8 +421,8 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc             func(*config.Config, *storage.Config) (storage.VolumeSource, error)
-	filesystemSourceFunc         func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	volumeSourceFunc             func(*storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc         func(*storage.Config) (storage.FilesystemSource, error)
 	createVolumesFunc            func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
 	createFilesystemsFunc        func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
 	attachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
@@ -448,16 +447,16 @@ type dummyFilesystemSource struct {
 	createFilesystemsArgs [][]storage.FilesystemParams
 }
 
-func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (p *dummyProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	if p.volumeSourceFunc != nil {
-		return p.volumeSourceFunc(environConfig, providerConfig)
+		return p.volumeSourceFunc(providerConfig)
 	}
 	return &dummyVolumeSource{provider: p}, nil
 }
 
-func (p *dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *dummyProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	if p.filesystemSourceFunc != nil {
-		return p.filesystemSourceFunc(environConfig, providerConfig)
+		return p.filesystemSourceFunc(providerConfig)
 	}
 	return &dummyFilesystemSource{provider: p}, nil
 }

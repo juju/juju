@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 // environStatePolicy implements state.Policy in
@@ -30,13 +32,13 @@ func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) s
 	}
 }
 
-// Prechecker implements state.Prechecker.
+// Prechecker implements state.Policy.
 func (p environStatePolicy) Prechecker() (state.Prechecker, error) {
 	// Environ implements state.Prechecker.
 	return p.getEnviron(p.st)
 }
 
-// ConfigValidator implements state.Prechecker.
+// ConfigValidator implements state.Policy.
 func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 	model, err := p.st.Model()
 	if err != nil {
@@ -50,7 +52,7 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 	return environs.Provider(cloud.Type)
 }
 
-// ConstraintsValidator implements state.Prechecker.
+// ConstraintsValidator implements state.Policy.
 func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
 	env, err := p.getEnviron(p.st)
 	if err != nil {
@@ -59,7 +61,7 @@ func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error
 	return env.ConstraintsValidator()
 }
 
-// InstanceDistributor implements state.Prechecker.
+// InstanceDistributor implements state.Policy.
 func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 	env, err := p.getEnviron(p.st)
 	if err != nil {
@@ -69,4 +71,19 @@ func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) 
 		return p, nil
 	}
 	return nil, errors.NotImplementedf("InstanceDistributor")
+}
+
+// StorageProviderRegistry implements state.Policy.
+func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	env, err := p.getEnviron(p.st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewStorageProviderRegistry(env), nil
+}
+
+// NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
+// the provided Environ with the common storage providers.
+func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
+	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
 }

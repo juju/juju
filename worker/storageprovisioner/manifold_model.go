@@ -54,10 +54,10 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				Volumes:     api,
 				Filesystems: api,
 				Life:        api,
+				Registry:    environ,
 				Machines:    api,
 				Status:      api,
 				Clock:       clock,
-				ModelConfig: environ.Config(),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

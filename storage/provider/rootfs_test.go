@@ -50,13 +50,13 @@ func (s *rootfsSuite) TestFilesystemSource(c *gc.C) {
 	p := s.rootfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
