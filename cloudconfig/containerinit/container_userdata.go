@@ -6,6 +6,8 @@ package containerinit
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -58,6 +60,18 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 
 var networkInterfacesFile = "/etc/network/interfaces"
 
+func writeList(w io.Writer, prefix string, list []string) {
+	if len(list) > 0 {
+		fmt.Fprintf(w, "%s %s\n", prefix, strings.Join(list, " "))
+	}
+}
+
+func writeString(w io.Writer, prefix, value string) {
+	if value != "" {
+		fmt.Fprintf(w, "%s %s\n", prefix, value)
+	}
+}
+
 // GenerateNetworkConfig renders a network config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
 // Interfaces field.
@@ -67,64 +81,34 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	}
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
+	w := &bytes.Buffer{}
 	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
 
-	var output bytes.Buffer
-	gatewayWritten := false
-	for _, name := range prepared.InterfaceNames {
-		output.WriteString("\n")
-		if name == "lo" {
-			output.WriteString("auto ")
-			autoStarted := strings.Join(prepared.AutoStarted, " ")
-			output.WriteString(autoStarted + "\n\n")
-			output.WriteString("iface lo inet loopback\n")
+	w.WriteString("\n")
+	writeList(w, "auto", prepared.AutoStarted)
+	w.WriteString("\niface lo inet loopback\n")
+	writeList(w, "  dns-nameservers", prepared.DNSServers)
+	writeList(w, "  dns-search", prepared.DNSSearchDomains)
 
-			dnsServers := strings.Join(prepared.DNSServers, " ")
-			if dnsServers != "" {
-				output.WriteString("  dns-nameservers ")
-				output.WriteString(dnsServers + "\n")
-			}
-
-			dnsSearchDomains := strings.Join(prepared.DNSSearchDomains, " ")
-			if dnsSearchDomains != "" {
-				output.WriteString("  dns-search ")
-				output.WriteString(dnsSearchDomains + "\n")
-			}
-			continue
-		}
-
-		address, hasAddress := prepared.NameToAddress[name]
-		if !hasAddress {
-			output.WriteString("iface " + name + " inet manual\n")
-			continue
-		} else if address == string(network.ConfigDHCP) {
-			output.WriteString("iface " + name + " inet dhcp\n")
-			continue
-		}
-
-		output.WriteString("iface " + name + " inet static\n")
-		output.WriteString("  address " + address + "\n")
-		if !gatewayWritten && prepared.GatewayAddress != "" {
-			output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
-			gatewayWritten = true // write it only once
-		}
+	for _, iface := range networkConfig.Interfaces {
+		w.WriteString("\n")
+		fmt.Fprintf(w, "iface %v inet %v\n", iface.InterfaceName, iface.ConfigType)
+		writeString(w, "  address", iface.CIDRAddress())
+		writeString(w, "  gateway", iface.GatewayAddress.Value)
 	}
 
-	generatedConfig := output.String()
-	logger.Debugf("generated network config:\n%s", generatedConfig)
-
+	generatedConfig := w.String()
+	logger.Debugf("generated network config from %#v\nusing%#v:\n%s",
+		networkConfig.Interfaces, prepared, generatedConfig)
 	return generatedConfig, nil
 }
 
 // PreparedConfig holds all the necessary information to render a persistent
 // network config to a file.
 type PreparedConfig struct {
-	InterfaceNames   []string
 	AutoStarted      []string
 	DNSServers       []string
 	DNSSearchDomains []string
-	NameToAddress    map[string]string
-	GatewayAddress   string
 }
 
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
@@ -133,12 +117,8 @@ type PreparedConfig struct {
 func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
-	gatewayAddress := ""
-	namesInOrder := make([]string, 1, len(interfaces)+1)
-	nameToAddress := make(map[string]string)
 
 	// Always include the loopback.
-	namesInOrder[0] = "lo"
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
@@ -146,33 +126,17 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			autoStarted.Add(info.InterfaceName)
 		}
 
-		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[info.InterfaceName] = cidr
-		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
-		}
-
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
 		}
 
 		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
-
-		if info.InterfaceName == "eth0" && gatewayAddress == "" {
-			// Only set gateway once for the primary NIC.
-			gatewayAddress = info.GatewayAddress.Value
-		}
-
-		namesInOrder = append(namesInOrder, info.InterfaceName)
 	}
 
 	prepared := &PreparedConfig{
-		InterfaceNames:   namesInOrder,
-		NameToAddress:    nameToAddress,
 		AutoStarted:      autoStarted.SortedValues(),
 		DNSServers:       dnsServers.SortedValues(),
 		DNSSearchDomains: dnsSearchDomains.SortedValues(),
-		GatewayAddress:   gatewayAddress,
 	}
 
 	logger.Debugf("prepared network config for rendering: %+v", prepared)
