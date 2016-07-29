@@ -1270,6 +1270,7 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
+	c.Skip("issue 1600301: this test only passes by luck")
 	tracker := NewEngineTracker()
 	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
@@ -1298,6 +1299,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
+	c.Skip("issue 1600301: this test only passes by luck")
 	tracker := NewEngineTracker()
 	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, migratingModelWorkers...,
@@ -1339,6 +1341,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
+	c.Skip("issue 1600301: this test only passes by luck")
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	timeout := time.After(ReallyLongWait)
