@@ -34,6 +34,7 @@ type ModelStatusInfo struct {
 	CloudRegion      string `json:"region,omitempty"`
 	Version          string `json:"version"`
 	AvailableVersion string `json:"available-version"`
+	Migration        string `json:"migration,omitempty"`
 }
 
 // MachineStatus holds status info about a machine.

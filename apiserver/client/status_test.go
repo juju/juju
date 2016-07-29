@@ -7,14 +7,18 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -226,6 +230,54 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
 	checkUnitVersion(c, appStatus, unit, "")
+}
+
+func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
+
+	// Create a host model because controller models can't be migrated.
+	state2 := s.Factory.MakeModel(c, nil)
+	defer state2.Close()
+
+	// Get API connection to hosted model.
+	apiInfo := s.APIInfo(c)
+	apiInfo.ModelTag = state2.ModelTag()
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	client := conn.Client()
+
+	checkMigStatus := func(expected string) {
+		status, err := client.Status(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(status.Model.Migration, gc.Equals, expected)
+	}
+
+	// Migration status should be empty when no migration is happening.
+	checkMigStatus("")
+
+	// Start it migrating.
+	mig, err := state2.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check initial message.
+	checkMigStatus("starting")
+
+	// Check status is reported when set.
+	setAndCheckMigStatus := func(message string) {
+		err := mig.SetStatusMessage(message)
+		c.Assert(err, jc.ErrorIsNil)
+		checkMigStatus(message)
+	}
+	setAndCheckMigStatus("proceeding swimmingly")
+	setAndCheckMigStatus("oh noes")
 }
 
 type statusUpgradeUnitSuite struct {
