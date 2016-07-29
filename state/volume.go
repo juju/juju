@@ -746,27 +746,32 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	ops := []txn.Op{
-		createStatusOp(st, volumeGlobalKey(name), statusDoc{
-			Status: status.StatusPending,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			Updated: time.Now().UnixNano(),
-		}),
+	status := statusDoc{
+		Status: status.StatusPending,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+	}
+	doc := volumeDoc{
+		Name:      name,
+		StorageId: params.storage.Id(),
+		Binding:   params.binding.String(),
+		Params:    &params,
+		// Every volume is created with one attachment.
+		AttachmentCount: 1,
+	}
+	return st.newVolumeOps(doc, status), names.NewVolumeTag(name), nil
+}
+
+func (st *State) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
+	return []txn.Op{
+		createStatusOp(st, volumeGlobalKey(doc.Name), status),
 		{
 			C:      volumesC,
-			Id:     name,
+			Id:     doc.Name,
 			Assert: txn.DocMissing,
-			Insert: &volumeDoc{
-				Name:      name,
-				StorageId: params.storage.Id(),
-				Binding:   params.binding.String(),
-				Params:    &params,
-				// Every volume is created with one attachment.
-				AttachmentCount: 1,
-			},
+			Insert: &doc,
 		},
 	}
-	return ops, names.NewVolumeTag(name), nil
 }
 
 func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {

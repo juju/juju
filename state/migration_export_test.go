@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -644,4 +645,86 @@ type goodToken struct{}
 // Check implements leadership.Token
 func (*goodToken) Check(interface{}) error {
 	return nil
+}
+
+func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", "loop")
+	defer registry.ResetEnvironStorageProviders("someprovider")
+
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume: state.VolumeParams{Size: 4000},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 2)
+	provisioned, notProvisioned := volumes[0], volumes[1]
+
+	// TODO: check status
+
+	c.Check(provisioned.Tag(), gc.Equals, volTag)
+	binding, err := provisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(provisioned.Provisioned(), jc.IsTrue)
+	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
+	c.Check(provisioned.Pool(), gc.Equals, "loop")
+	c.Check(provisioned.HardwareID(), gc.Equals, "magic")
+	c.Check(provisioned.VolumeID(), gc.Equals, "volume id")
+	c.Check(provisioned.Persistent(), jc.IsTrue)
+	attachments := provisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	c.Check(notProvisioned.Tag(), gc.Equals, names.NewVolumeTag("0/1"))
+	binding, err = notProvisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
+	c.Check(notProvisioned.Size(), gc.Equals, uint64(4000))
+	c.Check(notProvisioned.Pool(), gc.Equals, "loop")
+	c.Check(notProvisioned.HardwareID(), gc.Equals, "")
+	c.Check(notProvisioned.VolumeID(), gc.Equals, "")
+	c.Check(notProvisioned.Persistent(), jc.IsFalse)
+	attachments = notProvisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment = attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
+	c.Check(attachment.ReadOnly(), jc.IsFalse)
+	c.Check(attachment.DeviceName(), gc.Equals, "")
+	c.Check(attachment.DeviceLink(), gc.Equals, "")
+	c.Check(attachment.BusAddress(), gc.Equals, "")
 }

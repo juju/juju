@@ -634,3 +634,26 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
+
+func (s *ModelSerializationSuite) TestVolumeValidation(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddVolume(testVolumeArgs())
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `volume\[0\]: volume "1234" missing status not valid`)
+}
+
+func (s *ModelSerializationSuite) TestVolumes(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	volume := initial.AddVolume(testVolumeArgs())
+	volume.SetStatus(minimalStatusArgs())
+	volumes := initial.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	c.Assert(volumes[0], gc.Equals, volume)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Volumes(), jc.DeepEquals, volumes)
+}

@@ -56,6 +56,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+		volumesC,
+		volumeAttachmentsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -152,8 +154,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		storageInstancesC,
 		storageAttachmentsC,
 		storageConstraintsC,
-		volumesC,
-		volumeAttachmentsC,
 
 		// actions
 		actionsC,
@@ -637,6 +637,48 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 		"Keys",
 	)
 	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"AttachmentCount", // through count of attachment instances
+		"Binding",
+		"Info",
+		"Params",
+	)
+	todo := set.NewStrings("StorageId")
+	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored).Union(todo))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, VolumeInfo{}, set.NewStrings(
+		"HardwareId", "Size", "Pool", "VolumeId", "Persistent"))
+	s.AssertExportedFields(c, VolumeParams{}, set.NewStrings(
+		"Size", "Pool"))
+}
+
+func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Volume",
+		"Machine",
+		"Info",
+		"Params",
+	)
+	s.AssertExportedFields(c, volumeAttachmentDoc{}, migrated.Union(ignored))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, VolumeAttachmentInfo{}, set.NewStrings(
+		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
+	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
+		"ReadOnly"))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
