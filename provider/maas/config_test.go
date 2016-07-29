@@ -74,6 +74,23 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
+func (*configSuite) TestValidateUpdatesServer(c *gc.C) {
+	server := "maas.testing.invalid/maas/"
+	attrs := map[string]interface{}{
+		"maas-server": server,
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	}
+	oldCfg, err := newConfig(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	newCfg, err := oldCfg.Apply(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+	c.Assert(err, jc.ErrorIsNil)
+	newAttrs := result.AllAttrs()
+	c.Assert(newAttrs["maas-server"].(string), gc.Equals, "http://"+server)
+}
+
 func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",
