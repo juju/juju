@@ -6,6 +6,7 @@ package containerinit
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -56,7 +57,10 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	return userDataFilename, nil
 }
 
-var networkInterfacesFile = "/etc/network/interfaces"
+var (
+	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
+)
 
 // GenerateNetworkConfig renders a network config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
@@ -193,6 +197,8 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	}
 
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+	cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+
 	return cloudConfig, nil
 }
 
@@ -321,4 +327,23 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	cmds = append(cmds, startCommands...)
 
 	return cmds, nil
+}
+
+// raiseJujuNetworkInterfacesScript returns a cloud-init script to
+// raise Juju's network interfaces supplied via cloud-init.
+//
+// Note: we sleep to mitigate against LP #1337873 and LP #1269921.
+func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
+	return fmt.Sprintf(`
+if [ -f %[2]s ]; then
+    ifdown -a
+    sleep 1.5
+    if ifup -a --interfaces=%[2]s; then
+        cp %[1]s %[1]s-orig
+        cp %[2]s %[1]s
+    else
+        ifup -a
+    fi
+fi`[1:],
+		oldInterfacesFile, newInterfacesFile)
 }
