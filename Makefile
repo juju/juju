@@ -46,13 +46,16 @@ godeps:
 endif
 
 build: godeps
-	go build $(PROJECT)/...
+	@echo "go build $(PROJECT)/..."
+	@go build $(shell go list $(PROJECT)/... | grep -v vendor)
 
 check: godeps
-	go test -test.timeout=1200s $(PROJECT)/...
+	@echo "go test -test.timeout=1200s $(PROJECT)/..."
+	@go test -test.timeout=1200s $(shell go list $(PROJECT)/... | grep -v vendor)
 
 install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+	@echo "go install $(INSTALL_FLAGS) -v $(PROJECT)/..."
+	@go install $(INSTALL_FLAGS) -v $(shell go list $(PROJECT)/... | grep -v vendor)
 
 clean:
 	go clean $(PROJECT)/...
