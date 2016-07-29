@@ -140,6 +140,30 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to set phase: blam")
 }
 
+func (s *Suite) TestSetStatusMessage(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.backend.migration.messageSet, gc.Equals, "foo")
+}
+
+func (s *Suite) TestSetStatusMessageNoMigration(c *gc.C) {
+	s.backend.getErr = errors.New("boom")
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Check(err, gc.ErrorMatches, "could not get migration: boom")
+}
+
+func (s *Suite) TestSetStatusMessageError(c *gc.C) {
+	s.backend.migration.setMessageErr = errors.New("blam")
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
+}
+
 func (s *Suite) TestExport(c *gc.C) {
 	s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
@@ -300,6 +324,8 @@ type stubMigration struct {
 	stub          *testing.Stub
 	setPhaseErr   error
 	phaseSet      coremigration.Phase
+	setMessageErr error
+	messageSet    string
 	minionReports *state.MinionReports
 }
 
@@ -338,6 +364,14 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 		return m.setPhaseErr
 	}
 	m.phaseSet = phase
+	return nil
+}
+
+func (m *stubMigration) SetStatusMessage(message string) error {
+	if m.setMessageErr != nil {
+		return m.setMessageErr
+	}
+	m.messageSet = message
 	return nil
 }
 

@@ -48,6 +48,12 @@ type SetMigrationPhaseArgs struct {
 	Phase string `json:"phase"`
 }
 
+// SetMigrationStatusMessageArgs provides a migration status message
+// to the migrationmaster.SetStatusMessage API method.
+type SetMigrationStatusMessageArgs struct {
+	Message string `json:"message"`
+}
+
 // SerializedModel wraps a buffer contain a serialised Juju model. It
 // also contains lists of the charms and tools used in the model.
 type SerializedModel struct {
