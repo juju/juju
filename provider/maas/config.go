@@ -50,6 +50,10 @@ type maasModelConfig struct {
 	attrs map[string]interface{}
 }
 
+func (cfg *maasModelConfig) updateMaasServer(newServer string) {
+	cfg.attrs["maas-server"] = newServer
+}
+
 func (cfg *maasModelConfig) maasServer() string {
 	return cfg.attrs["maas-server"].(string)
 }
@@ -132,9 +136,15 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	envCfg.Config = cfg
 	envCfg.attrs = validated
 	server := envCfg.maasServer()
-	serverURL, err := url.Parse(server)
-	if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
-		return nil, fmt.Errorf("malformed maas-server URL '%v': %s", server, err)
+	serverURL, firstErr := url.Parse(server)
+	if firstErr != nil || serverURL.Scheme == "" || serverURL.Host == "" {
+		var err error
+		serverURL, err := url.Parse("http://" + server)
+		if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
+			return nil, fmt.Errorf("malformed maas-server URL '%v': %s", server, firstErr)
+		}
+		server = "http://" + server
+		envCfg.updateMaasServer(server)
 	}
 	oauth := envCfg.maasOAuth()
 	if strings.Count(oauth, ":") != 2 {
