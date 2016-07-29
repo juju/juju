@@ -117,6 +117,9 @@ func (s *addSuite) TestInit(c *gc.C) {
 			args:   []string{"new-model", "--config", "key=value", "--config", "key2=value2"},
 			name:   "new-model",
 			values: map[string]interface{}{"key": "value", "key2": "value2"},
+		}, {
+			args: []string{"new-model", "extra", "args"},
+			err:  `unrecognized args: \["extra" "args"\]`,
 		},
 	} {
 		c.Logf("test %d", i)

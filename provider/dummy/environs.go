@@ -78,8 +78,10 @@ var errNotPrepared = errors.New("model is not prepared")
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
 	return environs.CloudSpec{
-		Type: "dummy",
-		Name: "dummy",
+		Type:            "dummy",
+		Name:            "dummy",
+		Endpoint:        "dummy-endpoint",
+		StorageEndpoint: "dummy-storage-endpoint",
 	}
 }
 

@@ -24,6 +24,7 @@ func init() {
 	}
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
+	gc.Suite(&CloudAPISuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})

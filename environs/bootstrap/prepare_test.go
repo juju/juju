@@ -95,8 +95,10 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"development":               false,
 			"test-mode":                 true,
 		},
-		Cloud:     "dummy",
-		CloudType: "dummy",
+		Cloud:                "dummy",
+		CloudType:            "dummy",
+		CloudEndpoint:        "dummy-endpoint",
+		CloudStorageEndpoint: "dummy-storage-endpoint",
 	})
 
 	// Check we cannot call Prepare again.

@@ -8,7 +8,7 @@ type Cloud struct {
 	Type            string        `json:"type"`
 	AuthTypes       []string      `json:"auth-types,omitempty"`
 	Endpoint        string        `json:"endpoint,omitempty"`
-	StorageEndpoint string        `json:"endpoint,omitempty"`
+	StorageEndpoint string        `json:"storage-endpoint,omitempty"`
 	Regions         []CloudRegion `json:"regions,omitempty"`
 }
 
@@ -16,7 +16,7 @@ type Cloud struct {
 type CloudRegion struct {
 	Name            string `json:"name"`
 	Endpoint        string `json:"endpoint,omitempty"`
-	StorageEndpoint string `json:"endpoint,omitempty"`
+	StorageEndpoint string `json:"storage-endpoint,omitempty"`
 }
 
 // CloudResult contains a cloud definition or an error.
