@@ -50,7 +50,6 @@ type fakeHAClient struct {
 	numControllers int
 	cons           constraints.Value
 	err            error
-	series         string
 	placement      []string
 	result         params.ControllersChanges
 }
@@ -59,12 +58,10 @@ func (f *fakeHAClient) Close() error {
 	return nil
 }
 
-func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value,
-	series string, placement []string) (params.ControllersChanges, error) {
+func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value, placement []string) (params.ControllersChanges, error) {
 
 	f.numControllers = numControllers
 	f.cons = cons
-	f.series = series
 	f.placement = placement
 
 	if f.err != nil {
@@ -112,7 +109,6 @@ func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 1)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
@@ -137,7 +133,6 @@ func (s *EnableHASuite) TestEnableHAFormatYaml(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 
 	var result map[string][]string
@@ -157,7 +152,6 @@ func (s *EnableHASuite) TestEnableHAFormatJson(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 
 	var result map[string][]string
@@ -166,9 +160,9 @@ func (s *EnableHASuite) TestEnableHAFormatJson(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
-func (s *EnableHASuite) TestEnableHAWithSeries(c *gc.C) {
+func (s *EnableHASuite) TestEnableHAWithFive(c *gc.C) {
 	// Also test with -n 5 to validate numbers other than 1 and 3
-	ctx, err := s.runEnableHA(c, "--series", "series", "-n", "5")
+	ctx, err := s.runEnableHA(c, "-n", "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
@@ -176,7 +170,6 @@ func (s *EnableHASuite) TestEnableHAWithSeries(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 5)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "series")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
@@ -190,7 +183,6 @@ func (s *EnableHASuite) TestEnableHAWithConstraints(c *gc.C) {
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	expectedCons := constraints.MustParse("mem=4G")
 	c.Assert(s.fake.cons, gc.DeepEquals, expectedCons)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
@@ -203,7 +195,6 @@ func (s *EnableHASuite) TestEnableHAWithPlacement(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	expectedPlacement := []string{"valid"}
 	c.Assert(s.fake.placement, gc.DeepEquals, expectedPlacement)
 }
@@ -229,7 +220,6 @@ func (s *EnableHASuite) TestEnableHAAllows0(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
@@ -244,7 +234,6 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *gc.C) {
 
 	c.Assert(s.fake.numControllers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
@@ -272,6 +261,5 @@ converting machines: 1, 2
 
 	c.Check(s.fake.numControllers, gc.Equals, 0)
 	c.Check(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
-	c.Check(s.fake.series, gc.Equals, "")
 	c.Check(len(s.fake.placement), gc.Equals, 2)
 }
