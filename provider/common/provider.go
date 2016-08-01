@@ -37,8 +37,8 @@ func (dp DefaultProvider) DestroyEnv() error {
 
 // SupportedArchitectures returns all the image architectures for env
 // matching the constraints.
-func (dp DefaultProvider) SupportedArchitectures(imageConstraint *imagemetadata.ImageConstraint) ([]string, error) {
-	arches, err := SupportedArchitectures(dp.Env, imageConstraint)
+func (dp DefaultProvider) SupportedArchitectures(imageConstraint *imagemetadata.ImageConstraint, knownArchitectures []string) ([]string, error) {
+	arches, err := SupportedArchitectures(dp.Env, imageConstraint, knownArchitectures)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

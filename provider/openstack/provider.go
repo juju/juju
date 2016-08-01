@@ -184,11 +184,9 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 type Environ struct {
 	name string
 
-	// archMutex gates access to cachedSupportedArchitectures
-	archMutex sync.Mutex
-	// cachedSupportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	cachedSupportedArchitectures []string
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -403,7 +401,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.supportedArchitectures()
+	supportedArches, err := e.supportedArchitectures(e.initialArchitectures)
 	if err != nil {
 		return nil, err
 	}
@@ -422,12 +420,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-func (e *Environ) supportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.cachedSupportedArchitectures != nil {
-		return e.cachedSupportedArchitectures, nil
-	}
+func (e *Environ) supportedArchitectures(knownArchitectures []string) ([]string, error) {
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec, err := e.Region()
 	if err != nil {
@@ -437,8 +430,7 @@ func (e *Environ) supportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    e.Config().ImageStream(),
 	})
-	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.cachedSupportedArchitectures, err
+	return common.SupportedArchitectures(e, imageConstraint, knownArchitectures)
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones

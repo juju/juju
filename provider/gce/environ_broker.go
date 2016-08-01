@@ -35,8 +35,14 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Start a new instance.
+	// This is especially important for bootstrap instance.
+	// There is a window where image metadata may not be available
+	// through traditional search path - database, data sources.
+	// In these cases, the only point of truth is the image
+	// metadata passed in.
+	env.initialArchitectures = imagemetadata.DistictArchitectures(args.ImageMetadata)
 
+	// Start a new instance.
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)

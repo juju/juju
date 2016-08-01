@@ -41,6 +41,12 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	logger.Infof("sigmaEnviron.StartInstance...")
 
+	// This is especially important for bootstrap instance.
+	// There is a window where image metadata may not be available
+	// through traditional search path - database, data sources.
+	// In these cases, the only point of truth is the image
+	// metadata passed in.
+	env.initialArchitectures = imagemetadata.DistictArchitectures(args.ImageMetadata)
 	if args.InstanceConfig == nil {
 		return nil, errors.New("instance configuration is nil")
 	}

@@ -60,14 +60,16 @@ type environ struct {
 	uuid string
 	gce  gceConnection
 
-	lock sync.Mutex // lock protects access to ecfg
+	// lock protects access to ecfg
+	lock sync.Mutex
 	ecfg *environConfig
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
 
-	archLock               sync.Mutex // protects supportedArchitectures
-	supportedArchitectures []string
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 }
 
 // Function entry points defined as variables so they can be overridden

@@ -10,8 +10,9 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 )
 
-// SupportedArchitectures returns all the image architectures for env matching the constraints.
-func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata.ImageConstraint) ([]string, error) {
+// SupportedArchitectures returns distinct image architectures for env
+// matching given constraints.
+func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata.ImageConstraint, knownArchitectures []string) ([]string, error) {
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
@@ -20,9 +21,19 @@ func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata
 	if err != nil {
 		return nil, err
 	}
-	var arches = set.NewStrings()
-	for _, im := range matchingImages {
-		arches.Add(im.Arch)
+
+	result := set.NewStrings(knownArchitectures...)
+	acceptedArchitectures := set.NewStrings(imageConstraint.Arches...)
+	if len(imageConstraint.Arches) != 0 {
+		for _, knownOne := range knownArchitectures {
+			// Only keep architectures that match given constraint.
+			if !acceptedArchitectures.Contains(knownOne) {
+				result.Remove(knownOne)
+			}
+		}
 	}
-	return arches.SortedValues(), nil
+	for _, im := range matchingImages {
+		result.Add(im.Arch)
+	}
+	return result.SortedValues(), nil
 }

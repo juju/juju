@@ -59,11 +59,9 @@ var (
 type environ struct {
 	name string
 
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
@@ -148,12 +146,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) getSupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
+func (e *environ) getSupportedArchitectures(knownArchitectures []string) ([]string, error) {
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec, err := e.Region()
 	if err != nil {
@@ -163,8 +156,7 @@ func (e *environ) getSupportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    e.Config().ImageStream(),
 	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
+	return common.SupportedArchitectures(e, imageConstraint, knownArchitectures)
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -191,7 +183,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.getSupportedArchitectures()
+	supportedArches, err := e.getSupportedArchitectures(e.initialArchitectures)
 	if err != nil {
 		return nil, err
 	}
@@ -382,6 +374,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if args.ControllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
+
+	// This is especially important for bootstrap instance.
+	// There is a window where image metadata may not be available
+	// through traditional search path - database, data sources.
+	// In these cases, the only point of truth is the image metadata passed in.
+	e.initialArchitectures = imagemetadata.DistictArchitectures(args.ImageMetadata)
+
 	var inst *ec2Instance
 	defer func() {
 		if resultErr == nil || inst == nil {

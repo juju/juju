@@ -28,25 +28,17 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	return nil
 }
 
-func (env *environ) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
-	archList, err := env.lookupArchitectures()
+func (env *environ) getSupportedArchitectures(knownArchitectures []string) ([]string, error) {
+	archList, err := env.lookupArchitectures(knownArchitectures)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.supportedArchitectures = archList
 	return archList, nil
 }
 
 var supportedArchitectures = common.SupportedArchitectures
 
-func (env *environ) lookupArchitectures() ([]string, error) {
+func (env *environ) lookupArchitectures(knownArchitectures []string) ([]string, error) {
 	// Create a filter to get all images from our region and for the
 	// correct stream.
 	cloudSpec, err := env.Region()
@@ -57,7 +49,7 @@ func (env *environ) lookupArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    env.Config().ImageStream(),
 	})
-	archList, err := supportedArchitectures(env, imageConstraint)
+	archList, err := supportedArchitectures(env, imageConstraint, knownArchitectures)
 	return archList, errors.Trace(err)
 }
 
@@ -95,7 +87,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// vocab
 
-	supportedArches, err := env.getSupportedArchitectures()
+	supportedArches, err := env.getSupportedArchitectures(env.initialArchitectures)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

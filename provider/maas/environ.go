@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -75,11 +76,9 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 type maasEnviron struct {
 	name string
 
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -242,12 +241,6 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 }
 
 func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
-	env.archMutex.Lock()
-	defer env.archMutex.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
 	fetchArchitectures := env.allArchitecturesWithFallback
 	if env.usingMAAS2() {
 		fetchArchitectures = env.allArchitectures2
@@ -256,8 +249,7 @@ func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.supportedArchitectures = architectures
-	return env.supportedArchitectures, nil
+	return architectures, nil
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -821,6 +813,13 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
 ) {
+	// This is especially important for bootstrap instance.
+	// There is a window where image metadata may not be available
+	// through traditional search path - database, data sources.
+	// In these cases, the only point of truth is the image
+	// metadata passed in.
+	environ.initialArchitectures = imagemetadata.DistictArchitectures(args.ImageMetadata)
+
 	var availabilityZones []string
 	var nodeName string
 	if args.Placement != "" {
