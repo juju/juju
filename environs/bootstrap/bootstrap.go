@@ -488,8 +488,8 @@ func bootstrapImageMetadata(
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Series:    arches,
-		Arches:    allSeries,
+		Series:    allSeries,
+		Arches:    arches,
 		Stream:    environ.Config().ImageStream(),
 	})
 	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
