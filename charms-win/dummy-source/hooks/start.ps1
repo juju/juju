@@ -1,2 +1,2 @@
-juju-log.exe "Started"
+juju-log.exe Started"
 status-set.exe "waiting" "Started"
