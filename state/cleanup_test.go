@@ -94,8 +94,6 @@ func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
 	s.assertCleanupRuns(c)
 	_, _, err = stor.Get(storagePath)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.Charm(ch.URL())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
