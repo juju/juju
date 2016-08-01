@@ -4,5 +4,5 @@ mkdir $path
 $tokenpath = join-path $path token
 relation-get token > $tokenpath
 $current_token = relation-get token
-juju-log.exe Token is $current_token"
+juju-log.exe "Token is $current_token"
 status-set.exe "active" "Token is $current_token"
