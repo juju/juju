@@ -266,17 +266,18 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 	}
 	return func(resourceName string, out interface{}) error {
 		logger.Debugf("%q manifold requested %q resource", name, resourceName)
-		input := workers[resourceName]
-		if input == nil {
-			// No worker running (or not declared).
-			return ErrMissing
+		input, found := workers[resourceName]
+		if !found {
+			return errors.Annotatef(ErrMissing, "%q not declared", resourceName)
+		} else if input == nil {
+			return errors.Annotatef(ErrMissing, "%q not running", resourceName)
 		}
 		convert := outputs[resourceName]
 		if convert == nil {
 			// No conversion func available...
 			if out != nil {
 				// ...and the caller wants a resource.
-				return ErrMissing
+				return errors.Annotatef(ErrMissing, "%q not exposed", resourceName)
 			}
 			// ...but it's ok, because the caller depends on existence only.
 			return nil
@@ -374,7 +375,7 @@ func (engine *engine) gotStopped(name string, err error) {
 		engine.requestStart(name, engine.config.BounceDelay)
 	} else {
 		// If we didn't stop it ourselves, we need to interpret the error.
-		switch err {
+		switch errors.Cause(err) {
 		case nil:
 			// Nothing went wrong; the task completed successfully. Nothing
 			// needs to be done (unless the inputs change, in which case it

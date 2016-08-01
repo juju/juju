@@ -79,7 +79,7 @@ func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mh1.AssertOneStart(c)
 
-	// Install a second independent worker; check the first in untouched.
+	// Install a second independent worker; check the first is untouched.
 	mh2 := newManifoldHarness()
 	err = s.engine.Install("other-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 	err = s.engine.Install("other-task", dependency.Manifold{
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			err := getResource("some-task", nil)
-			c.Check(err, gc.Equals, dependency.ErrMissing)
+			c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 			close(done)
 			// Return a real worker so we don't keep restarting and potentially double-closing.
 			return startMinimalWorker(getResource)
