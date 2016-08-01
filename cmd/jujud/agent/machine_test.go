@@ -1341,12 +1341,11 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
-	c.Skip("issue 1600301: this test only passes by luck")
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	timeout := time.After(ReallyLongWait)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		model, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		watch := model.Watch()
@@ -1366,7 +1365,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 				}
 				c.Assert(err, jc.ErrorIsNil) // guaranteed fail
 			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
+				st.StartSync()
 			case <-timeout:
 				c.Fatalf("timed out waiting for workers")
 			}
