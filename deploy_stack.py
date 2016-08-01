@@ -147,6 +147,8 @@ def check_token(client, token, timeout=120):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
+    logging.info('Waiting for applications to reach ready.')
+    client.wait_for_workloads()
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
     # Update remote with real address if needed.
