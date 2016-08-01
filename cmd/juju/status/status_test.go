@@ -15,14 +15,17 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -34,6 +37,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	coreversion "github.com/juju/juju/version"
 )
 
@@ -3146,6 +3150,63 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
 		}(t)
+	}
+}
+
+func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
+	// This test isn't part of statusTests because migrations can't be
+	// run on controller models.
+
+	const hostedModelName = "hosted"
+	const statusText = "foo bar"
+
+	f := factory.NewFactory(s.BackingState)
+	hostedSt := f.MakeModel(c, &factory.ModelParams{
+		Name: hostedModelName,
+	})
+	defer hostedSt.Close()
+
+	mig, err := hostedSt.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = mig.SetStatusMessage(statusText)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := M{
+		"model": M{
+			"name":       hostedModelName,
+			"controller": "kontroll",
+			"cloud":      "dummy",
+			"version":    "1.2.3",
+			"migration":  statusText,
+		},
+		"machines":     M{},
+		"applications": M{},
+	}
+
+	for _, format := range statusFormats {
+		code, stdout, stderr := runStatus(c, "-m", hostedModelName, "--format", format.name)
+		c.Check(code, gc.Equals, 0)
+		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		// Roundtrip expected through format so that types will match.
+		buf, err := format.marshal(expected)
+		c.Assert(err, jc.ErrorIsNil)
+		var expectedForFormat M
+		err = format.unmarshal(buf, &expectedForFormat)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var actual M
+		c.Assert(format.unmarshal(stdout, &actual), jc.ErrorIsNil)
+		c.Check(actual, jc.DeepEquals, expectedForFormat)
 	}
 }
 
