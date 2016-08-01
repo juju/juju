@@ -65,6 +65,7 @@ from remote import (
     _Remote,
     remote_from_address,
     SSHRemote,
+    winrm,
 )
 from tests import (
     FakeHomeTestCase,
@@ -266,6 +267,90 @@ class DeployStackTestCase(FakeHomeTestCase):
             ['INFO Retrieving token.',
              "INFO Token matches expected 'token'",
              'ERROR juju ssh to unit is broken.'],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_status(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        status = status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status had the token.
+        self.assertEqual(0, remote.cat.call_count)
+        self.assertEqual(
+            ['INFO Retrieving token.',
+             'INFO Waiting for applications to reach ready.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_remote(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        remote.cat.return_value = 'token'
+        status = status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    juju-status:
+                      current: active
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status did not have the token, winrm did.
+        remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
+        self.assertEqual(
+            ['INFO Retrieving token.',
+             'INFO Waiting for applications to reach ready.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_remote_failure(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        remote.cat.side_effect = winrm.exceptions.WinRMTransportError(
+            'a', 'oops')
+        status = status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    juju-status:
+                      current: active
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status did not have the token, winrm did.
+        remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
+        self.assertEqual(
+            ['INFO Retrieving token.',
+             'INFO Waiting for applications to reach ready.',
+             'WARNING Skipping token check because of: '
+                '500 WinRMTransport. oops'],
             self.log_stream.getvalue().splitlines())
 
     log_level = logging.DEBUG
