@@ -84,7 +84,6 @@ def wait_for_model(client, model_name, timeout=60):
 
 
 def test_deployed_mongo_is_up(client):
-    return True                 # Testing for now.
     """Ensure the mongo service is running as expected."""
     try:
         output = client.get_juju_output(
@@ -120,8 +119,8 @@ def ensure_able_to_migrate_model_between_controllers(
     with source_environ.booted_context(upload_tools):
         source_environ.client.enable_feature('migration')
 
-        bundle = 'elasticsearch-cluster'
-        application = 'kibana'
+        bundle = 'mongodb'
+        application = 'mongodb'
 
         log.info('Deploying charm')
         source_environ.client.juju("deploy", (bundle))
@@ -160,9 +159,14 @@ def migrate_model_to_controller(source_environ, dest_environ):
     return migration_target_client
 
 
-def ensure_model_is_functional(client, application='mongodb'):
-    """Add unit to application to ensure the model is functional."""
-    import pdb; pdb.set_trace()
+def ensure_model_is_functional(client, application):
+    """Ensures that the migrated model is functional
+
+    Add unit to application to ensure the model is contactable and working.
+    Ensure that added unit is created on a new machine (check for bug
+    LP:1607599)
+
+    """
     client.juju('add-unit', (application,))
     client.wait_for_started()
 
@@ -174,6 +178,21 @@ def assert_units_on_different_machines(client, application):
     unit_names = status.get_applications()[application]['units'].keys()
     unit_machines = [status.get_unit(u)['machine'] for u in unit_names]
 
+    raise_if_shared_machines(unit_machines)
+
+
+def raise_if_shared_machines(unit_machines):
+    """Raise an exception if `unit_machines` contain double ups of machine ids.
+
+    A unique list of machine ids will be equal in length to the set of those
+    machine ids.
+
+    :raises ValueError: if an empty list is passed in.
+    :raises JujuAssertionError: if any double-ups of machine ids are detected.
+
+    """
+    if not unit_machines:
+        raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
