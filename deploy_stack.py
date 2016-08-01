@@ -131,6 +131,18 @@ GET_TOKEN_SCRIPT = """
     """
 
 
+def get_token_from_status(client):
+    status = client.get_status()
+    unit = status.get_unit('dummy-sink/0')
+    app_status = unit.get('workload-status')
+    if app_status is not None:
+        message = app_status.get('message', '')
+        parts = message.split()
+        if parts:
+            return parts[-1]
+    return None
+
+
 def check_token(client, token, timeout=120):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
@@ -142,10 +154,13 @@ def check_token(client, token, timeout=120):
     start = time.time()
     while True:
         if remote.is_windows():
-            try:
-                result = remote.cat("%ProgramData%\\dummy-sink\\token")
-            except winrm.exceptions.WinRMTransportError as e:
-                print("Skipping token check because of: {}".format(str(e)))
+            result = get_token_from_status(client)
+            if not result:
+                try:
+                    result = remote.cat("%ProgramData%\\dummy-sink\\token")
+                except winrm.exceptions.WinRMTransportError as e:
+                    print("Skipping token check because of: {}".format(str(e)))
+                    return
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
         token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
