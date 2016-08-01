@@ -175,8 +175,7 @@ def ensure_model_is_functional(client, application):
 
 def assert_units_on_different_machines(client, application):
     status = client.get_status()
-    unit_names = status.get_applications()[application]['units'].keys()
-    unit_machines = [status.get_unit(u)['machine'] for u in unit_names]
+    unit_machines = [u[1]['machine'] for u in status.iter_units()]
 
     raise_if_shared_machines(unit_machines)
 
