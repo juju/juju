@@ -113,40 +113,104 @@ def test_deployed_mongo_is_up(client):
     raise AssertionError('Mongo db is not in an expected state.')
 
 
-def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
+def ensure_able_to_migrate_model_between_controllers(
+        source_environ, dest_environ, upload_tools):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application deployed upon it is
     able to continue it's operation after the migration process.
 
+    Given 2 bootstrapped environments:
+      - Deploy an application
+        - ensure it's operating as expected
+      - Migrate that model to the other environment
+        - Ensure it's operating as expected
+        - Add a new unit to the application to ensure the model is functional
+      - Migrate the model back to the original environment
+        - Note: Test for lp:1607457
+        - Ensure it's operating as expected
+        - Add a new unit to the application to ensure the model is functional
+
+
     """
-    with bs1.booted_context(upload_tools):
-        bs1.client.enable_feature('migration')
+    with source_environ.booted_context(upload_tools):
+        source_environ.client.enable_feature('migration')
+
+        bundle = 'mongodb'
+        application = 'mongodb'
 
         log.info('Deploying charm')
-        bs1.client.juju("deploy", ('mongodb'))
-        bs1.client.wait_for_started()
-        test_deployed_mongo_is_up(bs1.client)
+        source_environ.client.juju("deploy", (bundle))
+        source_environ.client.wait_for_started()
+        test_deployed_mongo_is_up(source_environ.client)
 
         log.info('Booting second instance')
-        bs2.client.env.juju_home = bs1.client.env.juju_home
-        with bs2.existing_booted_context(upload_tools):
+        dest_environ.client.env.juju_home = source_environ.client.env.juju_home
+        with dest_environ.existing_booted_context(upload_tools):
             log.info('Initiating migration process')
 
-            bs1.client.controller_juju(
-                'migrate',
-                (bs1.client.env.environment, bs2.client.env.controller.name))
+            migration_target_client = migrate_model_to_controller(
+                source_environ, dest_environ)
 
-            migration_target_client = bs2.client.clone(
-                bs2.client.env.clone(bs1.client.env.environment))
-
-            wait_for_model(migration_target_client, bs1.client.env.environment)
-
-            # For logging purposes
-            migration_target_client.show_status()
-
-            migration_target_client.wait_for_started()
             test_deployed_mongo_is_up(migration_target_client)
+            ensure_model_is_functional(migration_target_client, application)
+
+
+def migrate_model_to_controller(source_environ, dest_environ):
+    source_environ.client.controller_juju(
+        'migrate',
+        (source_environ.client.env.environment,
+         dest_environ.client.env.controller.name))
+
+    migration_target_client = dest_environ.client.clone(
+        dest_environ.client.env.clone(
+            source_environ.client.env.environment))
+
+    wait_for_model(
+        migration_target_client, source_environ.client.env.environment)
+
+    # For logging purposes
+    migration_target_client.show_status()
+    migration_target_client.wait_for_started()
+
+    return migration_target_client
+
+
+def ensure_model_is_functional(client, application):
+    """Ensures that the migrated model is functional
+
+    Add unit to application to ensure the model is contactable and working.
+    Ensure that added unit is created on a new machine (check for bug
+    LP:1607599)
+
+    """
+    client.juju('add-unit', (application,))
+    client.wait_for_started()
+
+    assert_units_on_different_machines(client, application)
+
+
+def assert_units_on_different_machines(client, application):
+    status = client.get_status()
+    unit_machines = [u[1]['machine'] for u in status.iter_units()]
+
+    raise_if_shared_machines(unit_machines)
+
+
+def raise_if_shared_machines(unit_machines):
+    """Raise an exception if `unit_machines` contain double ups of machine ids.
+
+    A unique list of machine ids will be equal in length to the set of those
+    machine ids.
+
+    :raises ValueError: if an empty list is passed in.
+    :raises JujuAssertionError: if any double-ups of machine ids are detected.
+
+    """
+    if not unit_machines:
+        raise ValueError('Cannot share 0 machines. Empty list provided.')
+    if len(unit_machines) != len(set(unit_machines)):
+        raise JujuAssertionError('Appliction units reside on the same machine')
 
 
 def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
