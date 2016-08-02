@@ -47,7 +47,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.networkInterfacesFile = filepath.Join(c.MkDir(), "juju-interfaces")
 	s.systemNetworkInterfacesFile = filepath.Join(c.MkDir(), "system-interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
-		InterfaceName:    "eth0",
+		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
@@ -57,47 +57,47 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 	}, {
-		InterfaceName:    "eth1",
-		CIDR:             "0.1.2.0/24",
+		InterfaceName:    "any1",
+		CIDR:             "0.2.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          network.NewAddress("0.1.2.4"),
+		Address:          network.NewAddress("0.2.2.4"),
 		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		GatewayAddress:   network.NewAddress("0.2.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
 	}, {
-		InterfaceName: "eth2",
+		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
 	}, {
-		InterfaceName: "eth3",
+		InterfaceName: "any3",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   false,
 	}, {
-		InterfaceName: "eth4",
+		InterfaceName: "any4",
 		ConfigType:    network.ConfigManual,
 		NoAutoStart:   true,
 	}}
 	s.expectedSampleConfig = `
-auto eth0 eth1 eth3 lo
+auto any0 any1 any3 lo
 
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
   dns-search bar foo
 
-iface eth0 inet static
+iface any0 inet static
   address 0.1.2.3/24
   gateway 0.1.2.1
 
-iface eth1 inet static
-  address 0.1.2.4/24
+iface any1 inet static
+  address 0.2.2.4/24
 
-iface eth2 inet dhcp
+iface any2 inet dhcp
 
-iface eth3 inet dhcp
+iface any3 inet dhcp
 
-iface eth4 inet manual
+iface any4 inet manual
 `
 	s.expectedSampleUserData = `
 #cloud-config
@@ -105,24 +105,24 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
-  auto eth0 eth1 eth3 lo
+  auto any0 any1 any3 lo
 
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
     dns-search bar foo
 
-  iface eth0 inet static
+  iface any0 inet static
     address 0.1.2.3/24
     gateway 0.1.2.1
 
-  iface eth1 inet static
-    address 0.1.2.4/24
+  iface any1 inet static
+    address 0.2.2.4/24
 
-  iface eth2 inet dhcp
+  iface any2 inet dhcp
 
-  iface eth3 inet dhcp
+  iface any3 inet dhcp
 
-  iface eth4 inet manual
+  iface any4 inet manual
   ' > '%[1]s'
 runcmd:
 - |-
