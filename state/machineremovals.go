@@ -11,8 +11,9 @@ import (
 // machineRemovalDoc stores information needed to clean up provider
 // resources once the machine has been removed.
 type machineRemovalDoc struct {
-	DocID     string `bson:"_id"`
-	MachineID string `bson:"machine-id"`
+	DocID            string               `bson:"_id"`
+	MachineID        string               `bson:"machine-id"`
+	LinkLayerDevices []linkLayerDeviceDoc `bson:"link-layer-devices"`
 }
 
 type MachineRemoval struct {
@@ -28,12 +29,31 @@ func (m *MachineRemoval) MachineID() string {
 	return m.doc.MachineID
 }
 
-func addMachineRemovalOp(machineID string) txn.Op {
-	return txn.Op{
-		C:      machineRemovalsC,
-		Id:     machineID,
-		Insert: &machineRemovalDoc{MachineID: machineID},
+func (m *MachineRemoval) LinkLayerDevices() []*LinkLayerDevice {
+	var result []*LinkLayerDevice
+	for _, deviceDoc := range m.doc.LinkLayerDevices {
+		result = append(result, newLinkLayerDevice(m.st, deviceDoc))
 	}
+	return result
+}
+
+func (m *Machine) machineRemovalOp() (txn.Op, error) {
+	var linkLayerDevices []linkLayerDeviceDoc
+	appendDevice := func(doc *linkLayerDeviceDoc) {
+		linkLayerDevices = append(linkLayerDevices, *doc)
+	}
+	err := m.forEachLinkLayerDeviceDoc(nil, appendDevice)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return txn.Op{
+		C:  machineRemovalsC,
+		Id: m.Id(),
+		Insert: &machineRemovalDoc{
+			MachineID:        m.Id(),
+			LinkLayerDevices: linkLayerDevices,
+		},
+	}, nil
 }
 
 func (st *State) AllMachineRemovals() ([]*MachineRemoval, error) {

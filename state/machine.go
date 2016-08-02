@@ -855,28 +855,32 @@ func (m *Machine) Remove() (err error) {
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.st, m.globalKey()),
-		addMachineRemovalOp(m.Id()),
+	}
+	machineRemovalOp, err := m.machineRemovalOp()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	devicesAddressesOps, err := m.removeAllAddressesOps()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+	ops = append(ops, machineRemovalOp)
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)

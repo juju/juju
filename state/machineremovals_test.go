@@ -19,7 +19,19 @@ var _ = gc.Suite(&MachineRemovalSuite{})
 
 func (s *MachineRemovalSuite) TestAddingAndClearingMachineRemoval(c *gc.C) {
 	m1 := s.makeDeadMachine(c)
-	m2 := s.makeDeadMachine(c)
+	m2 := s.makeDeadMachine(c, state.LinkLayerDeviceArgs{
+		Name:       "kiki",
+		MTU:        2000,
+		ProviderID: "delivery-1",
+		Type:       state.EthernetDevice,
+		MACAddress: "ab:cd:ef:01:23:45",
+	}, state.LinkLayerDeviceArgs{
+		Name:       "jenny",
+		MTU:        2000,
+		ProviderID: "delivery-2",
+		Type:       state.EthernetDevice,
+		MACAddress: "ab:cd:ef:01:23:46",
+	})
 
 	err := m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -29,6 +41,14 @@ func (s *MachineRemovalSuite) TestAddingAndClearingMachineRemoval(c *gc.C) {
 	removals, err := s.State.AllMachineRemovals()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(getMachineIDs(removals), jc.SameContents, []string{m1.Id(), m2.Id()})
+	c.Check(removals[0].LinkLayerDevices(), gc.IsNil)
+
+	devices := removals[1].LinkLayerDevices()
+	c.Assert(len(devices), gc.Equals, 2)
+	c.Check(devices[0].Name(), gc.Equals, "kiki")
+	c.Check(devices[0].MACAddress(), gc.Equals, "ab:cd:ef:01:23:45")
+	c.Check(devices[1].Name(), gc.Equals, "jenny")
+	c.Check(devices[1].MACAddress(), gc.Equals, "ab:cd:ef:01:23:46")
 
 	err = s.State.ClearMachineRemovals([]string{m1.Id()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,8 +94,10 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 	return w, testing.NewNotifyWatcherC(c, st, w)
 }
 
-func (s *MachineRemovalSuite) makeDeadMachine(c *gc.C) *state.Machine {
+func (s *MachineRemovalSuite) makeDeadMachine(c *gc.C, devices ...state.LinkLayerDeviceArgs) *state.Machine {
 	m, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetLinkLayerDevices(devices...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
