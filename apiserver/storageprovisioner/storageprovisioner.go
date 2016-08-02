@@ -28,7 +28,6 @@ func init() {
 type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
-	*common.ModelWatcher
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
@@ -165,7 +164,6 @@ func NewStorageProvisionerAPI(st *state.State, resources facade.Resources, autho
 	return &StorageProvisionerAPI{
 		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
-		ModelWatcher:     common.NewModelWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 

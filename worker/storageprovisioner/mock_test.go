@@ -5,7 +5,6 @@ package storageprovisioner_test
 
 import (
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 )
 
@@ -89,36 +87,6 @@ type mockAttachmentsWatcher struct {
 
 func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.changes
-}
-
-type mockModelAccessor struct {
-	watcher *mockNotifyWatcher
-	mu      sync.Mutex
-	cfg     *config.Config
-}
-
-func (e *mockModelAccessor) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
-	return e.watcher, nil
-}
-
-func (e *mockModelAccessor) ModelConfig() (*config.Config, error) {
-	e.mu.Lock()
-	cfg := e.cfg
-	e.mu.Unlock()
-	return cfg, nil
-}
-
-func (e *mockModelAccessor) setConfig(cfg *config.Config) {
-	e.mu.Lock()
-	e.cfg = cfg
-	e.mu.Unlock()
-}
-
-func newMockModelAccessor(c *gc.C) *mockModelAccessor {
-	return &mockModelAccessor{
-		watcher: newMockNotifyWatcher(),
-		cfg:     testing.ModelConfig(c),
-	}
 }
 
 type mockVolumeAccessor struct {

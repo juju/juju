@@ -1034,36 +1034,6 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestWatchForModelConfigChanges(c *gc.C) {
-	result, err := s.api.WatchForModelConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
-
-	// Verify the resource was registered and stop it when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, watcher)
-
-	// Check that the Watch has consumed the initial events ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// Updating config should trigger the watcher.
-	err = s.State.UpdateModelConfig(map[string]interface{}{"what": "ever"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-}
-
-func (s *provisionerSuite) TestModelConfig(c *gc.C) {
-	stateModelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.api.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(stateModelConfig.AllAttrs()))
-}
-
 func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{

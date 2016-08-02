@@ -48,7 +48,6 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		Volumes:     api,
 		Filesystems: api,
 		Life:        api,
-		Environ:     api,
 		Machines:    api,
 		Status:      api,
 		Clock:       config.Clock,

@@ -22,7 +22,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		filesystemParams = append(filesystemParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.modelConfig, ctx.config.StorageDir,
+		ctx.config.ModelConfig, ctx.config.StorageDir,
 		filesystemParams, ctx.managedFilesystemSource,
 	)
 	if err != nil {
@@ -124,7 +124,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 		filesystemAttachmentParams = append(filesystemAttachmentParams, args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.modelConfig,
+		ctx.config.ModelConfig,
 		ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
@@ -194,7 +194,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 		return errors.Trace(err)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.modelConfig, ctx.config.StorageDir,
+		ctx.config.ModelConfig, ctx.config.StorageDir,
 		filesystemParams, ctx.managedFilesystemSource,
 	)
 	if err != nil {
@@ -267,7 +267,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 		filesystemAttachmentParams = append(filesystemAttachmentParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.modelConfig, ctx.config.StorageDir,
+		ctx.config.ModelConfig, ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
 		ctx.managedFilesystemSource,
