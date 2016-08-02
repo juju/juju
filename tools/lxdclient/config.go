@@ -62,6 +62,8 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 		return cfg, errors.Trace(err)
 	}
 
+	// If the default profile's bridge was never used before, the next call with
+	// also activate it and get its address.
 	remote, err := cfg.Remote.UsingTCP(client.defaultProfileBridgeName)
 	if err != nil {
 		return cfg, errors.Trace(err)
