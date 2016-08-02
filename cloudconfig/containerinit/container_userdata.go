@@ -114,9 +114,8 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 		output.WriteString("  address " + address + "\n")
 		if !gatewayWritten && prepared.GatewayAddress != "" {
 			_, network, err := net.ParseCIDR(address)
-
 			if err != nil {
-				return "", errors.Trace(err)
+				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
 			}
 
 			gatewayIP := net.ParseIP(prepared.GatewayAddress)
