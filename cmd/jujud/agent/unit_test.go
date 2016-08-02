@@ -409,9 +409,7 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
-	id := a.Tag().String()
-	checkNotMigrating := EngineMatchFunc(c, tracker, append(
-		alwaysUnitWorkers, notMigratingUnitWorkers...,
-	))
-	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+		append(alwaysUnitWorkers, notMigratingUnitWorkers...))
+	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }

@@ -1236,81 +1236,50 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
-	id := a.Tag().String()
-	checkNotMigrating := EngineMatchFunc(c, tracker, append(
-		alwaysMachineWorkers, notMigratingMachineWorkers...,
-	))
-	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
+	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
+	uuid := s.BackingState.ModelUUID()
+
 	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, aliveModelWorkers...,
-	))
 	instrumented := TrackModels(c, tracker, modelManifolds)
 	s.PatchValue(&modelManifolds, instrumented)
 
-	uuid := s.BackingState.ModelUUID()
-	timeout := time.After(coretesting.LongWait)
-
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, aliveModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	c.Skip("issue 1600301: this test only passes by luck")
-	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, aliveModelWorkers...,
-	))
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
-
+	c.Skip("issue 1600301")
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(ReallyLongWait)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	tracker := NewEngineTracker()
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
+
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, aliveModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
-	c.Skip("issue 1600301: this test only passes by luck")
-	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, migratingModelWorkers...,
-	))
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
-
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(ReallyLongWait)
+
+	tracker := NewEngineTracker()
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
 	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
@@ -1325,26 +1294,18 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, migratingModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
-	timeout := time.After(ReallyLongWait)
 
+	timeout := time.After(ReallyLongWait)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		model, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1384,23 +1345,12 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
 	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, alwaysModelWorkers)
 	instrumented := TrackModels(c, tracker, modelManifolds)
 	s.PatchValue(&modelManifolds, instrumented)
 
-	timeout := time.After(coretesting.LongWait)
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
