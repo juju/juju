@@ -1005,6 +1005,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		systemID:     "foo",
 	}
 	controller := &fakeController{
+		Stub: &testing.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
 			Stub:         &testing.Stub{},
 			systemID:     "1",
@@ -1160,6 +1161,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		Stub:         &testing.Stub{},
 	}
 	controller := &fakeController{
+		Stub: &testing.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
 			Stub:         &testing.Stub{},
 			systemID:     "1",
@@ -1666,4 +1668,63 @@ func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
+	dev1 := newFakeDeviceWithMAC("eleven")
+	dev2 := newFakeDeviceWithMAC("will")
+	controller := newFakeController()
+	controller.devices = []gomaasapi.Device{dev1, dev2}
+
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+		{MACAddress: "will"},
+		{MACAddress: "dustin"},
+		{MACAddress: "eleven"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	c.Assert(ok, jc.IsTrue)
+	expected := gomaasapi.DevicesArgs{MACAddresses: []string{"will", "dustin", "eleven"}}
+	c.Assert(args, gc.DeepEquals, expected)
+
+	dev1.CheckCallNames(c, "Delete")
+	dev2.CheckCallNames(c, "Delete")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *gc.C) {
+	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{{MACAddress: "anything"}})
+	c.Assert(err, gc.ErrorMatches, "Everything done broke")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice(c *gc.C) {
+	dev1 := newFakeDeviceWithMAC("eleven")
+	dev1.systemID = "hopper"
+	dev1.SetErrors(errors.New("don't delete me"))
+	controller := newFakeController()
+	controller.devices = []gomaasapi.Device{dev1}
+
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+		{MACAddress: "eleven"},
+	})
+	c.Assert(err, gc.ErrorMatches, "deleting device hopper: don't delete me")
+
+	_, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	c.Assert(ok, jc.IsTrue)
+
+	dev1.CheckCallNames(c, "Delete")
+}
+
+func newFakeDeviceWithMAC(macAddress string) *fakeDevice {
+	return &fakeDevice{
+		Stub: &testing.Stub{},
+		interface_: &fakeInterface{
+			Stub:       &testing.Stub{},
+			macAddress: macAddress,
+		},
+	}
 }

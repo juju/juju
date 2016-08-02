@@ -46,6 +46,10 @@ type Networking interface {
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
 	AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
+
+	// ReleaseContainerAddresses releases the previously allocated
+	// addresses matching the interface infos passed in.
+	ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
