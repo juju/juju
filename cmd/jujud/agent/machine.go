@@ -806,37 +806,11 @@ func (a *MachineAgent) updateSupportedContainers(
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	modelUUID, err := st.ModelTag()
-	if err != nil {
-		return err
-	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	// There may not be a CA certificate private key available, and without
-	// it we can't ensure that other Juju nodes can connect securely, so only
-	// use an image URL getter if there's a private key.
-	var imageURLGetter container.ImageURLGetter
-	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		cfg, err := pr.ModelConfig()
-		if err != nil {
-			return errors.Annotate(err, "unable to get environ config")
-		}
-		imageURLGetter = container.NewImageURLGetter(
-			// Explicitly call the non-named constructor so if anyone
-			// adds additional fields, this fails.
-			container.ImageURLGetterConfig{
-				ServerRoot:        st.Addr(),
-				ModelUUID:         modelUUID.Id(),
-				CACert:            []byte(agentConfig.CACert()),
-				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
-				Stream:            cfg.ImageStream(),
-				ImageDownloadFunc: container.ImageDownloadURL,
-			})
-	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: containers,
-		ImageURLGetter:      imageURLGetter,
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,

@@ -46,7 +46,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		}
 
 		conf := container.ManagerConfig{container.ConfigModelUUID: testing.ModelTag.Id()}
-		manager, err := factory.NewContainerManager(test.containerType, conf, nil)
+		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(manager, gc.NotNil)

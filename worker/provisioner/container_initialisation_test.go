@@ -5,14 +5,12 @@ package provisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"runtime"
 	"sync/atomic"
 	"time"
 
 	"github.com/juju/mutex"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
@@ -26,7 +24,6 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/container"
-	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -90,7 +87,6 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
-	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
@@ -104,7 +100,6 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: instance.ContainerTypes,
-		ImageURLGetter:      &containertesting.MockURLGetter{},
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              cfg,
@@ -120,7 +115,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 }
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
-	inst := s.checkStartInstanceNoSecureConnection(c, host)
+	inst := s.checkStartInstance(c, host)
 	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
 
 	// make a container on the host machine
@@ -361,26 +356,6 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = handler.Handle(abort, []string{"0/lxd/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
-}
-
-func AssertFileContains(c *gc.C, filename string, expectedContent ...string) {
-	// TODO(dimitern): We should put this in juju/testing repo and
-	// replace all similar checks with it.
-	data, err := ioutil.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, s := range expectedContent {
-		c.Assert(string(data), jc.Contains, s)
-	}
-}
-
-func AssertFileContents(c *gc.C, checker gc.Checker, filename string, expectedContent ...string) {
-	// TODO(dimitern): We should put this in juju/testing repo and
-	// replace all similar checks with it.
-	data, err := ioutil.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, s := range expectedContent {
-		c.Assert(string(data), checker, s)
-	}
 }
 
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)
