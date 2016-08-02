@@ -64,7 +64,10 @@ func (c *signMetadataCommand) Init(args []string) error {
 }
 
 func (c *signMetadataCommand) Run(context *cmd.Context) error {
-	loggo.RegisterWriter("signmetadata", cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("signmetadata", writer)
 	defer loggo.RemoveWriter("signmetadata")
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {

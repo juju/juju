@@ -34,7 +34,7 @@ func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// BaseSuite turns off wrench so restore the non-testing default.
 	wrench.SetEnabled(true)
-	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter, loggo.TRACE), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter), gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		s.logWriter.Clear()
 		loggo.RemoveWriter("wrench-tests")

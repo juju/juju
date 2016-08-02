@@ -195,7 +195,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.TRACE), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	logger := loggo.GetLogger("juju.environs")
 	defer logger.SetLogLevel(logger.LogLevel())

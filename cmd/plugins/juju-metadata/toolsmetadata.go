@@ -95,7 +95,10 @@ func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
-	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("toolsmetadata", writer)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
 		c.metadataDir = osenv.JujuXDGDataHome()

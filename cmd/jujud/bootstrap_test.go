@@ -178,7 +178,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -205,7 +205,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -226,7 +226,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -242,7 +242,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 

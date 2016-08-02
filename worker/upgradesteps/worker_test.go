@@ -90,7 +90,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
-	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter, loggo.INFO), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter), gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		loggo.RemoveWriter("upgrade-tests")
 		s.logWriter.Clear()

@@ -60,7 +60,8 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.password = password
 
 	s.logs.Clear()
-	c.Assert(loggo.RegisterWriter("logsink-tests", &s.logs, loggo.INFO), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
+	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
