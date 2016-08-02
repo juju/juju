@@ -225,6 +225,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
 		})),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
