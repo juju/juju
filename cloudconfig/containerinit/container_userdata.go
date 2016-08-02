@@ -75,7 +75,7 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
 
 	var output bytes.Buffer
-	gatewayWritten := false
+	gatewayHandled := false
 	for _, name := range prepared.InterfaceNames {
 		output.WriteString("\n")
 		if name == "lo" {
@@ -106,13 +106,13 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 			output.WriteString("iface " + name + " inet dhcp\n")
 			// We're expecting to get a default gateway
 			// from the DHCP lease.
-			gatewayWritten = true
+			gatewayHandled = true
 			continue
 		}
 
 		output.WriteString("iface " + name + " inet static\n")
 		output.WriteString("  address " + address + "\n")
-		if !gatewayWritten && prepared.GatewayAddress != "" {
+		if !gatewayHandled && prepared.GatewayAddress != "" {
 			_, network, err := net.ParseCIDR(address)
 			if err != nil {
 				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
@@ -121,7 +121,7 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 			gatewayIP := net.ParseIP(prepared.GatewayAddress)
 			if network.Contains(gatewayIP) {
 				output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
-				gatewayWritten = true // write it only once
+				gatewayHandled = true // write it only once
 			}
 		}
 	}
@@ -129,7 +129,7 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	generatedConfig := output.String()
 	logger.Debugf("generated network config:\n%s", generatedConfig)
 
-	if !gatewayWritten {
+	if !gatewayHandled {
 		logger.Infof("generated network config has no gateway")
 	}
 
