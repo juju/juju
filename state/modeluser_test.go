@@ -450,38 +450,38 @@ func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
 	}
 }
 
-func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
-	isAdmin, err := s.State.IsControllerAdministrator(s.Owner)
+func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
+	isAdmin, err := s.State.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
+	isAdmin, err = s.State.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: user.UserTag().Canonical()})
-	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), description.SuperuserAccess)
+	isAdmin, err = s.State.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
 	readonly := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
-	isAdmin, err = s.State.IsControllerAdministrator(readonly.UserTag)
+	isAdmin, err = s.State.IsControllerAdmin(readonly.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 }
 
-func (s *ModelUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
+func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
 	defer otherState.Close()
 
-	isAdmin, err := otherState.IsControllerAdministrator(user.UserTag())
+	isAdmin, err := otherState.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	isAdmin, err = otherState.IsControllerAdministrator(s.Owner)
+	isAdmin, err = otherState.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 }
