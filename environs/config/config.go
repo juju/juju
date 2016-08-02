@@ -289,7 +289,7 @@ func (c *Config) ensureUnitLogging() error {
 			loggingConfig = loggo.LoggerInfo()
 		}
 	}
-	levels, err := loggo.ParseConfigurationString(loggingConfig)
+	levels, err := loggo.ParseConfigString(loggingConfig)
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func Validate(cfg, old *Config) error {
 
 	// If the logging config is set, make sure it is valid.
 	if v, ok := cfg.defined["logging-config"].(string); ok {
-		if _, err := loggo.ParseConfigurationString(v); err != nil {
+		if _, err := loggo.ParseConfigString(v); err != nil {
 			return err
 		}
 	}

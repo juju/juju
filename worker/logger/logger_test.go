@@ -94,7 +94,7 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	initial := "<root>=DEBUG;wibble=ERROR"
 	c.Assert(expected, gc.Not(gc.Equals), initial)
 
-	loggo.ResetLoggers()
+	loggo.DefaultContext().ResetLoggerLevels()
 	err = loggo.ConfigureLoggers(initial)
 	c.Assert(err, jc.ErrorIsNil)
 

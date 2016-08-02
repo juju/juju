@@ -59,7 +59,7 @@ func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 
 func (s *pingerSuite) TestPing(c *gc.C) {
 	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("ping-tester", tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("ping-tester", tw), gc.IsNil)
 	defer loggo.RemoveWriter("ping-tester")
 
 	st, _ := s.OpenAPIAsNewMachine(c)
