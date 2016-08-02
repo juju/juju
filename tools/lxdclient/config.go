@@ -58,11 +58,6 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 		return cfg, errors.Trace(err)
 	}
 
-	// UsingTCP will try to figure out a usable IPv4 address for the default
-	// profile's bridge device name, otherwise set it up. If this lxd has never
-	// had anything done to it, it hasn't been socket activated yet, and the
-	// bridge won't exist. So, we rely on this poke to get the bridge started.
-
 	if _, err := client.ServerStatus(); err != nil {
 		return cfg, errors.Trace(err)
 	}
