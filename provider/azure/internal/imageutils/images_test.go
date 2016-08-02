@@ -4,8 +4,8 @@
 package imageutils_test
 
 import (
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
@@ -27,13 +27,14 @@ var _ = gc.Suite(&imageutilsSuite{})
 func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockSender = mocks.NewSender()
+	s.client.ManagementClient = compute.New("subscription-id")
 	s.client.Sender = s.mockSender
 }
 
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
-	s.mockSender.EmitContent(
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
 		`[{"name": "14.04.3"}, {"name": "14.04.1-LTS"}, {"name": "12.04.5"}]`,
-	)
+	))
 	image, err := imageutils.SeriesImage("trusty", "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
@@ -45,9 +46,9 @@ func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
-	s.mockSender.EmitContent(
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
 		`[{"name": "12.04.invalid"}, {"name": "12.04.5-LTS"}]`,
-	)
+	))
 	image, err := imageutils.SeriesImage("precise", "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
@@ -75,20 +76,21 @@ func (s *imageutilsSuite) TestSeriesImageArch(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
-	s.mockSender.EmitContent(`[{"name": "14.04.2"}, {"name": "14.04.3-DAILY"}, {"name": "14.04.1-LTS"}]`)
+	s.mockSender.AppendAndRepeatResponse(mocks.NewResponseWithContent(
+		`[{"name": "14.04.2"}, {"name": "14.04.3-DAILY"}, {"name": "14.04.1-LTS"}]`), 2)
 	s.assertImageId(c, "trusty", "daily", "Canonical:UbuntuServer:14.04.3-DAILY:latest")
 	s.assertImageId(c, "trusty", "released", "Canonical:UbuntuServer:14.04.2:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
-	s.mockSender.EmitContent(`[]`)
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
 	image, err := imageutils.SeriesImage("trusty", "released", "westus", s.client)
 	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs not found")
 	c.Assert(image, gc.IsNil)
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
-	s.mockSender.EmitContent(`[{"name": "14.04-beta1"}]`)
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "14.04-beta1"}]`))
 	_, err := imageutils.SeriesImage("trusty", "whatever", "westus", s.client)
 	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for whatever stream not found")
 }

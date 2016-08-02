@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/mocks"
 )
 
 // MockSender is a wrapper around autorest/mocks.Sender, extending it with
@@ -49,7 +49,7 @@ func NewSenderWithValue(v interface{}) *MockSender {
 		panic(err)
 	}
 	sender := &MockSender{Sender: mocks.NewSender()}
-	sender.EmitContent(string(content))
+	sender.AppendResponse(mocks.NewResponseWithContent(string(content)))
 	return sender
 }
 
