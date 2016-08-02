@@ -671,9 +671,6 @@ func NewInstanceConfig(
 		MachineNonce: machineNonce,
 		APIInfo:      apiInfo,
 		ImageStream:  imageStream,
-		AgentEnvironment: map[string]string{
-			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
-		},
 	}
 	return icfg, nil
 }

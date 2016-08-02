@@ -159,15 +159,14 @@ var (
 const SystemIdentity = "system-identity"
 
 const (
-	LxcBridge              = "LXC_BRIDGE"
-	LxdBridge              = "LXD_BRIDGE"
-	ProviderType           = "PROVIDER_TYPE"
-	ContainerType          = "CONTAINER_TYPE"
-	Namespace              = "NAMESPACE"
-	AgentServiceName       = "AGENT_SERVICE_NAME"
-	MongoOplogSize         = "MONGO_OPLOG_SIZE"
-	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
-	AllowsSecureConnection = "SECURE_CONTROLLER_CONNECTION"
+	LxcBridge         = "LXC_BRIDGE"
+	LxdBridge         = "LXD_BRIDGE"
+	ProviderType      = "PROVIDER_TYPE"
+	ContainerType     = "CONTAINER_TYPE"
+	Namespace         = "NAMESPACE"
+	AgentServiceName  = "AGENT_SERVICE_NAME"
+	MongoOplogSize    = "MONGO_OPLOG_SIZE"
+	NumaCtlPreference = "NUMA_CTL_PREFERENCE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
