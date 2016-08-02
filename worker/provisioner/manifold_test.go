@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -22,39 +23,50 @@ type ManifoldSuite struct {
 
 var _ = gc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) TestManifold(c *gc.C) {
-	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "jeff",
-		APICallerName: "barry",
+func (s *ManifoldSuite) makeManifold() dependency.Manifold {
+	return provisioner.Manifold(provisioner.ManifoldConfig{
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		EnvironName:   "environ",
 	})
+}
 
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"jeff", "barry"})
+func (s *ManifoldSuite) TestManifold(c *gc.C) {
+	manifold := s.makeManifold()
+	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ"})
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
 	// manifold.Start is tested extensively via direct use in provisioner_test
 }
 
 func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
-	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-	})
+	manifold := s.makeManifold()
 	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      dependency.ErrMissing,
 		"api-caller": struct{ base.APICaller }{},
+		"environ":    struct{ environs.Environ }{},
 	}))
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-	})
+	manifold := s.makeManifold()
 	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": dependency.ErrMissing,
+		"environ":    struct{ environs.Environ }{},
+	}))
+	c.Check(w, gc.IsNil)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+}
+
+func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
+	manifold := s.makeManifold()
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"agent":      struct{ agent.Agent }{},
+		"api-caller": struct{ base.APICaller }{},
+		"environ":    dependency.ErrMissing,
 	}))
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)

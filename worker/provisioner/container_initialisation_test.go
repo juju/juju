@@ -77,7 +77,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	var err error
-	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	s.lockName = "provisioner-test"
 }

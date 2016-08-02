@@ -429,10 +429,12 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent":      mockAgent{config: agentConfig},
 		"api-caller": s.st,
+		"environ":    s.Environ,
 	})
 	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
+		EnvironName:   "environ",
 	})
 	untyped, err := manifold.Start(context)
 	c.Assert(err, jc.ErrorIsNil)
