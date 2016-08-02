@@ -1188,7 +1188,7 @@ class EucaTestCase(TestCase):
                         run_instances(2, 'qux', None)
         co_mock.assert_called_once_with(
             ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
-             '-t', 'm1.large', '-g', 'manual-juju-test', ami],
+             '-t', 'm3.large', '-g', 'manual-juju-test', ami],
             env=os.environ)
         cc_mock.assert_called_once_with(
             ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
