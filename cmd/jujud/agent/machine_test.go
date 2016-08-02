@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -1256,7 +1257,13 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	c.Skip("issue 1600301")
+	// The dummy provider blows up in the face of multi-model
+	// scenarios so patch in a minimal environs.Environ that's good
+	// enough to allow the model workers to run.
+	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+		return &minModelWorkersEnviron{}, nil
+	})
+
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
