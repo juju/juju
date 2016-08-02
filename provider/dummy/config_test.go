@@ -33,7 +33,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 		ctx, jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
-			BaseConfig:       attrs,
+			ModelConfig:      attrs,
 			ControllerName:   attrs["name"].(string),
 			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      AdminSecret,
@@ -98,7 +98,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerConfig(),
 				ControllerName:   cfg.Name(),
-				BaseConfig:       cfg.AllAttrs(),
+				ModelConfig:      cfg.AllAttrs(),
 				Cloud:            dummy.SampleCloudSpec(),
 				AdminSecret:      AdminSecret,
 			},

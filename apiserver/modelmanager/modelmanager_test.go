@@ -28,7 +28,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/controller"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -129,6 +128,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerModel",
 		"CloudCredentials",
 		"ControllerConfig",
+		"ComposeNewModelConfig",
 		"NewModel",
 		"ForModel",
 		"Model",
@@ -140,7 +140,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -153,13 +153,9 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"controller":    false,
 		"broken":        "",
 		"secret":        "pork",
+		"something":     "value",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
 		Owner:           names.NewUserTag("admin@local"),
 		CloudName:       "some-cloud",
@@ -177,7 +173,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -198,7 +194,7 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
 }
 
@@ -210,7 +206,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "")
 }
 

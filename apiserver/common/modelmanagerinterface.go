@@ -32,6 +32,7 @@ type ModelManagerBackend interface {
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
+	ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error)
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)

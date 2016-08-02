@@ -65,7 +65,6 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
-	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	userpassCredential := cloud.NewCredential(
@@ -117,7 +116,13 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
+	expected := cfg.AllAttrs()
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := expected[k]; !ok {
+			expected[k] = v
+		}
+	}
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 	// Check that the model has been created.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,7 +194,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	)
 }
 
-func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
@@ -225,13 +230,21 @@ func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	ControllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ControllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
+	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
+	expected := cfg.AllAttrs()
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := expected[k]; !ok {
+			expected[k] = v
+		}
+	}
+	// Config as read from state has resources tags coerced to a map.
+	expected["resource-tags"] = map[string]string{}
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
@@ -290,7 +303,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 }
 
 func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interface{}, remove []string, expect string) {
-	good := testing.ModelConfig(c)
+	good := testing.CustomModelConfig(c, testing.Attrs{"uuid": testing.ModelTag.Id()})
 	bad, err := good.Apply(update)
 	c.Assert(err, jc.ErrorIsNil)
 	bad, err = bad.Remove(remove)
@@ -330,9 +343,9 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	goodAttrs := good.AllAttrs()
+	goodWithDefaults, err := config.New(config.UseDefaults, good.AllAttrs())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodWithDefaults.AllAttrs())
 }
 
 func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {

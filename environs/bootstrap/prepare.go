@@ -18,11 +18,11 @@ const ControllerModelName = "controller"
 // PrepareParams contains the parameters for preparing a controller Environ
 // for bootstrapping.
 type PrepareParams struct {
-	// BaseConfig contains the base configuration for the controller model.
+	// ModelConfig contains the base configuration for the controller model.
 	//
-	// This includes the model name, cloud type, and any user-supplied
-	// configuration. It does not include any default attributes.
-	BaseConfig map[string]interface{}
+	// This includes the model name, cloud type, any user-supplied
+	// configuration, config inherited from controller, and any defaults.
+	ModelConfig map[string]interface{}
 
 	// ControllerConfig is the configuration of the controller being prepared.
 	ControllerConfig controller.Config
@@ -82,7 +82,7 @@ func Prepare(
 		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
 	}
 
-	cloudType, ok := args.BaseConfig["type"].(string)
+	cloudType, ok := args.ModelConfig["type"].(string)
 	if !ok {
 		return nil, errors.NotFoundf("cloud type in base configuration")
 	}
@@ -137,7 +137,7 @@ func prepare(
 ) (environs.Environ, prepareDetails, error) {
 	var details prepareDetails
 
-	cfg, err := config.New(config.UseDefaults, args.BaseConfig)
+	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
@@ -161,7 +161,7 @@ func prepare(
 	// UUIDs stored in the bootstrap config. Make a copy, so
 	// we don't disturb the caller's config map.
 	details.Config = make(map[string]interface{})
-	for k, v := range args.BaseConfig {
+	for k, v := range args.ModelConfig {
 		details.Config[k] = v
 	}
 	delete(details.Config, config.UUIDKey)
@@ -178,6 +178,12 @@ func prepare(
 	// These do not include the CACert or UUID since they will be replaced with new
 	// values when/if we need to use this configuration.
 	details.ControllerConfig = make(controller.Config)
+	for k, v := range args.ControllerConfig {
+		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
+			continue
+		}
+		details.ControllerConfig[k] = v
+	}
 	for k, v := range args.ControllerConfig {
 		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
 			continue

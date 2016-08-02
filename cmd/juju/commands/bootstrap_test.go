@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -242,12 +243,18 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
-	c.Assert(bootstrapConfig.Config, jc.DeepEquals, map[string]interface{}{
+	expected := map[string]interface{}{
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
 		"default-series":  "raring",
 		"authorized-keys": "public auth key\n",
-	})
+	}
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := expected[k]; !ok {
+			expected[k] = v
+		}
+	}
+	c.Assert(bootstrapConfig.Config, jc.DeepEquals, expected)
 
 	return restore
 }
@@ -737,7 +744,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// are automatically synchronized.
 	_, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "--metadata-source", sourceDir,
-		"devcontroller", "dummy-cloud/region-1",
+		"devcontroller", "dummy-cloud/region-1", "--config", "default-series=trusty",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

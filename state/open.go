@@ -283,8 +283,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(ControllerInheritedConfig); err != nil {
+func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
+	if err := checkControllerInheritedConfig(controllerInheritedConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := checkModelConfig(args.Config); err != nil {
@@ -323,12 +323,18 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(ControllerInheritedConfig) > 0 {
-		configSources = []modelConfigSource{{
-			name: config.JujuControllerSource,
-			sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-				return ControllerInheritedConfig, nil
-			})}}
+	if len(controllerInheritedConfig) > 0 {
+		configSources = []modelConfigSource{
+			{
+				name: config.JujuDefaultSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return config.ConfigDefaults(), nil
+				})},
+			{
+				name: config.JujuControllerSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return controllerInheritedConfig, nil
+				})}}
 	} else {
 		configSources = modelConfigSources(st)
 	}
@@ -336,6 +342,8 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Some values require marshalling before storage.
+	modelCfg = config.CoerceForStorage(modelCfg)
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),

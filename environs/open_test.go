@@ -54,7 +54,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	env, err := bootstrap.Prepare(ctx, cache, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
-		BaseConfig:       cfg.AllAttrs(),
+		ModelConfig:      cfg.AllAttrs(),
 		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
@@ -93,7 +93,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	_, err = bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
-		BaseConfig:       cfg.AllAttrs(),
+		ModelConfig:      cfg.AllAttrs(),
 		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
@@ -152,7 +152,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	e, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
-		BaseConfig:       cfg.AllAttrs(),
+		ModelConfig:      cfg.AllAttrs(),
 		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})

@@ -89,7 +89,7 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := manual.MinimalConfigValues()
-	testConfig, err := config.New(config.UseDefaults, attrs)
+	testConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)

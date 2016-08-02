@@ -123,7 +123,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
+	modelCfg := model.Config()
+	// Config as read from state has resources tags coerced to a map.
+	modelCfg["resource-tags"] = map[string]string{}
+	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()

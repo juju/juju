@@ -103,11 +103,6 @@ const (
 	// of k=v pairs, defining the tags for ResourceTags.
 	ResourceTagsKey = "resource-tags"
 
-	// CloudImageBaseURL allows a user to override the default url that the
-	// 'ubuntu-cloudimg-query' executable uses to find container images. This
-	// is primarily for enabling Juju to work cleanly in a closed network.
-	CloudImageBaseURL = "cloudimg-base-url"
-
 	// LogForwardEnabled determines whether the log forward functionality is enabled.
 	LogForwardEnabled = "logforward-enabled"
 
@@ -278,6 +273,51 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	return c, nil
 }
 
+var defaultConfigValues = map[string]interface{}{
+	// Network.
+	"firewall-mode":              FwInstance,
+	"disable-network-management": false,
+	IgnoreMachineAddresses:       false,
+	"ssl-hostname-verification":  true,
+	"proxy-ssh":                  false,
+
+	"default-series":           series.LatestLts(),
+	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
+	ResourceTagsKey:            "",
+	"logging-config":           "",
+	AutomaticallyRetryHooks:    true,
+	"enable-os-refresh-update": true,
+	"enable-os-upgrade":        true,
+	"development":              false,
+	"test-mode":                false,
+
+	// Image and agent streams and URLs.
+	"image-stream":       "released",
+	"image-metadata-url": "",
+	AgentStreamKey:       "released",
+	AgentMetadataURLKey:  "",
+
+	// Log forward settings.
+	LogForwardEnabled: false,
+
+	// Proxy settings.
+	HttpProxyKey:     "",
+	HttpsProxyKey:    "",
+	FtpProxyKey:      "",
+	NoProxyKey:       "",
+	AptHttpProxyKey:  "",
+	AptHttpsProxyKey: "",
+	AptFtpProxyKey:   "",
+	"apt-mirror":     "",
+}
+
+// ConfigDefaults returns the config default values
+// to be used for any new model where there is no
+// value yet defined.
+func ConfigDefaults() map[string]interface{} {
+	return defaultConfigValues
+}
+
 func (c *Config) ensureUnitLogging() error {
 	loggingConfig := c.asString("logging-config")
 	// If the logging config hasn't been set, then look for the os environment
@@ -312,6 +352,26 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 	}
 	// No deprecated attributes at the moment.
 	return processedAttrs
+}
+
+// CoerceForStorage transforms attributes prior to being saved in a persistent store.
+func CoerceForStorage(attrs map[string]interface{}) map[string]interface{} {
+	coercedAttrs := make(map[string]interface{}, len(attrs))
+	for attrName, attrValue := range attrs {
+		if attrName == ResourceTagsKey {
+			// Resource Tags are specified by the user as a string but transformed
+			// to a map when config is parsed. We want to store as a string.
+			var tagsSlice []string
+			if tags, ok := attrValue.(map[string]string); ok {
+				for resKey, resValue := range tags {
+					tagsSlice = append(tagsSlice, fmt.Sprintf("%v=%v", resKey, resValue))
+				}
+				attrValue = strings.Join(tagsSlice, " ")
+			}
+		}
+		coercedAttrs[attrName] = attrValue
+	}
+	return coercedAttrs
 }
 
 // InvalidConfigValue is an error type for a config value that failed validation.
@@ -350,7 +410,7 @@ func Validate(cfg, old *Config) error {
 
 	modelName := cfg.asString(NameKey)
 	if modelName == "" {
-		return fmt.Errorf("empty name in model configuration")
+		return errors.New("empty name in model configuration")
 	}
 	if !names.IsValidModelName(modelName) {
 		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", modelName)
@@ -389,13 +449,17 @@ func Validate(cfg, old *Config) error {
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
+			oldv, ok := old.defined[attr]
+			if !ok {
+				continue
+			}
+			if newv := cfg.defined[attr]; newv != oldv {
 				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
 			if _, newFound := cfg.AgentVersion(); !newFound {
-				return fmt.Errorf("cannot clear agent-version")
+				return errors.New("cannot clear agent-version")
 			}
 		}
 	}
@@ -654,7 +718,8 @@ func (c *Config) ImageMetadataURL() (string, bool) {
 
 // Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
-	return c.defined["development"].(bool)
+	value, _ := c.defined["development"].(bool)
+	return value
 }
 
 // EnableOSRefreshUpdate returns whether or not newly provisioned
@@ -740,7 +805,8 @@ func (c *Config) AgentStream() string {
 // In this case, accessing the charm store does not affect statistical
 // data of the store.
 func (c *Config) TestMode() bool {
-	return c.defined["test-mode"].(bool)
+	val, _ := c.defined["test-mode"].(bool)
+	return val
 }
 
 // DisableNetworkManagement reports whether Juju is allowed to
@@ -762,13 +828,6 @@ func (c *Config) IgnoreMachineAddresses() (bool, bool) {
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	bs := c.asString(StorageDefaultBlockSourceKey)
 	return bs, bs != ""
-}
-
-// CloudImageBaseURL returns the specified override url that the 'ubuntu-
-// cloudimg-query' executable uses to find container images. The empty string
-// means that the default URL is used.
-func (c *Config) CloudImageBaseURL() string {
-	return c.asString(CloudImageBaseURL)
 }
 
 // ResourceTags returns a set of tags to set on environment resources
@@ -857,16 +916,22 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	// Model config attributes
-	AgentVersionKey:              schema.Omit,
-	AuthorizedKeysKey:            schema.Omit,
+	AgentVersionKey:   schema.Omit,
+	AuthorizedKeysKey: schema.Omit,
+
+	LogForwardEnabled:      schema.Omit,
+	LogFwdSyslogHost:       schema.Omit,
+	LogFwdSyslogCACert:     schema.Omit,
+	LogFwdSyslogClientCert: schema.Omit,
+	LogFwdSyslogClientKey:  schema.Omit,
+
+	// Storage related config.
+	// Environ providers will specify their own defaults.
+	StorageDefaultBlockSourceKey: schema.Omit,
+
+	"firewall-mode":              schema.Omit,
 	"logging-config":             schema.Omit,
 	ProvisionerHarvestModeKey:    schema.Omit,
-	LogForwardEnabled:            schema.Omit,
-	LogFwdSyslogHost:             schema.Omit,
-	LogFwdSyslogCACert:           schema.Omit,
-	LogFwdSyslogClientCert:       schema.Omit,
-	LogFwdSyslogClientKey:        schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -875,47 +940,38 @@ var alwaysOptional = schema.Defaults{
 	AptHttpsProxyKey:             schema.Omit,
 	AptFtpProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
-	"disable-network-management": schema.Omit,
-	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
-	CloudImageBaseURL:            schema.Omit,
-
-	// AutomaticallyRetryHooks is assumed to be true if missing
-	AutomaticallyRetryHooks: schema.Omit,
-
-	// Storage related config.
-	// Environ providers will specify their own defaults.
-	StorageDefaultBlockSourceKey: schema.Omit,
-
-	"proxy-ssh":                schema.Omit,
-	"enable-os-refresh-update": schema.Omit,
-	"enable-os-upgrade":        schema.Omit,
-	"image-stream":             schema.Omit,
-	"image-metadata-url":       schema.Omit,
-	AgentMetadataURLKey:        schema.Omit,
-	"default-series":           "",
-	"test-mode":                false,
+	"cloudimg-base-url":          schema.Omit,
+	"enable-os-refresh-update":   schema.Omit,
+	"enable-os-upgrade":          schema.Omit,
+	"image-stream":               schema.Omit,
+	"image-metadata-url":         schema.Omit,
+	AgentMetadataURLKey:          schema.Omit,
+	"default-series":             schema.Omit,
+	"development":                schema.Omit,
+	"ssl-hostname-verification":  schema.Omit,
+	"proxy-ssh":                  schema.Omit,
+	"disable-network-management": schema.Omit,
+	IgnoreMachineAddresses:       schema.Omit,
+	AutomaticallyRetryHooks:      schema.Omit,
+	"test-mode":                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
-	return alwaysOptional[attr] == ""
+	return alwaysOptional[attr] == "" || alwaysOptional[attr] == schema.Omit
 }
 
-var defaults = allDefaults()
+var defaultsWhenParsing = allDefaults()
 
 // allDefaults returns a schema.Defaults that contains
 // defaults to be used when creating a new config with
 // UseDefaults.
 func allDefaults() schema.Defaults {
-	d := schema.Defaults{
-		"firewall-mode":              FwInstance,
-		"development":                false,
-		"ssl-hostname-verification":  true,
-		"proxy-ssh":                  false,
-		"disable-network-management": false,
-		IgnoreMachineAddresses:       false,
-		AutomaticallyRetryHooks:      true,
+	d := schema.Defaults{}
+	configDefaults := ConfigDefaults()
+	for attr, val := range configDefaults {
+		d[attr] = val
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -936,7 +992,7 @@ var immutableAttributes = []string{
 }
 
 var (
-	withDefaultsChecker = schema.FieldMap(fields, defaults)
+	withDefaultsChecker = schema.FieldMap(fields, defaultsWhenParsing)
 	noDefaultsChecker   = schema.FieldMap(fields, alwaysOptional)
 )
 
@@ -1080,11 +1136,6 @@ var configSchema = environschema.Fields{
 	},
 	AuthorizedKeysKey: {
 		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	CloudImageBaseURL: {
-		Description: "A URL to use instead of the default 'https://cloud-images.ubuntu.com/query' that the 'ubuntu-cloudimg-query' executable uses to find container images. This is primarily for enabling Juju to work cleanly in a closed network.",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

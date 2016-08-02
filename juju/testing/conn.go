@@ -278,7 +278,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
-			BaseConfig:       cfg.AllAttrs(),
+			ModelConfig:      cfg.AllAttrs(),
 			Cloud:            dummy.SampleCloudSpec(),
 			ControllerName:   ControllerName,
 			AdminSecret:      AdminSecret,
