@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
@@ -71,6 +72,16 @@ func NewAPI(
 // given filter.
 // Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ListCloudImageMetadataResult{}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ListCloudImageMetadataResult{}, common.ServerError(common.ErrPerm)
+		}
+	}
+
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
 		Series:          filter.Series,
@@ -102,6 +113,15 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ErrorResults{Results: all}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ErrorResults{Results: all}, common.ServerError(common.ErrPerm)
+		}
+	}
 	if len(metadata.Metadata) == 0 {
 		return params.ErrorResults{Results: all}, nil
 	}
@@ -129,6 +149,15 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 // It supports bulk calls.
 func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(images.Ids))
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ErrorResults{Results: all}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ErrorResults{Results: all}, common.ServerError(common.ErrPerm)
+		}
+	}
 	for i, imageId := range images.Ids {
 		err := api.metadata.DeleteMetadata(imageId)
 		all[i] = params.ErrorResult{common.ServerError(err)}
@@ -206,6 +235,15 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, cfg *config
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !admin {
+			return common.ServerError(common.ErrPerm)
+		}
+	}
 	return api.retrievePublished()
 }
 

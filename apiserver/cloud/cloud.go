@@ -6,6 +6,7 @@
 package cloud
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -38,13 +40,15 @@ func newFacade(st *state.State, resources facade.Resources, auth facade.Authoriz
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
+
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
 	getUserAuthFunc := func() (common.AuthFunc, error) {
 		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
-		isAdmin, err := backend.IsControllerAdmin(authUser)
-		if err != nil {
+		isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, backend.ControllerTag())
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}
 		return func(tag names.Tag) bool {
@@ -116,6 +120,7 @@ func (mm *CloudAPI) DefaultCloud() (params.StringResult, error) {
 	if err != nil {
 		return params.StringResult{}, err
 	}
+
 	return params.StringResult{
 		Result: names.NewCloudTag(controllerModel.Cloud()).String(),
 	}, nil

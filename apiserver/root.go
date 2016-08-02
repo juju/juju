@@ -362,6 +362,11 @@ func (r *apiHandler) HasPermission(operation description.Access, target names.Ta
 	return hasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
 }
 
+// UserHasPermission returns true if the passed in user can perform <operation> on <target>.
+func (r *apiHandler) UserHasPermission(user names.UserTag, operation description.Access, target names.Tag) (bool, error) {
+	return hasPermission(r.state.UserAccess, user, operation, target)
+}
+
 type userAccessFunc func(names.UserTag, names.Tag) (description.UserAccess, error)
 
 func hasPermission(userGetter userAccessFunc, entity names.Tag,
@@ -381,10 +386,15 @@ func hasPermission(userGetter userAccessFunc, entity names.Tag,
 
 	userTag, ok := entity.(names.UserTag)
 	if !ok {
-		return false, errors.NotValidf("obtaining permission for subject kind %q", entity.Kind())
+		// lets not reveal more than is strictly necessary
+		return false, nil
 	}
 
 	user, err := userGetter(userTag, target)
+	// returning this kind of information would be too much information to reveal too.
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -38,10 +39,35 @@ func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade
 		check:      common.NewBlockChecker(st),
 	}, nil
 }
+func (a *ActionAPI) checkCanRead() error {
+	canRead, err := a.authorizer.HasPermission(description.ReadAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (a *ActionAPI) checkCanWrite() error {
+	canWrite, err := a.authorizer.HasPermission(description.WriteAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
 func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
@@ -73,6 +99,10 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 // FindActionTagsByPrefix takes a list of string prefixes and finds
 // corresponding ActionTags that match that prefix.
 func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.FindTagsResults{}, errors.Trace(err)
+	}
+
 	response := params.FindTagsResults{Matches: make(map[string][]params.Entity)}
 	for _, prefix := range arg.Prefixes {
 		found := a.state.FindActionTagsByPrefix(prefix)
@@ -86,6 +116,10 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 }
 
 func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionsByNames{}, errors.Trace(err)
+	}
+
 	response := params.ActionsByNames{Actions: make([]params.ActionsByName, len(arg.ActionNames))}
 	for i, name := range arg.ActionNames {
 		currentResult := &response.Actions[i]
@@ -114,6 +148,10 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 // enqueued Action, or an error if there was a problem enqueueing the
 // Action.
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	if err := a.check.ChangeAllowed(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -142,6 +180,10 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 // returns all of the Actions that have been enqueued or run by each of
 // those Entities.
 func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, combine(pendingActions, runningActions, completedActions))
 }
 
@@ -149,6 +191,10 @@ func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, err
 // and returns all of the Actions that are enqueued for each of those
 // Entities.
 func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, pendingActions)
 }
 
@@ -156,6 +202,10 @@ func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers,
 // returns all of the Actions that have are running on each of those
 // Entities.
 func (a *ActionAPI) ListRunning(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, runningActions)
 }
 
@@ -163,11 +213,19 @@ func (a *ActionAPI) ListRunning(arg params.Entities) (params.ActionsByReceivers,
 // and returns all of the Actions that have been run on each of those
 // Entities.
 func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, completedActions)
 }
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	if err := a.check.ChangeAllowed(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -210,6 +268,10 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 // services.
 func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
+	if err := a.checkCanWrite(); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	for i, entity := range args.Entities {
 		currentResult := &result.Results[i]
 		svcTag, err := names.ParseApplicationTag(entity.Tag)
@@ -280,7 +342,7 @@ func combine(funcs ...extractorFn) extractorFn {
 		for _, fn := range funcs {
 			items, err := fn(ar)
 			if err != nil {
-				return result, err
+				return result, errors.Trace(err)
 			}
 			result = append(result, items...)
 		}

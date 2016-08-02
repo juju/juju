@@ -43,7 +43,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.Owner,
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
 	}
 }
 

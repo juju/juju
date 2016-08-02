@@ -80,7 +80,7 @@ func NewModelManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := st.IsControllerAdmin(apiUser)
+	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -175,12 +175,12 @@ func (mm *ModelManagerAPI) newModelConfig(
 // model config specified in the args.
 func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
-	canCreate, err := mm.hasPermission(description.AddModelAccess)
+	canAddModel, err := mm.authorizer.HasPermission(description.AddModelAccess, mm.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if !canCreate {
-		return result, errors.Trace(common.ErrPerm)
+	if !canAddModel {
+		return result, common.ErrPerm
 	}
 
 	// Get the controller model first. We need it both for the state
@@ -297,6 +297,14 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	isModelAdmin, err := mm.authorizer.HasPermission(description.AdminAccess, modelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isModelAdmin && !mm.isAdmin {
+		return nil, common.ErrPerm
 	}
 
 	st := mm.state
@@ -558,31 +566,19 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	return info, nil
 }
 
-func (m *ModelManagerAPI) hasPermission(access description.Access) (bool, error) {
-	hasPermission, err := m.authorizer.HasPermission(access, m.state.ControllerTag())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	isCAdmin, err := m.state.IsControllerAdmin(m.apiUser)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return hasPermission || isCAdmin, nil
-}
-
 // ModifyModelAccess changes the model access granted to users.
 func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 
-	canModify, err := m.hasPermission(description.SuperuserAccess)
-	if err != nil && !errors.IsNotFound(err) {
+	canModify, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, m.state.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		return result, errors.Trace(err)
 	}
 	canModify = canModify || canModifyModel

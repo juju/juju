@@ -25,11 +25,7 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	isCAdmin, err := s.state.IsControllerAdmin(s.apiUser)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !hasPermission && !isCAdmin {
+	if !hasPermission {
 		return errors.Trace(common.ErrPerm)
 	}
 
