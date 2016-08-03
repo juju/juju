@@ -50,12 +50,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type ProviderSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&ProviderSuite{})
-
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"name":          "sample",
 	"type":          "ec2",

@@ -20,7 +20,7 @@ import (
 )
 
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
-	return vs.(*ebsVolumeSource).env.ec2()
+	return vs.(*ebsVolumeSource).env.ec2
 }
 
 func JujuGroupName(e environs.Environ) string {
@@ -32,7 +32,7 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 }
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
-	return e.(*environ).ec2()
+	return e.(*environ).ec2
 }
 
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
