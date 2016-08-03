@@ -341,8 +341,9 @@ class TestContainerNetworking(TestCase):
 
     def test_private_address(self):
         side_effect = ["default via 10.0.30.1 dev br-eth1",
-                       """5: br-eth1    inet 10.0.30.24/24 brd 10.0.30.255 scope global br-eth1\
-       valid_lft forever preferred_lft forever"""]
+                       "5: br-eth1    inet 10.0.30.24/24 brd "
+                       "10.0.30.255 scope global br-eth1    "
+                       "valid_lft forever preferred_lft forever"]
         with patch("assess_container_networking.ssh",
                    autospec=True) as mock_ssh:
             mock_ssh.side_effect = side_effect
