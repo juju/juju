@@ -49,7 +49,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -426,21 +425,10 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":      mockAgent{config: agentConfig},
-		"api-caller": s.st,
-		"environ":    s.Environ,
-	})
-	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-		EnvironName:   "environ",
-	})
-	untyped, err := manifold.Start(context)
+	apiState := apiprovisioner.NewState(s.st)
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
-	typed, ok := untyped.(provisioner.Provisioner)
-	c.Assert(ok, jc.IsTrue)
-	return typed
+	return w
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
