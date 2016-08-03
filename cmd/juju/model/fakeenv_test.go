@@ -48,6 +48,13 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 	return result, nil
 }
 
+func (f *fakeEnvAPI) ModelDefaults() (config.ConfigValues, error) {
+	return config.ConfigValues{
+		"attr":  {Value: "foo", Source: "default"},
+		"attr2": {Value: "bar", Source: "controller"},
+	}, nil
+}
+
 func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
 	f.values = config
 	return f.err

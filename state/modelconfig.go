@@ -66,12 +66,12 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 	return values, nil
 }
 
-// ModelConfigValues returns the config values for the model represented
-// by this state.
-func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	cfg, err := st.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
+// modelConfigValues returns the values and source for the supplied model config
+// when combined with controller and Juju defaults.
+func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+	resultValues := make(attrValues)
+	for k, v := range modelCfg {
+		resultValues[k] = v
 	}
 
 	// Read all of the current inherited config values so
@@ -89,12 +89,20 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 			return nil, errors.Annotatef(err, "reading %s settings", src.name)
 		}
 		sourceAttrs = append(sourceAttrs, cfg)
+
+		// If no modelCfg was passed in, we'll accumulate data
+		// for the inherited values instead.
+		if len(modelCfg) == 0 {
+			for k, v := range cfg {
+				resultValues[k] = v
+			}
+		}
 	}
 
 	// Figure out the source of each config attribute based
 	// on the current model values and the inherited values.
 	result := make(config.ConfigValues)
-	for attr, val := range cfg.AllAttrs() {
+	for attr, val := range resultValues {
 		// Find the source of config for which the model
 		// value matches. If there's a match, the last match
 		// in the search order will be the source of config.
@@ -113,6 +121,22 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 		}
 	}
 	return result, nil
+}
+
+// ModelConfigValues returns the config values for the model represented
+// by this state.
+func (st *State) ModelConfigValues() (config.ConfigValues, error) {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.modelConfigValues(cfg.AllAttrs())
+}
+
+// ModelConfigDefaultValues returns the default config values to be used
+// when creating a new model, and the origin of those values.
+func (st *State) ModelConfigDefaultValues() (config.ConfigValues, error) {
+	return st.modelConfigValues(nil)
 }
 
 // checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.

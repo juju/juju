@@ -441,6 +441,7 @@ var commandNames = []string{
 	"machine",
 	"machines",
 	"model-config",
+	"model-defaults",
 	"models",
 	"plans",
 	"register",

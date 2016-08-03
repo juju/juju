@@ -50,7 +50,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, gc.DeepEquals, map[string]params.ConfigValue{
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {"dummy", "model"},
 		"ftp-proxy":     {"http://proxy", "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
@@ -87,7 +87,7 @@ func (s *modelconfigSuite) blockAllChanges(c *gc.C, msg string) {
 
 func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
@@ -152,6 +152,16 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
+	result, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := map[string]params.ConfigValue{
+		"attr":  {Value: "val", Source: "default"},
+		"attr2": {Value: "val2", Source: "controller"},
+	}
+	c.Assert(result.Config, jc.DeepEquals, expectedValues)
+}
+
 type mockBackend struct {
 	cfg config.ConfigValues
 	old *config.Config
@@ -161,6 +171,13 @@ type mockBackend struct {
 
 func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
+}
+
+func (m *mockBackend) ModelConfigDefaultValues() (config.ConfigValues, error) {
+	return config.ConfigValues{
+		"attr":  {Value: "val", Source: "default"},
+		"attr2": {Value: "val2", Source: "controller"},
+	}, nil
 }
 
 func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate state.ValidateConfigFunc) error {

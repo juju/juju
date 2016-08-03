@@ -300,3 +300,25 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
 }
+
+func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range config.ConfigDefaults() {
+		source := "default"
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	expectedValues["http-proxy"] = config.ConfigValue{
+		Value:  "http://proxy",
+		Source: "controller",
+	}
+	expectedValues["apt-mirror"] = config.ConfigValue{
+		Value:  "http://mirror",
+		Source: "controller",
+	}
+	sources, err := s.State.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
+}

@@ -34,6 +34,14 @@ func NewUnsetCommandForTest(api UnsetModelAPI) cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
+// NewGetDefaultsCommandForTest returns a GetDefaultsCommand with the api provided as specified.
+func NewGetDefaultsCommandForTest(api modelDefaultsAPI) cmd.Command {
+	cmd := &getDefaultsCommand{
+		newAPIFunc: func() (modelDefaultsAPI, error) { return api, nil },
+	}
+	return modelcmd.Wrap(cmd)
+}
+
 // NewRetryProvisioningCommandForTest returns a RetryProvisioningCommand with the api provided as specified.
 func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 	cmd := &retryProvisioningCommand{
