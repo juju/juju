@@ -620,15 +620,11 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsToZones(c *g
 	s.stubAPI.SetSubnetsResponse(4, "my-zone", noPublicIPOnLaunch)
 	// Simulate we used --constraints spaces=foo, which contains subnet-1 and
 	// subnet-3 out of the 4 subnets in AZ my-zone (see the related bug
-	// http://pad.lv/1609343). The provisioner will have populated
-	// SubnetsToZones like this:
-	subnetsToZones := map[network.Id][]string{
-		"subnet-1": []string{"my-zone"},
-		"subnet-3": []string{"my-zone"},
-	}
+	// http://pad.lv/1609343).
+	allowedSubnetIDs := []string{"subnet-1", "subnet-3"}
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
-	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "my-zone", subnetsToZones)
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "my-zone", allowedSubnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-1", "subnet-3"})
 

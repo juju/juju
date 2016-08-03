@@ -437,19 +437,15 @@ func findDefaultVPCID(apiClient vpcAPIClient) (string, error) {
 }
 
 // getVPCSubnetIDsForAvailabilityZone returns a sorted list of subnet IDs, which
-// are both in the given vpcID and the given zoneName. If subnetsToZones map is
-// not empty, the returned list will only contain IDs matching the map keys.
-// Returns an error satisfying errors.IsNotFound() when no results match.
+// are both in the given vpcID and the given zoneName. If allowedSubnetIDs is
+// not empty, the returned list will only contain IDs present there. Returns an
+// error satisfying errors.IsNotFound() when no results match.
 func getVPCSubnetIDsForAvailabilityZone(
 	apiClient vpcAPIClient,
 	vpcID, zoneName string,
-	subnetsToZones map[network.Id][]string,
+	allowedSubnetIDs []string,
 ) ([]string, error) {
-	allowedSubnetIDs := set.NewStrings()
-	for subnetID, _ := range subnetsToZones {
-		allowedSubnetIDs.Add(string(subnetID))
-	}
-
+	allowedSubnets := set.NewStrings(allowedSubnetIDs...)
 	vpc := &ec2.VPC{Id: vpcID}
 	subnets, err := getVPCSubnets(apiClient, vpc)
 	if err != nil && !isVPCNotUsableError(err) {
@@ -468,7 +464,7 @@ func getVPCSubnetIDsForAvailabilityZone(
 			logger.Infof("skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnet.Id, vpcID, zoneName)
 			continue
 		}
-		if !allowedSubnetIDs.IsEmpty() && !allowedSubnetIDs.Contains(subnet.Id) {
+		if !allowedSubnets.IsEmpty() && !allowedSubnets.Contains(subnet.Id) {
 			logger.Infof("skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnet.Id, vpcID, zoneName)
 			continue
 		}
