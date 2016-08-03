@@ -779,6 +779,8 @@ def get_client_class(version):
         client_class = EnvJujuClient2B7
     elif re.match('^2\.0-beta8([^\d]|$)', version):
         client_class = EnvJujuClient2B8
+    elif re.match('^2\.0-beta9([^\d]|$)', version):
+        client_class = EnvJujuClient2B9
     else:
         client_class = EnvJujuClient
     return client_class
@@ -786,6 +788,10 @@ def get_client_class(version):
 
 def client_from_config(config, juju_path, debug=False):
     version = EnvJujuClient.get_version(juju_path)
+    # acl_commands = EnvJujuClient.get_juju_output(EnvJujuClient, 'juju add-user',
+    #                                              '--help', include_e=False)
+    # if re.match('--acl', acl_commands):
+    #     version = '2.0-beta9'
     client_class = get_client_class(version)
     env = client_class.config_class.from_config(config)
     if juju_path is None:
@@ -1864,6 +1870,71 @@ class EnvJujuClient:
             model = self.model_name
         self.juju('grant', (user_name, model, '--acl', permission),
                   include_e=False)
+
+
+class EnvJujuClient2B9(EnvJujuClient):
+
+    model_permissions = ['read', 'write', 'admin']
+
+    controller_permissions = ['login', 'addmodel', 'superuser']
+
+    def add_user(self, username, models=None, permissions='login'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
+        output = self.get_juju_output('add-user', include_e=False)
+        self.grant(username, permissions, models)
+        return self._get_register_command(output)
+
+    def remove_user(self, username, permission):
+        if permission in self.model_permissions or (
+                    permission in self.controller_permissions):
+            self.juju('remove-user', (username,), include_e=False)
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with model or controller permission."""
+        if permission in self.controller_permissions:
+            self.juju('grant', (user_name, permission),
+                      include_e=False)
+        elif permission in self.model_permissions:
+            if model is None:
+                model = self.model_name
+            self.juju('grant', (user_name, permission, model),
+                      include_e=False)
+        else:
+            raise
+
+    def register_user(self, user, juju_home):
+        """Register `user` for the `client` return the cloned client used."""
+        username = user.name
+        controller_name = '{}_controller'.format(username)
+
+        model = self.env.environment
+        token = self.add_user(username, models=model,
+                              permissions=user.permissions)
+        user_client = self.create_cloned_environment(juju_home,
+                                                     controller_name)
+
+        try:
+            child = user_client.expect(
+                'register', (token), include_e=False)
+            child.expect('(?i)name')
+            child.sendline(username + '_controller')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise Exception(
+                    'Registering user failed: pexpect session still alive')
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
+        return user_client
 
 
 class EnvJujuClient2B8(EnvJujuClient):

@@ -120,7 +120,7 @@ class TestAsserts(TestCase):
         for user in users:
             fake_client = fake_juju_client()
             fake_admin_client = fake_juju_client()
-            ac = patch("assess_user_grant_revoke.assert_admin_controller",
+            ac = patch("assess_user_grant_revoke.assert_admin_model",
                        return_value=True)
             with patch("jujupy.EnvJujuClient.revoke", return_value=True):
                 with patch("assess_user_grant_revoke.assert_read_model",
@@ -193,7 +193,7 @@ class TestAssess(TestCase):
                      autospec=True)
         write = patch("assess_user_grant_revoke.assert_write_model",
                       autospec=True)
-        admin = patch("assess_user_grant_revoke.assert_admin_controller",
+        admin = patch("assess_user_grant_revoke.assert_admin_model",
                       autospec=True)
         rm = patch("utility.wait_for_removed_services",
                    autospec=True)

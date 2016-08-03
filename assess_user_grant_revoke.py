@@ -137,26 +137,27 @@ def assert_write_model(client, permission, has_permission):
                 'User deployed without {} permission'.format(permission))
 
 
-def assert_admin_controller(client, permission, has_permission):
+def assert_admin_model(controller_client, client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
+    code = ''.join(random.choice(
+        string.ascii_letters + string.digits) for _ in xrange(4))
+    new_user = permission + code
+    controller_client.add_user(new_user, permissions="read")
     if has_permission:
-        for user_permission in ['read', 'write', 'admin']:
-            code = ''.join(random.choice(
-                string.ascii_letters + string.digits) for _ in xrange(4))
-            try:
-                client.add_user(permission + code, permissions=user_permission)
-            except subprocess.CalledProcessError:
-                raise JujuAssertionError(
-                    'User could not add {} user with {} permission'.format(
-                        user_permission, permission))
+        try:
+            client.grant(new_user, permission="write")
+        except subprocess.CalledProcessError:
+            raise JujuAssertionError(
+                'User could not grant write access to user with {} permission'.format(
+                    permission))
     else:
         try:
-            client.add_user(permission + 'false', permissions='read')
+            client.grant(new_user, permission="write")
         except subprocess.CalledProcessError:
             pass
         else:
             raise JujuAssertionError(
-                'User added user without {} permission'.format(permission))
+                'User granted access without {} permission'.format(permission))
 
 
 def assert_user_permissions(user, user_client, controller_client):
@@ -165,14 +166,14 @@ def assert_user_permissions(user, user_client, controller_client):
     permission = user.permissions
     assert_read_model(user_client, permission, expect.next())
     assert_write_model(user_client, permission, expect.next())
-    assert_admin_controller(user_client, permission, expect.next())
+    assert_admin_model(controller_client, user_client, permission, expect.next())
 
     log.debug("Revoking %s permission from %s" % (user.permissions, user.name))
     controller_client.revoke(user.name, permissions=user.permissions)
 
     assert_read_model(user_client, permission, expect.next())
     assert_write_model(user_client, permission, expect.next())
-    assert_admin_controller(user_client, permission, expect.next())
+    assert_admin_model(controller_client, user_client, permission, expect.next())
 
 
 def assert_users_shares(controller_client, client, user):
