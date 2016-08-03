@@ -165,7 +165,8 @@ func (s *EngineSuite) TestStartGetUndeclaredName(c *gc.C) {
 		err = engine.Install("other-task", dependency.Manifold{
 			Start: func(context dependency.Context) (worker.Worker, error) {
 				err := context.Get("some-task", nil)
-				c.Check(err, gc.Equals, dependency.ErrMissing)
+				c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+				c.Check(err, gc.ErrorMatches, `"some-task" not declared: dependency not available`)
 				close(done)
 				// Return a real worker so we don't keep restarting and potentially double-closing.
 				return startMinimalWorker(context)
