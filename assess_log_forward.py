@@ -84,53 +84,31 @@ def assert_initial_message_forwarded(rsyslog, uuid):
     check_string = get_assert_regex(uuid)
     unit_machine = 'rsyslog/0'
 
-    remote_script_path = create_check_script_on_unit(
-        rsyslog, unit_machine, check_string)
+    remote_script_path = create_check_script_on_unit(rsyslog, unit_machine)
 
     try:
         rsyslog.juju(
             'ssh',
-            (unit_machine, 'sudo', 'python', remote_script_path))
+            (
+                unit_machine,
+                'sudo',
+                'python',
+                remote_script_path,
+                check_string,
+                '/var/log/syslog'))
         log.info('Check script passed on target machine.')
     except subprocess.CalledProcessError:
         # This is where a failure happened
         raise JujuAssertionError('Forwarded log message never appeared.')
 
 
-def create_check_script_on_unit(client, unit_machine, check_string):
-    with temp_dir() as temp:
-        file_path = create_python_check_script(temp, check_string)
-        script_dest_path = os.path.join('/tmp', os.path.basename(file_path))
-        client.juju(
-            'scp',
-            (file_path, '{}:{}'.format(unit_machine, script_dest_path)))
+def create_check_script_on_unit(client, unit_machine):
+    script_path = os.path.join(os.path.dirname(__file__), 'log_check.py')
+    script_dest_path = os.path.join('/tmp', os.path.basename(script_path))
+    client.juju(
+        'scp',
+        (script_path, '{}:{}'.format(unit_machine, script_dest_path)))
     return script_dest_path
-
-
-def create_python_check_script(temp_dir, check_string):
-    script_contents = dedent("""\
-    import subprocess
-    import sys
-    import time
-    for _ in range(0, 10):
-        try:
-            subprocess.check_call(
-                ['sudo', 'egrep', {check}, '/var/log/syslog'])
-            print('Log content found. No need to continue.')
-            sys.exit(0)
-        except subprocess.CalledProcessError as e:
-            if e.returncode == 1:
-                time.sleep(1)
-            else:
-                sys.exit(1)
-    print('Unexpected error with file check.')
-    sys.exit(2)
-    """.format(check=check_string))
-
-    script_path = os.path.join(temp_dir, 'syslog_check.py')
-    with open(script_path, 'wt') as f:
-        f.write(script_contents)
-    return script_path
 
 
 def get_assert_regex(raw_uuid, message=None):
@@ -143,7 +121,7 @@ def get_assert_regex(raw_uuid, message=None):
     # Maybe over simplified removing the last 8 characters
     uuid = re.escape(raw_uuid)
     short_uuid = re.escape(raw_uuid[:-8])
-    date_check = '[A-Z][a-z]{,2}\ [0-9]+\ [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}'
+    date_check = '[A-Z][a-z]{,2}\ +[0-9]+\ +[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}'
     machine = 'machine-0.{}'.format(uuid)
     agent = 'jujud-machine-agent-{}'.format(short_uuid)
     message = message or '.*'
