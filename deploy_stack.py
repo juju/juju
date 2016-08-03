@@ -133,8 +133,6 @@ GET_TOKEN_SCRIPT = """
 
 def get_token_from_status(client):
     """Return the token from the application status message or None."""
-    logging.info('Waiting for applications to reach ready.')
-    client.wait_for_workloads()
     status = client.get_status()
     unit = status.get_unit('dummy-sink/0')
     app_status = unit.get('workload-status')
@@ -148,6 +146,8 @@ def get_token_from_status(client):
 
 def check_token(client, token, timeout=120):
     """Check the token found on dummy-sink/0 or raise ValueError."""
+    logging.info('Waiting for applications to reach ready.')
+    client.wait_for_workloads()
     # Wait up to 120 seconds for token to be created.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
