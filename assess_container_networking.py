@@ -37,6 +37,7 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_container_networking")
 
+
 # This needs refactored out to utility
 class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""
@@ -261,7 +262,7 @@ def private_address(client, host):
     device = route_match.group(1)
     log.info("Fetching the device IP of {}".format(device))
     device_ip = ssh(client, host, 'ip -4 -o addr show {}'.format(device))
-    log.info("Device IP for {}: {}".format(host, device))
+    log.info("Device IP for {}: {}".format(host, device_ip))
     ip_match = re.search(r'inet\s+(\S+)/\d+\s', device_ip)
     if ip_match is None:
         raise JujuAssertionError(
