@@ -1535,6 +1535,7 @@ class EnvJujuClient:
         try:
             for remaining in until_timeout(timeout):
                 status = self.get_status(controller=True)
+                status.check_agents_started()
                 states = {}
                 for machine, info in status.iter_machines():
                     status = self.get_controller_member_status(info)
