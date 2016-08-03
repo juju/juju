@@ -465,9 +465,11 @@ func getVPCSubnetIDsForAvailabilityZone(
 	matchingSubnetIDs := set.NewStrings()
 	for _, subnet := range subnets {
 		if subnet.AvailZone != zoneName {
+			logger.Infof("skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnet.Id, vpcID, zoneName)
 			continue
 		}
 		if !allowedSubnetIDs.IsEmpty() && !allowedSubnetIDs.Contains(subnet.Id) {
+			logger.Infof("skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnet.Id, vpcID, zoneName)
 			continue
 		}
 		matchingSubnetIDs.Add(subnet.Id)
@@ -478,7 +480,9 @@ func getVPCSubnetIDsForAvailabilityZone(
 		return nil, errors.NewNotFound(nil, message)
 	}
 
-	return matchingSubnetIDs.SortedValues(), nil
+	sortedIDs := matchingSubnetIDs.SortedValues()
+	logger.Infof("found %d subnets in VPC %q matching AZ %q and constraints: %v", len(sortedIDs), vpcID, zoneName, sortedIDs)
+	return sortedIDs, nil
 }
 
 func findSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[network.Id][]string) ([]string, error) {
