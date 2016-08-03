@@ -2544,6 +2544,21 @@ class TestEnvJujuClient(ClientTest):
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
+    def test_wait_for_ha_timeout_with_status_error(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state-info': 'running'},
+                '1': {'agent-state-info': 'error: foo'},
+            },
+            'services': {},
+        })
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with patch('jujupy.until_timeout', autospec=True, return_value=[2, 1]):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        ErroredUnit, '1 is in state error: foo'):
+                    client.wait_for_ha()
+
     def test_wait_for_deploy_started(self):
         value = yaml.safe_dump({
             'machines': {
