@@ -213,22 +213,45 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_check_token(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
             with patch.object(remote, 'run', autospec=True,
                               return_value='token') as rr_mock:
-                check_token(client, 'token', timeout=0)
+                with patch.object(client, 'get_status', autospec=True,
+                                  return_value=status):
+                    check_token(client, 'token', timeout=0)
         rr_mock.assert_called_once_with(GET_TOKEN_SCRIPT)
         self.assertTrue(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'"],
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Waiting for token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -236,19 +259,33 @@ class DeployStackTestCase(FakeHomeTestCase):
                               return_value='') as rr_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
-                    with self.assertRaisesRegexp(ValueError, "Token is ''"):
-                        check_token(client, 'token', timeout=0)
+                    with patch.object(client, 'get_status', autospec=True,
+                                      return_value=status):
+                        with self.assertRaisesRegexp(ValueError,
+                                                     "Token is ''"):
+                            check_token(client, 'token', timeout=0)
         self.assertEqual(2, rr_mock.call_count)
         rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.'],
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.'],
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found_juju_ssh_broken(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -256,15 +293,18 @@ class DeployStackTestCase(FakeHomeTestCase):
                               side_effect=['', 'token']) as rr_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
-                    with self.assertRaisesRegexp(ValueError,
-                                                 "Token is 'token'"):
-                        check_token(client, 'token', timeout=0)
+                    with patch.object(client, 'get_status', autospec=True,
+                                      return_value=status):
+                        with self.assertRaisesRegexp(ValueError,
+                                                     "Token is 'token'"):
+                            check_token(client, 'token', timeout=0)
         self.assertEqual(2, rr_mock.call_count)
         rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'",
              'ERROR juju ssh to unit is broken.'],
             self.log_stream.getvalue().splitlines())
@@ -274,7 +314,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         client = EnvJujuClient(env, None, None)
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = True
-        status = status = Status.from_text("""\
+        status = Status.from_text("""\
             applications:
               dummy-sink:
                 units:
@@ -292,8 +332,8 @@ class DeployStackTestCase(FakeHomeTestCase):
         # application-status had the token.
         self.assertEqual(0, remote.cat.call_count)
         self.assertEqual(
-            ['INFO Retrieving token.',
-             'INFO Waiting for applications to reach ready.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'"],
             self.log_stream.getvalue().splitlines())
 
@@ -303,7 +343,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = True
         remote.cat.return_value = 'token'
-        status = status = Status.from_text("""\
+        status = Status.from_text("""\
             applications:
               dummy-sink:
                 units:
@@ -319,8 +359,8 @@ class DeployStackTestCase(FakeHomeTestCase):
         # application-status did not have the token, winrm did.
         remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
         self.assertEqual(
-            ['INFO Retrieving token.',
-             'INFO Waiting for applications to reach ready.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'"],
             self.log_stream.getvalue().splitlines())
 
@@ -331,7 +371,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         remote.is_windows.return_value = True
         remote.cat.side_effect = winrm.exceptions.WinRMTransportError(
             'a', 'oops')
-        status = status = Status.from_text("""\
+        status = Status.from_text("""\
             applications:
               dummy-sink:
                 units:
@@ -347,8 +387,8 @@ class DeployStackTestCase(FakeHomeTestCase):
         # application-status did not have the token, winrm did.
         remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
         self.assertEqual(
-            ['INFO Retrieving token.',
-             'INFO Waiting for applications to reach ready.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              'WARNING Skipping token check because of: '
                 '500 WinRMTransport. oops'],
             self.log_stream.getvalue().splitlines())
