@@ -273,13 +273,14 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value
 	}
+	cloudSpec := dummy.SampleCloudSpec()
 	environ, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
 			ModelConfig:      cfg.AllAttrs(),
-			Cloud:            dummy.SampleCloudSpec(),
+			Cloud:            cloudSpec,
 			ControllerName:   ControllerName,
 			AdminSecret:      AdminSecret,
 		},
@@ -310,10 +311,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
-		CloudName:        "dummy",
+		CloudName:        cloudSpec.Name,
 		Cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Type:            cloudSpec.Type,
+			AuthTypes:       []cloud.AuthType{cloud.EmptyAuthType},
+			Endpoint:        cloudSpec.Endpoint,
+			StorageEndpoint: cloudSpec.StorageEndpoint,
 		},
 		AdminSecret:  AdminSecret,
 		CAPrivateKey: testing.CAKey,

@@ -148,13 +148,14 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
+	context := s.run(
+		c, "add-model", "new-model",
+		"--config", "authorized-keys=fake-key",
+		"--config", "controller=false",
+	)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 Added 'new-model' model for user 'admin'
-
-No SSH authorized-keys were found. You must use "juju add-ssh-key"
-before "juju ssh", "juju scp", or "juju debug-hooks" will work.
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
