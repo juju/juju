@@ -436,10 +436,20 @@ func findDefaultVPCID(apiClient vpcAPIClient) (string, error) {
 	return firstAttributeValue, nil
 }
 
-// getVPCSubnetIDsForAvailabilityZone returns a list of subnet IDs, which are
-// both in the given vpcID and the given zoneName. Returns an error satisfying
-// errors.IsNotFound() otherwise.
-func getVPCSubnetIDsForAvailabilityZone(apiClient vpcAPIClient, vpcID, zoneName string) ([]string, error) {
+// getVPCSubnetIDsForAvailabilityZone returns a sorted list of subnet IDs, which
+// are both in the given vpcID and the given zoneName. If subnetsToZones map is
+// not empty, the returned list will only contain IDs matching the map keys.
+// Returns an error satisfying errors.IsNotFound() when no results match.
+func getVPCSubnetIDsForAvailabilityZone(
+	apiClient vpcAPIClient,
+	vpcID, zoneName string,
+	subnetsToZones map[network.Id][]string,
+) ([]string, error) {
+	allowedSubnetIDs := set.NewStrings()
+	for subnetID, _ := range subnetsToZones {
+		allowedSubnetIDs.Add(string(subnetID))
+	}
+
 	vpc := &ec2.VPC{Id: vpcID}
 	subnets, err := getVPCSubnets(apiClient, vpc)
 	if err != nil && !isVPCNotUsableError(err) {
@@ -454,9 +464,13 @@ func getVPCSubnetIDsForAvailabilityZone(apiClient vpcAPIClient, vpcID, zoneName 
 
 	matchingSubnetIDs := set.NewStrings()
 	for _, subnet := range subnets {
-		if subnet.AvailZone == zoneName {
-			matchingSubnetIDs.Add(subnet.Id)
+		if subnet.AvailZone != zoneName {
+			continue
 		}
+		if !allowedSubnetIDs.IsEmpty() && !allowedSubnetIDs.Contains(subnet.Id) {
+			continue
+		}
+		matchingSubnetIDs.Add(subnet.Id)
 	}
 
 	if matchingSubnetIDs.IsEmpty() {
