@@ -26,7 +26,7 @@ github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	796aaafaf712f666df58d31a482c51233038bf9f	2016-05-03T15:03:27Z
 github.com/juju/idmclient	git	3dda079a75cccb85083d4c3877e638f5d6ab79c2	2016-05-26T05:00:34Z
-github.com/juju/loggo	git	b4e8621d64b3058d86abcd85e470b32dd5cedc12	2016-08-01T21:29:28Z
+github.com/juju/loggo	git	58055bdcd31abece4175686318ded60b833199ff	2016-08-03T03:39:22Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/mutex	git	59c26ee163447c5c57f63ff71610d433862013de	2016-06-17T01:09:07Z
 github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15c	2016-03-31T17:12:27Z
