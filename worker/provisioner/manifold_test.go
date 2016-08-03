@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	apitesting "github.com/juju/juju/api/base/testing"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -19,15 +21,25 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
+	stub testing.Stub
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold() dependency.Manifold {
+	fakeNewProvFunc := func(
+		apiSt *apiprovisioner.State,
+		agentConf agent.Config,
+		environ environs.Environ,
+	) (provisioner.Provisioner, error) {
+		s.stub.AddCall("NewProvisionerFunc")
+		return struct{ provisioner.Provisioner }{}, nil
+	}
 	return provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-		EnvironName:   "environ",
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		EnvironName:        "environ",
+		NewProvisionerFunc: fakeNewProvFunc,
 	})
 }
 
@@ -36,7 +48,6 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ"})
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
-	// manifold.Start is tested extensively via direct use in provisioner_test
 }
 
 func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
@@ -70,4 +81,24 @@ func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 	}))
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+}
+
+func (s *ManifoldSuite) TestStarts(c *gc.C) {
+	manifold := s.makeManifold()
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"agent":      new(fakeAgent),
+		"api-caller": apitesting.APICallerFunc(nil),
+		"environ":    struct{ environs.Environ }{},
+	}))
+	c.Check(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+	s.stub.CheckCallNames(c, "NewProvisionerFunc")
+}
+
+type fakeAgent struct {
+	agent.Agent
+}
+
+func (a *fakeAgent) CurrentConfig() agent.Config {
+	return nil
 }

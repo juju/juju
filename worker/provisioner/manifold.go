@@ -23,6 +23,8 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	EnvironName   string
+
+	NewProvisionerFunc func(*apiprovisioner.State, agent.Config, environs.Environ) (Provisioner, error)
 }
 
 // Manifold creates a manifold that runs an environemnt provisioner. See the
@@ -51,8 +53,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			api := apiprovisioner.NewState(apiCaller)
-			config := agent.CurrentConfig()
-			w, err := NewEnvironProvisioner(api, config, environ)
+			agentConfig := agent.CurrentConfig()
+			w, err := config.NewProvisionerFunc(api, agentConfig, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

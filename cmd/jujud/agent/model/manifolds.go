@@ -223,9 +223,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: discoverspaces.NewWorker,
 		})),
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        environTrackerName,
+			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
