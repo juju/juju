@@ -2,8 +2,8 @@
 set -eux
 
 mkdir -p /var/run/dummy-sink
-relation-get token > /var/run/dummy-sink/token
 token=$(relation-get token)
+echo "$token" > /var/run/dummy-sink/token
 if [[ -z $token ]]; then
   juju-log -l INFO "Waiting for token"
   status-set waiting "Waiting for token" || true
