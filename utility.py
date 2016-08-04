@@ -495,8 +495,10 @@ def unqualified_model_name(model_name):
 
 def qualified_model_name(model_name, owner_name):
     """Return the model name qualified with the given owner name."""
-    assert model_name != ''
-    assert owner_name != ''
+    if model_name == '' or owner_name == '':
+        raise ValueError(
+            'Neither model_name nor owner_name can be blank strings')
+
     parts = model_name.split('/', 1)
     if len(parts) == 2 and parts[0] != owner_name:
         raise ValueError(
