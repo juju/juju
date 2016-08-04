@@ -585,7 +585,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsError(c *gc.
 	s.stubAPI.SetErrors(errors.New("too cloudy"))
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
-	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, anyZone)
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, anyZone, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot get VPC "vpc-anything" subnets: unexpected AWS .*: too cloudy`)
 	c.Check(subnetIDs, gc.IsNil)
 
@@ -596,7 +596,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneNoSubnetsAtAll(c *gc.C)
 	s.stubAPI.SetSubnetsResponse(noResults, anyZone, noPublicIPOnLaunch)
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
-	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, anyZone)
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, anyZone, nil)
 	c.Assert(err, gc.ErrorMatches, `VPC "vpc-anything" has no subnets in AZ "any-zone": no subnets found for VPC.*`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(subnetIDs, gc.IsNil)
@@ -608,10 +608,25 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneNoSubnetsInAZ(c *gc.C) 
 	s.stubAPI.SetSubnetsResponse(3, "other-zone", noPublicIPOnLaunch)
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
-	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "given-zone")
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "given-zone", nil)
 	c.Assert(err, gc.ErrorMatches, `VPC "vpc-anything" has no subnets in AZ "given-zone"`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(subnetIDs, gc.IsNil)
+
+	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
+}
+
+func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsToZones(c *gc.C) {
+	s.stubAPI.SetSubnetsResponse(4, "my-zone", noPublicIPOnLaunch)
+	// Simulate we used --constraints spaces=foo, which contains subnet-1 and
+	// subnet-3 out of the 4 subnets in AZ my-zone (see the related bug
+	// http://pad.lv/1609343).
+	allowedSubnetIDs := []string{"subnet-1", "subnet-3"}
+
+	anyVPC := makeEC2VPC(anyVPCID, anyState)
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "my-zone", allowedSubnetIDs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-1", "subnet-3"})
 
 	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
 }
@@ -620,7 +635,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneSuccess(c *gc.C) {
 	s.stubAPI.SetSubnetsResponse(2, "my-zone", noPublicIPOnLaunch)
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
-	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "my-zone")
+	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, anyVPC.Id, "my-zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Result slice of IDs is always sorted.
 	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-0", "subnet-1"})

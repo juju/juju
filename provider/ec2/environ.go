@@ -508,9 +508,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 		var subnetIDsForZone []string
 		var subnetErr error
-		if haveVPCID && !args.Constraints.HaveSpaces() {
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone)
-		} else if !haveVPCID && args.Constraints.HaveSpaces() {
+		if haveVPCID {
+			var allowedSubnetIDs []string
+			for subnetID, _ := range args.SubnetsToZones {
+				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			}
+			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone, allowedSubnetIDs)
+		} else if args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
 		}
 
