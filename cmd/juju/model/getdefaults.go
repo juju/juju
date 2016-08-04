@@ -65,7 +65,7 @@ func (c *getDefaultsCommand) Info() *cmd.Info {
 		Name:    "model-defaults",
 		Args:    "[<model key>]",
 		Purpose: "Displays default configuration settings for a model.",
-		Doc:     strings.TrimSpace(modelDefaultsHelpDoc),
+		Doc:     modelDefaultsHelpDoc,
 	}
 }
 

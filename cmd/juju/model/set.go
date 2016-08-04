@@ -4,8 +4,6 @@
 package model
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
@@ -35,7 +33,7 @@ Consult the online documentation for a list of keys and possible values.
 Examples:
 
     juju set-model-config logging-config='<root>=WARNING;unit=INFO'
-    juju set-model-config -m mymodel api-port=17071 default-series=xenial
+    juju set-model-config -m mymodel ftp-proxy=http://proxy default-series=xenial
 
 See also:
     models
@@ -48,7 +46,7 @@ func (c *setCommand) Info() *cmd.Info {
 		Name:    "set-model-config",
 		Args:    "<model key>=<value> ...",
 		Purpose: "Sets configuration keys on a model.",
-		Doc:     strings.TrimSpace(setModelHelpDoc),
+		Doc:     setModelHelpDoc,
 	}
 }
 
