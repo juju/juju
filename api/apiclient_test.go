@@ -236,44 +236,50 @@ func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 	clock := &fakeClock{}
+	retryError := &rpc.RequestError{Message: "hmm...", Code: params.CodeRetry}
+	var errors []error
+	for i := 0; i < 10; i++ {
+		errors = append(errors, retryError)
+	}
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: &fakeRPCConnection{
-			errors: []error{
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-				&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry},
-			},
+			errors: errors,
 		},
 		Clock: clock,
 	})
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
-	c.Check(err, jc.Satisfies, retry.IsAttemptsExceeded)
+	c.Check(err, jc.Satisfies, retry.IsDurationExceeded)
 	c.Check(err, gc.ErrorMatches, `.*hmm... \(retry\)`)
 	c.Check(clock.waits, jc.DeepEquals, []time.Duration{
 		100 * time.Millisecond,
 		200 * time.Millisecond,
 		400 * time.Millisecond,
 		800 * time.Millisecond,
+		1600 * time.Millisecond,
+		3 * time.Second,
+		3 * time.Second,
 	})
 }
 
 type fakeClock struct {
 	clock.Clock
 
+	now   time.Time
 	waits []time.Duration
 }
 
 func (f *fakeClock) Now() time.Time {
-	return time.Now()
+	if f.now.IsZero() {
+		f.now = time.Now()
+	}
+	return f.now
 }
 
 func (f *fakeClock) After(d time.Duration) <-chan time.Time {
 	f.waits = append(f.waits, d)
-	return time.After(time.Microsecond)
+	f.now = f.now.Add(d)
+	return time.After(0)
 }
 
 type fakeRPCConnection struct {

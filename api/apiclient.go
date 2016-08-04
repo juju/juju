@@ -608,11 +608,9 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 			}
 			return ec.ErrorCode() != params.CodeRetry
 		},
-		// The combination of five attempts and the double delay
-		// means that we get 100, 200, 400, 800 millisecond backoffs.
-		// The maximum elapsed delay will be 1500ms or 1.5 seconds.
-		Attempts:    5,
 		Delay:       100 * time.Millisecond,
+		MaxDelay:    3 * time.Second,
+		MaxDuration: 10 * time.Second,
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       s.clock,
 	}
