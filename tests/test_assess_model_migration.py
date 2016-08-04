@@ -13,6 +13,7 @@ from tests import (
     TestCase,
 )
 from utility import (
+    JujuAssertionError,
     temp_dir,
     until_timeout,
 )
@@ -126,6 +127,23 @@ class TestWaitForModel(TestCase):
         with patch.object(amm, 'sleep') as mock_sleep:
             amm.wait_for_model(mock_client, 'TestModelName')
             mock_sleep.assert_called_once_with(1)
+
+
+class TestRaiseIfSharedMachines(TestCase):
+
+    def test_empty_list_raises(self):
+        with self.assertRaises(ValueError):
+            amm.raise_if_shared_machines([])
+
+    def test_unique_list_does_not_raise_single_item(self):
+        amm.raise_if_shared_machines([1])
+
+    def test_unique_list_does_not_raise_many_item(self):
+        amm.raise_if_shared_machines([1, 2, 3])
+
+    def test_double_up_raises(self):
+        with self.assertRaises(JujuAssertionError):
+            amm.raise_if_shared_machines([1, 1])
 
 
 class TestMain(TestCase):
