@@ -55,26 +55,12 @@ func (s *configSuite) TestValidateInvalidFirewallMode(c *gc.C) {
 	)
 }
 
-func (s *configSuite) TestValidateLocation(c *gc.C) {
-	s.assertConfigInvalid(c, testing.Attrs{"location": ""}, `"location" config not specified`)
-	// We don't validate locations, because new locations may be added.
-	// Azure will complain if the location is invalid anyway.
-	s.assertConfigValid(c, testing.Attrs{"location": "eurasia"})
-}
-
 func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"name": "someextremelyoverlylongishmodelname"},
 		`resource group name "juju-someextremelyoverlylongishmodelname-model-deadbeef-0bad-400d-8000-4b1d0d06f00d" is too long
 
 Please choose a model name of no more than 32 characters.`)
-}
-
-func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
-	s.assertConfigInvalid(c, testing.Attrs{"application-id": ""}, `"application-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"application-password": ""}, `"application-password" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"tenant-id": ""}, `"tenant-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"subscription-id": ""}, `"subscription-id" config not specified`)
 }
 
 func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
@@ -101,15 +87,8 @@ func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect s
 
 func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
-		"type":                 "azure",
-		"application-id":       fakeApplicationId,
-		"tenant-id":            fakeTenantId,
-		"application-password": "opensezme",
-		"subscription-id":      fakeSubscriptionId,
-		"location":             "westus",
-		"endpoint":             "https://api.azurestack.local",
-		"storage-endpoint":     "https://storage.azurestack.local",
-		"agent-version":        "1.2.3",
+		"type":          "azure",
+		"agent-version": "1.2.3",
 	}
 	for _, extra := range extra {
 		attrs = attrs.Merge(extra)

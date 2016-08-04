@@ -6,11 +6,13 @@ package azure
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
@@ -53,6 +55,21 @@ type azureEnviron struct {
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
 
+	// cloud defines the cloud configuration for this environment.
+	cloud environs.CloudSpec
+
+	// location is the canonicalized location name. Use this instead
+	// of cloud.Region in API calls.
+	location string
+
+	// subscriptionId is the Azure account subscription ID.
+	subscriptionId string
+
+	// storageEndpoint is the Azure storage endpoint. This is the host
+	// portion of the storage endpoint URL only; use this instead of
+	// cloud.StorageEndpoint in API calls.
+	storageEndpoint string
+
 	// resourceGroup is the name of the Resource Group in the Azure
 	// subscription that corresponds to the environment.
 	resourceGroup string
@@ -60,33 +77,105 @@ type azureEnviron struct {
 	// envName is the name of the environment.
 	envName string
 
-	mu                 sync.Mutex
-	config             *azureModelConfig
-	instanceTypes      map[string]instances.InstanceType
-	storageAccount     *storage.Account
-	storageAccountKeys *storage.AccountKeys
-	// azure management clients
+	// azure auth token, and management clients
+	token         *azure.ServicePrincipalToken
 	compute       compute.ManagementClient
 	resources     resources.ManagementClient
 	storage       storage.ManagementClient
 	network       network.ManagementClient
 	storageClient azurestorage.Client
+
+	mu                 sync.Mutex
+	config             *azureModelConfig
+	instanceTypes      map[string]instances.InstanceType
+	storageAccount     *storage.Account
+	storageAccountKeys *storage.AccountKeys
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
 var _ state.Prechecker = (*azureEnviron)(nil)
 
 // newEnviron creates a new azureEnviron.
-func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnviron, error) {
-	env := azureEnviron{provider: provider}
-	err := env.SetConfig(cfg)
+func newEnviron(
+	provider *azureEnvironProvider,
+	cloud environs.CloudSpec,
+	cfg *config.Config,
+) (*azureEnviron, error) {
+
+	// The Azure storage code wants the endpoint host only, not the URL.
+	storageEndpointURL, err := url.Parse(cloud.StorageEndpoint)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "parsing storage endpoint URL")
+	}
+
+	env := azureEnviron{
+		provider:        provider,
+		cloud:           cloud,
+		location:        canonicalLocation(cloud.Region),
+		storageEndpoint: storageEndpointURL.Host,
+	}
+	if err := env.initEnviron(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := env.SetConfig(cfg); err != nil {
+		return nil, errors.Trace(err)
 	}
 	modelTag := names.NewModelTag(cfg.UUID())
 	env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
 	env.envName = cfg.Name()
 	return &env, nil
+}
+
+func (env *azureEnviron) initEnviron() error {
+	credAttrs := env.cloud.Credential.Attributes()
+	env.subscriptionId = credAttrs[credAttrSubscriptionId]
+	tenantId := credAttrs[credAttrTenantId]
+	appId := credAttrs[credAttrAppId]
+	appPassword := credAttrs[credAttrAppPassword]
+	token, err := azure.NewServicePrincipalToken(
+		appId,
+		appPassword,
+		tenantId,
+		azure.AzureResourceManagerScope,
+	)
+	if err != nil {
+		return errors.Annotate(err, "constructing service principal token")
+	}
+	env.token = token
+	if env.provider.config.Sender != nil {
+		env.token.SetSender(env.provider.config.Sender)
+	}
+
+	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.storage = storage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	clients := map[string]*autorest.Client{
+		"azure.compute":   &env.compute.Client,
+		"azure.resources": &env.resources.Client,
+		"azure.storage":   &env.storage.Client,
+		"azure.network":   &env.network.Client,
+	}
+	for id, client := range clients {
+		client.Authorizer = env.token
+		logger := loggo.GetLogger(id)
+		if env.provider.config.Sender != nil {
+			client.Sender = env.provider.config.Sender
+		}
+		client.ResponseInspector = tracingRespondDecorator(logger)
+		client.RequestInspector = tracingPrepareDecorator(logger)
+		if env.provider.config.RequestInspector != nil {
+			tracer := client.RequestInspector
+			inspector := env.provider.config.RequestInspector
+			client.RequestInspector = func(p autorest.Preparer) autorest.Preparer {
+				p = tracer(p)
+				p = inspector(p)
+				return p
+			}
+		}
+	}
+	return nil
 }
 
 // PrepareForBootstrap is part of the Environ interface.
@@ -131,16 +220,17 @@ func (env *azureEnviron) Bootstrap(
 // environment. The resource group will have a storage account, and
 // internal network and subnet.
 func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
+	location := env.location
+	resourceGroupsClient := resources.GroupsClient{env.resources}
+	networkClient := env.network
+	storageAccountsClient := storage.AccountsClient{env.storage}
+
 	env.mu.Lock()
-	location := env.config.location
 	tags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
 		names.NewModelTag(controllerUUID),
 		env.config,
 	)
-	resourceGroupsClient := resources.GroupsClient{env.resources}
-	networkClient := env.network
-	storageAccountsClient := storage.AccountsClient{env.storage}
 	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
 
@@ -284,47 +374,6 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	}
 	env.config = ecfg
 
-	// Initialise clients.
-	env.compute = compute.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
-	env.resources = resources.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
-	env.storage = storage.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
-	env.network = network.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
-	clients := map[string]*autorest.Client{
-		"azure.compute":   &env.compute.Client,
-		"azure.resources": &env.resources.Client,
-		"azure.storage":   &env.storage.Client,
-		"azure.network":   &env.network.Client,
-	}
-	if env.provider.config.Sender != nil {
-		env.config.token.SetSender(env.provider.config.Sender)
-	}
-	for id, client := range clients {
-		client.Authorizer = env.config.token
-		logger := loggo.GetLogger(id)
-		if env.provider.config.Sender != nil {
-			client.Sender = env.provider.config.Sender
-		}
-		client.ResponseInspector = tracingRespondDecorator(logger)
-		client.RequestInspector = tracingPrepareDecorator(logger)
-		if env.provider.config.RequestInspector != nil {
-			tracer := client.RequestInspector
-			inspector := env.provider.config.RequestInspector
-			client.RequestInspector = func(p autorest.Preparer) autorest.Preparer {
-				p = tracer(p)
-				p = inspector(p)
-				return p
-			}
-		}
-	}
-
-	// Invalidate instance types when the location changes.
-	if old != nil {
-		oldLocation := old.UnknownAttrs()["location"].(string)
-		if env.config.location != oldLocation {
-			env.instanceTypes = nil
-		}
-	}
-
 	return nil
 }
 
@@ -397,21 +446,23 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if args.ControllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
-	// Get the required configuration and config-dependent information
-	// required to create the instance. We take the lock just once, to
-	// ensure we obtain all information based on the same configuration.
-	env.mu.Lock()
-	location := env.config.location
-	envTags := tags.ResourceTags(
-		names.NewModelTag(env.config.Config.UUID()),
-		names.NewModelTag(args.ControllerUUID),
-		env.config,
-	)
+
+	location := env.location
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
 	networkClient := env.network
 	vmImagesClient := compute.VirtualMachineImagesClient{env.compute}
 	vmExtensionClient := compute.VirtualMachineExtensionsClient{env.compute}
+
+	// Get the required configuration and config-dependent information
+	// required to create the instance. We take the lock just once, to
+	// ensure we obtain all information based on the same configuration.
+	env.mu.Lock()
+	envTags := tags.ResourceTags(
+		names.NewModelTag(env.config.Config.UUID()),
+		names.NewModelTag(args.ControllerUUID),
+		env.config,
+	)
 	imageStream := env.config.ImageStream()
 	instanceTypes, err := env.getInstanceTypesLocked()
 	if err != nil {
@@ -825,10 +876,8 @@ func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*c
 
 // StopInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
-	env.mu.Lock()
 	computeClient := env.compute
 	networkClient := env.network
-	env.mu.Unlock()
 
 	// Query the instances, so we can inspect the VirtualMachines
 	// and delete related resources.
@@ -1026,11 +1075,9 @@ func (env *azureEnviron) allInstances(
 	resourceGroup string,
 	refreshAddresses bool,
 ) ([]instance.Instance, error) {
-	env.mu.Lock()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	nicClient := network.InterfacesClient{env.network}
 	pipClient := network.PublicIPAddressesClient{env.network}
-	env.mu.Unlock()
 
 	// Due to how deleting instances works, we have to get creative about
 	// listing instances. We list NICs and return an instance for each
@@ -1266,7 +1313,7 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 		return env.instanceTypes, nil
 	}
 
-	location := env.config.location
+	location := env.location
 	client := compute.VirtualMachineSizesClient{env.compute}
 
 	var result compute.VirtualMachineSizeListResult
@@ -1325,7 +1372,7 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 	}
 	client, err := getStorageClient(
 		env.provider.config.NewStorageClient,
-		env.config.storageEndpoint,
+		env.storageEndpoint,
 		storageAccount,
 		storageAccountKeys,
 	)
@@ -1401,13 +1448,11 @@ func (env *azureEnviron) getStorageAccountKeysLocked(accountName string, refresh
 // When we have image simplestreams, we should rename this to "Region",
 // to implement simplestreams.HasRegion.
 func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
-	env.mu.Lock()
-	defer env.mu.Unlock()
 	return simplestreams.CloudSpec{
-		Region: env.config.location,
+		Region: env.location,
 		// The endpoints published in simplestreams
 		// data are the storage endpoints.
-		Endpoint: fmt.Sprintf("https://%s/", env.config.storageEndpoint),
+		Endpoint: fmt.Sprintf("https://%s/", env.storageEndpoint),
 	}, nil
 }
 

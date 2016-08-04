@@ -9,6 +9,13 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+const (
+	credAttrAppId          = "application-id"
+	credAttrSubscriptionId = "subscription-id"
+	credAttrTenantId       = "tenant-id"
+	credAttrAppPassword    = "application-password"
+)
+
 // environPoviderCredentials is an implementation of
 // environs.ProviderCredentials for the Azure Resource
 // Manager cloud provider.
@@ -19,13 +26,13 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
 			{
-				configAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
+				credAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
 			}, {
-				configAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
+				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
 			}, {
-				configAttrTenantId, cloud.CredentialAttr{Description: "Azure Active Directory tenant ID"},
+				credAttrTenantId, cloud.CredentialAttr{Description: "Azure Active Directory tenant ID"},
 			}, {
-				configAttrAppPassword, cloud.CredentialAttr{
+				credAttrAppPassword, cloud.CredentialAttr{
 					Description: "Azure Active Directory application password",
 					Hidden:      true,
 				},
