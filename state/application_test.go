@@ -1703,11 +1703,9 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsTrue)
 
-	// Run the cleanup and check the charm.
+	// Run the cleanup
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Charm(s.charm.URL())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
