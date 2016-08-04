@@ -1069,12 +1069,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			endpointBindingsOp,
 		},
 		addApplicationOps(st, addApplicationOpsArgs{
-			applicationDoc:   svcDoc,
-			statusDoc:        statusDoc,
-			constraints:      args.Constraints,
-			storage:          args.Storage,
-			settings:         map[string]interface{}(args.Settings),
-			settingsRefCount: 1,
+			applicationDoc: svcDoc,
+			statusDoc:      statusDoc,
+			constraints:    args.Constraints,
+			storage:        args.Storage,
+			settings:       map[string]interface{}(args.Settings),
 		})...)
 
 	// Collect peer relation addition operations.

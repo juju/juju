@@ -253,7 +253,6 @@ type Application interface {
 	MinUnits() int
 
 	Settings() map[string]interface{}
-	SettingsRefCount() int
 
 	Leader() string
 	LeadershipSettings() map[string]interface{}
