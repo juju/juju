@@ -199,6 +199,9 @@ func open(
 		bakeryClient.Client = &httpc
 	}
 	apiHost := conn.Config().Location.Host
+	// Technically when there's no CACert, we don't need this
+	// machinery, because we could just use http.DefaultTransport
+	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: apiHost,
 		primary:     utils.NewHttpTLSTransport(tlsConfig),
@@ -287,12 +290,12 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 		return nil, nil, errors.New("no API addresses to connect to")
 	}
 	tlsConfig := utils.SecureTLSConfig()
-	// We want to be specific here (rather than just using "anything".
-	// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-	tlsConfig.ServerName = "juju-apiserver"
 	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
 
-	if !tlsConfig.InsecureSkipVerify {
+	if info.CACert != "" && !tlsConfig.InsecureSkipVerify {
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		tlsConfig.ServerName = "juju-apiserver"
 		certPool, err := CreateCertPool(info.CACert)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "cert pool creation failed")
@@ -535,15 +538,40 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 			if err == nil {
 				return conn, nil
 			}
-			if a.HasNext() {
-				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
-			} else {
+			if !a.HasNext() || isX509Error(err) {
+				// We won't reconnect when there's an X509 error
+				// because we're not going to succeed if we retry
+				// in that case.
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
 				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
 		}
 		panic("unreachable")
 	}
+}
+
+// isX509Error reports whether the given websocket error
+// results from an X509 problem.
+func isX509Error(err error) bool {
+	wsErr, ok := errors.Cause(err).(*websocket.DialError)
+	if !ok {
+		return false
+	}
+	switch wsErr.Err.(type) {
+	case x509.HostnameError,
+		x509.InsecureAlgorithmError,
+		x509.UnhandledCriticalExtension,
+		x509.UnknownAuthorityError,
+		x509.ConstraintViolationError,
+		x509.SystemRootsError:
+		return true
+	}
+	switch err {
+	case x509.ErrUnsupportedAlgorithm,
+		x509.IncorrectPasswordError:
+		return true
+	}
+	return false
 }
 
 func callWithTimeout(f func() error, timeout time.Duration) bool {
