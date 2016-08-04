@@ -19,6 +19,7 @@ from textwrap import dedent
 
 from assess_model_migration import get_bootstrap_managers
 import certificates
+from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -53,47 +54,75 @@ def assess_log_forward(bs_dummy, bs_rsyslog, upload_tools):
             log.info('Bootstrapped dummy environment')
             dummy_client = bs_dummy.client
 
-            # ensure turning on log-fwd emits logs to the client.
-            # Should I ensure that nothing turns up beforehand
+            unit_machine = 'rsyslog/0'
+            remote_script_path = create_check_script_on_unit(
+                rsyslog, unit_machine)
+
             ensure_enabling_log_forwarding_forwards_previous_messages(
-                rsyslog, dummy_client)
+                rsyslog, dummy_client, unit_machine, remote_script_path)
+            ensure_multiple_models_forward_messages(
+                rsyslog, dummy_client, unit_machine, remote_script_path)
 
 
-def ensure_enabling_log_forwarding_forwards_previous_messages(rsyslog, dummy):
-    """Assert when enabled log forwarding forwards messages from log start."""
-    uuid = dummy.get_controller_uuid()
+def ensure_multiple_models_forward_messages(
+        rsyslog, dummy, unit_machine, remote_check_path):
+    """Assert that logs of multiple models are forwarded.
 
+    :raises JujuAssertionError: If the expected message does not appear in the
+      given timeframe.
+    :raises JujuAssertionError: If the log message check fails in an unexpected
+      way.
+    """
     enable_log_forwarding(dummy)
-    assert_initial_message_forwarded(rsyslog, uuid)
+
+    model1 = dummy.add_model(
+        dummy.env.clone('{}-{}'.format(dummy.env.environment, 'model1')))
+
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=model1.version)
+
+    model1.deploy(charm_path)
+    model1.wait_for_started()
+
+    model1_check_string = get_assert_regex(model1.get_model_uuid())
+
+    check_remote_log_for_content(
+        rsyslog, unit_machine, model1_check_string, remote_check_path)
 
 
-def assert_initial_message_forwarded(rsyslog, uuid):
+def ensure_enabling_log_forwarding_forwards_previous_messages(
+        rsyslog, dummy, unit_machine, remote_check_path):
     """Assert that mention of the sources logs appear in the sinks logging.
 
     Given a rsyslog sink and an output source assert that logging details from
     the source appear in the sinks logging.
     Attempt a check over a period of time (10 seconds).
 
-    :returns: As soon as the expected message appears.
     :raises JujuAssertionError: If the expected message does not appear in the
       given timeframe.
     :raises JujuAssertionError: If the log message check fails in an unexpected
       way.
 
     """
+    uuid = dummy.get_controller_uuid()
+
+    enable_log_forwarding(dummy)
     check_string = get_assert_regex(uuid)
-    unit_machine = 'rsyslog/0'
 
-    remote_script_path = create_check_script_on_unit(rsyslog, unit_machine)
+    check_remote_log_for_content(
+        rsyslog, unit_machine, check_string, remote_check_path)
 
+
+def check_remote_log_for_content(
+        remote_machine, unit, check_string, script_path):
     try:
-        rsyslog.juju(
+        remote_machine.juju(
             'ssh',
             (
-                unit_machine,
+                unit,
                 'sudo',
                 'python',
-                remote_script_path,
+                script_path,
                 check_string,
                 '/var/log/syslog'))
         log.info('Check script passed on target machine.')
