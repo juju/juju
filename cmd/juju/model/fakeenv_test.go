@@ -23,13 +23,18 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 			"special": "special value",
 			"running": true,
 		},
+		defaults: config.ConfigValues{
+			"attr":  {Value: "foo", Source: "default"},
+			"attr2": {Value: "bar", Source: "controller"},
+		},
 	}
 }
 
 type fakeEnvAPI struct {
-	values map[string]interface{}
-	err    error
-	keys   []string
+	values   map[string]interface{}
+	defaults config.ConfigValues
+	err      error
+	keys     []string
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -49,10 +54,27 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 }
 
 func (f *fakeEnvAPI) ModelDefaults() (config.ConfigValues, error) {
-	return config.ConfigValues{
-		"attr":  {Value: "foo", Source: "default"},
-		"attr2": {Value: "bar", Source: "controller"},
-	}, nil
+	return f.defaults, nil
+}
+
+func (f *fakeEnvAPI) SetModelDefaults(cfg map[string]interface{}) error {
+	if f.err != nil {
+		return f.err
+	}
+	for name, val := range cfg {
+		f.defaults[name] = config.ConfigValue{Value: val, Source: "controller"}
+	}
+	return nil
+}
+
+func (f *fakeEnvAPI) UnsetModelDefaults(keys ...string) error {
+	if f.err != nil {
+		return f.err
+	}
+	for _, key := range keys {
+		delete(f.defaults, key)
+	}
+	return nil
 }
 
 func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {

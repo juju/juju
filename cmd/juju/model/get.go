@@ -54,7 +54,7 @@ func (c *getCommand) Info() *cmd.Info {
 		Aliases: []string{"model-config"},
 		Args:    "[<model key>]",
 		Purpose: "Displays configuration settings for a model.",
-		Doc:     strings.TrimSpace(getModelHelpDoc),
+		Doc:     getModelHelpDoc,
 	}
 }
 
