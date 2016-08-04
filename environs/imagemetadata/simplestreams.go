@@ -11,11 +11,12 @@ import (
 	"sort"
 
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 )
 
 func init() {
@@ -225,6 +226,17 @@ func (im *ImageMetadata) String() string {
 func (im *ImageMetadata) productId() string {
 	stream := idStream(im.Stream)
 	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, im.Version, im.Arch)
+}
+
+func DistictArchitectures(metadata []*ImageMetadata) []string {
+	if metadata == nil {
+		return nil
+	}
+	archesSet := set.NewStrings()
+	for _, one := range metadata {
+		archesSet.Add(one.Arch)
+	}
+	return archesSet.SortedValues()
 }
 
 // Fetch returns a list of images for the specified cloud matching the constraint.

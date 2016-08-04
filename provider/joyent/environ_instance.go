@@ -65,7 +65,7 @@ var unsupportedConstraints = []string{
 func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.getSupportedArchitectures()
+	supportedArches, err := env.getSupportedArchitectures(env.initialArchitectures)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +88,13 @@ func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error 
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	// This is especially important for bootstrap instance.
+	// There is a window where image metadata may not be available
+	// through traditional search path - database, data sources.
+	// In these cases, the only point of truth is the image
+	// metadata passed in.
+	env.initialArchitectures = imagemetadata.DistictArchitectures(args.ImageMetadata)
+
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{

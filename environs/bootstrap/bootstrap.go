@@ -214,6 +214,21 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
+
+	// This call needs to be made before finding tools:
+	// we register image metadata data sources
+	// which, in turn, enables us to know what architectures
+	// we can support when we discover tools.
+	imageMetadata, err := bootstrapImageMetadata(
+		environ, bootstrapConstraints.Arch,
+		bootstrapSeries,
+		args.BootstrapImage,
+		&customImageMetadata,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	availableTools, err := findAvailableTools(
 		environ, args.AgentVersion, bootstrapConstraints.Arch,
 		bootstrapSeries, args.UploadTools, args.BuildToolsTarball != nil,
@@ -222,15 +237,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.New(noToolsMessage)
 	} else if err != nil {
 		return err
-	}
-
-	imageMetadata, err := bootstrapImageMetadata(
-		environ, availableTools,
-		args.BootstrapImage,
-		&customImageMetadata,
-	)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -422,7 +428,7 @@ func userPublicSigningKey() (string, error) {
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
-	availableTools coretools.List,
+	arch, aseries *string,
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
 ) ([]*imagemetadata.ImageMetadata, error) {
@@ -445,15 +451,15 @@ func bootstrapImageMetadata(
 		return nil, errors.Trace(err)
 	}
 
+	arches := []string{}
+	if arch != nil {
+		arches = []string{*arch}
+	}
+	allSeries := []string{}
+	if aseries != nil {
+		allSeries = []string{*aseries}
+	}
 	if bootstrapImageId != "" {
-		arches := availableTools.Arches()
-		if len(arches) != 1 {
-			return nil, errors.NotValidf("multiple architectures with bootstrap image")
-		}
-		allSeries := availableTools.AllSeries()
-		if len(allSeries) != 1 {
-			return nil, errors.NotValidf("multiple series with bootstrap image")
-		}
 		seriesVersion, err := series.SeriesVersion(allSeries[0])
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -482,8 +488,8 @@ func bootstrapImageMetadata(
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Series:    availableTools.AllSeries(),
-		Arches:    availableTools.Arches(),
+		Series:    allSeries,
+		Arches:    arches,
 		Stream:    environ.Config().ImageStream(),
 	})
 	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)

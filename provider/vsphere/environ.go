@@ -25,8 +25,9 @@ type environ struct {
 	name   string
 	client *client
 
-	archLock               sync.Mutex // archLock protects access to the following fields.
-	supportedArchitectures []string
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace

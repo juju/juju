@@ -29,9 +29,12 @@ type environ struct {
 	lock      sync.Mutex
 	archMutex sync.Mutex
 
-	ecfg                   *environConfig
-	client                 *environClient
-	supportedArchitectures []string
+	ecfg   *environConfig
+	client *environClient
+
+	// initialArchitectures hold architectures that were used during bootstrap
+	// as they may not yet have made neither to the database nor data sources.
+	initialArchitectures []string
 }
 
 // Name returns the Environ's name.

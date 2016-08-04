@@ -27,18 +27,10 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 }
 
 func (env *environ) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
 	archList, err := env.lookupArchitectures()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.supportedArchitectures = archList
 	return archList, nil
 }
 
