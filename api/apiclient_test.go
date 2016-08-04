@@ -256,9 +256,11 @@ func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 		200 * time.Millisecond,
 		400 * time.Millisecond,
 		800 * time.Millisecond,
-		1600 * time.Millisecond,
-		3 * time.Second,
-		3 * time.Second,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
 	})
 }
 

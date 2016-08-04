@@ -609,7 +609,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 			return ec.ErrorCode() != params.CodeRetry
 		},
 		Delay:       100 * time.Millisecond,
-		MaxDelay:    3 * time.Second,
+		MaxDelay:    1500 * time.Millisecond,
 		MaxDuration: 10 * time.Second,
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       s.clock,
