@@ -18,7 +18,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
@@ -48,10 +50,16 @@ var (
 	PingTimeout = 30 * time.Second
 )
 
+type rpcConnection interface {
+	Call(req rpc.Request, params, response interface{}) error
+	Close() error
+}
+
 // state is the internal implementation of the Connection interface.
 type state struct {
-	client *rpc.Conn
+	client rpcConnection
 	conn   *websocket.Conn
+	clock  clock.Clock
 
 	// addr is the address used to connect to the API server.
 	addr string
@@ -153,7 +161,7 @@ func (e *RedirectError) Error() string {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, (*state).Login)
+	return open(info, opts, clock.WallClock, (*state).Login)
 }
 
 // This unexported open method is used both directly above in the Open
@@ -162,11 +170,15 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 func open(
 	info *Info,
 	opts DialOpts,
+	clock clock.Clock,
 	loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error,
 ) (Connection, error) {
 
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
+	}
+	if clock == nil {
+		return nil, errors.NotValidf("nil clock")
 	}
 	conn, tlsConfig, err := connectWebsocket(info, opts)
 	if err != nil {
@@ -196,6 +208,7 @@ func open(
 	st := &state{
 		client: client,
 		conn:   conn,
+		clock:  clock,
 		addr:   apiHost,
 		cookieURL: &url.URL{
 			Scheme: "https",
@@ -260,7 +273,7 @@ func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, e
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
-	return open(info, opts, loginFunc)
+	return open(info, opts, clock.WallClock, loginFunc)
 }
 
 // connectWebsocket establishes a websocket connection to the RPC
@@ -569,18 +582,41 @@ func (s *state) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
+type hasErrorCode interface {
+	ErrorCode() string
+}
+
 // APICall places a call to the remote machine.
 //
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
-	err := s.client.Call(rpc.Request{
-		Type:    facade,
-		Version: version,
-		Id:      id,
-		Action:  method,
-	}, args, response)
+	retrySpec := retry.CallArgs{
+		Func: func() error {
+			return s.client.Call(rpc.Request{
+				Type:    facade,
+				Version: version,
+				Id:      id,
+				Action:  method,
+			}, args, response)
+		},
+		IsFatalError: func(err error) bool {
+			ec, ok := err.(hasErrorCode)
+			if !ok {
+				return true
+			}
+			return ec.ErrorCode() != params.CodeRetry
+		},
+		// The combination of five attempts and the double delay
+		// means that we get 100, 200, 400, 800 millisecond backoffs.
+		// The maximum elapsed delay will be 1500ms or 1.5 seconds.
+		Attempts:    5,
+		Delay:       100 * time.Millisecond,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       s.clock,
+	}
+	err := retry.Call(retrySpec)
 	return errors.Trace(err)
 }
 
@@ -598,13 +634,6 @@ func (s *state) Close() error {
 // Broken returns a channel that's closed when the connection is broken.
 func (s *state) Broken() <-chan struct{} {
 	return s.broken
-}
-
-// RPCClient returns the RPC client for the state, so that testing
-// functions can tickle parts of the API that the conventional entry
-// points don't reach. This is exported for testing purposes only.
-func (s *state) RPCClient() *rpc.Conn {
-	return s.client
 }
 
 // Addr returns the address used to connect to the API server.
