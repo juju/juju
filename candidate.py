@@ -24,22 +24,11 @@ from jujuci import (
 from utility import (
     extract_deb,
     get_deb_arch,
+    get_revision_build,
     run_command,
     s3_cmd,
     temp_dir,
 )
-
-
-def get_build_parameters(build_data):
-    parameters = {}
-    action_list = build_data['actions']
-    for acts in action_list:
-        for key in acts.keys():
-            if key == 'parameters':
-                for act in acts[key]:
-                    parameters[act['name']] = act['value']
-            break
-    return parameters
 
 
 def find_publish_revision_number(credentials, br_number, limit=20):
@@ -53,8 +42,7 @@ def find_publish_revision_number(credentials, br_number, limit=20):
             return None
         # Ensure we have the real job number (an int), not an alias.
         job_number = build_data['number']
-        parameters = get_build_parameters(build_data)
-        if parameters['revision_build'] == str(br_number):
+        if get_revision_build(build_data) == str(br_number):
             found_number = job_number
             break
         job_number = job_number - 1
