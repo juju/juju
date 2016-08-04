@@ -11,11 +11,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 func init() {
@@ -28,6 +30,7 @@ type AgentAPIV2 struct {
 	*common.RebootFlagClearer
 	*common.ModelWatcher
 	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
 
 	st   *state.State
 	auth facade.Authorizer
@@ -43,11 +46,13 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &AgentAPIV2{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfig(st),
+		CloudSpecAPI:        cloudspec.NewCloudSpecForModel(st.ModelTag(), environConfigGetter.CloudSpec),
 		st:                  st,
 		auth:                auth,
 	}, nil

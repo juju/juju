@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -22,6 +23,7 @@ type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
 	*common.ControllerConfigAPI
+	*cloudspec.CloudSpecAPI
 
 	facade base.FacadeCaller
 }
@@ -35,6 +37,7 @@ func NewState(caller base.APICaller) *State {
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller),
 		facade:              facadeCaller}
 }
 

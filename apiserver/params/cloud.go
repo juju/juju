@@ -83,10 +83,31 @@ type CloudDefaults struct {
 // CloudDefaultsResult contains a CloudDefaults or an error.
 type CloudDefaultsResult struct {
 	Result *CloudDefaults `json:"result,omitempty"`
-	Error  *Error         `json:"error"`
+	Error  *Error         `json:"error,omitempty"`
 }
 
 // CloudDefaultsResults contains a set of CloudDefaultsResults.
 type CloudDefaultsResults struct {
 	Results []CloudDefaultsResult `json:"results,omitempty"`
+}
+
+// CloudSpec holds a cloud specification.
+type CloudSpec struct {
+	Type            string           `json:"type"`
+	Name            string           `json:"name"`
+	Region          string           `json:"region,omitempty"`
+	Endpoint        string           `json:"endpoint,omitempty"`
+	StorageEndpoint string           `json:"storage-endpoint,omitempty"`
+	Credential      *CloudCredential `json:"credential,omitempty"`
+}
+
+// CloudSpecResult contains a CloudSpec or an error.
+type CloudSpecResult struct {
+	Result *CloudSpec `json:"result,omitempty"`
+	Error  *Error     `json:"error,omitempty"`
+}
+
+// CloudSpecResults contains a set of CloudSpecResults.
+type CloudSpecResults struct {
+	Results []CloudSpecResult `json:"results,omitempty"`
 }

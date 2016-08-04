@@ -3,7 +3,11 @@
 
 package environs
 
-import "github.com/juju/juju/cloud"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
+	names "gopkg.in/juju/names.v2"
+)
 
 // CloudSpec describes a specific cloud configuration, for the purpose
 // of opening an Environ to manage the cloud resources.
@@ -28,4 +32,16 @@ type CloudSpec struct {
 	// with the cloud, or nil if the cloud does not require any
 	// credentials.
 	Credential *cloud.Credential
+}
+
+// Validate validates that the CloudSpec is well-formed. It does
+// not ensure that the cloud type and credentials are valid.
+func (cs CloudSpec) Validate() error {
+	if cs.Type == "" {
+		return errors.NotValidf("empty Type")
+	}
+	if !names.IsValidCloud(cs.Name) {
+		return errors.NotValidf("cloud name %q", cs.Name)
+	}
+	return nil
 }
