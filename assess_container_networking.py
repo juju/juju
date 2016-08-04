@@ -38,6 +38,11 @@ __metaclass__ = type
 log = logging.getLogger("assess_container_networking")
 
 
+# This needs refactored out to utility
+class JujuAssertionError(AssertionError):
+    """Exception for juju assertion failures."""
+
+
 def parse_args(argv=None):
     """Parse all arguments."""
 
@@ -249,9 +254,20 @@ def assess_network_traffic(client, targets):
 
 def private_address(client, host):
     default_route = ssh(client, host, 'ip -4 -o route list 0/0')
-    device = re.search(r'(\w+)\s*$', default_route).group(1)
+    log.info("Default route from {}: {}".format(host, default_route))
+    route_match = re.search(r'([\w-]+)\s*$', default_route)
+    if route_match is None:
+        raise JujuAssertionError(
+            "Failed to find device in {}".format(default_route))
+    device = route_match.group(1)
+    log.info("Fetching the device IP of {}".format(device))
     device_ip = ssh(client, host, 'ip -4 -o addr show {}'.format(device))
-    return re.search(r'inet\s+(\S+)/\d+\s', device_ip).group(1)
+    log.info("Device IP for {}: {}".format(host, device_ip))
+    ip_match = re.search(r'inet\s+(\S+)/\d+\s', device_ip)
+    if ip_match is None:
+        raise JujuAssertionError(
+            "Failed to find ip for device: {}".format(device))
+    return ip_match.group(1)
 
 
 def assess_address_range(client, targets):
@@ -299,7 +315,7 @@ def assess_internet_connection(client, targets):
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
         if d:
             rc = client.juju('ssh', ('--proxy', target,
-                             'ping -c1 -q ' + d.group(1)), check=False)
+                                     'ping -c1 -q ' + d.group(1)), check=False)
             if rc != 0:
                 raise ValueError('%s unable to ping default route' % target)
         else:
