@@ -90,3 +90,15 @@ func (c *Client) ModelDefaults() (config.ConfigValues, error) {
 	}
 	return values, nil
 }
+
+// SetModelDefaults updates the specified default model config values.
+func (c *Client) SetModelDefaults(config map[string]interface{}) error {
+	args := params.ModelSet{Config: config}
+	return c.facade.FacadeCall("SetModelDefaults", args, nil)
+}
+
+// UnsetModelDefaults removes the specified default model config values.
+func (c *Client) UnsetModelDefaults(keys ...string) error {
+	args := params.ModelUnset{Keys: keys}
+	return c.facade.FacadeCall("UnsetModelDefaults", args, nil)
+}
