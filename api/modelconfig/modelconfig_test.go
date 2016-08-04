@@ -127,3 +127,30 @@ func (s *modelconfigrSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *modelconfigrSuite) TestModelDefaults(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelDefaults")
+			c.Check(a, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResults{})
+			results := result.(*params.ModelConfigResults)
+			results.Config = map[string]params.ConfigValue{
+				"foo": {"bar", "model"},
+			}
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	result, err := client.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, config.ConfigValues{
+		"foo": {"bar", "model"},
+	})
+}

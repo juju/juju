@@ -14,6 +14,7 @@ import (
 type Backend interface {
 	common.BlockGetter
 	ModelConfigValues() (config.ConfigValues, error)
+	ModelConfigDefaultValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 }
 

@@ -128,3 +128,20 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	// changed underneath us.
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
 }
+
+// ModelDefaults returns the default config values used when creating a new model.
+func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
+	result := params.ModelConfigResults{}
+	values, err := c.backend.ModelConfigDefaultValues()
+	if err != nil {
+		return result, err
+	}
+	result.Config = make(map[string]params.ConfigValue)
+	for attr, val := range values {
+		result.Config[attr] = params.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
+	return result, nil
+}
