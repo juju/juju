@@ -123,6 +123,27 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 	return result, nil
 }
 
+// UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
+func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string) error {
+	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
+	settings.Update(attrs)
+	for _, r := range removed {
+		settings.Delete(r)
+	}
+	_, err = settings.Write()
+	return err
+}
+
 // ModelConfigValues returns the config values for the model represented
 // by this state.
 func (st *State) ModelConfigValues() (config.ConfigValues, error) {
@@ -155,7 +176,7 @@ func checkControllerInheritedConfig(attrs attrValues) error {
 	return nil
 }
 
-func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs []string, oldConfig *config.Config) (*config.Config, error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)

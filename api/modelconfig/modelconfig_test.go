@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-type modelconfigrSuite struct {
+type modelconfigSuite struct {
 	gitjujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&modelconfigrSuite{})
+var _ = gc.Suite(&modelconfigSuite{})
 
-func (s *modelconfigrSuite) TestModelGet(c *gc.C) {
+func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -47,7 +47,7 @@ func (s *modelconfigrSuite) TestModelGet(c *gc.C) {
 	})
 }
 
-func (s *modelconfigrSuite) TestModelGetWithMetadata(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -74,7 +74,7 @@ func (s *modelconfigrSuite) TestModelGetWithMetadata(c *gc.C) {
 	})
 }
 
-func (s *modelconfigrSuite) TestModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestModelSet(c *gc.C) {
 	called := false
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -104,7 +104,7 @@ func (s *modelconfigrSuite) TestModelSet(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *modelconfigrSuite) TestModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	called := false
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -128,7 +128,7 @@ func (s *modelconfigrSuite) TestModelUnset(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *modelconfigrSuite) TestModelDefaults(c *gc.C) {
+func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -153,4 +153,58 @@ func (s *modelconfigrSuite) TestModelDefaults(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, config.ConfigValues{
 		"foo": {"bar", "model"},
 	})
+}
+
+func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SetModelDefaults")
+			c.Check(a, jc.DeepEquals, params.ModelSet{
+				Config: map[string]interface{}{
+					"some-name":  "value",
+					"other-name": true,
+				},
+			})
+			called = true
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	err := client.SetModelDefaults(map[string]interface{}{
+		"some-name":  "value",
+		"other-name": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UnsetModelDefaults")
+			c.Check(a, jc.DeepEquals, params.ModelUnset{
+				Keys: []string{"foo", "bar"},
+			})
+			called = true
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	err := client.UnsetModelDefaults("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }

@@ -15,7 +15,9 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -321,4 +323,42 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 	sources, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
+}
+
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
+	// Set up values that will be removed.
+	attrs := map[string]interface{}{
+		"http-proxy":  "http://http-proxy",
+		"https-proxy": "https://https-proxy",
+	}
+	err := s.State.UpdateModelConfigDefaultValues(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	attrs = map[string]interface{}{
+		"apt-mirror": "http://different-mirror",
+	}
+	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	info := statetesting.NewMongoInfo()
+	anotherState, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	cfg, err := anotherState.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range config.ConfigDefaults() {
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: "default",
+		}
+	}
+	delete(expectedValues, "http-mirror")
+	delete(expectedValues, "https-mirror")
+	expectedValues["apt-mirror"] = config.ConfigValue{
+		Value:  "http://different-mirror",
+		Source: "controller",
+	}
+	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
