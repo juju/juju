@@ -191,6 +191,10 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeModelNotFound,
 }, {
+	err:    errors.Annotate(errors.New("i/o timeout"), "annotated"),
+	code:   params.CodeRetry,
+	status: http.StatusServiceUnavailable,
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,
@@ -238,7 +242,8 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeUpgradeInProgress,
 			params.CodeMachineHasAttachedStorage,
 			params.CodeDischargeRequired,
-			params.CodeModelNotFound:
+			params.CodeModelNotFound,
+			params.CodeRetry:
 			continue
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
