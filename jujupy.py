@@ -1476,6 +1476,19 @@ class EnvJujuClient:
             env = self.env.clone(model_name=name)
             return self.clone(env=env)
 
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
+    def get_controller_uuid(self):
+        name = self.env.controller.name
+        output_yaml = self.get_juju_output(
+            'show-controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output[name]['details']['uuid']
+
     def get_controller_client(self):
         """Return a client for the controller model.  May return self.
 
