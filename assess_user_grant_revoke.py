@@ -210,7 +210,8 @@ def assert_change_password(client, user):
     child.close()
     if child.exitstatus != 0:
         raise JujuAssertionError(
-            'Changing user password failed: pexpect process exited with {}'.format(child.exitstatus))
+            'Changing user password failed: '
+            'pexpect process exited with {}'.format(child.exitstatus))
 
 
 def assert_disable_enable(controller_client, user):
@@ -247,7 +248,8 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
         child.close()
         if child.exitstatus != 0:
             raise JujuAssertionError(
-                'Login user failed: pexpect process exited with {}'.format(child.exitstatus))
+                'Login user failed: pexpect process exited with {}'.format(
+                    child.exitstatus))
     except pexpect.TIMEOUT:
         raise JujuAssertionError(
             'Login user failed: pexpect session timed out')
