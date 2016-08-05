@@ -117,7 +117,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:          common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:          common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
-		CloudSpecAPI:         cloudspec.NewCloudSpecForModel(st.ModelTag(), configGetter.CloudSpec),
+		CloudSpecAPI:         cloudspec.NewCloudSpec(configGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,

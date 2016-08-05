@@ -81,13 +81,11 @@ func NewControllerAPI(
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
-		CloudSpecAPI: cloudspec.NewCloudSpecForModel(
-			st.ModelTag(), environConfigGetter.CloudSpec,
-		),
-		state:      st,
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		resources:  resources,
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
+		state:               st,
+		authorizer:          authorizer,
+		apiUser:             apiUser,
+		resources:           resources,
 	}, nil
 }
 

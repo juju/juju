@@ -95,7 +95,7 @@ func NewFirewallerAPI(
 	)
 
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
-	cloudSpecAPI := cloudspec.NewCloudSpecForModel(st.ModelTag(), environConfigGetter.CloudSpec)
+	cloudSpecAPI := cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag()))
 
 	return &FirewallerAPI{
 		LifeGetter:           lifeGetter,

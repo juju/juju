@@ -31,7 +31,15 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
-	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(c.ControllerName())
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(c.ClientStore())(c.ControllerName())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(bootstrapConfig.CloudType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := provider.BootstrapConfig(*params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,7 +49,10 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// identify region and endpoint info that we need. Not sure what
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
-	return environs.New(environs.OpenParams{cfg})
+	return environs.New(environs.OpenParams{
+		Cloud:  params.Cloud,
+		Config: cfg,
+	})
 }
 
 func newImageMetadataCommand() cmd.Command {

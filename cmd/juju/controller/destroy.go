@@ -75,6 +75,7 @@ Continue? (y/N):`[1:]
 type destroyControllerAPI interface {
 	Close() error
 	ModelConfig() (map[string]interface{}, error)
+	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
 	DestroyController(destroyModels bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
@@ -369,7 +370,10 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(environs.OpenParams{cfg})
+	return environs.New(environs.OpenParams{
+		Cloud:  params.Cloud,
+		Config: cfg,
+	})
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
@@ -389,7 +393,14 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(environs.OpenParams{cfg})
+	cloudSpec, err := api.CloudSpec(names.NewModelTag(cfg.UUID()))
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cloud spec from API")
+	}
+	return environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 }
 
 func confirmDestruction(ctx *cmd.Context, controllerName string) error {

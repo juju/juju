@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 )
 
 type StubNetwork struct {
@@ -433,7 +434,7 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 	return sb.EnvConfig, nil
 }
 
-func (sb *StubBacking) CloudSpec() (environs.CloudSpec, error) {
+func (sb *StubBacking) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
 	sb.MethodCall(sb, "CloudSpec")
 	if err := sb.NextErr(); err != nil {
 		return environs.CloudSpec{}, err

@@ -62,13 +62,21 @@ type configTest struct {
 type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
+	cloudSpec := environs.CloudSpec{
+		Type:   "ec2",
+		Name:   "ec2test",
+		Region: "us-east-1",
+	}
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":   "ec2",
 		"region": "us-east-1",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(environs.OpenParams{cfg})
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 

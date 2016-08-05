@@ -52,7 +52,7 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfig(st),
-		CloudSpecAPI:        cloudspec.NewCloudSpecForModel(st.ModelTag(), environConfigGetter.CloudSpec),
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		st:                  st,
 		auth:                auth,
 	}, nil

@@ -318,8 +318,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 			Endpoint:        cloudSpec.Endpoint,
 			StorageEndpoint: cloudSpec.StorageEndpoint,
 		},
-		AdminSecret:  AdminSecret,
-		CAPrivateKey: testing.CAKey,
+		CloudCredential:     cloudSpec.Credential,
+		CloudCredentialName: "cred",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

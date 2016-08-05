@@ -35,7 +35,10 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{s.Config})
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  vsphere.FakeCloudSpec(),
+		Config: s.Config,
+	})
 	c.Check(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()

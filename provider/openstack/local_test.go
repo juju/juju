@@ -281,7 +281,10 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{cfg})
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  s.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -1298,7 +1301,10 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{cfg})
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
@@ -1818,19 +1824,23 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 }
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
-	credential := makeCredential(cred)
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		ModelConfig:      attrs,
 		ControllerName:   attrs["name"].(string),
-		Cloud: environs.CloudSpec{
-			Type:       "openstack",
-			Name:       "openstack",
-			Endpoint:   cred.URL,
-			Region:     cred.Region,
-			Credential: &credential,
-		},
-		AdminSecret: testing.AdminSecret,
+		Cloud:            makeCloudSpec(cred),
+		AdminSecret:      testing.AdminSecret,
+	}
+}
+
+func makeCloudSpec(cred *identity.Credentials) environs.CloudSpec {
+	credential := makeCredential(cred)
+	return environs.CloudSpec{
+		Type:       "openstack",
+		Name:       "openstack",
+		Endpoint:   cred.URL,
+		Region:     cred.Region,
+		Credential: &credential,
 	}
 }
 

@@ -30,6 +30,15 @@ func validAttrs() testing.Attrs {
 	})
 }
 
+func fakeCloudSpec() environs.CloudSpec {
+	return environs.CloudSpec{
+		Type:     "cloudsigma",
+		Name:     "cloudsigma",
+		Region:   "zrh",
+		Endpoint: "https://0.1.2.3:2000/api/2.0/",
+	}
+}
+
 type configSuite struct {
 	testing.BaseSuite
 }
@@ -91,7 +100,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		environ, err := environs.New(environs.OpenParams{testConfig})
+		environ, err := environs.New(environs.OpenParams{fakeCloudSpec(), testConfig})
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
 			attrs := environ.Config().AllAttrs()
@@ -177,7 +186,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(environs.OpenParams{baseConfig})
+		environ, err := environs.New(environs.OpenParams{fakeCloudSpec(), baseConfig})
 		c.Assert(err, gc.IsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)

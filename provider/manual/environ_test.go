@@ -24,7 +24,10 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(environs.OpenParams{MinimalConfig(c)})
+	env, err := manualProvider{}.Open(environs.OpenParams{
+		Cloud:  CloudSpec(),
+		Config: MinimalConfig(c),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
@@ -34,17 +37,6 @@ type environSuite struct {
 }
 
 var _ = gc.Suite(&environSuite{})
-
-func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.env.SetConfig(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	testConfig := MinimalConfig(c)
-	testConfig, err = testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(testConfig)
-	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
-}
 
 func (s *environSuite) TestInstances(c *gc.C) {
 	var ids []instance.Id

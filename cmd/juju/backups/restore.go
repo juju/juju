@@ -260,7 +260,10 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
-	env, err := c.newEnvironFunc(environs.OpenParams{params.ModelConfig})
+	env, err := c.newEnvironFunc(environs.OpenParams{
+		Cloud:  params.Cloud,
+		Config: params.ModelConfig,
+	})
 	if err != nil {
 		return errors.Annotate(err, "opening environ for rebootstrapping")
 	}

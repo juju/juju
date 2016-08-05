@@ -617,7 +617,10 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	cfg, err := env.Config().Apply(map[string]interface{}{"controller-uuid": "7e386e08-cba7-44a4-a76e-7c1633584210"})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err = environs.New(environs.OpenParams{cfg})
+	env, err = environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := "destroy security group error"
@@ -640,7 +643,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{cfg})
+	env, err := environs.New(environs.OpenParams{t.CloudSpec(), cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)

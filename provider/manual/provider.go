@@ -21,12 +21,10 @@ type manualProvider struct {
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
 
-var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
-
 var initUbuntuUser = manual.InitUbuntuUser
 
-func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host string, cfg *environConfig) error {
+	err := initUbuntuUser(host, cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -37,7 +35,7 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p manualProvider) RestrictedConfigAttributes() []string {
-	return []string{"bootstrap-host", "bootstrap-user"}
+	return []string{"bootstrap-user"}
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
@@ -52,26 +50,20 @@ func (p manualProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	if args.Cloud.Endpoint == "" {
-		return nil, errors.Errorf(
-			"missing address of host to bootstrap: " +
-				`please specify "juju bootstrap manual/<host>"`,
-		)
-	}
-	cfg, err := args.Config.Apply(map[string]interface{}{
-		"bootstrap-host": args.Cloud.Endpoint,
-	})
-	if err != nil {
+	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
-	envConfig, err := p.validate(cfg, nil)
+	envConfig, err := p.validate(args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
-	return cfg.Apply(envConfig.attrs)
+	return args.Config.Apply(envConfig.attrs)
 }
 
 func (p manualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Trace(err)
+	}
 	_, err := p.validate(args.Config, nil)
 	if err != nil {
 		return nil, err
@@ -80,11 +72,21 @@ func (p manualProvider) Open(args environs.OpenParams) (environs.Environ, error)
 	// with their defaults in the result; we don't wnat that in
 	// Open.
 	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
-	return p.open(envConfig)
+	return p.open(args.Cloud.Endpoint, envConfig)
 }
 
-func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
-	env := &manualEnviron{cfg: cfg}
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if spec.Endpoint == "" {
+		return errors.Errorf(
+			"missing address of host to bootstrap: " +
+				`please specify "juju bootstrap manual/<host>"`,
+		)
+	}
+	return nil
+}
+
+func (p manualProvider) open(host string, cfg *environConfig) (environs.Environ, error) {
+	env := &manualEnviron{host: host, cfg: cfg}
 	// Need to call SetConfig to initialise storage.
 	if err := env.SetConfig(cfg.Config); err != nil {
 		return nil, err
@@ -109,9 +111,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		return nil, err
 	}
 	envConfig := newModelConfig(cfg, validated)
-	if envConfig.bootstrapHost() == "" {
-		return nil, errNoBootstrapHost
-	}
 	// Check various immutable attributes.
 	if old != nil {
 		oldEnvConfig, err := p.validate(old, nil)
@@ -120,7 +119,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		}
 		for _, key := range [...]string{
 			"bootstrap-user",
-			"bootstrap-host",
 		} {
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
 				return nil, err

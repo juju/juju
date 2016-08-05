@@ -5,6 +5,7 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -18,8 +19,8 @@ type EnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
-	model, err := g.Model()
+func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	model, err := g.GetModel(tag)
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}

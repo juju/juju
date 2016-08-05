@@ -77,11 +77,13 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
+	cred := cloud.NewEmptyCredential()
 	return environs.CloudSpec{
 		Type:            "dummy",
 		Name:            "dummy",
 		Endpoint:        "dummy-endpoint",
 		StorageEndpoint: "dummy-storage-endpoint",
+		Credential:      &cred,
 	}
 }
 
@@ -146,6 +148,7 @@ type OpFinalizeBootstrap struct {
 
 type OpDestroy struct {
 	Env   string
+	Cloud environs.CloudSpec
 	Error error
 }
 
@@ -245,6 +248,7 @@ type environState struct {
 type environ struct {
 	name         string
 	modelUUID    string
+	cloud        environs.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
@@ -535,8 +539,9 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	}
 	env := &environ{
 		name:         ecfg.Name(),
-		ecfgUnlocked: ecfg,
 		modelUUID:    args.Config.UUID(),
+		cloud:        args.Cloud,
+		ecfgUnlocked: ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -838,7 +843,11 @@ func (e *environ) Destroy() (res error) {
 		// barrier such that the ops channel we see here is the latest.
 		estate.mu.Lock()
 		defer estate.mu.Unlock()
-		estate.ops <- OpDestroy{Env: estate.name, Error: res}
+		estate.ops <- OpDestroy{
+			Env:   estate.name,
+			Cloud: e.cloud,
+			Error: res,
+		}
 	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err

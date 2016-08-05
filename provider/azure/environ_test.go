@@ -306,7 +306,10 @@ func openEnviron(
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
-	env, err := provider.Open(environs.OpenParams{cfg})
+	env, err := provider.Open(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Force an explicit refresh of the access token, so it isn't done
@@ -330,19 +333,26 @@ func prepareForBootstrap(
 	*sender = azuretesting.Senders{tokenRefreshSender()}
 	cfg, err := provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
-		Cloud: environs.CloudSpec{
-			Region:          "westus",
-			Endpoint:        "https://management.azure.com",
-			StorageEndpoint: "https://core.windows.net",
-			Credential:      fakeUserPassCredential(),
-		},
+		Cloud:  fakeCloudSpec(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Open(environs.OpenParams{cfg})
+	env, err := provider.Open(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
+}
+
+func fakeCloudSpec() environs.CloudSpec {
+	return environs.CloudSpec{
+		Region:          "westus",
+		Endpoint:        "https://management.azure.com",
+		StorageEndpoint: "https://core.windows.net",
+		Credential:      fakeUserPassCredential(),
+	}
 }
 
 func tokenRefreshSender() *azuretesting.MockSender {

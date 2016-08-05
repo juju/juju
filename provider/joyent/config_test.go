@@ -4,7 +4,6 @@
 package joyent_test
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/juju/testing"
@@ -166,7 +165,10 @@ func doTest(s *ConfigSuite, i int, test configtest, c *gc.C) {
 	attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 	attrs["private-key"] = s.privateKeyData
 	testConfig := newConfig(c, attrs)
-	environ, err := environs.New(environs.OpenParams{testConfig})
+	environ, err := environs.New(environs.OpenParams{
+		Cloud:  s.cloudSpec(),
+		Config: testConfig,
+	})
 	if test.err == "" {
 		c.Check(err, jc.ErrorIsNil)
 		if err != nil {
@@ -237,7 +239,10 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(environs.OpenParams{baseConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  s.cloudSpec(),
+			Config: baseConfig,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
@@ -273,20 +278,10 @@ func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
 	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		credentialAttrs := make(map[string]string, len(attrs))
-		for k, v := range attrs.Delete("type") {
-			credentialAttrs[k] = fmt.Sprintf("%v", v)
-		}
 		testConfig := newConfig(c, attrs)
-		credential := cloud.NewCredential(
-			cloud.UserPassAuthType,
-			credentialAttrs,
-		)
 		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
 			Config: testConfig,
-			Cloud: environs.CloudSpec{
-				Credential: &credential,
-			},
+			Cloud:  s.cloudSpec(),
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -298,5 +293,22 @@ func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
 			c.Check(preparedConfig, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
+	}
+}
+
+func (s *ConfigSuite) cloudSpec() environs.CloudSpec {
+	credential := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"sdc-user":    "test",
+			"sdc-key-id":  "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+			"private-key": testPrivateKey,
+			"algorithm":   "rsa-sha256",
+		},
+	)
+	return environs.CloudSpec{
+		Type:       "joyent",
+		Name:       "joyent",
+		Credential: &credential,
 	}
 }
