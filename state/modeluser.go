@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/description"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/description"
 )
 
 // ModelUser represents a user access to an model whereas the user
