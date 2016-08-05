@@ -1121,9 +1121,13 @@ class EnvJujuClient:
     def kill_controller(self):
         """Kill a controller and its environments."""
         seen_cmd = self.get_jes_command()
+        if self.env.config['type'] == 'azure':
+            timeout = 1800
+        else:
+            timeout = 600
         self.juju(
             _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
-            include_e=False, check=False, timeout=600)
+            include_e=False, check=False, timeout=timeout)
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.

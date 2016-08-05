@@ -1581,7 +1581,7 @@ class TestEnvJujuClient(ClientTest):
         self.do_kill_controller('kill-controller', 'kill-controller')
 
     def do_kill_controller(self, jes_command, kill_command):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
@@ -1589,6 +1589,16 @@ class TestEnvJujuClient(ClientTest):
         juju_mock.assert_called_once_with(
             kill_command, ('foo', '-y'), check=False, include_e=False,
             timeout=600)
+
+    def do_kill_controller_azure(self, jes_command, kill_command):
+        client = EnvJujuClient(JujuData('foo', {'type': 'azure'}), None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+            with patch.object(client, 'juju') as juju_mock:
+                client.kill_controller()
+        juju_mock.assert_called_once_with(
+            kill_command, ('foo', '-y'), check=False, include_e=False,
+            timeout=1800)
 
     def test_get_juju_output(self):
         env = JujuData('foo')
@@ -3980,7 +3990,8 @@ class TestEnvJujuClient1X(ClientTest):
         self.do_kill_controller('kill-controller', 'kill-controller')
 
     def do_kill_controller(self, jes_command, kill_command):
-        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'gce'}), None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
