@@ -489,7 +489,7 @@ def wait_for_removed_services(client, charm):
 
 
 def unqualified_model_name(model_name):
-    """Return the model name without the owner qualifier."""
+    """Return the model name with the owner qualifier stripped if present."""
     return model_name.split('/', 1)[-1]
 
 

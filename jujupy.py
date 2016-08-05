@@ -781,6 +781,9 @@ def get_client_class(version):
         client_class = EnvJujuClient2B7
     elif re.match('^2\.0-beta8([^\d]|$)', version):
         client_class = EnvJujuClient2B8
+    # between beta 9-14
+    elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
+        client_class = EnvJujuClient2B9_14
     else:
         client_class = EnvJujuClient
     return client_class
@@ -1091,13 +1094,16 @@ class EnvJujuClient:
             raise AssertionError(
                 'Controller and environment names should not vary (yet)')
 
+    def update_user_name(self):
+        self.env.user_name = 'admin@local'
+
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
-            self.env.user_name = 'admin@local'
+            self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
@@ -1106,7 +1112,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
-            self.env.user_name = 'admin@local'
+            self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
                 log.info('Waiting for bootstrap of {}.'.format(
@@ -1855,11 +1861,17 @@ class EnvJujuClient:
                 'Registering user failed: pexpect session timed out')
         return user_client
 
-    def create_cloned_environment(self, cloned_juju_home, controller_name, user_name):
-        """Create a cloned environment"""
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        If `user_name` is passed ensures that the cloned environment is updated
+        to match.
+
+        """
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
-        if user_name != self.env.user_name:
+        if user_name is not None and user_name != self.env.user_name:
             user_client.env.user_name = user_name
             user_client.env.environment = qualified_model_name(
                 user_client.env.environment, self.env.user_name)
@@ -1875,9 +1887,17 @@ class EnvJujuClient:
                   include_e=False)
 
 
+class EnvJujuClient2B9_14(EnvJujuClient):
+    def update_user_name(self):
+        return
+
+
 class EnvJujuClient2B8(EnvJujuClient):
 
     status_class = ServiceStatus
+
+    def update_user_name(self):
+        return
 
     def remove_service(self, service):
         self.juju('remove-service', (service,))
