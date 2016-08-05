@@ -5,6 +5,7 @@ package gce
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,29 +17,39 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
+const (
+	credAttrPrivateKey  = "private-key"
+	credAttrClientID    = "client-id"
+	credAttrClientEmail = "client-email"
+	credAttrProjectID   = "project-id"
+
+	// The contents of the file for "jsonfile" auth-type.
+	credAttrFile = "file"
+)
+
 type environProviderCredentials struct{}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.OAuth2AuthType: {{
-			Name:           cfgClientID,
+			Name:           credAttrClientID,
 			CredentialAttr: cloud.CredentialAttr{Description: "client ID"},
 		}, {
-			Name:           cfgClientEmail,
+			Name:           credAttrClientEmail,
 			CredentialAttr: cloud.CredentialAttr{Description: "client e-mail address"},
 		}, {
-			Name: cfgPrivateKey,
+			Name: credAttrPrivateKey,
 			CredentialAttr: cloud.CredentialAttr{
 				Description: "client secret",
 				Hidden:      true,
 			},
 		}, {
-			Name:           cfgProjectID,
+			Name:           credAttrProjectID,
 			CredentialAttr: cloud.CredentialAttr{Description: "project ID"},
 		}},
 		cloud.JSONFileAuthType: {{
-			Name: "file",
+			Name: credAttrFile,
 			CredentialAttr: cloud.CredentialAttr{
 				Description: "path to the .json file containing your Google Compute Engine project credentials",
 				FilePath:    true,
@@ -73,7 +84,14 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if possibleFilePath == "" {
 		return nil, errors.NotFoundf("gce credentials")
 	}
-	parsedCred, err := ParseJSONAuthFile(possibleFilePath)
+
+	authFile, err := os.Open(possibleFilePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer authFile.Close()
+
+	parsedCred, err := parseJSONAuthFile(authFile)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid json credential file %s", possibleFilePath)
 	}
@@ -85,9 +103,9 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	cred := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{
 		"file": possibleFilePath,
 	})
-	credName := parsedCred.Attributes()[cfgClientEmail]
+	credName := parsedCred.Attributes()[credAttrClientEmail]
 	if credName == "" {
-		credName = parsedCred.Attributes()[cfgClientID]
+		credName = parsedCred.Attributes()[credAttrClientID]
 	}
 	cred.Label = fmt.Sprintf("google credential %q", credName)
 	return &cloud.CloudCredential{
@@ -105,24 +123,16 @@ func wellKnownCredentialsFile() string {
 	return filepath.Join(utils.Home(), ".config", "gcloud", f)
 }
 
-// ParseJSONAuthFile parses the file with the given path, and extracts
-// the OAuth2 credentials within.
-//
-// TODO(axw) unexport this after 2.0-beta10 is out.
-func ParseJSONAuthFile(filename string) (cloud.Credential, error) {
-	authFile, err := os.Open(filename)
-	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
-	}
-	defer authFile.Close()
-	creds, err := google.ParseJSONKey(authFile)
+// parseJSONAuthFile parses a file, and extracts the OAuth2 credentials within.
+func parseJSONAuthFile(r io.Reader) (cloud.Credential, error) {
+	creds, err := google.ParseJSONKey(r)
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
 	}
 	return cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
-		cfgProjectID:   creds.ProjectID,
-		cfgClientID:    creds.ClientID,
-		cfgClientEmail: creds.ClientEmail,
-		cfgPrivateKey:  string(creds.PrivateKey),
+		credAttrProjectID:   creds.ProjectID,
+		credAttrClientID:    creds.ClientID,
+		credAttrClientEmail: creds.ClientEmail,
+		credAttrPrivateKey:  string(creds.PrivateKey),
 	}), nil
 }
