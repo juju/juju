@@ -1113,9 +1113,13 @@ class EnvJujuClient:
             model_name, '--config', config_file))
 
     def destroy_model(self):
+        if self.env.config['type'] == 'azure':
+            timeout = 1800
+        else:
+            timeout = 600
         exit_status = self.juju(
             'destroy-model', (self.env.environment, '-y',),
-            include_e=False, timeout=timedelta(minutes=10).total_seconds())
+            include_e=False, timeout=timeout)
         return exit_status
 
     def kill_controller(self):

@@ -1563,13 +1563,22 @@ class TestEnvJujuClient(ClientTest):
         self.assertIs(False, hasattr(client, 'destroy_environment'))
 
     def test_destroy_model(self):
-        env = JujuData('foo')
+        env = JujuData('foo', {'type': 'gce'})
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
-            include_e=False, timeout=600.0)
+            include_e=False, timeout=600)
+
+    def test_destroy_model_azure(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_model()
+        mock.assert_called_with(
+            'destroy-model', ('foo', '-y'),
+            include_e=False, timeout=1800)
 
     def test_kill_controller_system(self):
         self.do_kill_controller('system', 'system kill')
