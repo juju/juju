@@ -359,7 +359,7 @@ func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID st
 }
 
 func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.Phase, error) {
-	err := w.waitForMinions(status, waitForAll, "migration successful")
+	err := w.waitForMinions(status, waitForAll, "successful")
 	switch errors.Cause(err) {
 	case nil, errMinionReportFailed, errMinionReportTimeout:
 		// There's no turning back from SUCCESS - any problems should
@@ -374,12 +374,12 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 
 func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
 	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("migration successful: transferring logs to target controller")
+	// w.setInfoStatus("successful: transferring logs to target controller")
 	return coremigration.REAP, nil
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
-	w.setInfoStatus("migration successful: removing model from source controller")
+	w.setInfoStatus("successful: removing model from source controller")
 	err := w.config.Facade.Reap()
 	if err != nil {
 		return coremigration.REAPFAILED, errors.Trace(err)
@@ -388,7 +388,7 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	w.setInfoStatus("migration aborted: removing model from target controller")
+	w.setInfoStatus("aborted: removing model from target controller")
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.
