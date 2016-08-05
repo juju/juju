@@ -87,10 +87,11 @@ func (c *migrateCommand) Init(args []string) error {
 func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, error) {
 	store := c.ClientStore()
 
-	modelInfo, err := store.ModelByName(c.ControllerName(), c.model)
+	modelUUIDs, err := c.ModelUUIDs([]string{c.model})
 	if err != nil {
 		return nil, err
 	}
+	modelUUID := modelUUIDs[0]
 
 	controllerInfo, err := store.ControllerByName(c.targetController)
 	if err != nil {
@@ -103,7 +104,7 @@ func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, err
 	}
 
 	return &controller.ModelMigrationSpec{
-		ModelUUID:            modelInfo.ModelUUID,
+		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
 		TargetAddrs:          controllerInfo.APIEndpoints,
 		TargetCACert:         controllerInfo.CACert,
