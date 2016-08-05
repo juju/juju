@@ -62,7 +62,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
-		Purpose: "migrate a hosted model to another controller",
+		Purpose: "Migrate a hosted model to another controller.",
 		Doc:     migrateDoc,
 	}
 }
