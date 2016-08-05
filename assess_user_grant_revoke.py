@@ -18,6 +18,7 @@ import random
 import string
 import subprocess
 import sys
+import time
 
 import pexpect
 
@@ -119,9 +120,10 @@ def assert_read_model(client, permission, has_permission):
 
 def assert_write_model(client, permission, has_permission):
     """Test if the user has or doesn't have the write permission"""
+    app_name = str(int(time.time()))
     if has_permission:
         try:
-            client.deploy('cs:ubuntu')
+            client.deploy('cs:ubuntu', app_name)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
                 'User could not deploy with {} permission'.format(permission))
@@ -129,7 +131,7 @@ def assert_write_model(client, permission, has_permission):
             client.remove_service('ubuntu')
     else:
         try:
-            client.deploy('cs:ubuntu')
+            client.deploy('cs:ubuntu', app_name)
         except subprocess.CalledProcessError:
             pass
         else:
