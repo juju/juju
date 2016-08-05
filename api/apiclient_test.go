@@ -6,10 +6,13 @@ package api_test
 import (
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -183,6 +186,120 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 		Servers: [][]network.HostPort{hps},
 		CACert:  redirectToCACert,
 	})
+}
+
+func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: &fakeRPCConnection{},
+		Clock:         clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(clock.waits, gc.HasLen, 0)
+}
+
+func (s *apiclientSuite) TestAPICallError(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: &fakeRPCConnection{
+			errors: []error{errors.BadRequestf("boom")},
+		},
+		Clock: clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(err.Error(), gc.Equals, "boom")
+	c.Check(err, jc.Satisfies, errors.IsBadRequest)
+	c.Check(clock.waits, gc.HasLen, 0)
+}
+
+func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: &fakeRPCConnection{
+			errors: []error{
+				&rpc.RequestError{
+					Message: "hmm...",
+					Code:    params.CodeRetry,
+				},
+			},
+		},
+		Clock: clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(clock.waits, jc.DeepEquals, []time.Duration{100 * time.Millisecond})
+}
+
+func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
+	clock := &fakeClock{}
+	retryError := &rpc.RequestError{Message: "hmm...", Code: params.CodeRetry}
+	var errors []error
+	for i := 0; i < 10; i++ {
+		errors = append(errors, retryError)
+	}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: &fakeRPCConnection{
+			errors: errors,
+		},
+		Clock: clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(err, jc.Satisfies, retry.IsDurationExceeded)
+	c.Check(err, gc.ErrorMatches, `.*hmm... \(retry\)`)
+	c.Check(clock.waits, jc.DeepEquals, []time.Duration{
+		100 * time.Millisecond,
+		200 * time.Millisecond,
+		400 * time.Millisecond,
+		800 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+		1500 * time.Millisecond,
+	})
+}
+
+type fakeClock struct {
+	clock.Clock
+
+	now   time.Time
+	waits []time.Duration
+}
+
+func (f *fakeClock) Now() time.Time {
+	if f.now.IsZero() {
+		f.now = time.Now()
+	}
+	return f.now
+}
+
+func (f *fakeClock) After(d time.Duration) <-chan time.Time {
+	f.waits = append(f.waits, d)
+	f.now = f.now.Add(d)
+	return time.After(0)
+}
+
+type fakeRPCConnection struct {
+	pos    int
+	errors []error
+}
+
+func (f *fakeRPCConnection) Close() error {
+	return nil
+}
+
+func (f *fakeRPCConnection) Call(req rpc.Request, params, response interface{}) error {
+	if f.pos >= len(f.errors) {
+		return nil
+	}
+	err := f.errors[f.pos]
+	f.pos++
+	return err
 }
 
 type redirectAPI struct {
