@@ -153,7 +153,7 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		Name:  cs.initLockName,
 		Clock: clock.WallClock,
 		// If we don't get the lock straigh away, there is no point trying multiple
-		// times per second for an operation that is likelty to ake multiple seconds.
+		// times per second for an operation that is likelty to take multiple seconds.
 		Delay:  time.Second,
 		Cancel: abort,
 	}
