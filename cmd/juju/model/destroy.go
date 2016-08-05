@@ -97,7 +97,7 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

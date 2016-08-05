@@ -42,7 +42,7 @@ type objectKey struct {
 
 // apiHandler represents a single client's connection to the state
 // after it has logged in. It contains an rpc.Root which it
-// uses to dispatch Api calls appropriately.
+// uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state     *state.State
 	rpcConn   *rpc.Conn
@@ -57,8 +57,8 @@ type apiHandler struct {
 
 var _ = (*apiHandler)(nil)
 
-// newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+// newAPIHandler returns a new apiHandler.
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:     st,
 		resources: common.NewResources(),
@@ -137,8 +137,8 @@ type apiRoot struct {
 	objectCache map[objectKey]reflect.Value
 }
 
-// newApiRoot returns a new apiRoot.
-func newApiRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+// newAPIRoot returns a new apiRoot.
+func newAPIRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		resources:   resources,
@@ -280,14 +280,14 @@ func lookupMethod(rootName string, version int, methodName string) (reflect.Type
 // which has not logged in.
 type anonRoot struct {
 	*apiHandler
-	adminApis map[int]interface{}
+	adminAPIs map[int]interface{}
 }
 
 // NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAnonRoot(h *apiHandler, adminApis map[int]interface{}) *anonRoot {
+func newAnonRoot(h *apiHandler, adminAPIs map[int]interface{}) *anonRoot {
 	r := &anonRoot{
 		apiHandler: h,
-		adminApis:  adminApis,
+		adminAPIs:  adminAPIs,
 	}
 	return r
 }
@@ -299,7 +299,7 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 			Version:    version,
 		}
 	}
-	if api, ok := r.adminApis[version]; ok {
+	if api, ok := r.adminAPIs[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
 	}
 	return nil, &rpc.RequestError{

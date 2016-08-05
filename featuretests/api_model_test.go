@@ -42,7 +42,8 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	username := "foo@ubuntuone"
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	mm := modelmanager.NewClient(s.APIState)
+	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mm.Close()
 	err = mm.GrantModel(username, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -60,7 +61,8 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "foo@ubuntuone"})
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	mm := modelmanager.NewClient(s.APIState)
+	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mm.Close()
 
 	modelUser, err := s.State.UserAccess(user.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)

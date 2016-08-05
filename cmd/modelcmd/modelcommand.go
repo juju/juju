@@ -173,27 +173,14 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewAPIRoot returns a new connection to the API server for the environment.
+// NewAPIRoot returns a new connection to the API server for the environment
+// directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
-	if c.controllerName == "" {
-		controllers, err := c.store.AllControllers()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllersDefined)
-		}
-		return nil, errors.Trace(ErrNotLoggedInToController)
-	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	opener := c.opener
-	if opener == nil {
-		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
 	_, err := c.store.ModelByName(c.controllerName, c.modelName)
 	if err != nil {
@@ -206,7 +193,35 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
-	return opener.Open(c.store, c.controllerName, c.modelName)
+	return c.newAPIRoot(c.modelName)
+}
+
+// NewControllerAPIRoot returns a new connection to the API server for the environment
+// directed to the controller specified on the command line.
+// This is for the use of model-centered commands that still want
+// to talk to controller-only APIs.
+func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
+	return c.newAPIRoot("")
+}
+
+// newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
+// if modelName is empty, it makes a controller-only connection.
+func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
+	if c.controllerName == "" {
+		controllers, err := c.store.AllControllers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(controllers) == 0 {
+			return nil, errors.Trace(ErrNoControllersDefined)
+		}
+		return nil, errors.Trace(ErrNotLoggedInToController)
+	}
+	opener := c.opener
+	if opener == nil {
+		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
+	}
+	return opener.Open(c.store, c.controllerName, modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.

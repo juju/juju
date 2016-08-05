@@ -41,7 +41,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	api, err := c.NewAPIRoot()
+	api, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

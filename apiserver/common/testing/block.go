@@ -20,7 +20,7 @@ import (
 // It provides easy access to switch blocks on
 // as well as test whether operations are blocked or not.
 type BlockHelper struct {
-	ApiState api.Connection
+	apiState api.Connection
 	client   *block.Client
 }
 
@@ -28,7 +28,7 @@ type BlockHelper struct {
 // to manage desired juju blocks.
 func NewBlockHelper(st api.Connection) BlockHelper {
 	return BlockHelper{
-		ApiState: st,
+		apiState: st,
 		client:   block.NewClient(st),
 	}
 }
@@ -52,7 +52,7 @@ func (s BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 
 func (s BlockHelper) Close() {
 	s.client.Close()
-	s.ApiState.Close()
+	s.apiState.Close()
 }
 
 // BlockDestroyModel blocks destroy-model.

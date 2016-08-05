@@ -21,7 +21,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	serviceApi *application.API
+	serviceAPI *application.API
 	authorizer apiservertesting.FakeAuthorizer
 }
 
@@ -34,13 +34,13 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.serviceApi, err = application.NewAPI(s.State, nil, s.authorizer)
+	s.serviceAPI, err = application.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.serviceApi.Get(params.ApplicationGet{"wordpress"})
+	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -58,7 +58,7 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := s.serviceApi.Get(params.ApplicationGet{"unknown"})
+	_, err := s.serviceAPI.Get(params.ApplicationGet{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 

@@ -102,8 +102,10 @@ func (s *stateSuite) TestModelTag(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// Use s.APIState, because we can't get at UserManager without logging in.
-	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	// Use a different API connection, because we can't get at UserManager without logging in.
+	loggedInAPI := s.OpenControllerAPI(c)
+	defer loggedInAPI.Close()
+	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +119,8 @@ func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
 	// Check with an user in read-only mode.
 	modeltag, ok := s.APIState.ModelTag()
 	c.Assert(ok, jc.IsTrue)
-	manager := usermanager.NewClient(s.APIState)
+	manager := usermanager.NewClient(s.OpenControllerAPI(c))
+	defer manager.Close()
 	usertag, _, err := manager.AddUser("ro", "ro", "ro-password", "read", modeltag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenAPIAs(c, usertag, "ro-password")
@@ -136,8 +139,10 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// Use s.APIState, because we can't get at UserManager without logging in.
-	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	// Use a different API connection, because we can't get at UserManager without logging in.
+	loggedInAPI := s.OpenControllerAPI(c)
+	defer loggedInAPI.Close()
+	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")

@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
@@ -11,40 +13,48 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-// restrictedRoot restricts API calls to the environment manager and
-// user manager when accessed through the root path on the API server.
-type restrictedRoot struct {
-	rpc.Root
-}
-
-// newRestrictedRoot returns a new restrictedRoot.
-func newRestrictedRoot(root rpc.Root) *restrictedRoot {
-	return &restrictedRoot{
-		Root: root,
-	}
-}
-
-// The restrictedRootNames are the root names that can be accessed at the root
-// of the API server. Any facade added here needs to work across environment
-// boundaries.
-var restrictedRootNames = set.NewStrings(
+// The controllerFacadeNames are the root names that can be accessed
+// using a controller-only login. Any facade added here needs to work
+// independently of individual models.
+var controllerFacadeNames = set.NewStrings(
 	"AllModelWatcher",
-	"Controller",
 	"Cloud",
+	"Controller",
 	"MigrationTarget",
 	"ModelManager",
 	"UserManager",
 )
 
+func isControllerFacade(facadeName string) bool {
+	return controllerFacadeNames.Contains(facadeName)
+}
+
+func isModelFacade(facadeName string) bool {
+	return !controllerFacadeNames.Contains(facadeName)
+}
+
+// restrictedRoot restricts API calls to facades that match a given
+// predicate function.
+type restrictedRoot struct {
+	rpc.Root
+	allow func(facadeName string) bool
+}
+
+// newRestrictedRoot returns a new restrictedRoot that allows all facades
+// served by the given finder for which allow(facadeName) returns true.
+func newRestrictedRoot(root rpc.Root, allow func(string) bool) *restrictedRoot {
+	return &restrictedRoot{
+		Root:  root,
+		allow: allow,
+	}
+}
+
 // FindMethod returns a not supported error if the rootName is not one
 // of the facades available at the server root when there is no active
 // environment.
 func (r *restrictedRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// We restrict what facades are advertised at login, filtered on the restricted root names.
-	// Therefore we can't accurately know if a method is not found unless it resides on one
-	// of the restricted facades.
-	if !restrictedRootNames.Contains(rootName) {
-		return nil, errors.NotSupportedf("logged in to server, no model, %q", rootName)
+	if !r.allow(rootName) {
+		return nil, errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for API connection type", rootName))
 	}
 	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
