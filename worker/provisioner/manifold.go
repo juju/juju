@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -21,25 +22,39 @@ import (
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
+	EnvironName   string
+
+	NewProvisionerFunc func(*apiprovisioner.State, agent.Config, environs.Environ) (Provisioner, error)
 }
 
 // Manifold creates a manifold that runs an environemnt provisioner. See the
 // ManifoldConfig type for discussion about how this can/should evolve.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName, config.APICallerName},
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.EnvironName,
+		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
+
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			var environ environs.Environ
+			if err := context.Get(config.EnvironName, &environ); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			api := apiprovisioner.NewState(apiCaller)
-			config := agent.CurrentConfig()
-			w, err := NewEnvironProvisioner(api, config)
+			agentConfig := agent.CurrentConfig()
+			w, err := config.NewProvisionerFunc(api, agentConfig, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
