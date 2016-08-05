@@ -4,15 +4,18 @@
 package machine
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -143,6 +146,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		}
 		return err
+	}
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	return dependency.Manifolds{
@@ -343,8 +350,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			WorkerFunc:     proxyupdater.NewWorker,
+			ExternalUpdate: externalUpdateProxyFunc,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
