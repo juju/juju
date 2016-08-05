@@ -24,13 +24,14 @@ const (
 
 // This file contains the core of the Environ implementation.
 type environ struct {
-	name string
+	name   string
+	cloud  environs.CloudSpec
+	client *environClient
 
 	lock      sync.Mutex
 	archMutex sync.Mutex
 
 	ecfg                   *environConfig
-	client                 *environClient
 	supportedArchitectures []string
 }
 
@@ -56,16 +57,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if env.client == nil || env.ecfg == nil || env.ecfg.clientConfigChanged(ecfg) {
-		client, err := newClient(ecfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		env.client = client
-	}
-
 	env.ecfg = ecfg
 
 	return nil
@@ -143,11 +134,9 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 
 // Region is specified in the HasRegion interface.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	env.lock.Lock()
-	defer env.lock.Unlock()
 	return simplestreams.CloudSpec{
-		Region:   env.ecfg.region(),
-		Endpoint: env.ecfg.endpoint(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 

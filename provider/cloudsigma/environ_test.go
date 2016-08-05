@@ -41,7 +41,7 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBase(c *gc.C) {
-	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
+	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 
@@ -87,7 +87,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 }
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
-	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
+	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 
