@@ -71,7 +71,7 @@ class TestCredentialIdCounter(TestCase):
 class TestAWSHelpers(TestCase):
 
     def test_credential_dict_generator_returns_different_details(self):
-        """Each call must return uniquie details each time."""
+        """Each call must return unique details each time."""
         first_details = aac.aws_credential_dict_generator()
         second_details = aac.aws_credential_dict_generator()
 
