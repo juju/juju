@@ -60,7 +60,7 @@ func (suite *EnvironProviderSuite) TestCredentialsSetup(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  suite.cloudSpec(),
 	})
@@ -82,7 +82,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  suite.cloudSpec(),
 	})
@@ -107,7 +107,7 @@ func (suite *EnvironProviderSuite) TestMAASServerFromEndpoint(c *gc.C) {
 	cloudSpec := suite.cloudSpec()
 	cloudSpec.Endpoint = "maas.testing"
 
-	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  cloudSpec,
 	})
@@ -119,33 +119,20 @@ func (suite *EnvironProviderSuite) TestMAASServerFromEndpoint(c *gc.C) {
 
 func (suite *EnvironProviderSuite) TestPrepareSetsAgentName(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":        "maas",
-		"maas-oauth":  "aa:bb:cc",
-		"maas-server": "http://maas.testing.invalid/maas/",
+		"type": "maas",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
+		Config: config,
+		Cloud:  suite.cloudSpec(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, ok := config.UnknownAttrs()["maas-agent-name"]
+	uuid, ok := cfg.UnknownAttrs()["maas-agent-name"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
-}
-
-func (suite *EnvironProviderSuite) TestPrepareExistingAgentName(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":            "maas",
-		"maas-oauth":      "aa:bb:cc",
-		"maas-server":     "http://maas.testing.invalid/maas/",
-		"maas-agent-name": "foobar",
-	})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
-	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 
 func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
@@ -156,7 +143,7 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  suite.cloudSpec(),
 	})

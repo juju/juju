@@ -23,23 +23,18 @@ type EnvironProvider interface {
 	// environments running inside a single juju server.
 	RestrictedConfigAttributes() []string
 
-	// PrepareForCreateEnvironment prepares an environment for creation. Any
-	// additional configuration attributes are added to the config passed in
-	// and returned.  This allows providers to add additional required config
-	// for new environments that may be created in an existing juju server.
-	// Note that this is not called in a client context, so environment variables,
-	// local files, etc are not available.
-	PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error)
+	// PrepareConfig prepares the configuration for a new model, based on
+	// the provided arguments. PrepareConfig is expected to produce a
+	// deterministic output. Any unique values should be based on the
+	// "uuid" attribute of the base configuration. This is called for the
+	// controller model during bootstrap, and also for new hosted models.
+	PrepareConfig(PrepareConfigParams) (*config.Config, error)
 
-	// BootstrapConfig produces the configuration for the initial controller
-	// model, based on the provided arguments. BootstrapConfig is expected
-	// to produce a deterministic output. Any unique values should be based
-	// on the "uuid" attribute of the base configuration.
-	BootstrapConfig(BootstrapConfigParams) (*config.Config, error)
-
-	// Open opens the environment and returns it.
-	// The configuration must have come from a previously
-	// prepared environment.
+	// Open opens the environment and returns it. The configuration must
+	// have passed through PrepareConfig at some point in its lifecycle.
+	//
+	// Open should not perform any expensive operations, such as querying
+	// the cloud API, as it will be called frequently.
 	Open(OpenParams) (Environ, error)
 
 	// SecretAttrs filters the supplied configuration returning only values
@@ -68,8 +63,8 @@ type ProviderSchema interface {
 	Schema() environschema.Fields
 }
 
-// BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
-type BootstrapConfigParams struct {
+// PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
+type PrepareConfigParams struct {
 	// ControllerUUID is the UUID of the controller to be bootstrapped.
 	ControllerUUID string
 
@@ -163,11 +158,13 @@ type Environ interface {
 	// are required for bootstrapping.
 	PrepareForBootstrap(ctx BootstrapContext) error
 
-	// Bootstrap creates a new instance with the series and architecture
-	// of its choice, constrained to those of the available tools, and
-	// returns the instance's architecture, series, and a function that
-	// must be called to finalize the bootstrap process by transferring
-	// the tools and installing the initial Juju controller.
+	// Bootstrap creates a new environment, and an instance to host the
+	// controller for that environment. The instnace will have have the
+	// series and architecture of the Environ's choice, constrained to
+	// those of the available tools. Bootstrap will return the instance's
+	// architecture, series, and a function that must be called to finalize
+	// the bootstrap process by transferring the tools and installing the
+	// initial Juju controller.
 	//
 	// It is possible to direct Bootstrap to use a specific architecture
 	// (or fail if it cannot start an instance of that architecture) by
@@ -175,6 +172,16 @@ type Environ interface {
 	// limiting the available tools to just those matching the specified
 	// architecture.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
+
+	// Create creates the environment for a new hosted model.
+	//
+	// This will be called before any workers begin operating on the
+	// Environ, to give an Environ a chance to perform operations that
+	// are required for further use.
+	//
+	// Create is not called for the initial controller model; it is
+	// the Bootstrap method's job to create the controller model.
+	Create(CreateParams) error
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -245,6 +252,13 @@ type Environ interface {
 	// constraints package? Can't be instance, because constraints
 	// import instance...
 	PrecheckInstance(series string, cons constraints.Value, placement string) error
+}
+
+// CreateParams contains the parameters for Environ.Create.
+type CreateParams struct {
+	// ControllerUUID is the UUID of the controller to be that is creating
+	// the Environ.
+	ControllerUUID string
 }
 
 // Firewaller exposes methods for managing network ports.

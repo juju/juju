@@ -24,8 +24,8 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	return env, errors.Trace(err)
 }
 
-// BootstrapConfig implements environs.EnvironProvider.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig implements environs.EnvironProvider.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	cfg := args.Config
 	switch authType := args.Cloud.Credential.AuthType(); authType {
@@ -62,8 +62,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
+	return configWithDefaults(cfg)
 }
 
 // Schema returns the configuration schema for an environment.
@@ -73,11 +72,6 @@ func (environProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return configWithDefaults(cfg)
 }
 
 // UpgradeModelConfig is specified in the ModelConfigUpgrader interface.

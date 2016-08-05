@@ -64,6 +64,10 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions: []cloud.Region{
+				{Name: "some-region"},
+				{Name: "qux"},
+			},
 		},
 		controllerModel: &mockModel{
 			owner: names.NewUserTag("admin@local"),
@@ -126,6 +130,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"IsControllerAdministrator",
 		"ModelUUID",
 		"ControllerModel",
+		"Cloud",
 		"CloudCredentials",
 		"ControllerConfig",
 		"ComposeNewModelConfig",
@@ -140,7 +145,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -173,7 +178,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -194,7 +199,7 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
 }
 
@@ -419,7 +424,7 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	args.Config["controller"] = "maybe"
 	_, err := s.modelmanager.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches,
-		"failed to create config: provider validation failed: controller: expected bool, got string\\(\"maybe\"\\)",
+		"failed to create config: provider config preparation failed: controller: expected bool, got string\\(\"maybe\"\\)",
 	)
 }
 

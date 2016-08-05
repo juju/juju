@@ -41,18 +41,18 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	s.innerProvider.CheckCallNames(c, "Validate")
 }
 
-func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
-	args := environs.BootstrapConfigParams{
+func (s *providerSuite) TestPrepareConfig(c *gc.C) {
+	args := environs.PrepareConfigParams{
 		Cloud: environs.CloudSpec{
 			Region: "dfw",
 		},
 	}
-	s.provider.BootstrapConfig(args)
+	s.provider.PrepareConfig(args)
 
 	expect := args
 	expect.Cloud.Region = "DFW"
 	s.innerProvider.CheckCalls(c, []testing.StubCall{
-		{"BootstrapConfig", []interface{}{expect}},
+		{"PrepareConfig", []interface{}{expect}},
 	})
 }
 
@@ -75,8 +75,8 @@ func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *c
 	return nil, nil
 }
 
-func (p *fakeProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	p.MethodCall(p, "BootstrapConfig", args)
+func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "PrepareConfig", args)
 	return nil, nil
 }
 

@@ -43,15 +43,13 @@ func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Trace(err)
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if args.Cloud.Endpoint == "" {
+		return nil, errors.Errorf(
+			"missing address of host to bootstrap: " +
+				`please specify "juju bootstrap manual/<host>"`,
+		)
 	}
 	envConfig, err := p.validate(args.Config, nil)
 	if err != nil {

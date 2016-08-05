@@ -142,7 +142,7 @@ func prepare(
 		return nil, details, errors.Trace(err)
 	}
 
-	cfg, err = p.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{
 		args.ControllerConfig.ControllerUUID(), args.Cloud, cfg,
 	})
 	if err != nil {

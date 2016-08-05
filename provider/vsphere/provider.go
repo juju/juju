@@ -29,12 +29,12 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	return env, errors.Trace(err)
 }
 
-// BootstrapConfig implements environs.EnvironProvider.
+// PrepareConfig implements environs.EnvironProvider.
 //
 // TODO(axw) 2016-07-29 #1607620
 // We should be extracting the endpoint and region
 // in this method, and using them as host/datacenter.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	cfg := args.Config
 	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
@@ -50,11 +50,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

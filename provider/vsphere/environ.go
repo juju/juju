@@ -98,6 +98,11 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
+}
+
 //this variable is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
