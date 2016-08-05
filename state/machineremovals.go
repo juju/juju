@@ -4,59 +4,39 @@
 package state
 
 import (
+	"sort"
+	"strings"
+
+	"github.com/juju/utils/set"
+
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// machineRemovalDoc stores information needed to clean up provider
-// resources once the machine has been removed.
+// machineRemovalDoc is a record indicating that a machine needs to be
+// removed and any necessary provider-level cleanup should now be done.
 type machineRemovalDoc struct {
-	DocID            string               `bson:"_id"`
-	MachineID        string               `bson:"machine-id"`
-	LinkLayerDevices []linkLayerDeviceDoc `bson:"link-layer-devices"`
+	DocID     string `bson:"_id"`
+	MachineID string `bson:"machine-id"`
 }
 
-type MachineRemoval struct {
-	st  *State
-	doc machineRemovalDoc
-}
-
-func newMachineRemoval(st *State, doc machineRemovalDoc) *MachineRemoval {
-	return &MachineRemoval{st: st, doc: doc}
-}
-
-func (m *MachineRemoval) MachineID() string {
-	return m.doc.MachineID
-}
-
-func (m *MachineRemoval) LinkLayerDevices() []*LinkLayerDevice {
-	var result []*LinkLayerDevice
-	for _, deviceDoc := range m.doc.LinkLayerDevices {
-		result = append(result, newLinkLayerDevice(m.st, deviceDoc))
+func (m *Machine) MarkForRemoval() (err error) {
+	defer errors.DeferredAnnotatef(&err, "can't remove machine %s", m.doc.Id)
+	if m.doc.Life != Dead {
+		return errors.Errorf("machine is not dead")
 	}
-	return result
+	ops := []txn.Op{{
+		C:      machineRemovalsC,
+		Id:     m.globalKey(),
+		Insert: &machineRemovalDoc{MachineID: m.Id()},
+	}}
+	return m.st.runTransaction(ops)
 }
 
-func (m *Machine) machineRemovalOp() (txn.Op, error) {
-	var linkLayerDevices []linkLayerDeviceDoc
-	appendDevice := func(doc *linkLayerDeviceDoc) {
-		linkLayerDevices = append(linkLayerDevices, *doc)
-	}
-	err := m.forEachLinkLayerDeviceDoc(nil, appendDevice)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	return txn.Op{
-		C:  machineRemovalsC,
-		Id: m.Id(),
-		Insert: &machineRemovalDoc{
-			MachineID:        m.Id(),
-			LinkLayerDevices: linkLayerDevices,
-		},
-	}, nil
-}
-
-func (st *State) AllMachineRemovals() ([]*MachineRemoval, error) {
+// AllMachineRemovals returns (the ids of) all of the machines that
+// need to be removed but need provider-level cleanup.
+func (st *State) AllMachineRemovals() ([]string, error) {
 	removals, close := st.getCollection(machineRemovalsC)
 	defer close()
 
@@ -65,21 +45,73 @@ func (st *State) AllMachineRemovals() ([]*MachineRemoval, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]*MachineRemoval, len(docs))
-	for i, doc := range docs {
-		results[i] = newMachineRemoval(st, doc)
+	results := make([]string, len(docs))
+	for i := range docs {
+		results[i] = docs[i].MachineID
 	}
 	return results, nil
 }
 
-func (st *State) ClearMachineRemovals(ids []string) error {
-	ops := make([]txn.Op, len(ids))
-	for i, id := range ids {
-		ops[i] = txn.Op{
-			C:      machineRemovalsC,
-			Id:     id,
-			Remove: true,
-		}
+func (st *State) allMachinesMatching(query bson.D) ([]*Machine, error) {
+	machines, close := st.getCollection(machinesC)
+	defer close()
+
+	var docs []machineDoc
+	err := machines.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	results := make([]*Machine, len(docs))
+	for i, doc := range docs {
+		results[i] = newMachine(st, &doc)
+	}
+	return results, nil
+}
+
+// CompleteMachineRemovals finishes the removal of the specified
+// machines. The machines must have been marked for removal
+// previously. Unknown machine ids are ignored so that this is
+// idempotent.
+func (st *State) CompleteMachineRemovals(ids []string) error {
+	removals, err := st.AllMachineRemovals()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	removalSet := set.NewStrings(removals...)
+	query := bson.D{{"machineid", bson.D{{"$in", ids}}}}
+	machinesToRemove, err := st.allMachinesMatching(query)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	var missingRemovals []string
+	for _, machine := range machinesToRemove {
+		if !removalSet.Contains(machine.Id()) {
+			missingRemovals = append(missingRemovals, machine.Id())
+			continue
+		}
+
+		ops = append(ops, txn.Op{
+			C:      machineRemovalsC,
+			Id:     machine.globalKey(),
+			Remove: true,
+		})
+		removeMachineOps, err := machine.removeOps()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, removeMachineOps...)
+	}
+	// We should complain about machines that still exist but haven't
+	// been marked for removal.
+	if len(missingRemovals) > 0 {
+		sort.Strings(missingRemovals)
+		return errors.Errorf(
+			"can't remove machines [%s]: not marked for removal",
+			strings.Join(missingRemovals, ", "),
+		)
+	}
+
 	return st.runTransaction(ops)
 }

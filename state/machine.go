@@ -828,12 +828,9 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Remove removes the machine from state. It will fail if the machine
-// is not Dead.
-func (m *Machine) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
+func (m *Machine) removeOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
-		return fmt.Errorf("machine is not dead")
+		return nil, fmt.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{
 		{
@@ -856,38 +853,44 @@ func (m *Machine) Remove() (err error) {
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.st, m.globalKey()),
 	}
-	machineRemovalOp, err := m.machineRemovalOp()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	devicesAddressesOps, err := m.removeAllAddressesOps()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	ops = append(ops, machineRemovalOp)
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
 	ops = append(ops, volumeOps...)
+	return ops, nil
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *Machine) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
 	logger.Tracef("removing machine %q", m.Id())
+	ops, err := m.removeOps()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
 	return onAbort(m.st.runTransaction(ops), nil)

@@ -17,73 +17,75 @@ type MachineRemovalSuite struct {
 
 var _ = gc.Suite(&MachineRemovalSuite{})
 
-func (s *MachineRemovalSuite) TestAddingAndClearingMachineRemoval(c *gc.C) {
-	m1 := s.makeDeadMachine(c)
-	m2 := s.makeDeadMachine(c, state.LinkLayerDeviceArgs{
-		Name:       "kiki",
-		MTU:        2000,
-		ProviderID: "delivery-1",
-		Type:       state.EthernetDevice,
-		MACAddress: "ab:cd:ef:01:23:45",
-	}, state.LinkLayerDeviceArgs{
-		Name:       "jenny",
-		MTU:        2000,
-		ProviderID: "delivery-2",
-		Type:       state.EthernetDevice,
-		MACAddress: "ab:cd:ef:01:23:46",
-	})
+func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
+	m1 := s.makeMachine(c, true)
+	m2 := s.makeMachine(c, true)
 
-	err := m1.Remove()
+	err := m1.MarkForRemoval()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Remove()
+	err = m2.MarkForRemoval()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check machines haven't been removed.
+	_, err = s.State.Machine(m1.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Machine(m2.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	removals, err := s.State.AllMachineRemovals()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(getMachineIDs(removals), jc.SameContents, []string{m1.Id(), m2.Id()})
-	c.Check(removals[0].LinkLayerDevices(), gc.IsNil)
+	c.Check(removals, jc.SameContents, []string{m1.Id(), m2.Id()})
 
-	devices := removals[1].LinkLayerDevices()
-	c.Assert(len(devices), gc.Equals, 2)
-	c.Check(devices[0].Name(), gc.Equals, "kiki")
-	c.Check(devices[0].MACAddress(), gc.Equals, "ab:cd:ef:01:23:45")
-	c.Check(devices[1].Name(), gc.Equals, "jenny")
-	c.Check(devices[1].MACAddress(), gc.Equals, "ab:cd:ef:01:23:46")
-
-	err = s.State.ClearMachineRemovals([]string{m1.Id()})
+	err = s.State.CompleteMachineRemovals([]string{m1.Id(), "ignored"})
 	c.Assert(err, jc.ErrorIsNil)
 	removals2, err := s.State.AllMachineRemovals()
-	c.Check(getMachineIDs(removals2), jc.SameContents, []string{m2.Id()})
+	c.Check(removals2, jc.SameContents, []string{m2.Id()})
+
+	_, err = s.State.Machine(m1.Id())
+	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
+	// But m2 is still there.
+	_, err = s.State.Machine(m2.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineRemovalSuite) TestMarkForRemovalRequiresDeadness(c *gc.C) {
+	m := s.makeMachine(c, false)
+	err := m.MarkForRemoval()
+	c.Assert(err, gc.ErrorMatches, "can't remove machine 0: machine is not dead")
+}
+
+func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMark(c *gc.C) {
+	m1 := s.makeMachine(c, true)
+	m2 := s.makeMachine(c, true)
+	err := s.State.CompleteMachineRemovals([]string{m1.Id(), m2.Id()})
+	c.Assert(err, gc.ErrorMatches, "can't remove machines \\[0, 1\\]: not marked for removal")
+}
+
+func (s *MachineRemovalSuite) TestCompleteMachineRemovalsIgnoresUnmarked(c *gc.C) {
+	err := s.State.CompleteMachineRemovals([]string{"A", "B"})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineRemovalSuite) TestWatchMachineRemovals(c *gc.C) {
 	w, wc := s.createRemovalWatcher(c, s.State)
 	wc.AssertOneChange() // Initial event.
 
-	m1 := s.makeDeadMachine(c)
-	m2 := s.makeDeadMachine(c)
+	m1 := s.makeMachine(c, true)
+	m2 := s.makeMachine(c, true)
 
-	err := m1.Remove()
+	err := m1.MarkForRemoval()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	err = m2.Remove()
+	err = m2.MarkForRemoval()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	s.State.ClearMachineRemovals([]string{m1.Id(), m2.Id()})
+	s.State.CompleteMachineRemovals([]string{m1.Id(), m2.Id()})
 	wc.AssertOneChange()
 
 	testing.AssertStop(c, w)
 	wc.AssertClosed()
-}
-
-func getMachineIDs(removals []*state.MachineRemoval) []string {
-	result := make([]string, len(removals))
-	for i, removal := range removals {
-		result[i] = removal.MachineID()
-	}
-	return result
 }
 
 func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
@@ -94,12 +96,15 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 	return w, testing.NewNotifyWatcherC(c, st, w)
 }
 
-func (s *MachineRemovalSuite) makeDeadMachine(c *gc.C, devices ...state.LinkLayerDeviceArgs) *state.Machine {
+func (s *MachineRemovalSuite) makeMachine(c *gc.C, deadAlready bool) *state.Machine {
 	m, err := s.State.AddMachine("xenial", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetLinkLayerDevices(devices...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	if deadAlready {
+		deadenMachine(c, m)
+	}
 	return m
+}
+
+func deadenMachine(c *gc.C, m *state.Machine) {
+	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
 }
