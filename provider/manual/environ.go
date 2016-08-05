@@ -22,7 +22,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	mcommon "github.com/juju/juju/environs/manual/common"
+	"github.com/juju/juju/environs/manual/linux"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
@@ -39,8 +40,8 @@ const (
 
 var (
 	logger                                       = loggo.GetLogger("juju.provider.manual")
-	manualCheckProvisioned                       = manual.CheckProvisioned
-	manualDetectSeriesAndHardwareCharacteristics = manual.DetectSeriesAndHardwareCharacteristics
+	manualCheckProvisioned                       = linux.CheckProvisioned
+	manualDetectSeriesAndHardwareCharacteristics = linux.DetectSeriesAndHardwareCharacteristics
 )
 
 type manualEnviron struct {
@@ -98,7 +99,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
-		return nil, manual.ErrProvisioned
+		return nil, mcommon.ErrProvisioned
 	}
 	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/linux"
 )
 
 type manualProvider struct {
@@ -23,7 +23,7 @@ var _ environs.EnvironProvider = (*manualProvider)(nil)
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
-var initUbuntuUser = manual.InitUbuntuUser
+var initUbuntuUser = linux.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
 	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())

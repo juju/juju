@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package common_test
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/common"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -28,7 +28,7 @@ var _ = gc.Suite(&addressesSuite{})
 
 func (s *addressesSuite) SetUpTest(c *gc.C) {
 	s.netLookupHostCalled = 0
-	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {
+	s.PatchValue(common.NetLookupHost, func(host string) ([]string, error) {
 		s.netLookupHostCalled++
 		if host == invalidHost {
 			return nil, errors.New("invalid host: " + invalidHost)
@@ -38,7 +38,7 @@ func (s *addressesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *addressesSuite) TestHostAddress(c *gc.C) {
-	addr, err := manual.HostAddress(validHost)
+	addr, err := common.HostAddress(validHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{
@@ -49,14 +49,14 @@ func (s *addressesSuite) TestHostAddress(c *gc.C) {
 }
 
 func (s *addressesSuite) TestHostAddressError(c *gc.C) {
-	addr, err := manual.HostAddress(invalidHost)
+	addr, err := common.HostAddress(invalidHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "invalid host: "+invalidHost)
 	c.Assert(addr, gc.Equals, network.Address{})
 }
 
 func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
-	addr, err := manual.HostAddress("127.0.0.1")
+	addr, err := common.HostAddress("127.0.0.1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{
@@ -67,7 +67,7 @@ func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
 }
 
 func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
-	addr, err := manual.HostAddress("::1")
+	addr, err := common.HostAddress("::1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{

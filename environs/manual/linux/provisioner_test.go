@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package linux_test
 
 import (
 	"fmt"
@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/common"
+	"github.com/juju/juju/environs/manual/linux"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -31,12 +33,12 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *gc.C) common.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	s.AddCleanup(func(*gc.C) { client.Close() })
-	return manual.ProvisionMachineArgs{
+	return common.ProvisionMachineArgs{
 		Host:           hostname,
 		Client:         client,
 		UpdateBehavior: &params.UpdateBehavior{true, true},
@@ -49,7 +51,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	args := s.getArgs(c)
 	hostname := args.Host
-	args.Host = "ubuntu@" + args.Host
+	args.Host = args.Host
+	args.User = "ubuntu"
 
 	defaultToolsURL := envtools.DefaultBaseURL
 	envtools.DefaultBaseURL = ""
@@ -61,7 +64,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
-	machineId, err := manual.ProvisionMachine(args)
+	machineId, err := manual.ProvisionMachine(args, linux.Scope)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
@@ -84,7 +87,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		machineId, err = manual.ProvisionMachine(args)
+		machineId, err = manual.ProvisionMachine(args, linux.Scope)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
@@ -110,8 +113,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err = manual.ProvisionMachine(args)
-	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	_, err = manual.ProvisionMachine(args, linux.Scope)
+	c.Assert(err, gc.Equals, common.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
@@ -119,7 +122,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
-	_, err = manual.ProvisionMachine(args)
+	_, err = manual.ProvisionMachine(args, linux.Scope)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
@@ -131,7 +134,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
-	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	machineId, err := manual.ProvisionMachine(s.getArgs(c), linux.Scope)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check what we would've configured it with.
@@ -153,7 +156,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		InitUbuntuUser: true,
 	}.install(c).Restore()
 
-	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	machineId, err := manual.ProvisionMachine(s.getArgs(c), linux.Scope)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfig(
@@ -165,7 +168,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 
 	c.Assert(err, jc.ErrorIsNil)
-	script, err := manual.ProvisioningScript(icfg)
+	script, err := linux.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudcfg, err := cloudinit.New(series)
