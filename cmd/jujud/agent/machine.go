@@ -987,6 +987,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		StatusHistoryPrunerMaxHistoryMB:   5120,            // 5G
 		StatusHistoryPrunerInterval:       5 * time.Minute,
 		SpacesImportedGate:                a.discoverSpacesComplete,
+		NewEnvironFunc:                    newEnvirons,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
