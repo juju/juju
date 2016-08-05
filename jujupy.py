@@ -10,7 +10,6 @@ from contextlib import (
 )
 from copy import deepcopy
 from cStringIO import StringIO
-from datetime import timedelta
 import errno
 from itertools import chain
 import json
@@ -2255,11 +2254,15 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             force_arg = ('--force',)
         else:
             force_arg = ()
+        if self.env.config['type'] == 'azure':
+            timeout = 1800
+        else:
+            timeout = 600
         exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
-            timeout=timedelta(minutes=10).total_seconds())
+            timeout=timeout)
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)

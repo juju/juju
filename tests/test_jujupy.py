@@ -3939,36 +3939,45 @@ class TestEnvJujuClient1X(ClientTest):
                 'bar', '--config', config_file.name), include_e=False)
 
     def test_destroy_environment_non_sudo(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: False):
             with patch.object(client, 'juju') as mock:
                 client.destroy_environment()
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                False, check=False, include_e=False, timeout=600.0)
+                False, check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_sudo(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.destroy_environment()
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                True, check=False, include_e=False, timeout=600.0)
+                True, check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_no_force(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_environment(force=False)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
-                False, check=False, include_e=False, timeout=600.0)
+                False, check=False, include_e=False, timeout=600)
+
+    def test_destroy_environment_azure(self):
+        env = SimpleEnvironment('foo', {'type': 'azure'})
+        client = EnvJujuClient1X(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_environment(force=False)
+            mock.assert_called_with(
+                'destroy-environment', ('foo', '-y'),
+                False, check=False, include_e=False, timeout=1800)
 
     def test_destroy_environment_delete_jenv(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
@@ -3981,13 +3990,13 @@ class TestEnvJujuClient1X(ClientTest):
                 self.assertFalse(os.path.exists(jenv_path))
 
     def test_destroy_model(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-environment', ('foo', '-y'),
-            False, check=False, include_e=False, timeout=600.0)
+            False, check=False, include_e=False, timeout=600)
 
     def test_kill_controller_system(self):
         self.do_kill_controller('system', 'system kill')
