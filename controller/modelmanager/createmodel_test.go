@@ -218,9 +218,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		},
 	}, {
 		provider: "joyent",
-		expected: []string{
-			"type", "sdc-url",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "maas",
 		expected: []string{

@@ -17,13 +17,9 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 // Use ShortAttempt to poll for short-term events.
@@ -33,7 +29,6 @@ var ShortAttempt = utils.AttemptStrategy{
 }
 
 var Provider environs.EnvironProvider = GetProviderInstance()
-var EnvironmentVariables = environmentVariables
 
 var indexData = `
 		{
@@ -193,50 +188,18 @@ func FindInstanceSpec(
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.Ecfg().Region(),
+		Region:      env.cloud.Region,
 		Constraints: constraints.MustParse(cons),
 	}, imageMetadata)
 	return
 }
 
-func CredentialsAttributes(attrs testing.Attrs) map[string]string {
-	credentialAttrs := make(map[string]string)
-	for _, attr := range []string{"sdc-user", "sdc-key-id", "private-key"} {
-		if v, ok := attrs[attr]; ok && v != "" {
-			credentialAttrs[attr] = fmt.Sprintf("%v", v)
-		}
-	}
-	return credentialAttrs
-}
-
-// MakeConfig creates a functional environConfig for a test.
-func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	credential := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		CredentialsAttributes(attrs),
-	)
-	env, err := bootstrap.Prepare(
-		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			ModelConfig:      attrs,
-			ControllerName:   attrs["name"].(string),
-			Cloud: environs.CloudSpec{
-				Type:       "joyent",
-				Name:       "joyent",
-				Credential: &credential,
-			},
-			AdminSecret: "sekrit",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	return env.(*joyentEnviron).Ecfg()
-}
-
 // MakeCredentials creates credentials for a test.
-func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
-	creds, err := credentials(MakeConfig(c, attrs))
+func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential) *auth.Credentials {
+	creds, err := credentials(environs.CloudSpec{
+		Endpoint:   endpoint,
+		Credential: &cloudCredential,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return creds
 }

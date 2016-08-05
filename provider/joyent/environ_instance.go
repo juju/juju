@@ -34,25 +34,20 @@ var (
 )
 
 type joyentCompute struct {
-	sync.Mutex
-	ecfg     *environConfig
 	cloudapi *cloudapi.Client
 }
 
-func newCompute(cfg *environConfig) (*joyentCompute, error) {
-	creds, err := credentials(cfg)
+func newCompute(cloud environs.CloudSpec) (*joyentCompute, error) {
+	creds, err := credentials(cloud)
 	if err != nil {
 		return nil, err
 	}
-	client := client.NewClient(cfg.sdcUrl(), cloudapi.DefaultAPIVersion, creds, newGoLogger())
-
-	return &joyentCompute{
-		ecfg:     cfg,
-		cloudapi: cloudapi.New(client)}, nil
+	client := client.NewClient(cloud.Endpoint, cloudapi.DefaultAPIVersion, creds, newGoLogger())
+	return &joyentCompute{cloudapi: cloudapi.New(client)}, nil
 }
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Config().Name(), names.NewMachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{
@@ -91,7 +86,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
-		Region:      env.Ecfg().Region(),
+		Region:      env.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
