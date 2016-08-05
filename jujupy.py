@@ -91,6 +91,14 @@ def get_timeout_prefix(duration, timeout_path=None):
     return (sys.executable, timeout_path, '%.2f' % duration, '--')
 
 
+def get_teardown_timeout(client):
+    """Return the timeout need byt the client to teardown resources."""
+    if client.env.config['type'] == 'azure':
+        return 1800
+    else:
+        return 600
+
+
 def parse_new_state_server_from_error(error):
     err_str = str(error)
     output = getattr(error, 'output', None)
@@ -1112,25 +1120,17 @@ class EnvJujuClient:
             model_name, '--config', config_file))
 
     def destroy_model(self):
-        if self.env.config['type'] == 'azure':
-            timeout = 1800
-        else:
-            timeout = 600
         exit_status = self.juju(
             'destroy-model', (self.env.environment, '-y',),
-            include_e=False, timeout=timeout)
+            include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
     def kill_controller(self):
         """Kill a controller and its environments."""
         seen_cmd = self.get_jes_command()
-        if self.env.config['type'] == 'azure':
-            timeout = 1800
-        else:
-            timeout = 600
         self.juju(
             _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
-            include_e=False, check=False, timeout=timeout)
+            include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -2254,15 +2254,11 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             force_arg = ('--force',)
         else:
             force_arg = ()
-        if self.env.config['type'] == 'azure':
-            timeout = 1800
-        else:
-            timeout = 600
         exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
-            timeout=timeout)
+            timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
