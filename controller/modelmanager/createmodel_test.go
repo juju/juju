@@ -216,10 +216,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		expected: []string{"type"},
 	}, {
 		provider: "maas",
-		expected: []string{
-			"type",
-			"maas-server",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "openstack",
 		expected: []string{

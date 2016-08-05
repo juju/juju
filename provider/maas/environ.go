@@ -73,7 +73,9 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 }
 
 type maasEnviron struct {
-	name string
+	name  string
+	cloud environs.CloudSpec
+	uuid  string
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
@@ -103,13 +105,16 @@ type maasEnviron struct {
 
 var _ environs.Environ = (*maasEnviron)(nil)
 
-func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
-	env := new(maasEnviron)
+func NewEnviron(cloud environs.CloudSpec, cfg *config.Config) (*maasEnviron, error) {
+	env := &maasEnviron{
+		name:  cfg.Name(),
+		uuid:  cfg.UUID(),
+		cloud: cloud,
+	}
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 
 	env.namespace, err = instance.NewNamespace(cfg.UUID())
@@ -220,15 +225,24 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfgUnlocked = ecfg
 
+	maasServer, err := parseCloudEndpoint(env.cloud.Endpoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	maasOAuth, err := parseOAuthToken(*env.cloud.Credential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// We need to know the version of the server we're on. We support 1.9
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := apiVersion2
-	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	controller, err := GetMAAS2Controller(maasServer, maasOAuth)
 	switch {
 	case gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
-		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
+		authClient, err := gomaasapi.NewAuthenticatedClient(maasServer, maasOAuth, apiVersion1)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -691,7 +705,7 @@ func (environ *maasEnviron) acquireNode2(
 		return nil, errors.Trace(err)
 	}
 	addStorage2(&acquireParams, volumes)
-	acquireParams.AgentName = environ.ecfg().maasAgentName()
+	acquireParams.AgentName = environ.uuid
 	if zoneName != "" {
 		acquireParams.Zone = zoneName
 	}
@@ -730,7 +744,7 @@ func (environ *maasEnviron) acquireNode(
 		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
 	addStorage(acquireParams, volumes)
-	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	acquireParams.Add("agent_name", environ.uuid)
 	if zoneName != "" {
 		acquireParams.Add("zone", zoneName)
 	}
@@ -1442,11 +1456,11 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Instance, error) {
 	if !environ.usingMAAS2() {
 		filter := getSystemIdValues("id", ids)
-		filter.Add("agent_name", environ.ecfg().maasAgentName())
+		filter.Add("agent_name", environ.uuid)
 		return environ.instances1(filter)
 	}
 	args := gomaasapi.MachinesArgs{
-		AgentName: environ.ecfg().maasAgentName(),
+		AgentName: environ.uuid,
 		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
 	return environ.instances2(args)
@@ -1889,7 +1903,7 @@ func (environ *maasEnviron) subnets2(instId instance.Id, subnetIds []network.Id)
 
 func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.SubnetInfo, error) {
 	args := gomaasapi.MachinesArgs{
-		AgentName: environ.ecfg().maasAgentName(),
+		AgentName: environ.uuid,
 		SystemIDs: []string{string(instId)},
 	}
 	machines, err := environ.maasController.Machines(args)
@@ -1953,13 +1967,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
-	if environ.ecfg().maasAgentName() == "" {
-		logger.Warningf("No MAAS agent name specified.\n\n" +
-			"The environment is either not running or from a very early Juju version.\n" +
-			"It is not safe to release all MAAS instances without an agent name.\n" +
-			"If the environment is still running, please manually decomission the MAAS machines.")
-		return errors.New("unsafe destruction")
-	}
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
 	}
@@ -2139,7 +2146,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	}
 	primaryMACAddress := primaryNICInfo.MACAddress
 	args := gomaasapi.MachinesArgs{
-		AgentName: env.ecfg().maasAgentName(),
+		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
 	}
 	machines, err := env.maasController.Machines(args)

@@ -11,6 +11,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -35,15 +37,23 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	for k, v := range maasEnvAttrs {
 		testAttrs[k] = v
 	}
-	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
 	testAttrs["agent-version"] = version.Current.String()
-	testAttrs["maas-agent-name"] = "agent-prefix"
+
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	cloud := environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   "http://any-old-junk.invalid/",
+		Credential: &cred,
+	}
 
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(cfg)
+	env, err := NewEnviron(cloud, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	return env

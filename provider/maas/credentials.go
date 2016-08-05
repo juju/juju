@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -15,19 +16,21 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+const (
+	credAttrMAASOAuth = "maas-oauth"
+)
+
 type environProviderCredentials struct{}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		cloud.OAuth1AuthType: {
-			{
-				"maas-oauth", cloud.CredentialAttr{
-					Description: "OAuth/API-key credentials for MAAS",
-					Hidden:      true,
-				},
+		cloud.OAuth1AuthType: {{
+			credAttrMAASOAuth, cloud.CredentialAttr{
+				Description: "OAuth/API-key credentials for MAAS",
+				Hidden:      true,
 			},
-		},
+		}},
 	}
 }
 
@@ -51,7 +54,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 		return nil, errors.New("MAAS credentials require a value for OAuth token")
 	}
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
-		"maas-oauth": fmt.Sprintf("%v", oauthKey),
+		credAttrMAASOAuth: fmt.Sprintf("%v", oauthKey),
 	})
 	server, ok := details["Server"]
 	if server == "" || !ok {
@@ -62,5 +65,16 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	return &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"default": cred,
-		}}, nil
+		},
+	}, nil
 }
+
+func parseOAuthToken(cred cloud.Credential) (string, error) {
+	oauth := cred.Attributes()[credAttrMAASOAuth]
+	if strings.Count(oauth, ":") != 2 {
+		return "", errMalformedMaasOAuth
+	}
+	return oauth, nil
+}
+
+var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")

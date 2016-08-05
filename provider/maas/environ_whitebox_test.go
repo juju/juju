@@ -1062,16 +1062,16 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	})
 	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
 		"name":       []string{"bootstrap-host"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zone1"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zonelord"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zone2"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}})
 }
 

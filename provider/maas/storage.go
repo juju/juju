@@ -55,11 +55,7 @@ func (stor *maas1Storage) addressFileObject(name string) gomaasapi.MAASObject {
 // This prevents different environments from interfering with each other.
 // We're using the agent name UUID here.
 func prefixWithPrivateNamespace(env *maasEnviron, name string) string {
-	prefix := env.ecfg().maasAgentName()
-	if prefix != "" {
-		return prefix + "-" + name
-	}
-	return name
+	return env.uuid + "-" + name
 }
 
 func (stor *maas1Storage) prefixWithPrivateNamespace(name string) string {
