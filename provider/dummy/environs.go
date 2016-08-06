@@ -286,56 +286,79 @@ var dummy = environProvider{
 func Reset(c *gc.C) {
 	logger.Infof("reset model")
 	dummy.mu.Lock()
-	defer dummy.mu.Unlock()
 	dummy.ops = discardOperations
-	for _, s := range dummy.state {
-		if s.apiListener != nil {
-			s.apiListener.Close()
-		}
-		s.destroy()
-	}
+	oldState := dummy.state
 	dummy.state = make(map[string]*environState)
-	if mongoAlive() {
-		err := gitjujutesting.MgoServer.Reset()
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
+	dummy.mu.Unlock()
+
+	// NOTE(axw) we must destroy the old states without holding
+	// the provider lock, or we risk deadlocking. Destroying
+	// state involves closing the embedded API server, which
+	// may require waiting on RPC calls that interact with the
+	// EnvironProvider (e.g. EnvironProvider.Open).
+	for _, s := range oldState {
+		if s.apiListener != nil {
+			s.apiListener.Close()
+		}
+		s.destroy()
+	}
+	if mongoAlive() {
+		err := gitjujutesting.MgoServer.Reset()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (state *environState) destroy() {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.destroyLocked()
+}
+
+func (state *environState) destroyLocked() {
 	if !state.bootstrapped {
 		return
 	}
+	apiServer := state.apiServer
+	apiStatePool := state.apiStatePool
+	apiState := state.apiState
+	state.apiServer = nil
+	state.apiStatePool = nil
+	state.apiState = nil
+	state.bootstrapped = false
 
-	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
+	// Release the lock while we close resources. In particular,
+	// we must not hold the lock while the API server is being
+	// closed, as it may need to interact with the Environ while
+	// shutting down.
+	state.mu.Unlock()
+	defer state.mu.Lock()
+
+	if apiServer != nil {
+		if err := apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiServer = nil
 	}
 
-	if state.apiStatePool != nil {
-		if err := state.apiStatePool.Close(); err != nil && mongoAlive() {
+	if apiStatePool != nil {
+		if err := apiStatePool.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiStatePool = nil
 	}
 
-	if state.apiState != nil {
-		if err := state.apiState.Close(); err != nil && mongoAlive() {
+	if apiState != nil {
+		if err := apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiState = nil
 	}
 
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	state.bootstrapped = false
 }
 
 // mongoAlive reports whether the mongo server is
@@ -838,9 +861,11 @@ func (e *environ) Destroy() (res error) {
 		// under the covers. What we need to do is use the state mutex to add a memory
 		// barrier such that the ops channel we see here is the latest.
 		estate.mu.Lock()
-		defer estate.mu.Unlock()
-		estate.ops <- OpDestroy{
-			Env:   estate.name,
+		ops := estate.ops
+		name := estate.name
+		estate.mu.Unlock()
+		ops <- OpDestroy{
+			Env:   name,
 			Cloud: e.cloud,
 			Error: res,
 		}
@@ -851,8 +876,6 @@ func (e *environ) Destroy() (res error) {
 	if !e.ecfg().controller() {
 		return nil
 	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
 	estate.destroy()
 	return nil
 }
