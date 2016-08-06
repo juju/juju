@@ -19,7 +19,6 @@ func InitJujuXDGDataHome() error {
 	if jujuXDGDataHome == "" {
 		return errors.New("cannot determine juju data home, required environment variables are not set")
 	}
-	osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 	charmrepo.CacheDir = osenv.JujuXDGDataHomePath("charmcache")
 	if err := ssh.LoadClientKeys(osenv.JujuXDGDataHomePath("ssh")); err != nil {
 		return errors.Annotate(err, "cannot load ssh client keys")

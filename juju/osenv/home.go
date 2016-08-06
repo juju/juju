@@ -37,29 +37,23 @@ func SetJujuXDGDataHome(newJujuXDGDataHomeHome string) string {
 func JujuXDGDataHome() string {
 	jujuXDGDataHomeMu.Lock()
 	defer jujuXDGDataHomeMu.Unlock()
-	if jujuXDGDataHome == "" {
-		panic("juju home hasn't been initialized")
-	}
 	return jujuXDGDataHome
-}
-
-// IsJujuXDGDataHomeSet is a way to check if SetJuuHome has been called.
-func IsJujuXDGDataHomeSet() bool {
-	jujuXDGDataHomeMu.Lock()
-	defer jujuXDGDataHomeMu.Unlock()
-	return jujuXDGDataHome != ""
 }
 
 // JujuXDGDataHomePath returns the path to a file in the
 // current juju home.
 func JujuXDGDataHomePath(names ...string) string {
-	all := append([]string{JujuXDGDataHome()}, names...)
+	all := append([]string{JujuXDGDataHomeDir()}, names...)
 	return filepath.Join(all...)
 }
 
 // JujuXDGDataHomeDir returns the directory where juju should store application-specific files
 func JujuXDGDataHomeDir() string {
-	JujuXDGDataHomeDir := os.Getenv(JujuXDGDataHomeEnvKey)
+	JujuXDGDataHomeDir := JujuXDGDataHome()
+	if JujuXDGDataHomeDir != "" {
+		return JujuXDGDataHomeDir
+	}
+	JujuXDGDataHomeDir = os.Getenv(JujuXDGDataHomeEnvKey)
 	if JujuXDGDataHomeDir == "" {
 		if runtime.GOOS == "windows" {
 			JujuXDGDataHomeDir = jujuXDGDataHomeWin()
@@ -79,7 +73,7 @@ func jujuXDGDataHomeLinux() string {
 	// If xdg config home is not defined, the standard indicates that its default value
 	// is $HOME/.local/share
 	home := utils.Home()
-	return filepath.Join(home, ".local/share", "juju")
+	return filepath.Join(home, ".local", "share", "juju")
 }
 
 // jujuXDGDataHomeWin returns the directory where juju should store application-specific files on Windows.

@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
@@ -192,7 +193,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 	})
 
 	// remove the new juju-home and create a fake old juju home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 	makeValidOldHome(c)
 
@@ -217,7 +218,10 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
     Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
     with the command juju-1 e.g. 'juju-1 switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
-`[1:], jujuversion.Current))
+
+Since Juju 2 is being run for the first time, downloading latest cloud information.
+Fetching latest public cloud list...
+Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -235,7 +239,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	})
 
 	// remove the new juju-home and create a fake old juju home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	makeValidOldHome(c)
@@ -251,7 +255,10 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 
-	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.
+Fetching latest public cloud list...
+Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -302,7 +309,7 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	})
 
 	// remove the new juju-home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// create fake (empty) old juju home.
@@ -319,8 +326,44 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 
 	assertNoArgs(c, argChan)
-	c.Assert(string(stderr), gc.Equals, "")
+	c.Assert(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.
+Fetching latest public cloud list...
+Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n")
 	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
+	argChan := make(chan []string, 1)
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+
+	})
+	var code int
+	gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stub.Calls()[0].FuncName, gc.Equals, expectedCall)
+}
+
+func (s *MainSuite) TestFirstRunUpdateCloud(c *gc.C) {
+	// remove the juju-home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertRunCommandUpdateCloud(c, "Run")
+}
+
+func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
+	s.assertRunCommandUpdateCloud(c, "Info")
 }
 
 func makeValidOldHome(c *gc.C) {
@@ -525,8 +568,6 @@ var commandNamesBehindFlags = set.NewStrings(
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
-
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
 	// First check default commands, and then check commands that are
@@ -590,7 +631,6 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

@@ -125,7 +125,8 @@ type bootstrapCommand struct {
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
 	BootstrapImage        string
-	UploadTools           bool
+	BuildAgent            bool
+	UploadToolsDeprecated bool
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
@@ -166,7 +167,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	if featureflag.Enabled(feature.ImageMetadata) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools before bootstrapping")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
+	f.BoolVar(&c.UploadToolsDeprecated, "upload-tools", false, "DEPRECATED: see build-agent")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
@@ -189,16 +191,20 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			c.interactive = true
 			return nil
 		case 1:
-			if c.UploadTools {
-				// juju bootstrap --upload-tools is ok for interactive, too.
+			if c.BuildAgent {
+				// juju bootstrap --build-agent is ok for interactive, too.
 				c.interactive = true
 				return nil
 			}
 			// some other flag was set, which means non-interactive.
 		}
 	}
+	// TODO(wallyworld) - remove me when CI scripts updated
+	if c.UploadToolsDeprecated {
+		c.BuildAgent = c.UploadToolsDeprecated
+	}
 	if c.showClouds && c.showRegionsForCloud != "" {
-		return fmt.Errorf("--clouds and --regions can't be used together")
+		return errors.New("--clouds and --regions can't be used together")
 	}
 	if c.showClouds {
 		return cmd.CheckEmpty(args)
@@ -206,8 +212,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.showRegionsForCloud != "" {
 		return cmd.CheckEmpty(args)
 	}
-	if c.AgentVersionParam != "" && c.UploadTools {
-		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
+	if c.AgentVersionParam != "" && c.BuildAgent {
+		return errors.New("--agent-version and --build-agent can't be used together")
 	}
 	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
@@ -231,7 +237,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		_, err = instance.ParsePlacement(c.Placement)
 		if err != instance.ErrPlacementScopeMissing {
 			// We only support unscoped placement directives for bootstrap.
-			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
+			return errors.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
 	}
 	if !c.AutoUpgrade {
@@ -249,7 +255,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return fmt.Errorf("requested agent version major.minor mismatch")
+		return errors.New("requested agent version major.minor mismatch")
 	}
 
 	// The user must specify two positional arguments: the controller name,
@@ -306,6 +312,9 @@ specify a credential using the --credential argument`[1:],
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	if c.UploadToolsDeprecated {
+		fmt.Fprintln(ctx.Stderr, "WARNING: --upload-tools is deprecated, please use --build-agent instead")
+	}
 	if c.interactive {
 		if err := c.runInteractive(ctx); err != nil {
 			return errors.Trace(err)
@@ -693,8 +702,8 @@ to clean up the model.`[1:])
 		BootstrapSeries:           c.BootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
-		UploadTools:               c.UploadTools,
-		BuildToolsTarball:         sync.BuildToolsTarball,
+		BuildAgent:                c.BuildAgent,
+		BuildAgentTarball:         sync.BuildAgentTarball,
 		AgentVersion:              c.AgentVersion,
 		MetadataDir:               metadataDir,
 		Cloud:                     *cloud,

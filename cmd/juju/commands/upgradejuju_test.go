@@ -105,16 +105,16 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
-	about:          "--upload-tools with inappropriate version 1",
+	about:          "--build-agent with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--upload-tools", "--version", "3.1.0"},
+	args:           []string{"--build-agent", "--version", "3.1.0"},
 	expectErr:      "cannot change version from 4.2.0 to 3.1.0",
 }, {
-	about:          "--upload-tools with inappropriate version 2",
+	about:          "--build-agent with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
-	args:           []string{"--upload-tools", "--version", "3.2.8.4"},
-	expectInitErr:  "cannot specify build number when uploading tools",
+	args:           []string{"--build-agent", "--version", "3.2.8.4"},
+	expectInitErr:  "cannot specify build number when building an agent",
 }, {
 	about:          "latest supported stable release",
 	tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
@@ -255,21 +255,21 @@ var upgradeJujuTests = []struct {
 	about:          "upload with default series",
 	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools"},
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.2.0.1",
 	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-%LTS%-amd64", "2.2.0.1-raring-amd64"},
 }, {
 	about:          "upload with explicit version",
 	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools", "--version", "2.7.3"},
+	args:           []string{"--build-agent", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
 	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
 }, {
 	about:          "upload dev version, currently on release version",
 	currentVersion: "2.1.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools"},
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.1.0.1",
 	expectUploaded: []string{"2.1.0.1-quantal-amd64", "2.1.0.1-%LTS%-amd64", "2.1.0.1-raring-amd64"},
 }, {
@@ -277,7 +277,7 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"2.4.6-quantal-amd64", "2.4.8-quantal-amd64"},
 	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.0",
-	args:           []string{"--upload-tools"},
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.4.6.1",
 	expectUploaded: []string{"2.4.6.1-quantal-amd64", "2.4.6.1-%LTS%-amd64", "2.4.6.1-raring-amd64"},
 }, {
@@ -285,7 +285,7 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"2.4.6-quantal-amd64", "2.4.6.2-saucy-i386", "2.4.8-quantal-amd64"},
 	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.6.2",
-	args:           []string{"--upload-tools"},
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.4.6.3",
 	expectUploaded: []string{"2.4.6.3-quantal-amd64", "2.4.6.3-%LTS%-amd64", "2.4.6.3-raring-amd64"},
 }, {
@@ -293,7 +293,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "2.2.0-quantal-amd64",
 	tools:          []string{"2.7.3.1-quantal-amd64"},
 	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools", "--version", "2.7.3"},
+	args:           []string{"--build-agent", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }, {
@@ -425,7 +425,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
 	hostPorts := [][]network.HostPort{
@@ -443,7 +443,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
-	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
+	_, err := coretesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Binary{
 		Number: jujuversion.Current,
@@ -460,7 +460,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
-	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
+	_, err := coretesting.RunCommand(c, cmd, "--build-agent")
 	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
@@ -477,8 +477,8 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 		return fakeAPI, nil
 	})
 	cmd := newUpgradeJujuCommand(nil)
-	_, err := coretesting.RunCommand(c, cmd, "--upload-tools", "-m", "dummy-model")
-	c.Assert(err, gc.ErrorMatches, "--upload-tools can only be used with the controller model")
+	_, err := coretesting.RunCommand(c, cmd, "--build-agent", "-m", "dummy-model")
+	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
 }
 
 type DryRunTest struct {
@@ -494,7 +494,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 	tests := []DryRunTest{
 		{
 			about:          "dry run outputs and doesn't change anything when uploading tools",
-			cmdArgs:        []string{"--upload-tools", "--dry-run"},
+			cmdArgs:        []string{"--build-agent", "--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",

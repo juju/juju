@@ -18,7 +18,6 @@ import (
 	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
@@ -57,7 +55,7 @@ func FakeCredential() cloud.Credential {
 }
 
 type BaseSuite struct {
-	gitjujutesting.IsolationSuite
+	testing.FakeJujuXDGDataHomeSuite
 
 	Config    *config.Config
 	EnvConfig *environConfig
@@ -68,13 +66,12 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
 	s.setUpHttpProxy(c)
 	s.FakeMetadataServer()
-	osenv.SetJujuXDGDataHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
