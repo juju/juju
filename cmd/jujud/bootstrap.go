@@ -259,7 +259,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
-				args, addrs, jobs, sharedSecret,
+				StateInitializationParams: args,
+				BootstrapMachineAddresses: addrs,
+				BootstrapMachineJobs:      jobs,
+				SharedSecret:              sharedSecret,
+				Provider:                  environs.Provider,
 			},
 			dialOpts,
 			stateenvirons.GetNewPolicyFunc(

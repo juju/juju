@@ -645,8 +645,8 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	return nil
 }
 
-// Create is part of the EnvironProvider interface.
-func (e *environ) Create(environs.CreateParams) error {
+// Create is part of the Environ interface.
+func (e *environ) Create(args environs.CreateParams) error {
 	return nil
 }
 

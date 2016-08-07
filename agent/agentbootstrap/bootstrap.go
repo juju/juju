@@ -40,6 +40,9 @@ type InitializeStateParams struct {
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
+
+	// Provider is called to obtain an EnvironProvider.
+	Provider func(string) (environs.EnvironProvider, error)
 }
 
 // InitializeState should be called on the bootstrap machine's agent
@@ -161,13 +164,30 @@ func InitializeState(
 		}
 	}
 	controllerUUID := args.ControllerConfig.ControllerUUID()
-	creator := modelmanager.ModelConfigCreator{Provider: environs.Provider}
+	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
 	hostedModelConfig, err := creator.NewModelConfig(
 		cloudSpec, controllerUUID, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
+	provider, err := args.Provider(cloudSpec.Type)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting environ provider")
+	}
+	hostedModelEnv, err := provider.Open(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: hostedModelConfig,
+	})
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "opening hosted model environment")
+	}
+	if err := hostedModelEnv.Create(environs.CreateParams{
+		ControllerUUID: controllerUUID,
+	}); err != nil {
+		return nil, nil, errors.Annotate(err, "creating hosted model environment")
+	}
+
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
 		Owner:           adminUser,
 		Config:          hostedModelConfig,
