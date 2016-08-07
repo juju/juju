@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -702,9 +701,6 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
-	registry.RegisterEnvironStorageProviders("someprovider", "loop")
-	defer registry.ResetEnvironStorageProviders("someprovider")
-
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
 			Volume:     state.VolumeParams{Size: 1234},

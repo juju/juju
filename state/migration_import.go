@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -56,6 +57,12 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		Config:        cfg,
 		Owner:         model.Owner(),
 		MigrationMode: MigrationModeImporting,
+
+		// NOTE(axw) we create the model without any storage
+		// pools. We'll need to import the storage pools from
+		// the model description before adding any volumes,
+		// filesystems or storage instances.
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	if err != nil {
 		return nil, nil, errors.Trace(err)

@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -71,22 +70,13 @@ func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
 var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
+	NewOpenstackStorage         = &newOpenstackStorage
 )
-
-type OpenstackStorage openstackStorage
-
-func NewCinderProvider(s OpenstackStorage) storage.Provider {
-	return &cinderProvider{
-		func(*config.Config) (openstackStorage, error) {
-			return openstackStorage(s), nil
-		},
-	}
-}
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
 	modelUUID := testing.ModelTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
+	return &cinderVolumeSource{s, envName, modelUUID}
 }
 
 // Include images for arches currently supported.  i386 is no longer

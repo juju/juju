@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
 
@@ -51,12 +50,12 @@ func (p *tmpfsProvider) validateFullConfig(cfg *storage.Config) error {
 }
 
 // VolumeSource is defined on the Provider interface.
-func (p *tmpfsProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (p *tmpfsProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (p *tmpfsProvider) FilesystemSource(environConfig *config.Config, sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *tmpfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
 	if err := p.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
@@ -82,6 +81,11 @@ func (*tmpfsProvider) Scope() storage.Scope {
 // Dynamic is defined on the Provider interface.
 func (*tmpfsProvider) Dynamic() bool {
 	return true
+}
+
+// DefaultPools is defined on the Provider interface.
+func (*tmpfsProvider) DefaultPools() []*storage.Config {
+	return nil
 }
 
 type tmpfsFilesystemSource struct {

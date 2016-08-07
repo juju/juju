@@ -42,8 +42,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -309,12 +307,8 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
 // (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-block")
-	err = runDeploy(c, ch, "--storage", "data=loop-pool,1G", "--series", "trusty")
+	err := runDeploy(c, ch, "--storage", "data=machinescoped,1G", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	application, _ := s.AssertService(c, "storage-block", curl, 1, 0)
@@ -323,7 +317,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
-			Pool:  "loop-pool",
+			Pool:  "machinescoped",
 			Count: 1,
 			Size:  1024,
 		},

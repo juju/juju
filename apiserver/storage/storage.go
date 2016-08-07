@@ -18,24 +18,21 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 )
-
-func init() {
-	common.RegisterStandardFacade("Storage", 2, NewAPI)
-}
 
 // API implements the storage interface and is the concrete
 // implementation of the api end point.
 type API struct {
 	storage     storageAccess
+	registry    storage.ProviderRegistry
 	poolManager poolmanager.PoolManager
 	authorizer  facade.Authorizer
 }
 
-// createAPI returns a new storage API facade.
-func createAPI(
+// NewAPI returns a new storage API facade.
+func NewAPI(
 	st storageAccess,
+	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -43,24 +40,13 @@ func createAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
 	return &API{
 		storage:     st,
+		registry:    registry,
 		poolManager: pm,
 		authorizer:  authorizer,
 	}, nil
-}
-
-// NewAPI returns a new storage API facade.
-func NewAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	return createAPI(getState(st), poolManager(st), resources, authorizer)
-}
-
-func poolManager(st *state.State) poolmanager.PoolManager {
-	return poolmanager.New(state.NewStateSettings(st))
 }
 
 // StorageDetails retrieves and returns detailed information about desired
@@ -240,10 +226,7 @@ func (a *API) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, 
 	if err != nil {
 		return nil, err
 	}
-	providers, err := a.allProviders()
-	if err != nil {
-		return nil, err
-	}
+	providers := a.registry.StorageProviderTypes()
 	matches := buildFilter(filter)
 	results := append(
 		filterPools(pools, matches),
@@ -308,17 +291,6 @@ func filterPools(
 	return all
 }
 
-func (a *API) allProviders() ([]storage.ProviderType, error) {
-	envName, err := a.storage.ModelName()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting env name")
-	}
-	if providers, ok := registry.EnvironStorageProviders(envName); ok {
-		return providers, nil
-	}
-	return nil, nil
-}
-
 func (a *API) validatePoolListFilter(filter params.StoragePoolFilter) error {
 	if err := a.validateProviderCriteria(filter.Providers); err != nil {
 		return errors.Trace(err)
@@ -339,13 +311,10 @@ func (a *API) validateNameCriteria(names []string) error {
 }
 
 func (a *API) validateProviderCriteria(providers []string) error {
-	envName, err := a.storage.ModelName()
-	if err != nil {
-		return errors.Annotate(err, "getting model name")
-	}
 	for _, p := range providers {
-		if !registry.IsProviderSupported(envName, storage.ProviderType(p)) {
-			return errors.NotSupportedf("%q", p)
+		_, err := a.registry.StorageProvider(storage.ProviderType(p))
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil

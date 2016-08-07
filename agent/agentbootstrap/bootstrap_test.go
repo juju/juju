@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -149,7 +150,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"apt-mirror": "http://mirror",
 	}
 
-	var provider fakeProvider
+	var envProvider fakeProvider
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineConstraints:             expectBootstrapConstraints,
@@ -173,8 +174,9 @@ LXC_BRIDGE="ignored"`[1:])
 		SharedSecret:              "abc123",
 		Provider: func(t string) (environs.EnvironProvider, error) {
 			c.Assert(t, gc.Equals, "dummy")
-			return &provider, nil
+			return &envProvider, nil
 		},
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
@@ -292,14 +294,14 @@ LXC_BRIDGE="ignored"`[1:])
 	defer st1.Close()
 
 	// Make sure that the hosted model Environ's Create method is called.
-	provider.CheckCallNames(c,
+	envProvider.CheckCallNames(c,
 		"RestrictedConfigAttributes",
 		"PrepareConfig",
 		"Validate",
 		"Open",
 		"Create",
 	)
-	provider.CheckCall(c, 3, "Open", environs.OpenParams{
+	envProvider.CheckCall(c, 3, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
@@ -307,7 +309,7 @@ LXC_BRIDGE="ignored"`[1:])
 		},
 		Config: hostedCfg,
 	})
-	provider.CheckCall(c, 4, "Create", environs.CreateParams{
+	envProvider.CheckCall(c, 4, "Create", environs.CreateParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 	})
 }
@@ -386,6 +388,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Provider: func(t string) (environs.EnvironProvider, error) {
 			return &fakeProvider{}, nil
 		},
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")

@@ -161,6 +161,10 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"something":     "value",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newModelArgs.StorageProviderRegistry, gc.NotNil)
+	newModelArgs.StorageProviderRegistry = nil
+
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
 		Owner:           names.NewUserTag("admin@local"),
 		CloudName:       "some-cloud",

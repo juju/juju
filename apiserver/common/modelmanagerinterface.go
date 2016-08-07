@@ -7,7 +7,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
@@ -24,9 +23,8 @@ type ModelManagerBackend interface {
 	ToolsStorageGetter
 	BlockGetter
 	metricsender.MetricsSenderBackend
+	state.CloudAccessor
 
-	Cloud(name string) (cloud.Cloud, error)
-	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
 	ModelUUID() string
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)

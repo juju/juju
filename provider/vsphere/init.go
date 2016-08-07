@@ -5,10 +5,7 @@
 
 package vsphere
 
-import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage/provider/registry"
-)
+import "github.com/juju/juju/environs"
 
 const (
 	providerType = "vsphere"
@@ -16,5 +13,4 @@ const (
 
 func init() {
 	environs.RegisterProvider(providerType, providerInstance)
-	registry.RegisterEnvironStorageProviders(providerType)
 }

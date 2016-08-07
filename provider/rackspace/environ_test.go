@@ -9,6 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/utils/ssh"
@@ -201,6 +203,16 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 func (e *fakeEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	e.Push("PrecheckInstance", series, cons, placement)
 	return nil
+}
+
+func (e *fakeEnviron) StorageProviderTypes() []storage.ProviderType {
+	e.Push("StorageProviderTypes")
+	return nil
+}
+
+func (e *fakeEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	e.Push("StorageProvider", t)
+	return nil, errors.NotImplementedf("StorageProvider")
 }
 
 type fakeConfigurator struct {

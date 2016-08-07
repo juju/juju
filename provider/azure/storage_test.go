@@ -39,20 +39,24 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.requests = nil
-	_, s.provider = newProviders(c, azure.ProviderConfig{
+	envProvider := newProvider(c, azure.ProviderConfig{
 		Sender:           &s.sender,
 		NewStorageClient: s.storageClient.NewClient,
 		RequestInspector: requestRecorder(&s.requests),
 	})
 	s.sender = nil
+
+	var err error
+	env := openEnviron(c, envProvider, &s.sender)
+	s.provider, err = env.StorageProvider("azure")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.VolumeSource {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := makeTestModelConfig(c)
-	volumeSource, err := s.provider.VolumeSource(cfg, storageConfig)
+	volumeSource, err := s.provider.VolumeSource(storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Force an explicit refresh of the access token, so it isn't done
@@ -98,8 +102,7 @@ func (s *storageSuite) TestFilesystemSource(c *gc.C) {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := makeTestModelConfig(c)
-	_, err = s.provider.FilesystemSource(cfg, storageConfig)
+	_, err = s.provider.FilesystemSource(storageConfig)
 	c.Assert(err, gc.ErrorMatches, "filesystems not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }

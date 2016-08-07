@@ -1298,14 +1298,13 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	}
 
 	// Delete all volumes managed by the controller.
-	cfg := e.Config()
-	storageAdapter, err := newOpenstackStorageAdapter(cfg)
+	cinder, err := e.cinderProvider()
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(storageAdapter, controllerUUID)
+		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
-		errs := destroyVolumes(storageAdapter, volIds)
+		errs := destroyVolumes(cinder.storageAdapter, volIds)
 		for i, err := range errs {
 			if err == nil {
 				continue
@@ -1321,7 +1320,7 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	return nil
 }
 
-func allControllerManagedVolumes(storageAdapter openstackStorage, controllerUUID string) ([]string, error) {
+func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
 	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
 		return v.Metadata[tags.JujuController] == controllerUUID
 	})

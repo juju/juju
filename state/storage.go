@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 // StorageInstance represents the state of a unit or application-wide storage
@@ -911,25 +910,15 @@ func validateStoragePool(
 		}
 	}
 
-	// Ensure the pool type is supported by the model.
-	conf, err := st.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	envType := conf.Type()
-	if !registry.IsProviderSupported(envType, providerType) {
-		return errors.Errorf(
-			"pool %q uses storage provider %q which is not supported for models of type %q",
-			poolName,
-			providerType,
-			envType,
-		)
-	}
 	return nil
 }
 
 func poolStorageProvider(st *State, poolName string) (storage.ProviderType, storage.Provider, error) {
-	poolManager := poolmanager.New(NewStateSettings(st))
+	registry, err := st.storageProviderRegistry()
+	if err != nil {
+		return "", nil, errors.Annotate(err, "getting storage provider registry")
+	}
+	poolManager := poolmanager.New(NewStateSettings(st), registry)
 	pool, err := poolManager.Get(poolName)
 	if errors.IsNotFound(err) {
 		// If there's no pool called poolName, maybe a provider type

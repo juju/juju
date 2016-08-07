@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,7 +32,7 @@ var _ = gc.Suite(&environProviderSuite{})
 
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
+	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           &s.sender,
 		RequestInspector: requestRecorder(&s.requests),
 	})
@@ -74,7 +73,7 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 	c.Assert(attrs["storage-endpoint"], gc.Equals, "https://storage.azurestack.local")
 }
 
-func newProviders(c *gc.C, config azure.ProviderConfig) (environs.EnvironProvider, storage.Provider) {
+func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider {
 	if config.NewStorageClient == nil {
 		var storage azuretesting.MockStorageClient
 		config.NewStorageClient = storage.NewClient
@@ -87,9 +86,9 @@ func newProviders(c *gc.C, config azure.ProviderConfig) (environs.EnvironProvide
 	if config.RetryClock == nil {
 		config.RetryClock = testing.NewClock(time.Time{})
 	}
-	environProvider, storageProvider, err := azure.NewProviders(config)
+	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)
-	return environProvider, storageProvider
+	return environProvider
 }
 
 func requestRecorder(requests *[]*http.Request) autorest.PrepareDecorator {

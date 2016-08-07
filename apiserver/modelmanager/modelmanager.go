@@ -277,6 +277,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	}); err != nil {
 		return result, errors.Annotate(err, "failed to create environ")
 	}
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
@@ -287,6 +288,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		CloudCredential: cloudCredentialName,
 		Config:          newConfig,
 		Owner:           ownerTag,
+		StorageProviderRegistry: storageProviderRegistry,
 	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")

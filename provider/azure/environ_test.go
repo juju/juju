@@ -81,7 +81,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.requests = nil
 	s.retryClock = mockClock{Clock: testing.NewClock(time.Time{})}
 
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
+	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: requestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,

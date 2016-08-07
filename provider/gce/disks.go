@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
 )
@@ -21,11 +20,22 @@ const (
 	storageProviderType = storage.ProviderType("gce")
 )
 
-func init() {
-	//TODO(perrito666) Add explicit pools.
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *environ) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{storageProviderType}
 }
 
-type storageProvider struct{}
+// StorageProvider implements storage.ProviderRegistry.
+func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == storageProviderType {
+		return &storageProvider{env}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
+type storageProvider struct {
+	env *environ
+}
 
 var _ storage.Provider = (*storageProvider)(nil)
 
@@ -45,7 +55,12 @@ func (g *storageProvider) Dynamic() bool {
 	return true
 }
 
-func (g *storageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (g *storageProvider) DefaultPools() []*storage.Config {
+	// TODO(perrito666) Add explicit pools.
+	return nil
+}
+
+func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
@@ -55,15 +70,10 @@ type volumeSource struct {
 	modelUUID string
 }
 
-func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
-	// Connect and authenticate.
-	env, err := newEnviron(environConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create an environ with this config")
-	}
-
+func (g *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
+	environConfig := g.env.Config()
 	source := &volumeSource{
-		gce:       env.gce,
+		gce:       g.env.gce,
 		envName:   environConfig.Name(),
 		modelUUID: environConfig.UUID(),
 	}

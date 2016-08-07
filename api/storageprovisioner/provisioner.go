@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -20,8 +19,6 @@ const storageProvisionerFacade = "StorageProvisioner"
 type State struct {
 	facade base.FacadeCaller
 	scope  names.Tag
-
-	*common.ModelWatcher
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
@@ -33,11 +30,7 @@ func NewState(caller base.APICaller, scope names.Tag) (*State, error) {
 		return nil, errors.Errorf("expected ModelTag or MachineTag, got %T", scope)
 	}
 	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
-	return &State{
-		facadeCaller,
-		scope,
-		common.NewModelWatcher(facadeCaller),
-	}, nil
+	return &State{facadeCaller, scope}, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machine's block devices.

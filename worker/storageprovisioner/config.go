@@ -5,6 +5,7 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/storage"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 )
@@ -16,7 +17,7 @@ type Config struct {
 	Volumes     VolumeAccessor
 	Filesystems FilesystemAccessor
 	Life        LifecycleManager
-	Environ     ModelAccessor
+	Registry    storage.ProviderRegistry
 	Machines    MachineAccessor
 	Status      StatusSetter
 	Clock       clock.Clock
@@ -47,8 +48,8 @@ func (config Config) Validate() error {
 	if config.Life == nil {
 		return errors.NotValidf("nil Life")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Registry == nil {
+		return errors.NotValidf("nil Registry")
 	}
 	if config.Machines == nil {
 		return errors.NotValidf("nil Machines")

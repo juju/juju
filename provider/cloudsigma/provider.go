@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -49,7 +48,6 @@ func init() {
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
-	registry.RegisterEnvironStorageProviders(providerType)
 }
 
 // Open opens the environment and returns it.

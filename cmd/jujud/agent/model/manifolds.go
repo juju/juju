@@ -235,6 +235,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
+			EnvironName:   environTrackerName,
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 )
 
 // modelGlobalKey is the key for the model, its
@@ -169,6 +170,10 @@ type ModelArgs struct {
 	// Constraints contains the initial constraints for the model.
 	Constraints constraints.Value
 
+	// StorageProviderRegistry is used to determine and store the
+	// details of the default storage pools.
+	StorageProviderRegistry storage.ProviderRegistry
+
 	// Owner is the user that owns the model.
 	Owner names.UserTag
 
@@ -186,6 +191,9 @@ func (m ModelArgs) Validate() error {
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
+	}
+	if m.StorageProviderRegistry == nil {
+		return errors.NotValidf("nil StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeActive, MigrationModeImporting:

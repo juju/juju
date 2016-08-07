@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -33,7 +33,11 @@ var _ = gc.Suite(&factorySuite{})
 
 func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.NewPolicy = func(*state.State) state.Policy {
-		return &statetesting.MockPolicy{}
+		return &statetesting.MockPolicy{
+			GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+				return provider.CommonStorageProviders(), nil
+			},
+		}
 	}
 	s.StateSuite.SetUpTest(c)
 	s.Factory = factory.NewFactory(s.State)
@@ -228,7 +232,6 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageModel}
 	password, err := utils.RandomPassword()

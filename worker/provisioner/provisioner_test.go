@@ -42,8 +42,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -113,12 +111,6 @@ func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
-	// Disable the default state policy, because the
-	// provisioner needs to be able to test pathological
-	// scenarios where a machine exists in state with
-	// invalid environment config.
-	dummy.SetNewStatePolicy(nil)
-
 	s.JujuConnSuite.SetUpTest(c)
 
 	// We do not want to pull published image metadata for tests...
@@ -1051,10 +1043,7 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
-	registry.RegisterProvider("static", &dummystorage.StorageProvider{IsDynamic: false})
-	registry.RegisterEnvironStorageProviders("dummy", "static")
-	defer registry.RegisterProvider("static", nil)
-	poolManager := poolmanager.New(state.NewStateSettings(s.State))
+	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
 	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
