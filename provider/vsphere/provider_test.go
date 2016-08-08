@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/vsphere"
 )
@@ -46,15 +45,9 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 }
 
 func (s *providerSuite) TestPrepareConfig(c *gc.C) {
-	credential := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{"user": "u", "password": "p"},
-	)
 	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: s.Config,
-		Cloud: environs.CloudSpec{
-			Credential: &credential,
-		},
+		Cloud:  vsphere.FakeCloudSpec(),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
@@ -66,13 +59,4 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
-}
-
-func (s *providerSuite) TestSecretAttrs(c *gc.C) {
-	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
-	c.Check(err, jc.ErrorIsNil)
-
-	expectedAttrs := map[string]string{"password": "password1"}
-	c.Assert(obtainedAttrs, gc.DeepEquals, expectedAttrs)
-
 }
