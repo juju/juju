@@ -219,10 +219,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		expected: []string{"type"},
 	}, {
 		provider: "openstack",
-		expected: []string{
-			"type",
-			"region", "auth-url", "auth-mode",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "ec2",
 		expected: []string{
