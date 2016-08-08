@@ -161,6 +161,28 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
+	// This is hard to test as we have no way of affecting the system roots,
+	// so instead we check that the error that we get implies that
+	// we're using the system roots.
+
+	info := s.APIInfo(c)
+	info.CACert = ""
+
+	t0 := time.Now()
+	// Use a long timeout so that we can check that the retry
+	// logic doesn't retry.
+	_, err := api.Open(info, api.DialOpts{
+		Timeout:    20 * time.Second,
+		RetryDelay: 2 * time.Second,
+	})
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/api: x509: certificate signed by unknown authority`)
+
+	if time.Since(t0) > 5*time.Second {
+		c.Errorf("looks like API is retrying on connection when there is an X509 error")
+	}
+}
+
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 	redirectToHosts := []string{"0.1.2.3:1234", "0.1.2.4:1235"}
 	redirectToCACert := "fake CA cert"
