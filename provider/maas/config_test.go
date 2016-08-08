@@ -91,6 +91,18 @@ func (*configSuite) TestValidateUpdatesServer(c *gc.C) {
 	c.Assert(newAttrs["maas-server"].(string), gc.Equals, "http://"+server)
 }
 
+func (*configSuite) TestInvalidServerURL(c *gc.C) {
+	// Note that as we add http:// as a prefix to invalid urls, the only
+	// thing we can now detect as invalid is an empty string.
+	server := ""
+	attrs := map[string]interface{}{
+		"maas-server": server,
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	}
+	_, err := newConfig(attrs)
+	c.Assert(err, gc.ErrorMatches, "malformed maas-server URL ''")
+}
+
 func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",

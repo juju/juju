@@ -153,10 +153,14 @@ func validateServerURL(envCfg *maasModelConfig) error {
 	if firstErr != nil || serverURL.Scheme == "" || serverURL.Host == "" {
 		serverURL, err := url.Parse("http://" + server)
 		if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
-			return fmt.Errorf("malformed maas-server URL '%v': %s", server, firstErr)
+			msg := fmt.Sprintf("malformed maas-server URL '%v'", server)
+			if firstErr != nil {
+				return errors.Annotate(firstErr, msg)
+			}
+
+			return errors.Errorf(msg)
 		}
-		server = "http://" + server
-		envCfg.updateMaasServer(server)
+		envCfg.updateMaasServer("http://" + server)
 	}
 	return nil
 }
