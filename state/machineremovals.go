@@ -28,13 +28,17 @@ func (m *Machine) MarkForRemoval() (err error) {
 		return errors.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
+		C:  machinesC,
+		Id: m.doc.DocID,
+		// Check that the machine is still dead (and implicitly that
+		// it still exists).
 		Assert: isDeadDoc,
 	}, {
 		C:      machineRemovalsC,
 		Id:     m.globalKey(),
 		Insert: &machineRemovalDoc{MachineID: m.Id()},
+		// No assert here - it's ok if the machine has already been
+		// marked. The id will prevent duplicates.
 	}}
 	return onAbort(m.st.runTransaction(ops), errors.Errorf("machine is not dead"))
 }
