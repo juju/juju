@@ -91,6 +91,9 @@ type Model interface {
 	Volumes() []Volume
 	AddVolume(VolumeArgs) Volume
 
+	Filesystems() []Filesystem
+	AddFilesystem(FilesystemArgs) Filesystem
+
 	Validate() error
 }
 
@@ -395,7 +398,7 @@ type Volume interface {
 	HasStatusHistory
 
 	Tag() names.VolumeTag
-	// TODO: Link to Storage when we add storage
+	Storage() names.StorageTag
 
 	Binding() (names.Tag, error)
 
@@ -420,4 +423,33 @@ type VolumeAttachment interface {
 	DeviceName() string
 	DeviceLink() string
 	BusAddress() string
+}
+
+// Filesystem represents a filesystem in the model.
+type Filesystem interface {
+	HasStatus
+	HasStatusHistory
+
+	Tag() names.FilesystemTag
+	Volume() names.VolumeTag
+	Storage() names.StorageTag
+	Binding() (names.Tag, error)
+
+	Provisioned() bool
+
+	Size() uint64
+	Pool() string
+
+	FilesystemID() string
+
+	Attachments() []FilesystemAttachment
+	AddAttachment(FilesystemAttachmentArgs) FilesystemAttachment
+}
+
+// FilesystemAttachment represents a filesystem attached to a machine.
+type FilesystemAttachment interface {
+	Machine() names.MachineTag
+	Provisioned() bool
+	MountPoint() string
+	ReadOnly() bool
 }

@@ -51,6 +51,7 @@ func NewModel(args ModelArgs) Model {
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
 	m.setVolumes(nil)
+	m.setFilesystems(nil)
 	return m
 }
 
@@ -136,7 +137,8 @@ type model struct {
 
 	// TODO:
 	// Storage...
-	Volumes_ volumes `yaml:"volumes"`
+	Volumes_     volumes     `yaml:"volumes"`
+	Filesystems_ filesystems `yaml:"filesystems"`
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -461,6 +463,29 @@ func (m *model) setVolumes(volumeList []*volume) {
 	}
 }
 
+// Filesystems implements Model.
+func (m *model) Filesystems() []Filesystem {
+	var result []Filesystem
+	for _, filesystem := range m.Filesystems_.Filesystems_ {
+		result = append(result, filesystem)
+	}
+	return result
+}
+
+// AddFilesystem implemets Model.
+func (m *model) AddFilesystem(args FilesystemArgs) Filesystem {
+	filesystem := newFilesystem(args)
+	m.Filesystems_.Filesystems_ = append(m.Filesystems_.Filesystems_, filesystem)
+	return filesystem
+}
+
+func (m *model) setFilesystems(filesystemList []*filesystem) {
+	m.Filesystems_ = filesystems{
+		Version:      1,
+		Filesystems_: filesystemList,
+	}
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -515,6 +540,10 @@ func (m *model) Validate() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = m.validateFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	return nil
 }
@@ -523,6 +552,15 @@ func (m *model) validateVolumes() error {
 	for i, volume := range m.Volumes_.Volumes_ {
 		if err := volume.Validate(); err != nil {
 			return errors.Annotatef(err, "volume[%d]", i)
+		}
+	}
+	return nil
+}
+
+func (m *model) validateFilesystems() error {
+	for i, filesystem := range m.Filesystems_.Filesystems_ {
+		if err := filesystem.Validate(); err != nil {
+			return errors.Annotatef(err, "filesystem[%d]", i)
 		}
 	}
 	return nil
@@ -719,6 +757,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"subnets":          schema.StringMap(schema.Any()),
 		"linklayerdevices": schema.StringMap(schema.Any()),
 		"volumes":          schema.StringMap(schema.Any()),
+		"filesystems":      schema.StringMap(schema.Any()),
 		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -845,6 +884,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "volumes")
 	}
 	result.setVolumes(volumes)
+
+	filesystems, err := importFilesystems(valid["filesystems"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "filesystems")
+	}
+	result.setFilesystems(filesystems)
 
 	return result, nil
 }

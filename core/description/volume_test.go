@@ -39,6 +39,7 @@ func (s *VolumeSerializationSuite) SetUpTest(c *gc.C) {
 func testVolumeMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"id":             "1234",
+		"storage-id":     "test/1",
 		"binding":        "machine-42",
 		"provisioned":    true,
 		"size":           int(20 * gig),
@@ -64,6 +65,7 @@ func testVolume() *volume {
 func testVolumeArgs() VolumeArgs {
 	return VolumeArgs{
 		Tag:         names.NewVolumeTag("1234"),
+		Storage:     names.NewStorageTag("test/1"),
 		Binding:     names.NewMachineTag("42"),
 		Provisioned: true,
 		Size:        20 * gig,
@@ -78,6 +80,7 @@ func (s *VolumeSerializationSuite) TestNewVolume(c *gc.C) {
 	volume := testVolume()
 
 	c.Check(volume.Tag(), gc.Equals, names.NewVolumeTag("1234"))
+	c.Check(volume.Storage(), gc.Equals, names.NewStorageTag("test/1"))
 	binding, err := volume.Binding()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(binding, gc.Equals, names.NewMachineTag("42"))
@@ -161,6 +164,20 @@ func (s *VolumeSerializationSuite) exportImport(c *gc.C, volume_ *volume) *volum
 	return volumes[0]
 }
 
+func (s *VolumeSerializationSuite) TestAddingAttachments(c *gc.C) {
+	// The core code does not care about duplicates, so we'll just add
+	// the same attachment twice.
+	original := testVolume()
+	attachment1 := original.AddAttachment(testVolumeAttachmentArgs("1"))
+	attachment2 := original.AddAttachment(testVolumeAttachmentArgs("2"))
+	volume := s.exportImport(c, original)
+	c.Assert(volume, jc.DeepEquals, original)
+	attachments := volume.Attachments()
+	c.Assert(attachments, gc.HasLen, 2)
+	c.Check(attachments[0], jc.DeepEquals, attachment1)
+	c.Check(attachments[1], jc.DeepEquals, attachment2)
+}
+
 func (s *VolumeSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	original := testVolume()
 	original.AddAttachment(testVolumeAttachmentArgs())
@@ -201,9 +218,13 @@ func testVolumeAttachment() *volumeAttachment {
 	return newVolumeAttachment(testVolumeAttachmentArgs())
 }
 
-func testVolumeAttachmentArgs() VolumeAttachmentArgs {
+func testVolumeAttachmentArgs(id ...string) VolumeAttachmentArgs {
+	machineID := "42"
+	if len(id) > 0 {
+		machineID = id[0]
+	}
 	return VolumeAttachmentArgs{
-		Machine:     names.NewMachineTag("42"),
+		Machine:     names.NewMachineTag(machineID),
 		Provisioned: true,
 		ReadOnly:    true,
 		DeviceName:  "sdd",
