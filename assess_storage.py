@@ -261,43 +261,75 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
 
 def assess_storage(client, charm_series):
     """Test the storage feature."""
+    log.info('Assessing create-pool')
     assess_create_pool(client)
+    log.info('create-pool PASSED')
+    log.info('Assessing storage pool')
     pool_list = storage_pool_list(client)
     if client.version.startswith('2.'):
         if pool_list != storage_pool_details:
-            raise JujuAssertionError(pool_list)
+            raise JujuAssertionError(
+                'Found: {} \nExpected: {}'.format(
+                    pool_list, storage_pool_details))
     elif client.version.startswith('1.'):
         if pool_list != storage_pool_1X:
-            raise JujuAssertionError(pool_list)
+            raise JujuAssertionError(
+                'Found: {} \nExpected: {}'.format(
+                    pool_list, storage_pool_details))
+    log.info('Storage pool PASSED')
+    log.info('Assessing filesystem rootfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected))
+    log.info('Filesystem rootfs PASSED')
+    log.info('Assessing block loop')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_2:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected_2))
+    log.info('Block loop PASSED')
+    log.info('Assessing disk 1')
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_3:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected_3))
+    log.info('Disk 1 PASSED')
+    log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_4:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected_4))
+    log.info('Filesystem tmpfs PASSED')
+    log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_5:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected_5))
+    log.info('Filesystem tmpfs PASSED')
+    log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_6:
-        raise JujuAssertionError(storage_list_derived)
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                storage_list_derived, storage_list_expected_6))
+    log.info('Multiple filesystem, block, rootfs, loop PASSED')
     # storage with provider 'ebs' is only available under 'aws'
     # assess_deploy_storage(client, charm_series,
     #                       'dummy-storage-eb', 'filesystem', 'ebs')
