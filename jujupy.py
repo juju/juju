@@ -790,7 +790,7 @@ def get_client_class(version):
         client_class = EnvJujuClient2B8
     # between beta 9-14
     elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
-        client_class = EnvJujuClient2B9_14
+        client_class = EnvJujuClient2B9
     else:
         client_class = EnvJujuClient
     return client_class
@@ -1908,7 +1908,7 @@ class EnvJujuClient:
                   include_e=False)
 
 
-class EnvJujuClient2B9_14(EnvJujuClient):
+class EnvJujuClient2B9(EnvJujuClient):
     def update_user_name(self):
         return
 

@@ -52,7 +52,7 @@ from jujupy import (
     EnvJujuClient2B3,
     EnvJujuClient2B7,
     EnvJujuClient2B8,
-    EnvJujuClient2B9_14,
+    EnvJujuClient2B9,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -1190,12 +1190,12 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta6', EnvJujuClient2B3)
             test_fc('2.0-beta7', EnvJujuClient2B7)
             test_fc('2.0-beta8', EnvJujuClient2B8)
-            test_fc('2.0-beta9', EnvJujuClient2B9_14)
-            test_fc('2.0-beta10', EnvJujuClient2B9_14)
-            test_fc('2.0-beta11', EnvJujuClient2B9_14)
-            test_fc('2.0-beta12', EnvJujuClient2B9_14)
-            test_fc('2.0-beta13', EnvJujuClient2B9_14)
-            test_fc('2.0-beta14', EnvJujuClient2B9_14)
+            test_fc('2.0-beta9', EnvJujuClient2B9)
+            test_fc('2.0-beta10', EnvJujuClient2B9)
+            test_fc('2.0-beta11', EnvJujuClient2B9)
+            test_fc('2.0-beta12', EnvJujuClient2B9)
+            test_fc('2.0-beta13', EnvJujuClient2B9)
+            test_fc('2.0-beta14', EnvJujuClient2B9)
             test_fc('2.0-beta15', EnvJujuClient)
             test_fc('2.0-delta1', EnvJujuClient)
             with self.assertRaises(StopIteration):
