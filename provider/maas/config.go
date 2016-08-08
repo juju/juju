@@ -4,11 +4,11 @@
 package maas
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -135,16 +135,9 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	envCfg := new(maasModelConfig)
 	envCfg.Config = cfg
 	envCfg.attrs = validated
-	server := envCfg.maasServer()
-	serverURL, firstErr := url.Parse(server)
-	if firstErr != nil || serverURL.Scheme == "" || serverURL.Host == "" {
-		var err error
-		serverURL, err := url.Parse("http://" + server)
-		if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
-			return nil, fmt.Errorf("malformed maas-server URL '%v': %s", server, firstErr)
-		}
-		server = "http://" + server
-		envCfg.updateMaasServer(server)
+	err = validateServerURL(envCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	oauth := envCfg.maasOAuth()
 	if strings.Count(oauth, ":") != 2 {
@@ -152,4 +145,18 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	}
 
 	return cfg.Apply(envCfg.attrs)
+}
+
+func validateServerURL(envCfg *maasModelConfig) error {
+	server := envCfg.maasServer()
+	serverURL, firstErr := url.Parse(server)
+	if firstErr != nil || serverURL.Scheme == "" || serverURL.Host == "" {
+		serverURL, err := url.Parse("http://" + server)
+		if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {
+			return fmt.Errorf("malformed maas-server URL '%v': %s", server, firstErr)
+		}
+		server = "http://" + server
+		envCfg.updateMaasServer(server)
+	}
+	return nil
 }
