@@ -1134,6 +1134,9 @@ func (i *importer) storage() error {
 	if err := i.volumes(); err != nil {
 		return errors.Annotate(err, "volumes")
 	}
+	if err := i.filesystems(); err != nil {
+		return errors.Annotate(err, "filesystems")
+	}
 	return nil
 }
 
@@ -1231,6 +1234,102 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 			Machine: machineId,
 			Params:  params,
 			Info:    info,
+		},
+	}
+}
+
+func (i *importer) filesystems() error {
+	i.logger.Debugf("importing filesystems")
+	for _, fs := range i.model.Filesystems() {
+		err := i.addFilesystem(fs)
+		if err != nil {
+			i.logger.Errorf("error importing filesystem %s: %s", fs.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing filesystems succeeded")
+	return nil
+}
+
+func (i *importer) addFilesystem(filesystem description.Filesystem) error {
+
+	attachments := filesystem.Attachments()
+	tag := filesystem.Tag()
+	var binding string
+	bindingTag, err := filesystem.Binding()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if bindingTag != nil {
+		binding = bindingTag.String()
+	}
+	var params *FilesystemParams
+	var info *FilesystemInfo
+	if filesystem.Provisioned() {
+		info = &FilesystemInfo{
+			Size:         filesystem.Size(),
+			Pool:         filesystem.Pool(),
+			FilesystemId: filesystem.FilesystemID(),
+		}
+	} else {
+		params = &FilesystemParams{
+			Size: filesystem.Size(),
+			Pool: filesystem.Pool(),
+		}
+	}
+	doc := filesystemDoc{
+		FilesystemId: tag.Id(),
+		StorageId:    filesystem.Storage().Id(),
+		VolumeId:     filesystem.Volume().Id(),
+		// Life: ..., // TODO: import life, default is Alive
+		Binding:         binding,
+		Params:          params,
+		Info:            info,
+		AttachmentCount: len(attachments),
+	}
+	status := i.makeStatusDoc(filesystem.Status())
+	ops := i.st.newFilesystemOps(doc, status)
+
+	for _, attachment := range attachments {
+		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))
+	}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := i.importStatusHistory(filesystemGlobalKey(tag.Id()), filesystem.StatusHistory()); err != nil {
+		return errors.Annotate(err, "status history")
+	}
+	return nil
+}
+
+func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description.FilesystemAttachment) txn.Op {
+	var info *FilesystemAttachmentInfo
+	var params *FilesystemAttachmentParams
+	if attachment.Provisioned() {
+		info = &FilesystemAttachmentInfo{
+			MountPoint: attachment.MountPoint(),
+			ReadOnly:   attachment.ReadOnly(),
+		}
+	} else {
+		params = &FilesystemAttachmentParams{
+			Location: attachment.MountPoint(),
+			ReadOnly: attachment.ReadOnly(),
+		}
+	}
+
+	machineId := attachment.Machine().Id()
+	return txn.Op{
+		C:      filesystemAttachmentsC,
+		Id:     filesystemAttachmentId(machineId, fsID),
+		Assert: txn.DocMissing,
+		Insert: &filesystemAttachmentDoc{
+			Filesystem: fsID,
+			Machine:    machineId,
+			// Life: ..., // TODO: import life, default is Alive
+			Params: params,
+			Info:   info,
 		},
 	}
 }

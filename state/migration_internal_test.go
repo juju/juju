@@ -56,6 +56,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+		filesystemsC,
+		filesystemAttachmentsC,
 		volumesC,
 		volumeAttachmentsC,
 	)
@@ -152,8 +154,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		filesystemsC,
-		filesystemAttachmentsC,
 		storageInstancesC,
 		storageAttachmentsC,
 		storageConstraintsC,
@@ -685,6 +685,49 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
 	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
 		"ReadOnly"))
+}
+
+func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"FilesystemId",
+		"StorageId",
+		"VolumeId",
+		"AttachmentCount", // through count of attachment instances
+		"Binding",
+		"Info",
+		"Params",
+	)
+	s.AssertExportedFields(c, filesystemDoc{}, migrated.Union(ignored))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, FilesystemInfo{}, set.NewStrings(
+		"Size", "Pool", "FilesystemId"))
+	s.AssertExportedFields(c, FilesystemParams{}, set.NewStrings(
+		"Size", "Pool"))
+}
+
+func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Filesystem",
+		"Machine",
+		"Info",
+		"Params",
+	)
+	s.AssertExportedFields(c, filesystemAttachmentDoc{}, migrated.Union(ignored))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, FilesystemAttachmentInfo{}, set.NewStrings(
+		"MountPoint", "ReadOnly"))
+	s.AssertExportedFields(c, FilesystemAttachmentParams{}, set.NewStrings(
+		"Location", "ReadOnly"))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

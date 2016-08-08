@@ -1111,6 +1111,9 @@ func (e *exporter) storage() error {
 	if err := e.volumes(); err != nil {
 		return errors.Trace(err)
 	}
+	if err := e.filesystems(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1213,5 +1216,109 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) filesystems() error {
+	coll, closer := e.st.getCollection(filesystemsC)
+	defer closer()
+
+	attachments, err := e.readFilesystemAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc filesystemDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		fs := &filesystem{e.st, doc}
+		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read filesystems")
+	}
+	return nil
+}
+
+func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttachmentDoc) error {
+	// Here we don't care about the cases where the filesystem is not assigned to storage instances
+	// nor no backing volues. In both those situations we have empty tags.
+	storage, _ := fs.Storage()
+	volume, _ := fs.Volume()
+	args := description.FilesystemArgs{
+		Tag:     fs.FilesystemTag(),
+		Storage: storage,
+		Volume:  volume,
+		Binding: fs.LifeBinding(),
+	}
+	logger.Debugf("addFilesystem: %#v", fs.doc)
+	if info, err := fs.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.FilesystemID = info.FilesystemId
+	} else {
+		params, _ := fs.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+	}
+
+	globalKey := fs.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for filesystem %s", fs.doc.FilesystemId)
+	}
+
+	exFilesystem := e.model.AddFilesystem(args)
+	exFilesystem.SetStatus(statusArgs)
+	exFilesystem.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	if count := len(fsAttachments); count != fs.doc.AttachmentCount {
+		return errors.Errorf("filesystem attachment count mismatch, have %d, expected %d",
+			count, fs.doc.AttachmentCount)
+	}
+	for _, doc := range fsAttachments {
+		va := filesystemAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.FilesystemAttachmentArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
+			args.ReadOnly = info.ReadOnly
+			args.MountPoint = info.MountPoint
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+			args.MountPoint = params.Location
+		}
+		exFilesystem.AddAttachment(args)
+	}
+	return nil
+}
+
+func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
+	coll, closer := e.st.getCollection(filesystemAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]filesystemAttachmentDoc)
+	var doc filesystemAttachmentDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read filesystem attachments")
+	}
+	e.logger.Debugf("read %d filesystem attachment documents", count)
 	return result, nil
 }

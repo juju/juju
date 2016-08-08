@@ -765,6 +765,71 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Check(attParams.ReadOnly, jc.IsTrue)
 }
 
+func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Size: 1234},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "location",
+				ReadOnly: true},
+		}, {
+			Filesystem: state.FilesystemParams{Size: 4000},
+			Attachment: state.FilesystemAttachmentParams{
+				ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first filesystem is called "0/0" as it is the first
+	// filesystem (filesystems use sequences), and it is bound to machine 0.
+	fsTag := names.NewFilesystemTag("0/0")
+	fsInfo := state.FilesystemInfo{
+		Size:         1500,
+		Pool:         "rootfs",
+		FilesystemId: "filesystem id",
+	}
+	err := s.State.SetFilesystemInfo(fsTag, fsInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	fsAttachmentInfo := state.FilesystemAttachmentInfo{
+		MountPoint: "/mnt/foo",
+		ReadOnly:   true,
+	}
+	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	filesystem, err := newSt.Filesystem(fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO: check status
+	// TODO: check storage instance
+	info, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info, jc.DeepEquals, fsInfo)
+
+	attachment, err := newSt.FilesystemAttachment(machineTag, fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attInfo, err := attachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attInfo, jc.DeepEquals, fsAttachmentInfo)
+
+	fsTag = names.NewFilesystemTag("0/1")
+	filesystem, err = newSt.Filesystem(fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	params, needsProvisioning := filesystem.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(params.Pool, gc.Equals, "rootfs")
+	c.Check(params.Size, gc.Equals, uint64(4000))
+
+	attachment, err = newSt.FilesystemAttachment(machineTag, fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attParams, needsProvisioning := attachment.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(attParams.ReadOnly, jc.IsTrue)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
