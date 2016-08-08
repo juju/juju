@@ -263,3 +263,11 @@ converting machines: 1, 2
 	c.Check(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
 	c.Check(len(s.fake.placement), gc.Equals, 2)
 }
+
+func (s *EnableHASuite) TestEnableHADisallowsSeries(c *gc.C) {
+	// We don't allow --series as an argument. This test ensures it is not
+	// inadvertantly added back.
+	ctx, err := s.runEnableHA(c, "-n", "0", "--series", "xenian")
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --series")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+}
