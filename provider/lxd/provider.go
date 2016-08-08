@@ -31,14 +31,9 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	return env, errors.Trace(err)
 }
 
-// BootstrapConfig implements environs.EnvironProvider.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, args.Config)
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
+// PrepareConfig implements environs.EnvironProvider.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	return args.Config, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.

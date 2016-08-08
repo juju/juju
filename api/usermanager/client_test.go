@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -58,11 +59,11 @@ func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
 	c.Assert(users, gc.HasLen, 3)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
-		modelUserTags[i] = u.UserTag()
-		if u.UserTag().Name() == "foobar" {
-			c.Assert(u.IsReadOnly(), jc.IsTrue)
+		modelUserTags[i] = u.UserTag
+		if u.UserTag.Name() == "foobar" {
+			c.Assert(u.Access, gc.Equals, description.ReadAccess)
 		} else {
-			c.Assert(u.IsReadOnly(), jc.IsFalse)
+			c.Assert(u.Access, gc.Not(gc.Equals), description.ReadAccess)
 		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{

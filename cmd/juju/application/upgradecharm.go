@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -223,6 +224,10 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	resolver := newCharmURLResolver(conf, csClient)
 	chID, csMac, err := c.addCharm(oldURL, newRef, client, resolver)
 	if err != nil {
+		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
+			terms := strings.Join(err1.Terms, " ")
+			return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("Added charm %q to the model.", chID.URL)

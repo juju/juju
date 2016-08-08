@@ -5,6 +5,7 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -18,33 +19,33 @@ type EnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
-	model, err := g.Model()
+func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	model, err := g.GetModel(tag)
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-
 	cloudName := model.Cloud()
 	regionName := model.CloudRegion()
 	credentialName := model.CloudCredential()
 	modelOwner := model.Owner()
+	return CloudSpec(g.State, cloudName, regionName, credentialName, modelOwner)
+}
 
-	modelCloud, err := g.Cloud(cloudName)
+// CloudSpec returns an environs.CloudSpec from a *state.State,
+// given the cloud, region and credential names.
+func CloudSpec(
+	accessor state.CloudAccessor,
+	cloudName, regionName, credentialName string,
+	credentialOwner names.UserTag,
+) (environs.CloudSpec, error) {
+	modelCloud, err := accessor.Cloud(cloudName)
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
-	}
-	if regionName != "" {
-		region, err := cloud.RegionByName(modelCloud.Regions, regionName)
-		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
-		}
-		modelCloud.Endpoint = region.Endpoint
-		modelCloud.StorageEndpoint = region.StorageEndpoint
 	}
 
 	var credential *cloud.Credential
 	if credentialName != "" {
-		credentials, err := g.CloudCredentials(modelOwner, cloudName)
+		credentials, err := accessor.CloudCredentials(credentialOwner, cloudName)
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
@@ -56,14 +57,7 @@ func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 		credential = &credentialValue
 	}
 
-	return environs.CloudSpec{
-		modelCloud.Type,
-		cloudName,
-		regionName,
-		modelCloud.Endpoint,
-		modelCloud.StorageEndpoint,
-		credential,
-	}, nil
+	return environs.MakeCloudSpec(modelCloud, cloudName, regionName, credential)
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,

@@ -50,6 +50,8 @@ func NewModel(args ModelArgs) Model {
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
+	m.setVolumes(nil)
+	m.setFilesystems(nil)
 	return m
 }
 
@@ -135,6 +137,8 @@ type model struct {
 
 	// TODO:
 	// Storage...
+	Volumes_     volumes     `yaml:"volumes"`
+	Filesystems_ filesystems `yaml:"filesystems"`
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -315,15 +319,6 @@ func (m *model) LinkLayerDevices() []LinkLayerDevice {
 	return result
 }
 
-// Subnets implements Model.
-func (m *model) Subnets() []Subnet {
-	var result []Subnet
-	for _, subnet := range m.Subnets_.Subnets_ {
-		result = append(result, subnet)
-	}
-	return result
-}
-
 // AddLinkLayerDevice implements Model.
 func (m *model) AddLinkLayerDevice(args LinkLayerDeviceArgs) LinkLayerDevice {
 	device := newLinkLayerDevice(args)
@@ -338,11 +333,11 @@ func (m *model) setLinkLayerDevices(devicesList []*linklayerdevice) {
 	}
 }
 
-// IPAddresses implements Model.
-func (m *model) IPAddresses() []IPAddress {
-	var result []IPAddress
-	for _, addr := range m.IPAddresses_.IPAddresses_ {
-		result = append(result, addr)
+// Subnets implements Model.
+func (m *model) Subnets() []Subnet {
+	var result []Subnet
+	for _, subnet := range m.Subnets_.Subnets_ {
+		result = append(result, subnet)
 	}
 	return result
 }
@@ -359,6 +354,15 @@ func (m *model) setSubnets(subnetList []*subnet) {
 		Version:  1,
 		Subnets_: subnetList,
 	}
+}
+
+// IPAddresses implements Model.
+func (m *model) IPAddresses() []IPAddress {
+	var result []IPAddress
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		result = append(result, addr)
+	}
+	return result
 }
 
 // AddIPAddress implements Model.
@@ -436,6 +440,52 @@ func (m *model) CloudCredential() string {
 	return m.CloudCredential_
 }
 
+// Volumes implements Model.
+func (m *model) Volumes() []Volume {
+	var result []Volume
+	for _, volume := range m.Volumes_.Volumes_ {
+		result = append(result, volume)
+	}
+	return result
+}
+
+// AddVolume implemets Model.
+func (m *model) AddVolume(args VolumeArgs) Volume {
+	volume := newVolume(args)
+	m.Volumes_.Volumes_ = append(m.Volumes_.Volumes_, volume)
+	return volume
+}
+
+func (m *model) setVolumes(volumeList []*volume) {
+	m.Volumes_ = volumes{
+		Version:  1,
+		Volumes_: volumeList,
+	}
+}
+
+// Filesystems implements Model.
+func (m *model) Filesystems() []Filesystem {
+	var result []Filesystem
+	for _, filesystem := range m.Filesystems_.Filesystems_ {
+		result = append(result, filesystem)
+	}
+	return result
+}
+
+// AddFilesystem implemets Model.
+func (m *model) AddFilesystem(args FilesystemArgs) Filesystem {
+	filesystem := newFilesystem(args)
+	m.Filesystems_.Filesystems_ = append(m.Filesystems_.Filesystems_, filesystem)
+	return filesystem
+}
+
+func (m *model) setFilesystems(filesystemList []*filesystem) {
+	m.Filesystems_ = filesystems{
+		Version:      1,
+		Filesystems_: filesystemList,
+	}
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -482,12 +532,37 @@ func (m *model) Validate() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	err = m.validateAddresses()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = m.validateVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = m.validateFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
+	return nil
+}
+
+func (m *model) validateVolumes() error {
+	for i, volume := range m.Volumes_.Volumes_ {
+		if err := volume.Validate(); err != nil {
+			return errors.Annotatef(err, "volume[%d]", i)
+		}
+	}
+	return nil
+}
+
+func (m *model) validateFilesystems() error {
+	for i, filesystem := range m.Filesystems_.Filesystems_ {
+		if err := filesystem.Validate(); err != nil {
+			return errors.Annotatef(err, "filesystem[%d]", i)
+		}
+	}
 	return nil
 }
 
@@ -681,6 +756,8 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"spaces":           schema.StringMap(schema.Any()),
 		"subnets":          schema.StringMap(schema.Any()),
 		"linklayerdevices": schema.StringMap(schema.Any()),
+		"volumes":          schema.StringMap(schema.Any()),
+		"filesystems":      schema.StringMap(schema.Any()),
 		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -801,5 +878,18 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "sshhostkeys")
 	}
 	result.setSSHHostKeys(hostKeys)
+
+	volumes, err := importVolumes(valid["volumes"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "volumes")
+	}
+	result.setVolumes(volumes)
+
+	filesystems, err := importFilesystems(valid["filesystems"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "filesystems")
+	}
+	result.setFilesystems(filesystems)
+
 	return result, nil
 }

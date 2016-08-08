@@ -293,7 +293,39 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		}
 	}
 
+	migStatus, err := c.getMigrationStatus()
+	if err != nil {
+		// It's not worth killing the entire status out if migration
+		// status can't be retrieved.
+		logger.Errorf("error retrieving migration status: %v", err)
+		info.Migration = "error retrieving migration status"
+	} else {
+		info.Migration = migStatus
+	}
+
 	return info, nil
+}
+
+func (c *Client) getMigrationStatus() (string, error) {
+	mig, err := c.api.stateAccessor.LatestModelMigration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if phase.IsTerminal() {
+		// There has been a migration attempt but it's no longer
+		// active - don't include this in status.
+		return "", nil
+	}
+
+	return mig.StatusMessage(), nil
 }
 
 type statusContext struct {

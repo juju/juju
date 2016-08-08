@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/utils/set"
 )
 
@@ -38,6 +37,8 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the controller's certificate, in PEM format.
+	// If this is empty, the standard system root certificates
+	// will be used.
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
@@ -89,9 +90,6 @@ func (info *Info) Validate() error {
 	}
 	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
 		return errors.NotValidf("host addresses: %v", err)
-	}
-	if info.CACert == "" {
-		return errors.NotValidf("missing CA certificate")
 	}
 	if info.SkipLogin {
 		if info.Tag != nil {
@@ -185,10 +183,6 @@ type Connection interface {
 	// inside it as well. We should figure this out sometime -- we should
 	// either expose Ping() or Broken() but not both.
 	Ping() error
-
-	// RPCClient is apparently exported for testing purposes only, but this
-	// seems to indicate *some* sort of layering confusion.
-	RPCClient() *rpc.Conn
 
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.

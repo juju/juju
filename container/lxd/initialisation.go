@@ -15,9 +15,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/container"
 )
@@ -56,7 +56,14 @@ func (ci *containerInitialiser) Initialise() error {
 	if err != nil {
 		return err
 	}
+	proxies := proxy.DetectProxies()
+	err = ConfigureLXDProxies(proxies)
+	if err != nil {
+		return err
+	}
 
+	// Well... this will need to change soon once we are passed 17.04 as who
+	// knows what the series name will be.
 	if ci.series >= "xenial" {
 		configureZFS()
 	}
@@ -76,11 +83,49 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 	return config.NewPackagingConfigurer(series)
 }
 
+// ConfigureLXDProxies will try to set the lxc config core.proxy_http and core.proxy_https
+// configuration values based on the current environment.
+func ConfigureLXDProxies(proxies proxy.Settings) error {
+	setter, err := getLXDConfigSetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(configureLXDProxies(setter, proxies))
+}
+
+var getLXDConfigSetter = getConfigSetterConnect
+
+func getConfigSetterConnect() (configSetter, error) {
+	return ConnectLocal()
+}
+
+type configSetter interface {
+	SetConfig(key, value string) error
+}
+
+func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
+	err := setter.SetConfig("core.proxy_http", proxies.Http)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = setter.SetConfig("core.proxy_https", proxies.Https)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = setter.SetConfig("core.proxy_ignore_hosts", proxies.NoProxy)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+var execCommand = exec.Command
+
 var configureZFS = func() {
 	/* create a 100 GB pool by default (sparse, so it won't actually fill
 	 * that immediately)
 	 */
-	output, err := exec.Command(
+	output, err := execCommand(
 		"lxd",
 		"init",
 		"--auto",

@@ -38,7 +38,7 @@ var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
+	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           &s.sender,
 		RequestInspector: requestRecorder(&s.requests),
 	})

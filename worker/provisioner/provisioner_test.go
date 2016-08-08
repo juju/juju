@@ -5,7 +5,6 @@ package provisioner_test
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -43,13 +42,10 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -115,12 +111,6 @@ func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
-	// Disable the default state policy, because the
-	// provisioner needs to be able to test pathological
-	// scenarios where a machine exists in state with
-	// invalid environment config.
-	dummy.SetNewStatePolicy(nil)
-
 	s.JujuConnSuite.SetUpTest(c)
 
 	// We do not want to pull published image metadata for tests...
@@ -207,11 +197,7 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true, nil, true)
-}
-
-func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, false, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
@@ -220,7 +206,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	networkInfo []network.InterfaceInfo,
 	subnetsToZones map[network.Id][]string,
 	volumes []storage.Volume,
-	secureServerConnection bool,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) (
@@ -247,7 +232,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
-				c.Assert(o.AgentEnvironment["SECURE_CONTROLLER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
@@ -426,19 +410,10 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":      mockAgent{config: agentConfig},
-		"api-caller": s.st,
-	})
-	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-	})
-	untyped, err := manifold.Start(context)
+	apiState := apiprovisioner.NewState(s.st)
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
-	typed, ok := untyped.(provisioner.Provisioner)
-	c.Assert(ok, jc.IsTrue)
-	return typed
+	return w
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
@@ -477,7 +452,7 @@ func (s *ProvisionerSuite) TestSimple(c *gc.C) {
 	// Check that an instance is provisioned when the machine is created...
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	instance := s.checkStartInstanceNoSecureConnection(c, m)
+	instance := s.checkStartInstance(c, m)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), gc.IsNil)
@@ -496,7 +471,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -540,7 +515,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, false, expectedList, true,
+		nil, nil, nil, expectedList, true,
 	)
 }
 
@@ -645,7 +620,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
@@ -671,7 +646,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappe
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
@@ -745,7 +720,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstanceNoSecureConnection(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
@@ -773,7 +748,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstanceNoSecureConnection(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
@@ -981,7 +956,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		c, m, "pork", cons,
 		nil,
 		expectedSubnetsToZones,
-		nil, false, nil, true,
+		nil, nil, true,
 	)
 
 	// Cleanup.
@@ -1068,10 +1043,7 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
-	registry.RegisterProvider("static", &dummystorage.StorageProvider{IsDynamic: false})
-	registry.RegisterEnvironStorageProviders("dummy", "static")
-	defer registry.RegisterProvider("static", nil)
-	poolManager := poolmanager.New(state.NewStateSettings(s.State))
+	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
 	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1103,7 +1075,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", s.defaultConstraints,
 		nil, nil,
-		expectVolumeInfo, false,
+		expectVolumeInfo,
 		nil, true,
 	)
 
@@ -1120,7 +1092,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// create a machine
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
+	s.checkStartInstance(c, m)
 
 	// restart the PA
 	stop(c, p)
@@ -1145,7 +1117,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	// provision a machine
 	m0, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m0)
+	s.checkStartInstance(c, m0)
 
 	// stop the provisioner and make the machine dying
 	stop(c, p)

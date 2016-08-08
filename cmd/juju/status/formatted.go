@@ -32,6 +32,7 @@ type modelStatus struct {
 	CloudRegion      string `json:"region,omitempty" yaml:"region,omitempty"`
 	Version          string `json:"version" yaml:"version"`
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
+	Migration        string `json:"migration,omitempty" yaml:"migration,omitempty"`
 }
 
 type machineStatus struct {

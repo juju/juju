@@ -122,7 +122,10 @@ var getSyncToolsAPI = func(c *syncToolsCommand) (syncToolsAPI, error) {
 
 func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
-	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("synctools", writer)
 	defer loggo.RemoveWriter("synctools")
 
 	sctx := &sync.SyncContext{

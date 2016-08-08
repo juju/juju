@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -148,13 +149,14 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
+	context := s.run(
+		c, "add-model", "new-model",
+		"--config", "authorized-keys=fake-key",
+		"--config", "controller=false",
+	)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Added 'new-model' model for user 'admin'
-
-No SSH authorized-keys were found. You must use "juju add-ssh-key"
-before "juju ssh", "juju scp", or "juju debug-hooks" will work.
+Added 'new-model' model with credential 'cred' for user 'admin'
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
@@ -176,6 +178,14 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.
 }
 
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
+	s.testControllerDestroy(c, false)
+}
+
+func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
+	s.testControllerDestroy(c, true)
+}
+
+func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
@@ -214,9 +224,23 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		}
 	}()
 
+	if forceAPI {
+		// Remove bootstrap config from the client store,
+		// forcing the command to use the API.
+		err := os.Remove(jujuclient.JujuBootstrapConfigPath())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	ops := make(chan dummy.Operation, 1)
+	dummy.Listen(ops)
+
 	s.run(c, "destroy-controller", "kontroll", "-y", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
+
+	destroyOp := (<-ops).(dummy.OpDestroy)
+	c.Assert(destroyOp.Env, gc.Equals, "controller")
+	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")

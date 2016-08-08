@@ -78,9 +78,14 @@ func (env *environ) Config() *config.Config {
 	return env.ecfg.Config
 }
 
-// PrepareForBootstrap is defined by Environ.
+// PrepareForBootstrap is part of the Environ interface.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	logger.Infof("preparing model %q", env.name)
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (env *environ) Create(environs.CreateParams) error {
 	return nil
 }
 

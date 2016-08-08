@@ -530,11 +530,13 @@ func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Advance the clock past the trigger time.
+	s.waitAlarmsStable(c)
 	s.clock.Advance(11 * time.Second)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
 	// Advance again but not past the trigger time.
+	s.waitAlarmsStable(c)
 	s.clock.Advance(6 * time.Second)
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "unexpected remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
@@ -543,4 +545,25 @@ func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 	s.clock.Advance(5 * time.Second)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+2)
+}
+
+// waitAlarmsStable is used to wait until the remote watcher's loop has
+// stopped churning (at least for testing.ShortWait), so that we can
+// then Advance the clock with some confidence that the SUT really is
+// waiting for it. This seems likely to be more stable than waiting for
+// a specific number of loop iterations; it's currently 9, but waiting
+// for a specific number is very likely to start failing intermittently
+// again, as in lp:1604955, if the SUT undergoes even subtle changes.
+func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
+	timeout := time.After(testing.LongWait)
+	for i := 0; ; i++ {
+		c.Logf("waiting for alarm %d", i)
+		select {
+		case <-s.clock.Alarms():
+		case <-time.After(testing.ShortWait):
+			return
+		case <-timeout:
+			c.Fatalf("never stopped setting alarms")
+		}
+	}
 }

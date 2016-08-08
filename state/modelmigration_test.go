@@ -70,7 +70,7 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
-	c.Check(mig.StatusMessage(), gc.Equals, "")
+	c.Check(mig.StatusMessage(), gc.Equals, "starting")
 	c.Check(mig.InitiatedBy(), gc.Equals, "admin")
 
 	info, err := mig.TargetInfo()
@@ -425,8 +425,8 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(mig.StatusMessage(), gc.Equals, "")
-	c.Check(mig2.StatusMessage(), gc.Equals, "")
+	c.Check(mig.StatusMessage(), gc.Equals, "starting")
+	c.Check(mig2.StatusMessage(), gc.Equals, "starting")
 
 	err = mig.SetStatusMessage("foo bar")
 	c.Assert(err, jc.ErrorIsNil)

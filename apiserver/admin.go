@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -145,18 +146,18 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var modelUser *state.ModelUser
+	var modelUser description.UserAccess
 	// Send back user info if user
 	if isUser && !serverOnlyLogin {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
-		modelUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
+		modelUser, err = a.root.state.UserAccess(entity.Tag().(names.UserTag), a.root.state.ModelTag())
 		if err != nil {
 			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
 		}
-		maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
+		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
 		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
@@ -199,8 +200,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 		loginResult.Facades = facades
 	}
-
-	if modelUser != nil {
+	emptyUserAccess := description.UserAccess{}
+	if modelUser != emptyUserAccess {
 		authedApi = newClientAuthRoot(authedApi, modelUser)
 	}
 
@@ -323,11 +324,12 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	modelUser, err := f.st.ModelUser(utag)
+	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
 	if err != nil {
 		return nil, err
 	}
 	u := &modelUserEntity{
+		st:        f.st,
 		modelUser: modelUser,
 	}
 	if utag.IsLocal() {
@@ -348,7 +350,9 @@ var _ loginEntity = &modelUserEntity{}
 // in such a way that the authentication mechanisms
 // can work without knowing these details.
 type modelUserEntity struct {
-	modelUser *state.ModelUser
+	st *state.State
+
+	modelUser description.UserAccess
 	user      *state.User
 }
 
@@ -379,14 +383,14 @@ func (u *modelUserEntity) PasswordValid(pass string) bool {
 
 // Tag implements state.Entity.Tag.
 func (u *modelUserEntity) Tag() names.Tag {
-	return u.modelUser.UserTag()
+	return u.modelUser.UserTag
 }
 
 // LastLogin implements loginEntity.LastLogin.
 func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// The last connection for the model takes precedence over
 	// the local user last login time.
-	t, err := u.modelUser.LastConnection()
+	t, err := u.st.LastModelConnection(u.modelUser.UserTag)
 	if state.IsNeverConnectedError(err) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
@@ -401,13 +405,19 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
-	err := u.modelUser.UpdateLastConnection()
+
+	if u.modelUser.Object.Kind() != names.ModelTagKind {
+		return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
+	}
+
+	err := u.st.UpdateLastModelConnection(u.modelUser.UserTag)
 	if u.user != nil {
 		err1 := u.user.UpdateLastLogin()
 		if err == nil {
-			err = err1
+			return err1
 		}
 	}
+
 	return err
 }
 

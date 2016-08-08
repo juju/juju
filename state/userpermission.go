@@ -7,10 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/description"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/description"
 )
 
 // permission represents the permission a user has
@@ -44,9 +45,25 @@ func (st *State) userPermission(objectKey, subjectKey string) (*permission, erro
 	permissions, closer := st.getCollection(permissionsC)
 	defer closer()
 
-	err := permissions.FindId(permissionID(objectKey, subjectKey)).One(&userPermission.doc)
+	id := permissionID(objectKey, subjectKey)
+	err := permissions.FindId(st.docID(id)).One(&userPermission.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", subjectKey)
+		return nil, errors.NotFoundf("user permissions for user %q", id)
+	}
+	return userPermission, nil
+
+}
+
+// globalUserPermission returns a Permission for the given Subject and User.
+func (st *State) globalUserPermission(objectKey, subjectKey string) (*permission, error) {
+	userPermission := &permission{}
+	permissions, closer := st.getRawCollection(permissionsC)
+	defer closer()
+
+	id := permissionID(objectKey, subjectKey)
+	err := permissions.FindId(st.docID(id)).One(&userPermission.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
 	return userPermission, nil
 
@@ -74,14 +91,10 @@ func (p *permission) access() description.Access {
 	return stringToAccess(p.doc.Access)
 }
 
-func (p *permission) isGreaterAccess(a description.Access) bool {
-	return stringToAccess(p.doc.Access).IsGreaterAccess(a)
-}
-
 func permissionID(objectKey, subjectKey string) string {
-	// example: e#mo#jim
+	// example: e#us#jim
 	// e: model global key (its always e).
-	// mo: model user key prefix.
+	// us: user key prefix.
 	// jim: an arbitrary username.
 	return fmt.Sprintf("%s#%s", objectKey, subjectKey)
 }

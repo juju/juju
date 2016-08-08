@@ -62,13 +62,21 @@ type configTest struct {
 type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
+	cloudSpec := environs.CloudSpec{
+		Type:   "ec2",
+		Name:   "ec2test",
+		Region: "us-east-1",
+	}
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":   "ec2",
 		"region": "us-east-1",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(environs.OpenParams{cfg})
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -423,7 +431,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.check(c)
 }
 
-func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -438,7 +446,7 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",
@@ -467,7 +475,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",

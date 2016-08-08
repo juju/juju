@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -25,11 +23,6 @@ type CleanupSuite struct {
 }
 
 var _ = gc.Suite(&CleanupSuite{})
-
-func (s *CleanupSuite) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-}
 
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -92,8 +85,6 @@ func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
 	// Run the cleanup, and check that the charm is removed.
 	s.assertCleanupRuns(c)
 	_, _, err = stor.Get(storagePath)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.Charm(ch.URL())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -523,7 +514,6 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -380,6 +381,10 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	return info, nil
 }
 
+func modelInfo(st *state.State, user description.UserAccess) (params.ModelUserInfo, error) {
+	return common.ModelUserInfo(user, st)
+}
+
 // ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	var results params.ModelUserInfoResults
@@ -394,7 +399,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 
 	for _, user := range users {
 		var result params.ModelUserInfoResult
-		userInfo, err := common.ModelUserInfo(user)
+		userInfo, err := modelInfo(c.api.state(), user)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {

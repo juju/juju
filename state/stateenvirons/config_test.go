@@ -53,7 +53,7 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	defer st.Close()
 
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.EnvironConfigGetter{st}.CloudSpec()
+	cloudSpec, err := stateenvirons.EnvironConfigGetter{st}.CloudSpec(st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
 		Type:       "dummy",

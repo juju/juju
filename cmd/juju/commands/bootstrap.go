@@ -462,9 +462,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		"name":         bootstrap.ControllerModelName,
 		config.UUIDKey: controllerUUID.String(),
 	}
-	for k, v := range cloud.Config {
-		modelConfigAttrs[k] = v
-	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -474,6 +471,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	bootstrapConfigAttrs := make(map[string]interface{})
 	controllerConfigAttrs := make(map[string]interface{})
+	// Based on the attribute names in clouds.yaml, create
+	// a map of shared config for all models on this cloud.
+	inheritedControllerAttrs := make(map[string]interface{})
+	for k, v := range cloud.Config {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			bootstrapConfigAttrs[k] = v
+			continue
+		case controller.ControllerOnlyAttribute(k):
+			controllerConfigAttrs[k] = v
+			continue
+		}
+		inheritedControllerAttrs[k] = v
+	}
 	for k, v := range modelConfigAttrs {
 		switch {
 		case bootstrap.IsBootstrapAttribute(k):
@@ -528,10 +539,26 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}()
 
+	bootstrapModelConfig := make(map[string]interface{})
+	for k, v := range inheritedControllerAttrs {
+		bootstrapModelConfig[k] = v
+	}
+	for k, v := range modelConfigAttrs {
+		bootstrapModelConfig[k] = v
+	}
+	// Add in any default attribute values if not already
+	// specified, making the recorded bootstrap config
+	// immutable to changes in Juju.
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := bootstrapModelConfig[k]; !ok {
+			bootstrapModelConfig[k] = v
+		}
+	}
+
 	environ, err := bootstrapPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		bootstrap.PrepareParams{
-			BaseConfig:       modelConfigAttrs,
+			ModelConfig:      bootstrapModelConfig,
 			ControllerConfig: controllerConfig,
 			ControllerName:   c.controllerName,
 			Cloud: environs.CloudSpec{
@@ -629,6 +656,9 @@ to clean up the model.`[1:])
 		"name":         c.hostedModelName,
 		config.UUIDKey: hostedModelUUID.String(),
 	}
+	for k, v := range inheritedControllerAttrs {
+		hostedModelConfig[k] = v
+	}
 
 	// We copy across any user supplied attributes to the hosted model config.
 	// But only if the attributes have not been removed from the controller
@@ -645,15 +675,6 @@ to clean up the model.`[1:])
 	// inherited.
 	delete(hostedModelConfig, config.AuthorizedKeysKey)
 	delete(hostedModelConfig, config.AgentVersionKey)
-
-	// Based on the attribute names in clouds.yaml, create
-	// a map of shared config for all models on this cloud.
-	inheritedControllerAttrs := make(map[string]interface{})
-	for k := range cloud.Config {
-		if v, ok := controllerModelConfigAttrs[k]; ok {
-			inheritedControllerAttrs[k] = v
-		}
-	}
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.

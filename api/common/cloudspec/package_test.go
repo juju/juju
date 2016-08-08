@@ -1,14 +1,14 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry_test
+package cloudspec_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }

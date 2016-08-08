@@ -99,7 +99,7 @@ func (c *addModelCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid user", c.Owner)
 	}
 
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 type AddModelAPI interface {

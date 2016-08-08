@@ -60,7 +60,9 @@ const (
 
 // Cloud is a cloud definition.
 type Cloud struct {
-	// Type is the type of cloud, eg aws, openstack etc.
+	// Type is the type of cloud, eg ec2, openstack etc.
+	// This is one of the provider names registered with
+	// environs.RegisterProvider.
 	Type string
 
 	// AuthTypes are the authentication modes supported by the cloud.

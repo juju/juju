@@ -33,7 +33,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/watcher"
@@ -156,18 +155,6 @@ type StatusSetter interface {
 	SetStatus([]params.EntityStatusArgs) error
 }
 
-// ModelAccessor defines an interface used to enable a storage provisioner
-// worker to watch changes to and read model config, to use when
-// provisioning storage.
-type ModelAccessor interface {
-	// WatchForModelConfigChanges returns a watcher that will be notified
-	// whenever the model config changes in state.
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-
-	// ModelConfig returns the current model config.
-	ModelConfig() (*config.Config, error)
-}
-
 // NewStorageProvisioner returns a Worker which manages
 // provisioning (deprovisioning), and attachment (detachment)
 // of first-class volumes and filesystems.
@@ -218,14 +205,6 @@ func (w *storageProvisioner) loop() error {
 	)
 	machineChanges := make(chan names.MachineTag)
 
-	modelConfigWatcher, err := w.config.Environ.WatchForModelConfigChanges()
-	if err != nil {
-		return errors.Annotate(err, "watching model config")
-	}
-	if err := w.catacomb.Add(modelConfigWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Machine-scoped provisioners need to watch block devices, to create
 	// volume-backed filesystems.
 	if machineTag, ok := w.config.Scope.(names.MachineTag); ok {
@@ -239,44 +218,41 @@ func (w *storageProvisioner) loop() error {
 		machineBlockDevicesChanges = machineBlockDevicesWatcher.Changes()
 	}
 
-	startWatchers := func() error {
-		volumesWatcher, err := w.config.Volumes.WatchVolumes()
-		if err != nil {
-			return errors.Annotate(err, "watching volumes")
-		}
-		if err := w.catacomb.Add(volumesWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		volumesChanges = volumesWatcher.Changes()
-
-		filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems()
-		if err != nil {
-			return errors.Annotate(err, "watching filesystems")
-		}
-		if err := w.catacomb.Add(filesystemsWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		filesystemsChanges = filesystemsWatcher.Changes()
-
-		volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments()
-		if err != nil {
-			return errors.Annotate(err, "watching volume attachments")
-		}
-		if err := w.catacomb.Add(volumeAttachmentsWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
-
-		filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments()
-		if err != nil {
-			return errors.Annotate(err, "watching filesystem attachments")
-		}
-		if err := w.catacomb.Add(filesystemAttachmentsWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
-		return nil
+	volumesWatcher, err := w.config.Volumes.WatchVolumes()
+	if err != nil {
+		return errors.Annotate(err, "watching volumes")
 	}
+	if err := w.catacomb.Add(volumesWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	volumesChanges = volumesWatcher.Changes()
+
+	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems()
+	if err != nil {
+		return errors.Annotate(err, "watching filesystems")
+	}
+	if err := w.catacomb.Add(filesystemsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	filesystemsChanges = filesystemsWatcher.Changes()
+
+	volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments()
+	if err != nil {
+		return errors.Annotate(err, "watching volume attachments")
+	}
+	if err := w.catacomb.Add(volumeAttachmentsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
+
+	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments()
+	if err != nil {
+		return errors.Annotate(err, "watching filesystem attachments")
+	}
+	if err := w.catacomb.Add(filesystemAttachmentsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
 
 	ctx := context{
 		kill:                                 w.catacomb.Kill,
@@ -309,22 +285,6 @@ func (w *storageProvisioner) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-modelConfigWatcher.Changes():
-			if !ok {
-				return errors.New("environ config watcher closed")
-			}
-			modelConfig, err := w.config.Environ.ModelConfig()
-			if err != nil {
-				return errors.Annotate(err, "getting model config")
-			}
-			if ctx.modelConfig == nil {
-				// We've received the initial model config,
-				// so we can begin provisioning storage.
-				if err := startWatchers(); err != nil {
-					return err
-				}
-			}
-			ctx.modelConfig = modelConfig
 		case changes, ok := <-volumesChanges:
 			if !ok {
 				return errors.New("volumes watcher closed")
@@ -450,10 +410,9 @@ func processSchedule(ctx *context) error {
 }
 
 type context struct {
-	kill        func(error)
-	addWorker   func(worker.Worker) error
-	config      Config
-	modelConfig *config.Config
+	kill      func(error)
+	addWorker func(worker.Worker) error
+	config    Config
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume

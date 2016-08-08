@@ -29,6 +29,7 @@ import (
 
 type ModelConfigCreatorSuite struct {
 	coretesting.BaseSuite
+	fake       fakeProvider
 	creator    modelmanager.ModelConfigCreator
 	baseConfig *config.Config
 }
@@ -37,7 +38,17 @@ var _ = gc.Suite(&ModelConfigCreatorSuite{})
 
 func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.creator = modelmanager.ModelConfigCreator{}
+	s.fake = fakeProvider{
+		restrictedConfigAttributes: []string{"restricted"},
+	}
+	s.creator = modelmanager.ModelConfigCreator{
+		Provider: func(provider string) (environs.EnvironProvider, error) {
+			if provider != "fake" {
+				return nil, errors.Errorf("expected fake, got %s", provider)
+			}
+			return &s.fake, nil
+		},
+	}
 	baseConfig, err := config.New(
 		config.UseDefaults,
 		coretesting.FakeConfig().Merge(coretesting.Attrs{
@@ -53,15 +64,11 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 	baseConfig, err = baseConfig.Remove(controller.ControllerOnlyConfigAttributes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.baseConfig = baseConfig
-	fake.Reset()
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	return s.creator.NewModelConfig(modelmanager.IsNotAdmin, coretesting.ModelTag.Id(), s.baseConfig, attrs)
-}
-
-func (s *ModelConfigCreatorSuite) newModelConfigAdmin(attrs map[string]interface{}) (*config.Config, error) {
-	return s.creator.NewModelConfig(modelmanager.IsAdmin, coretesting.ModelTag.Id(), s.baseConfig, attrs)
+	cloudSpec := environs.CloudSpec{Type: "fake"}
+	return s.creator.NewModelConfig(cloudSpec, coretesting.ModelTag.Id(), s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
@@ -80,53 +87,12 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	expected["uuid"] = newModelUUID
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 
-	fake.Stub.CheckCallNames(c,
+	s.fake.Stub.CheckCallNames(c,
 		"RestrictedConfigAttributes",
-		"PrepareForCreateEnvironment",
+		"PrepareConfig",
 		"Validate",
 	)
-	validateCall := fake.Stub.Calls()[2]
-	c.Assert(validateCall.Args, gc.HasLen, 2)
-	c.Assert(validateCall.Args[0], gc.Equals, cfg)
-	c.Assert(validateCall.Args[1], gc.IsNil)
-}
-
-func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(c *gc.C) {
-	var err error
-	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
-		"username": "user",
-		"password": "password",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	newModelUUID := utils.MustNewUUID().String()
-	newAttrs := coretesting.Attrs{
-		"name":       "new-model",
-		"additional": "value",
-		"uuid":       newModelUUID,
-		"username":   "anotheruser",
-		"password":   "anotherpassword",
-	}
-	cfg, err := s.newModelConfigAdmin(newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	expectedCfg, err = expectedCfg.Remove(controller.ControllerOnlyConfigAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := expectedCfg.AllAttrs()
-	c.Assert(expected["username"], gc.Equals, "anotheruser")
-	c.Assert(expected["password"], gc.Equals, "anotherpassword")
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
-
-	fake.Stub.CheckCallNames(c,
-		"RestrictedConfigAttributes",
-		"PrepareForCreateEnvironment",
-		"Validate",
-	)
-	validateCall := fake.Stub.Calls()[2]
+	validateCall := s.fake.Stub.Calls()[2]
 	c.Assert(validateCall.Args, gc.HasLen, 2)
 	c.Assert(validateCall.Args[0], gc.Equals, cfg)
 	c.Assert(validateCall.Args[1], gc.IsNil)
@@ -275,7 +241,9 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		},
 	}} {
 		c.Logf("%d: %s provider", i, test.provider)
-		fields, err := modelmanager.RestrictedProviderFields(test.provider)
+		provider, err := environs.Provider(test.provider)
+		c.Check(err, jc.ErrorIsNil)
+		fields, err := modelmanager.RestrictedProviderFields(provider)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(fields, jc.SameContents, test.expected)
 	}
@@ -285,11 +253,6 @@ type fakeProvider struct {
 	testing.Stub
 	environs.EnvironProvider
 	restrictedConfigAttributes []string
-}
-
-func (p *fakeProvider) Reset() {
-	p.Stub.ResetCalls()
-	p.restrictedConfigAttributes = []string{"restricted"}
 }
 
 func (p *fakeProvider) RestrictedConfigAttributes() []string {
@@ -302,9 +265,9 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 	return cfg, p.NextErr()
 }
 
-func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
-	return cfg, p.NextErr()
+func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "PrepareConfig", args)
+	return args.Config, p.NextErr()
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
@@ -324,11 +287,4 @@ func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSc
 
 func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
-}
-
-var fake fakeProvider
-
-func init() {
-	fake.Reset()
-	environs.RegisterProvider("fake", &fake)
 }

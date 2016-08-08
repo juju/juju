@@ -672,6 +672,10 @@ func (c *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
 	return nil
 }
 
+func (c *stubMasterFacade) SetStatusMessage(message string) error {
+	return nil
+}
+
 func (c *stubMasterFacade) Reap() error {
 	c.stub.AddCall("masterFacade.Reap")
 	return nil

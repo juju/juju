@@ -101,7 +101,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
 		prefix   string
 	}{
 		{networkDHCPInitial, networkDHCPExpected, "test-br-"},
-		{networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-"},
+		{networkStaticWithAliasInitial, networkStaticWithAliasExpected, "test-br-"},
 		{networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-"},
 		{networkDualNICInitial, networkDualNICExpected, "test-br-"},
 		{networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-"},
@@ -300,11 +300,11 @@ iface test-br-eth0 inet static
     gateway 4.3.2.1
     bridge_ports eth0
 
-auto eth0:1
-iface eth0:1 inet static
+auto test-br-eth0:1
+iface test-br-eth0:1 inet static
     address 1.2.3.5`
 
-const networkDHCPWithAliasInitial = `auto lo
+const networkStaticWithAliasInitial = `auto lo
 iface lo inet loopback
 
 auto eth0
@@ -322,7 +322,7 @@ iface eth0:2 inet static
 
 dns-nameserver 192.168.1.142`
 
-const networkDHCPWithAliasExpected = `auto lo
+const networkStaticWithAliasExpected = `auto lo
 iface lo inet loopback
 
 auto eth0
@@ -334,12 +334,12 @@ iface test-br-eth0 inet static
     address 10.14.0.102/24
     bridge_ports eth0
 
-auto eth0:1
-iface eth0:1 inet static
+auto test-br-eth0:1
+iface test-br-eth0:1 inet static
     address 10.14.0.103/24
 
-auto eth0:2
-iface eth0:2 inet static
+auto test-br-eth0:2
+iface test-br-eth0:2 inet static
     address 10.14.0.100/24
     dns-nameserver 192.168.1.142`
 
@@ -372,8 +372,8 @@ iface test-br-eth0 inet static
     address 10.17.20.201/24
     bridge_ports eth0
 
-auto eth0:1
-iface eth0:1 inet static
+auto test-br-eth0:1
+iface test-br-eth0:1 inet static
     address 10.17.20.202/24
     mtu 1500
 
@@ -498,13 +498,13 @@ iface test-br-eth10 inet static
     address 10.17.20.201/24
     bridge_ports eth10
 
-auto eth10:1
-iface eth10:1 inet static
+auto test-br-eth10:1
+iface test-br-eth10:1 inet static
     address 10.17.20.202/24
     mtu 1500
 
-auto eth10:2
-iface eth10:2 inet static
+auto test-br-eth10:2
+iface test-br-eth10:2 inet static
     address 10.17.20.203/24
     mtu 1500
     dns-nameservers 10.17.20.200
@@ -667,23 +667,23 @@ iface juju-br-eth6 inet static
     address 10.17.20.203/24
     bridge_ports eth6
 
-auto eth6:1
-iface eth6:1 inet static
+auto juju-br-eth6:1
+iface juju-br-eth6:1 inet static
     address 10.17.20.205/24
     mtu 1500
 
-auto eth6:2
-iface eth6:2 inet static
+auto juju-br-eth6:2
+iface juju-br-eth6:2 inet static
     address 10.17.20.204/24
     mtu 1500
 
-auto eth6:3
-iface eth6:3 inet static
+auto juju-br-eth6:3
+iface juju-br-eth6:3 inet static
     address 10.17.20.206/24
     mtu 1500
 
-auto eth6:4
-iface eth6:4 inet static
+auto juju-br-eth6:4
+iface juju-br-eth6:4 inet static
     address 10.17.20.207/24
     mtu 1500
 

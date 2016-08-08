@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -44,6 +45,7 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 			"resource-tags": "a=b c=",
 		}),
 		&fakePoolManager{},
+		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, params.VolumeParams{
@@ -72,6 +74,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		testing.ModelTag.Id(),
 		testing.CustomModelConfig(c, nil),
 		&fakePoolManager{},
+		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, params.VolumeParams{

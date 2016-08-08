@@ -44,10 +44,9 @@ var (
 )
 
 type manualEnviron struct {
-	cfg                 *environConfig
-	cfgmutex            sync.Mutex
-	ubuntuUserInited    bool
-	ubuntuUserInitMutex sync.Mutex
+	host     string
+	cfgmutex sync.Mutex
+	cfg      *environConfig
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -81,26 +80,29 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	if err := ensureBootstrapUbuntuUser(ctx, e.envConfig()); err != nil {
+	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.envConfig()); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Bootstrap is specified on the Environ interface.
+// Create is part of the Environ interface.
+func (e *manualEnviron) Create(environs.CreateParams) error {
+	return nil
+}
+
+// Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	envConfig := e.envConfig()
-	host := envConfig.bootstrapHost()
-	provisioned, err := manualCheckProvisioned(host)
+	provisioned, err := manualCheckProvisioned(e.host)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
 		return nil, manual.ErrProvisioned
 	}
-	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(e.host)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, icfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg)
 	}
 
 	result := &environs.BootstrapResult{
@@ -147,7 +149,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		noAgentDir,
 	)
 	out, err := runSSHCommand(
-		"ubuntu@"+e.cfg.bootstrapHost(),
+		"ubuntu@"+e.host,
 		[]string{"/bin/bash"},
 		stdin,
 	)
@@ -186,7 +188,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 	var found bool
 	for i, id := range ids {
 		if id == BootstrapInstanceId {
-			instances[i] = manualBootstrapInstance{e.envConfig().bootstrapHost()}
+			instances[i] = manualBootstrapInstance{e.host}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -238,7 +240,7 @@ exit 0
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
 	_, err := runSSHCommand(
-		"ubuntu@"+e.envConfig().bootstrapHost(),
+		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	return err

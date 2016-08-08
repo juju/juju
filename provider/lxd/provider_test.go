@@ -104,15 +104,18 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{s.Config})
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  lxdCloudSpec(),
+		Config: s.Config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 
 	c.Check(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *ProviderFunctionalSuite) TestBootstrapConfig(c *gc.C) {
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: s.Config,
 	})
 	c.Assert(err, jc.ErrorIsNil)

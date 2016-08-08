@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker"
@@ -474,16 +472,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		add(lu)
 	}
 	return
-}
-
-func (s *baseSuite) setupStoragePool(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {

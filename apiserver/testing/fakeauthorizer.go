@@ -5,6 +5,8 @@ package testing
 
 import (
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/description"
 )
 
 // FakeAuthorizer implements the facade.Authorizer interface.
@@ -42,4 +44,9 @@ func (fa FakeAuthorizer) AuthClient() bool {
 
 func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 	return fa.Tag
+}
+
+func (fa FakeAuthorizer) HasPermission(operation description.Access, target names.Tag) (bool, error) {
+	// TODO(perrito666) provide a way to pre-set the desired result here.
+	return fa.Tag == target, nil
 }

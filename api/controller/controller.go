@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,6 +20,7 @@ type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	*common.ControllerConfigAPI
+	*cloudspec.CloudSpecAPI
 }
 
 // NewClient creates a new `Client` based on an existing authenticated API
@@ -29,6 +31,7 @@ func NewClient(st base.APICallCloser) *Client {
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
 	}
 }
 

@@ -146,6 +146,14 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	if err := env.verifyCredentials(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring

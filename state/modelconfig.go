@@ -66,12 +66,12 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 	return values, nil
 }
 
-// ModelConfigValues returns the config values for the model represented
-// by this state.
-func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
+// modelConfigValues returns the values and source for the supplied model config
+// when combined with controller and Juju defaults.
+func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+	resultValues := make(attrValues)
+	for k, v := range modelCfg {
+		resultValues[k] = v
 	}
 
 	// Read all of the current inherited config values so
@@ -89,12 +89,20 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 			return nil, errors.Annotatef(err, "reading %s settings", src.name)
 		}
 		sourceAttrs = append(sourceAttrs, cfg)
+
+		// If no modelCfg was passed in, we'll accumulate data
+		// for the inherited values instead.
+		if len(modelCfg) == 0 {
+			for k, v := range cfg {
+				resultValues[k] = v
+			}
+		}
 	}
 
 	// Figure out the source of each config attribute based
 	// on the current model values and the inherited values.
 	result := make(config.ConfigValues)
-	for attr, val := range modelSettings.Map() {
+	for attr, val := range resultValues {
 		// Find the source of config for which the model
 		// value matches. If there's a match, the last match
 		// in the search order will be the source of config.
@@ -115,6 +123,43 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 	return result, nil
 }
 
+// UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
+func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string) error {
+	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
+	settings.Update(attrs)
+	for _, r := range removed {
+		settings.Delete(r)
+	}
+	_, err = settings.Write()
+	return err
+}
+
+// ModelConfigValues returns the config values for the model represented
+// by this state.
+func (st *State) ModelConfigValues() (config.ConfigValues, error) {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.modelConfigValues(cfg.AllAttrs())
+}
+
+// ModelConfigDefaultValues returns the default config values to be used
+// when creating a new model, and the origin of those values.
+func (st *State) ModelConfigDefaultValues() (config.ConfigValues, error) {
+	return st.modelConfigValues(nil)
+}
+
 // checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.
 func checkControllerInheritedConfig(attrs attrValues) error {
 	disallowedCloudConfigAttrs := append(disallowedModelConfigAttrs[:], config.AgentVersionKey)
@@ -131,7 +176,7 @@ func checkControllerInheritedConfig(attrs attrValues) error {
 	return nil
 }
 
-func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs []string, oldConfig *config.Config) (*config.Config, error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -217,6 +262,8 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 			modelSettings.Delete(k)
 		}
 	}
+	// Some values require marshalling before storage.
+	validAttrs = config.CoerceForStorage(validAttrs)
 
 	modelSettings.Update(validAttrs)
 	_, ops := modelSettings.settingsUpdateOps()
@@ -236,10 +283,16 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
+		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
 		// We will also support local cloud region, tenant, user etc
 	}
 }
+
+const (
+	// controllerInheritedSettingsGlobalKey is the key for default settings shared across models.
+	controllerInheritedSettingsGlobalKey = "controller"
+)
 
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
@@ -278,4 +331,11 @@ func composeModelConfigAttributes(
 	}
 
 	return resultAttrs, nil
+}
+
+// ComposeNewModelConfig returns a complete map of config attributes suitable for
+// creating a new model, by combining user specified values with system defaults.
+func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
+	configSources := modelConfigSources(st)
+	return composeModelConfigAttributes(modelAttr, configSources...)
 }

@@ -4,7 +4,6 @@
 package modelcmd_test
 
 import (
-	"fmt"
 	"strings"
 
 	gc "gopkg.in/check.v1"
@@ -74,7 +73,6 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin@local/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
 	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
-	fmt.Println(s.store.Models)
 	c.Assert(s.store.Models["foo"].Models["admin@local/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
 }

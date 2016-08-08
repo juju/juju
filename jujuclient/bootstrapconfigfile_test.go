@@ -27,7 +27,7 @@ controllers:
     controller-config:
       api-port: 17070
       state-port: 37017
-    base-model-config:
+    model-config:
       name: admin
       type: ec2
     credential: default
@@ -39,7 +39,7 @@ controllers:
     controller-config:
       api-port: 17070
       state-port: 37017
-    base-model-config:
+    model-config:
       name: admin
       type: maas
     cloud: maas

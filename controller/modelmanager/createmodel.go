@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -21,19 +20,15 @@ var (
 	logger = loggo.GetLogger("juju.controller.modelmanager")
 )
 
-const (
-	// IsAdmin is used when generating a model config for an admin user.
-	IsAdmin = true
-
-	// IsNotAdmin is used when generating a model config for a non admin user.
-	IsNotAdmin = false
-)
-
 // ModelConfigCreator provides a method of creating a new model config.
 //
 // The zero value of ModelConfigCreator is usable with the limitations
 // noted on each struct field.
 type ModelConfigCreator struct {
+	// Provider will be used to obtain EnvironProviders for preparing
+	// and validating configuration.
+	Provider func(string) (environs.EnvironProvider, error)
+
 	// FindTools, if non-nil, will be used to validate the agent-version
 	// value in NewModelConfig if it differs from the base configuration.
 	//
@@ -52,13 +47,17 @@ type ModelConfigCreator struct {
 //
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
-	isAdmin bool,
+	cloud environs.CloudSpec,
 	controllerUUID string,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
 
 	if err := c.checkVersion(base, attrs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := c.Provider(cloud.Type)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -69,7 +68,7 @@ func (c ModelConfigCreator) NewModelConfig(
 	// However, before we can create a valid config, we need to make sure
 	// we copy across fields from the main config that aren't there.
 	baseAttrs := base.AllAttrs()
-	restrictedFields, err := RestrictedProviderFields(base.Type())
+	restrictedFields, err := RestrictedProviderFields(provider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,21 +89,15 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(isAdmin, controllerUUID, base, attrs)
+	cfg, err := finalizeConfig(provider, cloud, controllerUUID, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attrs = cfg.AllAttrs()
 
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		if _, ok := attrs[attr]; ok {
-			return nil, errors.Errorf("unexpected controller attribute %q in model config", attr)
-		}
-	}
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
+	attrs = cfg.AllAttrs()
 	for _, field := range restrictedFields {
 		if value, ok := attrs[field]; ok {
 			if serverValue := baseAttrs[field]; value != serverValue {
@@ -179,11 +172,7 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 // specific config, since models should be independent of each other; and
 // anything that should not change across models should be in the controller
 // config.
-func RestrictedProviderFields(providerType string) ([]string, error) {
-	provider, err := environs.Provider(providerType)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func RestrictedProviderFields(provider environs.EnvironProvider) ([]string, error) {
 	var fields []string
 	// For now, all models in a controller must be of the same type.
 	fields = append(fields, config.TypeKey)
@@ -191,34 +180,29 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 	return fields, nil
 }
 
-// finalizeConfig creates the config object from attributes, calls
-// PrepareForCreateEnvironment, and then finally validates the config
-// before returning it.
-func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
-	provider, err := environs.Provider(controllerModelCfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+// finalizeConfig creates the config object from attributes,
+// and calls EnvironProvider.PrepareConfig.
+func finalizeConfig(
+	provider environs.EnvironProvider,
+	cloud environs.CloudSpec,
+	controllerUUID string,
+	attrs map[string]interface{},
+) (*config.Config, error) {
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
+	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
+		ControllerUUID: controllerUUID,
+		Cloud:          cloud,
+		Config:         cfg,
+	})
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot remove controller attributes")
-	}
-
-	cfg, err = provider.PrepareForCreateEnvironment(controllerUUID, cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "provider config preparation failed")
 	}
 	cfg, err = provider.Validate(cfg, nil)
 	if err != nil {
-		return nil, errors.Annotate(err, "provider validation failed")
+		return nil, errors.Annotate(err, "provider config validation failed")
 	}
 	return cfg, nil
 }

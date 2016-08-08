@@ -49,7 +49,10 @@ type Tests struct {
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
-	e, err := environs.New(environs.OpenParams{cfg})
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -76,7 +79,7 @@ func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		BaseConfig:       testConfigCopy,
+		ModelConfig:      testConfigCopy,
 		Cloud:            t.CloudSpec(),
 		ControllerName:   t.TestConfig["name"].(string),
 		AdminSecret:      AdminSecret,
@@ -91,14 +94,14 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 // PrepareWithParams prepares an instance of the testing environment.
 func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
 	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.BaseConfig))
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
 	return e
 }
 
 func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attrs, errorMatches string) error {
 	args := t.PrepareParams(c)
-	args.BaseConfig = coretesting.Attrs(args.BaseConfig).Merge(badConfig)
+	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
 
 	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)

@@ -111,9 +111,6 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	}
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
 	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion)
 }
 
@@ -123,8 +120,42 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
+}
+
+// ModelDefaults returns the default config values used when creating a new model.
+func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
+	result := params.ModelConfigResults{}
+	values, err := c.backend.ModelConfigDefaultValues()
+	if err != nil {
+		return result, err
+	}
+	result.Config = make(map[string]params.ConfigValue)
+	for attr, val := range values {
+		result.Config[attr] = params.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
+	return result, nil
+}
+
+// SetModelDefaults writes new values for the specified default model settings.
+func (c *ModelConfigAPI) SetModelDefaults(args params.ModelSet) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	// Make sure we don't allow changing agent-version.
+	if _, found := args.Config["agent-version"]; found {
+		return errors.New("agent-version cannot have a default value")
+	}
+	return c.backend.UpdateModelConfigDefaultValues(args.Config, nil)
+}
+
+// UnsetModelDefaults removes the specified default model settings.
+func (c *ModelConfigAPI) UnsetModelDefaults(args params.ModelUnset) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	return c.backend.UpdateModelConfigDefaultValues(nil, args.Keys)
 }

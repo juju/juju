@@ -23,7 +23,7 @@ var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{})
+	s.provider = newProvider(c, azure.ProviderConfig{})
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {

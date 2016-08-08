@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/worker"
 )
 
@@ -230,9 +232,10 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := []txn.Op{
-		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
-		{
+	ops := createInitialUserOps(st.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	ops = append(ops,
+
+		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
@@ -242,19 +245,19 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud, args.CloudName),
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
@@ -262,14 +265,14 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
-	}
-	if len(args.CloudCredentials) > 0 {
-		credentialsOps := updateCloudCredentialsOps(
+	)
+	for credName, cred := range args.CloudCredentials {
+		ops = append(ops, createCloudCredentialOp(
 			args.ControllerModelArgs.Owner,
 			args.CloudName,
-			args.CloudCredentials,
-		)
-		ops = append(ops, credentialsOps...)
+			credName,
+			cred,
+		))
 	}
 	ops = append(ops, modelOps...)
 
@@ -283,8 +286,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(ControllerInheritedConfig); err != nil {
+func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
+	if err := checkControllerInheritedConfig(controllerInheritedConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := checkModelConfig(args.Config); err != nil {
@@ -318,17 +321,30 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 		ops = append(ops, incHostedModelCountOp())
 	}
 
+	// Create the default storage pools for the model.
+	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, defaultStoragePoolsOps...)
+
 	// Create the final map of config attributes for the model.
 	// If we have ControllerInheritedConfig passed in, that means state
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(ControllerInheritedConfig) > 0 {
-		configSources = []modelConfigSource{{
-			name: config.JujuControllerSource,
-			sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-				return ControllerInheritedConfig, nil
-			})}}
+	if len(controllerInheritedConfig) > 0 {
+		configSources = []modelConfigSource{
+			{
+				name: config.JujuDefaultSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return config.ConfigDefaults(), nil
+				})},
+			{
+				name: config.JujuControllerSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return controllerInheritedConfig, nil
+				})}}
 	} else {
 		configSources = modelConfigSources(st)
 	}
@@ -336,6 +352,8 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Some values require marshalling before storage.
+	modelCfg = config.CoerceForStorage(modelCfg)
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
@@ -349,6 +367,28 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
+	return ops, nil
+}
+
+func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
+	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(m, registry)
+	for _, providerType := range registry.StorageProviderTypes() {
+		p, err := registry.StorageProvider(providerType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := poolmanager.AddDefaultStoragePools(p, pm); err != nil {
+			return nil, errors.Annotatef(
+				err, "adding default storage pools for %q", providerType,
+			)
+		}
+	}
+
+	var ops []txn.Op
+	for key, settings := range m.Settings {
+		ops = append(ops, createSettingsOp(settingsC, key, settings))
+	}
 	return ops, nil
 }
 

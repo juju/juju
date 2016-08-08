@@ -26,6 +26,8 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
@@ -533,3 +535,26 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+// minModelWorkersEnviron implements just enough of environs.Environ
+// to allow model workers to run.
+type minModelWorkersEnviron struct {
+	environs.Environ
+}
+
+func (e *minModelWorkersEnviron) Config() *config.Config {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
+	return nil
+}
+
+func (e *minModelWorkersEnviron) AllInstances() ([]instance.Instance, error) {
+	return nil, nil
+}

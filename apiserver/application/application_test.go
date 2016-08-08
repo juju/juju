@@ -34,9 +34,6 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -188,18 +185,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-func setupStoragePool(c *gc.C, st *state.State) {
-	pm := poolmanager.New(state.NewStateSettings(st))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateModelConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
-	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -209,7 +195,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "loop-pool",
+			Pool:  "environscoped-block",
 		},
 	}
 
@@ -235,7 +221,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "loop-pool",
+			Pool:  "environscoped-block",
 		},
 		"allecto": {
 			Count: 0,
@@ -255,7 +241,6 @@ func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 }
 
 func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
-	setupStoragePool(c, s.State)
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -285,44 +270,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
 }
 
-func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
-	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
-	err = application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
-			Pool:  "host-loop-pool",
-			Count: 1,
-			Size:  1024,
-		},
-	}
-
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmUrl:        curl.String(),
-		NumUnits:        1,
-		Constraints:     cons,
-		Storage:         storageConstraints,
-	}
-	results, err := s.applicationApi.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for models of type "dummy"`)
-}
-
 func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
-	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),

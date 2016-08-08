@@ -75,6 +75,7 @@ class LogicalInterface(object):
         self.is_active = self.method == "dhcp" or self.method == "static"
         self.is_bridged = [x for x in self.options if x.startswith("bridge_ports ")]
         self.has_auto_stanza = None
+        self.parent = None
 
     def __str__(self):
         return self.name
@@ -96,7 +97,12 @@ class LogicalInterface(object):
         if not self.is_active or self.is_bridged:
             return self._bridge_unchanged()
         elif self.is_alias:
-            return self._bridge_alias()
+            if self.parent and self.parent.iface and (not self.parent.iface.is_active or self.parent.iface.is_bridged):
+                # if we didn't change the parent interface
+                # then we don't change the aliases neither.
+                return self._bridge_unchanged()
+            else:
+                return self._bridge_alias(bridge_name)
         elif self.is_vlan:
             return self._bridge_vlan(bridge_name)
         elif self.is_bonded:
@@ -130,11 +136,11 @@ class LogicalInterface(object):
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
-    def _bridge_alias(self):
+    def _bridge_alias(self, bridge_name):
         stanzas = []
         if self.has_auto_stanza:
-            stanzas.append(AutoStanza(self.name))
-        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
+            stanzas.append(AutoStanza(bridge_name))
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, list(self.options)))
         return stanzas
 
     def _bridge_bond(self, bridge_name):
@@ -201,6 +207,8 @@ class NetworkInterfaceParser(object):
                 continue
             s.iface.has_auto_stanza = s.iface.name in physical_interfaces
 
+        self._connect_aliases()
+
     def _parse_stanza(self, stanza_line, iterable):
         stanza_options = []
         for line in iterable:
@@ -215,6 +223,24 @@ class NetworkInterfaceParser(object):
 
     def stanzas(self):
         return [x for x in self._stanzas]
+
+    def _connect_aliases(self):
+        """Set a reference in the alias interfaces to its related interface"""
+        ifaces = {}
+        aliases = []
+        for stanza in self._stanzas:
+            if stanza.iface is None:
+                continue
+
+            if stanza.iface.is_alias:
+                aliases.append(stanza)
+            else:
+                ifaces[stanza.iface.name] = stanza
+
+        for alias in aliases:
+            parent_name = alias.iface.name.split(':')[0]
+            if parent_name in ifaces:
+                alias.iface.parent = ifaces[parent_name]
 
     def _physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}

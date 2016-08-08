@@ -14,6 +14,9 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -35,6 +38,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 			CloudName: "dummy",
 			Config:    cfg,
 			Owner:     owner,
+			StorageProviderRegistry: StorageProviders(),
 		},
 		ControllerInheritedConfig: controllerInheritedConfig,
 		CloudName:                 "dummy",
@@ -48,6 +52,32 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+func StorageProviders() storage.ProviderRegistry {
+	return storage.ChainedProviderRegistry{
+		storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"static": &dummystorage.StorageProvider{IsDynamic: false},
+				"environscoped": &dummystorage.StorageProvider{
+					StorageScope: storage.ScopeEnviron,
+					IsDynamic:    true,
+				},
+				"environscoped-block": &dummystorage.StorageProvider{
+					StorageScope: storage.ScopeEnviron,
+					IsDynamic:    true,
+					SupportsFunc: func(k storage.StorageKind) bool {
+						return k == storage.StorageKindBlock
+					},
+				},
+				"machinescoped": &dummystorage.StorageProvider{
+					StorageScope: storage.ScopeMachine,
+					IsDynamic:    true,
+				},
+			},
+		},
+		provider.CommonStorageProviders(),
+	}
 }
 
 // NewMongoInfo returns information suitable for

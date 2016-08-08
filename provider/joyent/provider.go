@@ -46,18 +46,13 @@ var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+// RestrictedConfigAttributes is part of the EnvironProvider interface.
 func (joyentProvider) RestrictedConfigAttributes() []string {
 	return []string{sdcUrl}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (joyentProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is part of the EnvironProvider interface.
+func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	attrs := map[string]interface{}{}
 	// Add the credential attributes to config.
 	switch authType := args.Cloud.Credential.AuthType(); authType {
@@ -76,7 +71,7 @@ func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
+	return cfg, nil
 }
 
 const unauthorisedMessage = `

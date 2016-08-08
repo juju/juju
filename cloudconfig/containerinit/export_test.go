@@ -6,5 +6,6 @@ package containerinit
 
 var (
 	NetworkInterfacesFile          = &networkInterfacesFile
+	SystemNetworkInterfacesFile    = &systemNetworkInterfacesFile
 	NewCloudInitConfigWithNetworks = newCloudInitConfigWithNetworks
 )

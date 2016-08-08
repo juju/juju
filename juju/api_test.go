@@ -90,7 +90,7 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	env, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		ControllerName:   controllerName,
-		BaseConfig:       dummy.SampleConfig(),
+		ModelConfig:      dummy.SampleConfig(),
 		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})

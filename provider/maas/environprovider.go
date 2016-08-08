@@ -45,19 +45,8 @@ func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{"maas-server"}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	attrs := cfg.UnknownAttrs()
-	oldName, found := attrs["maas-agent-name"]
-	if found && oldName != "" {
-		return nil, errAgentNameAlreadySet
-	}
-	attrs["maas-agent-name"] = cfg.UUID()
-	return cfg.Apply(attrs)
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	// For MAAS, the cloud endpoint may be either a full URL
 	// for the MAAS server, or just the IP/host.
 	if args.Cloud.Endpoint == "" {
@@ -81,11 +70,14 @@ func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	// Set maas-agent-name; make sure it's not set by the user.
+	if _, ok := args.Config.UnknownAttrs()["maas-agent-name"]; ok {
+		return nil, errAgentNameAlreadySet
 	}
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
+	attrs["maas-agent-name"] = args.Config.UUID()
+
+	return args.Config.Apply(attrs)
 }
 
 func verifyCredentials(env *maasEnviron) error {

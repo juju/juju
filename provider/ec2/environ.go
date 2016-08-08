@@ -127,23 +127,41 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {
 			return err
 		}
 	}
-
 	apiClient, ecfg := env.ec2(), env.ecfg()
 	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
 	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 
+// Create is part of the Environ interface.
+func (env *environ) Create(args environs.CreateParams) error {
+	if err := verifyCredentials(env); err != nil {
+		return err
+	}
+	apiClient := env.ec2()
+	vpcID := env.ecfg().vpcID()
+	if err := validateModelVPC(apiClient, env.name, vpcID); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(axw) 2016-08-04 #1609643
+	// Create global security group(s) here.
+	return nil
+}
+
+func (env *environ) validateVPC(logInfof func(string, ...interface{}), badge string) error {
+	return nil
+}
+
+// Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
 }
@@ -508,9 +526,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 		var subnetIDsForZone []string
 		var subnetErr error
-		if haveVPCID && !args.Constraints.HaveSpaces() {
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone)
-		} else if !haveVPCID && args.Constraints.HaveSpaces() {
+		if haveVPCID {
+			var allowedSubnetIDs []string
+			for subnetID, _ := range args.SubnetsToZones {
+				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			}
+			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone, allowedSubnetIDs)
+		} else if args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
 		}
 
@@ -1728,4 +1750,8 @@ func ec2ErrCode(err error) string {
 
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
+}
+
+func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
 }

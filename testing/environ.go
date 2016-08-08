@@ -92,10 +92,6 @@ func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	return cfg
 }
 
-const (
-	SampleModelName = "erewhemos"
-)
-
 const DefaultMongoPassword = "conn-from-name-secret"
 
 // FakeJujuXDGDataHomeSuite isolates the user's home directory and

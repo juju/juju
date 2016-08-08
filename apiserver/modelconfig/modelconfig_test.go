@@ -41,6 +41,10 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
 		},
+		cfgDefaults: config.ConfigValues{
+			"attr":  {Value: "val", Source: "controller"},
+			"attr2": {Value: "val2", Source: "controller"},
+		},
 	}
 	var err error
 	s.api, err = modelconfig.NewModelConfigAPI(s.backend, &s.authorizer)
@@ -50,7 +54,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, gc.DeepEquals, map[string]params.ConfigValue{
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {"dummy", "model"},
 		"ftp-proxy":     {"http://proxy", "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
@@ -87,7 +91,7 @@ func (s *modelconfigSuite) blockAllChanges(c *gc.C, msg string) {
 
 func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
@@ -98,10 +102,10 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interf
 	s.assertBlocked(c, err, msg)
 }
 
-func (s *modelconfigSuite) TestBlockChangesClientModelSet(c *gc.C) {
-	s.blockAllChanges(c, "TestBlockChangesClientModelSet")
+func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockChangesModelSet")
 	args := map[string]interface{}{"some-key": "value"}
-	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
+	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
@@ -135,14 +139,14 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	s.assertConfigValueMissing(c, "abc")
 }
 
-func (s *modelconfigSuite) TestBlockClientModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.blockAllChanges(c, "TestBlockClientModelUnset")
+	s.blockAllChanges(c, "TestBlockModelUnset")
 
 	args := params.ModelUnset{[]string{"abc"}}
 	err = s.api.ModelUnset(args)
-	s.assertBlocked(c, err, "TestBlockClientModelUnset")
+	s.assertBlocked(c, err, "TestBlockModelUnset")
 }
 
 func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
@@ -152,15 +156,75 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
+	result, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := map[string]params.ConfigValue{
+		"attr":  {Value: "val", Source: "controller"},
+		"attr2": {Value: "val2", Source: "controller"},
+	}
+	c.Assert(result.Config, jc.DeepEquals, expectedValues)
+}
+
+func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
+	params := params.ModelSet{
+		Config: map[string]interface{}{
+			"attr3": "val3",
+			"attr4": "val4"},
+	}
+	err := s.api.SetModelDefaults(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
+		"attr":  {Value: "val", Source: "controller"},
+		"attr2": {Value: "val2", Source: "controller"},
+		"attr3": {Value: "val3", Source: "controller"},
+		"attr4": {Value: "val4", Source: "controller"},
+	})
+}
+
+func (s *modelconfigSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
+	err := s.api.SetModelDefaults(params.ModelSet{})
+	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
+}
+
+func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
+	args := params.ModelUnset{[]string{"attr"}}
+	err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
+		"attr2": {Value: "val2", Source: "controller"},
+	})
+}
+
+func (s *modelconfigSuite) TestBlockUnsetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
+	args := params.ModelUnset{[]string{"abc"}}
+	err := s.api.UnsetModelDefaults(args)
+	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
+}
+
+func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	args := params.ModelUnset{[]string{"not_there"}}
+	err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockBackend struct {
-	cfg config.ConfigValues
-	old *config.Config
-	b   state.BlockType
-	msg string
+	cfg         config.ConfigValues
+	cfgDefaults config.ConfigValues
+	old         *config.Config
+	b           state.BlockType
+	msg         string
 }
 
 func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
+}
+
+func (m *mockBackend) ModelConfigDefaultValues() (config.ConfigValues, error) {
+	return m.cfgDefaults, nil
 }
 
 func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate state.ValidateConfigFunc) error {
@@ -175,6 +239,16 @@ func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []
 	}
 	for _, n := range remove {
 		delete(m.cfg, n)
+	}
+	return nil
+}
+
+func (m *mockBackend) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
+	for k, v := range update {
+		m.cfgDefaults[k] = config.ConfigValue{v, "controller"}
+	}
+	for _, n := range remove {
+		delete(m.cfgDefaults, n)
 	}
 	return nil
 }

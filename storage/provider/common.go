@@ -9,15 +9,20 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var errNoMountPoint = errors.New("filesystem mount point not specified")
+var (
+	errNoMountPoint = errors.New("filesystem mount point not specified")
 
-// CommonProviders returns the storage providers used by all environments.
-func CommonProviders() map[storage.ProviderType]storage.Provider {
-	return map[storage.ProviderType]storage.Provider{
+	commonStorageProviders = map[storage.ProviderType]storage.Provider{
 		LoopProviderType:   &loopProvider{logAndExec},
 		RootfsProviderType: &rootfsProvider{logAndExec},
 		TmpfsProviderType:  &tmpfsProvider{logAndExec},
 	}
+)
+
+// CommonStorageProviders returns a storage.ProviderRegistry that contains
+// the common storage providers.
+func CommonStorageProviders() storage.ProviderRegistry {
+	return storage.StaticProviderRegistry{commonStorageProviders}
 }
 
 // ValidateConfig performs storage provider config validation, including
