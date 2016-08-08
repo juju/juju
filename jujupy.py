@@ -1930,9 +1930,6 @@ class EnvJujuClient2B8(EnvJujuClient2B9):
 
     status_class = ServiceStatus
 
-    def update_user_name(self):
-        return
-
     def remove_service(self, service):
         self.juju('remove-service', (service,))
 
