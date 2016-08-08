@@ -1912,8 +1912,13 @@ class EnvJujuClient2B9(EnvJujuClient):
     def update_user_name(self):
         return
 
-    def create_cloned_environment(self, cloned_juju_home, controller_name):
-        """Create a cloned environment."""
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        `user_name` is unused in this version of beta.
+
+        """
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
         # New user names the controller.
