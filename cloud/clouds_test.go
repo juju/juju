@@ -97,7 +97,7 @@ func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
       region2:
         mascot: glenda
       region3:
-        mascot:  gopher 
+        mascot:  gopher
 `))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 1)

@@ -219,9 +219,9 @@ type StateInitializationParams struct {
 	// models managed by this controller.
 	ControllerInheritedConfig map[string]interface{}
 
-	// RegionInheritedConfig is map of cloud.RegionConfigAttrs, which itself is
-	// a map[string]interface{}. The purpose if to hold region specific
-	// settings to be shared by all models managed by this controller.
+	// RegionInheritedConfig holds region specific configuration attributes to
+	// be shared across all models in the same controller on a particular
+	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
 	// HostedModelConfig is a set of config attributes to be overlaid

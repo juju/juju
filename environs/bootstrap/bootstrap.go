@@ -96,12 +96,9 @@ type BootstrapParams struct {
 	// across all models in the same controller.
 	ControllerInheritedConfig map[string]interface{}
 
-	// RegionInheritedConfig is a map[string]cloud.RegionConfigAttrs type where
-	// cloud.RegionConfigAttrs is a map[string]interface{} type. The purpose of
-	// defining types is simply to reduce the headache of parsing a nested
-	// map[string]map[string]interface{} where RegionInheritedConfig is used.
-	// It holds region specific configuration attributes to be shared across
-	// all models in the camp controller on a particular cloud.
+	// RegionInheritedConfig holds region specific configuration attributes to
+	// be shared across all models in the same controller on a particular
+	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
 	// HostedModelConfig is the set of config attributes to be overlaid
