@@ -4,6 +4,8 @@
 package common
 
 import (
+	"time"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/metricsender"
@@ -36,11 +38,14 @@ type ModelManagerBackend interface {
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	Model() (Model, error)
 	AllModels() ([]Model, error)
-	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
-	RemoveModelUser(names.UserTag) error
-	ModelUser(names.UserTag) (*state.ModelUser, error)
+	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
+	RemoveUserAccess(names.UserTag, names.Tag) error
+	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
 	ModelTag() names.ModelTag
 	Export() (description.Model, error)
+	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
+	LastModelConnection(user names.UserTag) (time.Time, error)
 	Close() error
 }
 
@@ -56,19 +61,24 @@ type Model interface {
 	Cloud() string
 	CloudCredential() string
 	CloudRegion() string
-	Users() ([]ModelUser, error)
+	Users() ([]description.UserAccess, error)
 	Destroy() error
 	DestroyIncludingHosted() error
 }
+
+var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
 
 type modelManagerStateShim struct {
 	*state.State
 }
 
+// NewModelManagerBackend returns a modelManagerStateShim wrapping the passed
+// state, which implements ModelManagerBackend.
 func NewModelManagerBackend(st *state.State) ModelManagerBackend {
 	return modelManagerStateShim{st}
 }
 
+// ControllerModel implements ModelManagerBackend.
 func (st modelManagerStateShim) ControllerModel() (Model, error) {
 	m, err := st.State.ControllerModel()
 	if err != nil {
@@ -77,6 +87,7 @@ func (st modelManagerStateShim) ControllerModel() (Model, error) {
 	return modelShim{m}, nil
 }
 
+// NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
 	m, otherState, err := st.State.NewModel(args)
 	if err != nil {
@@ -85,6 +96,7 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	return modelShim{m}, modelManagerStateShim{otherState}, nil
 }
 
+// ForModel implements ModelManagerBackend.
 func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBackend, error) {
 	otherState, err := st.State.ForModel(tag)
 	if err != nil {
@@ -93,6 +105,7 @@ func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBacken
 	return modelManagerStateShim{otherState}, nil
 }
 
+// Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
 	m, err := st.State.Model()
 	if err != nil {
@@ -101,6 +114,7 @@ func (st modelManagerStateShim) Model() (Model, error) {
 	return modelShim{m}, nil
 }
 
+// AllModels implements ModelManagerBackend.
 func (st modelManagerStateShim) AllModels() ([]Model, error) {
 	allStateModels, err := st.State.AllModels()
 	if err != nil {
@@ -117,12 +131,13 @@ type modelShim struct {
 	*state.Model
 }
 
-func (m modelShim) Users() ([]ModelUser, error) {
+// Users implements ModelManagerBackend.
+func (m modelShim) Users() ([]description.UserAccess, error) {
 	stateUsers, err := m.Model.Users()
 	if err != nil {
 		return nil, err
 	}
-	users := make([]ModelUser, len(stateUsers))
+	users := make([]description.UserAccess, len(stateUsers))
 	for i, user := range stateUsers {
 		users[i] = user
 	}

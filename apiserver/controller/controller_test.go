@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -85,10 +86,11 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(state.ModelUserSpec{
+	st.AddModelUser(state.UserAccessSpec{
 		User:        admin.UserTag(),
 		CreatedBy:   remoteUserTag,
-		DisplayName: "Foo Bar"})
+		DisplayName: "Foo Bar",
+		Access:      description.ReadAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
@@ -258,7 +260,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
-		Owner: otherEnvOwner.UserTag(),
+		Owner: otherEnvOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
@@ -296,7 +298,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ApplicationCount:   1,
-		OwnerTag:           otherEnvOwner.UserTag().String(),
+		OwnerTag:           otherEnvOwner.UserTag.String(),
 		Life:               params.Alive,
 	}})
 }

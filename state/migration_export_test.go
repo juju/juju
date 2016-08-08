@@ -147,19 +147,19 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond()
-	owner, err := s.State.ModelUser(s.Owner)
+	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(owner, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(state.ModelUserSpec{
+	bob, err := s.State.AddModelUser(state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		Access:    description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(bob, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -173,18 +173,18 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	exportedAdmin := users[1]
 
 	c.Assert(exportedAdmin.Name(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName())
+	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName)
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
+	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated)
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.Access(), gc.Equals, description.AdminAccess)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
+	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated)
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.Access(), gc.Equals, description.ReadAccess)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {

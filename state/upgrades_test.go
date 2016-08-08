@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
@@ -457,10 +458,11 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Ap
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddModelUser(ModelUserSpec{
+	_, err = s.state.AddModelUser(UserAccessSpec{
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",
+		Access:      description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

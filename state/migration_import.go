@@ -208,7 +208,7 @@ func (i *importer) modelUsers() error {
 	// the wrong DateCreated, so we remove it, and add in all the users we
 	// know about. It is also possible that the owner of the model no
 	// longer has access to the model due to changes over time.
-	if err := i.st.RemoveModelUser(i.dbModel.Owner()); err != nil {
+	if err := i.st.RemoveUserAccess(i.dbModel.Owner(), i.dbModel.ModelTag()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -216,22 +216,13 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		var access description.Access
-		switch {
-		case user.IsReadOnly():
-			access = description.ReadAccess
-		case user.IsReadWrite():
-			access = description.WriteAccess
-		default:
-			access = description.AdminAccess
-		}
 		ops = append(ops, createModelUserOps(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			access)...,
+			user.Access())...,
 		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
@@ -244,11 +235,7 @@ func (i *importer) modelUsers() error {
 		if lastConnection.IsZero() {
 			continue
 		}
-		envUser, err := i.st.ModelUser(user.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = envUser.updateLastConnection(lastConnection)
+		err := i.st.updateLastModelConnection(user.Name(), lastConnection)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -138,6 +138,8 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ForModel",
 		"Model",
 		"ControllerConfig",
+		"LastModelConnection",
+		"LastModelConnection",
 		"Close", // close new model's state
 		"Close", // close controller model's state
 	)
@@ -403,7 +405,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newModel.Owner(), gc.Equals, owner)
-	_, err = newState.ModelUser(owner)
+	_, err = newState.UserAccess(owner, newState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -646,7 +648,7 @@ func (s *modelManagerStateSuite) TestUserDestroysOtherModelDenied(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
-func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.ModelAccessPermission, model names.ModelTag) error {
+func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.UserAccessPermission, model names.ModelTag) error {
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.String(),
@@ -659,11 +661,11 @@ func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, actio
 	return result.OneError()
 }
 
-func (s *modelManagerStateSuite) grant(c *gc.C, user names.UserTag, access params.ModelAccessPermission, model names.ModelTag) error {
+func (s *modelManagerStateSuite) grant(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
 	return s.modifyAccess(c, user, params.GrantModelAccess, access, model)
 }
 
-func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access params.ModelAccessPermission, model names.ModelTag) error {
+func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
 	return s.modifyAccess(c, user, params.RevokeModelAccess, access, model)
 }
 
@@ -682,7 +684,7 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, nil)
 	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
-	err := s.grant(c, user.UserTag(), params.ModelReadAccess, model)
+	err := s.grant(c, user.UserTag, params.ModelReadAccess, model)
 	expectedErr := `.*model not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -691,22 +693,22 @@ func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.WriteAccess})
 
-	err := s.revoke(c, user.UserTag(), params.ModelWriteAccess, user.ModelTag())
+	err := s.revoke(c, user.UserTag, params.ModelWriteAccess, user.Object.(names.ModelTag))
 	c.Assert(err, gc.IsNil)
 
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.UserAccess(user.UserTag, user.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, nil)
 
-	err := s.revoke(c, user.UserTag(), params.ModelReadAccess, user.ModelTag())
+	err := s.revoke(c, user.UserTag, params.ModelReadAccess, user.Object.(names.ModelTag))
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.ModelUser(user.UserTag())
+	_, err = s.State.UserAccess(user.UserTag, user.Object)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -719,7 +721,7 @@ func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
 	err := s.revoke(c, user, params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist`)
 
-	_, err = st.ModelUser(user)
+	_, err = st.UserAccess(user, st.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -736,10 +738,10 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
 }
 
-func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser *state.ModelUser, userTag, creatorTag names.UserTag) {
-	c.Assert(modelUser.UserTag(), gc.Equals, userTag)
-	c.Assert(modelUser.CreatedBy(), gc.Equals, creatorTag.Canonical())
-	_, err := modelUser.LastConnection()
+func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser description.UserAccess, userTag, creatorTag names.UserTag) {
+	c.Assert(modelUser.UserTag, gc.Equals, userTag)
+	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
+	_, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 }
 
@@ -753,10 +755,10 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	err := s.grant(c, user.UserTag(), params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err := st.ModelUser(user.UserTag())
+	modelUser, err := st.UserAccess(user.UserTag(), st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
@@ -769,11 +771,11 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	err := s.grant(c, userTag, params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err := st.ModelUser(userTag)
+	modelUser, err := st.UserAccess(userTag, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
-	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
@@ -785,10 +787,10 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 
 	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
 
-	modelUser, err := st.ModelUser(user.UserTag())
+	modelUser, err := st.UserAccess(user.UserTag(), st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.IsReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.Access, gc.Equals, description.WriteAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
@@ -798,12 +800,12 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	stFactory := factory.NewFactory(st)
 	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
 
-	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
+	err := s.grant(c, user.UserTag, params.ModelWriteAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err := st.ModelUser(user.UserTag())
+	modelUser, err := st.UserAccess(user.UserTag, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.IsReadWrite(), jc.IsTrue)
+	c.Assert(modelUser.Access, gc.Equals, description.WriteAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
@@ -847,10 +849,10 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err := st.ModelUser(other)
+	modelUser, err := st.UserAccess(other, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, other, apiUser)
-	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {

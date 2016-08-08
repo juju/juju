@@ -23,6 +23,12 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+const userGlobalKeyPrefix = "us"
+
+func userGlobalKey(userID string) string {
+	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
+}
+
 func (st *State) checkUserExists(name string) (bool, error) {
 	users, closer := st.getCollection(usersC)
 	defer closer()
@@ -64,6 +70,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
+	dateCreated := nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -72,7 +79,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			DisplayName: displayName,
 			SecretKey:   secretKey,
 			CreatedBy:   creator,
-			DateCreated: nowToTheSecond(),
+			DateCreated: dateCreated,
 		},
 	}
 
@@ -91,6 +98,14 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
+	controllerUserOps := createControllerUserOps(st.ControllerUUID(),
+		names.NewUserTag(name),
+		names.NewUserTag(creator),
+		displayName,
+		dateCreated,
+		defaultControllerPermission)
+	ops = append(ops, controllerUserOps...)
+
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user")
@@ -133,8 +148,9 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	return st.run(buildTxn)
 }
 
-func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
+func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string) []txn.Op {
 	nameToLower := strings.ToLower(user.Name())
+	dateCreated := nowToTheSecond()
 	doc := userDoc{
 		DocID:        nameToLower,
 		Name:         user.Name(),
@@ -142,14 +158,24 @@ func createInitialUserOp(st *State, user names.UserTag, password, salt string) t
 		PasswordHash: utils.UserPasswordHash(password, salt),
 		PasswordSalt: salt,
 		CreatedBy:    user.Name(),
-		DateCreated:  nowToTheSecond(),
+		DateCreated:  dateCreated,
 	}
-	return txn.Op{
+	ops := []txn.Op{{
 		C:      usersC,
 		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &doc,
-	}
+	}}
+	controllerUserOps := createControllerUserOps(controllerUUID,
+		names.NewUserTag(user.Name()),
+		names.NewUserTag(user.Name()),
+		user.Name(),
+		dateCreated,
+		defaultControllerPermission)
+
+	ops = append(ops, controllerUserOps...)
+	return ops
+
 }
 
 // getUser fetches information about the user with the

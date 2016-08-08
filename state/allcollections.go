@@ -134,6 +134,11 @@ func allCollections() collectionSchema {
 			global: true,
 		},
 
+		// This collection holds users that are relative to controllers.
+		controllerUsersC: {
+			global: true,
+		},
+
 		// This collection holds the last time the user connected to the API server.
 		userLastLoginC: {
 			global:    true,
@@ -400,6 +405,7 @@ const (
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
+	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	globalSettingsC          = "globalSettings"

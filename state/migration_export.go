@@ -177,25 +177,14 @@ func (e *exporter) modelUsers() error {
 		return errors.Trace(err)
 	}
 	for _, user := range users {
-		var access string
-		switch {
-		case user.IsAdmin():
-			access = string(description.AdminAccess)
-		case user.IsReadWrite():
-			access = string(description.WriteAccess)
-		default:
-			access = string(description.ReadAccess)
-
-		}
-
-		lastConn := lastConnections[strings.ToLower(user.UserName())]
+		lastConn := lastConnections[strings.ToLower(user.UserName)]
 		arg := description.UserArgs{
-			Name:           user.UserTag(),
-			DisplayName:    user.DisplayName(),
-			CreatedBy:      names.NewUserTag(user.CreatedBy()),
-			DateCreated:    user.DateCreated(),
+			Name:           user.UserTag,
+			DisplayName:    user.DisplayName,
+			CreatedBy:      user.CreatedBy,
+			DateCreated:    user.DateCreated,
 			LastConnection: lastConn,
-			Access:         stringToAccess(access),
+			Access:         user.Access,
 		}
 		e.model.AddUser(arg)
 	}

@@ -12,6 +12,9 @@ import (
 const (
 	// controllerSettingsGlobalKey is the key for the controller and its settings.
 	controllerSettingsGlobalKey = "controllerSettings"
+
+	// controllerGlobalKey is the key for controller.
+	controllerGlobalKey = "c"
 )
 
 // ControllerConfig returns the config values for the controller.
