@@ -1921,7 +1921,7 @@ class EnvJujuClient2B9(EnvJujuClient):
         return user_client
 
 
-class EnvJujuClient2B8(EnvJujuClient):
+class EnvJujuClient2B8(EnvJujuClient2B9):
 
     status_class = ServiceStatus
 
