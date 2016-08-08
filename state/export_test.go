@@ -369,6 +369,16 @@ func SetModelLifeDead(st *State, modelUUID string) error {
 	return st.runTransaction(ops)
 }
 
+func ResurrectMachine(machine *Machine) error {
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     machine.Id(),
+		Assert: isDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Alive}}}},
+	}}
+	return machine.st.runTransaction(ops)
+}
+
 func HostedModelCount(c *gc.C, st *State) int {
 	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)

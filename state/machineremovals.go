@@ -7,31 +7,36 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/utils/set"
-
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// machineRemovalDoc is a record indicating that a machine needs to be
-// removed and any necessary provider-level cleanup should now be done.
+// machineRemovalDoc indicates that this machine needs to be removed
+// and any necessary provider-level cleanup should now be done.
 type machineRemovalDoc struct {
 	DocID     string `bson:"_id"`
 	MachineID string `bson:"machine-id"`
 }
 
+// MarkForRemoval requests that this machine be removed after any
+// needed provider-level cleanup is done.
 func (m *Machine) MarkForRemoval() (err error) {
-	defer errors.DeferredAnnotatef(&err, "can't remove machine %s", m.doc.Id)
+	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
 	if m.doc.Life != Dead {
 		return errors.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: isDeadDoc,
+	}, {
 		C:      machineRemovalsC,
 		Id:     m.globalKey(),
 		Insert: &machineRemovalDoc{MachineID: m.Id()},
 	}}
-	return m.st.runTransaction(ops)
+	return onAbort(m.st.runTransaction(ops), errors.Errorf("machine is not dead"))
 }
 
 // AllMachineRemovals returns (the ids of) all of the machines that
@@ -68,11 +73,27 @@ func (st *State) allMachinesMatching(query bson.D) ([]*Machine, error) {
 	return results, nil
 }
 
+func plural(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func collectMissingMachineIds(expectedIds []string, machines []*Machine) []string {
+	expectedSet := set.NewStrings(expectedIds...)
+	actualSet := set.NewStrings()
+	for _, machine := range machines {
+		actualSet.Add(machine.Id())
+	}
+	return expectedSet.Difference(actualSet).SortedValues()
+}
+
 // CompleteMachineRemovals finishes the removal of the specified
 // machines. The machines must have been marked for removal
 // previously. Unknown machine ids are ignored so that this is
 // idempotent.
-func (st *State) CompleteMachineRemovals(ids []string) error {
+func (st *State) CompleteMachineRemovals(ids ...string) error {
 	removals, err := st.AllMachineRemovals()
 	if err != nil {
 		return errors.Trace(err)
@@ -82,6 +103,14 @@ func (st *State) CompleteMachineRemovals(ids []string) error {
 	machinesToRemove, err := st.allMachinesMatching(query)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if len(machinesToRemove) < len(ids) {
+		missingMachines := collectMissingMachineIds(ids, machinesToRemove)
+		logger.Debugf("skipping nonexistent machine%s: %s",
+			plural(len(missingMachines)),
+			strings.Join(missingMachines, ", "),
+		)
 	}
 
 	var ops []txn.Op
@@ -108,7 +137,8 @@ func (st *State) CompleteMachineRemovals(ids []string) error {
 	if len(missingRemovals) > 0 {
 		sort.Strings(missingRemovals)
 		return errors.Errorf(
-			"can't remove machines [%s]: not marked for removal",
+			"cannot remove machine%s %s: not marked for removal",
+			plural(len(missingRemovals)),
 			strings.Join(missingRemovals, ", "),
 		)
 	}

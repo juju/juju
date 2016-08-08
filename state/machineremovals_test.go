@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +27,10 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 	err = m2.MarkForRemoval()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check marking a machine multiple times is ok.
+	err = m1.MarkForRemoval()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Check machines haven't been removed.
 	_, err = s.State.Machine(m1.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -36,13 +41,14 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals, jc.SameContents, []string{m1.Id(), m2.Id()})
 
-	err = s.State.CompleteMachineRemovals([]string{m1.Id(), "ignored"})
+	err = s.State.CompleteMachineRemovals(m1.Id(), "ignored")
 	c.Assert(err, jc.ErrorIsNil)
 	removals2, err := s.State.AllMachineRemovals()
 	c.Check(removals2, jc.SameContents, []string{m2.Id()})
 
 	_, err = s.State.Machine(m1.Id())
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// But m2 is still there.
 	_, err = s.State.Machine(m2.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,18 +57,42 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 func (s *MachineRemovalSuite) TestMarkForRemovalRequiresDeadness(c *gc.C) {
 	m := s.makeMachine(c, false)
 	err := m.MarkForRemoval()
-	c.Assert(err, gc.ErrorMatches, "can't remove machine 0: machine is not dead")
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
+}
+
+func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillExists(c *gc.C) {
+	m := s.makeMachine(c, true)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(m.Remove(), gc.IsNil)
+	}).Check()
+	err := m.MarkForRemoval()
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
+}
+
+func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillDead(c *gc.C) {
+	m := s.makeMachine(c, true)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(state.ResurrectMachine(m), gc.IsNil)
+	}).Check()
+	err := m.MarkForRemoval()
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
 }
 
 func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMark(c *gc.C) {
 	m1 := s.makeMachine(c, true)
 	m2 := s.makeMachine(c, true)
-	err := s.State.CompleteMachineRemovals([]string{m1.Id(), m2.Id()})
-	c.Assert(err, gc.ErrorMatches, "can't remove machines \\[0, 1\\]: not marked for removal")
+	err := s.State.CompleteMachineRemovals(m1.Id(), m2.Id())
+	c.Assert(err, gc.ErrorMatches, "cannot remove machines 0, 1: not marked for removal")
 }
 
-func (s *MachineRemovalSuite) TestCompleteMachineRemovalsIgnoresUnmarked(c *gc.C) {
-	err := s.State.CompleteMachineRemovals([]string{"A", "B"})
+func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMarkSingular(c *gc.C) {
+	m1 := s.makeMachine(c, true)
+	err := s.State.CompleteMachineRemovals(m1.Id())
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: not marked for removal")
+}
+
+func (s *MachineRemovalSuite) TestCompleteMachineRemovalsIgnoresNonexistent(c *gc.C) {
+	err := s.State.CompleteMachineRemovals("A", "B")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -81,7 +111,7 @@ func (s *MachineRemovalSuite) TestWatchMachineRemovals(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	s.State.CompleteMachineRemovals([]string{m1.Id(), m2.Id()})
+	s.State.CompleteMachineRemovals(m1.Id(), m2.Id())
 	wc.AssertOneChange()
 
 	testing.AssertStop(c, w)
