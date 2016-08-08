@@ -476,7 +476,7 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 	s.patchSeries(test.series)
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("mongosuite", &tw, loggo.INFO), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("mongosuite", &tw), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("mongosuite")
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
@@ -534,7 +534,8 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 	s.data.SetStatus(mongo.ServiceName, "installed")
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&tw, loggo.ERROR)
+	c.Assert(loggo.RegisterWriter("test-writer", writer), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test-writer")
 
 	dataDir := c.MkDir()

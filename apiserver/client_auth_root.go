@@ -8,9 +8,9 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 )
 
 // clientAuthRoot restricts API calls for users of a model. Initially the
@@ -18,11 +18,11 @@ import (
 // near future, full ACL support is desirable.
 type clientAuthRoot struct {
 	finder rpc.MethodFinder
-	user   *state.ModelUser
+	user   description.UserAccess
 }
 
 // newClientAuthRoot returns a new restrictedRoot.
-func newClientAuthRoot(finder rpc.MethodFinder, user *state.ModelUser) *clientAuthRoot {
+func newClientAuthRoot(finder rpc.MethodFinder, user description.UserAccess) *clientAuthRoot {
 	return &clientAuthRoot{finder, user}
 }
 
@@ -36,7 +36,7 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 		return nil, err
 	}
 	// ReadOnly User
-	if r.user.IsReadOnly() {
+	if r.user.Access == description.ReadAccess {
 		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
 			isCallReadOnly(rootName, methodName)
 		if !canCall {
@@ -45,8 +45,7 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	}
 
 	// Check if our call requires higher access than the user has.
-	if doesCallRequireAdmin(rootName, methodName) && !r.user.IsAdmin() {
-		logger.Debugf("THE METHOD %s.%s MIGHT REQUIRE ADMIN", rootName, methodName)
+	if doesCallRequireAdmin(rootName, methodName) && r.user.Access != description.AdminAccess {
 		return nil, errors.Trace(common.ErrPerm)
 	}
 

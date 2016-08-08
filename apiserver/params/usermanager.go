@@ -54,7 +54,7 @@ type AddUser struct {
 	Password string `json:"password,omitempty"`
 
 	// ModelAccess is the permission that the user will have to access the models.
-	ModelAccess ModelAccessPermission `json:"model-access-permission,omitempty"`
+	ModelAccess UserAccessPermission `json:"model-access-permission,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.

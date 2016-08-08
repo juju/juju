@@ -10,13 +10,15 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 type MockPolicy struct {
-	GetPrechecker           func() (state.Prechecker, error)
-	GetConfigValidator      func() (config.Validator, error)
-	GetConstraintsValidator func() (constraints.Validator, error)
-	GetInstanceDistributor  func() (instance.Distributor, error)
+	GetPrechecker              func() (state.Prechecker, error)
+	GetConfigValidator         func() (config.Validator, error)
+	GetConstraintsValidator    func() (constraints.Validator, error)
+	GetInstanceDistributor     func() (instance.Distributor, error)
+	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
 }
 
 func (p *MockPolicy) Prechecker() (state.Prechecker, error) {
@@ -37,12 +39,19 @@ func (p *MockPolicy) ConstraintsValidator() (constraints.Validator, error) {
 	if p.GetConstraintsValidator != nil {
 		return p.GetConstraintsValidator()
 	}
-	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
+	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
 func (p *MockPolicy) InstanceDistributor() (instance.Distributor, error) {
 	if p.GetInstanceDistributor != nil {
 		return p.GetInstanceDistributor()
 	}
-	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
+	return nil, errors.NotImplementedf("InstanceDistributor")
+}
+
+func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	if p.GetStorageProviderRegistry != nil {
+		return p.GetStorageProviderRegistry()
+	}
+	return nil, errors.NotImplementedf("StorageProviderRegistry")
 }

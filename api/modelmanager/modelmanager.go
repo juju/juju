@@ -136,14 +136,14 @@ func (c *Client) DestroyModel() error {
 
 // ParseModelAccess parses an access permission argument into
 // a type suitable for making an API facade call.
-func ParseModelAccess(access string) (params.ModelAccessPermission, error) {
-	var fail params.ModelAccessPermission
+func ParseModelAccess(access string) (params.UserAccessPermission, error) {
+	var fail params.UserAccessPermission
 
 	modelAccess, err := permission.ParseModelAccess(access)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-	var accessPermission params.ModelAccessPermission
+	var accessPermission params.UserAccessPermission
 	switch modelAccess {
 	case permission.ModelReadAccess:
 		accessPermission = params.ModelReadAccess

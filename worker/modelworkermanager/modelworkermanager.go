@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
+
+var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
@@ -52,8 +54,7 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	m := &modelWorkerManager{
-		config:  config,
-		started: set.NewStrings(),
+		config: config,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -70,7 +71,6 @@ type modelWorkerManager struct {
 	catacomb catacomb.Catacomb
 	config   Config
 	runner   worker.Runner
-	started  set.Strings
 }
 
 // Kill satisfies the Worker interface.
@@ -113,25 +113,16 @@ func (m *modelWorkerManager) loop() error {
 }
 
 func (m *modelWorkerManager) ensure(uuid string) error {
-	if m.started.Contains(uuid) {
-		// A second StartWorker for a given ID is mostly
-		// harmless -- it will probably be ignored, but
-		// might work if the previous worker has already
-		// stopped without error. Neither situation will
-		// hurt us directly, but we prefer to eliminate
-		// the messy uncertainty.
-		return nil
-	}
 	starter := m.starter(uuid)
 	if err := m.runner.StartWorker(uuid, starter); err != nil {
 		return errors.Trace(err)
 	}
-	m.started.Add(uuid)
 	return nil
 }
 
 func (m *modelWorkerManager) starter(uuid string) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		logger.Debugf("starting workers for %s", uuid)
 		worker, err := m.config.NewWorker(uuid)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %q", uuid)

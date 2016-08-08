@@ -89,7 +89,7 @@ func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnvir
 	return &env, nil
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {
@@ -99,7 +99,15 @@ func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) erro
 	return nil
 }
 
-// Bootstrap is specified in the Environ interface.
+// Create is part of the Environ interface.
+func (env *azureEnviron) Create(args environs.CreateParams) error {
+	if err := verifyCredentials(env); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(env.initResourceGroup(args.ControllerUUID))
+}
+
+// Bootstrap is part of the Environ interface.
 func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
 	args environs.BootstrapParams,
@@ -120,9 +128,8 @@ func (env *azureEnviron) Bootstrap(
 }
 
 // initResourceGroup creates and initialises a resource group for this
-// environment. The resource group will have a storage account and a
-// subnet associated with it (but not necessarily contained within:
-// see subnet creation).
+// environment. The resource group will have a storage account, and
+// internal network and subnet.
 func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
 	env.mu.Lock()
 	location := env.config.location

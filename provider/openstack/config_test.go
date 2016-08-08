@@ -100,7 +100,17 @@ func (t configTest) check(c *gc.C) {
 	}
 	defer restoreEnvVars(savedVars)
 
-	e, err := environs.New(environs.OpenParams{cfg})
+	cloudSpec := environs.CloudSpec{
+		Type:     "openstack",
+		Name:     "openstack",
+		Endpoint: "http://auth",
+		Region:   "Configtest",
+	}
+
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -442,7 +452,7 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "openstack",
 	})
@@ -451,20 +461,20 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	_, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsFalse)
 
-	cfg, err = providerInstance.BootstrapConfig(bootstrapConfigParams(cfg))
+	cfg, err = providerInstance.PrepareConfig(prepareConfigParams(cfg))
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "cinder")
 }
 
-func bootstrapConfigParams(cfg *config.Config) environs.BootstrapConfigParams {
+func prepareConfigParams(cfg *config.Config) environs.PrepareConfigParams {
 	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":    "user",
 		"password":    "secret",
 		"tenant-name": "sometenant",
 	})
-	return environs.BootstrapConfigParams{
+	return environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environs.CloudSpec{
 			Region:     "region",

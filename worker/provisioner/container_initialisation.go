@@ -31,7 +31,6 @@ import (
 type ContainerSetup struct {
 	runner              worker.Runner
 	supportedContainers []instance.ContainerType
-	imageURLGetter      container.ImageURLGetter
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
@@ -52,7 +51,6 @@ type ContainerSetupParams struct {
 	Runner              worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
-	ImageURLGetter      container.ImageURLGetter
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
@@ -64,7 +62,6 @@ type ContainerSetupParams struct {
 func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
-		imageURLGetter:      params.ImageURLGetter,
 		machine:             params.Machine,
 		supportedContainers: params.SupportedContainers,
 		provisioner:         params.Provisioner,
@@ -156,7 +153,7 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		Name:  cs.initLockName,
 		Clock: clock.WallClock,
 		// If we don't get the lock straigh away, there is no point trying multiple
-		// times per second for an operation that is likelty to ake multiple seconds.
+		// times per second for an operation that is likelty to take multiple seconds.
 		Delay:  time.Second,
 		Cancel: abort,
 	}

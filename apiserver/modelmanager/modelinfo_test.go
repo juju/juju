@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -83,10 +84,6 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
-	s.st.model.users[1].SetErrors(
-		state.NeverConnectedError("never connected"),
-		nil, nil, nil, nil,
-	)
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:            "testenv",
@@ -110,7 +107,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}, {
 			UserName:       "bob@local",
 			DisplayName:    "Bob",
-			LastConnection: nil, // never connected
+			LastConnection: &time.Time{},
 			Access:         params.ModelReadAccess,
 		}, {
 			UserName:       "charlotte@local",
@@ -125,11 +122,17 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
 		{"ControllerConfig", nil},
+		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
 		{"Users", nil},
+		{"ModelTag", nil},
+		{"ModelTag", nil},
+		{"ModelTag", nil},
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
@@ -217,7 +220,7 @@ type mockState struct {
 	cloud           cloud.Cloud
 	model           *mockModel
 	controllerModel *mockModel
-	users           []*state.ModelUser
+	users           []description.UserAccess
 	creds           map[string]cloud.Credential
 }
 
@@ -251,7 +254,7 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	}
 
 	for _, u := range st.controllerModel.users {
-		if user.Name() == u.UserName() && u.access == description.AdminAccess {
+		if user.Name() == u.userName && u.access == description.AdminAccess {
 			nextErr := st.NextErr()
 			if user.Name() != "admin" {
 				panic(user.Name())
@@ -271,6 +274,16 @@ func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelM
 func (st *mockState) ControllerModel() (common.Model, error) {
 	st.MethodCall(st, "ControllerModel")
 	return st.controllerModel, st.NextErr()
+}
+
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
+	st.MethodCall(st, "ComposeNewModelConfig")
+	attr := make(map[string]interface{})
+	for attrName, val := range modelAttr {
+		attr[attrName] = val
+	}
+	attr["something"] = "value"
+	return attr, st.NextErr()
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
@@ -315,9 +328,14 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) AddModelUser(spec state.ModelUserSpec) (*state.ModelUser, error) {
+func (st *mockState) AddModelUser(spec state.UserAccessSpec) (description.UserAccess, error) {
 	st.MethodCall(st, "AddModelUser", spec)
-	return nil, st.NextErr()
+	return description.UserAccess{}, st.NextErr()
+}
+
+func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (description.UserAccess, error) {
+	st.MethodCall(st, "AddControllerUser", spec)
+	return description.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) RemoveModelUser(tag names.UserTag) error {
@@ -325,9 +343,24 @@ func (st *mockState) RemoveModelUser(tag names.UserTag) error {
 	return st.NextErr()
 }
 
-func (st *mockState) ModelUser(tag names.UserTag) (*state.ModelUser, error) {
-	st.MethodCall(st, "ModelUser", tag)
-	return nil, st.NextErr()
+func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (description.UserAccess, error) {
+	st.MethodCall(st, "ModelUser", tag, target)
+	return description.UserAccess{}, st.NextErr()
+}
+
+func (st *mockState) LastModelConnection(user names.UserTag) (time.Time, error) {
+	st.MethodCall(st, "LastModelConnection", user)
+	return time.Time{}, st.NextErr()
+}
+
+func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
+	st.MethodCall(st, "RemoveUserAccess", subject, target)
+	return st.NextErr()
+}
+
+func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error) {
+	st.MethodCall(st, "SetUserAccess", subject, target, access)
+	return description.UserAccess{}, st.NextErr()
 }
 
 type mockModel struct {
@@ -386,14 +419,21 @@ func (m *mockModel) CloudCredential() string {
 	return "some-credential"
 }
 
-func (m *mockModel) Users() ([]common.ModelUser, error) {
+func (m *mockModel) Users() ([]description.UserAccess, error) {
 	m.MethodCall(m, "Users")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	users := make([]common.ModelUser, len(m.users))
+	users := make([]description.UserAccess, len(m.users))
 	for i, user := range m.users {
-		users[i] = user
+		users[i] = description.UserAccess{
+			UserID:      strings.ToLower(user.userName),
+			UserTag:     names.NewUserTag(user.userName),
+			Object:      m.ModelTag(),
+			Access:      user.access,
+			DisplayName: user.displayName,
+			UserName:    user.userName,
+		}
 	}
 	return users, nil
 }
@@ -414,45 +454,4 @@ type mockModelUser struct {
 	displayName    string
 	lastConnection time.Time
 	access         description.Access
-}
-
-func (u *mockModelUser) IsAdmin() bool {
-	u.MethodCall(u, "IsAdmin")
-	u.PopNoErr()
-	return u.access == description.AdminAccess
-}
-
-func (u *mockModelUser) IsReadOnly() bool {
-	u.MethodCall(u, "IsReadOnly")
-	u.PopNoErr()
-	return u.access == description.ReadAccess
-}
-
-func (u *mockModelUser) IsReadWrite() bool {
-	u.MethodCall(u, "IsReadWrite")
-	u.PopNoErr()
-	return u.access == description.WriteAccess
-}
-
-func (u *mockModelUser) DisplayName() string {
-	u.MethodCall(u, "DisplayName")
-	u.PopNoErr()
-	return u.displayName
-}
-
-func (u *mockModelUser) LastConnection() (time.Time, error) {
-	u.MethodCall(u, "LastConnection")
-	return u.lastConnection, u.NextErr()
-}
-
-func (u *mockModelUser) UserName() string {
-	u.MethodCall(u, "UserName")
-	u.PopNoErr()
-	return u.userName
-}
-
-func (u *mockModelUser) UserTag() names.UserTag {
-	u.MethodCall(u, "UserTag")
-	u.PopNoErr()
-	return names.NewUserTag(u.userName)
 }

@@ -32,20 +32,6 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 	return []string{"region", "vpc-id-force"}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	apiClient, _, ecfg, err := awsClients(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelName := cfg.Name()
-	vpcID := ecfg.vpcID()
-	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cfg, nil
-}
-
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
@@ -58,8 +44,8 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	return e, nil
 }
 
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region": args.Cloud.Region,
@@ -86,7 +72,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return cfg, nil
 }
 

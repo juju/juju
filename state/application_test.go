@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -1703,11 +1701,9 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsTrue)
 
-	// Run the cleanup and check the charm.
+	// Run the cleanup
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Charm(s.charm.URL())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
@@ -1789,7 +1785,7 @@ func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("constraints-tester", &tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("constraints-tester", &tw), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.mysql.SetConstraints(cons)
@@ -2242,7 +2238,6 @@ func storageRange(min, max int) string {
 }
 
 func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
@@ -2262,7 +2257,6 @@ func (s *ServiceSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldMeta := mysqlBaseMeta + oneRequiredOneOptionalStorageMeta
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)

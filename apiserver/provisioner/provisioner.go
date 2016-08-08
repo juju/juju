@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
@@ -50,11 +52,13 @@ type ProvisionerAPI struct {
 	*common.ToolsFinder
 	*common.ToolsGetter
 
-	st           *state.State
-	resources    facade.Resources
-	authorizer   facade.Authorizer
-	configGetter environs.EnvironConfigGetter
-	getAuthFunc  common.GetAuthFunc
+	st                      *state.State
+	resources               facade.Resources
+	authorizer              facade.Authorizer
+	storageProviderRegistry storage.ProviderRegistry
+	storagePoolManager      poolmanager.PoolManager
+	configGetter            environs.EnvironConfigGetter
+	getAuthFunc             common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -94,32 +98,39 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
+	env, err := environs.GetEnviron(configGetter, environs.New)
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 	return &ProvisionerAPI{
-		Remover:              common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:       common.NewStateAddresser(st),
-		APIAddresser:         common.NewAPIAddresser(st, resources),
-		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:  common.NewControllerConfig(st),
-		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:          common.NewToolsFinder(configGetter, st, urlGetter),
-		ToolsGetter:          common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
-		st:                   st,
-		resources:            resources,
-		authorizer:           authorizer,
-		configGetter:         configGetter,
-		getAuthFunc:          getAuthFunc,
+		Remover:                 common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:             common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:          common.NewStateAddresser(st),
+		APIAddresser:            common.NewAPIAddresser(st, resources),
+		ModelWatcher:            common.NewModelWatcher(st, resources, authorizer),
+		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
+		ControllerConfigAPI:     common.NewControllerConfig(st),
+		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
+		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
+		st:                      st,
+		resources:               resources,
+		authorizer:              authorizer,
+		configGetter:            configGetter,
+		storageProviderRegistry: storageProviderRegistry,
+		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		getAuthFunc:             getAuthFunc,
 	}, nil
 }
 

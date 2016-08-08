@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -49,7 +48,6 @@ func init() {
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
-	registry.RegisterEnvironStorageProviders(providerType)
 }
 
 // Open opens the environment and returns it.
@@ -73,17 +71,8 @@ func (environProvider) RestrictedConfigAttributes() []string {
 	return []string{"region"}
 }
 
-// PrepareForCreateEnvironment prepares an environment for creation. Any
-// additional configuration attributes are added to the config passed in
-// and returned.  This allows providers to add additional required config
-// for new environments that may be created in an existing juju server.
-func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-// BootstrapConfig is defined by EnvironProvider.
-func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is defined by EnvironProvider.
+func (environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	cfg := args.Config
 	switch authType := args.Cloud.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:

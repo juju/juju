@@ -93,7 +93,7 @@ type BootstrapParams struct {
 	ControllerConfig controller.Config
 
 	// ControllerInheritedConfig is the set of config attributes to be shared
-	// across all models in the same controller on the bootstrap cloud.
+	// across all models in the same controller.
 	ControllerInheritedConfig map[string]interface{}
 
 	// RegionInheritedConfig is a map[string]cloud.RegionConfigAttrs type where

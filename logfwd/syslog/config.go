@@ -45,10 +45,11 @@ func (cfg RawConfig) Validate() error {
 		return errors.Trace(err)
 	}
 
-	if _, err := cfg.tlsConfig(); err != nil {
-		return errors.Annotate(err, "validating TLS config")
+	if cfg.Enabled || cfg.ClientKey != "" || cfg.ClientCert != "" || cfg.CACert != "" {
+		if _, err := cfg.tlsConfig(); err != nil {
+			return errors.Annotate(err, "validating TLS config")
+		}
 	}
-
 	return nil
 }
 
@@ -57,7 +58,7 @@ func (cfg RawConfig) validateHost() error {
 	if err != nil {
 		host = cfg.Host
 	}
-	if host == "" {
+	if host == "" && cfg.Enabled {
 		return errors.NotValidf("Host %q", cfg.Host)
 	}
 	return nil

@@ -13,12 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -138,29 +136,30 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 			return make([]error, len(ids)), nil
 		},
 	}
-	staticProvider := &dummy.StorageProvider{
+	storageProvider := &dummy.StorageProvider{
 		IsDynamic:    true,
 		StorageScope: storage.ScopeEnviron,
-		VolumeSourceFunc: func(*config.Config, *storage.Config) (storage.VolumeSource, error) {
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
 			return volumeSource, nil
 		},
 	}
-	registry.RegisterProvider("environ", staticProvider)
-	defer registry.RegisterProvider("environ", nil)
-	registry.RegisterEnvironStorageProviders("anything, really", "environ")
-	defer registry.ResetEnvironStorageProviders("anything, really")
 
 	env := &mockEnviron{
 		config: configGetter(c),
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
+		storageProviders: storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"environ": storageProvider,
+			},
+		},
 	}
 	err := common.Destroy(env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
-	staticProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
+	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
 	volumeSource.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ListVolumes", nil},
 		{"DestroyVolumes", []interface{}{[]string{"vol-0", "vol-1", "vol-2"}}},
@@ -181,22 +180,23 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 		},
 	}
 
-	staticProvider := &dummy.StorageProvider{
+	storageProvider := &dummy.StorageProvider{
 		IsDynamic:    true,
 		StorageScope: storage.ScopeEnviron,
-		VolumeSourceFunc: func(*config.Config, *storage.Config) (storage.VolumeSource, error) {
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
 			return volumeSource, nil
 		},
 	}
-	registry.RegisterProvider("environ", staticProvider)
-	defer registry.RegisterProvider("environ", nil)
-	registry.RegisterEnvironStorageProviders("anything, really", "environ")
-	defer registry.ResetEnvironStorageProviders("anything, really")
 
 	env := &mockEnviron{
 		config: configGetter(c),
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
+		},
+		storageProviders: storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"environ": storageProvider,
+			},
 		},
 	}
 	err := common.Destroy(env)
@@ -208,15 +208,16 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *gc.C) {
 		IsDynamic:    false,
 		StorageScope: storage.ScopeEnviron,
 	}
-	registry.RegisterProvider("static", staticProvider)
-	defer registry.RegisterProvider("static", nil)
-	registry.RegisterEnvironStorageProviders("anything, really", "static")
-	defer registry.ResetEnvironStorageProviders("anything, really")
 
 	env := &mockEnviron{
 		config: configGetter(c),
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
+		},
+		storageProviders: storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"static": staticProvider,
+			},
 		},
 	}
 	err := common.Destroy(env)
@@ -231,15 +232,16 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *gc.C) {
 		IsDynamic:    true,
 		StorageScope: storage.ScopeMachine,
 	}
-	registry.RegisterProvider("machine", staticProvider)
-	defer registry.RegisterProvider("machine", nil)
-	registry.RegisterEnvironStorageProviders("anything, really", "machine")
-	defer registry.ResetEnvironStorageProviders("anything, really")
 
 	env := &mockEnviron{
 		config: configGetter(c),
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
+		},
+		storageProviders: storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"static": staticProvider,
+			},
 		},
 	}
 	err := common.Destroy(env)
@@ -257,15 +259,16 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *gc.C) {
 			return false
 		},
 	}
-	registry.RegisterProvider("filesystem", staticProvider)
-	defer registry.RegisterProvider("filesystem", nil)
-	registry.RegisterEnvironStorageProviders("anything, really", "filesystem")
-	defer registry.ResetEnvironStorageProviders("anything, really")
 
 	env := &mockEnviron{
 		config: configGetter(c),
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
+		},
+		storageProviders: storage.StaticProviderRegistry{
+			map[storage.ProviderType]storage.Provider{
+				"static": staticProvider,
+			},
 		},
 	}
 	err := common.Destroy(env)

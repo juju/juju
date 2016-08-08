@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce"
@@ -155,12 +156,37 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
+func makeTestCloudSpec() environs.CloudSpec {
+	cred := makeTestCredential()
+	return environs.CloudSpec{
+		Type:       "gce",
+		Name:       "google",
+		Region:     "us-east1",
+		Credential: &cred,
+	}
+}
+
+func makeTestCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{
+			"project-id":   "x",
+			"client-id":    "y",
+			"client-email": "zz@example.com",
+			"private-key":  "why",
+		},
+	)
+}
+
 func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(environs.OpenParams{testConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  makeTestCloudSpec(),
+			Config: testConfig,
+		})
 
 		// Check the result
 		if test.err != "" {
@@ -280,7 +306,10 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(environs.OpenParams{s.config})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  makeTestCloudSpec(),
+			Config: s.config,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)

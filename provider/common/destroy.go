@@ -9,10 +9,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 // Destroy is a common implementation of the Destroy method defined on
@@ -51,13 +49,8 @@ func destroyInstances(env environs.Environ) error {
 
 func destroyStorage(env environs.Environ) error {
 	logger.Infof("destroying storage")
-	environConfig := env.Config()
-	storageProviderTypes, ok := registry.EnvironStorageProviders(environConfig.Type())
-	if !ok {
-		return nil
-	}
-	for _, storageProviderType := range storageProviderTypes {
-		storageProvider, err := registry.StorageProvider(storageProviderType)
+	for _, storageProviderType := range env.StorageProviderTypes() {
+		storageProvider, err := env.StorageProvider(storageProviderType)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -67,7 +60,7 @@ func destroyStorage(env environs.Environ) error {
 		if storageProvider.Scope() != storage.ScopeEnviron {
 			continue
 		}
-		if err := destroyVolumes(environConfig, storageProviderType, storageProvider); err != nil {
+		if err := destroyVolumes(storageProviderType, storageProvider); err != nil {
 			return errors.Trace(err)
 		}
 		// TODO(axw) destroy env-level filesystems when we have them.
@@ -76,7 +69,6 @@ func destroyStorage(env environs.Environ) error {
 }
 
 func destroyVolumes(
-	environConfig *config.Config,
 	storageProviderType storage.ProviderType,
 	storageProvider storage.Provider,
 ) error {
@@ -93,7 +85,7 @@ func destroyVolumes(
 		return errors.Trace(err)
 	}
 
-	volumeSource, err := storageProvider.VolumeSource(environConfig, storageConfig)
+	volumeSource, err := storageProvider.VolumeSource(storageConfig)
 	if err != nil {
 		return errors.Annotate(err, "getting volume source")
 	}

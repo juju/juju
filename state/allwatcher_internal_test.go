@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,7 +56,10 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(ModelArgs{CloudName: "dummy", Config: cfg, Owner: s.owner})
+	_, st, err := s.state.NewModel(ModelArgs{
+		CloudName: "dummy", Config: cfg, Owner: s.owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st

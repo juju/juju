@@ -49,6 +49,12 @@ func (env *environ) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }
 
+// AllocateContainerAddresses implements environs.Networking.
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
+}
+
+// ReleaseContainerAddresses implements environs.Networking.
+func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
 }

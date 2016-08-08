@@ -37,7 +37,7 @@ func (c *AddMetricCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-metric",
 		Args:    "key1=value1 [key2=value2 ...]",
-		Purpose: "send metrics",
+		Purpose: "add metrics",
 	}
 }
 

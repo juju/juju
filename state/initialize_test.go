@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -65,7 +66,6 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
-	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	userpassCredential := cloud.NewCredential(
@@ -88,11 +88,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:           owner,
-			Config:          cfg,
-			CloudName:       "dummy",
-			CloudRegion:     "some-region",
-			CloudCredential: "some-credential",
+			Owner:                   owner,
+			Config:                  cfg,
+			CloudName:               "dummy",
+			CloudRegion:             "some-region",
+			CloudCredential:         "some-credential",
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -117,7 +118,13 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
+	expected := cfg.AllAttrs()
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := expected[k]; !ok {
+			expected[k] = v
+		}
+	}
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 	// Check that the model has been created.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,10 +137,10 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, owner)
 	// Check that the owner has an ModelUser created for the bootstrapped model.
-	modelUser, err := s.State.ModelUser(model.Owner())
+	modelUser, err := s.State.UserAccess(model.Owner(), model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserTag(), gc.Equals, owner)
-	c.Assert(modelUser.ModelTag(), gc.Equals, model.Tag())
+	c.Assert(modelUser.UserTag, gc.Equals, owner)
+	c.Assert(modelUser.Object, gc.Equals, model.Tag())
 
 	// Check that the model can be found through the tag.
 	entity, err = s.State.FindEntity(modelTag)
@@ -167,9 +174,10 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	_, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    modelCfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  modelCfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -189,7 +197,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	)
 }
 
-func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
@@ -203,9 +211,10 @@ func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -225,13 +234,21 @@ func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	ControllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ControllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
+	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
+	expected := cfg.AllAttrs()
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := expected[k]; !ok {
+			expected[k] = v
+		}
+	}
+	// Config as read from state has resources tags coerced to a map.
+	expected["resource-tags"] = map[string]string{}
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
@@ -246,9 +263,10 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -290,7 +308,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 }
 
 func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interface{}, remove []string, expect string) {
-	good := testing.ModelConfig(c)
+	good := testing.CustomModelConfig(c, testing.Attrs{"uuid": testing.ModelTag.Id()})
 	bad, err := good.Apply(update)
 	c.Assert(err, jc.ErrorIsNil)
 	bad, err = bad.Remove(remove)
@@ -303,9 +321,10 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    bad,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  bad,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -330,9 +349,9 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	goodAttrs := good.AllAttrs()
+	goodWithDefaults, err := config.New(config.UseDefaults, good.AllAttrs())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodWithDefaults.AllAttrs())
 }
 
 func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
@@ -351,9 +370,10 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     names.NewLocalUserTag("initialize-admin"),
-			Config:    modelCfg,
+			CloudName:               "dummy",
+			Owner:                   names.NewLocalUserTag("initialize-admin"),
+			Config:                  modelCfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

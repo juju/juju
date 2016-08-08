@@ -35,7 +35,8 @@ func NewState(caller base.APICaller) *State {
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
-		facade:              facadeCaller}
+		facade:              facadeCaller,
+	}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.

@@ -26,7 +26,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.ModelConfig(c).Apply(vsphere.ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(vsphere.ConfigAttrs())
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 }
@@ -75,7 +75,7 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 }
 
 func (ts configTestSpec) attrs() testing.Attrs {
-	return vsphere.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+	return vsphere.ConfigAttrs().Merge(ts.insert).Delete(ts.remove...)
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
@@ -128,7 +128,10 @@ func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(environs.OpenParams{testConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  vsphere.FakeCloudSpec(),
+			Config: testConfig,
+		})
 
 		// Check the result
 		if test.err != "" {
@@ -162,7 +165,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		newcfg := s.config
-		expected := vsphere.ConfigAttrs
+		expected := vsphere.ConfigAttrs()
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
@@ -189,7 +192,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: vsphere.ConfigAttrs,
+	expect: vsphere.ConfigAttrs(),
 }, {
 	info:   "cannot change datacenter",
 	insert: testing.Attrs{"datacenter": "/datacenter2"},
@@ -232,7 +235,10 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(environs.OpenParams{s.config})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  vsphere.FakeCloudSpec(),
+			Config: s.config,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)

@@ -53,6 +53,7 @@ func (sf *statusFormatter) format() formattedStatus {
 			CloudRegion:      sf.status.Model.CloudRegion,
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
+			Migration:        sf.status.Model.Migration,
 		},
 		Machines:     make(map[string]machineStatus),
 		Applications: make(map[string]applicationStatus),

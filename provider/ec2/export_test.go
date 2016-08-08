@@ -19,12 +19,8 @@ import (
 	jujustorage "github.com/juju/juju/storage"
 )
 
-func EBSProvider() jujustorage.Provider {
-	return &ebsProvider{}
-}
-
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
-	return vs.(*ebsVolumeSource).ec2
+	return vs.(*ebsVolumeSource).env.ec2()
 }
 
 func JujuGroupName(e environs.Environ) string {

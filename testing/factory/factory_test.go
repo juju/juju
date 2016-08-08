@@ -15,11 +15,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -33,7 +34,11 @@ var _ = gc.Suite(&factorySuite{})
 
 func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.NewPolicy = func(*state.State) state.Policy {
-		return &statetesting.MockPolicy{}
+		return &statetesting.MockPolicy{
+			GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+				return provider.CommonStorageProviders(), nil
+			},
+		}
 	}
 	s.StateSuite.SetUpTest(c)
 	s.Factory = factory.NewFactory(s.State)
@@ -91,7 +96,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
 	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
-	_, err = s.State.ModelUser(user.UserTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -126,18 +131,18 @@ func (s *factorySuite) TestMakeUserNoModelUser(c *gc.C) {
 
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.ModelUser(user.UserTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *factorySuite) TestMakeModelUserNil(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, nil)
-	saved, err := s.State.ModelUser(modelUser.UserTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, modelUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
-	c.Assert(saved.UserName(), gc.Equals, modelUser.UserName())
-	c.Assert(saved.DisplayName(), gc.Equals, modelUser.DisplayName())
-	c.Assert(saved.CreatedBy(), gc.Equals, modelUser.CreatedBy())
+	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
+	c.Assert(saved.UserName, gc.Equals, modelUser.UserName)
+	c.Assert(saved.DisplayName, gc.Equals, modelUser.DisplayName)
+	c.Assert(saved.CreatedBy, gc.Equals, modelUser.CreatedBy)
 }
 
 func (s *factorySuite) TestMakeModelUserPartialParams(c *gc.C) {
@@ -145,12 +150,12 @@ func (s *factorySuite) TestMakeModelUserPartialParams(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: "foobar123"})
 
-	saved, err := s.State.ModelUser(modelUser.UserTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, modelUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
-	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
-	c.Assert(saved.DisplayName(), gc.Equals, modelUser.DisplayName())
-	c.Assert(saved.CreatedBy(), gc.Equals, modelUser.CreatedBy())
+	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
+	c.Assert(saved.UserName, gc.Equals, "foobar123@local")
+	c.Assert(saved.DisplayName, gc.Equals, modelUser.DisplayName)
+	c.Assert(saved.CreatedBy, gc.Equals, modelUser.CreatedBy)
 }
 
 func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
@@ -167,12 +172,12 @@ func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
 		DisplayName: "Foo Bar",
 	})
 
-	saved, err := s.State.ModelUser(modelUser.UserTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
-	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
-	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
-	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
+	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
+	c.Assert(saved.UserName, gc.Equals, "foobar@local")
+	c.Assert(saved.CreatedBy.Id(), gc.Equals, "createdby@local")
+	c.Assert(saved.DisplayName, gc.Equals, "Foo Bar")
 }
 
 func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
@@ -184,9 +189,9 @@ func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 	}
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.ModelUser(names.NewLocalUserTag("bob"))
+	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.State.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(saved, gc.IsNil)
+	c.Assert(saved, gc.DeepEquals, description.UserAccess{})
 }
 
 func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
@@ -197,12 +202,12 @@ func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
 		CreatedBy:   creator.UserTag(),
 	})
 
-	saved, err := s.State.ModelUser(modelUser.UserTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
-	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
-	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
-	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Canonical())
+	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
+	c.Assert(saved.UserName, gc.Equals, "foobar@ubuntuone")
+	c.Assert(saved.DisplayName, gc.Equals, "Foo Bar")
+	c.Assert(saved.CreatedBy.Canonical(), gc.Equals, creator.UserTag().Canonical())
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
@@ -228,7 +233,6 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageModel}
 	password, err := utils.RandomPassword()

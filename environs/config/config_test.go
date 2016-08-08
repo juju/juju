@@ -5,8 +5,6 @@ package config_test
 
 import (
 	"fmt"
-	"os"
-	"regexp"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -42,21 +40,26 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
-	loggo.ResetLoggers()
+	loggo.DefaultContext().ResetLoggerLevels()
 }
 
 // sampleConfig holds a configuration with all required
 // attributes set.
 var sampleConfig = testing.Attrs{
-	"type":                      "my-type",
-	"name":                      "my-name",
-	"uuid":                      testing.ModelTag.Id(),
-	"authorized-keys":           testing.FakeAuthKeys,
-	"firewall-mode":             config.FwInstance,
-	"unknown":                   "my-unknown",
-	"ssl-hostname-verification": true,
-	"development":               false,
-	"default-series":            series.LatestLts(),
+	"type":                       "my-type",
+	"name":                       "my-name",
+	"uuid":                       testing.ModelTag.Id(),
+	"authorized-keys":            testing.FakeAuthKeys,
+	"firewall-mode":              config.FwInstance,
+	"unknown":                    "my-unknown",
+	"ssl-hostname-verification":  true,
+	"development":                false,
+	"default-series":             series.LatestLts(),
+	"disable-network-management": false,
+	"ignore-machine-addresses":   false,
+	"automatically-retry-hooks":  true,
+	"proxy-ssh":                  false,
+	"resource-tags":              []string{},
 }
 
 type configTest struct {
@@ -71,8 +74,6 @@ var testResourceTags = []string{"a=b", "c=", "d=e"}
 var testResourceTagsMap = map[string]string{
 	"a": "b", "c": "", "d": "e",
 }
-
-var quotedPathSeparator = regexp.QuoteMeta(string(os.PathSeparator))
 
 var minimalConfigAttrs = testing.Attrs{
 	"type": "my-type",
@@ -106,12 +107,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "my-series",
-		}),
-	}, {
-		about:       "Implicit series with empty value",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "",
 		}),
 	}, {
 		about:       "Explicit logging",
@@ -385,18 +380,23 @@ var configTests = []configTest{
 		about:       "Config settings from juju actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
-			"name":                      "sample",
-			"development":               false,
-			"ssl-hostname-verification": true,
-			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
-			"region":                    "us-east-1",
-			"default-series":            "precise",
-			"secret-key":                "a-secret-key",
-			"access-key":                "an-access-key",
-			"agent-version":             "1.13.2",
-			"firewall-mode":             "instance",
-			"type":                      "ec2",
-			"uuid":                      testing.ModelTag.Id(),
+			"name":                       "sample",
+			"development":                false,
+			"ssl-hostname-verification":  true,
+			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
+			"region":                     "us-east-1",
+			"default-series":             "precise",
+			"secret-key":                 "a-secret-key",
+			"access-key":                 "an-access-key",
+			"agent-version":              "1.13.2",
+			"firewall-mode":              "instance",
+			"disable-network-management": false,
+			"ignore-machine-addresses":   false,
+			"automatically-retry-hooks":  true,
+			"proxy-ssh":                  false,
+			"resource-tags":              []string{},
+			"type":                       "ec2",
+			"uuid":                       testing.ModelTag.Id(),
 		},
 	}, {
 		about:       "TestMode flag specified",
@@ -432,8 +432,6 @@ var configTests = []configTest{
 		}),
 		err: `empty uuid in model configuration`,
 	},
-	missingAttributeNoDefault("development"),
-	missingAttributeNoDefault("ssl-hostname-verification"),
 	{
 		about:       "Explicit apt-mirror",
 		useDefaults: config.UseDefaults,
@@ -536,15 +534,6 @@ var configTests = []configTest{
 	},
 }
 
-func missingAttributeNoDefault(attrName string) configTest {
-	return configTest{
-		about:       fmt.Sprintf("No default: missing %s", attrName),
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Delete(attrName),
-		err:         fmt.Sprintf("%s: expected [a-z]+, got nothing", attrName),
-	}
-}
-
 type testFile struct {
 	name, data string
 }
@@ -601,12 +590,13 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	testmode, _ := test.attrs["test-mode"].(bool)
 	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
-	series, _ := test.attrs["default-series"].(string)
-	if defaultSeries, ok := cfg.DefaultSeries(); ok {
-		c.Assert(defaultSeries, gc.Equals, series)
+	seriesAttr, _ := test.attrs["default-series"].(string)
+	defaultSeries, ok := cfg.DefaultSeries()
+	c.Assert(ok, jc.IsTrue)
+	if seriesAttr != "" {
+		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(series, gc.Equals, "")
-		c.Assert(defaultSeries, gc.Equals, "")
+		c.Assert(defaultSeries, gc.Equals, series.LatestLts())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -694,11 +684,20 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
-	if _, ok := test.attrs["resource-tags"]; ok {
-		c.Assert(cfgHasResourceTags, jc.IsTrue)
-		c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+	c.Assert(cfgHasResourceTags, jc.IsTrue)
+	if tags, ok := test.attrs["resource-tags"]; ok {
+		switch tags := tags.(type) {
+		case []string:
+			if len(tags) > 0 {
+				c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+			}
+		case string:
+			if tags != "" {
+				c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+			}
+		}
 	} else {
-		c.Assert(cfgHasResourceTags, jc.IsFalse)
+		c.Assert(resourceTags, gc.HasLen, 0)
 	}
 }
 
@@ -715,16 +714,20 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by gitjujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
-		"type":                      "my-type",
-		"name":                      "my-name",
-		"uuid":                      "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
-		"authorized-keys":           testing.FakeAuthKeys,
-		"firewall-mode":             config.FwInstance,
-		"unknown":                   "my-unknown",
-		"ssl-hostname-verification": true,
-		"development":               false,
-		"default-series":            series.LatestLts(),
-		"test-mode":                 false,
+		"type":                       "my-type",
+		"name":                       "my-name",
+		"uuid":                       "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
+		"authorized-keys":            testing.FakeAuthKeys,
+		"firewall-mode":              config.FwInstance,
+		"unknown":                    "my-unknown",
+		"ssl-hostname-verification":  true,
+		"default-series":             series.LatestLts(),
+		"disable-network-management": false,
+		"ignore-machine-addresses":   false,
+		"automatically-retry-hooks":  true,
+		"proxy-ssh":                  false,
+		"development":                false,
+		"test-mode":                  false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -964,19 +967,6 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
 	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
 }
 
-func (s *ConfigSuite) TestCloudImageBaseURL(c *gc.C) {
-	s.addJujuFiles(c)
-	config := newTestConfig(c, testing.Attrs{})
-	c.Assert(config.CloudImageBaseURL(), gc.Equals, "")
-}
-
-func (s *ConfigSuite) TestCloudImageBaseURLSet(c *gc.C) {
-	s.addJujuFiles(c)
-	config := newTestConfig(c, testing.Attrs{
-		"cloudimg-base-url": "http://local.foo/query"})
-	c.Assert(config.CloudImageBaseURL(), gc.Equals, "http://local.foo/query")
-}
-
 func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	s.addJujuFiles(c)
 
@@ -1121,6 +1111,23 @@ func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)
 	c.Assert(schema, gc.IsNil)
+}
+
+func (s *ConfigSuite) TestCoerceForStorage(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"resource-tags": "a=b c=d"})
+	tags, ok := cfg.ResourceTags()
+	c.Assert(ok, jc.IsTrue)
+	expectedTags := map[string]string{"a": "b", "c": "d"}
+	c.Assert(tags, gc.DeepEquals, expectedTags)
+	tagsStr := config.CoerceForStorage(cfg.AllAttrs())["resource-tags"].(string)
+	tagItems := strings.Split(tagsStr, " ")
+	tagsMap := make(map[string]string)
+	for _, kv := range tagItems {
+		parts := strings.Split(kv, "=")
+		tagsMap[parts[0]] = parts[1]
+	}
+	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
 }
 
 var specializeCharmRepoTests = []struct {

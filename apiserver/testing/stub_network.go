@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 )
 
 type StubNetwork struct {
@@ -336,6 +337,7 @@ type StubBacking struct {
 	*testing.Stub
 
 	EnvConfig *config.Config
+	Cloud     environs.CloudSpec
 
 	Zones   []providercommon.AvailabilityZone
 	Spaces  []networkingcommon.BackingSpace
@@ -368,6 +370,12 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		"name": envName,
 	}
 	sb.EnvConfig = coretesting.CustomModelConfig(c, extraAttrs)
+	sb.Cloud = environs.CloudSpec{
+		Type:            StubProviderType,
+		Name:            "cloud-name",
+		Endpoint:        "endpoint",
+		StorageEndpoint: "storage-endpoint",
+	}
 	sb.Zones = []providercommon.AvailabilityZone{}
 	if withZones {
 		sb.Zones = make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
@@ -424,6 +432,14 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return sb.EnvConfig, nil
+}
+
+func (sb *StubBacking) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
+	sb.MethodCall(sb, "CloudSpec")
+	if err := sb.NextErr(); err != nil {
+		return environs.CloudSpec{}, err
+	}
+	return sb.Cloud, nil
 }
 
 func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {

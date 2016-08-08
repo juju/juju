@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -35,31 +34,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type storageSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&storageSuite{})
-
-func (*storageSuite) TestValidateConfigUnknownConfig(c *gc.C) {
-	p := ec2.EBSProvider()
-	cfg, err := storage.NewConfig("foo", ec2.EBS_ProviderType, map[string]interface{}{
-		"unknown": "config",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.ValidateConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil) // unknown attrs ignored
-}
-
-func (s *storageSuite) TestSupports(c *gc.C) {
-	p := ec2.EBSProvider()
-	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
-	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
-}
-
-var _ = gc.Suite(&ebsVolumeSuite{})
-
-type ebsVolumeSuite struct {
+type ebsSuite struct {
 	testing.BaseSuite
 	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
 	jujutest.Tests
@@ -69,7 +44,9 @@ type ebsVolumeSuite struct {
 	instanceId string
 }
 
-func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+var _ = gc.Suite(&ebsSuite{})
+
+func (s *ebsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
 	s.Credential = cloud.NewCredential(
@@ -96,13 +73,13 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
-func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+func (s *ebsSuite) TearDownSuite(c *gc.C) {
 	s.restoreEC2Patching()
 	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
+func (s *ebsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.BaseSuite.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
@@ -112,22 +89,43 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 
-func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
+func (s *ebsSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.srv.stopServer(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.VolumeSource {
-	envCfg, err := config.New(config.NoDefaults, s.TestConfig)
+func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
+	env := s.Prepare(c)
+	p, err := env.StorageProvider(ec2.EBS_ProviderType)
 	c.Assert(err, jc.ErrorIsNil)
-	p := ec2.EBSProvider()
-	vs, err := p.VolumeSource(envCfg, cfg)
+	return p
+}
+
+func (s *ebsSuite) TestValidateConfigUnknownConfig(c *gc.C) {
+	p := s.ebsProvider(c)
+	cfg, err := storage.NewConfig("foo", ec2.EBS_ProviderType, map[string]interface{}{
+		"unknown": "config",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.ValidateConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil) // unknown attrs ignored
+}
+
+func (s *ebsSuite) TestSupports(c *gc.C) {
+	p := s.ebsProvider(c)
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+}
+
+func (s *ebsSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.VolumeSource {
+	p := s.ebsProvider(c)
+	vs, err := p.VolumeSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return vs
 }
 
-func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]storage.CreateVolumesResult, error) {
+func (s *ebsSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]storage.CreateVolumesResult, error) {
 	if instanceId == "" {
 		instanceId = s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	}
@@ -178,7 +176,7 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 	return vs.CreateVolumes(params)
 }
 
-func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanceId string) {
+func (s *ebsSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanceId string) {
 	results, err := s.createVolumes(vs, instanceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
@@ -247,12 +245,12 @@ func (s volumeSorter) Less(i, j int) bool {
 	return s.less(s.vols[i], s.vols[j])
 }
 
-func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
+func (s *ebsSuite) TestCreateVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 }
 
-func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
+func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	results, err := s.createVolumes(vs, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +301,7 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	})
 }
 
-func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
+func (s *ebsSuite) TestVolumeTypeAliases(c *gc.C) {
 	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	vs := s.volumeSource(c, nil)
 	ec2Client := ec2.StorageEC2(vs)
@@ -346,7 +344,7 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	}
 }
 
-func (s *ebsVolumeSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
+func (s *ebsSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	results, err := vs.DestroyVolumes([]string{"vol-42"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,7 +352,7 @@ func (s *ebsVolumeSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
 	c.Assert(results[0], jc.ErrorIsNil)
 }
 
-func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
+func (s *ebsSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	errs, err := vs.DetachVolumes(params)
@@ -372,7 +370,7 @@ func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
 }
 
-func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
+func (s *ebsSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	errs, err := vs.DestroyVolumes([]string{"vol-0"})
@@ -387,7 +385,7 @@ func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
 }
 
-func (s *ebsVolumeSuite) TestDescribeVolumes(c *gc.C) {
+func (s *ebsSuite) TestDescribeVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 
@@ -408,7 +406,7 @@ func (s *ebsVolumeSuite) TestDescribeVolumes(c *gc.C) {
 	}})
 }
 
-func (s *ebsVolumeSuite) TestDescribeVolumesNotFound(c *gc.C) {
+func (s *ebsSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	vols, err := vs.DescribeVolumes([]string{"vol-42"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,7 +414,7 @@ func (s *ebsVolumeSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	c.Assert(vols[0].Error, gc.ErrorMatches, "vol-42 not found")
 }
 
-func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
+func (s *ebsSuite) TestListVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 
@@ -427,7 +425,7 @@ func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
 	c.Assert(volIds, jc.SameContents, []string{"vol-0"})
 }
 
-func (s *ebsVolumeSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
+func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
 	s.srv.ec2srv.SetCreateRootDisks(true)
 	s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)
 
@@ -443,7 +441,7 @@ func (s *ebsVolumeSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
 	c.Assert(volIds, gc.HasLen, 0)
 }
 
-func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
+func (s *ebsSuite) TestCreateVolumesErrors(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	volume0 := names.NewVolumeTag("0")
 
@@ -566,7 +564,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 
 var imageId = "ami-ccf405a5" // Ubuntu Maverick, i386, EBS store
 
-func (s *ebsVolumeSuite) setupAttachVolumesTest(
+func (s *ebsSuite) setupAttachVolumesTest(
 	c *gc.C, vs storage.VolumeSource, state awsec2.InstanceState,
 ) []storage.VolumeAttachmentParams {
 
@@ -583,7 +581,7 @@ func (s *ebsVolumeSuite) setupAttachVolumesTest(
 	}}
 }
 
-func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
+func (s *ebsSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	instanceId := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)[0]
 	results, err := s.createVolumes(vs, instanceId)
@@ -594,7 +592,7 @@ func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	}
 }
 
-func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
+func (s *ebsSuite) TestAttachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	result, err := vs.AttachVolumes(params)
@@ -640,7 +638,7 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 // TODO(axw) add tests for attempting to attach while
 // a volume is still in the "creating" state.
 
-func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
+func (s *ebsSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	_, err := vs.AttachVolumes(params)

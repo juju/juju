@@ -35,19 +35,22 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{s.Config})
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  vsphere.FakeCloudSpec(),
+		Config: s.Config,
+	})
 	c.Check(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()
 	c.Assert(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
+func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 	credential := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{"user": "u", "password": "p"},
 	)
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Config: s.Config,
 		Cloud: environs.CloudSpec{
 			Credential: &credential,

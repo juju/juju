@@ -65,9 +65,13 @@ type BootstrapConfig struct {
 	// ControllerConfig is the controller configuration.
 	ControllerConfig controller.Config `yaml:"controller-config"`
 
-	// ModelConfig is the base configuration for the provider. This should
-	// be updated with the region, endpoint and credentials.
-	Config map[string]interface{} `yaml:"base-model-config"`
+	// Config is the complete configuration for the provider.
+	// This should be updated with the region, endpoint and credentials.
+	Config map[string]interface{} `yaml:"model-config"`
+
+	// TODO(wallyworld) - drop when we get to beta 15.
+	// This is for backwards compatibility with beta 13.
+	OldConfig map[string]interface{} `yaml:"base-model-config,omitempty"`
 
 	// Credential is the name of the credential used to bootstrap.
 	//

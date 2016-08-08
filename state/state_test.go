@@ -37,9 +37,9 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -176,7 +176,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 permissions doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 2 permissions doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -885,10 +885,9 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
@@ -1858,7 +1857,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.State.SetModelConstraints(cons)
@@ -4133,9 +4132,10 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

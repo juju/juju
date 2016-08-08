@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,10 +17,11 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
-	"github.com/juju/version"
+	"github.com/juju/juju/storage"
 )
 
 // modelGlobalKey is the key for the model, its
@@ -169,6 +171,10 @@ type ModelArgs struct {
 	// Constraints contains the initial constraints for the model.
 	Constraints constraints.Value
 
+	// StorageProviderRegistry is used to determine and store the
+	// details of the default storage pools.
+	StorageProviderRegistry storage.ProviderRegistry
+
 	// Owner is the user that owns the model.
 	Owner names.UserTag
 
@@ -186,6 +192,9 @@ func (m ModelArgs) Validate() error {
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
+	}
+	if m.StorageProviderRegistry == nil {
+		return errors.NotValidf("nil StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeActive, MigrationModeImporting:
@@ -577,22 +586,22 @@ func (m *Model) refresh(query mongo.Query) error {
 }
 
 // Users returns a slice of all users for this model.
-func (m *Model) Users() ([]*ModelUser, error) {
+func (m *Model) Users() ([]description.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
 	coll, closer := m.st.getCollection(modelUsersC)
 	defer closer()
 
-	var userDocs []modelUserDoc
+	var userDocs []userAccessDoc
 	err := coll.Find(nil).All(&userDocs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var modelUsers []*ModelUser
+	var modelUsers []description.UserAccess
 	for _, doc := range userDocs {
-		mu, err := NewModelUser(m.st, doc)
+		mu, err := NewModelUserAccess(m.st, doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

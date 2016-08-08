@@ -7,6 +7,7 @@ package lxdclient
 
 import (
 	"crypto/x509"
+	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -21,6 +22,13 @@ type BaseSuite struct {
 	Stub   *testing.Stub
 	Client *stubClient
 	Cert   *Cert
+}
+
+func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+	if runtime.GOOS == "windows" {
+		c.Skip("LXD is not supported on Windows")
+	}
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {

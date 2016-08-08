@@ -56,6 +56,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+		filesystemsC,
+		filesystemAttachmentsC,
 		volumesC,
 		volumeAttachmentsC,
 	)
@@ -79,6 +81,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
+		// Controller users contain extra data about users therefore
+		// are not migrated either.
+		controllerUsersC,
 		// userenvnameC is just to provide a unique key constraint.
 		usermodelnameC,
 		// Metrics aren't migrated.
@@ -149,8 +154,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		filesystemsC,
-		filesystemAttachmentsC,
 		storageInstancesC,
 		storageAttachmentsC,
 		storageConstraintsC,
@@ -176,6 +179,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// If this test fails, it means that a new collection has been added
 	// but migrations for it has not been done. This is a Bad Thing™.
+	// Beware, if your collection is something controller-related it might
+	// not need migration (such as Users or ControllerUsers) in that
+	// case they only need to be accounted for among the ignored collections.
 	c.Assert(remainder, gc.HasLen, 0)
 }
 
@@ -204,16 +210,16 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// ModelUUID shouldn't be exported, and is inherited
+		// ObjectUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"ModelUUID",
+		"ObjectUUID",
 		// Tracked fields:
 		"UserName",
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
 	)
-	s.AssertExportedFields(c, modelUserDoc{}, fields)
+	s.AssertExportedFields(c, userAccessDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
@@ -679,6 +685,49 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
 	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
 		"ReadOnly"))
+}
+
+func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"FilesystemId",
+		"StorageId",
+		"VolumeId",
+		"AttachmentCount", // through count of attachment instances
+		"Binding",
+		"Info",
+		"Params",
+	)
+	s.AssertExportedFields(c, filesystemDoc{}, migrated.Union(ignored))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, FilesystemInfo{}, set.NewStrings(
+		"Size", "Pool", "FilesystemId"))
+	s.AssertExportedFields(c, FilesystemParams{}, set.NewStrings(
+		"Size", "Pool"))
+}
+
+func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Filesystem",
+		"Machine",
+		"Info",
+		"Params",
+	)
+	s.AssertExportedFields(c, filesystemAttachmentDoc{}, migrated.Union(ignored))
+	// The info and params fields ar structs.
+	s.AssertExportedFields(c, FilesystemAttachmentInfo{}, set.NewStrings(
+		"MountPoint", "ReadOnly"))
+	s.AssertExportedFields(c, FilesystemAttachmentParams{}, set.NewStrings(
+		"Location", "ReadOnly"))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

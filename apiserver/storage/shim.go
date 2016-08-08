@@ -7,8 +7,36 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage/poolmanager"
 )
+
+// This file contains untested shims to let us wrap state in a sensible
+// interface and avoid writing tests that depend on mongodb. If you were
+// to change any part of it so that it were no longer *obviously* and
+// *trivially* correct, you would be Doing It Wrong.
+
+func init() {
+	common.RegisterStandardFacade("Storage", 3, newAPI)
+}
+
+func newAPI(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*API, error) {
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting environ")
+	}
+	registry := stateenvirons.NewStorageProviderRegistry(env)
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	return NewAPI(getState(st), registry, pm, resources, authorizer)
+}
 
 type storageAccess interface {
 	// StorageInstance is required for storage functionality.

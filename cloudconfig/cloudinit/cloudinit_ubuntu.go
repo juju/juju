@@ -268,7 +268,6 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		// leave it to the networker worker.
 		"bridge-utils",
 		"cloud-utils",
-		"cloud-image-utils",
 		"tmux",
 	}
 

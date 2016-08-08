@@ -14,7 +14,7 @@ const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
 func New(args OpenParams) (Environ, error) {
-	p, err := Provider(args.Config.Type())
+	p, err := Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -87,8 +87,9 @@ func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
 	return &fakeController{Stub: &testing.Stub{}, files: files}
 }
 
-func (c *fakeController) Devices(gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
-	return c.devices, nil
+func (c *fakeController) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	c.MethodCall(c, "Devices", args)
+	return c.devices, c.NextErr()
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -502,4 +503,9 @@ func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaas
 	d.MethodCall(d, "CreateInterface", args)
 	d.interfaceSet = append(d.interfaceSet, d.interface_)
 	return d.interface_, d.NextErr()
+}
+
+func (d *fakeDevice) Delete() error {
+	d.MethodCall(d, "Delete")
+	return d.NextErr()
 }

@@ -4,6 +4,8 @@
 package modelconfig
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -32,11 +34,14 @@ func (c *Client) Close() error {
 func (c *Client) ModelGet() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelGet", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	values := make(map[string]interface{})
 	for name, val := range result.Config {
 		values[name] = val.Value
 	}
-	return values, err
+	return values, nil
 }
 
 // ModelGetWithMetadata returns all model settings along with extra
@@ -44,6 +49,9 @@ func (c *Client) ModelGet() (map[string]interface{}, error) {
 func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelGet", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	values := make(config.ConfigValues)
 	for name, val := range result.Config {
 		values[name] = config.ConfigValue{
@@ -51,7 +59,7 @@ func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
 			Source: val.Source,
 		}
 	}
-	return values, err
+	return values, nil
 }
 
 // ModelSet sets the given key-value pairs in the model.
@@ -64,4 +72,33 @@ func (c *Client) ModelSet(config map[string]interface{}) error {
 func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
+}
+
+// ModelDefaults returns the default config values used when creating a new model.
+func (c *Client) ModelDefaults() (config.ConfigValues, error) {
+	result := params.ModelConfigResults{}
+	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	values := make(config.ConfigValues)
+	for name, val := range result.Config {
+		values[name] = config.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
+	return values, nil
+}
+
+// SetModelDefaults updates the specified default model config values.
+func (c *Client) SetModelDefaults(config map[string]interface{}) error {
+	args := params.ModelSet{Config: config}
+	return c.facade.FacadeCall("SetModelDefaults", args, nil)
+}
+
+// UnsetModelDefaults removes the specified default model config values.
+func (c *Client) UnsetModelDefaults(keys ...string) error {
+	args := params.ModelUnset{Keys: keys}
+	return c.facade.FacadeCall("UnsetModelDefaults", args, nil)
 }

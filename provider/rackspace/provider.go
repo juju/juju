@@ -16,11 +16,11 @@ type environProvider struct {
 
 var providerInstance *environProvider
 
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	// Rackspace regions are expected to be uppercase, but Juju
 	// stores and displays them in lowercase in the CLI. Ensure
 	// they're uppercase when they get to the Rackspace API.
 	args.Cloud.Region = strings.ToUpper(args.Cloud.Region)
-	return p.EnvironProvider.BootstrapConfig(args)
+	return p.EnvironProvider.PrepareConfig(args)
 }

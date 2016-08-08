@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
 
@@ -26,13 +25,16 @@ type StorageProvider struct {
 	// dynamic provisioning.
 	IsDynamic bool
 
+	// DefaultPools_ will be returned by DefaultPools.
+	DefaultPools_ []*storage.Config
+
 	// VolumeSourceFunc will be called by VolumeSource, if non-nil;
 	// otherwise VolumeSource will return a NotSupported error.
-	VolumeSourceFunc func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	VolumeSourceFunc func(*storage.Config) (storage.VolumeSource, error)
 
 	// FilesystemSourceFunc will be called by FilesystemSource, if non-nil;
 	// otherwise FilesystemSource will return a NotSupported error.
-	FilesystemSourceFunc func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	FilesystemSourceFunc func(*storage.Config) (storage.FilesystemSource, error)
 
 	// ValidateConfigFunc will be called by ValidateConfig, if non-nil;
 	// otherwise ValidateConfig returns nil.
@@ -44,19 +46,19 @@ type StorageProvider struct {
 }
 
 // VolumeSource is defined on storage.Provider.
-func (p *StorageProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
-	p.MethodCall(p, "VolumeSource", environConfig, providerConfig)
+func (p *StorageProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
+	p.MethodCall(p, "VolumeSource", providerConfig)
 	if p.VolumeSourceFunc != nil {
-		return p.VolumeSourceFunc(environConfig, providerConfig)
+		return p.VolumeSourceFunc(providerConfig)
 	}
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on storage.Provider.
-func (p *StorageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
-	p.MethodCall(p, "FilesystemSource", environConfig, providerConfig)
+func (p *StorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	p.MethodCall(p, "FilesystemSource", providerConfig)
 	if p.FilesystemSourceFunc != nil {
-		return p.FilesystemSourceFunc(environConfig, providerConfig)
+		return p.FilesystemSourceFunc(providerConfig)
 	}
 	return nil, errors.NotSupportedf("filesystems")
 }
@@ -89,4 +91,10 @@ func (p *StorageProvider) Scope() storage.Scope {
 func (p *StorageProvider) Dynamic() bool {
 	p.MethodCall(p, "Dynamic")
 	return p.IsDynamic
+}
+
+// DefaultPool is defined on storage.Provider.
+func (p *StorageProvider) DefaultPools() []*storage.Config {
+	p.MethodCall(p, "DefaultPools")
+	return p.DefaultPools_
 }

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -20,13 +21,21 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
+func CloudSpec() environs.CloudSpec {
+	return environs.CloudSpec{
+		Name:     "manual",
+		Type:     "manual",
+		Endpoint: "hostname",
+	}
+}
+
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":            "test",
 		"type":            "manual",
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ModelTag.Id(),
-		"bootstrap-host":  "hostname",
+		"firewall-mode":   "instance",
 		"bootstrap-user":  "",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
@@ -50,25 +59,6 @@ func getModelConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 	return envConfig
 }
 
-func (s *configSuite) TestValidateConfig(c *gc.C) {
-	testConfig := MinimalConfig(c)
-	testConfig, err := testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = manualProvider{}.Validate(testConfig, nil)
-	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
-
-	values := MinimalConfigValues()
-	delete(values, "bootstrap-user")
-	testConfig, err = config.New(config.UseDefaults, values)
-	c.Assert(err, jc.ErrorIsNil)
-
-	valid, err := manualProvider{}.Validate(testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	unknownAttrs := valid.UnknownAttrs()
-	c.Assert(unknownAttrs["bootstrap-host"], gc.Equals, "hostname")
-	c.Assert(unknownAttrs["bootstrap-user"], gc.Equals, "")
-}
-
 func (s *configSuite) TestConfigMutability(c *gc.C) {
 	testConfig := MinimalConfig(c)
 	valid, err := manualProvider{}.Validate(testConfig, nil)
@@ -80,7 +70,6 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 	// machine agent's config/upstart config.
 	oldConfig := testConfig
 	for k, v := range map[string]interface{}{
-		"bootstrap-host": "new-hostname",
 		"bootstrap-user": "new-username",
 	} {
 		testConfig = MinimalConfig(c)
@@ -93,14 +82,11 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 	}
 }
 
-func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
+func (s *configSuite) TestBootstrapUser(c *gc.C) {
 	values := MinimalConfigValues()
 	testConfig := getModelConfig(c, values)
-	c.Assert(testConfig.bootstrapHost(), gc.Equals, "hostname")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "")
-	values["bootstrap-host"] = "127.0.0.1"
 	values["bootstrap-user"] = "ubuntu"
 	testConfig = getModelConfig(c, values)
-	c.Assert(testConfig.bootstrapHost(), gc.Equals, "127.0.0.1")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "ubuntu")
 }

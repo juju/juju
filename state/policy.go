@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/storage"
 )
 
 // NewPolicyFunc is the type of a function that,
@@ -39,6 +40,9 @@ type Policy interface {
 
 	// InstanceDistributor returns an instance.Distributor or an error.
 	InstanceDistributor() (instance.Distributor, error)
+
+	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
+	StorageProviderRegistry() (storage.ProviderRegistry, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -159,4 +163,11 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return nil, fmt.Errorf("policy returned nil configValidator without an error")
 	}
 	return configValidator.Validate(cfg, old)
+}
+
+func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
+	if st.policy == nil {
+		return storage.StaticProviderRegistry{}, nil
+	}
+	return st.policy.StorageProviderRegistry()
 }

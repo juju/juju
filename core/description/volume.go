@@ -16,7 +16,8 @@ type volumes struct {
 
 type volume struct {
 	ID_          string `yaml:"id"`
-	Binding_     string `yaml:"binding"`
+	Binding_     string `yaml:"binding,omitempty"`
+	StorageID_   string `yaml:"storage-id,omitempty"`
 	Provisioned_ bool   `yaml:"provisioned"`
 	Size_        uint64 `yaml:"size"`
 	Pool_        string `yaml:"pool,omitempty"`
@@ -47,6 +48,7 @@ type volumeAttachment struct {
 // VolumeArgs is an argument struct used to add a volume to the Model.
 type VolumeArgs struct {
 	Tag         names.VolumeTag
+	Storage     names.StorageTag
 	Binding     names.Tag
 	Provisioned bool
 	Size        uint64
@@ -59,6 +61,7 @@ type VolumeArgs struct {
 func newVolume(args VolumeArgs) *volume {
 	v := &volume{
 		ID_:            args.Tag.Id(),
+		StorageID_:     args.Storage.Id(),
 		Provisioned_:   args.Provisioned,
 		Size_:          args.Size,
 		Pool_:          args.Pool,
@@ -77,6 +80,14 @@ func newVolume(args VolumeArgs) *volume {
 // Tag implements Volume.
 func (v *volume) Tag() names.VolumeTag {
 	return names.NewVolumeTag(v.ID_)
+}
+
+// Storage implements Volume.
+func (v *volume) Storage() names.StorageTag {
+	if v.StorageID_ == "" {
+		return names.StorageTag{}
+	}
+	return names.NewStorageTag(v.StorageID_)
 }
 
 // Binding implements Volume.
@@ -214,6 +225,7 @@ var volumeDeserializationFuncs = map[int]volumeDeserializationFunc{
 func importVolumeV1(source map[string]interface{}) (*volume, error) {
 	fields := schema.Fields{
 		"id":          schema.String(),
+		"storage-id":  schema.String(),
 		"binding":     schema.String(),
 		"provisioned": schema.Bool(),
 		"size":        schema.ForceUint(),
@@ -226,6 +238,8 @@ func importVolumeV1(source map[string]interface{}) (*volume, error) {
 	}
 
 	defaults := schema.Defaults{
+		"storage-id":  "",
+		"binding":     "",
 		"pool":        "",
 		"hardware-id": "",
 		"volume-id":   "",
@@ -243,6 +257,7 @@ func importVolumeV1(source map[string]interface{}) (*volume, error) {
 	// contains fields of the right type.
 	result := &volume{
 		ID_:            valid["id"].(string),
+		StorageID_:     valid["storage-id"].(string),
 		Binding_:       valid["binding"].(string),
 		Provisioned_:   valid["provisioned"].(bool),
 		Size_:          valid["size"].(uint64),

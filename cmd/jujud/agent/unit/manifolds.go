@@ -179,6 +179,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			WorkerFunc:    proxyupdater.NewWorker,
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is

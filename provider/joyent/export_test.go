@@ -220,7 +220,7 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
-			BaseConfig:       attrs,
+			ModelConfig:      attrs,
 			ControllerName:   attrs["name"].(string),
 			Cloud: environs.CloudSpec{
 				Type:       "joyent",

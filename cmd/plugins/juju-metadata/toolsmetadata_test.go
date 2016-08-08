@@ -43,9 +43,6 @@ var _ = gc.Suite(&ToolsMetadataSuite{})
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(dummy.Reset)
-	s.AddCleanup(func(*gc.C) {
-		loggo.ResetLoggers()
-	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -60,7 +57,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),
-			BaseConfig:       cfg.AllAttrs(),
+			ModelConfig:      cfg.AllAttrs(),
 			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},

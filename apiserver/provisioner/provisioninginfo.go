@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
@@ -125,7 +123,6 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if err != nil {
 		return nil, err
 	}
-	poolManager := poolmanager.New(state.NewStateSettings(p.st))
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
@@ -140,11 +137,13 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(), modelConfig, poolManager)
+			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			modelConfig, p.storagePoolManager, p.storageProviderRegistry,
+		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
-		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		provider, err := p.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage provider")
 		}

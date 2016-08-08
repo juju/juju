@@ -78,9 +78,11 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.api = NewFakeAPI()
 
-	s.config.Directory = c.MkDir()
-	s.config.Filename = "juju-proxy-settings"
-	s.config.API = s.api
+	s.config = proxyupdater.Config{
+		Directory: c.MkDir(),
+		Filename:  "juju-proxy-settings",
+		API:       s.api,
+	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(s.config.Directory, "juju-apt-proxy"))
 	s.proxyFile = path.Join(s.config.Directory, s.config.Filename)
 }
@@ -93,9 +95,10 @@ func (s *ProxyUpdaterSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) {
+	maxWait := time.After(coretesting.LongWait)
 	for {
 		select {
-		case <-time.After(time.Second):
+		case <-maxWait:
 			c.Fatalf("timeout while waiting for proxy settings to change")
 			return
 		case <-time.After(10 * time.Millisecond):
@@ -117,9 +120,10 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Proxy settings are written to the registry on windows")
 	}
+	maxWait := time.After(coretesting.LongWait)
 	for {
 		select {
-		case <-time.After(time.Second):
+		case <-maxWait:
 			c.Fatalf("timeout while waiting for proxy settings to change")
 			return
 		case <-time.After(10 * time.Millisecond):
@@ -214,4 +218,27 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 	assertEnv("https_proxy", proxySettings.Https)
 	assertEnv("ftp_proxy", proxySettings.Ftp)
 	assertEnv("no_proxy", proxySettings.NoProxy)
+}
+
+func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *gc.C) {
+	proxySettings, _ := s.updateConfig(c)
+
+	var externalSettings proxy.Settings
+	updated := make(chan struct{})
+	s.config.ExternalUpdate = func(values proxy.Settings) error {
+		externalSettings = values
+		close(updated)
+		return nil
+	}
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(updater)
+
+	select {
+	case <-time.After(time.Second):
+		c.Fatal("function not called")
+	case <-updated:
+	}
+
+	c.Assert(externalSettings, jc.DeepEquals, proxySettings)
 }

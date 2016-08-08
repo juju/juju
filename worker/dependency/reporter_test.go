@@ -158,12 +158,12 @@ func (s *ReportSuite) TestReportError(c *gc.C) {
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":  "stopped",
-					"error":  dependency.ErrMissing.Error(),
+					"error":  `"missing" not running: dependency not available`,
 					"inputs": []string{"missing"},
 					"resource-log": []map[string]interface{}{{
 						"name":  "missing",
 						"type":  "<nil>",
-						"error": dependency.ErrMissing.Error(),
+						"error": `"missing" not running: dependency not available`,
 					}},
 				},
 			},

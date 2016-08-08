@@ -123,7 +123,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 	return env.apiVersion == apiVersion2
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {
@@ -133,7 +133,15 @@ func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 	return nil
 }
 
-// Bootstrap is specified in the Environ interface.
+// Create is part of the Environ interface.
+func (env *maasEnviron) Create(environs.CreateParams) error {
+	if err := verifyCredentials(env); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Bootstrap is part of the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
@@ -2198,4 +2206,65 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	}
 	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
 	return finalInterfaces, nil
+}
+
+func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+	macAddresses := make([]string, len(interfaces))
+	for i, info := range interfaces {
+		macAddresses[i] = info.MACAddress
+	}
+	if !env.usingMAAS2() {
+		return env.releaseContainerAddresses1(macAddresses)
+	}
+	return env.releaseContainerAddresses2(macAddresses)
+}
+
+func (env *maasEnviron) releaseContainerAddresses1(macAddresses []string) error {
+	devicesAPI := env.getMAASClient().GetSubObject("devices")
+	values := url.Values{}
+	for _, address := range macAddresses {
+		values.Add("mac_address", address)
+	}
+	result, err := devicesAPI.CallGet("list", values)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	devicesArray, err := result.GetArray()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deviceIds := make([]string, len(devicesArray))
+	for i, deviceItem := range devicesArray {
+		deviceMap, err := deviceItem.GetMap()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		id, err := deviceMap["system_id"].GetString()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		deviceIds[i] = id
+	}
+
+	for _, id := range deviceIds {
+		err := devicesAPI.GetSubObject(id).Delete()
+		if err != nil {
+			return errors.Annotatef(err, "deleting device %s", id)
+		}
+	}
+	return nil
+}
+
+func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error {
+	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: macAddresses})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, device := range devices {
+		err = device.Delete()
+		if err != nil {
+			return errors.Annotatef(err, "deleting device %s", device.SystemID())
+		}
+	}
+	return nil
 }

@@ -10,8 +10,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -34,7 +36,11 @@ type ConnSuite struct {
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	c.Log("SetUpTest")
 
-	cs.policy = statetesting.MockPolicy{}
+	cs.policy = statetesting.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return dummy.StorageProviders(), nil
+		},
+	}
 	cs.StateSuite.NewPolicy = func(*state.State) state.Policy {
 		return &cs.policy
 	}
@@ -109,7 +115,10 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(state.ModelArgs{CloudName: "dummy", Config: cfg, Owner: otherOwner})
+	_, otherState, err := s.State.NewModel(state.ModelArgs{
+		CloudName: "dummy", Config: cfg, Owner: otherOwner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
@@ -66,9 +67,9 @@ func (s *ConfigSuite) TestNilLife(c *gc.C) {
 	s.checkNotValid(c, "nil Life not valid")
 }
 
-func (s *ConfigSuite) TestNilEnviron(c *gc.C) {
-	s.config.Environ = nil
-	s.checkNotValid(c, "nil Environ not valid")
+func (s *ConfigSuite) TestNilRegistry(c *gc.C) {
+	s.config.Registry = nil
+	s.checkNotValid(c, "nil Registry not valid")
 }
 
 func (s *ConfigSuite) TestNilMachines(c *gc.C) {
@@ -93,9 +94,9 @@ func (s *ConfigSuite) checkNotValid(c *gc.C, match string) {
 }
 
 func validEnvironConfig() storageprovisioner.Config {
-	config := almostValidConfig()
-	config.Scope = coretesting.ModelTag
-	return config
+	cfg := almostValidConfig()
+	cfg.Scope = coretesting.ModelTag
+	return cfg
 }
 
 func validMachineConfig() storageprovisioner.Config {
@@ -118,8 +119,8 @@ func almostValidConfig() storageprovisioner.Config {
 		Life: struct {
 			storageprovisioner.LifecycleManager
 		}{},
-		Environ: struct {
-			storageprovisioner.ModelAccessor
+		Registry: struct {
+			storage.ProviderRegistry
 		}{},
 		Machines: struct {
 			storageprovisioner.MachineAccessor

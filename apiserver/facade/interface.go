@@ -6,6 +6,7 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -91,6 +92,10 @@ type Authorizer interface {
 	// Doesn't need to be on this interface, should be a utility
 	// func if anything.
 	AuthClient() bool
+
+	// HasPermission returns true if the given access is allowed for the given
+	// target by the authenticated entity.
+	HasPermission(operation description.Access, target names.Tag) (bool, error)
 }
 
 // Resources allows you to store and retrieve Resource implementations.

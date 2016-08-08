@@ -106,7 +106,7 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.ModelUser(testAdmin)
+	owner, err := s.State.UserAccess(testAdmin, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
@@ -118,14 +118,14 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.ModelUserInfoResults
 	for _, r := range []struct {
-		user *state.ModelUser
+		user description.UserAccess
 		info *params.ModelUserInfo
 	}{
 		{
 			owner,
 			&params.ModelUserInfo{
-				UserName:    owner.UserName(),
-				DisplayName: owner.DisplayName(),
+				UserName:    owner.UserName,
+				DisplayName: owner.DisplayName,
 				Access:      "admin",
 			},
 		}, {
@@ -158,7 +158,7 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			},
 		},
 	} {
-		r.info.LastConnection = lastConnPointer(c, r.user)
+		r.info.LastConnection = lastConnPointer(c, r.user, s.State)
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 
@@ -167,8 +167,8 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func lastConnPointer(c *gc.C, modelUser *state.ModelUser) *time.Time {
-	lastConn, err := modelUser.LastConnection()
+func lastConnPointer(c *gc.C, modelUser description.UserAccess, st *state.State) *time.Time {
+	lastConn, err := st.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
@@ -186,10 +186,10 @@ func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
-func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) *state.ModelUser {
+func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) description.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }

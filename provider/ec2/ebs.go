@@ -15,12 +15,10 @@ import (
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 const (
@@ -116,18 +114,23 @@ const (
 
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
-func init() {
-	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
-		EBS_VolumeType: volumeTypeSsd,
-	})
-	defaultPools := []*storage.Config{
-		ebsssdPool,
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *environ) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{EBS_ProviderType}
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == EBS_ProviderType {
+		return &ebsProvider{env}, nil
 	}
-	poolmanager.RegisterDefaultStoragePools(defaultPools)
+	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // ebsProvider creates volume sources which use AWS EBS volumes.
-type ebsProvider struct{}
+type ebsProvider struct {
+	env *environ
+}
 
 var _ storage.Provider = (*ebsProvider)(nil)
 
@@ -209,14 +212,19 @@ func (e *ebsProvider) Dynamic() bool {
 	return true
 }
 
+// DefaultPools is defined on the Provider interface.
+func (e *ebsProvider) DefaultPools() []*storage.Config {
+	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
+		EBS_VolumeType: volumeTypeSsd,
+	})
+	return []*storage.Config{ssdPool}
+}
+
 // VolumeSource is defined on the Provider interface.
-func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
-	ec2, _, _, err := awsClients(environConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating AWS clients")
-	}
+func (e *ebsProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
+	environConfig := e.env.Config()
 	source := &ebsVolumeSource{
-		ec2:       ec2,
+		env:       e.env,
 		envName:   environConfig.Name(),
 		modelUUID: environConfig.UUID(),
 	}
@@ -224,12 +232,12 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (e *ebsProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
 type ebsVolumeSource struct {
-	ec2       *ec2.EC2
+	env       *environ
 	envName   string // non-unique, informational only
 	modelUUID string
 }
@@ -280,7 +288,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 
 	instances := make(instanceCache)
 	if instanceIds.Size() > 1 {
-		if err := instances.update(v.ec2, instanceIds.Values()...); err != nil {
+		if err := instances.update(v.env.ec2(), instanceIds.Values()...); err != nil {
 			logger.Debugf("querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
@@ -309,7 +317,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 		if err == nil || volumeId == "" {
 			return
 		}
-		if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
+		if _, err := v.env.ec2().DeleteVolume(volumeId); err != nil {
 			logger.Errorf("error cleaning up volume %v: %v", volumeId, err)
 		}
 	}()
@@ -321,7 +329,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 
 	// Create.
 	instId := string(p.Attachment.InstanceId)
-	if err := instances.update(v.ec2, instId); err != nil {
+	if err := instances.update(v.env.ec2(), instId); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	inst, err := instances.get(instId)
@@ -332,7 +340,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 	}
 	vol, _ := parseVolumeOptions(p.Size, p.Attributes)
 	vol.AvailZone = inst.AvailZone
-	resp, err := v.ec2.CreateVolume(vol)
+	resp, err := v.env.ec2().CreateVolume(vol)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -344,7 +352,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 		resourceTags[k] = v
 	}
 	resourceTags[tagName] = resourceName(p.Tag, v.envName)
-	if err := tagResources(v.ec2, resourceTags, volumeId); err != nil {
+	if err := tagResources(v.env.ec2(), resourceTags, volumeId); err != nil {
 		return nil, nil, errors.Annotate(err, "tagging volume")
 	}
 
@@ -363,7 +371,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
-	return listVolumes(v.ec2, filter)
+	return listVolumes(v.env.ec2(), filter)
 }
 
 func listVolumes(client *ec2.EC2, filter *ec2.Filter) ([]string, error) {
@@ -398,7 +406,7 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 	// operation to fail. If we get an invalid volume ID response,
 	// fall back to querying each volume individually. That should
 	// be rare.
-	resp, err := v.ec2.Volumes(volIds, nil)
+	resp, err := v.env.ec2().Volumes(volIds, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +438,7 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
-	return destroyVolumes(v.ec2, volIds), nil
+	return destroyVolumes(v.env.ec2(), volIds), nil
 }
 
 func destroyVolumes(client *ec2.EC2, volIds []string) []error {
@@ -603,7 +611,7 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	}
 	instances := make(instanceCache)
 	if instIds.Size() > 1 {
-		if err := instances.update(v.ec2, instIds.Values()...); err != nil {
+		if err := instances.update(v.env.ec2(), instIds.Values()...); err != nil {
 			logger.Debugf("querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
@@ -681,7 +689,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 			// Can't attach any more volumes.
 			return "", "", err
 		}
-		_, err = v.ec2.AttachVolume(volumeId, instId, requestDeviceName)
+		_, err = v.env.ec2().AttachVolume(volumeId, instId, requestDeviceName)
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			switch ec2Err.Code {
 			case invalidParameterValue:
@@ -712,7 +720,7 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 		Delay: 200 * time.Millisecond,
 	}
 	var lastStatus string
-	volume, err := waitVolume(v.ec2, volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
+	volume, err := waitVolume(v.env.ec2(), volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
 		lastStatus = volume.Status
 		return volume.Status != volumeStatusCreating, nil
 	})
@@ -797,7 +805,7 @@ func (c instanceCache) get(id string) (ec2.Instance, error) {
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
-	return detachVolumes(v.ec2, attachParams)
+	return detachVolumes(v.env.ec2(), attachParams)
 }
 
 func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParams) ([]error, error) {

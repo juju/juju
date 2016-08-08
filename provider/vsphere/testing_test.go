@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var (
-	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
+func ConfigAttrs() testing.Attrs {
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"type":             "vsphere",
 		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"datacenter":       "/datacenter1",
@@ -39,7 +39,14 @@ var (
 		"password":         "password1",
 		"external-network": "",
 	})
-)
+}
+
+func FakeCloudSpec() environs.CloudSpec {
+	return environs.CloudSpec{
+		Type: "vsphere",
+		Name: "vsphere",
+	}
+}
 
 type BaseSuite struct {
 	gitjujutesting.IsolationSuite
@@ -63,9 +70,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
-	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{cfg})
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  FakeCloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.Env = env.(*environ)
 	s.setConfig(c, cfg)

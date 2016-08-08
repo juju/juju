@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -119,12 +121,13 @@ type MetricParams struct {
 }
 
 type ModelParams struct {
-	Name            string
-	Owner           names.Tag
-	ConfigAttrs     testing.Attrs
-	CloudName       string
-	CloudRegion     string
-	CloudCredential string
+	Name                    string
+	Owner                   names.Tag
+	ConfigAttrs             testing.Attrs
+	CloudName               string
+	CloudRegion             string
+	CloudCredential         string
+	StorageProviderRegistry storage.ProviderRegistry
 }
 
 type SpaceParams struct {
@@ -186,7 +189,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoModelUser {
-		_, err := factory.st.AddModelUser(state.ModelUserSpec{
+		_, err := factory.st.AddModelUser(state.UserAccessSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -205,7 +208,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 // attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) description.UserAccess {
 	if params == nil {
 		params = &ModelUserParams{}
 	}
@@ -225,7 +228,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
+	modelUser, err := factory.st.AddModelUser(state.UserAccessSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
@@ -577,6 +580,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
+	if params.StorageProviderRegistry == nil {
+		params.StorageProviderRegistry = provider.CommonStorageProviders()
+	}
 	// It only makes sense to make an model with the same provider
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
@@ -595,6 +601,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		CloudCredential: params.CloudCredential,
 		Config:          cfg,
 		Owner:           params.Owner.(names.UserTag),
+		StorageProviderRegistry: params.StorageProviderRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

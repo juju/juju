@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type volumeAlreadyProvisionedError struct {
@@ -34,6 +33,7 @@ func VolumeParams(
 	modelUUID, controllerUUID string,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (params.VolumeParams, error) {
 
 	var pool string
@@ -55,7 +55,7 @@ func VolumeParams(
 		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager, registry)
 	if err != nil {
 		return params.VolumeParams{}, errors.Trace(err)
 	}
@@ -74,7 +74,7 @@ func VolumeParams(
 // such pool with the specified name, but it identifies a
 // storage provider, then that type will be returned with a
 // nil configuration.
-func StoragePoolConfig(name string, poolManager poolmanager.PoolManager) (storage.ProviderType, *storage.Config, error) {
+func StoragePoolConfig(name string, poolManager poolmanager.PoolManager, registry storage.ProviderRegistry) (storage.ProviderType, *storage.Config, error) {
 	pool, err := poolManager.Get(name)
 	if errors.IsNotFound(err) {
 		// If not a storage pool, then maybe a provider type.

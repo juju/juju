@@ -107,13 +107,8 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	}}, nil
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region":   args.Cloud.Region,
@@ -146,7 +141,7 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
+	return cfg, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -544,12 +539,23 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
-// PrepareForBootstrap is specified in the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	// Verify credentials.
 	if err := authenticateClient(e); err != nil {
 		return err
 	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *Environ) Create(environs.CreateParams) error {
+	// Verify credentials.
+	if err := authenticateClient(e); err != nil {
+		return err
+	}
+	// TODO(axw) 2016-08-04 #1609643
+	// Create global security group(s) here.
 	return nil
 }
 
@@ -1292,14 +1298,13 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	}
 
 	// Delete all volumes managed by the controller.
-	cfg := e.Config()
-	storageAdapter, err := newOpenstackStorageAdapter(cfg)
+	cinder, err := e.cinderProvider()
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(storageAdapter, controllerUUID)
+		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
-		errs := destroyVolumes(storageAdapter, volIds)
+		errs := destroyVolumes(cinder.storageAdapter, volIds)
 		for i, err := range errs {
 			if err == nil {
 				continue
@@ -1315,7 +1320,7 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	return nil
 }
 
-func allControllerManagedVolumes(storageAdapter openstackStorage, controllerUUID string) ([]string, error) {
+func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
 	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
 		return v.Metadata[tags.JujuController] == controllerUUID
 	})

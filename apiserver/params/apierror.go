@@ -88,6 +88,7 @@ const (
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
 	CodeRedirect                  = "redirection required"
+	CodeRetry                     = "retry"
 )
 
 // ErrCode returns the error code associated with

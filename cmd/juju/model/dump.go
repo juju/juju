@@ -4,8 +4,6 @@
 package model
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -44,7 +42,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "dump-model",
 		Purpose: "Displays the database agnostic representation of the model.",
-		Doc:     strings.TrimSpace(dumpModelHelpDoc),
+		Doc:     dumpModelHelpDoc,
 	}
 }
 

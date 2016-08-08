@@ -321,7 +321,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(environs.OpenParams{testConfig})
+		environ, err := environs.New(environs.OpenParams{lxdCloudSpec(), testConfig})
 
 		// Check the result
 		if test.err != "" {
@@ -421,7 +421,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(environs.OpenParams{s.config})
+		environ, err := environs.New(environs.OpenParams{lxdCloudSpec(), s.config})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
@@ -449,5 +449,12 @@ func (*configSuite) TestSchema(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for name, field := range globalFields {
 		c.Check(fields[name], jc.DeepEquals, field)
+	}
+}
+
+func lxdCloudSpec() environs.CloudSpec {
+	return environs.CloudSpec{
+		Type: "lxd",
+		Name: "localhost",
 	}
 }
