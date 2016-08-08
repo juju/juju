@@ -58,23 +58,24 @@ var usageRegisterSummary = `
 Registers a Juju user to a controller.`[1:]
 
 var usageRegisterDetails = `
-Connects to a controller and completes the user registration process that
-began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
-that is referred to in Usage.
-The user will be prompted for a password, which, once set, causes the 
-registration string to be voided. In order to start using Juju the user 
-can now either add a model or wait for a model to be shared with them.
-Some machine providers will require the user to be in possession of 
-certain credentials in order to add a model.
+Connects to a controller and completes the user registration process that began
+with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string' that is
+referred to in Usage.
+
+The user will be prompted for a password, which, once set, causes the
+registration string to be voided. In order to start using Juju the user can now
+either add a model or wait for a model to be shared with them.  Some machine
+providers will require the user to be in possession of certain credentials in
+order to add a model.
 
 Examples:
 
-    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
-    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
 See also: 
     add-user
-    change-user-password`
+    change-user-password
+    unregister`
 
 // Info implements Command.Info
 // `register` may seem generic, but is seen as simple and without potential
