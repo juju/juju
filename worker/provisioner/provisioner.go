@@ -69,6 +69,8 @@ type provisioner struct {
 
 // RetryStrategy defines the retry behavior when encountering a retryable
 // error during provisioning.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type RetryStrategy struct {
 	retryDelay time.Duration
 	retryCount int

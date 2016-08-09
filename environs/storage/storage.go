@@ -39,6 +39,8 @@ func Get(stor StorageReader, name string) (io.ReadCloser, error) {
 }
 
 // GetWithRetry gets the named file from stor using the specified attempt strategy.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func GetWithRetry(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.ReadCloser, err error) {
 	for a := attempt.Start(); a.Next(); {
 		r, err = stor.Get(name)
@@ -55,6 +57,8 @@ func List(stor StorageReader, prefix string) ([]string, error) {
 }
 
 // ListWithRetry lists the files matching prefix from stor using the specified attempt strategy.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func ListWithRetry(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (list []string, err error) {
 	for a := attempt.Start(); a.Next(); {
 		list, err = stor.List(prefix)
@@ -116,6 +120,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if err == nil {
 		dataURL = fullURL
 	}
+	// TODO(katco): 2016-08-09: lp:1611427
 	var attempt utils.AttemptStrategy
 	if s.allowRetry {
 		attempt = s.storage.DefaultConsistencyStrategy()

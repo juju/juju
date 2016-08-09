@@ -65,6 +65,8 @@ func (t *resolvedTarget) isAgent() bool {
 }
 
 // attemptStarter is an interface corresponding to utils.AttemptStrategy
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type attemptStarter interface {
 	Start() attempt
 }
@@ -73,9 +75,11 @@ type attempt interface {
 	Next() bool
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 type attemptStrategy utils.AttemptStrategy
 
 func (s attemptStrategy) Start() attempt {
+	// TODO(katco): 2016-08-09: lp:1611427
 	return utils.AttemptStrategy(s).Start()
 }
 

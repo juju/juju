@@ -389,6 +389,7 @@ func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	s.AddToolsToState(c, versions...)
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var redialStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 250 * time.Millisecond,

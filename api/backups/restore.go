@@ -20,6 +20,8 @@ import (
 var (
 	// restoreStrategy is the attempt strategy for api server calls re-attempts in case
 	// the server is upgrading.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	restoreStrategy = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Min:   1,

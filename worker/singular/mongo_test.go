@@ -524,6 +524,7 @@ func startReplicaSet(n int) (_ []*gitjujutesting.MgoInstance, err error) {
 			Id:       i + 1,
 		})
 	}
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{
 		Total: 60 * time.Second,
 		Delay: 1 * time.Second,

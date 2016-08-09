@@ -76,6 +76,8 @@ func (stor *maas2Storage) URL(name string) (string, error) {
 }
 
 // DefaultConsistencyStrategy implements storage.StorageReader
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func (stor *maas2Storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }

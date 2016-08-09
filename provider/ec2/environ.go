@@ -45,6 +45,7 @@ const (
 
 var (
 	// Use shortAttempt to poll for short-term events or for retrying API calls.
+	// TODO(katco): 2016-08-09: lp:1611427
 	shortAttempt = utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
@@ -634,6 +635,7 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	// Wait until the instance has an associated EBS volume in the
 	// block-device-mapping.
 	volumeId := findVolumeId(inst)
+	// TODO(katco): 2016-08-09: lp:1611427
 	waitRootDiskAttempt := utils.AttemptStrategy{
 		Total: 5 * time.Minute,
 		Delay: 5 * time.Second,

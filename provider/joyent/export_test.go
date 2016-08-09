@@ -23,6 +23,8 @@ import (
 )
 
 // Use ShortAttempt to poll for short-term events.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 var ShortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
