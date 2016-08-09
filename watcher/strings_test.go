@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"golang.org/x/crypto/ssh/terminal"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"

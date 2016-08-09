@@ -9,7 +9,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"

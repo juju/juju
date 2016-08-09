@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"

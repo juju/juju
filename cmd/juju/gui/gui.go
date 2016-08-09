@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/webbrowser"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"

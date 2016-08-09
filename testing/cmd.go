@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // NewFlagSet creates a new flag set using the standard options, particularly

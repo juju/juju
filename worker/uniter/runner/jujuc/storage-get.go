@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // StorageGetCommand implements the storage-get command.

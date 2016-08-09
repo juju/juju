@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"

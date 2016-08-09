@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

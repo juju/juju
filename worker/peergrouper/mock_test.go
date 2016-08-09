@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/voyeur"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/testing"

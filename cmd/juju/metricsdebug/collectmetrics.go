@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"

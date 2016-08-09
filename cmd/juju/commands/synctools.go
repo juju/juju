@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"

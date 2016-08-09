@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/cmd/modelcmd"

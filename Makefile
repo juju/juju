@@ -36,7 +36,7 @@ ifeq ($(CURDIR),$(PROJECT_DIR))
 
 ifeq ($(JUJU_MAKE_GODEPS),true)
 $(GOPATH)/bin/godeps:
-	go get launchpad.net/godeps
+	go get github.com/rogpeppe/godeps
 
 godeps: $(GOPATH)/bin/godeps
 	$(GOPATH)/bin/godeps -u dependencies.tsv

@@ -33,8 +33,8 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"github.com/juju/gnuflag"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"

@@ -4,7 +4,7 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/imagemetadata"
 )
