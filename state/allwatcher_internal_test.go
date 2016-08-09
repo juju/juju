@@ -3182,7 +3182,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
 		if d.Removed {
-			m[id] = nil
+			delete(m, id)
 		} else {
 			m[id] = substNilSinceTimeForEntityNoCheck(d.Entity)
 		}
