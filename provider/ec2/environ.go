@@ -640,8 +640,13 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	}
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
-		if err != nil {
-			return err
+		if err = errors.Annotate(err, "cannot fetch instance information"); err != nil {
+			logger.Warningf("%v", err)
+			if a.HasNext() == false {
+				return err
+			}
+			logger.Infof("retrying fetch of instances")
+			continue
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
