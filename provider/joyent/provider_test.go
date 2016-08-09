@@ -1,11 +1,9 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudsigma
+package joyent_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,10 +11,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
-
-func TestCloudSigma(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type providerSuite struct {
 	testing.IsolationSuite
@@ -30,7 +24,7 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	provider, err := environs.Provider("cloudsigma")
+	provider, err := environs.Provider("joyent")
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.spec = fakeCloudSpec()

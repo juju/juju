@@ -24,8 +24,8 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
-	name string
-
+	name    string
+	cloud   environs.CloudSpec
 	compute *joyentCompute
 
 	// supportedArchitectures caches the architectures
@@ -38,14 +38,16 @@ type joyentEnviron struct {
 }
 
 // newEnviron create a new Joyent environ instance from config.
-func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
-	env := new(joyentEnviron)
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*joyentEnviron, error) {
+	env := &joyentEnviron{
+		name:  cfg.Name(),
+		cloud: cloud,
+	}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}
-	env.name = cfg.Name()
 	var err error
-	env.compute, err = newCompute(env.ecfg)
+	env.compute, err = newCompute(cloud)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +92,8 @@ func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
 	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec := simplestreams.CloudSpec{
-		Region:   cfg.Region(),
-		Endpoint: cfg.SdcUrl(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
@@ -181,12 +183,12 @@ func (env *joyentEnviron) Ecfg() *environConfig {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = env.Ecfg().Region()
+		region = env.cloud.Region
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        config.PreferredSeries(env.Ecfg()),
 		Region:        region,
-		Endpoint:      env.Ecfg().sdcUrl(),
+		Endpoint:      env.cloud.Endpoint,
 		Architectures: []string{"amd64", "armhf"},
 	}, nil
 }
@@ -194,7 +196,7 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 // Region is specified in the HasRegion interface.
 func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region:   env.Ecfg().Region(),
-		Endpoint: env.Ecfg().sdcUrl(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }

@@ -6,9 +6,7 @@ package joyent_test
 import (
 	"os"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -27,10 +25,25 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":        "joyent",
+		"type": "joyent",
+	})
+}
+
+func fakeCloudSpec() environs.CloudSpec {
+	cred := fakeCredential()
+	return environs.CloudSpec{
+		Type:       "joyent",
+		Name:       "joyent",
+		Region:     "whatever",
+		Endpoint:   "test://test.api.joyentcloud.com",
+		Credential: &cred,
+	}
+}
+
+func fakeCredential() cloud.Credential {
+	return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"sdc-user":    "test",
 		"sdc-key-id":  "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":     "test://test.api.joyentcloud.com",
 		"private-key": testPrivateKey,
 		"algorithm":   "rsa-sha256",
 	})
@@ -38,39 +51,14 @@ func validAttrs() coretesting.Attrs {
 
 type ConfigSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	originalValues map[string]testing.Restorer
-	privateKeyData string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
-	s.AddCleanup(func(*gc.C) { restoreSdcAccount() })
-	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddCleanup(func(*gc.C) { restoreSdcKeyId() })
-	s.privateKeyData = generatePrivateKey(c)
 	jp.RegisterMachinesEndpoint()
 	s.AddCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
-}
-
-func generatePrivateKey(c *gc.C) string {
-	oldBits := ssh.KeyBits
-	defer func() {
-		ssh.KeyBits = oldBits
-	}()
-	ssh.KeyBits = 32
-	private, _, err := ssh.GenerateKey("test-client")
-	c.Assert(err, jc.ErrorIsNil)
-	return private
-}
-
-func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	for _, envVar := range jp.EnvironmentVariables {
-		s.PatchEnvironment(envVar, "")
-	}
 }
 
 type configtest struct {
@@ -83,68 +71,6 @@ type configtest struct {
 }
 
 var newConfigTests = []configtest{{
-	info:   "sdc-user is required",
-	remove: []string{"sdc-user"},
-	err:    ".* cannot get sdc-user value from environment variable .*",
-}, {
-	info:   "sdc-user cannot be empty",
-	insert: coretesting.Attrs{"sdc-user": ""},
-	err:    ".* cannot get sdc-user value from environment variable .*",
-}, {
-	info:   "can get sdc-user from environment variable",
-	insert: coretesting.Attrs{"sdc-user": ""},
-	expect: coretesting.Attrs{"sdc-user": "tester"},
-	envVars: map[string]string{
-		"SDC_ACCOUNT": "tester",
-	},
-}, {
-	info:   "can get sdc-user from environment variable, missing from config",
-	remove: []string{"sdc-user"},
-	expect: coretesting.Attrs{"sdc-user": "tester"},
-	envVars: map[string]string{
-		"SDC_ACCOUNT": "tester",
-	},
-}, {
-	info:   "sdc-key-id is required",
-	remove: []string{"sdc-key-id"},
-	err:    ".* cannot get sdc-key-id value from environment variable .*",
-}, {
-	info:   "sdc-key-id cannot be empty",
-	insert: coretesting.Attrs{"sdc-key-id": ""},
-	err:    ".* cannot get sdc-key-id value from environment variable .*",
-}, {
-	info:   "can get sdc-key-id from environment variable",
-	insert: coretesting.Attrs{"sdc-key-id": ""},
-	expect: coretesting.Attrs{"sdc-key-id": "key"},
-	envVars: map[string]string{
-		"SDC_KEY_ID": "key",
-	},
-}, {
-	info:   "can get sdc-key-id from environment variable, missing from config",
-	remove: []string{"sdc-key-id"},
-	expect: coretesting.Attrs{"sdc-key-id": "key"},
-	envVars: map[string]string{
-		"SDC_KEY_ID": "key",
-	},
-}, {
-	info:   "sdc-url is inserted if missing",
-	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
-}, {
-	info:   "sdc-url cannot be empty",
-	insert: coretesting.Attrs{"sdc-url": ""},
-	err:    ".* cannot get sdc-url value from environment variable .*",
-}, {
-	info:   "sdc-url is untouched if present",
-	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
-}, {
-	info:   "algorithm is inserted if missing",
-	expect: coretesting.Attrs{"algorithm": "rsa-sha256"},
-}, {
-	info:   "algorithm cannot be empty",
-	insert: coretesting.Attrs{"algorithm": ""},
-	err:    ".* algorithm: must not be empty",
-}, {
 	info:   "unknown field is not touched",
 	insert: coretesting.Attrs{"unknown-field": 12345},
 	expect: coretesting.Attrs{"unknown-field": 12345},
@@ -163,10 +89,9 @@ func doTest(s *ConfigSuite, i int, test configtest, c *gc.C) {
 		defer os.Setenv(k, "")
 	}
 	attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-	attrs["private-key"] = s.privateKeyData
 	testConfig := newConfig(c, attrs)
 	environ, err := environs.New(environs.OpenParams{
-		Cloud:  s.cloudSpec(),
+		Cloud:  fakeCloudSpec(),
 		Config: testConfig,
 	})
 	if test.err == "" {
@@ -193,18 +118,6 @@ var changeConfigTests = []struct {
 }{{
 	info:   "no change, no error",
 	expect: validAttrs(),
-}, {
-	info:   "can change sdc-user",
-	insert: coretesting.Attrs{"sdc-user": "joyent_user"},
-	expect: coretesting.Attrs{"sdc-user": "joyent_user"},
-}, {
-	info:   "can change sdc-key-id",
-	insert: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-}, {
-	info:   "can change sdc-url",
-	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "can insert unknown field",
 	insert: coretesting.Attrs{"unknown": "ignoti"},
@@ -240,7 +153,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(environs.OpenParams{
-			Cloud:  s.cloudSpec(),
+			Cloud:  fakeCloudSpec(),
 			Config: baseConfig,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -281,7 +194,7 @@ func (s *ConfigSuite) TestPrepareConfig(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.PrepareConfig(environs.PrepareConfigParams{
 			Config: testConfig,
-			Cloud:  s.cloudSpec(),
+			Cloud:  fakeCloudSpec(),
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -293,22 +206,5 @@ func (s *ConfigSuite) TestPrepareConfig(c *gc.C) {
 			c.Check(preparedConfig, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
-	}
-}
-
-func (s *ConfigSuite) cloudSpec() environs.CloudSpec {
-	credential := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{
-			"sdc-user":    "test",
-			"sdc-key-id":  "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-			"private-key": testPrivateKey,
-			"algorithm":   "rsa-sha256",
-		},
-	)
-	return environs.CloudSpec{
-		Type:       "joyent",
-		Name:       "joyent",
-		Credential: &credential,
 	}
 }
