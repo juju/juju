@@ -45,6 +45,7 @@ const (
 	RestrictedAPIExposed = false
 )
 
+// TODO(katco): 2016-08-09: lp:1611427
 var ShortAttempt = &utils.AttemptStrategy{
 	Total: time.Second * 10,
 	Delay: time.Millisecond * 200,

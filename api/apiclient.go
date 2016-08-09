@@ -522,6 +522,7 @@ func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try 
 var newWebsocketDialer = createWebsocketDialer
 
 func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,

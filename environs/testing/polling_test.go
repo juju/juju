@@ -23,6 +23,7 @@ type testingSuite struct{}
 var _ = gc.Suite(&testingSuite{})
 
 func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{
 		Total: time.Second,
 		Delay: time.Millisecond,
@@ -36,6 +37,7 @@ func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
 }
 
 func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	original := utils.AttemptStrategy{
 		Total: time.Second,
 		Delay: time.Millisecond,
@@ -48,6 +50,7 @@ func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
 }
 
 func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{
 		Total: 33 * time.Millisecond,
 		Delay: 99 * time.Microsecond,
@@ -64,6 +67,7 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
 // these tests take this as sufficient proof that any strategy that gets
 // patched, also gets restored by the cleanup function.
 func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	original := utils.AttemptStrategy{
 		Total: 22 * time.Millisecond,
 		Delay: 77 * time.Microsecond,
@@ -91,6 +95,7 @@ func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt1 := utils.AttemptStrategy{
 		Total: 33 * time.Millisecond,
 		Delay: 99 * time.Microsecond,

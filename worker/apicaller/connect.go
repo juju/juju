@@ -21,6 +21,8 @@ var (
 	// retry strategy for "handling" ErrNotProvisioned. It exists
 	// in the name of stability; as the code evolves, it would be
 	// great to see its function moved up a level or two.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,

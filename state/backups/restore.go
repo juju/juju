@@ -153,6 +153,7 @@ func newStateConnection(modelTag names.ModelTag, info *mongo.MongoInfo) (*state.
 		newStateConnDelay       = 15 * time.Second
 		newStateConnMinAttempts = 8
 	)
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 	for a := attempt.Start(); a.Next(); {

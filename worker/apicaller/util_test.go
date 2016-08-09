@@ -162,6 +162,7 @@ func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.
 	return test()
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
 	unpatch := testing.PatchValue(apicaller.Strategy, strategy)
 	defer unpatch()

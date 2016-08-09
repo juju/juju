@@ -195,6 +195,8 @@ func listServicesCommand(initSystem string) (string, bool) {
 
 // installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 var installStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,

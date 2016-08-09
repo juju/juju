@@ -1051,6 +1051,7 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id, timeout time.D
 }
 
 func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id, timeout time.Duration) error {
+	// TODO(katco): 2016-08-09: lp:1611427
 	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Total: timeout,
