@@ -29,10 +29,10 @@ func checkCalls(c *gc.C, stub *testing.Stub, calls ...testing.StubCall) {
 }
 
 func (s *maas2StorageSuite) makeStorage(c *gc.C, controller gomaasapi.Controller) *maas2Storage {
-	storage, ok := NewStorage(s.makeEnviron(c, controller)).(*maas2Storage)
+	env := s.makeEnviron(c, controller)
+	env.uuid = "prefix"
+	storage, ok := NewStorage(env).(*maas2Storage)
 	c.Assert(ok, jc.IsTrue)
-	ecfg := storage.environ.ecfg()
-	ecfg.attrs["maas-agent-name"] = "prefix"
 	return storage
 }
 
