@@ -87,8 +87,6 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		Endpoint:        d.Endpoint,
 		StorageEndpoint: d.StorageEndpoint,
 		Regions:         regions,
-		Config:          nil, // Not stored, only relevant to bootstrap.
-		RegionConfig:    nil, // Not stored, only relevant to bootstrap.
 	}
 }
 
