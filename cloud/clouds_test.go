@@ -109,15 +109,15 @@ func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
 			"k2": float64(2.0),
 		},
 		RegionConfig: cloud.RegionConfig{
-			"region1": cloud.RegionAttrs{
+			"region1": cloud.Attrs{
 				"mascot": []interface{}{"eggs", "ham"},
 			},
 
-			"region2": cloud.RegionAttrs{
+			"region2": cloud.Attrs{
 				"mascot": "glenda",
 			},
 
-			"region3": cloud.RegionAttrs{
+			"region3": cloud.Attrs{
 				"mascot": "gopher",
 			},
 		},

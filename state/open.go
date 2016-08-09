@@ -270,7 +270,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		// Create an entry keyed on cloudname#<key>, value for each region in
 		// region-config. The values here are themselves
 		// map[string]interface{}.
-		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsKey(args.CloudName, k), v))
+		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
 	}
 
 	for credName, cred := range args.CloudCredentials {
@@ -290,11 +290,6 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
-}
-
-// regionSettingsKey concatenates the cloud a hash and the region string.
-func regionSettingsKey(cloud, region string) string {
-	return cloud + "#" + region
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.

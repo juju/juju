@@ -58,16 +58,16 @@ const (
 	EmptyAuthType AuthType = "empty"
 )
 
-// RegionAttrs serves as a map to hold regions specific configuration
-// attributes. This serves to reduce confusion over having a nested map, i.e.
+// Attrs serves as a map to hold regions specific configuration attributes.
+// This serves to reduce confusion over having a nested map, i.e.
 // map[string]map[string]interface{}
-type RegionAttrs map[string]interface{}
+type Attrs map[string]interface{}
 
 // RegionConfig holds a map of regions and the attributes that serve as the
 // region specific configuration options. This allows model inheritance to
 // function, providing a place to store configuration for a specific region
 // which is  passed down to other models under the same controller.
-type RegionConfig map[string]RegionAttrs
+type RegionConfig map[string]Attrs
 
 // Cloud is a cloud definition.
 type Cloud struct {

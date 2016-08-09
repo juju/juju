@@ -136,3 +136,8 @@ func validateCloud(cloud cloud.Cloud) error {
 	// need a new "policy".
 	return nil
 }
+
+// regionSettingsGlobalKey concatenates the cloud a hash and the region string.
+func regionSettingsGlobalKey(cloud, region string) string {
+	return cloud + "#" + region
+}
