@@ -887,13 +887,27 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 func (m *Machine) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
 	logger.Tracef("removing machine %q", m.Id())
-	ops, err := m.removeOps()
-	if err != nil {
-		return errors.Trace(err)
+	// Local variable so we can re-get the machine without disrupting
+	// the caller.
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			machine, err = machine.st.Machine(machine.Id())
+			if errors.IsNotFound(err) {
+				// The machine's gone away, that's fine.
+				return nil, jujutxn.ErrNoOperations
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops, err := machine.removeOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
 	}
-	// The only abort conditions in play indicate that the machine has already
-	// been removed.
-	return onAbort(m.st.runTransaction(ops), nil)
+	return m.st.run(buildTxn)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
