@@ -41,6 +41,8 @@ from utility import (
     split_address_port,
     temp_dir,
     until_timeout,
+    unqualified_model_name,
+    qualified_model_name,
     wait_for_port,
     )
 
@@ -622,3 +624,68 @@ class TestTempDir(TestCase):
             self.assertTrue(os.path.exists(d))
             self.assertTrue(os.path.exists(os.path.join(d, "a-file")))
         self.assertFalse(os.path.exists(p))
+
+
+class TestUnqualifiedModelName(TestCase):
+
+    def test_returns_just_model_name_when_passed_qualifed_full_username(self):
+        self.assertEqual(
+            unqualified_model_name('admin@local/default'),
+            'default'
+        )
+
+    def test_returns_just_model_name_when_passed_just_username(self):
+        self.assertEqual(
+            unqualified_model_name('admin/default'),
+            'default'
+        )
+
+    def test_returns_just_model_name_when_passed_no_username(self):
+        self.assertEqual(
+            unqualified_model_name('default'),
+            'default'
+        )
+
+
+class TestQualifiedModelName(TestCase):
+
+    def test_raises_ValueError_when_model_name_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('', 'admin@local')
+
+    def test_raises_ValueError_when_owner_name_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('default', '')
+
+    def test_raises_ValueError_when_owner_and_model_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('', '')
+
+    def test_raises_ValueError_when_owner_name_doesnt_match_model_owner(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('test/default', 'admin')
+
+        with self.assertRaises(ValueError):
+            qualified_model_name('test@local/default', 'admin@local')
+
+    def test_returns_qualified_model_name_with_plain_model_name(self):
+        self.assertEqual(
+            qualified_model_name('default', 'admin@local'),
+            'admin@local/default'
+        )
+
+        self.assertEqual(
+            qualified_model_name('default', 'admin'),
+            'admin/default'
+        )
+
+    def test_returns_qualified_model_name_with_model_name_with_owner(self):
+        self.assertEqual(
+            qualified_model_name('admin@local/default', 'admin@local'),
+            'admin@local/default'
+        )
+
+        self.assertEqual(
+            qualified_model_name('admin/default', 'admin'),
+            'admin/default'
+        )
