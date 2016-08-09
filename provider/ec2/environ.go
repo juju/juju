@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
 	"gopkg.in/juju/names.v2"
@@ -57,7 +56,10 @@ var (
 )
 
 type environ struct {
-	name string
+	name  string
+	cloud environs.CloudSpec
+	ec2   *ec2.EC2
+	s3    *s3.S3
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
@@ -68,8 +70,6 @@ type environ struct {
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
-	ec2Unlocked  *ec2.EC2
-	s3Unlocked   *s3.S3
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -79,33 +79,14 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
+func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return nil, nil, nil, err
+		return errors.Trace(err)
 	}
-
-	auth := aws.Auth{
-		AccessKey: ecfg.accessKey(),
-		SecretKey: ecfg.secretKey(),
-	}
-	region := aws.Regions[ecfg.region()]
-	signer := aws.SignV4Factory(region.Name, "ec2")
-	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
-}
-
-func (e *environ) SetConfig(cfg *config.Config) error {
-	ec2Client, s3Client, ecfg, err := awsClients(cfg)
-	if err != nil {
-		return err
-	}
-
 	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
-	e.ec2Unlocked = ec2Client
-	e.s3Unlocked = s3Client
-
+	e.ecfgMutex.Unlock()
 	return nil
 }
 
@@ -114,13 +95,6 @@ func (e *environ) ecfg() *environConfig {
 	ecfg := e.ecfgUnlocked
 	e.ecfgMutex.Unlock()
 	return ecfg
-}
-
-func (e *environ) ec2() *ec2.EC2 {
-	e.ecfgMutex.Lock()
-	ec2 := e.ec2Unlocked
-	e.ecfgMutex.Unlock()
-	return ec2
 }
 
 func (e *environ) Name() string {
@@ -134,9 +108,9 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 			return err
 		}
 	}
-	apiClient, ecfg := env.ec2(), env.ecfg()
-	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
+	ecfg := env.ecfg()
+	vpcID, forceVPCID := ecfg.vpcID(), ecfg.forceVPCID()
+	if err := validateBootstrapVPC(env.ec2, env.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -147,9 +121,8 @@ func (env *environ) Create(args environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return err
 	}
-	apiClient := env.ec2()
 	vpcID := env.ecfg().vpcID()
-	if err := validateModelVPC(apiClient, env.name, vpcID); err != nil {
+	if err := validateModelVPC(env.ec2, env.name, vpcID); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -255,8 +228,8 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
 		filter := ec2.NewFilter()
-		filter.Add("region-name", e.ecfg().region())
-		resp, err := ec2AvailabilityZones(e.ec2(), filter)
+		filter.Add("region-name", e.cloud.Region)
+		resp, err := ec2AvailabilityZones(e.ec2, filter)
 		if err != nil {
 			return nil, err
 		}
@@ -342,7 +315,7 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.ecfg().region()
+		region = e.cloud.Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
@@ -358,7 +331,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.ecfg().region())
+	return e.cloudSpec(e.cloud.Region)
 }
 
 func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
@@ -450,7 +423,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	arches := args.Tools.Arches()
 
 	spec, err := findInstanceSpec(args.ImageMetadata, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
+		Region:      e.cloud.Region,
 		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
 		Constraints: args.Constraints,
@@ -531,7 +504,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			for subnetID, _ := range args.SubnetsToZones {
 				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
 			}
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone, allowedSubnetIDs)
+			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
 		} else if args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
 		}
@@ -558,7 +531,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
-		instResp, err = runInstances(e.ec2(), runArgs)
+		instResp, err = runInstances(e.ec2, runArgs)
 		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
@@ -591,7 +564,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
-	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
+	if err := tagResources(e.ec2, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, errors.Annotate(err, "tagging instance")
 	}
 
@@ -604,7 +577,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
-		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
+		if err := tagRootDisk(e.ec2, tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
 		}
 	}
@@ -780,7 +753,7 @@ func (e *environ) gatherInstances(
 	insts []instance.Instance,
 	filter *ec2.Filter,
 ) error {
-	resp, err := e.ec2().Instances(nil, filter)
+	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return err
 	}
@@ -813,14 +786,13 @@ func (e *environ) gatherInstances(
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
 func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	ec2Client := e.ec2()
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
 		logger.Tracef("retrieving NICs for instance %q", instId)
 		filter := ec2.NewFilter()
 		filter.Add("attachment.instance-id", string(instId))
-		networkInterfacesResp, err = ec2Client.NetworkInterfaces(nil, filter)
+		networkInterfacesResp, err = e.ec2.NetworkInterfaces(nil, filter)
 		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
 		if err != nil {
 			logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, err)
@@ -841,7 +813,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	ec2Interfaces := networkInterfacesResp.Interfaces
 	result := make([]network.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
-		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
+		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnet %q info", iface.SubnetId)
 		}
@@ -930,8 +902,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		ec2Inst := e.ec2()
-		resp, err := ec2Inst.Subnets(nil, nil)
+		resp, err := e.ec2.Subnets(nil, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -1055,7 +1026,7 @@ func (e *environ) allInstanceIDs(filter *ec2.Filter) ([]instance.Id, error) {
 }
 
 func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) {
-	resp, err := e.ec2().Instances(nil, filter)
+	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing instances")
 	}
@@ -1110,7 +1081,7 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
-	errs := destroyVolumes(e.ec2(), volIds)
+	errs := destroyVolumes(e.ec2, volIds)
 	for i, err := range errs {
 		if err == nil {
 			continue
@@ -1124,7 +1095,7 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 		return errors.Trace(err)
 	}
 	for _, g := range groups {
-		if err := deleteSecurityGroupInsistently(e.ec2(), g, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2, g, clock.WallClock); err != nil {
 			return errors.Annotatef(
 				err, "cannot delete security group %q (%q)",
 				g.Name, g.Id,
@@ -1137,7 +1108,7 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
-	return listVolumes(e.ec2(), filter)
+	return listVolumes(e.ec2, filter)
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1163,7 +1134,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 		return err
 	}
 	ipPerms := portsToIPPerms(ports)
-	_, err = e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	_, err = e.ec2.AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
 		if len(ports) == 1 {
 			return nil
@@ -1173,7 +1144,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 		// otherwise the ports that were *not* duplicates will have
 		// been ignored
 		for i := range ipPerms {
-			_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms[i:i+1])
+			_, err := e.ec2.AuthorizeSecurityGroup(g, ipPerms[i:i+1])
 			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
 				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
 			}
@@ -1197,7 +1168,7 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	if err != nil {
 		return err
 	}
-	_, err = e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	_, err = e.ec2.RevokeSecurityGroup(g, portsToIPPerms(ports))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
@@ -1258,7 +1229,6 @@ func (*environ) Provider() environs.EnvironProvider {
 }
 
 func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
-	ec2inst := e.ec2()
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
@@ -1269,7 +1239,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 		filter.Add("instance-state-name", states...)
 	}
 
-	resp, err := ec2inst.Instances(strInstID, filter)
+	resp, err := e.ec2.Instances(strInstID, filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
 	}
@@ -1289,7 +1259,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.SecurityGroup, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
-	resp, err := e.ec2().SecurityGroups(nil, filter)
+	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing security groups")
 	}
@@ -1311,7 +1281,7 @@ func (e *environ) cleanEnvironmentSecurityGroups() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
-	if err := deleteSecurityGroupInsistently(e.ec2(), g, clock.WallClock); err != nil {
+	if err := deleteSecurityGroupInsistently(e.ec2, g, clock.WallClock); err != nil {
 		return errors.Annotate(err, "cannot delete default security group")
 	}
 	return nil
@@ -1321,7 +1291,6 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	ec2inst := e.ec2()
 
 	// TODO (anastasiamac 2016-04-11) Err if instances still have resources hanging around.
 	// LP#1568654
@@ -1334,7 +1303,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	// in defer. Bug#1567179.
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = terminateInstancesById(ec2inst, ids...)
+		_, err = terminateInstancesById(e.ec2, ids...)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
@@ -1353,7 +1322,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
-		_, err = terminateInstancesById(ec2inst, id)
+		_, err = terminateInstancesById(e.ec2, id)
 		if err == nil {
 			deletedIDs = append(deletedIDs, id)
 		}
@@ -1396,12 +1365,11 @@ func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
 	// https://bugs.launchpad.net/juju-core/+bug/1534289
 	jujuGroup := e.jujuGroupName()
 
-	ec2inst := e.ec2()
 	for _, deletable := range securityGroups {
 		if deletable.Name == jujuGroup {
 			continue
 		}
-		if err := deleteSecurityGroupInsistently(ec2inst, deletable, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2, deletable, clock.WallClock); err != nil {
 			// In ideal world, we would err out here.
 			// However:
 			// 1. We do not know if all instances have been terminated.
@@ -1537,13 +1505,13 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 		filter := ec2.NewFilter()
 		filter.Add("vpc-id", chosenVPCID)
 		filter.Add("group-name", groupName)
-		return e.ec2().SecurityGroups(nil, filter)
+		return e.ec2.SecurityGroups(nil, filter)
 	}
 
 	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
 	// GroupName.X arguments instead of the filters.
 	groups := ec2.SecurityGroupNames(groupName)
-	return e.ec2().SecurityGroups(groups, nil)
+	return e.ec2.SecurityGroups(groups, nil)
 }
 
 // ensureGroup returns the security group with name and perms.
@@ -1560,8 +1528,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 		inVPCLogSuffix = ""
 	}
 
-	ec2inst := e.ec2()
-	resp, err := ec2inst.CreateSecurityGroup(chosenVPCID, name, "juju group")
+	resp, err := e.ec2.CreateSecurityGroup(chosenVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		err = errors.Annotatef(err, "creating security group %q%s", name, inVPCLogSuffix)
 		return zeroGroup, err
@@ -1577,7 +1544,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 			names.NewModelTag(controllerUUID),
 			cfg,
 		)
-		if err := tagResources(ec2inst, tags, g.Id); err != nil {
+		if err := tagResources(e.ec2, tags, g.Id); err != nil {
 			return g, errors.Annotate(err, "tagging security group")
 		}
 		logger.Debugf("created security group %q with ID %q%s", name, g.Id, inVPCLogSuffix)
@@ -1607,7 +1574,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 		}
 	}
 	if len(revoke) > 0 {
-		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms())
+		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
 			err = errors.Annotatef(err, "revoking security group %q%s", g.Id, inVPCLogSuffix)
 			return zeroGroup, err
@@ -1621,7 +1588,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 		}
 	}
 	if len(add) > 0 {
-		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms())
+		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
 			err = errors.Annotatef(err, "authorizing security group %q%s", g.Id, inVPCLogSuffix)
 			return zeroGroup, err

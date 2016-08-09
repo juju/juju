@@ -153,10 +153,8 @@ func (inst *azureInstance) Addresses() ([]jujunetwork.Address, error) {
 // internal virtual network. This address is used to identify the machine in
 // network security rules.
 func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error) {
-	inst.env.mu.Lock()
-	subscriptionId := inst.env.config.subscriptionId
+	subscriptionId := inst.env.subscriptionId
 	resourceGroup := inst.env.resourceGroup
-	inst.env.mu.Unlock()
 	internalSubnetId := internalSubnetId(resourceGroup, subscriptionId)
 
 	for _, nic := range inst.networkInterfaces {
@@ -185,10 +183,8 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 
 // OpenPorts is specified in the Instance interface.
 func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortRange) error {
-	inst.env.mu.Lock()
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	inst.env.mu.Unlock()
 	internalNetworkAddress, err := inst.internalNetworkAddress()
 	if err != nil {
 		return errors.Trace(err)
@@ -283,9 +279,7 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 
 // ClosePorts is specified in the Instance interface.
 func (inst *azureInstance) ClosePorts(machineId string, ports []jujunetwork.PortRange) error {
-	inst.env.mu.Lock()
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	inst.env.mu.Unlock()
 	securityGroupName := internalSecurityGroupName
 
 	// Delete rules one at a time; this is necessary to avoid trampling
@@ -313,10 +307,7 @@ func (inst *azureInstance) ClosePorts(machineId string, ports []jujunetwork.Port
 
 // Ports is specified in the Instance interface.
 func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRange, err error) {
-	inst.env.mu.Lock()
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
-	inst.env.mu.Unlock()
-
 	securityGroupName := internalSecurityGroupName
 	var nsg network.SecurityGroup
 	if err := inst.env.callAPI(func() (autorest.Response, error) {

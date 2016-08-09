@@ -69,58 +69,48 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	return &azureEnvironProvider{config: config}, nil
 }
 
-// Open is specified in the EnvironProvider interface.
+// Open is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
-	environ, err := newEnviron(prov, args.Config)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	environ, err := newEnviron(prov, args.Cloud, args.Config)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")
 	}
 	return environ, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-//
-// The result of RestrictedConfigAttributes is the names of attributes that
-// will be copied across to a hosted environment's initial configuration.
+// RestrictedConfigAttributes is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
-	// TODO(axw) there should be no restricted attributes.
-	return []string{
-		configAttrLocation,
-		configAttrEndpoint,
-		configAttrStorageEndpoint,
-	}
+	return []string{}
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
+// PrepareConfig is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	attrs := map[string]interface{}{
-		configAttrLocation:        args.Cloud.Region,
-		configAttrEndpoint:        args.Cloud.Endpoint,
-		configAttrStorageEndpoint: args.Cloud.StorageEndpoint,
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		for k, v := range args.Cloud.Credential.Attributes() {
-			attrs[k] = v
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
-	}
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Annotate(err, "updating config")
-	}
-	return cfg, nil
+	return args.Config, nil
 }
 
-// SecretAttrs is specified in the EnvironProvider interface.
+// SecretAttrs is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	unknownAttrs := cfg.UnknownAttrs()
-	secretAttrs := map[string]string{
-		configAttrAppPassword: unknownAttrs[configAttrAppPassword].(string),
+	return map[string]string{}, nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	return secretAttrs, nil
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }
 
 // verifyCredentials issues a cheap, non-modifying request to Azure to
@@ -128,8 +118,6 @@ func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]st
 // error will be returned, and the original error will be logged at debug
 // level.
 var verifyCredentials = func(e *azureEnviron) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
 	// TODO(axw) user-friendly error message
-	return e.config.token.EnsureFresh()
+	return e.token.EnsureFresh()
 }

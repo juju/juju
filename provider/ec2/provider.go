@@ -9,7 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -29,50 +31,78 @@ var providerInstance environProvider
 func (p environProvider) RestrictedConfigAttributes() []string {
 	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
 	// See bug http://pad.lv/1580417 for more information.
-	return []string{"region", "vpc-id-force"}
+	return []string{"vpc-id-force"}
 }
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
+
 	e := new(environ)
+	e.cloud = args.Cloud
 	e.name = args.Config.Name()
-	err := e.SetConfig(args.Config)
+
+	var err error
+	e.ec2, e.s3, err = awsClients(args.Cloud)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+
+	if err := e.SetConfig(args.Config); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return e, nil
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	attrs := map[string]interface{}{
-		"region": args.Cloud.Region,
-		// TODO(axw) stop relying on hard-coded
-		//           region endpoint information
-		//           in the provider, and use
-		//           args.CloudEndpoint here.
-	}
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.AccessKeyAuthType:
-		credentialAttrs := args.Cloud.Credential.Attributes()
-		attrs["access-key"] = credentialAttrs["access-key"]
-		attrs["secret-key"] = credentialAttrs["secret-key"]
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+func awsClients(cloud environs.CloudSpec) (*ec2.EC2, *s3.S3, error) {
+	if err := validateCloudSpec(cloud); err != nil {
+		return nil, nil, errors.Annotate(err, "validating cloud spec")
 	}
 
+	credentialAttrs := cloud.Credential.Attributes()
+	accessKey := credentialAttrs["access-key"]
+	secretKey := credentialAttrs["secret-key"]
+	auth := aws.Auth{
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+	}
+
+	// TODO(axw) define region in terms of EC2 and S3 endpoints.
+	region := aws.Regions[cloud.Region]
+	signer := aws.SignV4Factory(region.Name, "ec2")
+	return ec2.New(auth, region, signer), s3.New(auth, region), nil
+}
+
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
 		attrs[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
 	}
-
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if len(attrs) == 0 {
+		return args.Config, nil
 	}
-	return cfg, nil
+	return args.Config.Apply(attrs)
+}
+
+func validateCloudSpec(c environs.CloudSpec) error {
+	if err := c.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if _, ok := aws.Regions[c.Region]; !ok {
+		return errors.NotValidf("region name %q", c.Region)
+	}
+	if c.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := c.Credential.AuthType(); authType != cloud.AccessKeyAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }
 
 // Validate is specified in the EnvironProvider interface.
@@ -103,14 +133,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 
 // SecretAttrs is specified in the EnvironProvider interface.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["access-key"] = ecfg.accessKey()
-	m["secret-key"] = ecfg.secretKey()
-	return m, nil
+	return make(map[string]string), nil
 }
 
 const badAccessKey = `
@@ -128,7 +151,7 @@ page in the AWS console.`
 // error will be returned, and the original error will be logged at debug
 // level.
 var verifyCredentials = func(e *environ) error {
-	_, err := e.ec2().AccountAttributes()
+	_, err := e.ec2.AccountAttributes()
 	if err != nil {
 		logger.Debugf("ec2 request failed: %v", err)
 		if err, ok := err.(*ec2.Error); ok {

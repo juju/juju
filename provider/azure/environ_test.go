@@ -348,9 +348,11 @@ func prepareForBootstrap(
 
 func fakeCloudSpec() environs.CloudSpec {
 	return environs.CloudSpec{
+		Type:            "azure",
+		Name:            "azure",
 		Region:          "westus",
-		Endpoint:        "https://management.azure.com",
-		StorageEndpoint: "https://core.windows.net",
+		Endpoint:        "https://api.azurestack.local",
+		StorageEndpoint: "https://storage.azurestack.local",
 		Credential:      fakeUserPassCredential(),
 	}
 }
