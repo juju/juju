@@ -7,11 +7,9 @@
 package featuretests
 
 import (
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -30,7 +28,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -317,7 +314,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 				return
 			}
 		case RestrictedAPIExposed:
-			if reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}) {
+			if params.IsCodeUpgradeInProgress(err) {
 				return
 			}
 		}

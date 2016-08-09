@@ -5,7 +5,6 @@ package backups
 
 import (
 	"io"
-	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,14 +25,6 @@ var (
 		Min:   1,
 	}
 )
-
-// isUpgradeInProgressErr returns whether or not the error
-// is an "upgrade in progress" error.  This is necessary as
-// the error type returned from a facade call is rpc.RequestError
-// and we cannot use params.IsCodeUpgradeInProgress
-func isUpgradeInProgressErr(err error) bool {
-	return reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
-}
 
 // ClientConnection type represents a function capable of spawning a new Client connection
 // it is used to pass around connection factories when necessary.
@@ -67,7 +58,7 @@ func prepareRestore(newClient ClientConnection) error {
 		if err == nil && remoteError == nil {
 			return nil
 		}
-		if !isUpgradeInProgressErr(err) || remoteError != nil {
+		if !params.IsCodeUpgradeInProgress(err) || remoteError != nil {
 			return errors.Annotatef(err, "could not start prepare restore mode, server returned: %v", remoteError)
 		}
 	}
@@ -138,7 +129,7 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 			cleanExit = true
 			break
 		}
-		if remoteError != nil || !isUpgradeInProgressErr(err) {
+		if !params.IsCodeUpgradeInProgress(err) || remoteError != nil {
 			finishErr := finishRestore(newClient)
 			logger.Errorf("could not clean up after failed restore attempt: %v", finishErr)
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
@@ -185,7 +176,7 @@ func finishRestore(newClient ClientConnection) error {
 			return nil
 		}
 
-		if !isUpgradeInProgressErr(err) || remoteError != nil {
+		if !params.IsCodeUpgradeInProgress(err) || remoteError != nil {
 			return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
 		}
 	}
