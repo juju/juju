@@ -36,7 +36,7 @@ func NewClient(caller base.APICallCloser) *Client {
 
 // EnableHA ensures the availability of Juju controllers.
 func (c *Client) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string,
+	numControllers int, cons constraints.Value, placement []string,
 ) (params.ControllersChanges, error) {
 
 	var results params.ControllersChangeResults
@@ -45,7 +45,6 @@ func (c *Client) EnableHA(
 			ModelTag:       c.modelTag.String(),
 			NumControllers: numControllers,
 			Constraints:    cons,
-			Series:         series,
 			Placement:      placement,
 		}}}
 
