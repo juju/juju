@@ -43,7 +43,7 @@ func FakeCloudSpec() environs.CloudSpec {
 	return environs.CloudSpec{
 		Type:       "vsphere",
 		Name:       "vsphere",
-		Region:     "/datacenter1", // TODO(axw) leading "/"?
+		Region:     "/datacenter1",
 		Endpoint:   "host1",
 		Credential: &cred,
 	}

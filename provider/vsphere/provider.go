@@ -77,6 +77,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(axw) add validation of endpoint/region.
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
