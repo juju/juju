@@ -38,7 +38,7 @@ func (s *environSuite) TestRegion(c *gc.C) {
 	cloudSpec, err := s.Env.Region()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(cloudSpec.Region, gc.Equals, "home")
+	c.Check(cloudSpec.Region, gc.Equals, "us-east1")
 	c.Check(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
 }
 

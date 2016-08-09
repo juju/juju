@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/gce"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -442,17 +441,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	controllerUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// TODO(axw) this is a dirty hack to get 2.0-beta10 over the line.
-	// We need to pull this out immediately after, and then update
-	// everything to remove credentials from model config.
-	if cloud.Type == "gce" && credential.AuthType() == jujucloud.JSONFileAuthType {
-		cred, err := gce.ParseJSONAuthFile(credential.Attributes()["file"])
-		if err != nil {
-			return errors.Trace(err)
-		}
-		*credential = cred
 	}
 
 	// Create a model config, and split out any controller

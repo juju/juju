@@ -20,49 +20,34 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	env, err := newEnviron(args.Config)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
 // PrepareConfig implements environs.EnvironProvider.
 func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	cfg := args.Config
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.JSONFileAuthType:
-		filename := args.Cloud.Credential.Attributes()["file"]
-		credential, err := ParseJSONAuthFile(filename)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		args.Cloud.Credential = &credential
-		fallthrough
-	case cloud.OAuth2AuthType:
-		credentialAttrs := args.Cloud.Credential.Attributes()
-		var err error
-		cfg, err = args.Config.Apply(map[string]interface{}{
-			cfgProjectID:   credentialAttrs[cfgProjectID],
-			cfgClientID:    credentialAttrs[cfgClientID],
-			cfgClientEmail: credentialAttrs[cfgClientEmail],
-			cfgPrivateKey:  credentialAttrs[cfgPrivateKey],
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	return configWithDefaults(args.Config)
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.OAuth2AuthType, cloud.JSONFileAuthType:
 	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+		return errors.NotSupportedf("%q auth-type", authType)
 	}
-	// Ensure cloud info is in config.
-	var err error
-	cfg, err = cfg.Apply(map[string]interface{}{
-		cfgRegion: args.Cloud.Region,
-		// TODO (anastasiamac 2016-06-09) at some stage will need to
-		//  also add endpoint and storage endpoint.
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return configWithDefaults(cfg)
+	return nil
 }
 
 // Schema returns the configuration schema for an environment.
@@ -93,10 +78,7 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		cfgRegion,
-		cfgImageEndpoint,
-	}
+	return []string{}
 }
 
 // Validate implements environs.EnvironProvider.Validate.
@@ -110,10 +92,5 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ecfg.secret(), nil
+	return map[string]string{}, nil
 }

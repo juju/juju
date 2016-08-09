@@ -54,7 +54,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "home")
+	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-east1")
 }
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
