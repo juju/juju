@@ -207,15 +207,10 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		expected []string
 	}{{
 		provider: "azure",
-		expected: []string{
-			"type",
-			"location", "endpoint", "storage-endpoint",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "dummy",
-		expected: []string{
-			"type",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "joyent",
 		expected: []string{
@@ -237,7 +232,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		provider: "ec2",
 		expected: []string{
 			"type",
-			"region", "vpc-id-force",
+			"vpc-id-force",
 		},
 	}} {
 		c.Logf("%d: %s provider", i, test.provider)
