@@ -52,11 +52,11 @@ func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User: "admin@local",
 	}
-	err := s.store.UpdateModel("testing", "mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "admin@local/mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].CurrentModel = "mymodel"
+	s.store.Models["testing"].CurrentModel = "admin@local/mymodel"
 }
 
 func (s *DumpCommandSuite) TestDump(c *gc.C) {

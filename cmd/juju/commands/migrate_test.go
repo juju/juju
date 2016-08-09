@@ -50,7 +50,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the model to migrate in the config.
-	err = s.store.UpdateModel("source", "model", jujuclient.ModelDetails{
+	err = s.store.UpdateModel("source", "source@local/model", jujuclient.ModelDetails{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +158,11 @@ func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
 	if m.model == "" {
 		return []base.UserModel{}, nil
 	}
-	return []base.UserModel{{Name: m.model, UUID: modelUUID}}, nil
+	return []base.UserModel{{
+		Name:  m.model,
+		UUID:  modelUUID,
+		Owner: "source@local",
+	}}, nil
 }
 
 func (m *fakeModelAPI) Close() error {

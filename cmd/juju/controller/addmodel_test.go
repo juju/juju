@@ -148,7 +148,7 @@ func (s *addSuite) TestAddExistingName(c *gc.C) {
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
 	// model with the same name.
-	err := s.store.UpdateModel("test-master", "test", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("test-master", "bob@local/test", jujuclient.ModelDetails{
 		"stale-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +156,7 @@ func (s *addSuite) TestAddExistingName(c *gc.C) {
 	_, err = s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	details, err := s.store.ModelByName("test-master", "test")
+	details, err := s.store.ModelByName("test-master", "bob@local/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -278,7 +278,7 @@ func (s *addSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ModelByName("test-master", "test")
+	_, err = s.store.ModelByName("test-master", "bob@local/test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -286,7 +286,7 @@ func (s *addSuite) TestAddStoresValues(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "test")
+	model, err := s.store.ModelByName("test-master", "bob@local/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -296,7 +296,7 @@ func (s *addSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Creating a model for another user does not update the model cache.
-	_, err = s.store.ModelByName("test-master", "test")
+	_, err = s.store.ModelByName("test-master", "bob@local/test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

@@ -231,17 +231,17 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	// sure we cannot miss users that previously existed without the deleted
 	// attr. Since this will only be in 2.0 that should never happen, but...
 	// belt and suspenders.
-	query = append(query, bson.D{
-		{"deleted", bson.D{{"$ne", true}}},
-		{"deleted", bson.D{{"$exists", false}}}}...)
+	query = append(query, bson.DocElem{
+		"deleted", bson.D{{"$ne", true}},
+	})
 
 	// As above, in the case that a user previously existed and doesn't have a
 	// deactivated attribute, we make sure the query checks for the existence
 	// of the attribute, and if it exists that it is not true.
 	if !includeDeactivated {
-		query = append(query, bson.D{
-			{"deactivated", bson.D{{"$ne", true}}},
-			{"deactivated", bson.D{{"$exists", false}}}}...)
+		query = append(query, bson.DocElem{
+			"deactivated", bson.D{{"$ne", true}},
+		})
 	}
 	iter := users.Find(query).Iter()
 	defer iter.Close()

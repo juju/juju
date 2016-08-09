@@ -229,16 +229,29 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
 
 	err := user.Disable()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsTrue)
 	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin"})
 
 	err = user.Enable()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
+}
+
+func (s *UserSuite) activeUsers(c *gc.C) []string {
+	users, err := s.State.AllUsers(false)
+	c.Assert(err, jc.ErrorIsNil)
+	names := make([]string, len(users))
+	for i, u := range users {
+		names[i] = u.Name()
+	}
+	return names
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {

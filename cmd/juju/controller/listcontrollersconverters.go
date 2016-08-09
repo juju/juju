@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/jujuclient"
 )
@@ -73,6 +74,14 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			}
 		} else {
 			modelName = currentModel
+			if userName != "" {
+				// There's a user logged in, so display the
+				// model name relative to that user.
+				if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
+					user := names.NewUserTag(userName)
+					modelName = ownerQualifiedModelName(unqualifiedModelName, owner, user)
+				}
+			}
 		}
 
 		controllers[controllerName] = ControllerItem{
