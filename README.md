@@ -157,10 +157,10 @@ Needs devmode per the known issues below. The resulting snap itself works perfec
 
 Known Issues
 ----------------
- * Missing support for abstract mutex socket https://bugs.launchpad.net/snappy/+bug/1604967
+ * Missing support for abstract mutex socket (https://bugs.launchpad.net/snappy/+bug/1604967)
  * Needs LXD interface
- * Needs SSH interface
- * Bash completion doesn't work
+ * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
+ * Bash completion doesn't work (https://bugs.launchpad.net/snappy/+bug/1566605)
  * Snap doesn't use local source as part for snapcraft
 
 
