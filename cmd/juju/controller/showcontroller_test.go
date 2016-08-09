@@ -123,14 +123,6 @@ mallards:
   current-model: my-model
   account:
     user: admin@local
-  bootstrap-config:
-    config:
-      extra: value
-    cloud: mallards
-    cloud-type: maas
-    region: mallards1
-    endpoint: http://mallards.local/MAAS
-    credential: my-credential
 `[1:]
 
 	s.assertShowController(c, "mallards")
