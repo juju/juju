@@ -128,32 +128,16 @@ func checkValidMachineIds(machineIds []string) error {
 	)
 }
 
-// CompleteMachineRemovals finishes the removal of the specified
-// machines. The machines must have been marked for removal
-// previously. Valid-looking-but-unknown machine ids are ignored so
-// that this is idempotent.
-func (st *State) CompleteMachineRemovals(ids ...string) error {
-	if err := checkValidMachineIds(ids); err != nil {
-		return errors.Trace(err)
-	}
-
+func (st *State) completeMachineRemovalsOps(ids []string) ([]txn.Op, error) {
 	removals, err := st.AllMachineRemovals()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	removalSet := set.NewStrings(removals...)
 	query := bson.D{{"machineid", bson.D{{"$in", ids}}}}
 	machinesToRemove, err := st.allMachinesMatching(query)
 	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(machinesToRemove) < len(ids) {
-		missingMachines := collectMissingMachineIds(ids, machinesToRemove)
-		logger.Debugf("skipping nonexistent machine%s: %s",
-			plural(len(missingMachines)),
-			strings.Join(missingMachines, ", "),
-		)
+		return nil, errors.Trace(err)
 	}
 
 	var ops []txn.Op
@@ -167,11 +151,12 @@ func (st *State) CompleteMachineRemovals(ids ...string) error {
 		ops = append(ops, txn.Op{
 			C:      machineRemovalsC,
 			Id:     machine.globalKey(),
+			Assert: txn.DocExists,
 			Remove: true,
 		})
 		removeMachineOps, err := machine.removeOps()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, removeMachineOps...)
 	}
@@ -179,12 +164,44 @@ func (st *State) CompleteMachineRemovals(ids ...string) error {
 	// been marked for removal.
 	if len(missingRemovals) > 0 {
 		sort.Strings(missingRemovals)
-		return errors.Errorf(
+		return nil, errors.Errorf(
 			"cannot remove machine%s %s: not marked for removal",
 			plural(len(missingRemovals)),
 			strings.Join(missingRemovals, ", "),
 		)
 	}
 
-	return st.runTransaction(ops)
+	// Log last to reduce the likelihood of repeating the message on
+	// retries.
+	if len(machinesToRemove) < len(ids) {
+		missingMachines := collectMissingMachineIds(ids, machinesToRemove)
+		logger.Debugf("skipping nonexistent machine%s: %s",
+			plural(len(missingMachines)),
+			strings.Join(missingMachines, ", "),
+		)
+	}
+
+	return ops, nil
+}
+
+// CompleteMachineRemovals finishes the removal of the specified
+// machines. The machines must have been marked for removal
+// previously. Valid-looking-but-unknown machine ids are ignored so
+// that this is idempotent.
+func (st *State) CompleteMachineRemovals(ids ...string) error {
+	if err := checkValidMachineIds(ids); err != nil {
+		return errors.Trace(err)
+	}
+
+	buildTxn := func(int) ([]txn.Op, error) {
+		// We don't need to reget state for subsequent attempts since
+		// completeMachineRemovalsOps gets the removals and the
+		// machines each time anyway.
+		ops, err := st.completeMachineRemovalsOps(ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	return st.run(buildTxn)
 }
