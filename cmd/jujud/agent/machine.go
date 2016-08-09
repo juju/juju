@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
@@ -1115,14 +1114,13 @@ func newObserverFn(
 	var observerFactories []observer.ObserverFactory
 
 	// Common logging of RPC requests
-	var connectionID int64
 	observerFactories = append(observerFactories, func() observer.Observer {
 		logger := loggo.GetLogger("juju.apiserver")
 		ctx := observer.RequestObserverContext{
 			Clock:  clock,
 			Logger: logger,
 		}
-		return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
+		return observer.NewRequestObserver(ctx)
 	})
 
 	// Auditing observer

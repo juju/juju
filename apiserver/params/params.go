@@ -381,6 +381,7 @@ type LoginRequest struct {
 	Credentials string           `json:"credentials"`
 	Nonce       string           `json:"nonce"`
 	Macaroons   []macaroon.Slice `json:"macaroons"`
+	UserData    string           `json:"user-data"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

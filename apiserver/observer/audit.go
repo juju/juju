@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/rpc"
@@ -58,12 +59,12 @@ type Audit struct {
 }
 
 // Login implements Observer.
-func (a *Audit) Login(tag string) {
-	a.state.authenticatedTag = tag
+func (a *Audit) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {
+	a.state.authenticatedTag = entity.String()
 }
 
 // Join implements Observer.
-func (a *Audit) Join(req *http.Request) {
+func (a *Audit) Join(req *http.Request, _ uint64) {
 	a.state.remoteAddress = req.RemoteAddr
 }
 

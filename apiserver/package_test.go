@@ -4,11 +4,11 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }

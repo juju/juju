@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"runtime"
 
+	"gopkg.in/juju/names.v2"
+
 	"strings"
 
 	"github.com/juju/juju/rpc"
@@ -19,8 +21,8 @@ type Instance struct {
 }
 
 // Join implements Observer.
-func (f *Instance) Join(req *http.Request) {
-	f.AddCall(funcName(), req)
+func (f *Instance) Join(req *http.Request, connectionID uint64) {
+	f.AddCall(funcName(), req, connectionID)
 }
 
 // Leave implements Observer.
@@ -29,8 +31,8 @@ func (f *Instance) Leave() {
 }
 
 // Login implements Observer.
-func (f *Instance) Login(entityName string) {
-	f.AddCall(funcName(), entityName)
+func (f *Instance) Login(entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+	f.AddCall(funcName(), entity, model, fromController, userData)
 }
 
 // RPCObserver implements Observer.

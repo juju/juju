@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
@@ -19,7 +21,6 @@ type RequestObserver struct {
 	clock              clock.Clock
 	logger             loggo.Logger
 	apiConnectionCount func() int64
-	id                 int64
 
 	// state represents information that's built up as methods on this
 	// type are called. We segregate this to ensure it's clear what
@@ -27,6 +28,7 @@ type RequestObserver struct {
 	// later. It's an anonymous struct so this doesn't leak outside
 	// this type.
 	state struct {
+		id                 uint64
 		websocketConnected time.Time
 		tag                string
 	}
@@ -44,26 +46,26 @@ type RequestObserverContext struct {
 }
 
 // NewRequestObserver returns a new RPCObserver.
-func NewRequestObserver(ctx RequestObserverContext, id int64) *RequestObserver {
+func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
 	return &RequestObserver{
 		clock:  ctx.Clock,
 		logger: ctx.Logger,
-		id:     id,
 	}
 }
 
 // Login implements Observer.
-func (n *RequestObserver) Login(tag string) {
-	n.state.tag = tag
+func (n *RequestObserver) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {
+	n.state.tag = entity.String()
 }
 
 // Join implements Observer.
-func (n *RequestObserver) Join(req *http.Request) {
+func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
+	n.state.id = connectionID
 	n.state.websocketConnected = n.clock.Now()
 
 	n.logger.Infof(
 		"[%X] API connection from %s",
-		n.id,
+		n.state.id,
 		req.RemoteAddr,
 	)
 }
@@ -72,7 +74,7 @@ func (n *RequestObserver) Join(req *http.Request) {
 func (n *RequestObserver) Leave() {
 	n.logger.Infof(
 		"[%X] %s API connection terminated after %v",
-		n.id,
+		n.state.id,
 		n.state.tag,
 		time.Since(n.state.websocketConnected),
 	)
@@ -83,7 +85,7 @@ func (n *RequestObserver) RPCObserver() rpc.Observer {
 	return &rpcObserver{
 		clock:  n.clock,
 		logger: n.logger,
-		id:     n.id,
+		id:     n.state.id,
 		tag:    n.state.tag,
 	}
 }
@@ -92,7 +94,7 @@ func (n *RequestObserver) RPCObserver() rpc.Observer {
 type rpcObserver struct {
 	clock        clock.Clock
 	logger       loggo.Logger
-	id           int64
+	id           uint64
 	tag          string
 	requestStart time.Time
 }

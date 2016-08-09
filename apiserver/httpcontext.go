@@ -116,8 +116,8 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 	return st, entity, nil
 }
 
-// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
-// except that it also verifies that the authenticated entity is a user.
+// stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
+// except that it also verifies that the authenticated entity is an agent.
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
 	authFunc := common.AuthEither(
 		common.AuthFuncForTagKind(names.MachineTagKind),

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bmizerany/pat"
@@ -50,11 +51,9 @@ type Server struct {
 	adminApiFactories map[int]adminApiFactory
 	modelUUID         string
 	authCtxt          *authContext
+	lastConnectionID  uint64
 	newObserver       observer.ObserverFactory
-	connCount         struct {
-		sync.RWMutex
-		value int64
-	}
+	connCount         int64
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -83,7 +82,7 @@ type ServerConfig struct {
 
 func (c *ServerConfig) Validate() error {
 	if c.NewObserver == nil {
-		return errors.NotAssignedf("NewObserver")
+		return errors.NotValidf("missing NewObserver")
 	}
 
 	return nil
@@ -242,9 +241,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 }
 
 func (srv *Server) ConnectionCount() int64 {
-	srv.connCount.RLock()
-	defer srv.connCount.Unlock()
-	return srv.connCount.value
+	return atomic.LoadInt64(&srv.connCount)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -479,16 +476,16 @@ func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	addCount := func(delta int64) {
-		srv.connCount.Lock()
-		srv.connCount.value += delta
-		srv.connCount.Unlock()
+		atomic.AddInt64(&srv.connCount, delta)
 	}
 
 	addCount(1)
 	defer addCount(-1)
 
+	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
+
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req)
+	apiObserver.Join(req, connectionID)
 	defer apiObserver.Leave()
 
 	wsServer := websocket.Server{
