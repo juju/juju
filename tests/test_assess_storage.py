@@ -11,7 +11,7 @@ from assess_storage import (
     parse_args,
     main,
     storage_list_expected,
-    storage_pool_1X,
+    storage_pool_1x,
     storage_list_expected_2,
     storage_list_expected_3,
     storage_list_expected_4,
@@ -75,7 +75,7 @@ class TestAssess(TestCase):
         mock_client.series = 'trusty'
         mock_client.version = '1.25'
         mock_client.list_storage_pool.side_effect = [
-            json.dumps(storage_pool_1X)
+            json.dumps(storage_pool_1x)
         ]
         mock_client.list_storage.side_effect = [
             json.dumps(storage_list_expected),

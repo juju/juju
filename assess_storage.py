@@ -62,8 +62,8 @@ storage_pool_details = {
                 }}
 }
 
-storage_pool_1X = copy.deepcopy(storage_pool_details)
-storage_pool_1X["ebs-ssd"] = {
+storage_pool_1x = copy.deepcopy(storage_pool_details)
+storage_pool_1x["ebs-ssd"] = {
     "provider": "ebs",
     "attrs":
         {
@@ -266,16 +266,14 @@ def assess_storage(client, charm_series):
     log.info('create-pool PASSED')
     log.info('Assessing storage pool')
     pool_list = storage_pool_list(client)
-    if client.version.startswith('2.'):
-        if pool_list != storage_pool_details:
-            raise JujuAssertionError(
-                'Found: {} \nExpected: {}'.format(
-                    pool_list, storage_pool_details))
-    elif client.version.startswith('1.'):
-        if pool_list != storage_pool_1X:
-            raise JujuAssertionError(
-                'Found: {} \nExpected: {}'.format(
-                    pool_list, storage_pool_details))
+    if client.version.startswith('1.'):
+        storage_pool_nx = storage_pool_1x
+    else:
+        storage_pool_nx = storage_pool_details
+    if pool_list != storage_pool_nx:
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(
+                pool_list, storage_pool_details))
     log.info('Storage pool PASSED')
     log.info('Assessing filesystem rootfs')
     assess_deploy_storage(client, charm_series,
