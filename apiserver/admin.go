@@ -72,7 +72,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 	}
 
-	var agentPingerNeeded = true
 	isUser := true
 	kind := names.UserTagKind
 	if req.AuthTag != "" {
@@ -90,6 +89,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	serverOnlyLogin := a.root.modelUUID == ""
+	controllerMachineLogin := false
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
 	if err != nil {
@@ -129,17 +129,17 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// machine in the controller model, and we don't need a pinger
 		// for it as we already have one running in the machine agent api
 		// worker for the controller model.
-		agentPingerNeeded = false
+		controllerMachineLogin = true
 	}
 	a.root.entity = entity
 
-	a.apiObserver.Login(entity.Tag().String())
+	a.apiObserver.Login(entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
 
 	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
 	a.loggedIn = true
 
-	if agentPingerNeeded {
+	if !controllerMachineLogin {
 		if err := startPingerIfAgent(a.root, entity); err != nil {
 			return fail, errors.Trace(err)
 		}
@@ -473,6 +473,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	//
 	// We should have picked better names...
 	action := func() {
+		logger.Debugf("closing connection due to ping timout")
 		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/juju/rpc"
+	"gopkg.in/juju/names.v2"
 )
 
 // Observer defines a type which will observe API server events as
@@ -16,11 +17,11 @@ type Observer interface {
 	rpc.ObserverFactory
 
 	// Login informs an Observer that an entity has logged in.
-	Login(string)
+	Login(entity names.Tag, model names.ModelTag, fromController bool, userData string)
 
 	// Join is called when the connection to the API server's
 	// WebSocket is opened.
-	Join(req *http.Request)
+	Join(req *http.Request, connectionID uint64)
 
 	// Leave is called when the connection to the API server's
 	// WebSocket is closed.
@@ -75,8 +76,8 @@ type Multiplexer struct {
 
 // Join is called when the connection to the API server's WebSocket is
 // opened.
-func (m *Multiplexer) Join(req *http.Request) {
-	mapConcurrent(func(o Observer) { o.Join(req) }, m.observers)
+func (m *Multiplexer) Join(req *http.Request, connectionID uint64) {
+	mapConcurrent(func(o Observer) { o.Join(req, connectionID) }, m.observers)
 }
 
 // Leave implements Observer.
@@ -85,8 +86,8 @@ func (m *Multiplexer) Leave() {
 }
 
 // Login implements Observer.
-func (m *Multiplexer) Login(entityName string) {
-	mapConcurrent(func(o Observer) { o.Login(entityName) }, m.observers)
+func (m *Multiplexer) Login(entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+	mapConcurrent(func(o Observer) { o.Login(entity, model, fromController, userData) }, m.observers)
 }
 
 // RPCObserver implements Observer. It will create an

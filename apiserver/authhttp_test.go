@@ -94,15 +94,15 @@ func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
 	}
 }
 
-func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
-	config := s.makeWebsocketConfigFromURL(c, server, header)
+func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
+	config := makeWebsocketConfigFromURL(c, server, header)
 	c.Logf("dialing %v", server)
 	conn, err := websocket.DialConfig(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
 
-func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
+func makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, jc.ErrorIsNil)
 	config.Header = header
@@ -114,7 +114,7 @@ func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, heade
 	return config
 }
 
-func (s *authHttpSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
+func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
 	_, err := reader.ReadByte()
 	c.Assert(err, gc.Equals, io.EOF)
 }

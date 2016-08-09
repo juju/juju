@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -42,10 +43,10 @@ func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
 	var req http.Request
-	o.Join(&req)
+	o.Join(&req, 1234)
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "Join", &req)
+		f.CheckCall(c, 0, "Join", &req, uint64(1234))
 	}
 }
 
@@ -84,10 +85,13 @@ func (*multiplexerSuite) TestLogin_CallsAllObservers(c *gc.C) {
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
-	tag := "foo"
-	o.Login(tag)
+	entity := names.NewMachineTag("42")
+	model := names.NewModelTag("fake-uuid")
+	fromController := false
+	userData := "foo"
+	o.Login(entity, model, fromController, userData)
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "Login", tag)
+		f.CheckCall(c, 0, "Login", entity, model, fromController, userData)
 	}
 }

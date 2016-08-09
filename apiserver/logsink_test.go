@@ -67,7 +67,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message strin
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	assertJSONError(c, reader, message)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
@@ -208,13 +208,13 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 
 func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
 	server := s.logsinkURL(c, "wss").String()
-	return s.dialWebsocketFromURL(c, server, header)
+	return dialWebsocketFromURL(c, server, header)
 }
 
 func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
-	conn := s.dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
+	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
