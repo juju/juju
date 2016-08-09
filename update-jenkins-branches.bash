@@ -18,7 +18,7 @@ SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     release-slave.vapour.ws cloud-health-slave.vapour.ws  \
     juju-core-slave.vapour.ws charm-bundle-slave.vapour.ws \
     feature-slave.vapour.ws \
-    lxd-slave-a.vapour.ws lxd-slave-a.vapour.ws"
+    lxd-slave-a.vapour.ws lxd-slave-b.vapour.ws"
 WIN_SLAVES="win-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
