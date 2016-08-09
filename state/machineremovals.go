@@ -21,12 +21,9 @@ type machineRemovalDoc struct {
 	MachineID string `bson:"machine-id"`
 }
 
-// MarkForRemoval requests that this machine be removed after any
-// needed provider-level cleanup is done.
-func (m *Machine) MarkForRemoval() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
+func (m *Machine) markForRemovalOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
-		return errors.Errorf("machine is not dead")
+		return nil, errors.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{{
 		C:  machinesC,
@@ -41,7 +38,28 @@ func (m *Machine) MarkForRemoval() (err error) {
 		// No assert here - it's ok if the machine has already been
 		// marked. The id will prevent duplicates.
 	}}
-	return onAbort(m.st.runTransaction(ops), errors.Errorf("machine is not dead"))
+	return ops, nil
+}
+
+// MarkForRemoval requests that this machine be removed after any
+// needed provider-level cleanup is done.
+func (m *Machine) MarkForRemoval() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
+	// Local variable so we can refresh the machine if needed.
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			if machine, err = machine.st.Machine(machine.Id()); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops, err := machine.markForRemovalOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	return m.st.run(buildTxn)
 }
 
 // AllMachineRemovals returns (the ids of) all of the machines that

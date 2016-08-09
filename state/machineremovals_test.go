@@ -67,7 +67,7 @@ func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillExists(c *gc.
 		c.Assert(m.Remove(), gc.IsNil)
 	}).Check()
 	err := m.MarkForRemoval()
-	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine 0 not found")
 }
 
 func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMark(c *gc.C) {
