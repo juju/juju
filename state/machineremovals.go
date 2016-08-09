@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -93,11 +94,31 @@ func collectMissingMachineIds(expectedIds []string, machines []*Machine) []strin
 	return expectedSet.Difference(actualSet).SortedValues()
 }
 
+func checkValidMachineIds(machineIds []string) error {
+	var invalidIds []string
+	for _, id := range machineIds {
+		if !names.IsValidMachine(id) {
+			invalidIds = append(invalidIds, id)
+		}
+	}
+	if len(invalidIds) == 0 {
+		return nil
+	}
+	return errors.Errorf("Invalid machine id%s: %s",
+		plural(len(invalidIds)),
+		strings.Join(invalidIds, ", "),
+	)
+}
+
 // CompleteMachineRemovals finishes the removal of the specified
 // machines. The machines must have been marked for removal
-// previously. Unknown machine ids are ignored so that this is
-// idempotent.
+// previously. Valid-looking-but-unknown machine ids are ignored so
+// that this is idempotent.
 func (st *State) CompleteMachineRemovals(ids ...string) error {
+	if err := checkValidMachineIds(ids); err != nil {
+		return errors.Trace(err)
+	}
+
 	removals, err := st.AllMachineRemovals()
 	if err != nil {
 		return errors.Trace(err)

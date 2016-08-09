@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type MachineRemovalSuite struct {
@@ -41,7 +42,7 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals, jc.SameContents, []string{m1.Id(), m2.Id()})
 
-	err = s.State.CompleteMachineRemovals(m1.Id(), "ignored")
+	err = s.State.CompleteMachineRemovals(m1.Id(), "100")
 	c.Assert(err, jc.ErrorIsNil)
 	removals2, err := s.State.AllMachineRemovals()
 	c.Check(removals2, jc.SameContents, []string{m2.Id()})
@@ -69,15 +70,6 @@ func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillExists(c *gc.
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
 }
 
-func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillDead(c *gc.C) {
-	m := s.makeMachine(c, true)
-	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(state.ResurrectMachine(m), gc.IsNil)
-	}).Check()
-	err := m.MarkForRemoval()
-	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
-}
-
 func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMark(c *gc.C) {
 	m1 := s.makeMachine(c, true)
 	m2 := s.makeMachine(c, true)
@@ -92,8 +84,13 @@ func (s *MachineRemovalSuite) TestCompleteMachineRemovalsRequiresMarkSingular(c 
 }
 
 func (s *MachineRemovalSuite) TestCompleteMachineRemovalsIgnoresNonexistent(c *gc.C) {
-	err := s.State.CompleteMachineRemovals("A", "B")
+	err := s.State.CompleteMachineRemovals("0", "1")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineRemovalSuite) TestCompleteMachineRemovalsInvalid(c *gc.C) {
+	err := s.State.CompleteMachineRemovals("A", "0/lxd/1", "B")
+	c.Assert(err, gc.ErrorMatches, "Invalid machine ids: A, B")
 }
 
 func (s *MachineRemovalSuite) TestWatchMachineRemovals(c *gc.C) {
@@ -122,7 +119,7 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, testing.NotifyWatcherC,
 ) {
 	w := st.WatchMachineRemovals()
-	s.AddCleanup(func(c *gc.C) { testing.AssertStop(c, w) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w, testing.NewNotifyWatcherC(c, st, w)
 }
 
