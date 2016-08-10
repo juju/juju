@@ -51,22 +51,26 @@ func (st *State) userPermission(objectKey, subjectKey string) (*permission, erro
 		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
 	return userPermission, nil
-
 }
 
-// globalUserPermission returns a Permission for the given Subject and User.
-func (st *State) globalUserPermission(objectKey, subjectKey string) (*permission, error) {
+// controllerUserPermission returns a Permission for the given Subject and User.
+func (st *State) controllerUserPermission(objectKey, subjectKey string) (*permission, error) {
 	userPermission := &permission{}
-	permissions, closer := st.getRawCollection(permissionsC)
+	controllerSt, err := st.ForModel(st.controllerModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer controllerSt.Close()
+
+	permissions, closer := controllerSt.getCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectKey, subjectKey)
-	err := permissions.FindId(st.docID(id)).One(&userPermission.doc)
+	err = permissions.FindId(controllerSt.docID(id)).One(&userPermission.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
 	return userPermission, nil
-
 }
 
 // isReadOnly returns whether or not the user has write access or only

@@ -29,7 +29,7 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
-	IsControllerAdministrator(user names.UserTag) (bool, error)
+	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
 	ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error)
@@ -42,6 +42,8 @@ type ModelManagerBackend interface {
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
+	ControllerUUID() string
+	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)

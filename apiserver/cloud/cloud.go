@@ -44,7 +44,7 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 	}
 	getUserAuthFunc := func() (common.AuthFunc, error) {
 		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
-		isAdmin, err := backend.IsControllerAdministrator(authUser)
+		isAdmin, err := backend.IsControllerAdmin(authUser)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func (mm *CloudAPI) CloudDefaults(args params.Entities) (params.CloudDefaultsRes
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		isAdmin, err := mm.backend.IsControllerAdministrator(userTag)
+		isAdmin, err := mm.backend.IsControllerAdmin(userTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

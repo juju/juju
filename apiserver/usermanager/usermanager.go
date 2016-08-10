@@ -50,7 +50,7 @@ func NewUserManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	isAdmin, err := st.IsControllerAdmin(apiUser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

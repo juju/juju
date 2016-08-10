@@ -123,7 +123,7 @@ func NewModelUserAccess(st *State, userDoc userAccessDoc) (description.UserAcces
 // NewControllerUserAccess returns a new description.UserAccess for the given userDoc and
 // current Controller.
 func NewControllerUserAccess(st *State, userDoc userAccessDoc) (description.UserAccess, error) {
-	perm, err := st.userPermission(controllerGlobalKey, userGlobalKey(strings.ToLower(userDoc.UserName)))
+	perm, err := st.controllerUserPermission(controllerGlobalKey, userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return description.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}

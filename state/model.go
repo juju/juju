@@ -270,7 +270,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 			newSt.Close()
 		}
 	}()
-	newSt.controllerTag = st.controllerTag
+	newSt.controllerModelTag = st.controllerModelTag
 
 	modelOps, err := newSt.modelSetupOps(args, nil)
 	if err != nil {
@@ -308,7 +308,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerModelTag)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}

@@ -473,9 +473,12 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
+	c.Assert(err, jc.ErrorIsNil)
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
-	_, err := api.Open(info, fastDialOpts)
+	_, err = api.Open(info, fastDialOpts)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",

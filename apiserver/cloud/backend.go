@@ -16,7 +16,7 @@ type Backend interface {
 	ControllerModel() (Model, error)
 	UpdateCloudCredentials(user names.UserTag, cloudName string, credentials map[string]cloud.Credential) error
 
-	IsControllerAdministrator(names.UserTag) (bool, error)
+	IsControllerAdmin(names.UserTag) (bool, error)
 
 	Close() error
 }

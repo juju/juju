@@ -127,8 +127,10 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
-		"IsControllerAdministrator",
+		"IsControllerAdmin",
 		"ModelUUID",
+		"ControllerTag",
+		"IsControllerAdmin",
 		"ControllerModel",
 		"Cloud",
 		"CloudCredentials",
@@ -147,7 +149,16 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
+	var newModelArgs state.ModelArgs
+	for _, v := range s.st.Calls() {
+		if v.Args == nil {
+			continue
+		}
+		var ok bool
+		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
+			break
+		}
+	}
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -184,7 +195,17 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
+	var newModelArgs state.ModelArgs
+	for _, v := range s.st.Calls() {
+		if v.Args == nil {
+			continue
+		}
+		var ok bool
+		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
+			break
+		}
+	}
+
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -205,7 +226,17 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[7].Args[0].(state.ModelArgs)
+	var newModelArgs state.ModelArgs
+	for _, v := range s.st.Calls() {
+		if v.Args == nil {
+			continue
+		}
+		var ok bool
+		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
+			break
+		}
+	}
+
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
 }
 
@@ -217,7 +248,16 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
+	var newModelArgs state.ModelArgs
+	for _, v := range s.st.Calls() {
+		if v.Args == nil {
+			continue
+		}
+		var ok bool
+		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
+			break
+		}
+	}
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "")
 }
 
@@ -656,8 +696,11 @@ func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, actio
 			Access:   access,
 			ModelTag: model.String(),
 		}}}
+
 	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		return err
+	}
 	return result.OneError()
 }
 
@@ -809,11 +852,12 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
-	apiUser := names.NewUserTag("bob@remote")
-	s.setAPIUser(c, apiUser)
-
+	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
+
+	apiUser := names.NewUserTag("bob@remote")
+	s.setAPIUser(c, apiUser)
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -821,11 +865,13 @@ func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
+	s.setAPIUser(c, s.AdminUserTag(c))
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Canonical(), Access: description.ReadAccess})
@@ -836,11 +882,12 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
-	apiUser := names.NewUserTag("bob@remote")
-	s.setAPIUser(c, apiUser)
-
+	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
+
+	apiUser := names.NewUserTag("admin@remote")
+	s.setAPIUser(c, apiUser)
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Canonical(), Access: description.AdminAccess})

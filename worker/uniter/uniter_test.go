@@ -89,6 +89,13 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
+	zone, err := time.LoadLocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	state.GetClock = func() clock.Clock {
+		return leaseClock
+	}
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
