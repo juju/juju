@@ -186,7 +186,7 @@ func (w *Worker) run() error {
 		var err error
 		switch phase {
 		case coremigration.QUIESCE:
-			phase, err = w.doQUIESCE()
+			phase, err = w.doQUIESCE(status)
 		case coremigration.PRECHECK:
 			phase, err = w.doPRECHECK()
 		case coremigration.IMPORT:
@@ -267,10 +267,18 @@ func (w *Worker) setStatus(message string) error {
 	return errors.Annotate(err, "failed to set status message")
 }
 
-func (w *Worker) doQUIESCE() (coremigration.Phase, error) {
-	// TODO(mjs) - Wait for all agents to report back.
-	// w.setInfoStatus("model quiescing to readonly mode")
-	return coremigration.PRECHECK, nil
+func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	w.setInfoStatus("model quiescing to readonly mode")
+	err := w.waitForMinions(status, failFast, "quiescing")
+	switch errors.Cause(err) {
+	case nil:
+		return coremigration.PRECHECK, nil
+	case errMinionReportFailed, errMinionReportTimeout:
+		w.setErrorStatus("quiescing to read-only mode failed: %v", err)
+		return coremigration.ABORT, nil
+	default:
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
 }
 
 func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
@@ -360,7 +368,7 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 		// LOGTRANSFER.
 		return coremigration.LOGTRANSFER, nil
 	default:
-		return coremigration.SUCCESS, errors.Trace(err)
+		return coremigration.UNKNOWN, errors.Trace(err)
 	}
 }
 
