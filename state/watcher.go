@@ -2485,6 +2485,12 @@ func (st *State) WatchMigrationStatus() NotifyWatcher {
 	return newNotifyCollWatcher(st, migrationsStatusC, isLocalID(st))
 }
 
+// WatchMachineRemovals returns a NotifyWatcher which triggers
+// whenever machine removal records are added or removed.
+func (st *State) WatchMachineRemovals() NotifyWatcher {
+	return newNotifyCollWatcher(st, machineRemovalsC, isLocalID(st))
+}
+
 // notifyCollWatcher implements NotifyWatcher, triggering when a
 // change is seen in a specific collection matching the provided
 // filter function.

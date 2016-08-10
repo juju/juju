@@ -569,7 +569,7 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
 	// send the error message three times, because the provisioner will retry twice as patched above.
 	errorInjectionChannel <- retryableError
@@ -615,75 +615,12 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 
 	// send the error message once
 	// - instance creation should succeed
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	errorInjectionChannel <- retryableError
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstance(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
-	// Set the retry delay to 0, and retry count to 1 to keep tests short
-	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
-	s.PatchValue(provisioner.RetryStrategyCount, 1)
-
-	// create the error injection channel
-	errorInjectionChannel := make(chan error, 1)
-	c.Assert(errorInjectionChannel, gc.NotNil)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// patch the dummy provider error injection channel
-	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
-	defer cleanup()
-
-	// send the error message once
-	// - instance creation should succeed
-	retryableError := errors.Wrap(errors.New(""), instance.NewRetryableCreationError("container failed to start and was destroyed"))
-	errorInjectionChannel <- retryableError
-
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
-	// create the error injection channel
-	errorInjectionChannel := make(chan error, 1)
-	c.Assert(errorInjectionChannel, gc.NotNil)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// patch the dummy provider error injection channel
-	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
-	defer cleanup()
-
-	// send the error message once
-	nonRetryableError := errors.New("some nonretryable error")
-	errorInjectionChannel <- nonRetryableError
-
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkNoOperations(c)
-
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
-		// check that the status matches the error message
-		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
-		return
-	}
-	c.Fatal("Test took too long to complete")
 }
 
 func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
@@ -698,7 +635,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	errorInjectionChannel <- retryableError
 
 	m, err := s.addMachine()

@@ -86,38 +86,6 @@ func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "datacenter is required",
-	remove: []string{"datacenter"},
-	err:    "datacenter: expected string, got nothing",
-}, {
-	info:   "datacenter cannot be empty",
-	insert: testing.Attrs{"datacenter": ""},
-	err:    "datacenter: must not be empty",
-}, {
-	info:   "host is required",
-	remove: []string{"host"},
-	err:    "host: expected string, got nothing",
-}, {
-	info:   "host cannot be empty",
-	insert: testing.Attrs{"host": ""},
-	err:    "host: must not be empty",
-}, {
-	info:   "user is required",
-	remove: []string{"user"},
-	err:    "user: expected string, got nothing",
-}, {
-	info:   "user cannot be empty",
-	insert: testing.Attrs{"user": ""},
-	err:    "user: must not be empty",
-}, {
-	info:   "password is required",
-	remove: []string{"password"},
-	err:    "password: expected string, got nothing",
-}, {
-	info:   "password cannot be empty",
-	insert: testing.Attrs{"password": ""},
-	err:    "password: must not be empty",
-}, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": "12345"},
 	expect: testing.Attrs{"unknown-field": "12345"},
@@ -193,22 +161,6 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: vsphere.ConfigAttrs(),
-}, {
-	info:   "cannot change datacenter",
-	insert: testing.Attrs{"datacenter": "/datacenter2"},
-	err:    "datacenter: cannot change from /datacenter1 to /datacenter2",
-}, {
-	info:   "cannot change host",
-	insert: testing.Attrs{"host": "host2"},
-	err:    "host: cannot change from host1 to host2",
-}, {
-	info:   "cannot change user",
-	insert: testing.Attrs{"user": "user2"},
-	expect: testing.Attrs{"user": "user2"},
-}, {
-	info:   "cannot change password",
-	insert: testing.Attrs{"password": "password2"},
-	expect: testing.Attrs{"password": "password2"},
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},

@@ -74,7 +74,7 @@ func (s *PhaseSuite) TestIsRunning(c *gc.C) {
 func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.READONLY), jc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.PRECHECK), jc.IsTrue)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), jc.IsFalse)
 
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), jc.IsFalse)

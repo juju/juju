@@ -77,6 +77,23 @@ func (s *GetSuite) TestGetCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 }
 
+func (s *GetSuite) TestGetCommandInitWithApplication(c *gc.C) {
+	err := coretesting.InitCommand(application.NewGetCommandForTest(s.fake), []string{"app"})
+	// everything ok
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *GetSuite) TestGetCommandInitWithKey(c *gc.C) {
+	err := coretesting.InitCommand(application.NewGetCommandForTest(s.fake), []string{"app", "key"})
+	// everything ok
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *GetSuite) TestGetCommandInitTooManyArgs(c *gc.C) {
+	err := coretesting.InitCommand(application.NewGetCommandForTest(s.fake), []string{"app", "key", "another"})
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["another"\]`)
+}
+
 func (s *GetSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
@@ -97,4 +114,20 @@ func (s *GetSuite) TestGetConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, gc.DeepEquals, expected)
 	}
+}
+
+func (s *GetSuite) TestGetConfigKey(c *gc.C) {
+	ctx := coretesting.Context(c)
+	code := cmd.Main(application.NewGetCommandForTest(s.fake), ctx, []string{"dummy-application", "title"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "Nearly There\n")
+}
+
+func (s *GetSuite) TestGetConfigKeyNotFound(c *gc.C) {
+	ctx := coretesting.Context(c)
+	code := cmd.Main(application.NewGetCommandForTest(s.fake), ctx, []string{"dummy-application", "invalid"})
+	c.Check(code, gc.Equals, 1)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "error: key \"invalid\" not found in \"dummy-application\" application settings.\n")
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 }

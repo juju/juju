@@ -18,6 +18,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -86,8 +88,6 @@ func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
 	return &out
 }
 
-const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
-
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.baseProviderSuite.SetUpSuite(c)
 	s.testMAASObject = gomaasapi.NewTestMAAS("1.0")
@@ -118,26 +118,28 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 }
 
 var maasEnvAttrs = coretesting.Attrs{
-	"name":            "test-env",
-	"type":            "maas",
-	"maas-oauth":      "a:b:c",
-	"maas-agent-name": exampleAgentName,
+	"name": "test-env",
+	"type": "maas",
 }
 
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *providerSuite) makeEnviron() *maasEnviron {
-	testAttrs := coretesting.Attrs{}
-	for k, v := range maasEnvAttrs {
-		testAttrs[k] = v
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	cloud := environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   suite.testMAASObject.TestServer.URL,
+		Credential: &cred,
 	}
-	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
-	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}
-	env, err := NewEnviron(cfg)
+	env, err := NewEnviron(cloud, cfg)
 	if err != nil {
 		panic(err)
 	}

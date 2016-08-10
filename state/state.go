@@ -569,8 +569,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 
 var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error is cause by an
-// upgrade in progress
+// IsUpgradeInProgressError returns true if the error is caused by an
+// in-progress upgrade.
 func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == errUpgradeInProgress
 }

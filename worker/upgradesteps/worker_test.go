@@ -490,6 +490,7 @@ func makeBumpedCurrentVersion() version.Binary {
 const maxUpgradeRetries = 3
 
 func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
 		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{

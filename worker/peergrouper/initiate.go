@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
+// TODO(katco): 2016-08-09: lp:1611427
 var initiateAttemptStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 5 * time.Second,

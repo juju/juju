@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -32,7 +33,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
@@ -191,7 +192,11 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
 	mongoInfo.Addrs = []string{proxy.Addr()}
 
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), nil)
+	dialOpts := mongo.DialOpts{
+		Timeout:       5 * time.Second,
+		SocketTimeout: 5 * time.Second,
+	}
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, dialOpts, nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

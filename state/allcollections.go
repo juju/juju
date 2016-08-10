@@ -269,6 +269,10 @@ func allCollections() collectionSchema {
 		rebootC:        {},
 		sshHostKeysC:   {},
 
+		// This collection contains information from removed machines
+		// that needs to be cleaned up in the provider.
+		machineRemovalsC: {},
+
 		// -----
 
 		// These collections hold information associated with storage.
@@ -414,6 +418,7 @@ const (
 	instanceDataC            = "instanceData"
 	leasesC                  = "leases"
 	machinesC                = "machines"
+	machineRemovalsC         = "machineremovals"
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"

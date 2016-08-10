@@ -76,6 +76,8 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
@@ -734,6 +736,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Bi
 	}
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,

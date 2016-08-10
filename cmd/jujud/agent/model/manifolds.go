@@ -165,7 +165,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifNotDead(fortress.Manifold()),
 		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		})),

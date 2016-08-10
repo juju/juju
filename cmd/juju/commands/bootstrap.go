@@ -44,7 +44,7 @@ var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
 
 var usageBootstrapDetails = `
-Used without arguments, bootstrap will step you through the process of 
+Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
@@ -52,7 +52,7 @@ We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.
 
-Credentials are set beforehand and are distinct from any other 
+Credentials are set beforehand and are distinct from any other
 configuration (see `[1:] + "`juju add-credential`" + `).
 The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
@@ -64,26 +64,26 @@ other models are created.
 If '--bootstrap-constraints' is used, its values will also apply to any
 future controllers provisioned for high availability (HA).
 
-If '--constraints' is used, its values will be set as the default 
-constraints for all future workload machines in the model, exactly as if 
+If '--constraints' is used, its values will be set as the default
+constraints for all future workload machines in the model, exactly as if
 the constraints were set with ` + "`juju set-model-constraints`" + `.
 
 It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
-dictates what machine to use for the controller. This would typically be 
+dictates what machine to use for the controller. This would typically be
 used with the MAAS provider ('--to <host>.maas').
 
-You can change the default timeout and retry delays used during the 
+You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
     # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
-    # How long to wait between connection attempts to a controller 
+    # How long to wait between connection attempts to a controller
 address.
     bootstrap-retry-delay: 5 # default: 5 seconds
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
-    
+
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 The value of '--agent-version' will become the default tools version to
@@ -100,7 +100,7 @@ Examples:
     juju bootstrap --config agent-version=1.25.3 joe-us-east-1 aws
     juju bootstrap --config bootstrap-timeout=1200 joe-eastus azure
 
-See also: 
+See also:
     add-credentials
     add-model
     set-constraints`
@@ -347,7 +347,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			// cloud's endpoint. This enables the user to
 			// supply, for example, maas/<IP> or manual/<IP>.
 			if c.Region != "" {
-				ctx.Verbosef("interpreting %q as the cloud endpoint")
+				ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
 				cloudEndpoint = c.Region
 				c.Region = ""
 			}

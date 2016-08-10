@@ -439,6 +439,7 @@ var IsMachineMaster = func(st *state.State, machineId string) (bool, error) {
 	return isMaster, nil
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 	return utils.AttemptStrategy{
 		Delay: 2 * time.Minute,

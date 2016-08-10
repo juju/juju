@@ -520,7 +520,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
-		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
+		c.Assert(err, jc.Satisfies, params.IsCodeUpgradeInProgress)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }

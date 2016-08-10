@@ -21,6 +21,7 @@ const ShortWait = 50 * time.Millisecond
 // test suite
 const LongWait = 10 * time.Second
 
+// TODO(katco): 2016-08-09: lp:1611427
 var LongAttempt = &utils.AttemptStrategy{
 	Total: LongWait,
 	Delay: ShortWait,

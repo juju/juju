@@ -74,13 +74,13 @@ func (s *Suite) TestReport(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.Report(params.MinionReport{
 		MigrationId: "id",
-		Phase:       "READONLY",
+		Phase:       "PRECHECK",
 		Success:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{"ModelMigration", []interface{}{"id"}},
-		{"Report", []interface{}{s.authorizer.Tag, migration.READONLY, true}},
+		{"Report", []interface{}{s.authorizer.Tag, migration.PRECHECK, true}},
 	})
 }
 

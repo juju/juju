@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -157,7 +158,6 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -216,13 +216,16 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	s.masterFacade.status.Phase = coremigration.ABORTDONE
 	s.triggerMigration()
+
 	worker, err := migrationmaster.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, worker)
-	workertest.CheckAlive(c, worker)
-	workertest.CleanKill(c, worker)
+	defer workertest.CleanKill(c, worker)
 
-	// No reliable way to test stub calls in this case unfortunately.
+	s.waitForStubCalls(c, []string{
+		"masterFacade.Watch",
+		"masterFacade.GetMigrationStatus",
+		"guard.Unlock",
+	})
 }
 
 func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
@@ -267,18 +270,16 @@ func (s *Suite) TestStatusError(c *gc.C) {
 
 func (s *Suite) TestStatusNotFound(c *gc.C) {
 	s.masterFacade.statusErr = &params.Error{Code: params.CodeNotFound}
-	worker, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, worker)
 	s.triggerMigration()
 
-	workertest.CheckAlive(c, worker)
-	workertest.CleanKill(c, worker)
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
 
-	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
-		{"guard.Unlock", nil},
+	s.waitForStubCalls(c, []string{
+		"masterFacade.Watch",
+		"masterFacade.GetMigrationStatus",
+		"guard.Unlock",
 	})
 }
 
@@ -335,7 +336,6 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -361,7 +361,6 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -386,7 +385,6 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -526,11 +524,11 @@ func (s *Suite) TestMinionWaitWrongPhase(c *gc.C) {
 	// Have the phase in the minion reports be different from the
 	// migration status. This shouldn't happen but the migrationmaster
 	// should handle it.
-	s.masterFacade.minionReports.Phase = coremigration.READONLY
+	s.masterFacade.minionReports.Phase = coremigration.PRECHECK
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.ErrorMatches, `minion reports phase \(READONLY\) does not match migration phase \(SUCCESS\)`)
+	c.Assert(err, gc.ErrorMatches, `minion reports phase \(PRECHECK\) does not match migration phase \(SUCCESS\)`)
 }
 
 func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
@@ -549,6 +547,25 @@ func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.ErrorMatches,
 		"unexpected migration id in minion reports, got blah, expected model-uuid:2")
+}
+
+func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+	var callNames []string
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		callNames = stubCallNames(s.stub)
+		if reflect.DeepEqual(callNames, expectedCallNames) {
+			return
+		}
+	}
+	c.Fatalf("failed to see expected calls. saw: %v", callNames)
+}
+
+func stubCallNames(stub *jujutesting.Stub) []string {
+	var out []string
+	for _, call := range stub.Calls() {
+		out = append(out, call.FuncName)
+	}
+	return out
 }
 
 func newStubGuard(stub *jujutesting.Stub) *stubGuard {
