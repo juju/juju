@@ -63,8 +63,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	)
 
 	ignoredCollections := set.NewStrings(
-		// Precheck ensures that there are no cleanup docs.
+		// Precheck ensures that there are no cleanup docs or pending
+		// machine removals.
 		cleanupsC,
+		machineRemovalsC,
 		// We don't export the controller model at this stage.
 		controllersC,
 		// Clouds aren't migrated. They must exist in the
