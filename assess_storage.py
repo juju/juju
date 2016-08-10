@@ -293,13 +293,13 @@ def assess_storage(client, charm_series):
     log.info('create-pool PASSED')
 
     log.info('Assessing storage pool')
-    if client.env.config['type'] == 'ec2':
-        expected_pool = copy.deepcopy(AWS_DEFAULT_STORAGE_POOL_DETAILS)
-    else:
-        expected_pool = copy.deepcopy(DEFAULT_STORAGE_POOL_DETAILS)
     if client.version.startswith('1.'):
-        expected_pool.update(storage_pool_1x)
+        expected_pool = storage_pool_1x
     else:
+        if client.env.config['type'] == 'ec2':
+            expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
+        else:
+            expected_pool = dict(DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)
     pool_list = storage_pool_list(client)
     if pool_list != expected_pool:
