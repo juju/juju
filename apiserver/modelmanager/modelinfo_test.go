@@ -117,7 +117,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
+		{"IsControllerAdmin", []interface{}{names.NewUserTag("admin@local")}},
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
@@ -244,8 +244,8 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 	return nil, st.NextErr()
 }
 
-func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error) {
-	st.MethodCall(st, "IsControllerAdministrator", user)
+func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
+	st.MethodCall(st, "IsControllerAdmin", user)
 	if st.controllerModel == nil {
 		return user.Canonical() == "admin@local", st.NextErr()
 	}
@@ -276,6 +276,11 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
+func (st *mockState) ControllerTag() names.ControllerTag {
+	st.MethodCall(st, "ControllerTag")
+	return names.NewControllerTag(st.controllerModel.tag.Id())
+}
+
 func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
@@ -284,6 +289,11 @@ func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (ma
 	}
 	attr["something"] = "value"
 	return attr, st.NextErr()
+}
+
+func (st *mockState) ControllerUUID() string {
+	st.MethodCall(st, "ControllerUUID")
+	return st.uuid
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {

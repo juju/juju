@@ -76,9 +76,9 @@ func (s *cloudSuite) TestCloudDefaults(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c,
-		"IsControllerAdministrator", // for auth-checking
+		"IsControllerAdmin", // for auth-checking
 		"ControllerModel",
-		"IsControllerAdministrator", // to get default credential
+		"IsControllerAdmin", // to get default credential
 	)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -102,9 +102,9 @@ func (s *cloudSuite) TestCloudDefaultsAdminAccess(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c,
-		"IsControllerAdministrator", // for auth-checking
+		"IsControllerAdmin", // for auth-checking
 		"ControllerModel",
-		"IsControllerAdministrator", // to get default credential
+		"IsControllerAdmin", // to get default credential
 	)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -127,7 +127,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdministrator", "CloudCredentials")
+	s.backend.CheckCallNames(c, "IsControllerAdmin", "CloudCredentials")
 	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce"), "meep")
 
 	c.Assert(results.Results, gc.HasLen, 3)
@@ -159,7 +159,7 @@ func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdministrator", "CloudCredentials")
+	s.backend.CheckCallNames(c, "IsControllerAdmin", "CloudCredentials")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can access others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -190,7 +190,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdministrator", "UpdateCloudCredentials")
+	s.backend.CheckCallNames(c, "IsControllerAdmin", "UpdateCloudCredentials")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid user tag`,
@@ -230,7 +230,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdministrator", "UpdateCloudCredentials")
+	s.backend.CheckCallNames(c, "IsControllerAdmin", "UpdateCloudCredentials")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can update others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -242,8 +242,8 @@ type mockBackend struct {
 	creds map[string]cloud.Credential
 }
 
-func (st *mockBackend) IsControllerAdministrator(user names.UserTag) (bool, error) {
-	st.MethodCall(st, "IsControllerAdministrator", user)
+func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
+	st.MethodCall(st, "IsControllerAdmin", user)
 	return user.Canonical() == "admin@local", st.NextErr()
 }
 

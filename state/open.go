@@ -210,7 +210,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			}
 		}
 	}()
-	st.controllerTag = modelTag
+	st.controllerModelTag = modelTag
 
 	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -294,7 +294,7 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 		return nil, errors.Trace(err)
 	}
 
-	controllerUUID := st.controllerTag.Id()
+	controllerUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,

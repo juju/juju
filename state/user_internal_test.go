@@ -33,7 +33,7 @@ func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	// controller user permissions
 	op = ops[1]
 	permdoc := op.Insert.(*permissionDoc)
-	c.Assert(permdoc.Access, gc.Equals, string(description.LoginAccess))
+	c.Assert(permdoc.Access, gc.Equals, string(description.SuperuserAccess))
 	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerGlobalKey, userGlobalKey(strings.ToLower(tag.Canonical()))))
 	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Canonical())))
 	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerGlobalKey)

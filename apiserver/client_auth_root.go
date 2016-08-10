@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/description"
@@ -17,13 +16,14 @@ import (
 // authorisation checks are only for read only access to the model, but in the
 // near future, full ACL support is desirable.
 type clientAuthRoot struct {
-	finder rpc.MethodFinder
-	user   description.UserAccess
+	finder         rpc.MethodFinder
+	modelUser      description.UserAccess
+	controllerUser description.UserAccess
 }
 
 // newClientAuthRoot returns a new restrictedRoot.
-func newClientAuthRoot(finder rpc.MethodFinder, user description.UserAccess) *clientAuthRoot {
-	return &clientAuthRoot{finder, user}
+func newClientAuthRoot(finder rpc.MethodFinder, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
+	return &clientAuthRoot{finder, modelUser, controllerUser}
 }
 
 // FindMethod returns a not supported error if the rootName is not one of the
@@ -36,17 +36,12 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 		return nil, err
 	}
 	// ReadOnly User
-	if r.user.Access == description.ReadAccess {
+	if r.modelUser.Access == description.ReadAccess {
 		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
 			isCallReadOnly(rootName, methodName)
 		if !canCall {
 			return nil, errors.Trace(common.ErrPerm)
 		}
-	}
-
-	// Check if our call requires higher access than the user has.
-	if doesCallRequireAdmin(rootName, methodName) && r.user.Access != description.AdminAccess {
-		return nil, errors.Trace(common.ErrPerm)
 	}
 
 	return caller, nil
@@ -60,28 +55,4 @@ func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
 	// have access to those facades if they went through the controller API
 	// endpoint rather than a model oriented one.
 	return restrictedRootNames.Contains(facade)
-}
-
-var modelManagerMethods = set.NewStrings(
-	"ModifyModelAccess",
-	"CreateModel",
-)
-
-var controllerMethods = set.NewStrings(
-	"DestroyController",
-)
-
-func doesCallRequireAdmin(facade, method string) bool {
-	// TODO(perrito666) This should filter adding users to controllers.
-	// TODO(perrito666) Add an exaustive list of facades/methods that are
-	// admin only and put them in an authoritative source to be re-used.
-	// TODO(perrito666) This is a stub, the idea is to maintain the current
-	// status of permissions until we decide what goes to admin only.
-	switch facade {
-	case "ModelManager":
-		return modelManagerMethods.Contains(method)
-	case "Controller":
-		return controllerMethods.Contains(method)
-	}
-	return false
 }

@@ -19,11 +19,17 @@ const defaultControllerPermission = description.LoginAccess
 
 // setAccess changes the user's access permissions on the controller.
 func (st *State) setControllerAccess(access description.Access, userGlobalKey string) error {
-	if err := access.Validate(); err != nil {
+	if err := description.ValidateControllerAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 	op := updatePermissionOp(controllerGlobalKey, userGlobalKey, access)
-	err := st.runTransaction([]txn.Op{op})
+	controllerSt, err := st.ForModel(st.controllerModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer controllerSt.Close()
+
+	err = controllerSt.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -33,11 +39,16 @@ func (st *State) setControllerAccess(access description.Access, userGlobalKey st
 // controllerUser a model userAccessDoc.
 func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUser := userAccessDoc{}
-	controllerUsers, closer := st.getCollection(controllerUsersC)
+	controllerSt, err := st.ForModel(st.controllerModelTag)
+	if err != nil {
+		return controllerUser, errors.Trace(err)
+	}
+	defer controllerSt.Close()
+	controllerUsers, closer := controllerSt.getCollection(controllerUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	err := controllerUsers.FindId(username).One(&controllerUser)
+	err = controllerUsers.FindId(username).One(&controllerUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("controller user %q", user.Canonical())
 	}

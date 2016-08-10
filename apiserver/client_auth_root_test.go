@@ -44,31 +44,16 @@ func (s *clientAuthRootSuite) AssertCallErrPerm(c *gc.C, client *clientAuthRoot,
 
 func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, nil)
-	client := newClientAuthRoot(&fakeFinder{}, modelUser)
+	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
 	s.AssertCallGood(c, client, "Application", 1, "Deploy")
 	s.AssertCallGood(c, client, "UserManager", 1, "UserInfo")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
 	s.AssertCallNotImplemented(c, client, "Unknown", 1, "Method")
 }
 
-func (s *clientAuthRootSuite) TestAdminUser(c *gc.C) {
-	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.WriteAccess})
-	client := newClientAuthRoot(&fakeFinder{}, modelUser)
-	s.AssertCallGood(c, client, "Client", 1, "FullStatus")
-	s.AssertCallErrPerm(c, client, "ModelManager", 2, "ModifyModelAccess")
-	s.AssertCallErrPerm(c, client, "ModelManager", 2, "CreateModel")
-	s.AssertCallErrPerm(c, client, "Controller", 3, "DestroyController")
-
-	modelUser = s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.AdminAccess})
-	client = newClientAuthRoot(&fakeFinder{}, modelUser)
-	s.AssertCallGood(c, client, "ModelManager", 2, "ModifyModelAccess")
-	s.AssertCallGood(c, client, "ModelManager", 2, "CreateModel")
-	s.AssertCallGood(c, client, "Controller", 3, "DestroyController")
-}
-
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
-	client := newClientAuthRoot(&fakeFinder{}, modelUser)
+	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
 	// read only commands are fine

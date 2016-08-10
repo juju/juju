@@ -41,7 +41,7 @@ func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "controller")
+	context := s.run(c, "grant", username, "read", "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -68,7 +68,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context := s.run(c, "revoke", username, "controller")
+	context := s.run(c, "revoke", username, "read", "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -82,7 +82,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "controller")
+	context := s.run(c, "grant", username, "read", "controller")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
