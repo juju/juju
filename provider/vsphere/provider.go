@@ -25,42 +25,24 @@ var logger = loggo.GetLogger("juju.provider.vmware")
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	env, err := newEnviron(args.Config)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-//
-// TODO(axw) 2016-07-29 #1607620
-// We should be extracting the endpoint and region
-// in this method, and using them as host/datacenter.
 func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	cfg := args.Config
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		credentialAttrs := args.Cloud.Credential.Attributes()
-		var err error
-		cfg, err = cfg.Apply(map[string]interface{}{
-			cfgUser:     credentialAttrs["user"],
-			cfgPassword: credentialAttrs["password"],
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return cfg, nil
+	return args.Config, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		cfgDatacenter,
-		cfgHost,
-		cfgUser,
-		cfgPassword,
-	}
+	return []string{}
 }
 
 // Validate implements environs.EnvironProvider.
@@ -88,10 +70,19 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 
 // SecretAttrs implements environs.EnvironProvider.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
+	return map[string]string{}, nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	return ecfg.secret(), nil
+	// TODO(axw) add validation of endpoint/region.
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }

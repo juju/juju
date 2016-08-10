@@ -4,8 +4,6 @@
 package openstack
 
 import (
-	"os"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,25 +15,6 @@ import (
 
 type ConfigSuite struct {
 	testing.BaseSuite
-	savedVars map[string]string
-}
-
-// Ensure any environment variables a user may have set locally are reset.
-var envVars = map[string]string{
-	"AWS_SECRET_ACCESS_KEY": "",
-	"EC2_SECRET_KEYS":       "",
-	"NOVA_API_KEY":          "",
-	"NOVA_PASSWORD":         "",
-	"NOVA_PROJECT_ID":       "",
-	"NOVA_REGION":           "",
-	"NOVA_USERNAME":         "",
-	"OS_ACCESS_KEY":         "",
-	"OS_AUTH_URL":           "",
-	"OS_PASSWORD":           "",
-	"OS_REGION_NAME":        "",
-	"OS_SECRET_KEY":         "",
-	"OS_TENANT_NAME":        "",
-	"OS_USERNAME":           "",
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -49,18 +28,10 @@ type configTest struct {
 	config                  testing.Attrs
 	change                  map[string]interface{}
 	expect                  map[string]interface{}
-	envVars                 map[string]string
 	region                  string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
-	username                string
-	password                string
-	tenantName              string
-	authMode                AuthMode
-	authURL                 string
-	accessKey               string
-	secretKey               string
 	firewallMode            string
 	err                     string
 	sslHostnameVerification bool
@@ -68,19 +39,7 @@ type configTest struct {
 	blockStorageSource      string
 }
 
-var requiredConfig = testing.Attrs{
-	"region":      "configtest",
-	"auth-url":    "http://auth",
-	"username":    "user",
-	"password":    "pass",
-	"tenant-name": "tenant",
-}
-
-func restoreEnvVars(envVars map[string]string) {
-	for k, v := range envVars {
-		os.Setenv(k, v)
-	}
-}
+var requiredConfig = testing.Attrs{}
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -90,21 +49,17 @@ func (t configTest) check(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Set environment variables if any.
-	savedVars := make(map[string]string)
-	if t.envVars != nil {
-		for k, v := range t.envVars {
-			savedVars[k] = os.Getenv(k)
-			os.Setenv(k, v)
-		}
-	}
-	defer restoreEnvVars(savedVars)
-
+	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username":    "user",
+		"password":    "secret",
+		"tenant-name": "sometenant",
+	})
 	cloudSpec := environs.CloudSpec{
-		Type:     "openstack",
-		Name:     "openstack",
-		Endpoint: "http://auth",
-		Region:   "Configtest",
+		Type:       "openstack",
+		Name:       "openstack",
+		Endpoint:   "http://auth",
+		Region:     "Configtest",
+		Credential: &credential,
 	}
 
 	e, err := environs.New(environs.OpenParams{
@@ -135,33 +90,6 @@ func (t configTest) check(c *gc.C) {
 
 	ecfg := e.(*Environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	if t.region != "" {
-		c.Assert(ecfg.region(), gc.Equals, t.region)
-	}
-	if t.authMode != "" {
-		c.Assert(ecfg.authMode(), gc.Equals, t.authMode)
-	}
-	if t.accessKey != "" {
-		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
-	}
-	if t.secretKey != "" {
-		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
-	}
-	if t.username != "" {
-		c.Assert(ecfg.username(), gc.Equals, t.username)
-		c.Assert(ecfg.password(), gc.Equals, t.password)
-		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
-		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
-		expected := map[string]string{
-			"username":    t.username,
-			"password":    t.password,
-			"tenant-name": t.tenantName,
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(expected, gc.DeepEquals, actual)
-	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
@@ -188,142 +116,11 @@ func (t configTest) check(c *gc.C) {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.savedVars = make(map[string]string)
-	for v, val := range envVars {
-		s.savedVars[v] = os.Getenv(v)
-		os.Setenv(v, val)
-	}
 	s.PatchValue(&authenticateClient, func(*Environ) error { return nil })
-}
-
-func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	for k, v := range s.savedVars {
-		os.Setenv(k, v)
-	}
-	s.BaseSuite.TearDownTest(c)
 }
 
 var configTests = []configTest{
 	{
-		summary: "setting region",
-		config: requiredConfig.Merge(testing.Attrs{
-			"region": "testreg",
-		}),
-		region: "testreg",
-	}, {
-		summary: "setting region (2)",
-		config: requiredConfig.Merge(testing.Attrs{
-			"region": "configtest",
-		}),
-		region: "configtest",
-	}, {
-		summary: "changing region",
-		config:  requiredConfig,
-		change: testing.Attrs{
-			"region": "otherregion",
-		},
-		err: `cannot change region from "configtest" to "otherregion"`,
-	}, {
-		summary: "invalid region",
-		config: requiredConfig.Merge(testing.Attrs{
-			"region": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "missing region in model",
-		config:  requiredConfig.Delete("region"),
-		err:     "missing region not valid",
-	}, {
-		summary: "invalid username",
-		config: requiredConfig.Merge(testing.Attrs{
-			"username": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "missing username in model",
-		config:  requiredConfig.Delete("username"),
-		err:     "missing username not valid",
-	}, {
-		summary: "invalid password",
-		config: requiredConfig.Merge(testing.Attrs{
-			"password": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "missing password in model",
-		config:  requiredConfig.Delete("password"),
-		err:     "missing password not valid",
-	}, {
-		summary: "invalid tenant-name",
-		config: requiredConfig.Merge(testing.Attrs{
-			"tenant-name": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "missing tenant in model",
-		config:  requiredConfig.Delete("tenant-name"),
-		err:     "missing tenant-name not valid",
-	}, {
-		summary: "invalid auth-url type",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-url": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "missing auth-url in model",
-		config:  requiredConfig.Delete("auth-url"),
-		err:     "missing auth-url not valid",
-	}, {
-		summary: "invalid authorization mode",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-mode": "invalid-mode",
-		}),
-		err: `auth-mode: expected one of \[keypair legacy userpass\], got "invalid-mode"`,
-	}, {
-		summary: "keypair authorization mode",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-mode":  "keypair",
-			"access-key": "MyAccessKey",
-			"secret-key": "MySecretKey",
-		}),
-		authMode:  "keypair",
-		accessKey: "MyAccessKey",
-		secretKey: "MySecretKey",
-	}, {
-		summary: "keypair authorization mode without access key",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-mode":  "keypair",
-			"secret-key": "MySecretKey",
-		}),
-		err: "missing access-key not valid",
-	}, {
-		summary: "keypair authorization mode without secret key",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-mode":  "keypair",
-			"access-key": "MyAccessKey",
-		}),
-		err: "missing secret-key not valid",
-	}, {
-		summary: "invalid auth-url format",
-		config: requiredConfig.Merge(testing.Attrs{
-			"auth-url": "invalid",
-		}),
-		err: `invalid auth-url value "invalid"`,
-	}, {
-		summary: "valid auth args",
-		config: requiredConfig.Merge(testing.Attrs{
-			"username":    "jujuer",
-			"password":    "open sesame",
-			"tenant-name": "juju tenant",
-			"auth-mode":   "legacy",
-			"auth-url":    "http://some.url/v2",
-		}),
-		username:   "jujuer",
-		password:   "open sesame",
-		tenantName: "juju tenant",
-		authURL:    "http://some.url/v2",
-		authMode:   AuthLegacy,
-	}, {
 		summary: "default use floating ip",
 		config:  requiredConfig,
 		// Do not use floating IP's by default.
@@ -432,11 +229,6 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 		"type":                  "openstack",
 		"default-image-id":      "id-1234",
 		"default-instance-type": "big",
-		"username":              "u",
-		"password":              "p",
-		"tenant-name":           "t",
-		"region":                "r",
-		"auth-url":              "http://auth",
 	})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -477,6 +269,8 @@ func prepareConfigParams(cfg *config.Config) environs.PrepareConfigParams {
 	return environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environs.CloudSpec{
+			Type:       "openstack",
+			Name:       "canonistack",
 			Region:     "region",
 			Endpoint:   "http://auth",
 			Credential: &credential,

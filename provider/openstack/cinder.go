@@ -62,10 +62,9 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
 	authClient := env.client
 	envNovaClient := env.novaUnlocked
-	region := env.ecfgUnlocked.region()
 	env.ecfgMutex.Unlock()
 
-	endpointUrl, err := getVolumeEndpointURL(authClient, region)
+	endpointUrl, err := getVolumeEndpointURL(authClient, env.cloud.Region)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotSupported(err, "volumes not supported")

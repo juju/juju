@@ -11,6 +11,11 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+const (
+	credAttrUser     = "user"
+	credAttrPassword = "password"
+)
+
 type environProviderCredentials struct{}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -18,9 +23,9 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
 			{
-				"user", cloud.CredentialAttr{Description: "The username to authenticate with."},
+				credAttrUser, cloud.CredentialAttr{Description: "The username to authenticate with."},
 			}, {
-				"password", cloud.CredentialAttr{
+				credAttrPassword, cloud.CredentialAttr{
 					Description: "The password to authenticate with.",
 					Hidden:      true,
 				},

@@ -73,21 +73,26 @@ var shortAttempt = utils.AttemptStrategy{
 
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
-	e := new(Environ)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 
+	e := &Environ{
+		name:  args.Config.Name(),
+		cloud: args.Cloud,
+	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
 	err := e.SetConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
-	e.name = args.Config.Name()
 	return e, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p EnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "auth-url", "auth-mode"}
+	return []string{}
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -109,30 +114,12 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	attrs := map[string]interface{}{
-		"region":   args.Cloud.Region,
-		"auth-url": args.Cloud.Endpoint,
-	}
-	credentialAttrs := args.Cloud.Credential.Attributes()
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		// TODO(axw) we need a way of saying to use legacy auth.
-		attrs["username"] = credentialAttrs["username"]
-		attrs["password"] = credentialAttrs["password"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["domain-name"] = credentialAttrs["domain-name"]
-		attrs["auth-mode"] = AuthUserPass
-	case cloud.AccessKeyAuthType:
-		attrs["access-key"] = credentialAttrs["access-key"]
-		attrs["secret-key"] = credentialAttrs["secret-key"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["auth-mode"] = AuthKeyPair
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 
 	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
 		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
 	}
@@ -157,15 +144,7 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 }
 
 func (p EnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := p.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["username"] = ecfg.username()
-	m["password"] = ecfg.password()
-	m["tenant-name"] = ecfg.tenantName()
-	return m, nil
+	return make(map[string]string), nil
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -177,7 +156,8 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	name string
+	name  string
+	cloud environs.CloudSpec
 
 	// archMutex gates access to cachedSupportedArchitectures
 	archMutex sync.Mutex
@@ -592,31 +572,32 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func newCredentials(ecfg *environConfig) (identity.Credentials, identity.AuthMode) {
+func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode) {
+	credAttrs := spec.Credential.Attributes()
 	cred := identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
-		DomainName: ecfg.domainName(),
+		Region:     spec.Region,
+		URL:        spec.Endpoint,
+		TenantName: credAttrs[credAttrTenantName],
 	}
-	// authModeCfg has already been validated so we know it's one of the values below.
+
+	// AuthType is validated when the environment is opened, so it's known
+	// to be one of these values.
 	var authMode identity.AuthMode
-	switch AuthMode(ecfg.authMode()) {
-	case AuthLegacy:
-		authMode = identity.AuthLegacy
-	case AuthUserPass:
+	switch spec.Credential.AuthType() {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		cred.User = credAttrs[credAttrUserName]
+		cred.Secrets = credAttrs[credAttrPassword]
+		cred.DomainName = credAttrs[credAttrDomainName]
 		authMode = identity.AuthUserPass
 		if cred.DomainName != "" {
 			authMode = identity.AuthUserPassV3
 		}
-	case AuthKeyPair:
+	case cloud.AccessKeyAuthType:
+		cred.User = credAttrs[credAttrAccessKey]
+		cred.Secrets = credAttrs[credAttrSecretKey]
 		authMode = identity.AuthKeyPair
-		cred.User = ecfg.accessKey()
-		cred.Secrets = ecfg.secretKey()
 	}
-
 	return cred, authMode
 }
 
@@ -642,13 +623,13 @@ func determineBestClient(
 	return client
 }
 
-func authClient(ecfg *environConfig) (client.AuthenticatingClient, error) {
+func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
 
-	identityClientVersion, err := identityClientVersion(ecfg.authURL())
+	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
-	cred, authMode := newCredentials(ecfg)
+	cred, authMode := newCredentials(spec)
 
 	newClient := client.NewClient
 	if ecfg.SSLHostnameVerification() == false {
@@ -700,7 +681,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(ecfg)
+	client, err := authClient(e.cloud, ecfg)
 	if err != nil {
 		return errors.Annotate(err, "cannot set config")
 	}
@@ -718,7 +699,7 @@ func identityClientVersion(authURL string) (int, error) {
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Debugf("authURL: %s", authURL)
+	logger.Tracef("authURL: %s", authURL)
 	versionNumStr := url.Path[2:]
 	if versionNumStr[len(versionNumStr)-1] == '/' {
 		versionNumStr = versionNumStr[:len(versionNumStr)-1]
@@ -910,7 +891,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
+		Region:      e.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
@@ -1419,7 +1400,7 @@ func (e *Environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.ecfg().region()
+		region = e.cloud.Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
@@ -1435,13 +1416,13 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 
 // Region is specified in the HasRegion interface.
 func (e *Environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.ecfg().region())
+	return e.cloudSpec(e.cloud.Region)
 }
 
 func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: e.ecfg().authURL(),
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
 
@@ -1449,6 +1430,33 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateAuthURL(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating auth-url")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.UserPassAuthType:
+	case cloud.AccessKeyAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
+}
+
+func validateAuthURL(authURL string) error {
+	parts, err := url.Parse(authURL)
+	if err != nil || parts.Host == "" || parts.Scheme == "" {
+		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
 }
