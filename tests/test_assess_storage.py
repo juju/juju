@@ -72,9 +72,10 @@ class TestAssess(TestCase):
                                  "create_storage_pool",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
-                                 "list_storage"])
+                                 "list_storage", "is_juju1x"])
         mock_client.series = 'trusty'
         mock_client.version = '1.25'
+        mock_client.is_juju1x.return_value = True
         mock_client.env = Mock(config={'type': 'foo'})
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_1x)
@@ -108,9 +109,10 @@ class TestAssess(TestCase):
                                  "create_storage_pool",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
-                                 "list_storage"])
+                                 "list_storage", "is_juju1x"])
         mock_client.series = 'trusty'
         mock_client.version = '2.0'
+        mock_client.is_juju1x.return_value = False
         mock_client.env = Mock(config={'type': 'local'})
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_details)
@@ -144,9 +146,10 @@ class TestAssess(TestCase):
                                  "create_storage_pool",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
-                                 "list_storage"])
+                                 "list_storage", "is_juju1x"])
         mock_client.series = 'trusty'
         mock_client.version = '2.0'
+        mock_client.is_juju1x.return_value = False
         mock_client.env = Mock(config={'type': 'ec2'})
         expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)

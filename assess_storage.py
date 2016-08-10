@@ -293,7 +293,7 @@ def assess_storage(client, charm_series):
     log.info('create-pool PASSED')
 
     log.info('Assessing storage pool')
-    if client.version.startswith('1.'):
+    if client.is_juju1x():
         expected_pool = storage_pool_1x
     else:
         if client.env.config['type'] == 'ec2':
