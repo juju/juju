@@ -138,6 +138,32 @@ type NetworkConfigs struct {
 	Errors  []error         `json:"errors,omitempty"`
 }
 
+// ProviderInterfaceInfoResults holds the results of a
+// GetProviderInterfaceInfo call.
+type ProviderInterfaceInfoResults struct {
+	Results []ProviderInterfaceInfoResult `json:"results"`
+}
+
+// ProviderInterfaceInfoResult stores the provider interface
+// information for one machine, or any error that occurred getting the
+// information for that machine.
+type ProviderInterfaceInfoResult struct {
+	MachineTag string                  `json:"machine-tag"`
+	Interfaces []ProviderInterfaceInfo `json:"interfaces"`
+	Error      *Error                  `json:"error,omitempty"`
+}
+
+// ProviderInterfaceInfo stores the details needed to identify an
+// interface to a provider. It's the params equivalent of
+// network.ProviderInterfaceInfo, defined here separately to ensure
+// that API structures aren't inadvertently changed by internal
+// changes.
+type ProviderInterfaceInfo struct {
+	InterfaceName string `json:"interface-name"`
+	MACAddress    string `json:"mac-address"`
+	ProviderId    string `json:"provider-id"`
+}
+
 // Port encapsulates a protocol and port number. It is used in API
 // requests/responses. See also network.Port, from/to which this is
 // transformed.

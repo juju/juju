@@ -23,173 +23,241 @@ type undertakerSuite struct {
 
 var _ = gc.Suite(&undertakerSuite{})
 
-func (s *undertakerSuite) TestRequiresModelManager(c *gc.C) {
-	st := &mockState{}
-	_, err := machineundertaker.NewMachineUndertaker(
-		st,
+const (
+	uuid1 = "12345678-1234-1234-1234-123456789abc"
+	tag1  = "model-12345678-1234-1234-1234-123456789abc"
+	uuid2 = "12345678-1234-1234-1234-123456789abd"
+	tag2  = "model-12345678-1234-1234-1234-123456789abd"
+)
+
+func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
+	backend := &mockBackend{}
+	_, err := machineundertaker.NewMachineUndertakerAPI(
+		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{EnvironManager: false},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	_, err = machineundertaker.NewMachineUndertaker(
-		st,
+	_, err = machineundertaker.NewMachineUndertakerAPI(
+		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{EnvironManager: true},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
-	_, _, api := makeApi(c)
-	result, err := api.AllMachineRemovals()
+func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
+	_, _, api := makeApi(c, uuid1)
+	result, err := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.MachineRemovalsResults{})
+	c.Assert(result, gc.DeepEquals, params.Entities{})
 }
 
-func (s *undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
-	st, _, api := makeApi(c)
-	st.SetErrors(errors.New("I don't want to set the world on fire"))
-	result, err := api.AllMachineRemovals()
+func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
+	backend, _, api := makeApi(c, uuid1)
+	backend.SetErrors(errors.New("I don't want to set the world on fire"))
+	result, err := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(err, gc.ErrorMatches, "I don't want to set the world on fire")
-	c.Assert(result, gc.DeepEquals, params.MachineRemovalsResults{})
+	c.Assert(result, gc.DeepEquals, params.Entities{})
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals(c *gc.C) {
-	st, _, api := makeApi(c)
-	st.removals = []*mockRemoval{{machineID: "0", linkLayerDevices: []*mockLinkLayerDevice{{
-		name:       "jasper",
-		macAddress: "12:34:56:78:9a:bc",
-		type_:      "ethernet",
-		mtu:        1234,
-		providerID: "205",
-	}}}, {machineID: "2", linkLayerDevices: []*mockLinkLayerDevice{{
-		name:       "lapis",
-		macAddress: "12:34:56:78:9a:bd",
-		type_:      "ethernet",
-		mtu:        1234,
-		providerID: "206",
-	}}}}
+func (*undertakerSuite) TestAllMachineRemovalsRequiresOneTag(c *gc.C) {
+	_, _, api := makeApi(c, "")
+	_, err := api.AllMachineRemovals(params.Entities{})
+	c.Assert(err, gc.ErrorMatches, "one model tag is required")
+}
 
-	result, err := api.AllMachineRemovals()
+func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
+	_, _, api := makeApi(c, uuid1)
+	_, err := api.AllMachineRemovals(makeEntities(tag1, "machine-0"))
+	c.Assert(err, gc.ErrorMatches, `"machine-0" is not a valid model tag`)
+}
+
+func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *gc.C) {
+	_, _, api := makeApi(c, uuid1)
+	_, err := api.AllMachineRemovals(makeEntities(tag2))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
+	backend, _, api := makeApi(c, uuid1)
+	backend.removals = []string{"0", "2"}
+
+	result, err := api.AllMachineRemovals(makeEntities(tag1))
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.MachineRemovalsResults{
-		Results: []params.MachineRemoval{{
-			MachineTag: "machine-0",
-			LinkLayerDevices: []params.NetworkConfig{{
-				InterfaceName: "jasper",
-				MACAddress:    "12:34:56:78:9a:bc",
-				InterfaceType: "ethernet",
-				MTU:           1234,
-				ProviderId:    "205",
-			}}}, {
+	c.Assert(result, gc.DeepEquals, makeEntities("machine-0", "machine-2"))
+}
+
+func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
+	backend, _, api := makeApi(c, "")
+	backend.machines = map[string]*mockMachine{
+		"0": &mockMachine{
+			Stub: &testing.Stub{},
+			interfaceInfos: []network.ProviderInterfaceInfo{{
+				InterfaceName: "billy",
+				MACAddress:    "hexadecimal!",
+				ProviderId:    "a number",
+			}, {
+				InterfaceName: "lily",
+				MACAddress:    "octal?",
+				ProviderId:    "different number",
+			}}},
+		"2": &mockMachine{
+			Stub: &testing.Stub{},
+			interfaceInfos: []network.ProviderInterfaceInfo{{
+				InterfaceName: "gilly",
+				MACAddress:    "sexagesimal?!",
+				ProviderId:    "some number",
+			}},
+		},
+	}
+	backend.SetErrors(nil, errors.NotFoundf("no machine 100 fool!"))
+
+	args := makeEntities("machine-2", "machine-100", "machine-0", "machine-inv")
+	result := api.GetMachineProviderInterfaceInfo(args)
+
+	c.Assert(result, gc.DeepEquals, params.ProviderInterfaceInfoResults{
+		Results: []params.ProviderInterfaceInfoResult{{
 			MachineTag: "machine-2",
-			LinkLayerDevices: []params.NetworkConfig{{
-				InterfaceName: "lapis",
-				MACAddress:    "12:34:56:78:9a:bd",
-				InterfaceType: "ethernet",
-				MTU:           1234,
-				ProviderId:    "206",
-			}}}},
+			Interfaces: []params.ProviderInterfaceInfo{{
+				InterfaceName: "gilly",
+				MACAddress:    "sexagesimal?!",
+				ProviderId:    "some number",
+			}},
+		}, {
+			MachineTag: "machine-100",
+			Error: common.ServerError(
+				errors.NotFoundf("no machine 100 fool!"),
+			),
+		}, {
+			MachineTag: "machine-0",
+			Interfaces: []params.ProviderInterfaceInfo{{
+				InterfaceName: "billy",
+				MACAddress:    "hexadecimal!",
+				ProviderId:    "a number",
+			}, {
+				InterfaceName: "lily",
+				MACAddress:    "octal?",
+				ProviderId:    "different number",
+			}},
+		}, {
+			MachineTag: "machine-inv",
+			Error: common.ServerError(
+				errors.New(`"machine-inv" is not a valid machine tag`),
+			),
+		}},
 	})
 }
 
-func (s *undertakerSuite) TestClearMachineRemovalsWithNonMachineTags(c *gc.C) {
-	_, _, api := makeApi(c)
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-2"},
-		{Tag: "application-a1"},
-	}}
-	err := api.ClearMachineRemovals(args)
+func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C) {
+	backend, _, api := makeApi(c, "")
+	backend.machines = map[string]*mockMachine{
+		"0": &mockMachine{Stub: backend.Stub},
+	}
+	backend.SetErrors(nil, errors.New("oops - problem getting interface infos"))
+	result := api.GetMachineProviderInterfaceInfo(makeEntities("machine-0"))
+
+	c.Assert(result.Results, gc.DeepEquals, []params.ProviderInterfaceInfoResult{{
+		MachineTag: "machine-0",
+		Error:      common.ServerError(errors.New("oops - problem getting interface infos")),
+	}})
+}
+
+func (*undertakerSuite) TestCompleteMachineRemovalsWithNonMachineTags(c *gc.C) {
+	_, _, api := makeApi(c, "")
+	err := api.CompleteMachineRemovals(makeEntities("machine-2", "application-a1"))
 	c.Assert(err, gc.ErrorMatches, `"application-a1" is not a valid machine tag`)
 }
 
-func (s *undertakerSuite) TestClearMachineRemovalsWithOtherError(c *gc.C) {
-	st, _, api := makeApi(c)
-	st.SetErrors(errors.New("boom"))
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-2"},
-	}}
-	err := api.ClearMachineRemovals(args)
+func (*undertakerSuite) TestCompleteMachineRemovalsWithOtherError(c *gc.C) {
+	backend, _, api := makeApi(c, "")
+	backend.SetErrors(errors.New("boom"))
+	err := api.CompleteMachineRemovals(makeEntities("machine-2"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *undertakerSuite) TestClearMachineRemovals(c *gc.C) {
-	st, _, api := makeApi(c)
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-2"},
-		{Tag: "machine-52"},
-	}}
-	err := api.ClearMachineRemovals(args)
+func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
+	backend, _, api := makeApi(c, "")
+	err := api.CompleteMachineRemovals(makeEntities("machine-2", "machine-52"))
 	c.Assert(err, jc.ErrorIsNil)
-	st.CheckCallNames(c, "ClearMachineRemovals")
-	callArgs := st.Calls()[0].Args
+	backend.CheckCallNames(c, "CompleteMachineRemovals")
+	callArgs := backend.Calls()[0].Args
 	c.Assert(len(callArgs), gc.Equals, 1)
 	values, ok := callArgs[0].([]string)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(values, gc.DeepEquals, []string{"2", "52"})
 }
 
-func (s *undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
-	st, res, api := makeApi(c)
+func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
+	backend, res, api := makeApi(c, uuid1)
 
-	result := api.WatchMachineRemovals()
+	result := api.WatchMachineRemovals(makeEntities(tag1))
 	c.Assert(res.Get(result.NotifyWatcherId), gc.NotNil)
-	st.CheckCallNames(c, "WatchMachineRemovals")
+	backend.CheckCallNames(c, "WatchMachineRemovals")
 }
 
-func (s *undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
-	st, _, api := makeApi(c)
-	st.watcherBlowsUp = true
-	st.SetErrors(errors.New("oh no!"))
+func (*undertakerSuite) TestWatchMachineRemovalsPermissionError(c *gc.C) {
+	_, _, api := makeApi(c, uuid1)
+	result := api.WatchMachineRemovals(makeEntities(tag2))
+	c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+}
 
-	result := api.WatchMachineRemovals()
+func (*undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
+	backend, _, api := makeApi(c, uuid1)
+	backend.watcherBlowsUp = true
+	backend.SetErrors(errors.New("oh no!"))
+
+	result := api.WatchMachineRemovals(makeEntities(tag1))
 	c.Assert(result.Error, gc.ErrorMatches, "oh no!")
-	st.CheckCallNames(c, "WatchMachineRemovals")
+	backend.CheckCallNames(c, "WatchMachineRemovals")
 }
 
-func makeApi(c *gc.C) (*mockState, *common.Resources, *machineundertaker.MachineUndertakerAPI) {
-	st := &mockState{Stub: &testing.Stub{}}
+func makeApi(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machineundertaker.MachineUndertakerAPI) {
+	backend := &mockBackend{Stub: &testing.Stub{}}
 	res := common.NewResources()
-	api, err := machineundertaker.NewMachineUndertaker(
-		st,
+	api, err := machineundertaker.NewMachineUndertakerAPI(
+		backend,
 		res,
-		apiservertesting.FakeAuthorizer{EnvironManager: true},
+		apiservertesting.FakeAuthorizer{
+			EnvironManager: true,
+			ModelUUID:      modelUUID,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return st, res, api
+	return backend, res, api
 }
 
-type mockState struct {
-	machineundertaker.State
+func makeEntities(tags ...string) params.Entities {
+	entities := make([]params.Entity, len(tags))
+	for i := range tags {
+		entities[i] = params.Entity{Tag: tags[i]}
+	}
+	return params.Entities{Entities: entities}
+}
+
+type mockBackend struct {
 	*testing.Stub
 
-	removals       []*mockRemoval
+	removals       []string
+	machines       map[string]*mockMachine
 	watcherBlowsUp bool
 }
 
-func (st *mockState) AllMachineRemovals() ([]machineundertaker.MachineRemoval, error) {
-	st.AddCall("AllMachineRemovals")
-	err := st.NextErr()
-	if err != nil {
-		return nil, err
-	}
-	var result []machineundertaker.MachineRemoval
-	for _, removal := range st.removals {
-		result = append(result, removal)
-	}
-	return result, nil
+func (b *mockBackend) AllMachineRemovals() ([]string, error) {
+	b.AddCall("AllMachineRemovals")
+	return b.removals, b.NextErr()
 }
 
-func (st *mockState) ClearMachineRemovals(machineIDs []string) error {
-	st.AddCall("ClearMachineRemovals", machineIDs)
-	return st.NextErr()
+func (b *mockBackend) CompleteMachineRemovals(machineIDs ...string) error {
+	b.AddCall("CompleteMachineRemovals", machineIDs)
+	return b.NextErr()
 }
 
-func (st *mockState) WatchMachineRemovals() state.NotifyWatcher {
-	st.AddCall("WatchMachineRemovals")
-	watcher := &mockWatcher{st: st, out: make(chan struct{}, 1)}
-	if st.watcherBlowsUp {
+func (b *mockBackend) WatchMachineRemovals() state.NotifyWatcher {
+	b.AddCall("WatchMachineRemovals")
+	watcher := &mockWatcher{backend: b, out: make(chan struct{}, 1)}
+	if b.watcherBlowsUp {
 		close(watcher.out)
 	} else {
 		watcher.out <- struct{}{}
@@ -197,11 +265,30 @@ func (st *mockState) WatchMachineRemovals() state.NotifyWatcher {
 	return watcher
 }
 
+func (b *mockBackend) Machine(id string) (machineundertaker.Machine, error) {
+	b.AddCall("Machine", id)
+	return b.machines[id], b.NextErr()
+}
+
+type mockMachine struct {
+	*testing.Stub
+	interfaceInfos []network.ProviderInterfaceInfo
+}
+
+func (m *mockMachine) AllProviderInterfaceInfos() ([]network.ProviderInterfaceInfo, error) {
+	m.AddCall("AllProviderInterfaceInfos")
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return m.interfaceInfos, err
+}
+
 type mockWatcher struct {
 	state.NotifyWatcher
 
-	st  *mockState
-	out chan struct{}
+	backend *mockBackend
+	out     chan struct{}
 }
 
 func (w *mockWatcher) Changes() <-chan struct{} {
@@ -209,50 +296,5 @@ func (w *mockWatcher) Changes() <-chan struct{} {
 }
 
 func (w *mockWatcher) Err() error {
-	return w.st.NextErr()
-}
-
-type mockRemoval struct {
-	machineID        string
-	linkLayerDevices []*mockLinkLayerDevice
-}
-
-func (r *mockRemoval) MachineID() string {
-	return r.machineID
-}
-
-func (r *mockRemoval) LinkLayerDevices() []machineundertaker.LinkLayerDevice {
-	var result []machineundertaker.LinkLayerDevice
-	for _, device := range r.linkLayerDevices {
-		result = append(result, device)
-	}
-	return result
-}
-
-type mockLinkLayerDevice struct {
-	name       string
-	macAddress string
-	type_      state.LinkLayerDeviceType
-	mtu        uint
-	providerID network.Id
-}
-
-func (d *mockLinkLayerDevice) Name() string {
-	return d.name
-}
-
-func (d *mockLinkLayerDevice) MACAddress() string {
-	return d.macAddress
-}
-
-func (d *mockLinkLayerDevice) Type() state.LinkLayerDeviceType {
-	return d.type_
-}
-
-func (d *mockLinkLayerDevice) MTU() uint {
-	return d.mtu
-}
-
-func (d *mockLinkLayerDevice) ProviderID() network.Id {
-	return d.providerID
+	return w.backend.NextErr()
 }
