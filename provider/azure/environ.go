@@ -508,12 +508,13 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	// Identify the instance type and image to provision.
+	series := args.Tools.OneSeries()
 	instanceSpec, err := findInstanceSpec(
 		vmImagesClient,
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      location,
-			Series:      args.Tools.OneSeries(),
+			Series:      series,
 			Arches:      args.Tools.Arches(),
 			Constraints: args.Constraints,
 		},
@@ -527,6 +528,18 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		// OS disk size; override it with the user-specified
 		// or default root disk size.
 		instanceSpec.InstanceType.RootDisk = rootDisk
+	}
+
+	// Windows images are 127GiB, and cannot be made smaller.
+	const windowsMinRootDiskMB = 127 * 1024
+	seriesOS, err := jujuseries.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if seriesOS == os.Windows {
+		if instanceSpec.InstanceType.RootDisk < windowsMinRootDiskMB {
+			instanceSpec.InstanceType.RootDisk = windowsMinRootDiskMB
+		}
 	}
 
 	// Pick tools by filtering the available tools down to the architecture of
