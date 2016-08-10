@@ -448,11 +448,6 @@ func (e *exporter) applications() error {
 	}
 	e.logger.Debugf("found %d applications", len(applications))
 
-	refcounts, err := e.readAllSettingsRefCounts()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	e.units, err = e.readAllUnits()
 	if err != nil {
 		return errors.Trace(err)
@@ -471,7 +466,7 @@ func (e *exporter) applications() error {
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
-		if err := e.addApplication(application, refcounts, applicationUnits, meterStatus, leader); err != nil {
+		if err := e.addApplication(application, applicationUnits, meterStatus, leader); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -491,17 +486,13 @@ func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addApplication(application *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+func (e *exporter) addApplication(application *Application, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
 	settingsKey := application.settingsKey()
 	leadershipKey := leadershipSettingsKey(application.Name())
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
 		return errors.Errorf("missing settings for application %q", application.Name())
-	}
-	refCount, found := refcounts[settingsKey]
-	if !found {
-		return errors.Errorf("missing settings refcount for application %q", application.Name())
 	}
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
@@ -519,7 +510,6 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
 		Settings:             applicationSettingsDoc.Settings,
-		SettingsRefCount:     refCount,
 		Leader:               leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
@@ -1065,34 +1055,6 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)
 	}
-	return result, nil
-}
-
-func (e *exporter) readAllSettingsRefCounts() (map[string]int, error) {
-	refCounts, closer := e.st.getCollection(settingsrefsC)
-	defer closer()
-
-	var docs []bson.M
-	err := refCounts.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to read settings refcount collection")
-	}
-
-	e.logger.Debugf("read %d settings refcount documents", len(docs))
-	result := make(map[string]int)
-	for _, doc := range docs {
-		docId, ok := doc["_id"].(string)
-		if !ok {
-			return nil, errors.Errorf("expected string, got %s (%T)", doc["_id"], doc["_id"])
-		}
-		id := e.st.localID(docId)
-		count, ok := doc["refcount"].(int)
-		if !ok {
-			return nil, errors.Errorf("expected int, got %s (%T)", doc["refcount"], doc["refcount"])
-		}
-		result[id] = count
-	}
-
 	return result, nil
 }
 

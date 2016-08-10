@@ -41,9 +41,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 
-		// settings reference counts are only used for applications
-		settingsrefsC,
-
 		// relation
 		relationsC,
 		relationScopesC,
@@ -90,6 +87,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		metricsC,
 		// Backup and restore information is not migrated.
 		restoreInfoC,
+		// reference counts are implementation details that should be
+		// reconstructed on the other side.
+		settingsrefsC,
 		// upgradeInfoC is used to coordinate upgrades and schema migrations,
 		// and aren't needed for model migrations.
 		upgradeInfoC,
@@ -339,17 +339,6 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"MetricCredentials",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-
-		"RefCount",
-	)
-	s.AssertExportedFields(c, settingsRefsDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {

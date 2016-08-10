@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -946,7 +945,7 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 
 func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
 	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
