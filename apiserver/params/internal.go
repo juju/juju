@@ -707,3 +707,13 @@ type GUIVersionRequest struct {
 	// Version holds the Juju GUI version number.
 	Version version.Number `json:"version"`
 }
+
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
+}

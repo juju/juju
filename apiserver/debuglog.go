@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -71,7 +70,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			socket := &debugLogSocketImpl{conn}
-			defer socket.Close()
+			defer conn.Close()
 
 			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
@@ -111,20 +110,21 @@ func isBrokenPipe(err error) bool {
 // debugLogSocket describes the functionality required for the
 // debuglog handlers to send logs to the client.
 type debugLogSocket interface {
-	io.Writer
-
 	// sendOk sends a nil error response, indicating there were no errors.
 	sendOk()
 
 	// sendError sends a JSON-encoded error response.
 	sendError(err error)
+
+	// sendLogRecord sends record JSON encoded.
+	sendLogRecord(record *params.LogMessage) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
 // wraps a websocket.Conn and provides a few debug-log specific helper
 // methods.
 type debugLogSocketImpl struct {
-	*websocket.Conn
+	conn *websocket.Conn
 }
 
 // sendOk implements debugLogSocket.
@@ -134,9 +134,13 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	sendJSON(s.Conn, &params.ErrorResult{
+	sendJSON(s.conn, &params.ErrorResult{
 		Error: common.ServerError(err),
 	})
+}
+
+func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
+	return sendJSON(s.conn, record)
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.
