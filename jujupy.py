@@ -834,6 +834,8 @@ class EnvJujuClient:
 
     status_class = Status
 
+    tools_metadata_url = 'agent-metadata-url'
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -1213,11 +1215,14 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-model-config', (option_value,))
 
+    def get_tools_metadata_url(self):
+        return self.get_env_option(self.tools_metadata_url)
+
     def set_testing_tools_metadata_url(self):
-        url = self.get_env_option('tools-metadata-url')
+        url = self.get_tools_metadata_url()
         if 'testing' not in url:
             testing_url = url.replace('/tools', '/testing/tools')
-            self.set_env_option('tools-metadata-url', testing_url)
+            self.set_env_option(self.tools_metadata_url, testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
@@ -1685,7 +1690,26 @@ class EnvJujuClient:
             args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
-        self.juju('upgrade-juju', args)
+        self._upgrade_juju(args)
+
+    def _upgrade_juju(self, args):
+        """Upgrades controller and other hosted models.
+
+        Remove --upload-tools from the arguments for non-controller models.
+
+        """
+        self._upgrade_controller(args)
+        args = filter(lambda x: x != '--upload-tools', args)
+        models = [m['name']
+                  for m in self._get_models()
+                  if m['name'] != 'controller']
+        for model_name in models:
+            temp_client = self._acquire_model_client(model_name)
+            temp_client.juju('upgrade-juju', args)
+
+    def _upgrade_controller(self, args):
+        controller = self.get_controller_client()
+        controller.juju('upgrade-juju', args)
 
     def upgrade_mongo(self):
         self.juju('upgrade-mongo', ())
@@ -2230,6 +2254,8 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
+    tools_metadata_url = 'tools-metadata-url'
+
     def _cmd_model(self, include_e, controller):
         if controller:
             return self.get_controller_model_name()
@@ -2269,6 +2295,9 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                 if line.startswith(cmd):
                     return cmd
         raise JESNotSupported()
+
+    def _upgrade_juju(self, args):
+        self.juju('upgrade-juju', args)
 
     def make_model_config(self):
         config_dict = make_safe_config(self)

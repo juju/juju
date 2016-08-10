@@ -1259,27 +1259,36 @@ class TestEnvJujuClient(ClientTest):
 
     def test_upgrade_juju_nonlocal(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'nonlocal'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'nonlocal'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--version', '1.234'))
+        juju_mock.assert_called_with(('--version', '2.0'))
 
     def test_upgrade_juju_local(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--version', '1.234', '--upload-tools',))
+        juju_mock.assert_called_with(('--version', '2.0', '--upload-tools',))
 
     def test_upgrade_juju_no_force_version(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju(force_version=False)
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--upload-tools',))
+        juju_mock.assert_called_with(('--upload-tools',))
+
+    def test__upgrade_juju_upgrades_controller_and_model(self):
+        client = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+        with patch.object(client, 'juju') as juju_mock:
+            with patch.object(client, '_upgrade_controller') as upc_mock:
+                with patch.object(client, '_get_models') as mdls_mock:
+                    mdls_mock.return_value = [
+                        dict(name='controller'), dict(name='foo')]
+                    client.upgrade_juju()
+        upc_mock.assert_called_with(('--version', '2.0', '--upload-tools'))
+        juju_mock.assert_called_with('upgrade-juju', ('--version', '2.0'))
 
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
@@ -2812,9 +2821,9 @@ class TestEnvJujuClient(ClientTest):
             mock_get.return_value = 'https://example.org/juju/tools'
             with patch.object(client, 'set_env_option') as mock_set:
                 client.set_testing_tools_metadata_url()
-        mock_get.assert_called_with('tools-metadata-url')
+        mock_get.assert_called_with('agent-metadata-url')
         mock_set.assert_called_with(
-            'tools-metadata-url',
+            'agent-metadata-url',
             'https://example.org/juju/testing/tools')
 
     def test_set_testing_tools_metadata_url_noop(self):
@@ -2824,7 +2833,7 @@ class TestEnvJujuClient(ClientTest):
             mock_get.return_value = 'https://example.org/juju/testing/tools'
             with patch.object(client, 'set_env_option') as mock_set:
                 client.set_testing_tools_metadata_url()
-        mock_get.assert_called_with('tools-metadata-url')
+        mock_get.assert_called_with('agent-metadata-url',)
         self.assertEqual(0, mock_set.call_count)
 
     def test_juju(self):
