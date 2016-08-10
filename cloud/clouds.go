@@ -58,6 +58,17 @@ const (
 	EmptyAuthType AuthType = "empty"
 )
 
+// Attrs serves as a map to hold regions specific configuration attributes.
+// This serves to reduce confusion over having a nested map, i.e.
+// map[string]map[string]interface{}
+type Attrs map[string]interface{}
+
+// RegionConfig holds a map of regions and the attributes that serve as the
+// region specific configuration options. This allows model inheritance to
+// function, providing a place to store configuration for a specific region
+// which is  passed down to other models under the same controller.
+type RegionConfig map[string]Attrs
+
 // Cloud is a cloud definition.
 type Cloud struct {
 	// Type is the type of cloud, eg ec2, openstack etc.
@@ -88,6 +99,11 @@ type Cloud struct {
 	// will be combined with Juju-generated, and user-supplied values;
 	// user-supplied values taking precedence.
 	Config map[string]interface{}
+
+	// RegionConfig contains optional region specific configuration.
+	// Like Config above, this will be combined with Juju-generated and user
+	// supplied values; with user supplied values taking precedence.
+	RegionConfig RegionConfig
 }
 
 // Region is a cloud region.
@@ -119,6 +135,7 @@ type cloud struct {
 	StorageEndpoint string                 `yaml:"storage-endpoint,omitempty"`
 	Regions         regions                `yaml:"regions,omitempty"`
 	Config          map[string]interface{} `yaml:"config,omitempty"`
+	RegionConfig    RegionConfig           `yaml:"region-config,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -315,6 +332,7 @@ func cloudToInternal(in Cloud) *cloud {
 		StorageEndpoint: in.StorageEndpoint,
 		Regions:         regions,
 		Config:          in.Config,
+		RegionConfig:    in.RegionConfig,
 	}
 }
 
@@ -342,6 +360,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		StorageEndpoint: in.StorageEndpoint,
 		Regions:         regions,
 		Config:          in.Config,
+		RegionConfig:    in.RegionConfig,
 	}
 	meta.denormaliseMetadata()
 	return meta

@@ -219,6 +219,11 @@ type StateInitializationParams struct {
 	// models managed by this controller.
 	ControllerInheritedConfig map[string]interface{}
 
+	// RegionInheritedConfig holds region specific configuration attributes to
+	// be shared across all models in the same controller on a particular
+	// cloud.
+	RegionInheritedConfig cloud.RegionConfig
+
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
 	// initial hosted model config.
@@ -249,6 +254,7 @@ type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
+	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
@@ -276,6 +282,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
 		p.ControllerInheritedConfig,
+		p.RegionInheritedConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
@@ -314,6 +321,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
+		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,

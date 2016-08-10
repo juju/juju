@@ -149,7 +149,14 @@ LXC_BRIDGE="ignored"`[1:])
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
 	}
-
+	regionConfig := cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"a-key": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"b-key": "b-value",
+		},
+	}
 	var envProvider fakeProvider
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
@@ -157,12 +164,13 @@ LXC_BRIDGE="ignored"`[1:])
 			BootstrapMachineInstanceId:              "i-bootstrap",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:   []cloud.Region{{Name: "some-region"}},
+				Type:         "dummy",
+				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+				Regions:      []cloud.Region{{Name: "a-region"}},
+				RegionConfig: regionConfig,
 			},
 			ControllerCloudName:       "dummy",
-			ControllerCloudRegion:     "some-region",
+			ControllerCloudRegion:     "a-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
 			ModelConstraints:          expectModelConstraints,
@@ -239,7 +247,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "a-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -305,7 +313,7 @@ LXC_BRIDGE="ignored"`[1:])
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
-			Region: "some-region",
+			Region: "a-region",
 		},
 		Config: hostedCfg,
 	})

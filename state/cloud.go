@@ -82,12 +82,11 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		}
 	}
 	return cloud.Cloud{
-		d.Type,
-		authTypes,
-		d.Endpoint,
-		d.StorageEndpoint,
-		regions,
-		nil, // Config is not stored, only relevant to bootstrap
+		Type:            d.Type,
+		AuthTypes:       authTypes,
+		Endpoint:        d.Endpoint,
+		StorageEndpoint: d.StorageEndpoint,
+		Regions:         regions,
 	}
 }
 
@@ -136,4 +135,9 @@ func validateCloud(cloud cloud.Cloud) error {
 	// of the auth-types supported by the provider. To do that, we'll
 	// need a new "policy".
 	return nil
+}
+
+// regionSettingsGlobalKey concatenates the cloud a hash and the region string.
+func regionSettingsGlobalKey(cloud, region string) string {
+	return cloud + "#" + region
 }

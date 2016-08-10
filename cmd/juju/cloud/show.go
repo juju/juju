@@ -90,8 +90,9 @@ type cloudDetails struct {
 	// Regions is for when we want to print regions in order for yaml or tabular output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
-	RegionsMap map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
-	Config     map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	RegionsMap   map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
+	Config       map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	RegionConfig jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
@@ -101,6 +102,7 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		Endpoint:        cloud.Endpoint,
 		StorageEndpoint: cloud.StorageEndpoint,
 		Config:          cloud.Config,
+		RegionConfig:    cloud.RegionConfig,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {
