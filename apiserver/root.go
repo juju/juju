@@ -344,6 +344,14 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
+// ConnectedModel returns the UUID of the model authenticated
+// against. It's possible for it to be empty if the login was made
+// directly to the root of the API instead of a model endpoint, but
+// that method is deprecated.
+func (r *apiHandler) ConnectedModel() string {
+	return r.modelUUID
+}
+
 // GetAuthEntity returns the authenticated entity.
 func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
