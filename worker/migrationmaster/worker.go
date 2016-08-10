@@ -187,8 +187,6 @@ func (w *Worker) run() error {
 		switch phase {
 		case coremigration.QUIESCE:
 			phase, err = w.doQUIESCE()
-		case coremigration.READONLY:
-			phase, err = w.doREADONLY()
 		case coremigration.PRECHECK:
 			phase, err = w.doPRECHECK()
 		case coremigration.IMPORT:
@@ -272,12 +270,6 @@ func (w *Worker) setStatus(message string) error {
 func (w *Worker) doQUIESCE() (coremigration.Phase, error) {
 	// TODO(mjs) - Wait for all agents to report back.
 	// w.setInfoStatus("model quiescing to readonly mode")
-	return coremigration.READONLY, nil
-}
-
-func (w *Worker) doREADONLY() (coremigration.Phase, error) {
-	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("model in readonly mode")
 	return coremigration.PRECHECK, nil
 }
 

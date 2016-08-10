@@ -78,7 +78,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 				},
 			},
 			MigrationId:      "id",
-			Phase:            "READONLY",
+			Phase:            "PRECHECK",
 			PhaseChangedTime: timestamp,
 		}
 		return nil
@@ -90,7 +90,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
 		ModelUUID:        modelUUID,
-		Phase:            migration.READONLY,
+		Phase:            migration.PRECHECK,
 		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(controllerUUID),
@@ -252,7 +252,7 @@ func (s *ClientSuite) TestGetMinionReports(c *gc.C) {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			MigrationId:  "id",
-			Phase:        "READONLY",
+			Phase:        "PRECHECK",
 			SuccessCount: 4,
 			UnknownCount: 3,
 			UnknownSample: []string{
@@ -276,7 +276,7 @@ func (s *ClientSuite) TestGetMinionReports(c *gc.C) {
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:         "id",
-		Phase:               migration.READONLY,
+		Phase:               migration.PRECHECK,
 		SuccessCount:        4,
 		UnknownCount:        3,
 		SomeUnknownMachines: []string{"3", "4"},
@@ -312,7 +312,7 @@ func (s *ClientSuite) TestGetMinionReportsBadUnknownTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:         "READONLY",
+			Phase:         "PRECHECK",
 			UnknownSample: []string{"carl"},
 		}
 		return nil
@@ -326,7 +326,7 @@ func (s *ClientSuite) TestGetMinionReportsBadFailedTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:  "READONLY",
+			Phase:  "PRECHECK",
 			Failed: []string{"dave"},
 		}
 		return nil

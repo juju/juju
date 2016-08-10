@@ -158,7 +158,6 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -337,7 +336,6 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -363,7 +361,6 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -388,7 +385,6 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
@@ -528,11 +524,11 @@ func (s *Suite) TestMinionWaitWrongPhase(c *gc.C) {
 	// Have the phase in the minion reports be different from the
 	// migration status. This shouldn't happen but the migrationmaster
 	// should handle it.
-	s.masterFacade.minionReports.Phase = coremigration.READONLY
+	s.masterFacade.minionReports.Phase = coremigration.PRECHECK
 	s.triggerMinionReports()
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.ErrorMatches, `minion reports phase \(READONLY\) does not match migration phase \(SUCCESS\)`)
+	c.Assert(err, gc.ErrorMatches, `minion reports phase \(PRECHECK\) does not match migration phase \(SUCCESS\)`)
 }
 
 func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
