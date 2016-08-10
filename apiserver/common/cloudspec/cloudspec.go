@@ -83,6 +83,7 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 			spec.Name,
 			spec.Region,
 			spec.Endpoint,
+			spec.IdentityEndpoint,
 			spec.StorageEndpoint,
 			paramsCloudCredential,
 		}

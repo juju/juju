@@ -93,9 +93,14 @@ type BootstrapConfig struct {
 	// use when communicating with the cloud.
 	CloudEndpoint string `yaml:"endpoint,omitempty"`
 
+	// CloudIdentityEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's identity service. This will
+	// be empty for clouds that have no identity-specific API endpoint.
+	CloudIdentityEndpoint string `yaml:"identity-endpoint,omitempty"`
+
 	// CloudStorageEndpoint is the location of the API endpoint to use
 	// when communicating with the cloud's storage service. This will
-	// be empty for clouds that have no cloud-specific API endpoint.
+	// be empty for clouds that have no storage-specific API endpoint.
 	CloudStorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 

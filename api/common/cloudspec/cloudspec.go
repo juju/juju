@@ -50,12 +50,13 @@ func (api *CloudSpecAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, erro
 		credential = &credentialValue
 	}
 	spec := environs.CloudSpec{
-		Type:            result.Result.Type,
-		Name:            result.Result.Name,
-		Region:          result.Result.Region,
-		Endpoint:        result.Result.Endpoint,
-		StorageEndpoint: result.Result.StorageEndpoint,
-		Credential:      credential,
+		Type:             result.Result.Type,
+		Name:             result.Result.Name,
+		Region:           result.Result.Region,
+		Endpoint:         result.Result.Endpoint,
+		IdentityEndpoint: result.Result.IdentityEndpoint,
+		StorageEndpoint:  result.Result.StorageEndpoint,
+		Credential:       credential,
 	}
 	if err := spec.Validate(); err != nil {
 		return environs.CloudSpec{}, errors.Annotate(err, "validating CloudSpec")

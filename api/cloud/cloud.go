@@ -47,17 +47,19 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	regions := make([]jujucloud.Region, len(result.Regions))
 	for i, region := range result.Regions {
 		regions[i] = jujucloud.Region{
-			Name:            region.Name,
-			Endpoint:        region.Endpoint,
-			StorageEndpoint: region.StorageEndpoint,
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
 		}
 	}
 	return jujucloud.Cloud{
-		Type:            result.Type,
-		AuthTypes:       authTypes,
-		Endpoint:        result.Endpoint,
-		StorageEndpoint: result.StorageEndpoint,
-		Regions:         regions,
+		Type:             result.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         result.Endpoint,
+		IdentityEndpoint: result.IdentityEndpoint,
+		StorageEndpoint:  result.StorageEndpoint,
+		Regions:          regions,
 	}, nil
 }
 
