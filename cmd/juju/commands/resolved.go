@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/names.v2"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"

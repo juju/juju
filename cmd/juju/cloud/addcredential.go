@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"golang.org/x/crypto/ssh/terminal"
 	"github.com/juju/gnuflag"
+	"golang.org/x/crypto/ssh/terminal"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"

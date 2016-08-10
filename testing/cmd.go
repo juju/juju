@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"github.com/juju/gnuflag"
 )
 
 // NewFlagSet creates a new flag set using the standard options, particularly

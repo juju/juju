@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"github.com/juju/gnuflag"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"

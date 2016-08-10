@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils/ssh"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )

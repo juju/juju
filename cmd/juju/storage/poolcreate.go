@@ -6,8 +6,8 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/keyvalues"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )

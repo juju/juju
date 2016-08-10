@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 )
 
 // JujuLogCommand implements the juju-log command.

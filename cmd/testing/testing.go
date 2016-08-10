@@ -13,9 +13,9 @@ import (
 	"os/exec"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/dummy"

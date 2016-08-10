@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"

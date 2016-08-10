@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"

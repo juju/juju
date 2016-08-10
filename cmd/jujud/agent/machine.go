@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
@@ -33,7 +34,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"github.com/juju/gnuflag"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"github.com/juju/gnuflag"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
