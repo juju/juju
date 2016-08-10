@@ -427,21 +427,26 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 			return empty, w.catacomb.ErrDying()
 		case <-watcher.Changes():
 		}
+
 		status, err := w.config.Facade.GetMigrationStatus()
 		switch {
 		case params.IsCodeNotFound(err):
-			if err := w.config.Guard.Unlock(); err != nil {
-				return empty, errors.Trace(err)
+			// There's never been a migration.
+		case err == nil && status.Phase.IsTerminal():
+			// No migration in progress.
+			if modelHasMigrated(status.Phase) {
+				return empty, ErrMigrated
 			}
-			continue
 		case err != nil:
 			return empty, errors.Annotate(err, "retrieving migration status")
-		}
-		if modelHasMigrated(status.Phase) {
-			return empty, ErrMigrated
-		}
-		if !status.Phase.IsTerminal() {
+		default:
+			// Migration is in progress.
 			return status, nil
+		}
+
+		// While waiting for a migration, ensure the fortress is open.
+		if err := w.config.Guard.Unlock(); err != nil {
+			return empty, errors.Trace(err)
 		}
 	}
 }
