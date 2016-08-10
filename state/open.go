@@ -132,6 +132,10 @@ type InitializeParams struct {
 	// models on the specified cloud.
 	ControllerInheritedConfig map[string]interface{}
 
+	// RegionInheritedConfig contains region specific configuration for
+	// models running on specific cloud regions.
+	RegionInheritedConfig cloud.RegionConfig
+
 	// NewPolicy is a function that returns the set of state policies
 	// to apply.
 	NewPolicy NewPolicyFunc

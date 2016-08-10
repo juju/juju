@@ -111,6 +111,7 @@ func InitializeState(
 		CloudCredentials:          cloudCredentials,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
+		RegionInheritedConfig:     args.RegionInheritedConfig,
 		MongoInfo:                 info,
 		MongoDialOpts:             dialOpts,
 		NewPolicy:                 newPolicy,
