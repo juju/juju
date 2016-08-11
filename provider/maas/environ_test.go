@@ -11,6 +11,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/maas"
@@ -69,8 +71,6 @@ func (s *environSuite) TearDownSuite(c *gc.C) {
 func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	attrs := coretesting.FakeConfig()
 	attrs["type"] = "maas"
-	attrs["maas-server"] = "http://maas.testing.invalid"
-	attrs["maas-oauth"] = "a:b:c"
 	attrs["bootstrap-timeout"] = "1200"
 	for k, v := range extraAttrs {
 		attrs[k] = v
@@ -80,12 +80,24 @@ func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	return cfg
 }
 
+func getSimpleCloudSpec() environs.CloudSpec {
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	return environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   "http://maas.testing.invalid",
+		Credential: &cred,
+	}
+}
+
 func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
 	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "old-name"})
 	newCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "new-name"})
-	env, err := maas.NewEnviron(oldCfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// SetConfig() fails, even though both the old and the new config are
@@ -98,119 +110,29 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Config().Name(), gc.Equals, "old-name")
 }
 
-func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
-	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-one"})
-	newCfgTwo := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-two"})
-	env, err := maas.NewEnviron(oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// SetConfig() fails, even though both the old and the new config are
-	// individually valid.
-	err = env.SetConfig(newCfgTwo)
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
-
-	// The old config is still in place.  The new config never took effect.
-	c.Check(maas.MAASAgentName(env), gc.Equals, "agent-one")
-
-	// It also refuses to set it to the empty string:
-	err = env.SetConfig(getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""}))
-	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
-
-	// And to nil
-	err = env.SetConfig(getSimpleTestConfig(c, nil))
-	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
-}
-
-func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
-	// bug #1256179 is that when using an older version of Juju (<1.16.2)
-	// we didn't include maas-agent-name in the database, so it was 'nil'
-	// in the OldConfig. However, when setting an environment, we would set
-	// it to "" (because maasModelConfig.Validate ensures it is a 'valid'
-	// string). We can't create that from NewEnviron or newConfig because
-	// both of them Validate the contents. 'cmd/juju/model
-	// SetEnvironmentCommand' instead uses conn.State.ModelConfig() which
-	// just reads the content of the database into a map, so we just create
-	// the map ourselves.
-
-	// Even though we use 'nil' here, it actually stores it as "" because
-	// 1.16.2 already validates the value
-	baseCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
-	c.Check(baseCfg.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
-	env, err := maas.NewEnviron(baseCfg)
-	c.Assert(err, jc.ErrorIsNil)
-	provider := env.Provider()
-
-	attrs := coretesting.FakeConfig()
-	// These are attrs we need to make it a valid Config, but would usually
-	// be set by other infrastructure
-	attrs["type"] = "maas"
-	attrs["bootstrap-timeout"] = "1200"
-	nilCfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	validatedConfig, err := provider.Validate(baseCfg, nilCfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(validatedConfig.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
-	// However, you can't set it to an actual value if you haven't been using a value
-	valueCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-name"})
-	_, err = provider.Validate(valueCfg, nilCfg)
-	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
-}
-
-func (*environSuite) TestDestroyWithEmptyAgentName(c *gc.C) {
-	// Related bug #1256179, comment as above.
-	baseCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
-	env, err := maas.NewEnviron(baseCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = env.Destroy()
-	c.Assert(err, gc.ErrorMatches, "unsafe destruction")
-}
-
-func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.C) {
-	oldCfg := getSimpleTestConfig(c, nil)
-	newCfgTwo := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
-	env, err := maas.NewEnviron(oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = env.SetConfig(newCfgTwo)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(maas.MAASAgentName(env), gc.Equals, "")
-}
-
 func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	origAttrs := coretesting.Attrs{
-		"server-name":  "http://maas2.testing.invalid",
-		"maas-oauth":   "a:b:c",
-		"admin-secret": "secret",
+		"apt-mirror": "http://testing1.invalid",
 	}
 	cfg := getSimpleTestConfig(c, origAttrs)
-	env, err := maas.NewEnviron(cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 
-	anotherServer := "http://maas.testing.invalid"
-	anotherOauth := "c:d:e"
-	anotherSecret := "secret2"
 	newAttrs := coretesting.Attrs{
-		"server-name":  anotherServer,
-		"maas-oauth":   anotherOauth,
-		"admin-secret": anotherSecret,
+		"apt-mirror": "http://testing2.invalid",
 	}
 	cfg2 := getSimpleTestConfig(c, newAttrs)
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, gc.IsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
-	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, "1.0")
-	maasClient := gomaasapi.NewMAAS(*authClient)
-	MAASServer := maas.GetMAASClient(env)
-	c.Check(MAASServer, gc.DeepEquals, maasClient)
+	c.Check(env.Config().AptMirror(), gc.Equals, "http://testing2.invalid")
 }
 
 func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 
-	env, err := maas.NewEnviron(cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
@@ -223,7 +145,7 @@ var expectedCloudinitConfig = []string{
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	modifyNetworkScript := maas.RenderEtcNetworkInterfacesScript()
 	script := expectedCloudinitConfig
@@ -239,7 +161,7 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 		"disable-network-management": true,
 	}
 	cfg := getSimpleTestConfig(c, attrs)
-	env, err := maas.NewEnviron(cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
 	c.Assert(err, jc.ErrorIsNil)

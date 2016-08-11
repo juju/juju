@@ -6,6 +6,7 @@ package jujuclient_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -119,6 +120,37 @@ func (s *ControllersSuite) TestRemoveControllerRemovesIdenticalControllers(c *gc
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
 		c.Assert(found, gc.IsNil)
 	}
+}
+
+func (s *ControllersSuite) TestCurrentControllerNoneExists(c *gc.C) {
+	_, err := s.store.CurrentController()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, "current controller not found")
+}
+
+func (s *ControllersSuite) TestCurrentController(c *gc.C) {
+	writeTestControllersFile(c)
+
+	current, err := s.store.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(current, gc.Equals, "mallards")
+}
+
+func (s *ControllersSuite) TestSetCurrentController(c *gc.C) {
+	err := s.store.UpdateController(s.controllerName, s.controller)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentController(s.controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllers, err := jujuclient.ReadControllersFile(jujuclient.JujuControllersPath())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllers.CurrentController, gc.Equals, s.controllerName)
+}
+
+func (s *ControllersSuite) TestSetCurrentControllerNoneExists(c *gc.C) {
+	err := s.store.SetCurrentController(s.controllerName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, "controller test.controller not found")
 }
 
 func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {

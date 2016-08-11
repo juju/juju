@@ -133,6 +133,15 @@ var diffCloudsTests = []struct {
     changed cloud attribute:
         - one`[1:],
 	}, {
+		description: "cloud attributes change: identity endpoint",
+		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{IdentityEndpoint: "old_endpoint"}},
+		expected: `
+1 cloud attribute changed:
+
+    changed cloud attribute:
+        - one`[1:],
+	}, {
 		description: "cloud attributes change: storage endpoint",
 		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
 		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{StorageEndpoint: "old_endpoint"}},

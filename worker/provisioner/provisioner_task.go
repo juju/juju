@@ -58,9 +58,6 @@ type ToolsFinder interface {
 	FindTools(version version.Number, series string, arch string) (coretools.List, error)
 }
 
-var _ MachineGetter = (*apiprovisioner.State)(nil)
-var _ ToolsFinder = (*apiprovisioner.State)(nil)
-
 func NewProvisionerTask(
 	controllerUUID string,
 	machineTag names.MachineTag,
@@ -697,61 +694,65 @@ func (task *provisionerTask) startMachine(
 	provisioningInfo *params.ProvisioningInfo,
 	startInstanceParams environs.StartInstanceParams,
 ) error {
-
-	result, err := task.broker.StartInstance(startInstanceParams)
-	if err != nil {
-		if !instance.IsRetryableCreationError(errors.Cause(err)) {
-			// Set the state to error, so the machine will be skipped next
-			// time until the error is resolved, but don't return an
-			// error; just keep going with the other machines.
+	var result *environs.StartInstanceResult
+	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
+		attemptResult, err := task.broker.StartInstance(startInstanceParams)
+		if err == nil {
+			result = attemptResult
+			break
+		} else if attemptsLeft <= 0 {
+			// Set the state to error, so the machine will be skipped
+			// next time until the error is resolved, but don't return
+			// an error; just keep going with the other machines.
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
-		logger.Infof("retryable error received on start instance: %v", err)
-		for count := task.retryStartInstanceStrategy.retryCount; count > 0; count-- {
-			if task.retryStartInstanceStrategy.retryDelay > 0 {
-				select {
-				case <-task.catacomb.Dying():
-					return task.catacomb.ErrDying()
-				case <-time.After(task.retryStartInstanceStrategy.retryDelay):
-				}
 
-			}
-			result, err = task.broker.StartInstance(startInstanceParams)
-			if err == nil {
-				break
-			}
-			// If this was the last attempt and an error was received, set the error
-			// status on the machine.
-			if count == 1 {
-				return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
-			}
+		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
+		retryMsg := fmt.Sprintf("will retry to start instance in %v", task.retryStartInstanceStrategy.retryDelay)
+		if err2 := machine.SetStatus(status.StatusPending, retryMsg, nil); err2 != nil {
+			logger.Errorf("%v", err2)
+		}
+		logger.Infof(retryMsg)
+
+		select {
+		case <-task.catacomb.Dying():
+			return task.catacomb.ErrDying()
+		case <-time.After(task.retryStartInstanceStrategy.retryDelay):
 		}
 	}
 
-	inst := result.Instance
-	hardware := result.Hardware
-	nonce := startInstanceParams.InstanceConfig.MachineNonce
 	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToApiserver(result.Volumes)
-	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
+	volumeNameToAttachmentInfo := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networkConfig, volumes, volumeAttachments)
-	if err == nil {
-		logger.Infof(
-			"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v",
-			machine, inst.Id(), hardware,
-			networkConfig,
-			volumes, volumeAttachments,
-			startInstanceParams.SubnetsToZones,
-		)
-		return nil
+	if err := machine.SetInstanceInfo(
+		result.Instance.Id(),
+		startInstanceParams.InstanceConfig.MachineNonce,
+		result.Hardware,
+		networkConfig,
+		volumes,
+		volumeNameToAttachmentInfo,
+	); err != nil {
+		// We need to stop the instance right away here, set error status and go on.
+		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
+			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
+		}
+		if err2 := task.broker.StopInstances(result.Instance.Id()); err2 != nil {
+			logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
+		}
+		return errors.Annotate(err, "cannot set instance info")
 	}
-	// We need to stop the instance right away here, set error status and go on.
-	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
-	if err := task.broker.StopInstances(inst.Id()); err != nil {
-		// We cannot even stop the instance, log the error and quit.
-		return errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
-	}
+
+	logger.Infof(
+		"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v",
+		machine,
+		result.Instance.Id(),
+		result.Hardware,
+		networkConfig,
+		volumes,
+		volumeNameToAttachmentInfo,
+		startInstanceParams.SubnetsToZones,
+	)
 	return nil
 }
 

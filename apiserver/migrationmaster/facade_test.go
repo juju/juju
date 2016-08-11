@@ -103,7 +103,7 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 			},
 		},
 		MigrationId:      "id",
-		Phase:            "READONLY",
+		Phase:            "PRECHECK",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
 }
@@ -261,7 +261,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	}
 	c.Assert(reports, gc.DeepEquals, params.MinionReports{
 		MigrationId:   "id",
-		Phase:         "READONLY",
+		Phase:         "PRECHECK",
 		SuccessCount:  3,
 		UnknownCount:  len(unknown),
 		UnknownSample: expectedSample,
@@ -334,7 +334,7 @@ func (m *stubMigration) Id() string {
 }
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
-	return coremigration.READONLY, nil
+	return coremigration.PRECHECK, nil
 }
 
 func (m *stubMigration) PhaseChangedTime() time.Time {

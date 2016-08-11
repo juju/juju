@@ -91,7 +91,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	serverOnlyLogin := a.root.modelUUID == ""
 	controllerMachineLogin := false
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -132,7 +132,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		controllerMachineLogin = true
 	}
 	a.root.entity = entity
-
 	a.apiObserver.Login(entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
 
 	// We have authenticated the user; enable the appropriate API
@@ -147,22 +146,32 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser description.UserAccess
+	var controllerUser description.UserAccess
 	// Send back user info if user
-	if isUser && !serverOnlyLogin {
+	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
+		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
+		}
+
 		modelUser, err = a.root.state.UserAccess(entity.Tag().(names.UserTag), a.root.state.ModelTag())
-		if err != nil {
-			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
+		}
+
+		if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
+			return fail, errors.NotFoundf("missing ModelUser and ControllerUser for logged in user %s", entity.Tag())
 		}
 		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
 		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
-	}
 
+	}
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
@@ -200,9 +209,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 		loginResult.Facades = facades
 	}
-	emptyUserAccess := description.UserAccess{}
-	if modelUser != emptyUserAccess {
-		authedApi = newClientAuthRoot(authedApi, modelUser)
+
+	if !description.IsEmptyUserAccess(modelUser) || !description.IsEmptyUserAccess(controllerUser) {
+		authedApi = newClientAuthRoot(authedApi, modelUser, controllerUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
@@ -325,12 +334,22 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return f.st.FindEntity(tag)
 	}
 	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
+
+	controllerUser, err := state.ControllerAccess(f.st, utag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
+		return nil, errors.NotFoundf("model or controller user")
+	}
+
 	u := &modelUserEntity{
-		st:        f.st,
-		modelUser: modelUser,
+		st:             f.st,
+		modelUser:      modelUser,
+		controllerUser: controllerUser,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -352,8 +371,9 @@ var _ loginEntity = &modelUserEntity{}
 type modelUserEntity struct {
 	st *state.State
 
-	modelUser description.UserAccess
-	user      *state.User
+	controllerUser description.UserAccess
+	modelUser      description.UserAccess
+	user           *state.User
 }
 
 // Refresh implements state.Authenticator.Refresh.
@@ -383,15 +403,28 @@ func (u *modelUserEntity) PasswordValid(pass string) bool {
 
 // Tag implements state.Entity.Tag.
 func (u *modelUserEntity) Tag() names.Tag {
-	return u.modelUser.UserTag
+	if u.user != nil {
+		return u.user.UserTag()
+	}
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		return u.modelUser.UserTag
+	}
+	return u.controllerUser.UserTag
+
 }
 
 // LastLogin implements loginEntity.LastLogin.
 func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// The last connection for the model takes precedence over
 	// the local user last login time.
-	t, err := u.st.LastModelConnection(u.modelUser.UserTag)
-	if state.IsNeverConnectedError(err) {
+	var err error
+	var t time.Time
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
+	} else {
+		err = state.NeverConnectedError("controller user")
+	}
+	if state.IsNeverConnectedError(err) || description.IsEmptyUserAccess(u.modelUser) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
@@ -405,20 +438,26 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
+	var err error
 
-	if u.modelUser.Object.Kind() != names.ModelTagKind {
-		return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		if u.modelUser.Object.Kind() != names.ModelTagKind {
+			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
+		}
+
+		err = u.st.UpdateLastModelConnection(u.modelUser.UserTag)
 	}
 
-	err := u.st.UpdateLastModelConnection(u.modelUser.UserTag)
 	if u.user != nil {
 		err1 := u.user.UpdateLastLogin()
 		if err == nil {
 			return err1
 		}
 	}
-
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // presenceShim exists to represent a statepresence.Agent in a form

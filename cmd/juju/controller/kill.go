@@ -18,14 +18,17 @@ import (
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller model and all
-hosted models and their resources.
+this command will attempt to destroy the controller model and all hosted models
+and their resources.
 
-If the API server is unreachable, the machines of the controller model
-will be destroyed through the cloud provisioner.  If there are additional
-machines, including machines within hosted models, these machines will
-not be destroyed and will never be reconnected to the Juju controller being
-destroyed. 
+If the API server is unreachable, the machines of the controller model will be
+destroyed through the cloud provisioner.  If there are additional machines,
+including machines within hosted models, these machines will not be destroyed
+and will never be reconnected to the Juju controller being destroyed.
+
+See also:
+    destroy-controller
+    unregister
 `
 
 // NewKillCommand returns a command to kill a controller. Killing is a forceful

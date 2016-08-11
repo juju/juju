@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -48,15 +49,19 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	testServer.AddGetResponse("/api/1.0/version/", http.StatusOK, "<html></html>")
 	testServer.Start()
 	suite.AddCleanup(func(*gc.C) { testServer.Close() })
-	testAttrs := coretesting.Attrs{}
-	for k, v := range maasEnvAttrs {
-		testAttrs[k] = v
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	cloud := environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   testServer.Server.URL,
+		Credential: &cred,
 	}
-	testAttrs["maas-server"] = testServer.Server.URL
-	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	return NewEnviron(cfg)
+	return NewEnviron(cloud, cfg)
 }
 
 func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
@@ -68,7 +73,7 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) *maasEnviron {
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {
-		expected.AgentName = env.ecfg().maasAgentName()
+		expected.AgentName = env.Config().UUID()
 		c.Assert(args, gc.DeepEquals, expected)
 	}
 	controller := &fakeController{
@@ -89,7 +94,7 @@ func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemI
 	var env *maasEnviron
 	checkArgs := func(args gomaasapi.MachinesArgs) {
 		c.Check(args.SystemIDs, gc.DeepEquals, expectedSystemIDs)
-		c.Check(args.AgentName, gc.Equals, env.ecfg().maasAgentName())
+		c.Check(args.AgentName, gc.Equals, env.Config().UUID())
 	}
 	machines := make([]gomaasapi.Machine, len(returnSystemIDs))
 	for index, id := range returnSystemIDs {
@@ -240,7 +245,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C
 func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
 	args := collectReleaseArgs(controller)
@@ -251,7 +256,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(gomaasapi.NewCannotCompleteError("test1 not allocated"))
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
@@ -262,7 +267,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(
 		gomaasapi.NewBadRequestError("no such machine: test1"),
 		gomaasapi.NewBadRequestError("no such machine: test1"),
@@ -278,7 +283,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c
 }
 
 func (suite *maas2EnvironSuite) checkStopInstancesFails(c *gc.C, withError error) {
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(withError)
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot release nodes: %s", withError))
@@ -317,7 +322,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
+				AgentName: env.Config().UUID(),
 				Zone:      "foo",
 				MinMemory: 8192,
 			})
@@ -345,7 +350,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.Config().UUID()})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
@@ -439,7 +444,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
+				AgentName: env.Config().UUID(),
 				Storage:   getStorage(),
 			})
 		},
@@ -491,7 +496,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName:  env.ecfg().maasAgentName(),
+				AgentName:  env.Config().UUID(),
 				Interfaces: getPositives(),
 				NotSpace:   getNegatives(),
 			})
@@ -1268,7 +1273,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	subnet := makeFakeSubnet(3)
 	checkMachinesArgs := func(args gomaasapi.MachinesArgs) {
 		expected := gomaasapi.MachinesArgs{
-			AgentName: env.ecfg().maasAgentName(),
+			AgentName: env.Config().UUID(),
 			SystemIDs: []string{"1"},
 		}
 		c.Assert(args, jc.DeepEquals, expected)
@@ -1481,7 +1486,7 @@ func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	suite.setupFakeTools(c)
 	machine := newFakeMachine("gus", arch.HostArch(), "Deployed")
-	file := &fakeFile{name: "agent-prefix-provider-state"}
+	file := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
 	controller := newFakeControllerWithFiles(file)
 	controller.machines = []gomaasapi.Machine{machine}
 	controller.allocateMachine = machine
@@ -1564,7 +1569,7 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		controller.files = []gomaasapi.File{&fakeFile{
-			name:     "agent-prefix-provider-state",
+			name:     coretesting.ModelTag.Id() + "-provider-state",
 			contents: state,
 		}}
 		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
@@ -1581,8 +1586,8 @@ func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c
 }
 
 func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
-	file1 := &fakeFile{name: "agent-prefix-provider-state"}
-	file2 := &fakeFile{name: "agent-prefix-horace"}
+	file1 := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
+	file2 := &fakeFile{name: coretesting.ModelTag.Id() + "-horace"}
 	controller := newFakeControllerWithFiles(file1, file2)
 	controller.machines = []gomaasapi.Machine{&fakeMachine{systemID: "pete"}}
 	env := suite.makeEnviron(c, controller)
@@ -1637,7 +1642,7 @@ func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	env := suite.makeEnviron(c, newFakeControllerWithFiles(
-		&fakeFile{name: "agent-prefix-tools/filename", contents: makeRandomBytes(10)},
+		&fakeFile{name: coretesting.ModelTag.Id() + "-tools/filename", contents: makeRandomBytes(10)},
 	))
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)

@@ -79,12 +79,15 @@ func (s *ec2storage) URL(name string) (string, error) {
 	return s.bucket.SignedURL(name, maxExpiratoryPeriod)
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var storageAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
 // DefaultConsistencyStrategy is specified in the StorageReader interface.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func (s *ec2storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }

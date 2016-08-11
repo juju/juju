@@ -366,6 +366,7 @@ func hasPermission(userGetter userAccessFunc, entity names.Tag,
 	case description.ReadAccess, description.WriteAccess, description.AdminAccess:
 		validForKind = target.Kind() == names.ModelTagKind
 	}
+
 	if !validForKind {
 		return false, nil
 	}

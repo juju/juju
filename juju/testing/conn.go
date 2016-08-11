@@ -313,10 +313,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		ControllerConfig: s.ControllerConfig,
 		CloudName:        cloudSpec.Name,
 		Cloud: cloud.Cloud{
-			Type:            cloudSpec.Type,
-			AuthTypes:       []cloud.AuthType{cloud.EmptyAuthType},
-			Endpoint:        cloudSpec.Endpoint,
-			StorageEndpoint: cloudSpec.StorageEndpoint,
+			Type:             cloudSpec.Type,
+			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+			Endpoint:         cloudSpec.Endpoint,
+			IdentityEndpoint: cloudSpec.IdentityEndpoint,
+			StorageEndpoint:  cloudSpec.StorageEndpoint,
 		},
 		CloudCredential:     cloudSpec.Credential,
 		CloudCredentialName: "cred",
@@ -389,6 +390,7 @@ func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	s.AddToolsToState(c, versions...)
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var redialStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 250 * time.Millisecond,

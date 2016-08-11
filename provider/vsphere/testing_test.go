@@ -23,6 +23,7 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
@@ -33,19 +34,26 @@ func ConfigAttrs() testing.Attrs {
 	return testing.FakeConfig().Merge(testing.Attrs{
 		"type":             "vsphere",
 		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"datacenter":       "/datacenter1",
-		"host":             "host1",
-		"user":             "user1",
-		"password":         "password1",
 		"external-network": "",
 	})
 }
 
 func FakeCloudSpec() environs.CloudSpec {
+	cred := FakeCredential()
 	return environs.CloudSpec{
-		Type: "vsphere",
-		Name: "vsphere",
+		Type:       "vsphere",
+		Name:       "vsphere",
+		Region:     "/datacenter1",
+		Endpoint:   "host1",
+		Credential: &cred,
 	}
+}
+
+func FakeCredential() cloud.Credential {
+	return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "user1",
+		"password": "password1",
+	})
 }
 
 type BaseSuite struct {

@@ -113,7 +113,7 @@ func userAccessID(user names.UserTag) string {
 // NewModelUserAccess returns a new description.UserAccess for the given userDoc and
 // current Model.
 func NewModelUserAccess(st *State, userDoc userAccessDoc) (description.UserAccess, error) {
-	perm, err := st.userPermission(modelGlobalKey, userGlobalKey(strings.ToLower(userDoc.UserName)))
+	perm, err := st.userPermission(modelKey(st.ModelUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return description.UserAccess{}, errors.Annotate(err, "obtaining model permission")
 	}
@@ -123,7 +123,7 @@ func NewModelUserAccess(st *State, userDoc userAccessDoc) (description.UserAcces
 // NewControllerUserAccess returns a new description.UserAccess for the given userDoc and
 // current Controller.
 func NewControllerUserAccess(st *State, userDoc userAccessDoc) (description.UserAccess, error) {
-	perm, err := st.userPermission(controllerGlobalKey, userGlobalKey(strings.ToLower(userDoc.UserName)))
+	perm, err := st.controllerUserPermission(controllerKey(st.ControllerUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return description.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}

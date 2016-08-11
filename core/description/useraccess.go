@@ -33,3 +33,10 @@ type UserAccess struct {
 	// UserName is the actual username for this access.
 	UserName string
 }
+
+// IsEmptyUserAccess returns true if the passed UserAccess instance
+// is empty.
+func IsEmptyUserAccess(a UserAccess) bool {
+	empty := UserAccess{}
+	return a == empty
+}

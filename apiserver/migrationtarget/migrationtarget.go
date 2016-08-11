@@ -49,7 +49,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 
 	// Type assertion is fine because AuthClient is true.
 	apiUser := authorizer.GetAuthTag().(names.UserTag)
-	if isAdmin, err := st.IsControllerAdministrator(apiUser); err != nil {
+	if isAdmin, err := st.IsControllerAdmin(apiUser); err != nil {
 		return errors.Trace(err)
 	} else if !isAdmin {
 		// The entire facade is only accessible to controller administrators.

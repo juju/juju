@@ -79,11 +79,12 @@ var errNotPrepared = errors.New("model is not prepared")
 func SampleCloudSpec() environs.CloudSpec {
 	cred := cloud.NewEmptyCredential()
 	return environs.CloudSpec{
-		Type:            "dummy",
-		Name:            "dummy",
-		Endpoint:        "dummy-endpoint",
-		StorageEndpoint: "dummy-storage-endpoint",
-		Credential:      &cred,
+		Type:             "dummy",
+		Name:             "dummy",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &cred,
 	}
 }
 

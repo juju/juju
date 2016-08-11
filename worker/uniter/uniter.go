@@ -198,6 +198,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
+	// TODO(katco): 2016-08-09: This type is deprecated: lp:1611427
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
 		Min:    u.hookRetryStrategy.MinRetryTime,
 		Max:    u.hookRetryStrategy.MaxRetryTime,

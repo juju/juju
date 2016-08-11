@@ -67,6 +67,7 @@ func ensureJujudPasswordHelper(username, newPassword string, mgr ServiceManager,
 	return nil
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var changeServicePasswordAttempts = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 6 * time.Second,

@@ -44,7 +44,7 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 	}
 	getUserAuthFunc := func() (common.AuthFunc, error) {
 		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
-		isAdmin, err := backend.IsControllerAdministrator(authUser)
+		isAdmin, err := backend.IsControllerAdmin(authUser)
 		if err != nil {
 			return nil, err
 		}
@@ -85,17 +85,19 @@ func (mm *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		regions := make([]params.CloudRegion, len(cloud.Regions))
 		for i, region := range cloud.Regions {
 			regions[i] = params.CloudRegion{
-				Name:            region.Name,
-				Endpoint:        region.Endpoint,
-				StorageEndpoint: region.StorageEndpoint,
+				Name:             region.Name,
+				Endpoint:         region.Endpoint,
+				IdentityEndpoint: region.IdentityEndpoint,
+				StorageEndpoint:  region.StorageEndpoint,
 			}
 		}
 		return &params.Cloud{
-			Type:            cloud.Type,
-			AuthTypes:       authTypes,
-			Endpoint:        cloud.Endpoint,
-			StorageEndpoint: cloud.StorageEndpoint,
-			Regions:         regions,
+			Type:             cloud.Type,
+			AuthTypes:        authTypes,
+			Endpoint:         cloud.Endpoint,
+			IdentityEndpoint: cloud.IdentityEndpoint,
+			StorageEndpoint:  cloud.StorageEndpoint,
+			Regions:          regions,
 		}, nil
 	}
 	for i, arg := range args.Entities {
@@ -132,7 +134,7 @@ func (mm *CloudAPI) CloudDefaults(args params.Entities) (params.CloudDefaultsRes
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		isAdmin, err := mm.backend.IsControllerAdministrator(userTag)
+		isAdmin, err := mm.backend.IsControllerAdmin(userTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

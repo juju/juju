@@ -28,6 +28,11 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
+// modelKey will create the kei for a given model using the modelGlobalKey.
+func modelKey(modelUUID string) string {
+	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
+}
+
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
 
@@ -270,7 +275,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 			newSt.Close()
 		}
 	}()
-	newSt.controllerTag = st.controllerTag
+	newSt.controllerModelTag = st.controllerModelTag
 
 	modelOps, err := newSt.modelSetupOps(args, nil)
 	if err != nil {
@@ -308,7 +313,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerModelTag)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}

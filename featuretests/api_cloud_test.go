@@ -33,9 +33,10 @@ func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 	result, err := s.client.Cloud(names.NewCloudTag("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
-		Type:            "dummy",
-		AuthTypes:       []cloud.AuthType{cloud.EmptyAuthType},
-		Endpoint:        "dummy-endpoint",
-		StorageEndpoint: "dummy-storage-endpoint",
+		Type:             "dummy",
+		AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		StorageEndpoint:  "dummy-storage-endpoint",
 	})
 }

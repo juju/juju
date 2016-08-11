@@ -25,9 +25,10 @@ type Facade interface {
 // Predicate defines a predicate.
 type Predicate func(migration.Phase) bool
 
-// IsNone is a predicate.
-func IsNone(phase migration.Phase) bool {
-	return phase == migration.NONE
+// IsTerminal returns true when the given phase means a migration has
+// finished (successfully or otherwise).
+func IsTerminal(phase migration.Phase) bool {
+	return phase.IsTerminal()
 }
 
 // Config holds the dependencies and configuration for a Worker.

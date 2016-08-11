@@ -109,6 +109,8 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 		return w.config.Guard.Unlock()
 	}
 
+	// Ensure that all workers related to migration fortress have
+	// stopped and aren't allowed to restart.
 	err := w.config.Guard.Lockdown(w.catacomb.Dying())
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
@@ -117,6 +119,12 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 	}
 
 	switch status.Phase {
+	case migration.QUIESCE:
+		// Report that the minion is ready and that all workers that
+		// should be shut down have done so.
+		if err := w.report(status, true); err != nil {
+			return errors.Trace(err)
+		}
 	case migration.SUCCESS:
 		// Report first because the config update in doSUCCESS will
 		// cause the API connection to drop. The SUCCESS phase is the

@@ -291,7 +291,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),

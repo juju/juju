@@ -136,6 +136,7 @@ func (s *fakeStorage) URL(name string) (string, error) {
 }
 
 func (s *fakeStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+	// TODO(katco): 2016-08-09: lp:1611427
 	return utils.AttemptStrategy{Min: 10}
 }
 
@@ -145,6 +146,7 @@ func (s *fakeStorage) ShouldRetry(error) bool {
 
 func (s *storageSuite) TestGetWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Min: 5}
 	storage.GetWithRetry(stor, "foo", attempt)
 	c.Assert(stor.getName, gc.Equals, "foo")
@@ -167,6 +169,7 @@ func (s *storageSuite) TestGetNoRetryAllowed(c *gc.C) {
 
 func (s *storageSuite) TestListWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Min: 5}
 	storage.ListWithRetry(stor, "foo", attempt)
 	c.Assert(stor.listPrefix, gc.Equals, "foo")

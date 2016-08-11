@@ -710,10 +710,24 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	password := "lisboan-pork"
 
+	cloudName := "dummy"
+	dummyCloud := cloud.Cloud{
+		RegionConfig: cloud.RegionConfig{
+			"a-region": cloud.Attrs{
+				"a-key": "a-value",
+			},
+			"b-region": cloud.Attrs{
+				"b-key": "b-value",
+			},
+		},
+	}
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:          coretesting.FakeControllerConfig(),
 		ControllerInheritedConfig: map[string]interface{}{"ftp-proxy": "http://proxy"},
+		CloudName:                 cloudName,
+		Cloud:                     dummyCloud,
 		AdminSecret:               password,
 		CAPrivateKey:              coretesting.CAKey,
 	})
@@ -729,6 +743,14 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
 	})
 	c.Check(icfg.Bootstrap.ControllerInheritedConfig, gc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
+	c.Check(icfg.Bootstrap.RegionInheritedConfig, jc.DeepEquals, cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"a-key": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"b-key": "b-value",
+		},
+	})
 	controllerCfg := icfg.Controller.Config
 	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
 	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())

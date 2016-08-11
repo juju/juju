@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -74,13 +75,13 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	modelTag      names.ModelTag
-	controllerTag names.ModelTag
-	mongoInfo     *mongo.MongoInfo
-	session       *mgo.Session
-	database      Database
-	policy        Policy
-	newPolicy     NewPolicyFunc
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	mongoInfo          *mongo.MongoInfo
+	session            *mgo.Session
+	database           Database
+	policy             Policy
+	newPolicy          NewPolicyFunc
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -133,13 +134,21 @@ type StateServingInfo struct {
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {
-	return st.modelTag == st.controllerTag
+	return st.modelTag == st.controllerModelTag
 }
 
 // ControllerUUID returns the model UUID for the controller model
 // of this state instance.
 func (st *State) ControllerUUID() string {
-	return st.controllerTag.Id()
+	return st.controllerModelTag.Id()
+}
+func (st *State) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag(st.controllerModelTag.Id())
+}
+
+func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
+	ctag := names.NewControllerTag(st.ControllerUUID())
+	return st.UserAccess(tag.(names.UserTag), ctag)
 }
 
 // RemoveAllModelDocs removes all documents from multi-model
@@ -279,7 +288,7 @@ func (st *State) ForModel(model names.ModelTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(st.controllerTag); err != nil {
+	if err := newSt.start(st.controllerModelTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -301,7 +310,7 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 		}
 	}()
 
-	st.controllerTag = controllerTag
+	st.controllerModelTag = controllerTag
 
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
@@ -569,8 +578,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 
 var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error is cause by an
-// upgrade in progress
+// IsUpgradeInProgressError returns true if the error is caused by an
+// in-progress upgrade.
 func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == errUpgradeInProgress
 }
