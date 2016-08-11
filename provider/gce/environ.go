@@ -68,9 +68,6 @@ type environ struct {
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
-
-	archLock               sync.Mutex // protects supportedArchitectures
-	supportedArchitectures []string
 }
 
 // Function entry points defined as variables so they can be overridden

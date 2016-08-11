@@ -28,25 +28,9 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	return nil
 }
 
-func (env *environ) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
-	archList, err := env.lookupArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env.supportedArchitectures = archList
-	return archList, nil
-}
-
 var supportedArchitectures = common.SupportedArchitectures
 
-func (env *environ) lookupArchitectures() ([]string, error) {
+func (env *environ) getSupportedArchitectures() ([]string, error) {
 	// Create a filter to get all images from our region and for the
 	// correct stream.
 	cloudSpec, err := env.Region()

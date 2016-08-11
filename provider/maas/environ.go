@@ -79,9 +79,6 @@ type maasEnviron struct {
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -266,20 +263,11 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
 	fetchArchitectures := env.allArchitecturesWithFallback
 	if env.usingMAAS2() {
 		fetchArchitectures = env.allArchitectures2
 	}
-	architectures, err := fetchArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env.supportedArchitectures = architectures
-	return env.supportedArchitectures, nil
+	return fetchArchitectures()
 }
 
 // SupportsSpaces is specified on environs.Networking.

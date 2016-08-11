@@ -159,12 +159,6 @@ type Environ struct {
 	name  string
 	cloud environs.CloudSpec
 
-	// archMutex gates access to cachedSupportedArchitectures
-	archMutex sync.Mutex
-	// cachedSupportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	cachedSupportedArchitectures []string
-
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	client       client.AuthenticatingClient
@@ -398,12 +392,6 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 func (e *Environ) supportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.cachedSupportedArchitectures != nil {
-		return e.cachedSupportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec, err := e.Region()
 	if err != nil {
 		return nil, err
@@ -412,8 +400,7 @@ func (e *Environ) supportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    e.Config().ImageStream(),
 	})
-	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.cachedSupportedArchitectures, err
+	return common.SupportedArchitectures(e, imageConstraint)
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
