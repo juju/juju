@@ -324,7 +324,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
-	c.Assert(exported.SettingsRefCount(), gc.Equals, 1)
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
 	})
