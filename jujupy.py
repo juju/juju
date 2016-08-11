@@ -1204,7 +1204,8 @@ class EnvJujuClient:
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
-        return yaml.safe_load(self.get_juju_output('get-model-config'))
+        return yaml.safe_load(
+            self.get_juju_output('get-model-config', '--format', 'yaml'))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
@@ -1214,6 +1215,10 @@ class EnvJujuClient:
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
         return self.juju('set-model-config', (option_value,))
+
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
 
     def get_agent_metadata_url(self):
         return self.get_env_option(self.agent_metadata_url)
