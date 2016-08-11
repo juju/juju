@@ -5,11 +5,9 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -26,23 +24,6 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	}
 
 	return nil
-}
-
-var supportedArchitectures = common.SupportedArchitectures
-
-func (env *environ) getSupportedArchitectures() ([]string, error) {
-	// Create a filter to get all images from our region and for the
-	// correct stream.
-	cloudSpec, err := env.Region()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    env.Config().ImageStream(),
-	})
-	archList, err := supportedArchitectures(env, imageConstraint)
-	return archList, errors.Trace(err)
 }
 
 var unsupportedConstraints = []string{
@@ -79,11 +60,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// vocab
 
-	supportedArches, err := env.getSupportedArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64})
 
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {

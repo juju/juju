@@ -6,12 +6,9 @@
 package vsphere
 
 import (
-	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -25,18 +22,18 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	return nil
 }
 
-func (env *environ) getSupportedArchitectures() ([]string, error) {
-	// Create a filter to get all images for the
-	// correct stream.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Stream: env.Config().ImageStream(),
-	})
-	return common.SupportedArchitectures(env, imageConstraint)
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
+}
+
+// This is provided to avoid double hard-coding of provider specific architecture for
+// use in constraints validator and metadata lookup params (used to validate images).
+var providerSupportedArchitectures = []string{
+	arch.AMD64,
+	arch.ARM,
+	arch.ARM64,
+	arch.S390X,
 }
 
 // ConstraintsValidator returns a Validator value which is used to
@@ -50,11 +47,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// vocab
 
-	supportedArches, err := env.getSupportedArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 
 	return validator, nil
 }

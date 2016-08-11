@@ -4,29 +4,10 @@
 package cloudsigma
 
 import (
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
-)
+	"github.com/juju/utils/arch"
 
-func (env *environ) SupportedArchitectures() ([]string, error) {
-	logger.Debugf("Getting supported architectures from simplestream.")
-	cloudSpec, err := env.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    env.Config().ImageStream(),
-	})
-	supportedArchitectures, err := common.SupportedArchitectures(env, imageConstraint)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("Supported architectures: %v", supportedArchitectures)
-	return supportedArchitectures, nil
-}
+	"github.com/juju/juju/constraints"
+)
 
 var unsupportedConstraints = []string{
 	constraints.Container,
@@ -35,16 +16,18 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 }
 
+// This is provided to avoid double hard-coding
+// of provider specific architecture for
+// use in constraints validator and metadata lookup params
+// (used to validate images).
+var providerSupportedArchitectures = []string{arch.AMD64}
+
 // ConstraintsValidator returns a Validator instance which
 // is used to validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.SupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 	return validator, nil
 }
 

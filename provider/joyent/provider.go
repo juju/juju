@@ -142,7 +142,7 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "armhf"},
+		Architectures: providerSupportedArchitectures,
 	}, nil
 }
 

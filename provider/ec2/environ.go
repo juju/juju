@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -134,19 +133,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) getSupportedArchitectures() ([]string, error) {
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	return common.SupportedArchitectures(e, imageConstraint)
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
@@ -164,6 +150,10 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 }
 
+// This is provided to avoid double hard-coding of provider specific architecture for
+// use in constraints validator and metadata lookup params (used to validate images).
+var providerSupportedArchitectures = []string{arch.AMD64, arch.I386}
+
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
@@ -171,11 +161,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.getSupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {
 		instTypeNames[i] = itype.Name
@@ -314,7 +300,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Architectures: providerSupportedArchitectures,
 	}, nil
 }
 

@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -139,7 +138,7 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: arch.AllSupportedArches,
+		Architectures: providerSupportedArchitectures,
 	}, nil
 }
 
@@ -365,6 +364,16 @@ var unsupportedConstraints = []string{
 	constraints.CpuPower,
 }
 
+// This is provided to avoid double hard-coding of provider specific architecture for
+// use in constraints validator and metadata lookup params (used to validate images).
+var providerSupportedArchitectures = []string{
+	arch.AMD64,
+	arch.ARM,
+	arch.ARM64,
+	arch.PPC64EL,
+	arch.S390X,
+}
+
 // ConstraintsValidator is defined on the Environs interface.
 func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
@@ -372,11 +381,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.supportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
@@ -389,18 +394,6 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
-}
-
-func (e *Environ) supportedArchitectures() ([]string, error) {
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	return common.SupportedArchitectures(e, imageConstraint)
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones

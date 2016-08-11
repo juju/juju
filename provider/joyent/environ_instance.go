@@ -56,15 +56,15 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 }
 
+// This is provided to avoid double hard-coding of provider specific architecture for
+// use in constraints validator and metadata lookup params (used to validate images).
+var providerSupportedArchitectures = []string{"amd64"}
+
 // ConstraintsValidator is defined on the Environs interface.
 func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.getSupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err

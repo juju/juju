@@ -38,10 +38,6 @@ type mockEnviron struct {
 	environs.Environ // stub out other methods with panics
 }
 
-func (*mockEnviron) SupportedArchitectures() ([]string, error) {
-	return []string{"amd64", "arm64"}, nil
-}
-
 func (env *mockEnviron) Storage() storage.Storage {
 	return env.storage
 }

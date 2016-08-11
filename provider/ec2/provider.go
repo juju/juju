@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -127,7 +126,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Architectures: providerSupportedArchitectures,
 	}, nil
 }
 

@@ -992,7 +992,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	// data was created for it for the test.
 	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64 arm64 ppc64el s390x\\]")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64 armhf arm64 ppc64el s390x\\]")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
