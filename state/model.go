@@ -28,6 +28,11 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
+// modelKey will create the kei for a given model using the modelGlobalKey.
+func modelKey(modelUUID string) string {
+	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
+}
+
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
 

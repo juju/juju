@@ -34,7 +34,7 @@ func (st *State) setModelAccess(access description.Access, userGlobalKey string)
 	if err := description.ValidateModelAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	op := updatePermissionOp(modelGlobalKey, userGlobalKey, access)
+	op := updatePermissionOp(modelKey(st.ModelUUID()), userGlobalKey, access)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
@@ -131,7 +131,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user)), access),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
@@ -146,7 +146,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 // removeModelUser removes a user from the database.
 func (st *State) removeModelUser(user names.UserTag) error {
 	ops := []txn.Op{
-		removePermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user))),
+		removePermissionOp(modelKey(st.ModelUUID()), userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
