@@ -22,14 +22,9 @@ func (st *State) setControllerAccess(access description.Access, userGlobalKey st
 	if err := description.ValidateControllerAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	op := updatePermissionOp(controllerGlobalKey, userGlobalKey, access)
-	controllerSt, err := st.ForModel(st.controllerModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer controllerSt.Close()
+	op := updatePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey, access)
 
-	err = controllerSt.runTransaction([]txn.Op{op})
+	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -39,16 +34,11 @@ func (st *State) setControllerAccess(access description.Access, userGlobalKey st
 // controllerUser a model userAccessDoc.
 func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUser := userAccessDoc{}
-	controllerSt, err := st.ForModel(st.controllerModelTag)
-	if err != nil {
-		return controllerUser, errors.Trace(err)
-	}
-	defer controllerSt.Close()
-	controllerUsers, closer := controllerSt.getCollection(controllerUsersC)
+	controllerUsers, closer := st.getCollection(controllerUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	err = controllerUsers.FindId(username).One(&controllerUser)
+	err := controllerUsers.FindId(username).One(&controllerUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("controller user %q", user.Canonical())
 	}
@@ -69,7 +59,7 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(controllerGlobalKey, userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user)), access),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
@@ -83,7 +73,7 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 // RemoveControllerUser removes a user from the database.
 func (st *State) removeControllerUser(user names.UserTag) error {
 	ops := []txn.Op{
-		removePermissionOp(controllerGlobalKey, userGlobalKey(userAccessID(user))),
+		removePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey(userAccessID(user))),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
