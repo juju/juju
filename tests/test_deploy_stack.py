@@ -1075,7 +1075,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         'juju', '--show-log', 'show-status', '-m', 'foo:foo',
         '--format', 'yaml')
     GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
-               'tools-metadata-url')
+               'agent-metadata-url')
 
     @classmethod
     def upgrade_output(cls, args, **kwargs):
