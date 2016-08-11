@@ -9,6 +9,7 @@ from assess_controller_permissions import (
     parse_args,
     main,
 )
+from assess_user_grant_revoke import User
 from tests import (
     parse_error,
     TestCase,
@@ -39,15 +40,16 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_controller_permissions.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_controller_permissions.BootstrapManager.booted_context",
+            with patch("assess_controller_permissions."
+                       "BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_c:
-                    with patch("assess_controller_permissions.assess_controller_permissions",
+                    with patch("assess_controller_permissions."
+                               "assess_controller_permissions",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -58,17 +60,21 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_controller_permissions(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
+    @patch('assess_controller_permissions.assert_superuser_controller',
+           autospec=True)
+    @patch('assess_controller_permissions.assert_addmodel_controller',
+           autospec=True)
+    @patch('assess_controller_permissions.assert_login_controller',
+           autospec=True)
+    def test_controller_permissions(self, lc_mock, ac_mock, sc_mock):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
+        patch('assess_controller_permissions.assert_login_controller.')
         assess_controller_permissions(fake_client)
-        fake_client.deploy.assert_called_once_with(
-            'local:trusty/my-charm')
-        fake_client.wait_for_started.assert_called_once_with()
-        self.assertEqual(
-            1, fake_client.get_status().get_service_unit_count('my-charm'))
+        lc_mock.assert_called_once_with(
+            fake_client, User('login_controller', 'login', []))
+        ac_mock.assert_called_once_with(
+            fake_client, User('addmodel_controller', 'addmodel', []))
+        sc_mock.assert_called_once_with(
+            fake_client, User('superuser_controller', 'superuser', []))
         self.assertNotIn("TODO", self.log_stream.getvalue())
