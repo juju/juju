@@ -2778,7 +2778,10 @@ class TestEnvJujuClient(ClientTest):
             result = client.get_model_config()
         assert_juju_call(
             self, po_mock, client, (
-                'juju', '--show-log', 'get-model-config', '-m', 'foo:foo'))
+                'juju', '--show-log',
+                'get-model-config',
+                '-m', 'foo:foo',
+                '--format', 'yaml'))
         self.assertEqual({'bar': 'baz'}, result)
 
     def test_get_env_option(self):
@@ -2804,6 +2807,17 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             ('juju', '--show-log', 'set-model-config', '-m', 'foo:foo',
              'tools-metadata-url=https://example.org/juju/tools'))
+
+    def test_unset_env_option(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, 'juju')
+        with patch('subprocess.check_call') as mock:
+            client.unset_env_option('tools-metadata-url')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.env.juju_home
+        mock.assert_called_with(
+            ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
+             'tools-metadata-url'))
 
     def test_set_testing_tools_metadata_url(self):
         env = JujuData(None, {'type': 'foo'})
