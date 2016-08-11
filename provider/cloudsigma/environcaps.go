@@ -11,11 +11,6 @@ import (
 )
 
 func (env *environ) SupportedArchitectures() ([]string, error) {
-	env.archMutex.Lock()
-	defer env.archMutex.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
 	logger.Debugf("Getting supported architectures from simplestream.")
 	cloudSpec, err := env.Region()
 	if err != nil {
@@ -25,9 +20,12 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    env.Config().ImageStream(),
 	})
-	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
-	logger.Debugf("Supported architectures: %v", env.supportedArchitectures)
-	return env.supportedArchitectures, err
+	supportedArchitectures, err := common.SupportedArchitectures(env, imageConstraint)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("Supported architectures: %v", supportedArchitectures)
+	return supportedArchitectures, nil
 }
 
 var unsupportedConstraints = []string{

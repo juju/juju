@@ -27,12 +27,8 @@ type environ struct {
 	name   string
 	cloud  environs.CloudSpec
 	client *environClient
-
-	lock      sync.Mutex
-	archMutex sync.Mutex
-
-	ecfg                   *environConfig
-	supportedArchitectures []string
+	lock   sync.Mutex
+	ecfg   *environConfig
 }
 
 // Name returns the Environ's name.
