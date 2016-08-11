@@ -62,12 +62,6 @@ type environ struct {
 	ec2   *ec2.EC2
 	s3    *s3.S3
 
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
-
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -141,11 +135,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) getSupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec, err := e.Region()
 	if err != nil {
@@ -155,8 +144,7 @@ func (e *environ) getSupportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    e.Config().ImageStream(),
 	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
+	return common.SupportedArchitectures(e, imageConstraint)
 }
 
 // SupportsSpaces is specified on environs.Networking.
