@@ -834,7 +834,7 @@ class EnvJujuClient:
 
     status_class = Status
 
-    tools_metadata_url = 'agent-metadata-url'
+    agent_metadata_url = 'agent-metadata-url'
 
     @classmethod
     def preferred_container(cls):
@@ -1215,14 +1215,14 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-model-config', (option_value,))
 
-    def get_tools_metadata_url(self):
-        return self.get_env_option(self.tools_metadata_url)
+    def get_agent_metadata_url(self):
+        return self.get_env_option(self.agent_metadata_url)
 
-    def set_testing_tools_metadata_url(self):
-        url = self.get_tools_metadata_url()
+    def set_testing_agent_metadata_url(self):
+        url = self.get_agent_metadata_url()
         if 'testing' not in url:
             testing_url = url.replace('/tools', '/testing/tools')
-            self.set_env_option(self.tools_metadata_url, testing_url)
+            self.set_env_option(self.agent_metadata_url, testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
@@ -2254,7 +2254,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
-    tools_metadata_url = 'tools-metadata-url'
+    agent_metadata_url = 'tools-metadata-url'
 
     def _cmd_model(self, include_e, controller):
         if controller:
