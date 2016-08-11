@@ -84,7 +84,7 @@ fi
 cd $HERE
 
 echo "Getting and updating juju-core dependencies to the required versions."
-GOPATH=$WORK go get -v launchpad.net/godeps
+GOPATH=$WORK go get -v github.com/rogpeppe/godeps
 GODEPS=$WORK/bin/godeps
 if [[ ! -f $GODEPS ]]; then
     echo "! Could not install godeps."
