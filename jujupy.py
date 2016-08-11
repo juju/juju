@@ -1683,33 +1683,29 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_juju(self, force_version=True):
+    def upgrade_controller(self, force_version=True):
         args = ()
         if force_version:
             version = self.get_matching_agent_version(no_build=True)
             args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
-        self._upgrade_juju(args)
 
-    def _upgrade_juju(self, args):
-        """Upgrades controller and other hosted models.
-
-        Remove --upload-tools from the arguments for non-controller models.
-
-        """
         self._upgrade_controller(args)
-        args = filter(lambda x: x != '--upload-tools', args)
-        models = [m['name']
-                  for m in self._get_models()
-                  if m['name'] != 'controller']
-        for model_name in models:
-            temp_client = self._acquire_model_client(model_name)
-            temp_client.juju('upgrade-juju', args)
 
     def _upgrade_controller(self, args):
         controller = self.get_controller_client()
         controller.juju('upgrade-juju', args)
+
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        self._upgrade_juju(args)
+
+    def _upgrade_juju(self, args):
+        self.juju('upgrade-juju', args)
 
     def upgrade_mongo(self):
         self.juju('upgrade-mongo', ())
@@ -2296,8 +2292,14 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                     return cmd
         raise JESNotSupported()
 
-    def _upgrade_juju(self, args):
-        self.juju('upgrade-juju', args)
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        if self.env.local:
+            args += ('--upload-tools',)
+        self._upgrade_juju(args)
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
