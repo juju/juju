@@ -16,7 +16,7 @@ parts:
     go-importpath: github.com/juju/juju
     source: https://github.com/juju/juju.git
     source-type: git
-    source-tag: juju-2.0-beta14
+    source-tag: juju-2.0-beta16
     snap:
     - -bin/filetoconst
     - -bin/winuserdata
