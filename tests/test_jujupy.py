@@ -597,27 +597,24 @@ class TestEnvJujuClient(ClientTest):
 
     def test_upgrade_juju_nonlocal(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'nonlocal'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'nonlocal'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--version', '1.234'))
+        juju_mock.assert_called_with(('--version', '2.0'))
 
     def test_upgrade_juju_local(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--version', '1.234', '--upload-tools',))
+        juju_mock.assert_called_with(('--version', '2.0',))
 
     def test_upgrade_juju_no_force_version(self):
         client = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+        with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju(force_version=False)
-        juju_mock.assert_called_with(
-            'upgrade-juju', ('--upload-tools',))
+        juju_mock.assert_called_with(())
 
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
@@ -2143,26 +2140,26 @@ class TestEnvJujuClient(ClientTest):
             ('juju', '--show-log', 'set-model-config', '-m', 'foo:foo',
              'tools-metadata-url=https://example.org/juju/tools'))
 
-    def test_set_testing_tools_metadata_url(self):
+    def test_set_testing_agent_metadata_url(self):
         env = JujuData(None, {'type': 'foo'})
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'get_env_option') as mock_get:
             mock_get.return_value = 'https://example.org/juju/tools'
             with patch.object(client, 'set_env_option') as mock_set:
-                client.set_testing_tools_metadata_url()
-        mock_get.assert_called_with('tools-metadata-url')
+                client.set_testing_agent_metadata_url()
+        mock_get.assert_called_with('agent-metadata-url')
         mock_set.assert_called_with(
-            'tools-metadata-url',
+            'agent-metadata-url',
             'https://example.org/juju/testing/tools')
 
-    def test_set_testing_tools_metadata_url_noop(self):
+    def test_set_testing_agent_metadata_url_noop(self):
         env = JujuData(None, {'type': 'foo'})
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'get_env_option') as mock_get:
             mock_get.return_value = 'https://example.org/juju/testing/tools'
             with patch.object(client, 'set_env_option') as mock_set:
-                client.set_testing_tools_metadata_url()
-        mock_get.assert_called_with('tools-metadata-url')
+                client.set_testing_agent_metadata_url()
+        mock_get.assert_called_with('agent-metadata-url',)
         self.assertEqual(0, mock_set.call_count)
 
     def test_juju(self):
@@ -4089,25 +4086,25 @@ class TestEnvJujuClient1X(ClientTest):
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
 
-    def test_set_testing_tools_metadata_url(self):
+    def test_set_testing_agent_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_env_option') as mock_get:
             mock_get.return_value = 'https://example.org/juju/tools'
             with patch.object(client, 'set_env_option') as mock_set:
-                client.set_testing_tools_metadata_url()
+                client.set_testing_agent_metadata_url()
         mock_get.assert_called_with('tools-metadata-url')
         mock_set.assert_called_with(
             'tools-metadata-url',
             'https://example.org/juju/testing/tools')
 
-    def test_set_testing_tools_metadata_url_noop(self):
+    def test_set_testing_agent_metadata_url_noop(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_env_option') as mock_get:
             mock_get.return_value = 'https://example.org/juju/testing/tools'
             with patch.object(client, 'set_env_option') as mock_set:
-                client.set_testing_tools_metadata_url()
+                client.set_testing_agent_metadata_url()
         mock_get.assert_called_with('tools-metadata-url')
         self.assertEqual(0, mock_set.call_count)
 
