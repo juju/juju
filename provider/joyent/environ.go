@@ -28,11 +28,6 @@ type joyentEnviron struct {
 	cloud   environs.CloudSpec
 	compute *joyentCompute
 
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	archLock               sync.Mutex
-	supportedArchitectures []string
-
 	lock sync.Mutex // protects ecfg
 	ecfg *environConfig
 }
@@ -84,11 +79,6 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 }
 
 func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
 	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec := simplestreams.CloudSpec{
@@ -99,9 +89,7 @@ func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
 		CloudSpec: cloudSpec,
 		Stream:    cfg.ImageStream(),
 	})
-	var err error
-	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
-	return env.supportedArchitectures, err
+	return common.SupportedArchitectures(env, imageConstraint)
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
