@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -40,6 +41,9 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	// {"Server": "http://<ip>/MAAS", "OAuth": "<key>"}
 	maasrc := filepath.Join(utils.Home(), ".maasrc")
 	fileBytes, err := ioutil.ReadFile(maasrc)
+	if os.IsNotExist(err) {
+		return nil, errors.NotFoundf("maas credentials")
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -292,9 +292,14 @@ var (
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
-var ambiguousCredentialError = errors.New(`
+var ambiguousDetectedCredentialError = errors.New(`
 more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
+)
+
+var ambiguousCredentialError = errors.New(`
+more than one credential is available
+specify a credential using the --credential argument`[1:],
 )
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -396,6 +401,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
 		store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
 	)
+	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+		return ambiguousCredentialError
+	}
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
 		// was found in credentials.yaml; have the provider detect
@@ -403,7 +411,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		ctx.Verbosef("no credentials found, checking environment")
 		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
 		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-			return ambiguousCredentialError
+			return ambiguousDetectedCredentialError
 		} else if err != nil {
 			return errors.Trace(err)
 		}

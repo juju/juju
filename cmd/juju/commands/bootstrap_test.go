@@ -984,10 +984,10 @@ func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
 }
 
-func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "many-credentials")
-	c.Assert(err, gc.ErrorMatches, ambiguousCredentialError.Error())
+	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
@@ -1015,6 +1015,26 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 		"--credential", "one",
 	)
 	c.Assert(bootstrap.args.Cloud.AuthTypes, jc.SameContents, cloud.AuthTypes{"one", "two"})
+}
+
+func (s *BootstrapSuite) TestManyAvailableCredentialsNoneSpecified(c *gc.C) {
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	s.store.Credentials = map[string]cloud.CloudCredential{
+		"dummy": {
+			AuthCredentials: map[string]cloud.Credential{
+				"one": cloud.NewCredential("one", nil),
+				"two": cloud.NewCredential("two", nil),
+			},
+		},
+	}
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "more than one credential is available.*")
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {

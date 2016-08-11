@@ -4,6 +4,7 @@
 package maas_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -74,4 +75,9 @@ func (s *credentialsSuite) TestDetectCredentialsNoServer(c *gc.C) {
 	)
 	expected.Label = "MAAS credential for unspecified server"
 	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsNoFile(c *gc.C) {
+	_, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
