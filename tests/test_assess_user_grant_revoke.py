@@ -222,7 +222,7 @@ class TestAssess(TestCase):
                             call[0][2] for call in
                             write_mock.call_args_list]
                         admin_calls = [
-                            call[0][2] for call in
+                            call[0][3] for call in
                             admin_mock.call_args_list]
 
                         self.assertEqual(read_calls,
