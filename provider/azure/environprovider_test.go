@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -38,12 +38,13 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		RequestInspector: requestRecorder(&s.requests),
 	})
 	s.spec = environs.CloudSpec{
-		Type:            "azure",
-		Name:            "azure",
-		Region:          "westus",
-		Endpoint:        "https://api.azurestack.local",
-		StorageEndpoint: "https://storage.azurestack.local",
-		Credential:      fakeUserPassCredential(),
+		Type:             "azure",
+		Name:             "azure",
+		Region:           "westus",
+		Endpoint:         "https://api.azurestack.local",
+		IdentityEndpoint: "https://login.azurestack.local",
+		StorageEndpoint:  "https://storage.azurestack.local",
+		Credential:       fakeUserPassCredential(),
 	}
 	s.sender = nil
 }

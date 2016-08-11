@@ -39,7 +39,7 @@ var immutableConfigAttributes = []string{
 
 type azureModelConfig struct {
 	*config.Config
-	storageAccountType storage.AccountType
+	storageAccountType string
 }
 
 var knownStorageAccountTypes = []string{
@@ -121,7 +121,7 @@ Please choose a model name of no more than %d characters.`,
 
 	azureConfig := &azureModelConfig{
 		newCfg,
-		storage.AccountType(storageAccountType),
+		storageAccountType,
 	}
 	return azureConfig, nil
 }
