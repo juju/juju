@@ -103,14 +103,16 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 			},
 		},
 		"azurestack": cloud.Cloud{
-			Type:            "azure",
-			AuthTypes:       []cloud.AuthType{"userpass"},
-			StorageEndpoint: "http://storage.azurestack.local",
+			Type:             "azure",
+			AuthTypes:        []cloud.AuthType{"userpass"},
+			IdentityEndpoint: "http://login.azurestack.local",
+			StorageEndpoint:  "http://storage.azurestack.local",
 			Regions: []cloud.Region{
 				cloud.Region{
-					Name:            "local",
-					Endpoint:        "http://azurestack.local",
-					StorageEndpoint: "http://storage.azurestack.local",
+					Name:             "local",
+					Endpoint:         "http://azurestack.local",
+					IdentityEndpoint: "http://login.azurestack.local",
+					StorageEndpoint:  "http://storage.azurestack.local",
 				},
 			},
 		},
@@ -130,6 +132,7 @@ clouds:
   azurestack:
     type: azure
     auth-types: [userpass]
+    identity-endpoint: http://login.azurestack.local
     storage-endpoint: http://storage.azurestack.local
     regions:
       local:

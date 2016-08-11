@@ -58,6 +58,17 @@ const (
 	EmptyAuthType AuthType = "empty"
 )
 
+// Attrs serves as a map to hold regions specific configuration attributes.
+// This serves to reduce confusion over having a nested map, i.e.
+// map[string]map[string]interface{}
+type Attrs map[string]interface{}
+
+// RegionConfig holds a map of regions and the attributes that serve as the
+// region specific configuration options. This allows model inheritance to
+// function, providing a place to store configuration for a specific region
+// which is  passed down to other models under the same controller.
+type RegionConfig map[string]Attrs
+
 // Cloud is a cloud definition.
 type Cloud struct {
 	// Type is the type of cloud, eg ec2, openstack etc.
@@ -71,6 +82,10 @@ type Cloud struct {
 	// Endpoint is the default endpoint for the cloud regions, may be
 	// overridden by a region.
 	Endpoint string
+
+	// IdentityEndpoint is the default identity endpoint for the cloud
+	// regions, may be overridden by a region.
+	IdentityEndpoint string
 
 	// StorageEndpoint is the default storage endpoint for the cloud
 	// regions, may be overridden by a region.
@@ -88,6 +103,11 @@ type Cloud struct {
 	// will be combined with Juju-generated, and user-supplied values;
 	// user-supplied values taking precedence.
 	Config map[string]interface{}
+
+	// RegionConfig contains optional region specific configuration.
+	// Like Config above, this will be combined with Juju-generated and user
+	// supplied values; with user supplied values taking precedence.
+	RegionConfig RegionConfig
 }
 
 // Region is a cloud region.
@@ -97,6 +117,11 @@ type Region struct {
 
 	// Endpoint is the region's primary endpoint URL.
 	Endpoint string
+
+	// IdentityEndpoint is the region's identity endpoint URL.
+	// If the cloud/region does not have an identity-specific
+	// endpoint URL, this will be empty.
+	IdentityEndpoint string
 
 	// StorageEndpoint is the region's storage endpoint URL.
 	// If the cloud/region does not have a storage-specific
@@ -113,12 +138,14 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
-	Type            string                 `yaml:"type"`
-	AuthTypes       []AuthType             `yaml:"auth-types,omitempty,flow"`
-	Endpoint        string                 `yaml:"endpoint,omitempty"`
-	StorageEndpoint string                 `yaml:"storage-endpoint,omitempty"`
-	Regions         regions                `yaml:"regions,omitempty"`
-	Config          map[string]interface{} `yaml:"config,omitempty"`
+	Type             string                 `yaml:"type"`
+	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
+	Endpoint         string                 `yaml:"endpoint,omitempty"`
+	IdentityEndpoint string                 `yaml:"identity-endpoint,omitempty"`
+	StorageEndpoint  string                 `yaml:"storage-endpoint,omitempty"`
+	Regions          regions                `yaml:"regions,omitempty"`
+	Config           map[string]interface{} `yaml:"config,omitempty"`
+	RegionConfig     RegionConfig           `yaml:"region-config,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -138,8 +165,9 @@ type regions struct {
 
 // region is equivalent to Region, for marshalling and unmarshalling.
 type region struct {
-	Endpoint        string `yaml:"endpoint,omitempty"`
-	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
+	Endpoint         string `yaml:"endpoint,omitempty"`
+	IdentityEndpoint string `yaml:"identity-endpoint,omitempty"`
+	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
 //DefaultLXD is the name of the default lxd cloud.
@@ -305,16 +333,22 @@ func cloudToInternal(in Cloud) *cloud {
 	var regions regions
 	for _, r := range in.Regions {
 		regions.Slice = append(regions.Slice, yaml.MapItem{
-			r.Name, region{r.Endpoint, r.StorageEndpoint},
+			r.Name, region{
+				r.Endpoint,
+				r.IdentityEndpoint,
+				r.StorageEndpoint,
+			},
 		})
 	}
 	return &cloud{
-		Type:            in.Type,
-		AuthTypes:       in.AuthTypes,
-		Endpoint:        in.Endpoint,
-		StorageEndpoint: in.StorageEndpoint,
-		Regions:         regions,
-		Config:          in.Config,
+		Type:             in.Type,
+		AuthTypes:        in.AuthTypes,
+		Endpoint:         in.Endpoint,
+		IdentityEndpoint: in.IdentityEndpoint,
+		StorageEndpoint:  in.StorageEndpoint,
+		Regions:          regions,
+		Config:           in.Config,
+		RegionConfig:     in.RegionConfig,
 	}
 }
 
@@ -330,18 +364,23 @@ func cloudFromInternal(in *cloud) Cloud {
 				regions = append(regions, Region{Name: name})
 			} else {
 				regions = append(regions, Region{
-					name, r.Endpoint, r.StorageEndpoint,
+					name,
+					r.Endpoint,
+					r.IdentityEndpoint,
+					r.StorageEndpoint,
 				})
 			}
 		}
 	}
 	meta := Cloud{
-		Type:            in.Type,
-		AuthTypes:       in.AuthTypes,
-		Endpoint:        in.Endpoint,
-		StorageEndpoint: in.StorageEndpoint,
-		Regions:         regions,
-		Config:          in.Config,
+		Type:             in.Type,
+		AuthTypes:        in.AuthTypes,
+		Endpoint:         in.Endpoint,
+		IdentityEndpoint: in.IdentityEndpoint,
+		StorageEndpoint:  in.StorageEndpoint,
+		Regions:          regions,
+		Config:           in.Config,
+		RegionConfig:     in.RegionConfig,
 	}
 	meta.denormaliseMetadata()
 	return meta

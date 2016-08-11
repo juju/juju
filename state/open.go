@@ -132,6 +132,10 @@ type InitializeParams struct {
 	// models on the specified cloud.
 	ControllerInheritedConfig map[string]interface{}
 
+	// RegionInheritedConfig contains region specific configuration for
+	// models running on specific cloud regions.
+	RegionInheritedConfig cloud.RegionConfig
+
 	// NewPolicy is a function that returns the set of state policies
 	// to apply.
 	NewPolicy NewPolicyFunc
@@ -266,6 +270,13 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
 	)
+	for k, v := range args.Cloud.RegionConfig {
+		// Create an entry keyed on cloudname#<key>, value for each region in
+		// region-config. The values here are themselves
+		// map[string]interface{}.
+		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
+	}
+
 	for credName, cred := range args.CloudCredentials {
 		ops = append(ops, createCloudCredentialOp(
 			args.ControllerModelArgs.Owner,

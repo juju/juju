@@ -59,7 +59,8 @@ Examples:
     juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-    kill-controller`
+    kill-controller
+    unregister`
 
 var usageSummary = `
 Destroys a controller.`[1:]

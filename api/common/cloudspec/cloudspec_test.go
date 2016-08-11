@@ -39,11 +39,12 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
 			[]params.CloudSpecResult{{
 				Result: &params.CloudSpec{
-					Type:            "type",
-					Name:            "name",
-					Region:          "region",
-					Endpoint:        "endpoint",
-					StorageEndpoint: "storage-endpoint",
+					Type:             "type",
+					Name:             "name",
+					Region:           "region",
+					Endpoint:         "endpoint",
+					IdentityEndpoint: "identity-endpoint",
+					StorageEndpoint:  "storage-endpoint",
 					Credential: &params.CloudCredential{
 						AuthType:   "auth-type",
 						Attributes: map[string]string{"k": "v"},
@@ -62,12 +63,13 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		map[string]string{"k": "v"},
 	)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
-		Type:            "type",
-		Name:            "name",
-		Region:          "region",
-		Endpoint:        "endpoint",
-		StorageEndpoint: "storage-endpoint",
-		Credential:      &credential,
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		Credential:       &credential,
 	})
 }
 

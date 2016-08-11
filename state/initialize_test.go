@@ -391,3 +391,59 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }
+
+func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	uuid := cfg.UUID()
+
+	// Phony region-config
+	regionInheritedConfigIn := cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"a-key": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"b-key": "b-value",
+		},
+	}
+	owner := names.NewLocalUserTag("initialize-admin")
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = uuid
+
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
+		ControllerModelArgs: state.ModelArgs{
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
+		},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:         "dummy",
+			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
+		},
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.NotNil)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.openState(c, modelTag)
+
+	for k := range regionInheritedConfigIn {
+		// Query for config for each region
+		regionInheritedConfig, err := state.ReadSettings(
+			s.State, state.GlobalSettingsC,
+			"dummy#"+k)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(
+			cloud.Attrs(regionInheritedConfig.Map()),
+			jc.DeepEquals,
+			regionInheritedConfigIn[k])
+	}
+}

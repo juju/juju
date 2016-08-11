@@ -4,9 +4,9 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	jujuos "github.com/juju/utils/os"
 )
@@ -64,7 +64,7 @@ func createVMExtension(
 	}
 	extension := compute.VirtualMachineExtension{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(vmTags),
+		Tags:     to.StringMapPtr(vmTags),
 		Properties: &compute.VirtualMachineExtensionProperties{
 			Publisher:               to.StringPtr(extensionPublisher),
 			Type:                    to.StringPtr(extensionType),
@@ -74,10 +74,10 @@ func createVMExtension(
 		},
 	}
 	err := callAPI(func() (autorest.Response, error) {
-		result, err := vmExtensionClient.CreateOrUpdate(
+		return vmExtensionClient.CreateOrUpdate(
 			resourceGroup, vmName, extensionName, extension,
+			nil, // abort channel
 		)
-		return result.Response, err
 	})
 	return err
 }

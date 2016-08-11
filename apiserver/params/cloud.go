@@ -5,18 +5,20 @@ package params
 
 // Cloud holds information about a cloud.
 type Cloud struct {
-	Type            string        `json:"type"`
-	AuthTypes       []string      `json:"auth-types,omitempty"`
-	Endpoint        string        `json:"endpoint,omitempty"`
-	StorageEndpoint string        `json:"storage-endpoint,omitempty"`
-	Regions         []CloudRegion `json:"regions,omitempty"`
+	Type             string        `json:"type"`
+	AuthTypes        []string      `json:"auth-types,omitempty"`
+	Endpoint         string        `json:"endpoint,omitempty"`
+	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string        `json:"storage-endpoint,omitempty"`
+	Regions          []CloudRegion `json:"regions,omitempty"`
 }
 
 // CloudRegion holds information about a cloud region.
 type CloudRegion struct {
-	Name            string `json:"name"`
-	Endpoint        string `json:"endpoint,omitempty"`
-	StorageEndpoint string `json:"storage-endpoint,omitempty"`
+	Name             string `json:"name"`
+	Endpoint         string `json:"endpoint,omitempty"`
+	IdentityEndpoint string `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string `json:"storage-endpoint,omitempty"`
 }
 
 // CloudResult contains a cloud definition or an error.
@@ -93,12 +95,13 @@ type CloudDefaultsResults struct {
 
 // CloudSpec holds a cloud specification.
 type CloudSpec struct {
-	Type            string           `json:"type"`
-	Name            string           `json:"name"`
-	Region          string           `json:"region,omitempty"`
-	Endpoint        string           `json:"endpoint,omitempty"`
-	StorageEndpoint string           `json:"storage-endpoint,omitempty"`
-	Credential      *CloudCredential `json:"credential,omitempty"`
+	Type             string           `json:"type"`
+	Name             string           `json:"name"`
+	Region           string           `json:"region,omitempty"`
+	Endpoint         string           `json:"endpoint,omitempty"`
+	IdentityEndpoint string           `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string           `json:"storage-endpoint,omitempty"`
+	Credential       *CloudCredential `json:"credential,omitempty"`
 }
 
 // CloudSpecResult contains a CloudSpec or an error.
