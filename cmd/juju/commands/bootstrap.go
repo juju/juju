@@ -558,12 +558,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			ControllerConfig: controllerConfig,
 			ControllerName:   c.controllerName,
 			Cloud: environs.CloudSpec{
-				Type:            cloud.Type,
-				Name:            c.Cloud,
-				Region:          region.Name,
-				Endpoint:        region.Endpoint,
-				StorageEndpoint: region.StorageEndpoint,
-				Credential:      credential,
+				Type:             cloud.Type,
+				Name:             c.Cloud,
+				Region:           region.Name,
+				Endpoint:         region.Endpoint,
+				IdentityEndpoint: region.IdentityEndpoint,
+				StorageEndpoint:  region.StorageEndpoint,
+				Credential:       credential,
 			},
 			CredentialName: credentialName,
 			AdminSecret:    bootstrapConfig.AdminSecret,
@@ -794,6 +795,7 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 	return jujucloud.Region{
 		"", // no region name
 		cloud.Endpoint,
+		cloud.IdentityEndpoint,
 		cloud.StorageEndpoint,
 	}, nil
 }

@@ -26,18 +26,21 @@ func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
 
 func (s *CloudSuite) TestAddCloud(c *gc.C) {
 	cld := cloud.Cloud{
-		Type:            "low",
-		AuthTypes:       cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Endpoint:        "global-endpoint",
-		StorageEndpoint: "global-storage",
+		Type:             "low",
+		AuthTypes:        cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Endpoint:         "global-endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
 		Regions: []cloud.Region{{
-			Name:            "region1",
-			Endpoint:        "region1-endpoint",
-			StorageEndpoint: "region1-storage",
+			Name:             "region1",
+			Endpoint:         "region1-endpoint",
+			IdentityEndpoint: "region1-identity",
+			StorageEndpoint:  "region1-storage",
 		}, {
-			Name:            "region2",
-			Endpoint:        "region2-endpoint",
-			StorageEndpoint: "region2-storage",
+			Name:             "region2",
+			Endpoint:         "region2-endpoint",
+			IdentityEndpoint: "region2-identity",
+			StorageEndpoint:  "region2-storage",
 		}},
 	}
 	err := s.State.AddCloud("stratus", cld)
