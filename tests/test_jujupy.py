@@ -1269,26 +1269,14 @@ class TestEnvJujuClient(ClientTest):
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(('--version', '2.0', '--upload-tools',))
+        juju_mock.assert_called_with(('--version', '2.0',))
 
     def test_upgrade_juju_no_force_version(self):
         client = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju(force_version=False)
-        juju_mock.assert_called_with(('--upload-tools',))
-
-    def test__upgrade_juju_upgrades_controller_and_model(self):
-        client = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
-        with patch.object(client, 'juju') as juju_mock:
-            with patch.object(client, '_upgrade_controller') as upc_mock:
-                with patch.object(client, '_get_models') as mdls_mock:
-                    mdls_mock.return_value = [
-                        dict(name='controller'), dict(name='foo')]
-                    client.upgrade_juju()
-        upc_mock.assert_called_with(('--version', '2.0', '--upload-tools'))
-        juju_mock.assert_called_with('upgrade-juju', ('--version', '2.0'))
+        juju_mock.assert_called_with(())
 
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
