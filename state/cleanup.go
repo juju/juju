@@ -203,14 +203,7 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 		if _, isContainer := m.ParentId(); isContainer {
 			continue
 		}
-		manual, err := m.IsManual()
-		if err != nil {
-			return err
-		} else if manual {
-			continue
-		}
-		err = m.ForceDestroy()
-		if err != nil {
+		if err := m.ForceDestroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}

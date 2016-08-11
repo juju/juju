@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -94,8 +93,8 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Services contains the names of the services in the model.
-	Services []string `bson:"applications"`
+	// Applicatons contains the names of the applications in the model.
+	Applications []string `bson:"applications"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -706,10 +705,6 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	}
 	defer closeState()
 
-	if err := ensureDestroyable(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
 	checkEmptyErr := m.checkEmpty()
@@ -832,7 +827,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 }
 
 // checkEmpty checks that the machine is empty of any entities that may
-// require external resource cleanup. If the machine is not empty, then
+// require external resource cleanup. If the model is not empty, then
 // an error will be returned.
 func (m *Model) checkEmpty() error {
 	st, closeState, err := m.getState()
@@ -854,8 +849,8 @@ func (m *Model) checkEmpty() error {
 	if n := len(doc.Machines); n > 0 {
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
-	if n := len(doc.Services); n > 0 {
-		return errors.Errorf("model not empty, found %d services(s)", n)
+	if n := len(doc.Applications); n > 0 {
+		return errors.Errorf("model not empty, found %d applications(s)", n)
 	}
 	return nil
 }
@@ -892,53 +887,6 @@ func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 		Id:     st.ModelUUID(),
 		Update: bson.D{{"$pull", bson.D{{"applications", applicationname}}}},
 	}
-}
-
-// checkManualMachines checks if any of the machines in the slice were
-// manually provisioned, and are non-manager machines. These machines
-// must (currently) be manually destroyed via destroy-machine before
-// destroy-model can successfully complete.
-func checkManualMachines(machines []*Machine) error {
-	var ids []string
-	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		manual, err := m.IsManual()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if manual {
-			ids = append(ids, m.Id())
-		}
-	}
-	if len(ids) > 0 {
-		return errors.Errorf("manually provisioned machines must first be destroyed with `juju destroy-machine %s`", strings.Join(ids, " "))
-	}
-	return nil
-}
-
-// ensureDestroyable an error if any manual machines or persistent volumes are
-// found.
-func ensureDestroyable(st *State) error {
-
-	// TODO(waigani) bug #1475212: Model destroy can miss manual
-	// machines. We need to be able to assert the absence of these as
-	// part of the destroy txn, but in order to do this  manual machines
-	// need to add refcounts to their models.
-
-	// Check for manual machines. We bail out if there are any,
-	// to stop the user from prematurely hobbling the model.
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := checkManualMachines(machines); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
 
 // createModelOp returns the operation needed to create
