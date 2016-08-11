@@ -1682,7 +1682,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
 	controller.devices = []gomaasapi.Device{dev1, dev2}
 
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
 		{MACAddress: "will"},
 		{MACAddress: "dustin"},
 		{MACAddress: "eleven"},
@@ -1701,7 +1701,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
 func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{{MACAddress: "anything"}})
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{{MACAddress: "anything"}})
 	c.Assert(err, gc.ErrorMatches, "Everything done broke")
 }
 
@@ -1713,7 +1713,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 	controller.devices = []gomaasapi.Device{dev1}
 
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
 		{MACAddress: "eleven"},
 	})
 	c.Assert(err, gc.ErrorMatches, "deleting device hopper: don't delete me")

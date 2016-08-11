@@ -1114,7 +1114,7 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	})
 
 	env := s.makeEnviron()
-	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
 		{MACAddress: "mac1"},
 		{MACAddress: "mac3"},
 		{MACAddress: "mac4"},

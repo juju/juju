@@ -48,8 +48,8 @@ type Networking interface {
 	AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
 
 	// ReleaseContainerAddresses releases the previously allocated
-	// addresses matching the interface infos passed in.
-	ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error
+	// addresses matching the interface details passed in.
+	ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

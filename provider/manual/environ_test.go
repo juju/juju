@@ -85,6 +85,7 @@ touch '/var/lib/juju/uninstall-agent'
 pkill -6 jujud && exit
 stop juju-db
 rm -f /etc/init/juju*
+rm -f /etc/systemd/system/juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)

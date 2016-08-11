@@ -652,10 +652,10 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	err := s.client.UploadCharmWithRevision(id, ch, -1)
 	c.Assert(err, gc.IsNil)
 
-	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.EdgeChannel}, nil)
 	c.Assert(err, gc.IsNil)
 
-	_, err = runDeployCommand(c, "--channel", "development", "~client-username/wordpress")
+	_, err = runDeployCommand(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
 	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{

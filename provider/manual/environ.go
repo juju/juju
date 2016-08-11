@@ -222,6 +222,7 @@ touch %s
 pkill -%d jujud && exit
 stop %s
 rm -f /etc/init/juju*
+rm -f /etc/systemd/system/juju*
 rm -fr %s %s
 exit 0
 `
