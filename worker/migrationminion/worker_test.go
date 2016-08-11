@@ -4,6 +4,7 @@
 package migrationminion_test
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
@@ -141,6 +142,27 @@ func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
+func (s *Suite) TestQUIESCE(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.QUIESCE,
+	}
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"Report",
+	})
+	s.stub.CheckCall(c, 2, "Report", "id", migration.QUIESCE, true)
+}
+
 func (s *Suite) TestSUCCESS(c *gc.C) {
 	addrs := []string{"1.1.1.1:1", "9.9.9.9:9"}
 	s.client.watcher.changes <- watcher.MigrationStatus{
@@ -166,6 +188,26 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	c.Assert(s.agent.conf.caCert, gc.DeepEquals, "top secret")
 	s.stub.CheckCallNames(c, "Watch", "Lockdown", "Report")
 	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
+}
+
+func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+	var callNames []string
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		callNames = stubCallNames(s.stub)
+		if reflect.DeepEqual(callNames, expectedCallNames) {
+			return
+		}
+	}
+	c.Fatalf("failed to see expected calls. saw: %v", callNames)
+}
+
+// Make this a feature of stub
+func stubCallNames(stub *jujutesting.Stub) []string {
+	var out []string
+	for _, call := range stub.Calls() {
+		out = append(out, call.FuncName)
+	}
+	return out
 }
 
 func newStubGuard(stub *jujutesting.Stub) *stubGuard {
