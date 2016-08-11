@@ -74,6 +74,7 @@ type environSuite struct {
 	sshPublicKeys                 []compute.SSHPublicKey
 	networkInterfaceReferences    []compute.NetworkInterfaceReference
 	virtualMachine                *compute.VirtualMachine
+	vmExtension                   *compute.VirtualMachineExtension
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -314,6 +315,8 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
+
+	s.vmExtension = nil
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -412,13 +415,17 @@ func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Sender
 		s.vmSizesSender(),
 		s.storageAccountsSender(),
 		s.makeSender(".*/subnets/juju-internal-subnet", s.subnet),
-		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
+	}
+	if s.ubuntuServerSKUs != nil {
+		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+	}
+	senders = append(senders,
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress), // Create
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress), // Get
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
 		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface), // Create
 		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface), // Get
-	}
+	)
 	if controller {
 		senders = append(senders,
 			s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", &network.SecurityGroup{
@@ -432,6 +439,11 @@ func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Sender
 		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine), // Create
 		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine), // Get
 	)
+	if s.vmExtension != nil {
+		senders = append(senders, s.makeSender(
+			".*/virtualMachines/machine-0/extensions/JujuCustomScriptExtension", s.vmExtension),
+		)
+	}
 	return senders
 }
 
@@ -570,6 +582,34 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	requests := s.assertStartInstanceRequests(c, s.requests)
 	availabilitySetName := path.Base(requests.availabilitySet.URL.Path)
 	c.Assert(availabilitySetName, gc.Equals, "juju")
+}
+
+func (s *environSuite) TestStartInstanceWindowsMinRootDisk(c *gc.C) {
+	// The minimum OS disk size for Windows machines is 127GiB.
+	cons := constraints.MustParse("root-disk=44G")
+	s.testStartInstanceWindowsRootDisk(c, cons, 127*1024)
+}
+
+func (s *environSuite) TestStartInstanceWindowsGrowableRootDisk(c *gc.C) {
+	// The OS disk size may be grown larger than 127GiB.
+	cons := constraints.MustParse("root-disk=200G")
+	s.testStartInstanceWindowsRootDisk(c, cons, 200*1024)
+}
+
+func (s *environSuite) testStartInstanceWindowsRootDisk(c *gc.C, cons constraints.Value, expect uint64) {
+	// Starting a Windows VM, we should not expect an image query.
+	s.PatchValue(&s.ubuntuServerSKUs, nil)
+	s.PatchValue(&s.vmExtension, &compute.VirtualMachineExtension{})
+
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(false)
+	s.requests = nil
+	args := makeStartInstanceParams(c, s.controllerUUID, "win2012")
+	args.Constraints = cons
+	result, err := env.StartInstance(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+	c.Assert(result.Hardware.RootDisk, jc.DeepEquals, &expect)
 }
 
 func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
