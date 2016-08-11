@@ -5,6 +5,7 @@ from mock import (
 )
 
 from deploy_stack import BootstrapManager
+from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
     JujuData,
@@ -15,7 +16,6 @@ from tests import (
     use_context,
 )
 from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import fake_juju_client
 from utility import temp_dir
 
 
