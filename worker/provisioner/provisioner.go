@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/environ"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")
@@ -70,6 +69,8 @@ type provisioner struct {
 
 // RetryStrategy defines the retry behavior when encountering a retryable
 // error during provisioning.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type RetryStrategy struct {
 	retryDelay time.Duration
 	retryCount int
@@ -143,11 +144,17 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the controller config.")
+	}
+
 	secureServerConnection := false
 	if info, ok := p.agentConfig.StateServingInfo(); ok {
 		secureServerConnection = info.CAPrivateKey != ""
 	}
 	task, err := NewProvisionerTask(
+		controllerCfg.ControllerUUID(),
 		machineTag,
 		harvestMode,
 		p.st,
@@ -169,15 +176,17 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 // NewEnvironProvisioner returns a new Provisioner for an environment.
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
-func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) (Provisioner, error) {
+func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, environ environs.Environ) (Provisioner, error) {
 	p := &environProvisioner{
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
 			toolsFinder: getToolsFinder(st),
 		},
+		environ: environ,
 	}
 	p.Provisioner = p
+	p.broker = environ
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -191,6 +200,10 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) (
 }
 
 func (p *environProvisioner) loop() error {
+	// TODO(mjs channeling axw) - It would be better if there were
+	// APIs to watch and fetch provisioner specific config instead of
+	// watcher for all changes to model config. This would avoid the
+	// need for a full model config.
 	var modelConfigChanges <-chan struct{}
 	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
@@ -200,15 +213,6 @@ func (p *environProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 	modelConfigChanges = modelWatcher.Changes()
-
-	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, environs.New, p.catacomb.Dying())
-	if err != nil {
-		if err == environ.ErrWaitAborted {
-			return p.catacomb.ErrDying()
-		}
-		return loggedErrorStack(errors.Trace(err))
-	}
-	p.broker = p.environ
 
 	modelConfig := p.environ.Config()
 	p.configObserver.notify(modelConfig)
@@ -322,7 +326,7 @@ func (p *containerProvisioner) loop() error {
 			return p.catacomb.ErrDying()
 		case _, ok := <-modelWatcher.Changes():
 			if !ok {
-				return errors.New("model configuratioon watch closed")
+				return errors.New("model configuration watch closed")
 			}
 			modelConfig, err := p.st.ModelConfig()
 			if err != nil {

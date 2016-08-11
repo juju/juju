@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"io"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -13,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -20,6 +22,11 @@ import (
 
 type cmdLoginSuite struct {
 	jujutesting.JujuConnSuite
+}
+
+func (s *cmdLoginSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	os.Setenv(osenv.JujuModelEnvKey, "")
 }
 
 func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Context {
@@ -60,7 +67,7 @@ You are now logged in to "kontroll" as "test@local".
 
 	// We should have a macaroon, but no password, in the client store.
 	store := jujuclient.NewFileClientStore()
-	accountDetails, err := store.AccountByName("kontroll", "test@local")
+	accountDetails, err := store.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accountDetails.Password, gc.Equals, "")
 	c.Assert(accountDetails.Macaroon, gc.Not(gc.Equals), "")

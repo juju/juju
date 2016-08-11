@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type AssignSuite struct {
@@ -686,10 +684,9 @@ func (s *assignCleanSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
 func (s *assignCleanSuite) errorMessage(msg string) string {
@@ -1030,12 +1027,6 @@ func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders("someprovider", "static")
-	defer registry.RegisterProvider("static", nil)
-
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1055,11 +1046,6 @@ func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders("someprovider", "static")
-	defer registry.RegisterProvider("static", nil)
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
 	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)

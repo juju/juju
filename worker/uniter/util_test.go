@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
@@ -461,6 +461,10 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
+func hookExecutionLockName() string {
+	return "uniter-hook-execution-test"
+}
+
 type startUniter struct {
 	unitTag         string
 	newExecutorFunc uniter.NewExecutorFunc
@@ -481,9 +485,6 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic(err.Error())
 	}
 	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
-	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
@@ -496,7 +497,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
-		MachineLock:          lock,
+		MachineLockName:      hookExecutionLockName(),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
@@ -794,13 +795,13 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		c.Fatalf("ran more hooks than expected")
 	}
 	waitExecutionLockReleased := func() {
-		lock := createHookLock(c, ctx.dataDir)
-		if err := lock.LockWithTimeout(worstCase, "waiting for lock"); err != nil {
+		spec := hookLockSpec()
+		spec.Timeout = worstCase
+		releaser, err := mutex.Acquire(spec)
+		if err != nil {
 			c.Fatalf("failed to acquire execution lock: %v", err)
 		}
-		if err := lock.Unlock(); err != nil {
-			c.Fatalf("failed to release execution lock: %v", err)
-		}
+		releaser.Release()
 	}
 	if match {
 		if len(s) > 0 {
@@ -1372,40 +1373,41 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
-	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-	return lock
+type hookLock struct {
+	releaser mutex.Releaser
 }
 
-type acquireHookSyncLock struct {
-	message string
+type hookStep struct {
+	stepFunc func(*gc.C, *context)
 }
 
-func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-	err := lock.Lock(s.message)
-	c.Assert(err, jc.ErrorIsNil)
+func (h *hookStep) step(c *gc.C, ctx *context) {
+	h.stepFunc(c, ctx)
 }
 
-var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	// Force the release.
-	err := lock.BreakLock()
-	c.Assert(err, jc.ErrorIsNil)
-}}
+func hookLockSpec() mutex.Spec {
+	return mutex.Spec{
+		Name:  hookExecutionLockName(),
+		Clock: clock.WallClock,
+		Delay: coretesting.ShortWait,
+	}
+}
 
-var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-}}
+func (h *hookLock) acquire() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		releaser, err := mutex.Acquire(hookLockSpec())
+		c.Assert(err, jc.ErrorIsNil)
+		h.releaser = releaser
+	}}
+}
 
-var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsTrue)
-}}
+func (h *hookLock) release() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		c.Assert(h.releaser, gc.NotNil)
+		h.releaser.Release()
+		h.releaser = nil
+	}}
+}
 
 type setProxySettings proxy.Settings
 

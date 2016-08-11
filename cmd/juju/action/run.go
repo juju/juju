@@ -43,7 +43,7 @@ The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
  
 Params are validated according to the charm for the unit's application.  The 
-valid params can be seen using "juju action defined <application> --schema".
+valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
 
@@ -112,15 +112,15 @@ var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(&c.paramsYAML, "params", "path to yaml-formatted params file")
-	f.BoolVar(&c.parseStrings, "string-args", false, "use raw string values of CLI args")
+	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
+	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
 }
 
 func (c *runCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "run-action",
 		Args:    "<unit> <action name> [key.key.key...=value]",
-		Purpose: "queue an action for execution",
+		Purpose: "Queue an action for execution.",
 		Doc:     runDoc,
 	}
 }

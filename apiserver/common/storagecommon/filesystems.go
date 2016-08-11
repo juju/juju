@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -21,6 +22,7 @@ func FilesystemParams(
 	modelUUID, controllerUUID string,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (params.FilesystemParams, error) {
 
 	var pool string
@@ -42,7 +44,7 @@ func FilesystemParams(
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager, registry)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}

@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -71,6 +72,11 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
+	// ControllerConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be added to
+	// the suite's controller configuration.
+	ControllerConfigAttrs map[string]interface{}
+
 	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
@@ -82,6 +88,7 @@ type JujuConnSuite struct {
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
+	ControllerConfig   controller.Config
 	State              *state.State
 	Environ            environs.Environ
 	APIState           api.Connection
@@ -146,8 +153,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	controllerCfg := controller.ControllerConfig(s.Environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -263,14 +269,20 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
-	environ, err := environs.Prepare(
+	s.ControllerConfig = testing.FakeControllerConfig()
+	for key, value := range s.ControllerConfigAttrs {
+		s.ControllerConfig[key] = value
+	}
+	cloudSpec := dummy.SampleCloudSpec()
+	environ, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
-		environs.PrepareParams{
-			BaseConfig:     cfg.AllAttrs(),
-			Credential:     cloud.NewEmptyCredential(),
-			ControllerName: ControllerName,
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: s.ControllerConfig,
+			ModelConfig:      cfg.AllAttrs(),
+			Cloud:            cloudSpec,
+			ControllerName:   ControllerName,
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,13 +305,24 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
 	s.DefaultToolsStorage = stor
 
-	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(environ.Provider())
+	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerConfig: s.ControllerConfig,
+		CloudName:        cloudSpec.Name,
 		Cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Type:             cloudSpec.Type,
+			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+			Endpoint:         cloudSpec.Endpoint,
+			IdentityEndpoint: cloudSpec.IdentityEndpoint,
+			StorageEndpoint:  cloudSpec.StorageEndpoint,
 		},
+		CloudCredential:     cloudSpec.Credential,
+		CloudCredentialName: "cred",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -310,11 +333,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := controller.ControllerConfig(environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
+	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
-	apiInfo.Password = environ.Config().AdminSecret()
+	apiInfo.Password = AdminSecret
 	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -338,8 +360,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
-		APIPort:      controllerCfg.APIPort(),
-		StatePort:    controllerCfg.StatePort(),
+		APIPort:      s.ControllerConfig.APIPort(),
+		StatePort:    s.ControllerConfig.StatePort(),
 	}
 	s.State.SetStateServingInfo(servingInfo)
 }
@@ -368,6 +390,7 @@ func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	s.AddToolsToState(c, versions...)
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var redialStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 250 * time.Millisecond,
@@ -377,7 +400,7 @@ var redialStrategy = utils.AttemptStrategy{
 // The environment must have already been bootstrapped.
 func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
 	config := environ.Config()
-	password := config.AdminSecret()
+	password := AdminSecret
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
@@ -385,13 +408,16 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 
 	mongoInfo.Password = password
 	opts := mongotest.DialOpts()
-	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	st, err := state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -523,11 +549,8 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "controller",
-		"admin-secret":   AdminSecret,
-		"agent-version":  jujuversion.Current.String(),
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+		"name":          "controller",
+		"agent-version": jujuversion.Current.String(),
 	})
 	// Add any custom attributes required.
 	for attr, val := range s.ConfigAttrs {

@@ -60,7 +60,9 @@ Please send this command to bob:
 	context = s.run(c, stdin, args...)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Please set a name for this controller: 
+WARNING: The controller proposed "kontroll" which clashes with an existing controller. The two controllers are entirely different.
+
+Enter a name for this controller: 
 Enter a new password: 
 Confirm password: 
 
@@ -74,15 +76,14 @@ of a model to grant access to that model with "juju grant".
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	accountDetails, err := s.ControllerStore.AccountByName("bob-controller", "bob@local")
+	accountDetails, err := s.ControllerStore.AccountDetails("bob-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
-		Store:           s.ControllerStore,
-		ControllerName:  "bob-controller",
-		AccountDetails:  accountDetails,
-		BootstrapConfig: noBootstrapConfig,
-		DialOpts:        api.DefaultDialOpts(),
-		OpenAPI:         api.Open,
+		Store:          s.ControllerStore,
+		ControllerName: "bob-controller",
+		AccountDetails: accountDetails,
+		DialOpts:       api.DefaultDialOpts(),
+		OpenAPI:        api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)

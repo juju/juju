@@ -18,7 +18,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
@@ -27,6 +29,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -47,10 +50,16 @@ var (
 	PingTimeout = 30 * time.Second
 )
 
+type rpcConnection interface {
+	Call(req rpc.Request, params, response interface{}) error
+	Close() error
+}
+
 // state is the internal implementation of the Connection interface.
 type state struct {
-	client *rpc.Conn
+	client rpcConnection
 	conn   *websocket.Conn
+	clock  clock.Clock
 
 	// addr is the address used to connect to the API server.
 	addr string
@@ -82,6 +91,10 @@ type state struct {
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
+
+	// readOnly holds whether the user has read-only access for the
+	// connected model.
+	readOnly bool
 
 	// broken is a channel that gets closed when the connection is
 	// broken.
@@ -122,13 +135,33 @@ type state struct {
 	bakeryClient *httpbakery.Client
 }
 
+// RedirectError is returned from Open when the controller
+// needs to inform the client that the model is hosted
+// on a different set of API addresses.
+type RedirectError struct {
+	// Servers holds the sets of addresses of the redirected
+	// servers.
+	Servers [][]network.HostPort
+
+	// CACert holds the certificate of the remote server.
+	CACert string
+}
+
+func (e *RedirectError) Error() string {
+	return fmt.Sprintf("redirection to alternative server required")
+}
+
 // Open establishes a connection to the API server using the Info
 // given, returning a State instance which can be used to make API
 // requests.
 //
+// If the model is hosted on a different server, Open
+// will return an error with a *RedirectError cause
+// holding the details of another server to connect to.
+//
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, (*state).Login)
+	return open(info, opts, clock.WallClock, (*state).Login)
 }
 
 // This unexported open method is used both directly above in the Open
@@ -137,32 +170,38 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 func open(
 	info *Info,
 	opts DialOpts,
+	clock clock.Clock,
 	loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error,
 ) (Connection, error) {
 
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
 	}
+	if clock == nil {
+		return nil, errors.NotValidf("nil clock")
+	}
 	conn, tlsConfig, err := connectWebsocket(info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), observer.None())
 	client.Start()
 
 	bakeryClient := opts.BakeryClient
 	if bakeryClient == nil {
 		bakeryClient = httpbakery.NewClient()
 	} else {
-		// Make a copy of the bakery client and its
-		// HTTP client
+		// Make a copy of the bakery client and its HTTP client
 		c := *opts.BakeryClient
 		bakeryClient = &c
 		httpc := *bakeryClient.Client
 		bakeryClient.Client = &httpc
 	}
 	apiHost := conn.Config().Location.Host
+	// Technically when there's no CACert, we don't need this
+	// machinery, because we could just use http.DefaultTransport
+	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: apiHost,
 		primary:     utils.NewHttpTLSTransport(tlsConfig),
@@ -172,6 +211,7 @@ func open(
 	st := &state{
 		client: client,
 		conn:   conn,
+		clock:  clock,
 		addr:   apiHost,
 		cookieURL: &url.URL{
 			Scheme: "https",
@@ -180,8 +220,10 @@ func open(
 		},
 		serverScheme:      "https",
 		serverRootAddress: conn.Config().Location.Host,
-		// why are the contents of the tag (username and password) written into the
-		// state structure BEFORE login ?!?
+		// We populate the username and password before
+		// login because, when doing HTTP requests, we'll want
+		// to use the same username and password for authenticating
+		// those. If login fails, we discard the connection.
 		tag:          tagToString(info.Tag),
 		password:     info.Password,
 		macaroons:    info.Macaroons,
@@ -192,7 +234,7 @@ func open(
 	if !info.SkipLogin {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
 			conn.Close()
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	st.broken = make(chan struct{})
@@ -234,7 +276,7 @@ func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, e
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
-	return open(info, opts, loginFunc)
+	return open(info, opts, clock.WallClock, loginFunc)
 }
 
 // connectWebsocket establishes a websocket connection to the RPC
@@ -248,12 +290,12 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 		return nil, nil, errors.New("no API addresses to connect to")
 	}
 	tlsConfig := utils.SecureTLSConfig()
-	// We want to be specific here (rather than just using "anything".
-	// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-	tlsConfig.ServerName = "juju-apiserver"
 	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
 
-	if !tlsConfig.InsecureSkipVerify {
+	if info.CACert != "" && !tlsConfig.InsecureSkipVerify {
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		tlsConfig.ServerName = "juju-apiserver"
 		certPool, err := CreateCertPool(info.CACert)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "cert pool creation failed")
@@ -301,7 +343,7 @@ func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts Dial
 	return result.(*websocket.Conn), nil
 }
 
-// ConnectStream implements Connection.ConnectStream.
+// ConnectStream implements Connection.ConnectStream, whatever that is..
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
@@ -480,6 +522,7 @@ func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try 
 var newWebsocketDialer = createWebsocketDialer
 
 func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
@@ -496,15 +539,40 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 			if err == nil {
 				return conn, nil
 			}
-			if a.HasNext() {
-				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
-			} else {
+			if !a.HasNext() || isX509Error(err) {
+				// We won't reconnect when there's an X509 error
+				// because we're not going to succeed if we retry
+				// in that case.
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
 				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
 		}
 		panic("unreachable")
 	}
+}
+
+// isX509Error reports whether the given websocket error
+// results from an X509 problem.
+func isX509Error(err error) bool {
+	wsErr, ok := errors.Cause(err).(*websocket.DialError)
+	if !ok {
+		return false
+	}
+	switch wsErr.Err.(type) {
+	case x509.HostnameError,
+		x509.InsecureAlgorithmError,
+		x509.UnhandledCriticalExtension,
+		x509.UnknownAuthorityError,
+		x509.ConstraintViolationError,
+		x509.SystemRootsError:
+		return true
+	}
+	switch err {
+	case x509.ErrUnsupportedAlgorithm,
+		x509.IncorrectPasswordError:
+		return true
+	}
+	return false
 }
 
 func callWithTimeout(f func() error, timeout time.Duration) bool {
@@ -543,18 +611,39 @@ func (s *state) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
+type hasErrorCode interface {
+	ErrorCode() string
+}
+
 // APICall places a call to the remote machine.
 //
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
-	err := s.client.Call(rpc.Request{
-		Type:    facade,
-		Version: version,
-		Id:      id,
-		Action:  method,
-	}, args, response)
+	retrySpec := retry.CallArgs{
+		Func: func() error {
+			return s.client.Call(rpc.Request{
+				Type:    facade,
+				Version: version,
+				Id:      id,
+				Action:  method,
+			}, args, response)
+		},
+		IsFatalError: func(err error) bool {
+			ec, ok := err.(hasErrorCode)
+			if !ok {
+				return true
+			}
+			return ec.ErrorCode() != params.CodeRetry
+		},
+		Delay:       100 * time.Millisecond,
+		MaxDelay:    1500 * time.Millisecond,
+		MaxDuration: 10 * time.Second,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       s.clock,
+	}
+	err := retry.Call(retrySpec)
 	return errors.Trace(err)
 }
 
@@ -572,13 +661,6 @@ func (s *state) Close() error {
 // Broken returns a channel that's closed when the connection is broken.
 func (s *state) Broken() <-chan struct{} {
 	return s.broken
-}
-
-// RPCClient returns the RPC client for the state, so that testing
-// functions can tickle parts of the API that the conventional entry
-// points don't reach. This is exported for testing purposes only.
-func (s *state) RPCClient() *rpc.Conn {
-	return s.client
 }
 
 // Addr returns the address used to connect to the API server.

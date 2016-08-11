@@ -28,9 +28,12 @@ var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
 var providerInstance maasEnvironProvider
 
-func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening model %q.", cfg.Name())
-	env, err := NewEnviron(cfg)
+func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Debugf("opening model %q.", args.Config.Name())
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := NewEnviron(args.Cloud, args.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -42,64 +45,24 @@ var errAgentNameAlreadySet = errors.New(
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"maas-server"}
+	return []string{}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	attrs := cfg.UnknownAttrs()
-	oldName, found := attrs["maas-agent-name"]
-	if found && oldName != "" {
-		return nil, errAgentNameAlreadySet
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	attrs["maas-agent-name"] = cfg.UUID()
-	return cfg.Apply(attrs)
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// For MAAS, the cloud endpoint may be either a full URL
-	// for the MAAS server, or just the IP/host.
-	if args.CloudEndpoint == "" {
-		return nil, errors.New("MAAS server not specified")
-	}
-	server := args.CloudEndpoint
-	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
-		server = fmt.Sprintf("http://%s/MAAS", args.CloudEndpoint)
-	}
-
-	attrs := map[string]interface{}{
-		"maas-server": server,
-	}
-	// Add the credentials.
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.OAuth1AuthType:
-		credentialAttrs := args.Credentials.Attributes()
-		for k, v := range credentialAttrs {
-			attrs[k] = v
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
-	}
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return p.PrepareForCreateEnvironment(cfg)
-}
-
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env.(*maasEnviron)); err != nil {
-			return nil, err
+	var attrs map[string]interface{}
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs = map[string]interface{}{
+			config.StorageDefaultBlockSourceKey: maasStorageProviderType,
 		}
 	}
-	return env, nil
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 func verifyCredentials(env *maasEnviron) error {
@@ -120,16 +83,45 @@ Please ensure the credentials are correct.`)
 
 // SecretAttrs is specified in the EnvironProvider interface.
 func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	secretAttrs := make(map[string]string)
-	maasCfg, err := prov.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
-	return secretAttrs, nil
+	return map[string]string{}, nil
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
 func (p maasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := parseCloudEndpoint(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating endpoint")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.OAuth1AuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	if _, err := parseOAuthToken(*spec.Credential); err != nil {
+		return errors.Annotate(err, "validating MAAS OAuth token")
+	}
+	return nil
+}
+
+func parseCloudEndpoint(endpoint string) (server string, _ error) {
+	// For MAAS, the cloud endpoint may be either a full URL
+	// for the MAAS server, or just the IP/host.
+	if endpoint == "" {
+		return "", errors.New("MAAS server not specified")
+	}
+	server = endpoint
+	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
+		server = fmt.Sprintf("http://%s/MAAS", endpoint)
+		if _, err := url.Parse(server); err != nil {
+			return "", errors.NotValidf("endpoint %q", endpoint)
+		}
+	}
+	return server, nil
 }

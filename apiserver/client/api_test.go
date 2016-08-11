@@ -16,7 +16,6 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -24,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker"
@@ -129,7 +126,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(s.State.ModelTag(), stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	}, environs.NewStatePolicy())
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -163,6 +160,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:    "controller",
+		Cloud:   "dummy",
 		Version: "1.2.3",
 	},
 	Machines: map[string]params.MachineStatus{
@@ -474,16 +472,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		add(lu)
 	}
 	return
-}
-
-func (s *baseSuite) setupStoragePool(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {

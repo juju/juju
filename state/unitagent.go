@@ -5,8 +5,9 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/status"
 )
 
 // UnitAgent represents the state of a service's unit agent.

@@ -18,6 +18,9 @@ import (
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
+	// ControllerUUID is the uuid of the controller.
+	ControllerUUID string
+
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
 	Constraints constraints.Value

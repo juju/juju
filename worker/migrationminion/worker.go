@@ -118,23 +118,18 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 
 	switch status.Phase {
 	case migration.SUCCESS:
-		err = w.callAndReport(w.doSUCCESS, status)
+		// Report first because the config update in doSUCCESS will
+		// cause the API connection to drop. The SUCCESS phase is the
+		// point of no return anyway.
+		if err := w.report(status, true); err != nil {
+			return errors.Trace(err)
+		}
+		if err = w.doSUCCESS(status); err != nil {
+			return errors.Trace(err)
+		}
 	default:
 		// The minion doesn't need to do anything for other
 		// migration phases.
-	}
-	return errors.Trace(err)
-}
-
-func (w *Worker) callAndReport(f func(watcher.MigrationStatus) error, status watcher.MigrationStatus) error {
-	callErr := f(status)
-	reportErr := w.report(status, callErr == nil)
-
-	// The error from the call is more important than the failure to
-	// report.
-	err := reportErr
-	if callErr != nil {
-		err = callErr
 	}
 	return errors.Trace(err)
 }
@@ -154,7 +149,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 
 func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
 	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
-	return errors.Trace(err)
+	return errors.Annotate(err, "failed to report phase progress")
 }
 
 func apiAddrsToHostPorts(addrs []string) ([][]network.HostPort, error) {

@@ -93,15 +93,17 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances() ([]instance.Id, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
+func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	instances, err := env.raw.Instances("juju-", lxdclient.AliveStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
 	for _, inst := range instances {
+		if inst.Metadata()[tags.JujuController] != controllerUUID {
+			continue
+		}
 		if inst.Metadata()[tags.JujuIsController] == "true" {
 			results = append(results, instance.Id(inst.Name))
 		}

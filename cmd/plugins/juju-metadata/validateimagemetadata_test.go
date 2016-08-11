@@ -107,12 +107,13 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		ControllerUUID: coretesting.ModelTag.Id(),
 		CACert:         coretesting.CACert,
 	}
-	store.Accounts["ec2-controller"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	store.Accounts["ec2-controller"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		Config:      ec2Config.AllAttrs(),
 		Cloud:       "ec2",
+		CloudType:   "ec2",
 		CloudRegion: "us-east-1",
 	}
 
@@ -134,12 +135,13 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		ControllerUUID: coretesting.ModelTag.Id(),
 		CACert:         coretesting.CACert,
 	}
-	store.Accounts["azure-controller"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	store.Accounts["azure-controller"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
 		Config:               azureConfig.AllAttrs(),
 		Cloud:                "azure",
+		CloudType:            "azure",
 		CloudRegion:          "West US",
 		CloudEndpoint:        "https://management.azure.com",
 		CloudStorageEndpoint: "https://core.windows.net",

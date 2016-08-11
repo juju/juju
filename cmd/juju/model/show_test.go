@@ -75,6 +75,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		UUID:           testing.ModelTag.Id(),
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 		OwnerTag:       "user-admin@local",
+		Cloud:          "some-cloud",
 		CloudRegion:    "some-region",
 		ProviderType:   "openstack",
 		Life:           params.Alive,
@@ -91,6 +92,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"owner":           "admin@local",
+			"cloud":           "some-cloud",
 			"region":          "some-region",
 			"type":            "openstack",
 			"life":            "alive",
@@ -115,14 +117,14 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
-	err := s.store.UpdateModel("testing", "admin@local", "mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "admin@local/mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].AccountModels["admin@local"].CurrentModel = "mymodel"
+	s.store.Models["testing"].CurrentModel = "admin@local/mymodel"
 }
 
 func (s *ShowCommandSuite) TestShow(c *gc.C) {
@@ -147,6 +149,6 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "-m", "admin", "whoops")
+	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

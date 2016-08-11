@@ -57,35 +57,14 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string   `json:",omitempty" yaml:"arch,omitempty"`
-	Mem      *uint64   `json:",omitempty" yaml:"mem,omitempty"`
-	RootDisk *uint64   `json:",omitempty" yaml:"rootdisk,omitempty"`
-	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
-	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
-	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
+	Arch     *string   `json:"arch,omitempty" yaml:"arch,omitempty"`
+	Mem      *uint64   `json:"mem,omitempty" yaml:"mem,omitempty"`
+	RootDisk *uint64   `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
+	CpuCores *uint64   `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
+	CpuPower *uint64   `json:"cpu-power,omitempty" yaml:"cpupower,omitempty"`
+	Tags     *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
-	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
-}
-
-// An error reporting that an error has occurred during instance creation
-// (e.g. due to a failed container from on of previous deploys) and
-// that it is safe to restart instance creation
-type RetryableCreationError struct {
-	message string
-}
-
-// Returns the error message
-func (e RetryableCreationError) Error() string { return e.message }
-
-func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
-	return &RetryableCreationError{errorMessage}
-}
-
-// IsRetryableCreationError returns true if the given error is
-// RetryableCreationError
-func IsRetryableCreationError(err error) bool {
-	_, ok := err.(*RetryableCreationError)
-	return ok
+	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
 }
 
 func (hc HardwareCharacteristics) String() string {

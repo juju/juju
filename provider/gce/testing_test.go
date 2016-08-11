@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -34,6 +36,7 @@ const (
 	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
 	ClientID    = ClientName + ".apps.googleusercontent.com"
 	ClientEmail = ClientName + "@developer.gserviceaccount.com"
+	ProjectID   = "my-juju"
 	PrivateKey  = `-----BEGIN PRIVATE KEY-----
 ...
 ...
@@ -65,23 +68,41 @@ var (
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "gce",
-		"private-key":     PrivateKey,
-		"client-id":       ClientID,
-		"client-email":    ClientEmail,
-		"region":          "home",
-		"project-id":      "my-juju",
-		"image-endpoint":  "https://www.googleapis.com",
 		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
 
+func MakeTestCloudSpec() environs.CloudSpec {
+	cred := MakeTestCredential()
+	return environs.CloudSpec{
+		Type:       "gce",
+		Name:       "google",
+		Region:     "us-east1",
+		Endpoint:   "https://www.googleapis.com",
+		Credential: &cred,
+	}
+}
+
+func MakeTestCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{
+			"project-id":   ProjectID,
+			"client-id":    ClientID,
+			"client-email": ClientEmail,
+			"private-key":  PrivateKey,
+		},
+	)
+}
+
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
-	Config    *config.Config
-	EnvConfig *environConfig
-	Env       *environ
+	ControllerUUID string
+	Config         *config.Config
+	EnvConfig      *environConfig
+	Env            *environ
 
 	Addresses       []network.Address
 	BaseInstance    *google.Instance
@@ -103,6 +124,7 @@ var _ instance.Instance = (*environInstance)(nil)
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.ControllerUUID = testing.FakeControllerConfig().ControllerUUID()
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
@@ -114,7 +136,8 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
-		name: "google",
+		name:  "google",
+		cloud: MakeTestCloudSpec(),
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
@@ -128,7 +151,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List(tools))
@@ -142,10 +165,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.UbuntuMetadata = map[string]string{
-		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: string(userData),
-		metadataKeyEncoding:  "base64",
-		metadataKeySSHKeys:   authKeys,
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
+		metadataKeyCloudInit:  string(userData),
+		metadataKeyEncoding:   "base64",
+		metadataKeySSHKeys:    authKeys,
+	}
+	instanceConfig.Tags = map[string]string{
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
 	}
 	s.WindowsMetadata = map[string]string{
 		metadataKeyWindowsUserdata: string(userData),
@@ -162,6 +190,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -271,7 +300,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
+	s.PatchValue(&newConnection, func(google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)

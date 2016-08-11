@@ -5,13 +5,10 @@ package gce
 
 import (
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/environs/tags"
 )
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState = tags.JujuModel
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/
@@ -23,12 +20,6 @@ const (
 	// GCE uses this specific key for authentication (*handwaving*)
 	// https://cloud.google.com/compute/docs/instances#sshkeys
 	metadataKeySSHKeys = "sshKeys"
-)
-
-// Common metadata values used when creating new instances.
-const (
-	metadataValueTrue  = "true"
-	metadataValueFalse = "false"
 )
 
 const (

@@ -138,18 +138,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	clientStore := c.ClientStore()
-	controllerDetails, err := clientStore.ControllerByName(c.ControllerName())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	model := modelStatus{
-		Name:       c.ModelName(),
-		Controller: c.ControllerName(),
-		Cloud:      controllerDetails.Cloud,
-	}
-	formatter := newStatusFormatter(status, model, c.isoTime)
+	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

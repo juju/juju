@@ -46,7 +46,7 @@ func (c *Client) AddUser(
 		modelTags[i] = names.NewModelTag(uuid).String()
 	}
 
-	var accessPermission params.ModelAccessPermission
+	var accessPermission params.UserAccessPermission
 	var err error
 	if len(modelTags) > 0 {
 		accessPermission, err = modelmanager.ParseModelAccess(access)
@@ -101,15 +101,21 @@ func (c *Client) userCall(username string, methodCall string) error {
 }
 
 // DisableUser disables a user.  If the user is already disabled, the action
-// is consided a success.
+// is considered a success.
 func (c *Client) DisableUser(username string) error {
 	return c.userCall(username, "DisableUser")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
-// consided a success.
+// considered a success.
 func (c *Client) EnableUser(username string) error {
 	return c.userCall(username, "EnableUser")
+}
+
+// RemoveUser deletes a user. That is it permanently removes the user, while
+// retaining the record of the user to maintain provenance.
+func (c *Client) RemoveUser(username string) error {
+	return c.userCall(username, "RemoveUser")
 }
 
 // IncludeDisabled is a type alias to avoid bare true/false values

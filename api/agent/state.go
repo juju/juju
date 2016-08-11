@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
@@ -19,6 +20,8 @@ import (
 type State struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
+	*cloudspec.CloudSpecAPI
+	*common.ControllerConfigAPI
 }
 
 // NewState returns a version of the state that provides functionality
@@ -26,8 +29,10 @@ type State struct {
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{
-		facade:       facadeCaller,
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		facade:              facadeCaller,
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}
 }
 

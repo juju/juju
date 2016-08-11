@@ -23,54 +23,24 @@ var _ = gc.Suite(&AccountsFileSuite{})
 const testAccountsYAML = `
 controllers:
   ctrl:
-    accounts:
-      admin@local:
-        user: admin@local
-        password: hunter2
+    user: admin@local
+    password: hunter2
   kontroll:
-    accounts:
-      admin@local:
-        user: admin@local
-        password: hunter2
-      bob@local:
-        user: bob@local
-        password: huntert00
-      bob@remote:
-        user: bob@remote
-    current-account: admin@local
+    user: bob@remote
 `
 
-var testControllerAccounts = map[string]*jujuclient.ControllerAccounts{
-	"kontroll": {
-		Accounts: map[string]jujuclient.AccountDetails{
-			"admin@local": kontrollAdminAccountDetails,
-			"bob@local":   kontrollBobLocalAccountDetails,
-			"bob@remote":  kontrollBobRemoteAccountDetails,
-		},
-		CurrentAccount: "admin@local",
-	},
-	"ctrl": {
-		Accounts: map[string]jujuclient.AccountDetails{
-			"admin@local": ctrlAdminAccountDetails,
-		},
-	},
+var testControllerAccounts = map[string]jujuclient.AccountDetails{
+	"ctrl":     ctrlAdminAccountDetails,
+	"kontroll": kontrollBobRemoteAccountDetails,
 }
 
 var (
-	kontrollAdminAccountDetails = jujuclient.AccountDetails{
-		User:     "admin@local",
-		Password: "hunter2",
-	}
-	kontrollBobLocalAccountDetails = jujuclient.AccountDetails{
-		User:     "bob@local",
-		Password: "huntert00",
-	}
-	kontrollBobRemoteAccountDetails = jujuclient.AccountDetails{
-		User: "bob@remote",
-	}
 	ctrlAdminAccountDetails = jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "hunter2",
+	}
+	kontrollBobRemoteAccountDetails = jujuclient.AccountDetails{
+		User: "bob@remote",
 	}
 )
 

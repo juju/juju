@@ -55,9 +55,9 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
-	details := s.store.Accounts["testing"].Accounts["current-user@local"]
+	details := s.store.Accounts["testing"]
 	details.Macaroon = "a-macaroon"
-	s.store.Accounts["testing"].Accounts["current-user@local"] = details
+	s.store.Accounts["testing"] = details
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
@@ -65,9 +65,7 @@ func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
 Logged out. You are no longer logged into any controllers.
 `[1:],
 	)
-	_, err = s.store.CurrentAccount("testing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.store.AccountByName("testing", "current-user@local")
+	_, err = s.store.AccountDetails("testing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -75,14 +73,11 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 	// Create multiple controllers. We'll log out of each one
 	// to observe the messages printed out by "logout".
 	controllers := []string{"testing", "testing2", "testing3"}
-	details := s.store.Accounts["testing"].Accounts["current-user@local"]
+	details := s.store.Accounts["testing"]
 	details.Macaroon = "a-macaroon"
 	for _, controller := range controllers {
 		s.store.Controllers[controller] = s.store.Controllers["testing"]
-		s.store.Controllers[controller] = s.store.Controllers["testing"]
-		err := s.store.UpdateAccount(controller, "current-user@local", details)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.store.SetCurrentAccount(controller, "current-user@local")
+		err := s.store.UpdateAccount(controller, details)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -124,12 +119,12 @@ func (s *LogoutCommandSuite) TestLogoutWithoutMacaroonForced(c *gc.C) {
 	s.assertStoreMacaroon(c, "current-user@local", nil)
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.store.CurrentAccount("testing")
+	_, err = s.store.AccountDetails("testing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *LogoutCommandSuite) TestLogoutNotLoggedIn(c *gc.C) {
-	s.store.Accounts["testing"].CurrentAccount = ""
+	delete(s.store.Accounts, "testing")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")

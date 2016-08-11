@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -58,11 +59,11 @@ func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
 	c.Assert(users, gc.HasLen, 3)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
-		modelUserTags[i] = u.UserTag()
-		if u.UserTag().Name() == "foobar" {
-			c.Assert(u.ReadOnly(), jc.IsTrue)
+		modelUserTags[i] = u.UserTag
+		if u.UserTag.Name() == "foobar" {
+			c.Assert(u.Access, gc.Equals, description.ReadAccess)
 		} else {
-			c.Assert(u.ReadOnly(), jc.IsFalse)
+			c.Assert(u.Access, gc.Not(gc.Equals), description.ReadAccess)
 		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
@@ -101,6 +102,29 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 	)
 	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
+	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the user exists.
+	user, err := s.State.User(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.Name(), gc.Equals, "jjam")
+	c.Assert(user.DisplayName(), gc.Equals, "Jimmy Jam")
+
+	// Delete the user.
+	err = s.usermanager.RemoveUser(tag.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert that the user is gone.
+	_, err = s.State.User(tag)
+	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+
+	err = user.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
 }
 
 func (s *usermanagerSuite) TestDisableUser(c *gc.C) {

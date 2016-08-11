@@ -52,6 +52,7 @@ type HookContext interface {
 	ContextStorage
 	ContextComponents
 	ContextRelations
+	ContextVersion
 }
 
 // UnitHookContext is the context for a unit hook.
@@ -285,6 +286,18 @@ type ContextStorageAttachment interface {
 	// Location returns the location of the storage: the mount point for
 	// filesystem-kind stores, and the device path for block-kind stores.
 	Location() string
+}
+
+// ContextVersion expresses the parts of a hook context related to
+// reporting workload versions.
+type ContextVersion interface {
+
+	// UnitWorkloadVersion returns the currently set workload version for
+	// the unit.
+	UnitWorkloadVersion() (string, error)
+
+	// SetUnitWorkloadVersion updates the workload version for the unit.
+	SetUnitWorkloadVersion(string) error
 }
 
 // Settings is implemented by types that manipulate unit settings.

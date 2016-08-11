@@ -18,6 +18,9 @@ const (
 
 	// ModelWriteAccess allows a user write access to the model.
 	ModelWriteAccess ModelAccess = iota
+
+	// ModelAdminAccess allows a user to perform administrative tasks on a model.
+	ModelAdminAccess ModelAccess = iota
 )
 
 // ParseModelAccess parses a user-facing string representation of a model
@@ -29,6 +32,8 @@ func ParseModelAccess(access string) (ModelAccess, error) {
 		return ModelReadAccess, nil
 	case "write":
 		return ModelWriteAccess, nil
+	case "admin":
+		return ModelAdminAccess, nil
 	default:
 		return fail, errors.Errorf("invalid model access permission %q", access)
 	}

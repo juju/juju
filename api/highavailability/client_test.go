@@ -56,7 +56,7 @@ func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 
 	emptyCons := constraints.Value{}
 	client := highavailability.NewClient(s.APIState)
-	result, err := client.EnableHA(3, emptyCons, "", nil)
+	result, err := client.EnableHA(3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})

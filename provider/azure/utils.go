@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -20,11 +20,6 @@ const (
 	maxRetryDelay    = 1 * time.Minute
 	maxRetryDuration = 5 * time.Minute
 )
-
-func toTagsPtr(tags map[string]string) *map[string]*string {
-	stringPtrMap := to.StringMapPtr(tags)
-	return &stringPtrMap
-}
 
 func toTags(tags *map[string]*string) map[string]string {
 	if tags == nil {

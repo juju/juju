@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -88,9 +88,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
-		"controller*  admin@local  available  just now\n"+
-		"new-model    test@local   available  never connected\n"+
+		"MODEL              OWNER        STATUS     LAST CONNECTION\n"+
+		"admin/controller*  admin@local  available  just now\n"+
+		"test/new-model     test@local   available  never connected\n"+
 		"\n")
 }
 
@@ -102,6 +102,7 @@ models:
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
+  cloud: dummy
   type: dummy
   life: alive
   status:
@@ -110,7 +111,7 @@ models:
   users:
     admin@local:
       display-name: admin
-      access: write
+      access: admin
       last-connection: just now
 current-model: controller
 `[1:])
@@ -148,30 +149,43 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
+	context := s.run(
+		c, "add-model", "new-model",
+		"--config", "authorized-keys=fake-key",
+		"--config", "controller=false",
+	)
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, "added model \"new-model\"\n")
+	c.Check(testing.Stderr(context), gc.Equals, `
+Added 'new-model' model with credential 'cred' for user 'admin'
+`[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	accountDetails, err := s.ControllerStore.AccountByName("kontroll", "admin@local")
+	accountDetails, err := s.ControllerStore.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
-	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local", "new-model")
+	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local/new-model")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
-		Store:           s.ControllerStore,
-		ControllerName:  "kontroll",
-		AccountDetails:  accountDetails,
-		ModelUUID:       modelDetails.ModelUUID,
-		BootstrapConfig: noBootstrapConfig,
-		DialOpts:        api.DefaultDialOpts(),
-		OpenAPI:         api.Open,
+		Store:          s.ControllerStore,
+		ControllerName: "kontroll",
+		AccountDetails: accountDetails,
+		ModelUUID:      modelDetails.ModelUUID,
+		DialOpts:       api.DefaultDialOpts(),
+		OpenAPI:        api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
 
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
+	s.testControllerDestroy(c, false)
+}
+
+func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
+	s.testControllerDestroy(c, true)
+}
+
+func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
@@ -210,9 +224,23 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		}
 	}()
 
+	if forceAPI {
+		// Remove bootstrap config from the client store,
+		// forcing the command to use the API.
+		err := os.Remove(jujuclient.JujuBootstrapConfigPath())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	ops := make(chan dummy.Operation, 1)
+	dummy.Listen(ops)
+
 	s.run(c, "destroy-controller", "kontroll", "-y", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
+
+	destroyOp := (<-ops).(dummy.OpDestroy)
+	c.Assert(destroyOp.Env, gc.Equals, "controller")
+	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
@@ -304,10 +332,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 			c.Fatalf("time out wating for operation")
 		}
 	}
-}
-
-func noBootstrapConfig(controllerName string) (*config.Config, error) {
-	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
 }
 
 func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {

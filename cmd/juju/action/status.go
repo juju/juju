@@ -33,14 +33,14 @@ If --name <name> is provided the search will be done by name rather than by ID.
 // Set up the output.
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.StringVar(&c.name, "name", "", "an action name")
+	f.StringVar(&c.name, "name", "", "Action name")
 }
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-action-status",
 		Args:    "[<action ID>|<action ID prefix>]",
-		Purpose: "show results of all actions filtered by optional ID prefix",
+		Purpose: "Show results of all actions filtered by optional ID prefix.",
 		Doc:     statusDoc,
 	}
 }

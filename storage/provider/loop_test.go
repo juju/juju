@@ -47,13 +47,13 @@ func (s *loopSuite) TestVolumeSource(c *gc.C) {
 	p := s.loopProvider(c)
 	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.VolumeSource(nil, cfg)
+	_, err = p.VolumeSource(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.VolumeSource(nil, cfg)
+	_, err = p.VolumeSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

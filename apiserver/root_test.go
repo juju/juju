@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -16,63 +17,72 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
-type rootSuite struct {
+type pingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&rootSuite{})
+var _ = gc.Suite(&pingSuite{})
 
-var allowedDiscardedMethods = []string{
-	"AuthClient",
-	"AuthModelManager",
-	"AuthMachineAgent",
-	"AuthOwner",
-	"AuthUnitAgent",
-	"FindMethod",
-	"GetAuthEntity",
-	"GetAuthTag",
-}
-
-func (r *rootSuite) TestPingTimeout(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeout(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 50*time.Millisecond)
+	clock := testing.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
-		time.Sleep(10 * time.Millisecond)
+		waitAlarm(c, clock)
+		clock.Advance(10 * time.Millisecond)
 		timeout.Ping()
 	}
-	// Expect action to be executed about 50ms after last ping.
-	broken := time.Now()
-	var closed time.Time
+
+	waitAlarm(c, clock)
+	clock.Advance(49 * time.Millisecond)
 	select {
-	case closed = <-closedc:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("action never executed")
+	case <-triggered:
+		c.Fatalf("action triggered early")
+	case <-time.After(testing.ShortWait):
 	}
-	closeDiff := closed.Sub(broken) / time.Millisecond
-	c.Assert(50 <= closeDiff && closeDiff <= 100, jc.IsTrue)
+
+	clock.Advance(time.Millisecond)
+	select {
+	case <-triggered:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("action never triggered")
+	}
 }
 
-func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 20*time.Millisecond)
-	timeout.Ping()
+	clock := testing.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
+
+	waitAlarm(c, clock)
 	timeout.Stop()
+	clock.Advance(time.Hour)
+
 	// The action should never trigger
 	select {
-	case <-closedc:
+	case <-triggered:
 		c.Fatalf("action triggered after Stop()")
 	case <-time.After(testing.ShortWait):
+	}
+}
+
+func waitAlarm(c *gc.C, clock *testing.Clock) {
+	select {
+	case <-time.After(testing.LongWait):
+		c.Fatalf("alarm never set")
+	case <-clock.Alarms():
 	}
 }
 
@@ -101,6 +111,12 @@ type badType struct{}
 func (badType) Exposed() error {
 	return fmt.Errorf("badType.Exposed was not to be exposed")
 }
+
+type rootSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&rootSuite{})
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 	root := apiserver.TestingApiRoot(nil)
@@ -385,4 +401,112 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 	authorized = apiHandler.AuthOwner(incorrectTag)
 
 	c.Check(authorized, jc.IsFalse)
+}
+
+type fakeUserAccess struct {
+	subjects []names.UserTag
+	objects  []names.Tag
+	user     description.UserAccess
+	err      error
+}
+
+func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+	f.subjects = append(f.subjects, subject)
+	f.objects = append(f.objects, object)
+	return f.user, f.err
+}
+
+func (r *rootSuite) TestNoUserTagLacksPermission(c *gc.C) {
+	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	hasPermission, err := apiserver.HasPermission((&fakeUserAccess{}).call, nonUser, description.ReadAccess, target)
+	c.Assert(hasPermission, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, "obtaining permission for subject kind \"model\" not valid")
+}
+
+func (r *rootSuite) TestHasPermission(c *gc.C) {
+	testCases := []struct {
+		title            string
+		userGetterAccess description.Access
+		user             names.UserTag
+		target           names.Tag
+		access           description.Access
+		expected         bool
+	}{
+		{
+			title:            "user has lesser permissions than required",
+			userGetterAccess: description.ReadAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.WriteAccess,
+			expected:         false,
+		},
+		{
+			title:            "user has equal permission than required",
+			userGetterAccess: description.WriteAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.WriteAccess,
+			expected:         true,
+		},
+		{
+			title:            "user has greater permission than required",
+			userGetterAccess: description.AdminAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.WriteAccess,
+			expected:         true,
+		},
+		{
+			title:            "user requests model permission on controller",
+			userGetterAccess: description.AdminAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         false,
+		},
+		{
+			title:            "user requests controller permission on model",
+			userGetterAccess: description.AdminAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AdminAccess, // notice user has this permission for model.
+			expected:         false,
+		},
+		{
+			title:            "controller permissions also work",
+			userGetterAccess: description.AddModelAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         true,
+		},
+	}
+	for i, t := range testCases {
+		userGetter := &fakeUserAccess{
+			user: description.UserAccess{
+				Access: t.userGetterAccess,
+			}}
+		c.Logf("HasPermission test n %d: %s", i, t.title)
+		hasPermission, err := apiserver.HasPermission(userGetter.call, t.user, t.access, t.target)
+		c.Assert(hasPermission, gc.Equals, t.expected)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+}
+
+func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
+	user := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		user: description.UserAccess{},
+		err:  errors.NotFoundf("a user"),
+	}
+	hasPermission, err := apiserver.HasPermission(userGetter.call, user, description.ReadAccess, target)
+	c.Assert(hasPermission, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, "while obtaining model user: a user not found")
+	c.Assert(userGetter.subjects, gc.HasLen, 1)
+	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
+	c.Assert(userGetter.objects, gc.HasLen, 1)
+	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
 }

@@ -26,7 +26,7 @@ func NewAPIClient(newAPICaller func() (api.Connection, error)) (*client.Client, 
 }
 
 func newAPIClient(apiCaller api.Connection) (*client.Client, error) {
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
+	caller := base.NewFacadeCallerForVersion(apiCaller, resource.FacadeName, server.Version)
 
 	httpClient, err := apiCaller.HTTPClient()
 	if err != nil {

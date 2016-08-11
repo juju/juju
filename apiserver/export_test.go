@@ -15,7 +15,9 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -29,6 +31,7 @@ var (
 	BZMimeType                   = bzMimeType
 	JSMimeType                   = jsMimeType
 	SpritePath                   = spritePath
+	HasPermission                = hasPermission
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -98,9 +101,18 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state:    srvSt,
 		tag:      names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
+	h, err := newApiHandler(srv, st, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
+}
+
+// TestingApiHandlerWithEntity gives you the sane kind of ApiHandler as
+// TestingApiHandler but sets the passed entity as the apiHandler
+// entity.
+func TestingApiHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
+	h, hr := TestingApiHandler(c, srvSt, st)
+	h.entity = entity
+	return h, hr
 }
 
 // TestingUpgradingRoot returns a limited srvRoot
@@ -111,7 +123,7 @@ func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 }
 
 // TestingRestrictedApiHandler returns a restricted srvRoot as if accessed
-// from the root of the API path with a recent (verison > 1) login.
+// from the root of the API path.
 func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
 	return newRestrictedRoot(r)
@@ -119,7 +131,7 @@ func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 
 type preFacadeAdminApi struct{}
 
-func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newPreFacadeAdminApi(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
 	return &preFacadeAdminApi{}
 }
 
@@ -137,7 +149,7 @@ func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 
 type failAdminApi struct{}
 
-func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newFailAdminApi(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
 	return &failAdminApi{}
 }
 
@@ -212,4 +224,10 @@ func PatchGetControllerCACert(p Patcher, caCert string) {
 // CleanupSuite
 type Patcher interface {
 	PatchValue(ptr, value interface{})
+}
+
+func AssertHasPermission(c *gc.C, handler *apiHandler, access description.Access, tag names.Tag, expect bool) {
+	hasPermission, err := handler.HasPermission(access, tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasPermission, gc.Equals, expect)
 }

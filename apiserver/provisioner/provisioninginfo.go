@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -26,8 +25,6 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
@@ -88,6 +85,10 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get available image metadata")
 	}
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get controller configuration")
+	}
 
 	return &params.ProvisioningInfo{
 		Constraints:      cons,
@@ -99,6 +100,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		SubnetsToZones:   subnetsToZones,
 		EndpointBindings: endpointBindings,
 		ImageMetadata:    imageMetadata,
+		ControllerConfig: controllerCfg,
 	}, nil
 }
 
@@ -121,7 +123,6 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if err != nil {
 		return nil, err
 	}
-	poolManager := poolmanager.New(state.NewStateSettings(p.st))
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
@@ -136,11 +137,13 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(), modelConfig, poolManager)
+			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			modelConfig, p.storagePoolManager, p.storageProviderRegistry,
+		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
-		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		provider, err := p.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage provider")
 		}
@@ -371,14 +374,14 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
 	// If we can determine current region,
 	// we want only metadata specific to this region.
-	cloud, cfg, env, err := p.obtainEnvCloudConfig()
+	cloud, env, err := p.obtainEnvCloudConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	lookup := simplestreams.LookupParams{
 		Series: []string{m.Series()},
-		Stream: cfg.ImageStream(),
+		Stream: env.Config().ImageStream(),
 	}
 
 	mcons, err := m.Constraints()
@@ -398,15 +401,10 @@ func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetad
 
 // obtainEnvCloudConfig returns environment specific cloud information
 // to be used in search for compatible images and their metadata.
-func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
-	cfg, err := p.st.ModelConfig()
+func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, environs.Environ, error) {
+	env, err := environs.GetEnviron(p.configGetter, environs.New)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get model config")
-	}
-
-	env, err := environs.GetEnviron(p.st, environs.New)
-	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get model")
+		return nil, nil, errors.Annotate(err, "could not get model")
 	}
 
 	if inst, ok := env.(simplestreams.HasRegion); ok {
@@ -414,11 +412,11 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *conf
 		if err != nil {
 			// can't really find images if we cannot determine cloud region
 			// TODO (anastasiamac 2015-12-03) or can we?
-			return nil, nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
+			return nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
 		}
-		return &cloud, cfg, env, nil
+		return &cloud, env, nil
 	}
-	return nil, cfg, env, nil
+	return nil, env, nil
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.

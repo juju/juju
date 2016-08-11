@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 type environSuite struct {
@@ -18,12 +19,11 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	env, err := environs.GetEnviron(s.State, environs.New)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.Config().UUID(), jc.DeepEquals, config.UUID())
-	c.Check(env.Config().ControllerUUID(), jc.DeepEquals, config.ControllerUUID())
 	c.Check(env, gc.Not(gc.Equals), s.Environ)
 }

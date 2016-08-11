@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 )
 
 type updateCloudsCommand struct {
@@ -45,7 +45,7 @@ See also: clouds
 // NewUpdateCloudsCommand returns a command to update cloud information.
 func NewUpdateCloudsCommand() cmd.Command {
 	return &updateCloudsCommand{
-		publicSigningKey: juju.JujuPublicKey,
+		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
 	}
 }
@@ -180,9 +180,10 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 	}
 
 	endpointChanged := new.Endpoint != old.Endpoint
+	identityEndpointChanged := new.IdentityEndpoint != old.IdentityEndpoint
 	storageEndpointChanged := new.StorageEndpoint != old.StorageEndpoint
 
-	if endpointChanged || storageEndpointChanged || new.Type != old.Type || !sameAuthTypes() {
+	if endpointChanged || identityEndpointChanged || storageEndpointChanged || new.Type != old.Type || !sameAuthTypes() {
 		diff.addChange(updateChange, attributeScope, cloudName)
 	}
 
@@ -200,7 +201,7 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 			continue
 
 		}
-		if (oldRegion.Endpoint != newRegion.Endpoint) || (oldRegion.StorageEndpoint != newRegion.StorageEndpoint) {
+		if (oldRegion.Endpoint != newRegion.Endpoint) || (oldRegion.IdentityEndpoint != newRegion.IdentityEndpoint) || (oldRegion.StorageEndpoint != newRegion.StorageEndpoint) {
 			diff.addChange(updateChange, regionScope, formatCloudRegion(newName))
 		}
 	}

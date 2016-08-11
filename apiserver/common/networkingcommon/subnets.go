@@ -432,8 +432,8 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 // current model config, if supported. If the model does not support
 // environs.Networking, an error satisfying errors.IsNotSupported() will be
 // returned.
-func networkingEnviron(api NetworkBacking) (environs.NetworkingEnviron, error) {
-	env, err := environs.GetEnviron(api, environs.New)
+func networkingEnviron(getter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
+	env, err := environs.GetEnviron(getter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}

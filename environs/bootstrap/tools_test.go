@@ -262,7 +262,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
-	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
+	c.Assert(env.constraintsValidatorCount, gc.Equals, 1)
 	var trustyToolsFound int
 	expectedVersion := jujuversion.Current
 	expectedVersion.Build++
@@ -301,5 +301,5 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
-	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)
+	c.Assert(env.constraintsValidatorCount, gc.Equals, 0)
 }

@@ -8,31 +8,32 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
-	common.RegisterStandardFacade("Client", 1, NewClient)
+	common.RegisterStandardFacade("Client", 1, newClient)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor stateInterface
+	stateAccessor Backend
 	auth          facade.Authorizer
 	resources     facade.Resources
 	client        *Client
@@ -46,35 +47,71 @@ type API struct {
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
 func (api *API) state() *state.State {
-	return api.stateAccessor.(*stateShim).State
+	return api.stateAccessor.(stateShim).State
 }
 
 // Client serves client-specific API methods.
 type Client struct {
-	api   *API
-	check *common.BlockChecker
+	// TODO(wallyworld) - we'll retain model config facade methods
+	// on the client facade until GUI and Python client library are updated.
+	*modelconfig.ModelConfigAPI
+
+	api        *API
+	newEnviron func() (environs.Environ, error)
+	check      *common.BlockChecker
 }
 
-var getState = func(st *state.State) stateInterface {
-	return &stateShim{st}
+func newClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	newEnviron := func() (environs.Environ, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
+	blockChecker := common.NewBlockChecker(st)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewClient(
+		NewStateBackend(st),
+		modelConfigAPI,
+		resources,
+		authorizer,
+		statusSetter,
+		toolsFinder,
+		newEnviron,
+		blockChecker,
+	)
 }
 
 // NewClient creates a new instance of the Client Facade.
-func NewClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+func NewClient(
+	st Backend,
+	modelConfigAPI *modelconfig.ModelConfigAPI,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	statusSetter *common.StatusSetter,
+	toolsFinder *common.ToolsFinder,
+	newEnviron func() (environs.Environ, error),
+	blockChecker *common.BlockChecker,
+) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	apiState := getState(st)
-	urlGetter := common.NewToolsURLGetter(apiState.ModelUUID(), apiState)
 	client := &Client{
-		api: &API{
-			stateAccessor: apiState,
+		modelConfigAPI,
+		&API{
+			stateAccessor: st,
 			auth:          authorizer,
 			resources:     resources,
-			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
-			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
+			statusSetter:  statusSetter,
+			toolsFinder:   toolsFinder,
 		},
-		check: common.NewBlockChecker(st)}
+		newEnviron,
+		blockChecker,
+	}
 	return client, nil
 }
 
@@ -318,26 +355,6 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	charm, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-		Actions:  charm.Actions(),
-	}
-	return info, nil
-}
-
 // ModelInfo returns information about the current model (default
 // series and type).
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
@@ -353,6 +370,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:   config.PreferredSeries(conf),
+		Cloud:           model.Cloud(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: model.CloudCredential(),
 		ProviderType:    conf.Type(),
@@ -361,6 +379,10 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		ControllerUUID:  model.ControllerUUID(),
 	}
 	return info, nil
+}
+
+func modelInfo(st *state.State, user description.UserAccess) (params.ModelUserInfo, error) {
+	return common.ModelUserInfo(user, st)
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -377,7 +399,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 
 	for _, user := range users {
 		var result params.ModelUserInfoResult
-		userInfo, err := common.ModelUserInfo(user)
+		userInfo, err := modelInfo(c.api.state(), user)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
@@ -393,67 +415,14 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	return params.AgentVersionResult{Version: jujuversion.Current}, nil
 }
 
-// ModelGet implements the server-side part of the
-// get-model-config CLI command.
-func (c *Client) ModelGet() (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
-	// Get the existing model config from the state.
-	config, err := c.api.stateAccessor.ModelConfig()
-	if err != nil {
-		return result, err
-	}
-	result.Config = config.AllAttrs()
-	return result, nil
-}
-
-// ModelSet implements the server-side part of the
-// set-model-config CLI command.
-func (c *Client) ModelSet(args params.ModelSet) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// Make sure we don't allow changing agent-version.
-	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["agent-version"]; found {
-			oldVersion, _ := oldConfig.AgentVersion()
-			if v != oldVersion.String() {
-				return fmt.Errorf("agent-version cannot be changed")
-			}
-		}
-		return nil
-	}
-	// Replace any deprecated attributes with their new values.
-	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
-	return c.api.stateAccessor.UpdateModelConfig(attrs, nil, checkAgentVersion)
-}
-
-// ModelUnset implements the server-side part of the
-// set-model-config CLI command.
-func (c *Client) ModelUnset(args params.ModelUnset) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
-	return c.api.stateAccessor.UpdateModelConfig(nil, args.Keys, nil)
-}
-
 // SetModelAgentVersion sets the model agent version.
 func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll do a very basic check to ensure the
-	cfg, err := c.api.stateAccessor.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env, err := getEnvironment(cfg)
+	// we'll do a very basic check to ensure the environment is accessible.
+	env, err := c.newEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -461,14 +430,6 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		return err
 	}
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
-}
-
-var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return env, nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -530,15 +491,4 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyModel() (err error) {
-	if err := c.check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelTag := c.api.stateAccessor.ModelTag()
-	return errors.Trace(common.DestroyModel(c.api.state(), modelTag))
 }

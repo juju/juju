@@ -1304,15 +1304,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newDocWatcher(st, []docKey{
-		{
-			settingsC,
-			st.docID(modelGlobalKey),
-		}, {
-			controllersC,
-			defaultModelSettingsGlobalKey,
-		},
-	})
+	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
 
 // WatchForUnitAssignment watches for new services that request units to be
@@ -2491,6 +2483,12 @@ func (st *State) WatchMigrationStatus() NotifyWatcher {
 	// will only see changes for one migration status document at a
 	// time for the model.
 	return newNotifyCollWatcher(st, migrationsStatusC, isLocalID(st))
+}
+
+// WatchMachineRemovals returns a NotifyWatcher which triggers
+// whenever machine removal records are added or removed.
+func (st *State) WatchMachineRemovals() NotifyWatcher {
+	return newNotifyCollWatcher(st, machineRemovalsC, isLocalID(st))
 }
 
 // notifyCollWatcher implements NotifyWatcher, triggering when a

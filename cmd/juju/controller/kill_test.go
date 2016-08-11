@@ -91,7 +91,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
-		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
+		"getting controller environ: getting model config from API: controller \"test3\" not found",
 	)
 	checkControllerExistsInStore(c, "test3", s.store)
 }
@@ -132,7 +132,7 @@ func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
@@ -146,7 +146,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}

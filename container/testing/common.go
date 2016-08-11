@@ -5,11 +5,7 @@ package testing
 
 import (
 	"io/ioutil"
-	"os"
-	"path/filepath"
 
-	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -23,8 +19,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
-
-var logger = loggo.GetLogger("juju.container.testing")
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
@@ -79,69 +73,10 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	return inst
 }
 
-func EnsureContainerRootFSEtcNetwork(c *gc.C, containerName string) {
-	// Pre-create the mock rootfs dir for the container and
-	// /etc/network/ inside it, where the interfaces file will be
-	// pre-rendered (unless AUFS is used).
-	etcNetwork := filepath.Join(container.ContainerDir, containerName, "rootfs", "etc", "network")
-	logger.Debugf("ensuring root fs /etc/network in %s", etcNetwork)
-	err := os.MkdirAll(etcNetwork, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(etcNetwork, "interfaces"), []byte("#empty"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(filename, jc.IsNonEmptyFile)
 	data, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data
-}
-
-// CreateContainerTest tries to create a container and returns any errors encountered along the
-// way
-func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (instance.Instance, error) {
-	instanceConfig, err := MockMachineConfig(machineId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	network := container.BridgeNetworkConfig("nic42", 0, nil)
-	storage := &container.StorageConfig{}
-
-	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
-	c.Assert(err, jc.ErrorIsNil)
-	EnsureContainerRootFSEtcNetwork(c, name)
-
-	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", network, storage, callback)
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if hardware == nil {
-		return nil, errors.New("nil hardware characteristics")
-	}
-	if hardware.String() == "" {
-		return nil, errors.New("empty hardware characteristics")
-	}
-	return inst, nil
-
-}
-
-// FakeLxcURLScript is used to replace ubuntu-cloudimg-query in tests.
-var FakeLxcURLScript = `#!/bin/bash
-baseurl="${UBUNTU_CLOUDIMG_QUERY_BASEURL:-test://cloud-images}"
-echo -n ${baseurl}/$1-$2-$3.tar.gz`
-
-// MockURLGetter implements ImageURLGetter.
-type MockURLGetter struct{}
-
-func (ug *MockURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	return "imageURL", nil
-}
-
-func (ug *MockURLGetter) CACert() []byte {
-	return []byte("cert")
 }

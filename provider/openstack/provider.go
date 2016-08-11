@@ -71,23 +71,28 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
-	e := new(Environ)
+func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 
+	e := &Environ{
+		name:  args.Config.Name(),
+		cloud: args.Cloud,
+	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
-	err := e.SetConfig(cfg)
+	err := e.SetConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
-	e.name = cfg.Name()
 	return e, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p EnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "auth-url", "auth-mode"}
+	return []string{}
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -107,37 +112,14 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	}}, nil
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	attrs := map[string]interface{}{
-		"region":   args.CloudRegion,
-		"auth-url": args.CloudEndpoint,
-	}
-	credentialAttrs := args.Credentials.Attributes()
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		// TODO(axw) we need a way of saying to use legacy auth.
-		attrs["username"] = credentialAttrs["username"]
-		attrs["password"] = credentialAttrs["password"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["domain-name"] = credentialAttrs["domain-name"]
-		attrs["auth-mode"] = AuthUserPass
-	case cloud.AccessKeyAuthType:
-		attrs["access-key"] = credentialAttrs["access-key"]
-		attrs["secret-key"] = credentialAttrs["secret-key"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["auth-mode"] = AuthKeyPair
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 
 	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
 		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
 	}
@@ -146,23 +128,7 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
-}
-
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	cfg *config.Config,
-) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// Verify credentials.
-	if err := authenticateClient(e.(*Environ)); err != nil {
-		return nil, err
-	}
-	return e, nil
+	return cfg, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -178,15 +144,7 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 }
 
 func (p EnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := p.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["username"] = ecfg.username()
-	m["password"] = ecfg.password()
-	m["tenant-name"] = ecfg.tenantName()
-	return m, nil
+	return make(map[string]string), nil
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -198,15 +156,14 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	common.SupportsUnitPlacementPolicy
+	name  string
+	cloud environs.CloudSpec
 
-	name string
-
-	// archMutex gates access to supportedArchitectures
+	// archMutex gates access to cachedSupportedArchitectures
 	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
+	// cachedSupportedArchitectures caches the architectures
 	// for which images can be instantiated.
-	supportedArchitectures []string
+	cachedSupportedArchitectures []string
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -230,7 +187,7 @@ type Environ struct {
 var _ environs.Environ = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ state.Prechecker = (*Environ)(nil)
-var _ state.InstanceDistributor = (*Environ)(nil)
+var _ instance.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
@@ -409,26 +366,6 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *Environ) SupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
@@ -441,7 +378,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.SupportedArchitectures()
+	supportedArches, err := e.supportedArchitectures()
 	if err != nil {
 		return nil, err
 	}
@@ -458,6 +395,25 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
+}
+
+func (e *Environ) supportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.cachedSupportedArchitectures != nil {
+		return e.cachedSupportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.cachedSupportedArchitectures, err
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
@@ -563,6 +519,26 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
+// PrepareForBootstrap is part of the Environ interface.
+func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	// Verify credentials.
+	if err := authenticateClient(e); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *Environ) Create(environs.CreateParams) error {
+	// Verify credentials.
+	if err := authenticateClient(e); err != nil {
+		return err
+	}
+	// TODO(axw) 2016-08-04 #1609643
+	// Create global security group(s) here.
+	return nil
+}
+
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
@@ -573,9 +549,9 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *Environ) ControllerInstances() ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
-	instances, err := e.AllInstances()
+	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -596,31 +572,32 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func newCredentials(ecfg *environConfig) (identity.Credentials, identity.AuthMode) {
+func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode) {
+	credAttrs := spec.Credential.Attributes()
 	cred := identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
-		DomainName: ecfg.domainName(),
+		Region:     spec.Region,
+		URL:        spec.Endpoint,
+		TenantName: credAttrs[credAttrTenantName],
 	}
-	// authModeCfg has already been validated so we know it's one of the values below.
+
+	// AuthType is validated when the environment is opened, so it's known
+	// to be one of these values.
 	var authMode identity.AuthMode
-	switch AuthMode(ecfg.authMode()) {
-	case AuthLegacy:
-		authMode = identity.AuthLegacy
-	case AuthUserPass:
+	switch spec.Credential.AuthType() {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		cred.User = credAttrs[credAttrUserName]
+		cred.Secrets = credAttrs[credAttrPassword]
+		cred.DomainName = credAttrs[credAttrDomainName]
 		authMode = identity.AuthUserPass
 		if cred.DomainName != "" {
 			authMode = identity.AuthUserPassV3
 		}
-	case AuthKeyPair:
+	case cloud.AccessKeyAuthType:
+		cred.User = credAttrs[credAttrAccessKey]
+		cred.Secrets = credAttrs[credAttrSecretKey]
 		authMode = identity.AuthKeyPair
-		cred.User = ecfg.accessKey()
-		cred.Secrets = ecfg.secretKey()
 	}
-
 	return cred, authMode
 }
 
@@ -646,13 +623,13 @@ func determineBestClient(
 	return client
 }
 
-func authClient(ecfg *environConfig) (client.AuthenticatingClient, error) {
+func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
 
-	identityClientVersion, err := identityClientVersion(ecfg.authURL())
+	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
-	cred, authMode := newCredentials(ecfg)
+	cred, authMode := newCredentials(spec)
 
 	newClient := client.NewClient
 	if ecfg.SSLHostnameVerification() == false {
@@ -704,7 +681,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(ecfg)
+	client, err := authClient(e.cloud, ecfg)
 	if err != nil {
 		return errors.Annotate(err, "cannot set config")
 	}
@@ -722,7 +699,7 @@ func identityClientVersion(authURL string) (int, error) {
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Debugf("authURL: %s", authURL)
+	logger.Tracef("authURL: %s", authURL)
 	versionNumStr := url.Path[2:]
 	if versionNumStr[len(versionNumStr)-1] == '/' {
 		versionNumStr = versionNumStr[:len(versionNumStr)-1]
@@ -867,6 +844,9 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -911,7 +891,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
+		Region:      e.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
@@ -964,13 +944,14 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	var apiPort int
-	if args.InstanceConfig.Bootstrap != nil {
-		apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
 	} else {
+		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -1213,32 +1194,31 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	filter := e.machinesFilter()
-	allInstances, err := e.allControllerManagedInstances(filter, e.ecfg().useFloatingIP())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID := e.Config().UUID()
-	matching := make([]instance.Instance, 0, len(allInstances))
-	for _, inst := range allInstances {
-		if inst.(*openstackInstance).serverDetail.Metadata[tags.JujuModel] != modelUUID {
-			continue
-		}
-		matching = append(matching, inst)
-	}
-	return matching, nil
+	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
+	return e.allInstances(filter, tagFilter, e.ecfg().useFloatingIP())
 }
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allControllerManagedInstances(filter *nova.Filter, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+func (e *Environ) allControllerManagedInstances(controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuController, controllerUUID}
+	return e.allInstances(nil, tagFilter, updateFloatingIPAddresses)
+}
+
+type tagValue struct {
+	tag, value string
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allInstances(filter *nova.Filter, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
 	servers, err := e.nova().ListServersDetail(filter)
 	if err != nil {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
-	controllerUUID := e.Config().ControllerUUID()
 	for _, server := range servers {
-		if server.Metadata[tags.JujuController] != controllerUUID {
+		if server.Metadata[tagFilter.tag] != tagFilter.value {
 			continue
 		}
 		if e.isAliveServer(server) {
@@ -1264,24 +1244,29 @@ func (e *Environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg := e.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// In case any hosted environment hasn't been cleaned up yet,
-		// we also attempt to delete their resources when the controller
-		// environment is destroyed.
-		if err := e.destroyControllerManagedEnvirons(); err != nil {
-			return errors.Annotate(err, "destroying managed environs")
-		}
-	}
 	// Delete all security groups remaining in the model.
-	return e.firewaller.DeleteAllGroups()
+	return e.firewaller.DeleteAllModelGroups()
+}
+
+// DestroyController implements the Environ interface.
+func (e *Environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return errors.Annotate(err, "destroying controller model")
+	}
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
+	}
+	return e.firewaller.DeleteAllControllerGroups(controllerUUID)
 }
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
-// environment's controller.
-func (e *Environ) destroyControllerManagedEnvirons() error {
+// models's controller.
+func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error {
 	// Terminate all instances managed by the controller.
-	insts, err := e.allControllerManagedInstances(nil, false)
+	insts, err := e.allControllerManagedInstances(controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1294,14 +1279,13 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Delete all volumes managed by the controller.
-	cfg := e.Config()
-	storageAdapter, err := newOpenstackStorageAdapter(cfg)
+	cinder, err := e.cinderProvider()
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(storageAdapter, cfg.ControllerUUID())
+		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
-		errs := destroyVolumes(storageAdapter, volIds)
+		errs := destroyVolumes(cinder.storageAdapter, volIds)
 		for i, err := range errs {
 			if err == nil {
 				continue
@@ -1313,11 +1297,11 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Security groups for hosted models are destroyed by the
-	// DeleteAllGroups method call from Destroy().
+	// DeleteAllControllerGroups method call from Destroy().
 	return nil
 }
 
-func allControllerManagedVolumes(storageAdapter openstackStorage, controllerUUID string) ([]string, error) {
+func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
 	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
 		return v.Metadata[tags.JujuController] == controllerUUID
 	})
@@ -1416,7 +1400,7 @@ func (e *Environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.ecfg().region()
+		region = e.cloud.Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
@@ -1432,13 +1416,13 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 
 // Region is specified in the HasRegion interface.
 func (e *Environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.ecfg().region())
+	return e.cloudSpec(e.cloud.Region)
 }
 
 func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: e.ecfg().authURL(),
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
 
@@ -1446,6 +1430,33 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateAuthURL(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating auth-url")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.UserPassAuthType:
+	case cloud.AccessKeyAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
+}
+
+func validateAuthURL(authURL string) error {
+	parts, err := url.Parse(authURL)
+	if err != nil || parts.Host == "" || parts.Scheme == "" {
+		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
 }

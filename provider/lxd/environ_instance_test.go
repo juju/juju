@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -96,20 +97,20 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
 
-	ids, err := s.Env.ControllerInstances()
+	ids, err := s.Env.ControllerInstances(coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 	s.BaseSuite.Client.CheckCallNames(c, "Instances")
 	s.BaseSuite.Client.CheckCall(
 		c, 0, "Instances",
-		s.Prefix(),
+		"juju-",
 		[]string{"Starting", "Started", "Running", "Stopping", "Stopped"},
 	)
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.ControllerInstances()
+	_, err := s.Env.ControllerInstances("not-used")
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
@@ -118,7 +119,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
 
-	ids, err := s.Env.ControllerInstances()
+	ids, err := s.Env.ControllerInstances(coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})

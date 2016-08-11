@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path"
-	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -20,13 +19,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -131,54 +127,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	})
 }
 
-func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
-		"admin-secret":    "lisboan-pork",
-		"agent-version":   "1.2.3",
-		"controller":      false,
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	oldAttrs := cfg.AllAttrs()
-	icfg := &instancecfg.InstanceConfig{
-		Bootstrap:  &instancecfg.BootstrapConfig{},
-		Controller: &instancecfg.ControllerConfig{},
-	}
-	err = instancecfg.FinishInstanceConfig(icfg, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
-	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := "lisboan-pork"
-	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
-		Password: password, CACert: testing.CACert,
-		ModelTag: testing.ModelTag,
-	})
-	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
-		Password: password, Info: mongo.Info{CACert: testing.CACert},
-	})
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
-	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
-	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
-	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
-
-	delete(oldAttrs, "admin-secret")
-	delete(oldAttrs, "ca-private-key")
-	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), jc.DeepEquals, oldAttrs)
-	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
-	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
-	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Check(err, jc.ErrorIsNil)
-
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
-	c.Assert(err, jc.ErrorIsNil)
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
-	c.Assert(err, gc.NotNil)
-}
-
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
 	s.testUserData(c, "quantal", false)
 }
@@ -235,9 +183,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
-		controllerCfg := controller.ControllerConfig(envConfig.AllAttrs())
+		controllerCfg := testing.FakeControllerConfig()
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
+				ControllerConfig:      controllerCfg,
 				ControllerModelConfig: envConfig,
 			},
 			StateServingInfo: params.StateServingInfo{
@@ -387,10 +336,8 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	// first part
 	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
-	got = renderers.PrependWinPS1Header(got)
 	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(expected), gc.Equals, string(got))
+	c.Assert(string(got), gc.Equals, string(expected))
 }

@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/status"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")

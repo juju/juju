@@ -5,6 +5,7 @@ package engine
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
@@ -102,7 +103,7 @@ func flagStart(inner dependency.StartFunc, name string) dependency.StartFunc {
 			return nil, errors.Trace(err)
 		}
 		if !flag.Check() {
-			return nil, dependency.ErrMissing
+			return nil, errors.Annotatef(dependency.ErrMissing, "%q not set", name)
 		}
 		return inner(context)
 	}

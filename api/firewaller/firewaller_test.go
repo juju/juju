@@ -69,6 +69,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create the firewaller API facade.
-	s.firewaller = s.st.Firewaller()
+	s.firewaller = firewaller.NewState(s.st)
 	c.Assert(s.firewaller, gc.NotNil)
 }

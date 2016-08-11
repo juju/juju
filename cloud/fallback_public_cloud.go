@@ -5,8 +5,7 @@ package cloud
 
 // Generated code - do not edit.
 
-const fallbackPublicCloudInfo = `
-# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
+const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
 clouds:
   aws:
     type: ec2
@@ -63,57 +62,75 @@ clouds:
       centralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       northcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       northeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southeastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       japaneast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       japanwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       brazilsouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiasoutheast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       centralindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
   azure-china:
     type: azure
     auth-types: [ userpass ]
@@ -121,9 +138,11 @@ clouds:
       chinaeast:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
+        identity-endpoint: https://login.chinacloudapi.cn
       chinanorth:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
+        identity-endpoint: https://login.chinacloudapi.cn
   rackspace:
     type: rackspace
     auth-types: [ access-key, userpass ]

@@ -4,6 +4,9 @@
 package poolmanager
 
 import (
+	"strings"
+
+	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 )
 
@@ -27,4 +30,49 @@ type SettingsManager interface {
 	ReadSettings(key string) (map[string]interface{}, error)
 	RemoveSettings(key string) error
 	ListSettings(keyPrefix string) (map[string]map[string]interface{}, error)
+}
+
+// MemSettings is an in-memory implementation of SettingsManager.
+// This type does not provide any goroutine-safety.
+type MemSettings struct {
+	Settings map[string]map[string]interface{}
+}
+
+// CreateSettings is part of the SettingsManager interface.
+func (m MemSettings) CreateSettings(key string, settings map[string]interface{}) error {
+	if _, ok := m.Settings[key]; ok {
+		return errors.AlreadyExistsf("settings with key %q", key)
+	}
+	m.Settings[key] = settings
+	return nil
+}
+
+// ReadSettings is part of the SettingsManager interface.
+func (m MemSettings) ReadSettings(key string) (map[string]interface{}, error) {
+	settings, ok := m.Settings[key]
+	if !ok {
+		return nil, errors.NotFoundf("settings with key %q", key)
+	}
+	return settings, nil
+}
+
+// RemoveSettings is part of the SettingsManager interface.
+func (m MemSettings) RemoveSettings(key string) error {
+	if _, ok := m.Settings[key]; !ok {
+		return errors.NotFoundf("settings with key %q", key)
+	}
+	delete(m.Settings, key)
+	return nil
+}
+
+// ListSettings is part of the SettingsManager interface.
+func (m MemSettings) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
+	result := make(map[string]map[string]interface{})
+	for key, settings := range m.Settings {
+		if !strings.HasPrefix(key, keyPrefix) {
+			continue
+		}
+		result[key] = settings
+	}
+	return result, nil
 }

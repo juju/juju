@@ -456,11 +456,21 @@ LXC_BRIDGE="ignored"`[1:])
 		return addrs, nil
 	})
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
-		c.Assert(name, gc.Equals, "foobar")
-		return []net.Addr{
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-		}, nil
+		if name == "foobar" {
+			// The addresses on the LXC bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			}, nil
+		} else if name == network.DefaultLXDBridge {
+			// The addresses on the LXD bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			}, nil
+		}
+		c.Fatalf("unknown bridge in testing: %v", name)
+		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 

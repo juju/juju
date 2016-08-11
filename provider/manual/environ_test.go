@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -18,30 +17,26 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type environSuite struct {
+type baseEnvironSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	env *manualEnviron
 }
 
-var _ = gc.Suite(&environSuite{})
-
-func (s *environSuite) SetUpTest(c *gc.C) {
+func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
+	env, err := manualProvider{}.Open(environs.OpenParams{
+		Cloud:  CloudSpec(),
+		Config: MinimalConfig(c),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
 
-func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.env.SetConfig(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	testConfig := MinimalConfig(c)
-	testConfig, err = testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(testConfig)
-	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
+type environSuite struct {
+	baseEnvironSuite
 }
+
+var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestInstances(c *gc.C) {
 	var ids []instance.Id
@@ -118,12 +113,6 @@ exit 0
 	}
 }
 
-func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
-	arches, err := s.env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
-}
-
 func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 	_, ok := environs.SupportsNetworking(s.env)
 	c.Assert(ok, jc.IsFalse)
@@ -138,33 +127,11 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
 }
 
-type bootstrapSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	env *manualEnviron
-}
-
-var _ = gc.Suite(&bootstrapSuite{})
-
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env.(*manualEnviron)
-}
-
 type controllerInstancesSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	env *manualEnviron
+	baseEnvironSuite
 }
 
 var _ = gc.Suite(&controllerInstancesSuite{})
-
-func (s *controllerInstancesSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env.(*manualEnviron)
-}
 
 func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 	var outputResult string
@@ -196,7 +163,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 		c.Logf("test %d", i)
 		outputResult = test.output
 		errResult = test.err
-		instances, err := s.env.ControllerInstances()
+		instances, err := s.env.ControllerInstances("not-used")
 		if test.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
@@ -210,14 +177,14 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *gc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
-	_, err := s.env.ControllerInstances()
+	_, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *gc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	_, err := s.env.ControllerInstances()
+	_, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, gc.ErrorMatches, "abc: .*")
 }
 
@@ -227,7 +194,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *gc.C) {
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	instances, err := s.env.ControllerInstances()
+	instances, err := s.env.ControllerInstances("not-used")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

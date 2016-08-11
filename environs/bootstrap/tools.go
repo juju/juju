@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -44,21 +45,17 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string)
 		}
 	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
-	supportedArchitectures, err := env.SupportedArchitectures()
+	validator, err := env.ConstraintsValidator()
 	if err != nil {
-		return fmt.Errorf(
-			"no packaged tools available and cannot determine model's supported architectures: %v", err)
+		return errors.Annotate(err,
+			"no packaged tools available and cannot determine model's supported architectures",
+		)
 	}
-	archSupported := false
-	for _, arch := range supportedArchitectures {
-		if hostArch == arch {
-			archSupported = true
-			break
-		}
-	}
-	if !archSupported {
-		envType := env.Config().Type()
-		return errors.Errorf("model %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
+	if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
+		return errors.Errorf(
+			"model %q of type %s does not support instances running on %q",
+			env.Config().Name(), env.Config().Type(), hostArch,
+		)
 	}
 	return nil
 }
@@ -116,7 +113,7 @@ func findAvailableTools(
 	// Collate the set of arch+series that are externally available
 	// so we can see if we need to build any locally. If we need
 	// to, only then do we validate that we can upload (which
-	// involves a potentially expensive SupportedArchitectures call).
+	// involves a potentially expensive ConstraintsValidator call).
 	archSeries := make(set.Strings)
 	for _, tools := range toolsList {
 		archSeries.Add(tools.Version.Arch + tools.Version.Series)

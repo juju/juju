@@ -11,13 +11,8 @@ import (
 )
 
 var (
-	ShortAttempt            = &shortAttempt
-	MaasStorageProviderType = maasStorageProviderType
+	ShortAttempt = &shortAttempt
 )
-
-func MAASAgentName(env environs.Environ) string {
-	return env.(*maasEnviron).ecfg().maasAgentName()
-}
 
 func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()

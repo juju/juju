@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -83,8 +84,9 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, st, st, urlGetter, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,

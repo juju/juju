@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -98,7 +99,7 @@ func (c *addModelCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid user", c.Owner)
 	}
 
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 type AddModelAPI interface {
@@ -106,8 +107,10 @@ type AddModelAPI interface {
 }
 
 type CloudAPI interface {
-	Credentials(names.UserTag) (map[string]cloud.Credential, error)
-	UpdateCredentials(names.UserTag, map[string]cloud.Credential) error
+	Cloud(names.CloudTag) (cloud.Cloud, error)
+	CloudDefaults(names.UserTag) (cloud.Defaults, error)
+	Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error)
+	UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error
 }
 
 func (c *addModelCommand) newApiRoot() (api.Connection, error) {
@@ -126,31 +129,27 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	store := c.ClientStore()
 	controllerName := c.ControllerName()
-	accountName, err := store.CurrentAccount(controllerName)
+	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	currentAccount, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	modelOwner := currentAccount.User
+	modelOwner := accountDetails.User
 	if c.Owner != "" {
 		if !names.IsValidUser(c.Owner) {
 			return errors.Errorf("%q is not a valid user name", c.Owner)
 		}
 		modelOwner = names.NewUserTag(c.Owner).Canonical()
 	}
+	forUserSuffix := fmt.Sprintf(" for user '%s'", names.NewUserTag(modelOwner).Name())
 
 	attrs, err := c.getConfigValues(ctx)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	var forUserSuffix = ""
-	if modelOwner != currentAccount.User {
-		forUserSuffix += fmt.Sprintf(" for %q", c.Owner)
 	}
 
 	// If the user has specified a credential, then we will upload it if
@@ -158,33 +157,36 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if c.CredentialName != "" {
 		cloudClient := c.newCloudAPI(api)
 		modelOwnerTag := names.NewUserTag(modelOwner)
-		credentials, err := cloudClient.Credentials(modelOwnerTag)
+
+		defaults, err := cloudClient.CloudDefaults(modelOwnerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		cloudTag := names.NewCloudTag(defaults.Cloud)
+		credentials, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		if _, ok := credentials[c.CredentialName]; !ok {
-			controllerDetails, err := store.ControllerByName(controllerName)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			cloudDetails, err := cloud.CloudByName(controllerDetails.Cloud)
+			cloudDetails, err := cloudClient.Cloud(cloudTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			credential, _, _, err := modelcmd.GetCredentials(
 				store, c.CloudRegion, c.CredentialName,
-				controllerDetails.Cloud, cloudDetails.Type,
+				cloudTag.Id(), cloudDetails.Type,
 			)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ctx.Infof("uploading credential %q to controller%s", c.CredentialName, forUserSuffix)
+			ctx.Infof("uploading credential '%s' to controller%s", c.CredentialName, forUserSuffix)
 			credentials = map[string]cloud.Credential{c.CredentialName: *credential}
-			if err := cloudClient.UpdateCredentials(modelOwnerTag, credentials); err != nil {
+			if err := cloudClient.UpdateCredentials(modelOwnerTag, cloudTag, credentials); err != nil {
 				return errors.Trace(err)
 			}
 		} else {
-			ctx.Infof("using credential %q cached in controller", c.CredentialName)
+			ctx.Infof("using credential '%s' cached in controller", c.CredentialName)
 		}
 	}
 
@@ -194,33 +196,44 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	messageFormat := "added model %q"
+	messageFormat := "Added '%s' model"
 	messageArgs := []interface{}{c.Name}
 
-	if modelOwner == currentAccount.User {
+	if modelOwner == accountDetails.User {
 		controllerName := c.ControllerName()
-		accountName := c.AccountName()
-		if err := store.UpdateModel(controllerName, accountName, c.Name, jujuclient.ModelDetails{
+		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
 			model.UUID,
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
+		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		messageFormat += forUserSuffix
 	}
 
 	if model.CloudRegion != "" {
-		messageFormat += " in region %q"
-		messageArgs = append(messageArgs, model.CloudRegion)
+		messageFormat += " on %s/%s"
+		messageArgs = append(messageArgs, controllerDetails.Cloud, model.CloudRegion)
 	}
 	if model.CloudCredential != "" {
-		messageFormat += " with credential %q"
+		messageFormat += " with credential '%s'"
 		messageArgs = append(messageArgs, model.CloudCredential)
 	}
+
+	messageFormat += forUserSuffix
+
+	// lp#1594335
+	// "Added '<model>' model [on <cloud>/<region>] [with credential '<credential>'] for user '<user namePart>'"
 	ctx.Infof(messageFormat, messageArgs...)
+
+	if _, ok := attrs[config.AuthorizedKeysKey]; !ok {
+		// It is not an error to have no authorized-keys when adding a
+		// model, though this should never happen since we generate
+		// juju-specific SSH keys.
+		ctx.Infof(`
+No SSH authorized-keys were found. You must use "juju add-ssh-key"
+before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
+	}
 
 	return nil
 }
@@ -234,9 +247,14 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to parse config")
 	}
-	stringParams, ok := coercedValues.(map[string]interface{})
+	attrs, ok := coercedValues.(map[string]interface{})
 	if !ok {
 		return nil, errors.New("params must contain a YAML map with string keys")
 	}
-	return stringParams, nil
+	if err := common.FinalizeAuthorizedKeys(ctx, attrs); err != nil {
+		if errors.Cause(err) != common.ErrNoAuthorizedKeys {
+			return nil, errors.Trace(err)
+		}
+	}
+	return attrs, nil
 }

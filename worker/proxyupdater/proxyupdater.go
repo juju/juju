@@ -27,10 +27,11 @@ var (
 )
 
 type Config struct {
-	Directory    string
-	RegistryPath string
-	Filename     string
-	API          API
+	Directory      string
+	RegistryPath   string
+	Filename       string
+	API            API
+	ExternalUpdate func(proxyutils.Settings) error
 }
 
 // API is an interface that is provided to New
@@ -136,12 +137,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 }
 
 func (w *proxyWorker) writeEnvironment() error {
-	// TODO(dfc) this should be replaced with a switch on os.HostOS()
-	osystem, err := series.GetOSFromSeries(series.HostSeries())
-	if err != nil {
-		return err
-	}
-	switch osystem {
+	switch os.HostOS() {
 	case os.Windows:
 		return w.writeEnvironmentToRegistry()
 	default:
@@ -157,6 +153,12 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 		if err := w.writeEnvironment(); err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error writing proxy environment file: %v", err)
+		}
+		if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
+			if err := externalFunc(proxySettings); err != nil {
+				// It isn't really fatal, but we should record it.
+				logger.Errorf("%v", err)
+			}
 		}
 	}
 }

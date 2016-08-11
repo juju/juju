@@ -51,10 +51,10 @@ This command only starts a model migration - it does not wait for its
 completion. The progress of a migration can be tracked using the
 "status" command and by consulting the logs.
 
-See Also:
-   juju help login
-   juju help controllers
-   juju help status
+See also:
+    login
+    controllers
+    status
 `
 
 // Info implements cmd.Command.
@@ -62,7 +62,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
-		Purpose: "migrate a hosted model to another controller",
+		Purpose: "Migrate a hosted model to another controller.",
 		Doc:     migrateDoc,
 	}
 }
@@ -87,28 +87,24 @@ func (c *migrateCommand) Init(args []string) error {
 func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, error) {
 	store := c.ClientStore()
 
-	modelInfo, err := store.ModelByName(c.ControllerName(), c.AccountName(), c.model)
+	modelUUIDs, err := c.ModelUUIDs([]string{c.model})
 	if err != nil {
 		return nil, err
 	}
+	modelUUID := modelUUIDs[0]
 
 	controllerInfo, err := store.ControllerByName(c.targetController)
 	if err != nil {
 		return nil, err
 	}
 
-	accountName, err := store.CurrentAccount(c.targetController)
-	if err != nil {
-		return nil, err
-	}
-
-	accountInfo, err := store.AccountByName(c.targetController, accountName)
+	accountInfo, err := store.AccountDetails(c.targetController)
 	if err != nil {
 		return nil, err
 	}
 
 	return &controller.ModelMigrationSpec{
-		ModelUUID:            modelInfo.ModelUUID,
+		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
 		TargetAddrs:          controllerInfo.APIEndpoints,
 		TargetCACert:         controllerInfo.CACert,

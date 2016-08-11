@@ -158,7 +158,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(ctxt.Stdout, "credentials updated for cloud %s\n", c.CloudName)
+	fmt.Fprintf(ctxt.Stdout, "Credentials updated for cloud %q.\n", c.CloudName)
 	return nil
 }
 
@@ -182,7 +182,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 	if credentialName == "" {
-		fmt.Fprintln(ctxt.Stderr, "credentials entry aborted")
+		fmt.Fprintln(ctxt.Stderr, "Credentials entry aborted.")
 		return nil
 	}
 
@@ -220,12 +220,12 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	if err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctxt.Stdout, "credentials added for cloud %s\n\n", c.CloudName)
+	fmt.Fprintf(ctxt.Stdout, "Credentials added for cloud %s.\n\n", c.CloudName)
 	return nil
 }
 
 func (c *addCredentialCommand) promptCredentialName(out io.Writer, in io.Reader) (string, error) {
-	fmt.Fprint(out, "  credential name: ")
+	fmt.Fprint(out, "Enter credential name: ")
 	input, err := readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -234,7 +234,11 @@ func (c *addCredentialCommand) promptCredentialName(out io.Writer, in io.Reader)
 }
 
 func (c *addCredentialCommand) promptReplace(out io.Writer, in io.Reader) (bool, error) {
-	fmt.Fprint(out, "  replace existing credential? [y/N]: ")
+	fmt.Fprint(out, `
+A credential with that name already exists.
+
+Replace the existing credential? (y/N): `[1:])
+
 	input, err := readLine(in)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -244,7 +248,7 @@ func (c *addCredentialCommand) promptReplace(out io.Writer, in io.Reader) (bool,
 
 func (c *addCredentialCommand) promptAuthType(out io.Writer, in io.Reader, authTypes []jujucloud.AuthType) (jujucloud.AuthType, error) {
 	if len(authTypes) == 1 {
-		fmt.Fprintf(out, "  auth-type: %v\n", authTypes[0])
+		fmt.Fprintf(out, "Using auth-type %q.\n", authTypes[0])
 		return authTypes[0], nil
 	}
 	authType := ""
@@ -256,7 +260,8 @@ func (c *addCredentialCommand) promptAuthType(out io.Writer, in io.Reader, authT
 		}
 	}
 	for {
-		fmt.Fprintf(out, "  select auth-type [%v]: ", strings.Join(choices, ", "))
+		fmt.Fprintf(out, "Auth Types\n%s\n\nSelect auth-type: ",
+			strings.Join(choices, "\n"))
 		input, err := readLine(in)
 		if err != nil {
 			return "", errors.Trace(err)
@@ -275,7 +280,7 @@ func (c *addCredentialCommand) promptAuthType(out io.Writer, in io.Reader, authT
 		if isValid {
 			break
 		}
-		fmt.Fprintf(out, "  ...invalid auth type %q\n", authType)
+		fmt.Fprintf(out, "Invalid auth type %q.\n", authType)
 	}
 	return jujucloud.AuthType(authType), nil
 }
@@ -311,7 +316,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 					}
 				}
 				if !isValid {
-					fmt.Fprintf(out, "  ...invalid value %q\n", value)
+					fmt.Fprintf(out, "Invalid value %q.\n", value)
 					continue
 				}
 				if value == "" && !currentAttr.Optional {
@@ -337,7 +342,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 			if value != "" && currentAttr.FilePath {
 				value, err = jujucloud.ValidateFileAttrValue(value)
 				if err != nil {
-					fmt.Fprintf(out, "  ...%s\n", err.Error())
+					fmt.Fprintf(out, "Invalid file attribute %q.\n", err.Error())
 					continue
 				}
 			}
@@ -373,7 +378,7 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 
 	// Prompt for and accept input for field value.
-	fmt.Fprintf(out, "  %s%s: ", name, optionsPrompt)
+	fmt.Fprintf(out, "Enter %s%s: ", name, optionsPrompt)
 	var input string
 	var err error
 	if attr.Hidden {

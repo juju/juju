@@ -36,13 +36,14 @@ CONTROLLER  MODEL  USER  CLOUD/REGION
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 CONTROLLER           MODEL     USER         CLOUD/REGION
-aws-test             -         -            aws/us-east-1
+aws-test             admin     -            aws/us-east-1
 mallards*            my-model  admin@local  mallards/mallards1
-mark-test-prodstack  -         -            prodstack
+mark-test-prodstack  -         admin@local  prodstack
 
 `[1:]
 
-	s.createTestClientStore(c)
+	store := s.createTestClientStore(c)
+	delete(store.Accounts, "aws-test")
 	s.assertListControllers(c)
 }
 
@@ -50,6 +51,8 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
 controllers:
   aws-test:
+    current-model: admin
+    user: admin@local
     recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
@@ -66,6 +69,7 @@ controllers:
     cloud: mallards
     region: mallards1
   mark-test-prodstack:
+    user: admin@local
     recent-server: this-is-one-of-many-api-endpoints
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
@@ -89,6 +93,8 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 		Controllers: map[string]controller.ControllerItem{
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
+				ModelName:      "admin",
+				User:           "admin@local",
 				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
 				CACert:         "this-is-aws-test-ca-cert",
@@ -107,6 +113,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 			},
 			"mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",
+				User:           "admin@local",
 				Server:         "this-is-one-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-one-of-many-api-endpoints"},
 				CACert:         "this-is-a-ca-cert",

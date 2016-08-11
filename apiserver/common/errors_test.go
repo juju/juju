@@ -39,6 +39,11 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
+	err:        errors.UserNotFoundf("xxxx"),
+	code:       params.CodeUserNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeUserNotFound,
+}, {
 	err:        errors.Unauthorizedf("hello"),
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
@@ -182,9 +187,13 @@ var errorTransformTests = []struct {
 	code:   "",
 }, {
 	err:        common.UnknownModelError("dead-beef-123456"),
-	code:       params.CodeNotFound,
+	code:       params.CodeModelNotFound,
 	status:     http.StatusNotFound,
-	helperFunc: params.IsCodeNotFound,
+	helperFunc: params.IsCodeModelNotFound,
+}, {
+	err:    errors.Annotate(errors.New("i/o timeout"), "annotated"),
+	code:   params.CodeRetry,
+	status: http.StatusServiceUnavailable,
 }, {
 	err:    nil,
 	code:   "",
@@ -232,12 +241,10 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeNoAddressSet,
 			params.CodeUpgradeInProgress,
 			params.CodeMachineHasAttachedStorage,
-			params.CodeDischargeRequired:
+			params.CodeDischargeRequired,
+			params.CodeModelNotFound,
+			params.CodeRetry:
 			continue
-		case params.CodeNotFound:
-			if common.IsUnknownModelError(t.err) {
-				continue
-			}
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
 			continue

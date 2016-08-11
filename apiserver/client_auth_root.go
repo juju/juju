@@ -7,22 +7,23 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 )
 
 // clientAuthRoot restricts API calls for users of a model. Initially the
 // authorisation checks are only for read only access to the model, but in the
 // near future, full ACL support is desirable.
 type clientAuthRoot struct {
-	finder rpc.MethodFinder
-	user   *state.ModelUser
+	finder         rpc.MethodFinder
+	modelUser      description.UserAccess
+	controllerUser description.UserAccess
 }
 
 // newClientAuthRoot returns a new restrictedRoot.
-func newClientAuthRoot(finder rpc.MethodFinder, user *state.ModelUser) *clientAuthRoot {
-	return &clientAuthRoot{finder, user}
+func newClientAuthRoot(finder rpc.MethodFinder, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
+	return &clientAuthRoot{finder, modelUser, controllerUser}
 }
 
 // FindMethod returns a not supported error if the rootName is not one of the
@@ -34,7 +35,8 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	if err != nil {
 		return nil, err
 	}
-	if r.user.ReadOnly() {
+	// ReadOnly User
+	if r.modelUser.Access == description.ReadAccess {
 		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
 			isCallReadOnly(rootName, methodName)
 		if !canCall {

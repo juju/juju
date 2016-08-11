@@ -24,14 +24,14 @@ const (
 
 // This file contains the core of the Environ implementation.
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-	name string
+	name   string
+	cloud  environs.CloudSpec
+	client *environClient
 
 	lock      sync.Mutex
 	archMutex sync.Mutex
 
 	ecfg                   *environConfig
-	client                 *environClient
 	supportedArchitectures []string
 }
 
@@ -57,16 +57,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if env.client == nil || env.ecfg == nil || env.ecfg.clientConfigChanged(ecfg) {
-		client, err := newClient(ecfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		env.client = client
-	}
-
 	env.ecfg = ecfg
 
 	return nil
@@ -77,6 +67,17 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 // for the configuration data is stored in the state.
 func (env *environ) Config() *config.Config {
 	return env.ecfg.Config
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	logger.Infof("preparing model %q", env.name)
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
 }
 
 // Bootstrap initializes the state for the environment, possibly
@@ -97,7 +98,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return common.Bootstrap(ctx, env, params)
 }
 
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
 }
 
@@ -111,6 +112,12 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 func (env *environ) Destroy() error {
 	// You can probably ignore this method; the common implementation should work.
 	return common.Destroy(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
 }
 
 // PrecheckInstance performs a preflight check on the specified
@@ -127,11 +134,9 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 
 // Region is specified in the HasRegion interface.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	env.lock.Lock()
-	defer env.lock.Unlock()
 	return simplestreams.CloudSpec{
-		Region:   env.ecfg.region(),
-		Endpoint: env.ecfg.endpoint(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 

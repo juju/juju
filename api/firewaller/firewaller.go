@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -20,6 +21,7 @@ const firewallerFacade = "Firewaller"
 type State struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
+	*cloudspec.CloudSpecAPI
 }
 
 // NewState creates a new client-side Firewaller API facade.
@@ -28,6 +30,7 @@ func NewState(caller base.APICaller) *State {
 	return &State{
 		facade:       facadeCaller,
 		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller),
 	}
 }
 

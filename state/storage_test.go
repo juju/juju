@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -14,13 +15,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/testing/factory"
 )
 
 type StorageStateSuite struct {
@@ -33,47 +35,13 @@ type StorageStateSuiteBase struct {
 	ConnSuite
 }
 
-func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-
-	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-		IsDynamic:    true,
-	})
-	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeMachine,
-		IsDynamic:    true,
-	})
-	registry.RegisterProvider("environscoped-block", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-		SupportsFunc: func(k storage.StorageKind) bool {
-			return k == storage.StorageKindBlock
-		},
-		IsDynamic: true,
-	})
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders(
-		"someprovider", "environscoped", "machinescoped",
-		"environscoped-block", "static",
-	)
-	s.AddCleanup(func(c *gc.C) {
-		registry.RegisterProvider("environscoped", nil)
-		registry.RegisterProvider("machinescoped", nil)
-		registry.RegisterProvider("environscoped-block", nil)
-		registry.RegisterProvider("static", nil)
-	})
-}
-
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Create a pool that creates persistent block devices.
 	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
@@ -916,6 +884,58 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
 	}
+}
+
+func mustStorageConfig(name string, provider storage.ProviderType, attrs map[string]interface{}) *storage.Config {
+	cfg, err := storage.NewConfig(name, provider, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+var testingStorageProviders = storage.StaticProviderRegistry{
+	map[storage.ProviderType]storage.Provider{
+		"dummy": &dummystorage.StorageProvider{
+			DefaultPools_: []*storage.Config{radiancePool},
+		},
+		"lancashire": &dummystorage.StorageProvider{
+			DefaultPools_: []*storage.Config{blackPool},
+		},
+	},
+}
+
+var radiancePool = mustStorageConfig("radiance", "dummy", map[string]interface{}{"k": "v"})
+var blackPool = mustStorageConfig("black", "lancashire", map[string]interface{}{})
+
+func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		StorageProviderRegistry: testingStorageProviders,
+	})
+	s.AddCleanup(func(*gc.C) { st.Close() })
+
+	// When a model is created, it is populated with the default
+	// pools of each storage provider supported by the model's
+	// cloud provider.
+	pm := poolmanager.New(state.NewStateSettings(st), testingStorageProviders)
+	listed, err := pm.List()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byStorageConfigName(listed))
+	c.Assert(listed, jc.DeepEquals, []*storage.Config{blackPool, radiancePool})
+}
+
+type byStorageConfigName []*storage.Config
+
+func (c byStorageConfigName) Len() int {
+	return len(c)
+}
+
+func (c byStorageConfigName) Less(a, b int) bool {
+	return c[a].Name() < c[b].Name()
+}
+
+func (c byStorageConfigName) Swap(a, b int) {
+	c[a], c[b] = c[b], c[a]
 }
 
 // TODO(axw) the following require shared storage support to test:

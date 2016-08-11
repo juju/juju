@@ -11,7 +11,7 @@ import (
 )
 
 // NewGetCommandForTest returns a GetCommand with the api provided as specified.
-func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
+func NewGetCommandForTest(api GetModelAPI) cmd.Command {
 	cmd := &getCommand{
 		api: api,
 	}
@@ -27,9 +27,33 @@ func NewSetCommandForTest(api SetModelAPI) cmd.Command {
 }
 
 // NewUnsetCommandForTest returns an UnsetCommand with the api provided as specified.
-func NewUnsetCommandForTest(api UnsetEnvironmentAPI) cmd.Command {
+func NewUnsetCommandForTest(api UnsetModelAPI) cmd.Command {
 	cmd := &unsetCommand{
 		api: api,
+	}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewGetDefaultsCommandForTest returns a GetDefaultsCommand with the api provided as specified.
+func NewGetDefaultsCommandForTest(api modelDefaultsAPI) cmd.Command {
+	cmd := &getDefaultsCommand{
+		newAPIFunc: func() (modelDefaultsAPI, error) { return api, nil },
+	}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewSetDefaultsCommandForTest returns a SetDefaultsCommand with the api provided as specified.
+func NewSetDefaultsCommandForTest(api setModelDefaultsAPI) cmd.Command {
+	cmd := &setDefaultsCommand{
+		newAPIFunc: func() (setModelDefaultsAPI, error) { return api, nil },
+	}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewUnsetDefaultsCommandForTest returns a UnsetDefaultsCommand with the api provided as specified.
+func NewUnsetDefaultsCommandForTest(api unsetModelDefaultsAPI) cmd.Command {
+	cmd := &unsetDefaultsCommand{
+		newAPIFunc: func() (unsetModelDefaultsAPI, error) { return api, nil },
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -56,8 +80,15 @@ func NewShowCommandForTest(api ShowModelAPI, store jujuclient.ClientStore) cmd.C
 	return modelcmd.Wrap(cmd)
 }
 
+// NewDumpCommandForTest returns a DumpCommand with the api provided as specified.
+func NewDumpCommandForTest(api DumpModelAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &dumpCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommandForTest(api DestroyEnvironmentAPI, store jujuclient.ClientStore) cmd.Command {
+func NewDestroyCommandForTest(api DestroyModelAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &destroyCommand{
 		api: api,
 	}

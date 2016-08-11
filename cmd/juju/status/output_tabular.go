@@ -78,8 +78,12 @@ func (r *relationFormatter) get(k string) *statusRelation {
 
 func printHelper(tw *tabwriter.Writer) func(...interface{}) {
 	return func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%v\t", v)
+		for i, v := range values {
+			if i != len(values)-1 {
+				fmt.Fprintf(tw, "%v\t", v)
+			} else {
+				fmt.Fprintf(tw, "%v", v)
+			}
 		}
 		fmt.Fprintln(tw)
 	}
@@ -94,6 +98,10 @@ func getTabWriter(out io.Writer) *tabwriter.Writer {
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(value interface{}) ([]byte, error) {
+	const maxVersionWidth = 7
+	const ellipsis = "..."
+	const truncatedWidth = maxVersionWidth - len(ellipsis)
+
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
@@ -107,8 +115,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		p(values...)
 	}
 
-	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD", "VERSION"}
-	values := []interface{}{fs.Model.Name, fs.Model.Controller, fs.Model.Cloud, fs.Model.Version}
+	cloudRegion := fs.Model.Cloud
+	if fs.Model.CloudRegion != "" {
+		cloudRegion += "/" + fs.Model.CloudRegion
+	}
+
+	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD/REGION", "VERSION"}
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	if fs.Model.AvailableVersion != "" {
 		header = append(header, "UPGRADE-AVAILABLE")
 		values = append(values, fs.Model.AvailableVersion)
@@ -120,10 +133,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	outputHeaders("APP", "STATUS", "EXPOSED", "ORIGIN", "CHARM", "REV", "OS")
+	outputHeaders("APP", "VERSION", "STATUS", "EXPOSED", "ORIGIN", "CHARM", "REV", "OS")
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
+		version := app.Version
+		// Don't let a long version push out the version column.
+		if len(version) > maxVersionWidth {
+			version = version[:truncatedWidth] + ellipsis
+		}
 		p(appName,
+			version,
 			app.StatusInfo.Current,
 			fmt.Sprintf("%t", app.Exposed),
 			app.CharmOrigin,
@@ -138,9 +157,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			}
 		}
 
+		// Ensure that we pick a consistent name for peer relations.
+		sortedRelTypes := make([]string, 0, len(app.Relations))
+		for relType := range app.Relations {
+			sortedRelTypes = append(sortedRelTypes, relType)
+		}
+		sort.Strings(sortedRelTypes)
+
 		subs := set.NewStrings(app.SubordinateTo...)
-		for relType, relatedUnits := range app.Relations {
-			for _, related := range relatedUnits {
+		for _, relType := range sortedRelTypes {
+			for _, related := range app.Relations[relType] {
 				relations.add(related, appName, relType, subs.Contains(related))
 			}
 		}
@@ -167,13 +193,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.WorkloadStatusInfo.Current,
 			u.JujuStatusInfo.Current,
 			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			strings.Join(u.OpenedPorts, ","),
 			message,
 		)
 	}
 
-	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE")
+	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PUBLIC-ADDRESS", "PORTS", "MESSAGE")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)

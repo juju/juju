@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/environs"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -109,7 +108,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st0, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), nil)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
@@ -177,7 +176,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 		writer.WriteString(c.format(
 			rec.Time,
 			rec.Level,
-			rec.Entity,
+			rec.Entity.String(),
 			rec.Module,
 			rec.Message,
 		) + "\n")

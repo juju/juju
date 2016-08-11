@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/clock"
@@ -88,6 +89,13 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
+	zone, err := time.LoadLocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	state.GetClock = func() clock.Clock {
+		return leaseClock
+	}
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -429,23 +437,19 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
+	var lock hookLock
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"verify config change hook not run while lock held",
 			quickStart{},
-			acquireHookSyncLock{},
+			lock.acquire(),
 			changeConfig{"blog-title": "Goodness Gracious Me"},
 			waitHooks{},
-			releaseHookSyncLock,
+			lock.release(),
 			waitHooks{"config-changed"},
 		), ut(
-			"verify held lock by this unit is broken",
-			acquireHookSyncLock{"u/0:fake"},
-			quickStart{},
-			verifyHookSyncLockUnlocked,
-		), ut(
 			"verify held lock by another unit is not broken",
-			acquireHookSyncLock{"u/1:fake"},
+			lock.acquire(),
 			// Can't use quickstart as it has a built in waitHooks.
 			createCharm{},
 			serveCharm{},
@@ -454,8 +458,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitHooks{},
-			verifyHookSyncLockLocked,
-			releaseHookSyncLock,
+			lock.release(),
 			waitUnitAgent{status: status.StatusIdle},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
@@ -2140,7 +2143,7 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (operation.Executor, error) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil

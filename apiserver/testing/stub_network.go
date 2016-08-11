@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 )
 
 type StubNetwork struct {
@@ -337,6 +337,7 @@ type StubBacking struct {
 	*testing.Stub
 
 	EnvConfig *config.Config
+	Cloud     environs.CloudSpec
 
 	Zones   []providercommon.AvailabilityZone
 	Spaces  []networkingcommon.BackingSpace
@@ -369,6 +370,13 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		"name": envName,
 	}
 	sb.EnvConfig = coretesting.CustomModelConfig(c, extraAttrs)
+	sb.Cloud = environs.CloudSpec{
+		Type:             StubProviderType,
+		Name:             "cloud-name",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+	}
 	sb.Zones = []providercommon.AvailabilityZone{}
 	if withZones {
 		sb.Zones = make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
@@ -427,12 +435,12 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 	return sb.EnvConfig, nil
 }
 
-func (sb *StubBacking) ControllerConfig() (controller.Config, error) {
-	sb.MethodCall(sb, "ControllerConfig")
+func (sb *StubBacking) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
+	sb.MethodCall(sb, "CloudSpec")
 	if err := sb.NextErr(); err != nil {
-		return nil, err
+		return environs.CloudSpec{}, err
 	}
-	return controller.ControllerConfig(sb.EnvConfig.AllAttrs()), nil
+	return sb.Cloud, nil
 }
 
 func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
@@ -524,12 +532,12 @@ type StubProvider struct {
 
 var _ environs.EnvironProvider = (*StubProvider)(nil)
 
-func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	sp.MethodCall(sp, "Open", cfg)
+func (sp *StubProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	sp.MethodCall(sp, "Open", args.Config)
 	if err := sp.NextErr(); err != nil {
 		return nil, err
 	}
-	switch cfg.Name() {
+	switch args.Config.Name() {
 	case StubEnvironName:
 		return EnvironInstance, nil
 	case StubZonedEnvironName:
@@ -539,7 +547,7 @@ func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	case StubZonedNetworkingEnvironName:
 		return ZonedNetworkingEnvironInstance, nil
 	}
-	panic("unexpected model name: " + cfg.Name())
+	panic("unexpected model name: " + args.Config.Name())
 }
 
 // GoString implements fmt.GoStringer.

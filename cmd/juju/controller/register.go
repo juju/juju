@@ -25,6 +25,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -39,7 +41,7 @@ of a model to grant access to that model with "juju grant".`[1:])
 func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
-	cmd.refreshModels = cmd.RefreshModels
+	cmd.listModelsFunc = cmd.listModels
 	cmd.store = jujuclient.NewFileClientStore()
 	return modelcmd.WrapBase(cmd)
 }
@@ -48,33 +50,34 @@ func NewRegisterCommand() cmd.Command {
 // information.
 type registerCommand struct {
 	modelcmd.JujuCommandBase
-	apiOpen       api.OpenFunc
-	refreshModels func(_ jujuclient.ClientStore, controller, account string) error
-	store         jujuclient.ClientStore
-	EncodedData   string
+	apiOpen        api.OpenFunc
+	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
+	store          jujuclient.ClientStore
+	EncodedData    string
 }
 
 var usageRegisterSummary = `
 Registers a Juju user to a controller.`[1:]
 
 var usageRegisterDetails = `
-Connects to a controller and completes the user registration process that
-began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
-that is referred to in Usage.
-The user will be prompted for a password, which, once set, causes the 
-registration string to be voided. In order to start using Juju the user 
-can now either add a model or wait for a model to be shared with them.
-Some machine providers will require the user to be in possession of 
-certain credentials in order to add a model.
+Connects to a controller and completes the user registration process that began
+with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string' that is
+referred to in Usage.
+
+The user will be prompted for a password, which, once set, causes the
+registration string to be voided. In order to start using Juju the user can now
+either add a model or wait for a model to be shared with them.  Some machine
+providers will require the user to be in possession of certain credentials in
+order to add a model.
 
 Examples:
 
-    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
-    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
 See also: 
     add-user
-    change-user-password`
+    change-user-password
+    unregister`
 
 // Info implements Command.Info
 // `register` may seem generic, but is seen as simple and without potential
@@ -102,11 +105,12 @@ func (c *registerCommand) Init(args []string) error {
 
 func (c *registerCommand) Run(ctx *cmd.Context) error {
 
-	registrationParams, err := c.getParameters(ctx)
+	store := modelcmd.QualifyingClientStore{c.store}
+	registrationParams, err := c.getParameters(ctx, store)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = c.store.ControllerByName(registrationParams.controllerName)
+	_, err = store.ControllerByName(registrationParams.controllerName)
 	if err == nil {
 		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
 	} else if !errors.IsNotFound(err) {
@@ -159,7 +163,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
-	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+	if err := store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
@@ -170,24 +174,27 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		User:     registrationParams.userTag.Canonical(),
 		Macaroon: string(macaroonJSON),
 	}
-	accountName := accountDetails.User
-	if err := c.store.UpdateAccount(
-		registrationParams.controllerName, accountName, accountDetails,
-	); err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.store.SetCurrentAccount(
-		registrationParams.controllerName, accountName,
-	); err != nil {
+	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
-	// refresh the connection information.
-	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
+	// list the models available.
+	models, err := c.listModelsFunc(store, registrationParams.controllerName, accountDetails.User)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.store.SetCurrentController(registrationParams.controllerName); err != nil {
+	for _, model := range models {
+		owner := names.NewUserTag(model.Owner)
+		if err := store.UpdateModel(
+			registrationParams.controllerName,
+			jujuclient.JoinOwnerModelName(owner, model.Name),
+			jujuclient.ModelDetails{model.UUID},
+		); err != nil {
+			return errors.Annotate(err, "storing model details")
+		}
+	}
+	if err := store.SetCurrentController(registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -195,41 +202,58 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName, accountName)
+	return c.maybeSetCurrentModel(ctx, store, registrationParams.controllerName, accountDetails.User, models)
 }
 
-func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName, accountName string) error {
-	models, err := c.store.AllModels(controllerName, accountName)
-	if errors.IsNotFound(err) {
+func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	api, err := c.NewAPIRoot(store, controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer api.Close()
+	mm := modelmanager.NewClient(api)
+	return mm.ListModels(userName)
+}
+
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclient.ClientStore, controllerName, userName string, models []base.UserModel) error {
+	if len(models) == 0 {
 		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
 		return nil
-	} else if err != nil {
-		return errors.Trace(err)
 	}
 
 	// If we get to here, there is at least one model.
 	if len(models) == 1 {
 		// There is exactly one model shared,
 		// so set it as the current model.
-		var modelName string
-		for modelName = range models {
-			// Loop exists only to obtain one and only key.
-		}
-		err := c.store.SetCurrentModel(controllerName, accountName, modelName)
+		model := models[0]
+		owner := names.NewUserTag(model.Owner)
+		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
+		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q\n\n", modelName)
+		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q.\n\n", modelName)
 	} else {
 		fmt.Fprintf(ctx.Stderr, `
 There are %d models available. Use "juju switch" to select
 one of them:
 `, len(models))
-		modelNames := make(set.Strings)
-		for modelName := range models {
-			modelNames.Add(modelName)
+		user := names.NewUserTag(userName)
+		ownerModelNames := make(set.Strings)
+		otherModelNames := make(set.Strings)
+		for _, model := range models {
+			if model.Owner == userName {
+				ownerModelNames.Add(model.Name)
+				continue
+			}
+			owner := names.NewUserTag(model.Owner)
+			modelName := ownerQualifiedModelName(model.Name, owner, user)
+			otherModelNames.Add(modelName)
 		}
-		for _, modelName := range modelNames.SortedValues() {
+		for _, modelName := range ownerModelNames.SortedValues() {
+			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
+		}
+		for _, modelName := range otherModelNames.SortedValues() {
 			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
 		}
 		fmt.Fprintln(ctx.Stderr)
@@ -248,7 +272,7 @@ type registrationParams struct {
 
 // getParameters gets all of the parameters required for registering, prompting
 // the user as necessary.
-func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, error) {
+func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.ClientStore) (*registrationParams, error) {
 
 	// Decode key, username, controller addresses from the string supplied
 	// on the command line.
@@ -271,7 +295,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	copy(params.key[:], info.SecretKey)
 
 	// Prompt the user for the controller name.
-	controllerName, err := c.promptControllerName(ctx.Stderr, ctx.Stdin)
+	controllerName, err := c.promptControllerName(store, info.ControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -370,16 +394,35 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-func (c *registerCommand) promptControllerName(stderr io.Writer, stdin io.Reader) (string, error) {
-	fmt.Fprintf(stderr, "Please set a name for this controller: ")
+const errControllerConflicts = `WARNING: The controller proposed %q which clashes with an existing` +
+	` controller. The two controllers are entirely different.
+
+`
+
+func (c *registerCommand) promptControllerName(store jujuclient.ClientStore, suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
+	_, err := store.ControllerByName(suggestedName)
+	if err == nil {
+		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
+		suggestedName = ""
+	}
+	var setMsg string
+	setMsg = "Enter a name for this controller: "
+	if suggestedName != "" {
+		setMsg = fmt.Sprintf("Enter a name for this controller [%s]: ",
+			suggestedName)
+	}
+	fmt.Fprintf(stderr, setMsg)
 	defer stderr.Write([]byte{'\n'})
 	name, err := c.readLine(stdin)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	name = strings.TrimSpace(name)
-	if name == "" {
+	if name == "" && suggestedName == "" {
 		return "", errors.NewNotValid(nil, "you must specify a non-empty controller name")
+	}
+	if name == "" && suggestedName != "" {
+		return suggestedName, nil
 	}
 	return name, nil
 }

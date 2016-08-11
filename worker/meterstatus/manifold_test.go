@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -47,6 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
 		MachineLockName:         "machine-lock-name",
+		Clock:                   coretesting.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
 
@@ -56,21 +57,16 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = meterstatus.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
 
-	locksDir := c.MkDir()
-	lock, err := fslock.NewLock(locksDir, "machine-lock", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.resources = dt.StubResources{
-		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
-		"machine-lock-name": dt.StubResource{Output: lock},
+		"agent-name":     dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
+		"apicaller-name": dt.StubResource{Output: &dummyAPICaller{}},
 	}
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "machine-lock-name",
+		"agent-name", "apicaller-name",
 	})
 }
 
@@ -78,7 +74,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "machine-lock-name",
+		"agent-name",
 	} {
 		testResources := dt.StubResources{}
 		for k, v := range s.resources {
@@ -110,7 +106,7 @@ func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
 	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
 		return s.msClient
 	}
-	newHookRunner := func(_ names.UnitTag, _ *fslock.Lock, _ agent.Config) meterstatus.HookRunner {
+	newHookRunner := func(_ names.UnitTag, _ string, _ agent.Config, _ clock.Clock) meterstatus.HookRunner {
 		return &stubRunner{stub: s.stub}
 	}
 

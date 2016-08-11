@@ -603,6 +603,7 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
+			StatusMessage:    "starting",
 		}
 		return []txn.Op{{
 			C:      migrationsC,

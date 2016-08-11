@@ -55,6 +55,7 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Cloud:              dbModel.Cloud(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
@@ -101,6 +102,9 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	if err := export.sshHostKeys(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -176,16 +180,15 @@ func (e *exporter) modelUsers() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	for _, user := range users {
-		lastConn := lastConnections[strings.ToLower(user.UserName())]
+		lastConn := lastConnections[strings.ToLower(user.UserName)]
 		arg := description.UserArgs{
-			Name:           user.UserTag(),
-			DisplayName:    user.DisplayName(),
-			CreatedBy:      names.NewUserTag(user.CreatedBy()),
-			DateCreated:    user.DateCreated(),
+			Name:           user.UserTag,
+			DisplayName:    user.DisplayName,
+			CreatedBy:      user.CreatedBy,
+			DateCreated:    user.DateCreated,
 			LastConnection: lastConn,
-			ReadOnly:       user.ReadOnly(),
+			Access:         user.Access,
 		}
 		e.model.AddUser(arg)
 	}
@@ -549,9 +552,14 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
+		workloadVersion, err := unit.WorkloadVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
+			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
 			MeterStatusCode: unitMeterStatus.Code,
 			MeterStatusInfo: unitMeterStatus.Info,
@@ -565,7 +573,8 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
-		// workload uses globalKey, agent uses globalAgentKey.
+		// workload uses globalKey, agent uses globalAgentKey,
+		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
@@ -573,12 +582,16 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
 		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
+
 		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
 		exUnit.SetAgentStatus(statusArgs)
 		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+
+		workloadVersionKey := unit.globalWorkloadVersionKey()
+		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
 		tools, err := unit.AgentTools()
 		if err != nil {
@@ -952,7 +965,10 @@ func (e *exporter) readAllStatusHistory() error {
 	count := 0
 	e.statusHistory = make(map[string][]historicalStatusDoc)
 	var doc historicalStatusDoc
-	iter := statuses.Find(nil).Sort("-updated").Iter()
+	// In tests, sorting by time can leave the results
+	// underconstrained - include document id for deterministic
+	// ordering in those cases.
+	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		history := e.statusHistory[doc.GlobalKey]
@@ -1072,6 +1088,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		RootDisk:     optionalInt("rootdisk"),
 		Spaces:       optionalStringSlice("spaces"),
 		Tags:         optionalStringSlice("tags"),
+		VirtType:     optionalString("virttype"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)
@@ -1116,4 +1133,220 @@ func (e *exporter) logExtras() {
 	for key, doc := range e.annotations {
 		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
 	}
+}
+
+func (e *exporter) storage() error {
+	if err := e.volumes(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := e.filesystems(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (e *exporter) volumes() error {
+	coll, closer := e.st.getCollection(volumesC)
+	defer closer()
+
+	attachments, err := e.readVolumeAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc volumeDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		vol := &volume{e.st, doc}
+		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read volumes")
+	}
+	return nil
+}
+
+func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
+	args := description.VolumeArgs{
+		Tag:     vol.VolumeTag(),
+		Binding: vol.LifeBinding(),
+		// TODO: add storage link
+	}
+	logger.Debugf("addVolume: %#v", vol.doc)
+	if info, err := vol.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.HardwareID = info.HardwareId
+		args.VolumeID = info.VolumeId
+		args.Persistent = info.Persistent
+	} else {
+		params, _ := vol.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+	}
+
+	globalKey := vol.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for volume %s", vol.doc.Name)
+	}
+
+	exVolume := e.model.AddVolume(args)
+	exVolume.SetStatus(statusArgs)
+	exVolume.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	if count := len(volAttachments); count != vol.doc.AttachmentCount {
+		return errors.Errorf("volume attachment count mismatch, have %d, expected %d",
+			count, vol.doc.AttachmentCount)
+	}
+	for _, doc := range volAttachments {
+		va := volumeAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.VolumeAttachmentArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
+			args.ReadOnly = info.ReadOnly
+			args.DeviceName = info.DeviceName
+			args.DeviceLink = info.DeviceLink
+			args.BusAddress = info.BusAddress
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+		}
+		exVolume.AddAttachment(args)
+	}
+	return nil
+}
+
+func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
+	coll, closer := e.st.getCollection(volumeAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]volumeAttachmentDoc)
+	var doc volumeAttachmentDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Volume] = append(result[doc.Volume], doc)
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read volumes attachments")
+	}
+	e.logger.Debugf("read %d volume attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) filesystems() error {
+	coll, closer := e.st.getCollection(filesystemsC)
+	defer closer()
+
+	attachments, err := e.readFilesystemAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc filesystemDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		fs := &filesystem{e.st, doc}
+		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read filesystems")
+	}
+	return nil
+}
+
+func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttachmentDoc) error {
+	// Here we don't care about the cases where the filesystem is not assigned to storage instances
+	// nor no backing volues. In both those situations we have empty tags.
+	storage, _ := fs.Storage()
+	volume, _ := fs.Volume()
+	args := description.FilesystemArgs{
+		Tag:     fs.FilesystemTag(),
+		Storage: storage,
+		Volume:  volume,
+		Binding: fs.LifeBinding(),
+	}
+	logger.Debugf("addFilesystem: %#v", fs.doc)
+	if info, err := fs.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.FilesystemID = info.FilesystemId
+	} else {
+		params, _ := fs.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+	}
+
+	globalKey := fs.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for filesystem %s", fs.doc.FilesystemId)
+	}
+
+	exFilesystem := e.model.AddFilesystem(args)
+	exFilesystem.SetStatus(statusArgs)
+	exFilesystem.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	if count := len(fsAttachments); count != fs.doc.AttachmentCount {
+		return errors.Errorf("filesystem attachment count mismatch, have %d, expected %d",
+			count, fs.doc.AttachmentCount)
+	}
+	for _, doc := range fsAttachments {
+		va := filesystemAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.FilesystemAttachmentArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
+			args.ReadOnly = info.ReadOnly
+			args.MountPoint = info.MountPoint
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+			args.MountPoint = params.Location
+		}
+		exFilesystem.AddAttachment(args)
+	}
+	return nil
+}
+
+func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
+	coll, closer := e.st.getCollection(filesystemAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]filesystemAttachmentDoc)
+	var doc filesystemAttachmentDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read filesystem attachments")
+	}
+	e.logger.Debugf("read %d filesystem attachment documents", count)
+	return result, nil
 }

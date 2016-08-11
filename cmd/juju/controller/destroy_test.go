@@ -19,10 +19,11 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -49,6 +50,7 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
+	cloud      environs.CloudSpec
 	env        map[string]interface{}
 	destroyAll bool
 	blocks     []params.ModelBlockInfo
@@ -59,6 +61,14 @@ type fakeDestroyAPI struct {
 func (f *fakeDestroyAPI) Close() error {
 	f.MethodCall(f, "Close")
 	return f.NextErr()
+}
+
+func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	f.MethodCall(f, "CloudSpec", tag)
+	if err := f.NextErr(); err != nil {
+		return environs.CloudSpec{}, err
+	}
+	return f.cloud, nil
 }
 
 func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
@@ -96,20 +106,19 @@ func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 
 // fakeDestroyAPIClient mocks out the client API
 type fakeDestroyAPIClient struct {
-	err           error
-	env           map[string]interface{}
-	envgetcalled  bool
-	destroycalled bool
+	err            error
+	modelgetcalled bool
+	destroycalled  bool
 }
 
 func (f *fakeDestroyAPIClient) Close() error { return nil }
 
 func (f *fakeDestroyAPIClient) ModelGet() (map[string]interface{}, error) {
-	f.envgetcalled = true
+	f.modelgetcalled = true
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.env, nil
+	return map[string]interface{}{}, nil
 }
 
 func (f *fakeDestroyAPIClient) DestroyModel() error {
@@ -119,11 +128,10 @@ func (f *fakeDestroyAPIClient) DestroyModel() error {
 
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":            "dummy",
-		"name":            name,
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
-		"controller":      "true",
+		"type":       "dummy",
+		"name":       name,
+		"uuid":       testing.ModelTag.Id(),
+		"controller": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg.AllAttrs()
@@ -134,6 +142,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
+		cloud:     dummy.SampleCloudSpec(),
 		envStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
@@ -149,8 +158,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		CACert:         testing.CACert,
 		ControllerUUID: test3UUID,
 	}
-	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["test1"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 
 	var modelList = []struct {
@@ -181,12 +190,13 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			APIEndpoints:   []string{"localhost"},
 			CACert:         testing.CACert,
 		})
-		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
+		s.store.UpdateModel(controllerName, modelName, jujuclient.ModelDetails{
 			ModelUUID: model.modelUUID,
 		})
 		if model.bootstrapCfg != nil {
 			s.store.BootstrapConfig[controllerName] = jujuclient.BootstrapConfig{
-				Config: createBootstrapInfo(c, "admin"),
+				Config:    createBootstrapInfo(c, "admin"),
+				CloudType: "dummy",
 			}
 		}
 
@@ -287,7 +297,7 @@ func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
-		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
+		"getting controller environ: getting model config from API: controller \"test3\" not found",
 	)
 	checkControllerExistsInStore(c, "test3", s.store)
 }
@@ -349,11 +359,12 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		CACert:         testing.CACert,
 		ControllerUUID: test1UUID,
 	}
-	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["test1"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 	s.store.BootstrapConfig["test1"] = jujuclient.BootstrapConfig{
-		Config: createBootstrapInfo(c, "admin"),
+		Config:    createBootstrapInfo(c, "admin"),
+		CloudType: "dummy",
 	}
 }
 

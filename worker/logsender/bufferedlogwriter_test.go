@@ -55,13 +55,14 @@ func (s *bufferedLogWriterSuite) TestBuffering(c *gc.C) {
 	now := time.Now()
 	for i := 0; i < numMessages; i++ {
 		s.writer.Write(
-			loggo.Level(i),
-			fmt.Sprintf("module%d", i),
-			fmt.Sprintf("filename%d", i),
-			i, // line number
-			now.Add(time.Duration(i)),
-			fmt.Sprintf("message%d", i),
-		)
+			loggo.Entry{
+				Level:     loggo.Level(i),
+				Module:    fmt.Sprintf("module%d", i),
+				Filename:  fmt.Sprintf("filename%d", i),
+				Line:      i,
+				Timestamp: now.Add(time.Duration(i)),
+				Message:   fmt.Sprintf("message%d", i),
+			})
 	}
 
 	for i := 0; i < numMessages; i++ {
@@ -77,7 +78,15 @@ func (s *bufferedLogWriterSuite) TestBuffering(c *gc.C) {
 
 func (s *bufferedLogWriterSuite) TestLimiting(c *gc.C) {
 	write := func(msgNum int) {
-		s.writer.Write(loggo.INFO, "module", "filename", 42, time.Now(), fmt.Sprintf("log%d", msgNum))
+		s.writer.Write(
+			loggo.Entry{
+				Level:     loggo.INFO,
+				Module:    "module",
+				Filename:  "filename",
+				Line:      42,
+				Timestamp: time.Now(),
+				Message:   fmt.Sprintf("log%d", msgNum),
+			})
 	}
 
 	expect := func(msgNum, dropped int) {
@@ -164,7 +173,15 @@ func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
 
 func (s *bufferedLogWriterSuite) writeAndReceive(c *gc.C) {
 	now := time.Now()
-	s.writer.Write(loggo.INFO, "module", "filename", 99, now, "message")
+	s.writer.Write(
+		loggo.Entry{
+			Level:     loggo.INFO,
+			Module:    "module",
+			Filename:  "filename",
+			Line:      99,
+			Timestamp: now,
+			Message:   "message",
+		})
 	c.Assert(*s.receiveOne(c), gc.DeepEquals, logsender.LogRecord{
 		Time:     now,
 		Module:   "module",

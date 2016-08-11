@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
@@ -44,7 +43,7 @@ type APIClient interface {
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single Service by tag.
-	ApplicationCharmActions(params.Entity) (*charm.Actions, error)
+	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.

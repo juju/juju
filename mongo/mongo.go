@@ -24,7 +24,7 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
-	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 )
@@ -591,12 +591,12 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(environs.DefaultStatePort)}
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(controller.DefaultStatePort)}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
 			if !strings.Contains(err.Error(), "exit status 1") {
-				logger.Errorf("semanage failed to provide access on port %d error %s", environs.DefaultStatePort, err)
+				logger.Errorf("semanage failed to provide access on port %d error %s", controller.DefaultStatePort, err)
 				return err
 			}
 		}

@@ -4,11 +4,10 @@
 package model
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -19,27 +18,28 @@ func NewUnsetCommand() cmd.Command {
 
 type unsetCommand struct {
 	modelcmd.ModelCommandBase
-	api  UnsetEnvironmentAPI
+	api  UnsetModelAPI
 	keys []string
 }
 
-// unsetEnvHelpDoc is multi-line since we need to use ` to denote
+// unsetModelHelpDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
-const unsetEnvHelpDoc = "" +
+const unsetModelHelpDoc = "" +
 	"A model key is reset to its default value. If it does not have such a\n" +
 	"value defined then it is removed.\n" +
 	"Attempting to remove a required key with no default value will result\n" +
 	"in an error.\n" +
 	"By default, the model is the current model.\n" +
-	"Model configuration key values can be viewed with `juju get-model-config`.\n" + unsetEnvHelpDocExamples
+	"Model configuration key values can be viewed with `juju get-model-config`.\n" + unsetModelHelpDocExamples
 
-const unsetEnvHelpDocExamples = `
+const unsetModelHelpDocExamples = `
 Examples:
 
-    juju unset-model-config api-port test-mode
+    juju unset-model-config ftp-proxy test-mode
 
-See also: set-model-config
-          get-model-config
+See also:
+    set-model-config
+    get-model-config
 `
 
 func (c *unsetCommand) Info() *cmd.Info {
@@ -47,29 +47,33 @@ func (c *unsetCommand) Info() *cmd.Info {
 		Name:    "unset-model-config",
 		Args:    "<model key> ...",
 		Purpose: "Unsets model configuration.",
-		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
+		Doc:     unsetModelHelpDoc,
 	}
 }
 
-func (c *unsetCommand) Init(args []string) (err error) {
+func (c *unsetCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no keys specified")
+		return errors.New("no keys specified")
 	}
 	c.keys = args
 	return nil
 }
 
-type UnsetEnvironmentAPI interface {
+type UnsetModelAPI interface {
 	Close() error
 	ModelGet() (map[string]interface{}, error)
 	ModelUnset(keys ...string) error
 }
 
-func (c *unsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
+func (c *unsetCommand) getAPI() (UnsetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return modelconfig.NewClient(api), nil
 }
 
 func (c *unsetCommand) Run(ctx *cmd.Context) error {

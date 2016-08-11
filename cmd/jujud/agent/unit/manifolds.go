@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
@@ -19,10 +20,10 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
@@ -81,11 +82,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
 
-		// The machine lock manifold is a thin concurrent wrapper around an
-		// FSLock in an agreed location. We expect it to be replaced with an
-		// in-memory lock when the unit agent moves into the machine agent.
-		machineLockName: machinelock.Manifold(machinelock.ManifoldConfig{
-			AgentName: agentName,
+		// The introspection worker provides debugging information over
+		// an abstract domain socket - linux only (for now).
+		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
+			AgentName:  agentName,
+			WorkerFunc: introspection.NewWorker,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -140,7 +141,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
@@ -178,6 +179,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			WorkerFunc:    proxyupdater.NewWorker,
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is
@@ -210,10 +212,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:             agentName,
-			APICallerName:         apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			MachineLockName: coreagent.MachineLockName,
+			Clock:           clock.WallClock,
 			LeadershipTrackerName: leadershipTrackerName,
-			MachineLockName:       machineLockName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 		})),
@@ -236,7 +239,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		meterStatusName: ifNotMigrating(meterstatus.Manifold(meterstatus.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			MachineLockName:          machineLockName,
+			MachineLockName:          coreagent.MachineLockName,
+			Clock:                    clock.WallClock,
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
@@ -261,7 +265,6 @@ var ifNotMigrating = engine.Housing{
 
 const (
 	agentName            = "agent"
-	machineLockName      = "machine-lock"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	logSenderName        = "log-sender"
@@ -271,6 +274,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
+	introspectionName        = "introspection"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -69,12 +70,23 @@ anything else ignored
 LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
-		c.Assert(name, gc.Equals, "foobar")
-		return []net.Addr{
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-		}, nil
+		if name == "foobar" {
+			// The addresses on the LXC bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			}, nil
+		} else if name == network.DefaultLXDBridge {
+			// The addresses on the LXD bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			}, nil
+		}
+		c.Fatalf("unknown bridge in testing: %v", name)
+		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
@@ -110,60 +122,74 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.3.1", // lxc bridge address filtered.
 		"10.0.3.4", // lxc bridge address filtered (-"-).
 		"10.0.3.3", // not a lxc bridge address
+		"10.0.4.1", // lxd bridge address filtered.
+		"10.0.4.4", // lxd bridge address filtered.
+		"10.0.4.5", // not an lxd bridge address
 	)
 	filteredAddrs := network.NewAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.3",
+		"10.0.4.5",
 	)
 
-	// Prepare bootstrap config, so we can use it in the state policy.
-	provider, err := environs.Provider("dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	modelCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: modelCfg})
-	c.Assert(err, jc.ErrorIsNil)
-	defer dummy.Reset(c)
+	controllerCfg := testing.FakeControllerConfig()
 
 	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": hostedModelUUID,
 	}
-	modelConfigDefaults := map[string]interface{}{
+	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
 	}
-
+	regionConfig := cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"a-key": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"b-key": "b-value",
+		},
+	}
+	var envProvider fakeProvider
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineConstraints:             expectBootstrapConstraints,
 			BootstrapMachineInstanceId:              "i-bootstrap",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:   []cloud.Region{{Name: "some-region"}},
+				Type:         "dummy",
+				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+				Regions:      []cloud.Region{{Name: "a-region"}},
+				RegionConfig: regionConfig,
 			},
-			ControllerCloudName:   "dummy",
-			ControllerCloudRegion: "some-region",
-			ControllerModelConfig: modelCfg,
-			ModelConstraints:      expectModelConstraints,
-			ModelConfigDefaults:   modelConfigDefaults,
-			HostedModelConfig:     hostedModelConfigAttrs,
+			ControllerCloudName:       "dummy",
+			ControllerCloudRegion:     "a-region",
+			ControllerConfig:          controllerCfg,
+			ControllerModelConfig:     modelCfg,
+			ModelConstraints:          expectModelConstraints,
+			ControllerInheritedConfig: controllerInheritedConfig,
+			HostedModelConfig:         hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		SharedSecret:              "abc123",
+		Provider: func(t string) (environs.EnvironProvider, error) {
+			c.Assert(t, gc.Equals, "dummy")
+			return &envProvider, nil
+		},
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy(),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -184,15 +210,14 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check controller config
-	controllerCfg, err := st.ControllerConfig()
+	controllerCfg, err = st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
-		"controller-uuid": testing.ModelTag.Id(),
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-		"state-port":      1234,
-		// Dummy provider uses a random port, which is added to cfg used to create environment.
-		"api-port": controller.Config(modelCfg.AllAttrs()).APIPort(),
+		"controller-uuid":         testing.ModelTag.Id(),
+		"ca-cert":                 testing.CACert,
+		"state-port":              1234,
+		"api-port":                17777,
+		"set-numa-control-policy": false,
 	})
 
 	// Check that controller model configuration has been added, and
@@ -200,17 +225,19 @@ LXC_BRIDGE="ignored"`[1:])
 	newModelCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Add in the cloud attributes.
-	expectedAttrs := modelCfg.AllAttrs()
+	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
-	controller.RemoveControllerAttributes(expectedAttrs)
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
-	// Check that the hosted model has been added, and model constraints
-	// set.
+	// Check that the hosted model has been added, model constraints
+	// set, and its config contains the same authorized-keys as the
+	// controller model.
 	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer hostedModelSt.Close()
@@ -220,11 +247,12 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "a-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
+	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -269,9 +297,29 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
+
+	// Make sure that the hosted model Environ's Create method is called.
+	envProvider.CheckCallNames(c,
+		"RestrictedConfigAttributes",
+		"PrepareConfig",
+		"Validate",
+		"Open",
+		"Create",
+	)
+	envProvider.CheckCall(c, 3, "Open", environs.OpenParams{
+		Cloud: environs.CloudSpec{
+			Type:   "dummy",
+			Name:   "dummy",
+			Region: "a-region",
+		},
+		Config: hostedCfg,
+	})
+	envProvider.CheckCall(c, 4, "Create", environs.CreateParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+	})
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
@@ -293,7 +341,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy())
+	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -339,22 +387,27 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
 			ControllerCloudName:   "dummy",
+			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
 			HostedModelConfig:     hostedModelConfigAttrs,
 		},
 		BootstrapMachineJobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		SharedSecret:         "abc123",
+		Provider: func(t string) (environs.EnvironProvider, error) {
+			return &fakeProvider{}, nil
+		},
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	st, _, err = agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
+		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {
 		st.Close()
@@ -396,9 +449,44 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type fakeProvider struct {
+	environs.EnvironProvider
+	gitjujutesting.Stub
+}
+
+func (p *fakeProvider) RestrictedConfigAttributes() []string {
+	p.MethodCall(p, "RestrictedConfigAttributes")
+	return []string{}
+}
+
+func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "PrepareConfig", args)
+	return args.Config, p.NextErr()
+}
+
+func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "Validate", newCfg, oldCfg)
+	return newCfg, p.NextErr()
+}
+
+func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	p.MethodCall(p, "Open", args)
+	return &fakeEnviron{Stub: &p.Stub}, p.NextErr()
+}
+
+type fakeEnviron struct {
+	environs.Environ
+	*gitjujutesting.Stub
+}
+
+func (e *fakeEnviron) Create(args environs.CreateParams) error {
+	e.MethodCall(e, "Create", args)
+	return e.NextErr()
 }

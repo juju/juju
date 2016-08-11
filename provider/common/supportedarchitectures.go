@@ -24,5 +24,5 @@ func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata
 	for _, im := range matchingImages {
 		arches.Add(im.Arch)
 	}
-	return arches.Values(), nil
+	return arches.SortedValues(), nil
 }

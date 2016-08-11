@@ -24,10 +24,8 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
-	common.SupportsUnitPlacementPolicy
-
-	name string
-
+	name    string
+	cloud   environs.CloudSpec
 	compute *joyentCompute
 
 	// supportedArchitectures caches the architectures
@@ -40,14 +38,16 @@ type joyentEnviron struct {
 }
 
 // newEnviron create a new Joyent environ instance from config.
-func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
-	env := new(joyentEnviron)
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*joyentEnviron, error) {
+	env := &joyentEnviron{
+		name:  cfg.Name(),
+		cloud: cloud,
+	}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}
-	env.name = cfg.Name()
 	var err error
-	env.compute, err = newCompute(env.ecfg)
+	env.compute, err = newCompute(cloud)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,7 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
+func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()
 	defer env.archLock.Unlock()
 	if env.supportedArchitectures != nil {
@@ -93,8 +92,8 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec := simplestreams.CloudSpec{
-		Region:   cfg.Region(),
-		Endpoint: cfg.SdcUrl(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
@@ -120,17 +119,33 @@ func (env *joyentEnviron) Config() *config.Config {
 	return env.Ecfg().Config
 }
 
+// Create is part of the Environ interface.
+func (env *joyentEnviron) Create(environs.CreateParams) error {
+	if err := verifyCredentials(env); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
+func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	instanceIds := []instance.Id{}
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")
-	filter.Set(tagKey("model"), env.Config().Name())
-	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
+	filter.Set(tagKey(tags.JujuModel), controllerUUID)
 	filter.Set(tagKey(tags.JujuIsController), "true")
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
@@ -153,6 +168,12 @@ func (env *joyentEnviron) Destroy() error {
 	return errors.Trace(common.Destroy(env))
 }
 
+// DestroyController implements the Environ interface.
+func (env *joyentEnviron) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
+}
+
 func (env *joyentEnviron) Ecfg() *environConfig {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -162,12 +183,12 @@ func (env *joyentEnviron) Ecfg() *environConfig {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = env.Ecfg().Region()
+		region = env.cloud.Region
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        config.PreferredSeries(env.Ecfg()),
 		Region:        region,
-		Endpoint:      env.Ecfg().sdcUrl(),
+		Endpoint:      env.cloud.Endpoint,
 		Architectures: []string{"amd64", "armhf"},
 	}, nil
 }
@@ -175,7 +196,7 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 // Region is specified in the HasRegion interface.
 func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region:   env.Ecfg().Region(),
-		Endpoint: env.Ecfg().sdcUrl(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }

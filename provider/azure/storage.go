@@ -7,23 +7,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/storage"
 )
 
 const (
+	azureStorageProviderType = "azure"
+
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
 	//
 	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
@@ -41,9 +43,22 @@ const (
 	vhdExtension = ".vhd"
 )
 
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{azureStorageProviderType}
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == azureStorageProviderType {
+		return &azureStorageProvider{env}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
 // azureStorageProvider is a storage provider for Azure disks.
 type azureStorageProvider struct {
-	environProvider *azureEnvironProvider
+	env *azureEnviron
 }
 
 var _ storage.Provider = (*azureStorageProvider)(nil)
@@ -67,43 +82,42 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	return azureStorageConfig, nil
 }
 
-// ValidateConfig is defined on the Provider interface.
+// ValidateConfig is part of the Provider interface.
 func (e *azureStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newAzureStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 
-// Supports is defined on the Provider interface.
+// Supports is part of the Provider interface.
 func (e *azureStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
-// Scope is defined on the Provider interface.
+// Scope is part of the Provider interface.
 func (e *azureStorageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-// Dynamic is defined on the Provider interface.
+// Dynamic is part of the Provider interface.
 func (e *azureStorageProvider) Dynamic() bool {
 	return true
 }
 
-// VolumeSource is defined on the Provider interface.
-func (e *azureStorageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
+// DefaultPools is part of the Provider interface.
+func (e *azureStorageProvider) DefaultPools() []*storage.Config {
+	return nil
+}
+
+// VolumeSource is part of the Provider interface.
+func (e *azureStorageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	if err := e.ValidateConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := newEnviron(e.environProvider, environConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &azureVolumeSource{env}, nil
+	return &azureVolumeSource{e.env}, nil
 }
 
-// FilesystemSource is defined on the Provider interface.
-func (e *azureStorageProvider) FilesystemSource(
-	environConfig *config.Config, providerConfig *storage.Config,
-) (storage.FilesystemSource, error) {
+// FilesystemSource is part of the Provider interface.
+func (e *azureStorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
@@ -131,6 +145,10 @@ func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []st
 	if err != nil {
 		return nil, errors.Annotate(err, "getting virtual machines")
 	}
+	storageAccount, err := v.env.getStorageAccount(false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Update VirtualMachine objects in-memory,
 	// and then perform the updates all at once.
@@ -146,7 +164,9 @@ func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []st
 			results[i].Error = vm.err
 			continue
 		}
-		volume, volumeAttachment, err := v.createVolume(vm.vm, p)
+		volume, volumeAttachment, err := v.createVolume(
+			vm.vm, p, storageAccount,
+		)
 		if err != nil {
 			results[i].Error = err
 			vm.err = err
@@ -177,6 +197,7 @@ func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []st
 func (v *azureVolumeSource) createVolume(
 	vm *compute.VirtualMachine,
 	p storage.VolumeParams,
+	storageAccount *armstorage.Account,
 ) (*storage.Volume, *storage.VolumeAttachment, error) {
 
 	lun, err := nextAvailableLUN(vm)
@@ -184,14 +205,14 @@ func (v *azureVolumeSource) createVolume(
 		return nil, nil, errors.Annotate(err, "choosing LUN")
 	}
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
+	dataDisksRoot := dataDiskVhdRoot(storageAccount)
 	dataDiskName := p.Tag.String()
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
 	sizeInGib := mibToGib(p.Size)
 	dataDisk := compute.DataDisk{
-		Lun:          to.IntPtr(lun),
-		DiskSizeGB:   to.IntPtr(int(sizeInGib)),
+		Lun:          to.Int32Ptr(lun),
+		DiskSizeGB:   to.Int32Ptr(int32(sizeInGib)),
 		Name:         to.StringPtr(dataDiskName),
 		Vhd:          &compute.VirtualHardDisk{to.StringPtr(vhdURI)},
 		Caching:      compute.ReadWrite,
@@ -314,7 +335,7 @@ func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		_, err := blobsClient.DeleteBlobIfExists(
-			dataDiskVHDContainer, volumeId+vhdExtension,
+			dataDiskVHDContainer, volumeId+vhdExtension, nil,
 		)
 		results[i] = err
 	}
@@ -347,6 +368,10 @@ func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmen
 	if err != nil {
 		return nil, errors.Annotate(err, "getting virtual machines")
 	}
+	storageAccount, err := v.env.getStorageAccount(false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Update VirtualMachine objects in-memory,
 	// and then perform the updates all at once.
@@ -364,7 +389,9 @@ func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmen
 			results[i].Error = vm.err
 			continue
 		}
-		volumeAttachment, updated, err := v.attachVolume(vm.vm, p)
+		volumeAttachment, updated, err := v.attachVolume(
+			vm.vm, p, storageAccount,
+		)
 		if err != nil {
 			results[i].Error = err
 			vm.err = err
@@ -398,9 +425,15 @@ func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmen
 func (v *azureVolumeSource) attachVolume(
 	vm *compute.VirtualMachine,
 	p storage.VolumeAttachmentParams,
+	storageAccount *armstorage.Account,
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
+	storageAccount, err := v.env.getStorageAccount(false)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+
+	dataDisksRoot := dataDiskVhdRoot(storageAccount)
 	dataDiskName := p.VolumeId
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
@@ -420,7 +453,7 @@ func (v *azureVolumeSource) attachVolume(
 			p.Volume,
 			p.Machine,
 			storage.VolumeAttachmentInfo{
-				BusAddress: diskBusAddress(to.Int(disk.Lun)),
+				BusAddress: diskBusAddress(to.Int32(disk.Lun)),
 			},
 		}
 		return volumeAttachment, false, nil
@@ -432,7 +465,7 @@ func (v *azureVolumeSource) attachVolume(
 	}
 
 	dataDisk := compute.DataDisk{
-		Lun:          to.IntPtr(lun),
+		Lun:          to.Int32Ptr(lun),
 		Name:         to.StringPtr(dataDiskName),
 		Vhd:          &compute.VirtualHardDisk{to.StringPtr(vhdURI)},
 		Caching:      compute.ReadWrite,
@@ -465,6 +498,10 @@ func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmen
 	if err != nil {
 		return nil, errors.Annotate(err, "getting virtual machines")
 	}
+	storageAccount, err := v.env.getStorageAccount(false)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting storage account")
+	}
 
 	// Update VirtualMachine objects in-memory,
 	// and then perform the updates all at once.
@@ -482,7 +519,7 @@ func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmen
 			results[i] = vm.err
 			continue
 		}
-		if v.detachVolume(vm.vm, p) {
+		if v.detachVolume(vm.vm, p, storageAccount) {
 			changed[p.InstanceId] = true
 		}
 	}
@@ -508,9 +545,10 @@ func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmen
 func (v *azureVolumeSource) detachVolume(
 	vm *compute.VirtualMachine,
 	p storage.VolumeAttachmentParams,
+	storageAccount *armstorage.Account,
 ) (updated bool) {
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
+	dataDisksRoot := dataDiskVhdRoot(storageAccount)
 	dataDiskName := p.VolumeId
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
@@ -593,10 +631,10 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			continue
 		}
 		if err := v.env.callAPI(func() (autorest.Response, error) {
-			result, err := vmsClient.CreateOrUpdate(
+			return vmsClient.CreateOrUpdate(
 				v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
+				nil, // abort channel
 			)
-			return result.Response, err
 		}); err != nil {
 			results[i] = err
 			vm.err = err
@@ -608,13 +646,13 @@ func (v *azureVolumeSource) updateVirtualMachines(
 	return results, nil
 }
 
-func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
+func nextAvailableLUN(vm *compute.VirtualMachine) (int32, error) {
 	// Pick the smallest LUN not in use. We have to choose them in order,
 	// or the disks don't show up.
 	var inUse [32]bool
 	if vm.Properties.StorageProfile.DataDisks != nil {
 		for _, disk := range *vm.Properties.StorageProfile.DataDisks {
-			lun := to.Int(disk.Lun)
+			lun := to.Int32(disk.Lun)
 			if lun < 0 || lun > 31 {
 				logger.Debugf("ignore disk with invalid LUN: %+v", disk)
 				continue
@@ -624,7 +662,7 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
 	}
 	for i, inUse := range inUse {
 		if !inUse {
-			return i, nil
+			return int32(i), nil
 		}
 	}
 	return -1, errors.New("all LUNs are in use")
@@ -632,7 +670,7 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
 
 // diskBusAddress returns the value to use in the BusAddress field of
 // VolumeAttachmentInfo for a disk with the specified LUN.
-func diskBusAddress(lun int) string {
+func diskBusAddress(lun int32) string {
 	return fmt.Sprintf("scsi@5:0.0.%d", lun)
 }
 
@@ -650,22 +688,21 @@ func gibToMib(g uint64) uint64 {
 
 // osDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for OS disks for the environment.
-func osDiskVhdRoot(storageEndpoint, storageAccountName string) string {
-	return blobContainerURL(storageEndpoint, storageAccountName, osDiskVHDContainer)
+func osDiskVhdRoot(storageAccount *armstorage.Account) string {
+	return blobContainerURL(storageAccount, osDiskVHDContainer)
 }
 
 // dataDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for data disks for the environment.
-func dataDiskVhdRoot(storageEndpoint, storageAccountName string) string {
-	return blobContainerURL(storageEndpoint, storageAccountName, dataDiskVHDContainer)
+func dataDiskVhdRoot(storageAccount *armstorage.Account) string {
+	return blobContainerURL(storageAccount, dataDiskVHDContainer)
 }
 
 // blobContainer returns the URL to the named blob container.
-func blobContainerURL(storageEndpoint, storageAccountName, container string) string {
+func blobContainerURL(storageAccount *armstorage.Account, container string) string {
 	return fmt.Sprintf(
-		"https://%s.blob.%s/%s/",
-		storageAccountName,
-		storageEndpoint,
+		"%s%s/",
+		to.String(storageAccount.Properties.PrimaryEndpoints.Blob),
 		container,
 	)
 }
@@ -687,11 +724,27 @@ func blobVolumeId(blob azurestorage.Blob) (string, bool) {
 // and a constructor.
 func getStorageClient(
 	newClient internalazurestorage.NewClientFunc,
-	cfg *azureModelConfig,
+	storageEndpoint string,
+	storageAccount *armstorage.Account,
+	storageAccountKeys []armstorage.AccountKey,
 ) (internalazurestorage.Client, error) {
-	storageAccountName := cfg.storageAccount
-	storageAccountKey := cfg.storageAccountKey
-	storageEndpoint := cfg.storageEndpoint
+
+	var storageAccountKey string
+	for _, key := range storageAccountKeys {
+		if key.Permissions != armstorage.FULL {
+			continue
+		}
+		storageAccountKey = to.String(key.Value)
+		break
+	}
+	if storageAccountKey == "" {
+		return nil, errors.Errorf(
+			"no storage account key with %q permission",
+			armstorage.FULL,
+		)
+	}
+
+	storageAccountName := to.String(storageAccount.Name)
 	const useHTTPS = true
 	return newClient(
 		storageAccountName, storageAccountKey,

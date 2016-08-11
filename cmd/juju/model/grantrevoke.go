@@ -6,7 +6,6 @@ package model
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -14,36 +13,47 @@ import (
 )
 
 var usageGrantSummary = `
-Grants access to a Juju user for a model.`[1:]
+Grants access level to a Juju user for a model or controller.`[1:]
 
 var usageGrantDetails = `
 By default, the controller is the current controller.
-
-Model access can also be granted at user-addition time with the
-`[1:] + "`juju add-user`" + ` command.
 
 Users with read access are limited in what they can do with models:
 ` + "`juju models`, `juju machines`, and `juju status`" + `.
 
 Examples:
-Grant user 'joe' default (read) access to model 'mymodel':
+Grant user 'joe' 'read' access to model 'mymodel':
 
-    juju grant joe mymodel
+    juju grant joe read mymodel
 
-Grant user 'jim' write access to model 'mymodel':
+Grant user 'jim' 'write' access to model 'mymodel':
 
-    juju grant --acl=write jim mymodel
+    juju grant jim write mymodel
 
-Grant user 'sam' default (read) access to models 'model1' and 'model2':
+Grant user 'sam' 'read' access to models 'model1' and 'model2':
 
-    juju grant sam model1 model2
+    juju grant sam read model1 model2
+
+Grant user 'maria' 'addmodel' access to the controller:
+
+    juju grant maria addmodel
+
+Valid access levels for models are:
+    read
+    write
+    admin
+
+Valid access levels for controllers are:
+    login
+    addmodel
+    superuser
 
 See also: 
     revoke
     add-user`
 
 var usageRevokeSummary = `
-Revokes access from a Juju user for a model.`[1:]
+Revokes access from a Juju user for a model or controller`[1:]
 
 var usageRevokeDetails = `
 By default, the controller is the current controller.
@@ -53,13 +63,17 @@ that user with read access. Revoking read access, however, also revokes
 write access.
 
 Examples:
-Revoke read (and write) access from user 'joe' for model 'mymodel':
+Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
 
-    juju revoke joe mymodel
+    juju revoke joe read mymodel
 
-Revoke write access from user 'sam' for models 'model1' and 'model2':
+Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
 
-    juju revoke --acl=write sam model1 model2
+    juju revoke sam write model1 model2
+
+Revoke 'addmodel' acces from user 'maria' to the controller:
+
+    juju revoke maria addmodel
 
 See also: 
     grant`[1:]
@@ -72,11 +86,6 @@ type accessCommand struct {
 	ModelAccess string
 }
 
-// SetFlags implements cmd.Command.
-func (c *accessCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelAccess, "acl", "read", "Access control ('read' or 'write')")
-}
-
 // Init implements cmd.Command.
 func (c *accessCommand) Init(args []string) error {
 	if len(args) < 1 {
@@ -84,16 +93,18 @@ func (c *accessCommand) Init(args []string) error {
 	}
 
 	if len(args) < 2 {
-		return errors.New("no model specified")
-	}
-
-	_, err := permission.ParseModelAccess(c.ModelAccess)
-	if err != nil {
-		return err
+		return errors.New("no permission level specified")
 	}
 
 	c.User = args[0]
-	c.ModelNames = args[1:]
+	c.ModelNames = args[2:]
+	c.ModelAccess = args[1]
+	if len(c.ModelNames) > 0 {
+		_, err := permission.ParseModelAccess(c.ModelAccess)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -112,17 +123,21 @@ type grantCommand struct {
 func (c *grantCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "grant",
-		Args:    "<user name> <model name> ...",
+		Args:    "<user name> <permission> [<model name> ...]",
 		Purpose: usageGrantSummary,
 		Doc:     usageGrantDetails,
 	}
 }
 
-func (c *grantCommand) getAPI() (GrantModelAPI, error) {
+func (c *grantCommand) getModelAPI() (GrantModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
+}
+
+func (c *grantCommand) getControllerAPI() (GrantControllerAPI, error) {
+	return c.NewControllerAPIClient()
 }
 
 // GrantModelAPI defines the API functions used by the grant command.
@@ -131,9 +146,32 @@ type GrantModelAPI interface {
 	GrantModel(user, access string, modelUUIDs ...string) error
 }
 
+// GrantControllerAPI defines the API functions used by the grant command.
+type GrantControllerAPI interface {
+	Close() error
+	GrantController(user, access string) error
+}
+
 // Run implements cmd.Command.
 func (c *grantCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	if len(c.ModelNames) > 0 {
+		return c.runForModel()
+	}
+	return c.runForController()
+}
+
+func (c *grantCommand) runForController() error {
+	client, err := c.getControllerAPI()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return block.ProcessBlockedError(client.GrantController(c.User, c.ModelAccess), block.BlockChange)
+}
+
+func (c *grantCommand) runForModel() error {
+	client, err := c.getModelAPI()
 	if err != nil {
 		return err
 	}
@@ -161,17 +199,21 @@ type revokeCommand struct {
 func (c *revokeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "revoke",
-		Args:    "<user> <model name> ...",
+		Args:    "<user> <permission> [<model name> ...]",
 		Purpose: usageRevokeSummary,
 		Doc:     usageRevokeDetails,
 	}
 }
 
-func (c *revokeCommand) getAPI() (RevokeModelAPI, error) {
+func (c *revokeCommand) getModelAPI() (RevokeModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
+}
+
+func (c *revokeCommand) getControllerAPI() (RevokeControllerAPI, error) {
+	return c.NewControllerAPIClient()
 }
 
 // RevokeModelAPI defines the API functions used by the revoke command.
@@ -180,17 +222,40 @@ type RevokeModelAPI interface {
 	RevokeModel(user, access string, modelUUIDs ...string) error
 }
 
+// RevokeControllerAPI defines the API functions used by the revoke command.
+type RevokeControllerAPI interface {
+	Close() error
+	RevokeController(user, access string) error
+}
+
 // Run implements cmd.Command.
 func (c *revokeCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	if len(c.ModelNames) > 0 {
+		return c.runForModel()
+	}
+	return c.runForController()
+}
+
+func (c *revokeCommand) runForController() error {
+	client, err := c.getControllerAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	modelUUIDs, err := c.ModelUUIDs(c.ModelNames)
+	return block.ProcessBlockedError(client.RevokeController(c.User, c.ModelAccess), block.BlockChange)
+}
+
+func (c *revokeCommand) runForModel() error {
+	client, err := c.getModelAPI()
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.RevokeModel(c.User, c.ModelAccess, modelUUIDs...), block.BlockChange)
+	defer client.Close()
+
+	models, err := c.ModelUUIDs(c.ModelNames)
+	if err != nil {
+		return err
+	}
+	return block.ProcessBlockedError(client.RevokeModel(c.User, c.ModelAccess, models...), block.BlockChange)
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -41,7 +40,7 @@ func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value,
 func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.prechecker = mockPrechecker{}
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func() (state.Prechecker, error) {
 		return &s.prechecker, nil
 	}
 }
@@ -70,7 +69,7 @@ func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no instance for you")
 
 	// If the policy's Prechecker method fails, that will be returned first.
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func() (state.Prechecker, error) {
 		return nil, fmt.Errorf("no prechecker for you")
 	}
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
@@ -79,7 +78,7 @@ func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 
 func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 	var precheckerErr error
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func() (state.Prechecker, error) {
 		return nil, precheckerErr
 	}
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
@@ -90,7 +89,7 @@ func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func() (state.Prechecker, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

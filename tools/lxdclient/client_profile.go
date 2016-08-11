@@ -13,7 +13,8 @@ import (
 type rawProfileClient interface {
 	ProfileCreate(name string) error
 	ListProfiles() ([]string, error)
-	SetProfileConfigItem(name, key, value string) error
+	SetProfileConfigItem(profile, key, value string) error
+	GetProfileConfig(profile string) (map[string]string, error)
 	ProfileDelete(profile string) error
 	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error)
 }
@@ -69,4 +70,22 @@ func (p profileClient) HasProfile(name string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// SetProfileConfigItem updates the given profile config key to the given value.
+func (p profileClient) SetProfileConfigItem(profile, key, value string) error {
+	if err := p.raw.SetProfileConfigItem(profile, key, value); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// GetProfileConfig returns a map with all keys and values for the given
+// profile.
+func (p profileClient) GetProfileConfig(profile string) (map[string]string, error) {
+	config, err := p.raw.GetProfileConfig(profile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return config, nil
 }

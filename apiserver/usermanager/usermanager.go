@@ -50,7 +50,7 @@ func NewUserManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	isAdmin, err := st.IsControllerAdmin(apiUser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,9 +77,8 @@ func NewUserManagerAPI(
 // AddUser adds a user with a username, and either a password or
 // a randomly generated secret key which will be returned.
 func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
-	result := params.AddUserResults{
-		Results: make([]params.AddUserResult, len(args.Users)),
-	}
+	var result params.AddUserResults
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -87,8 +86,16 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	if len(args.Users) == 0 {
 		return result, nil
 	}
+
+	// Create the results list to populate.
+	result.Results = make([]params.AddUserResult, len(args.Users))
+
+	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
 	if !api.isAdmin {
-		return result, common.ErrPerm
+		for i, _ := range result.Results {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return result, nil
 	}
 
 	for i, arg := range args.Users {
@@ -126,7 +133,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 					break
 				}
 				err = modelmanager.ChangeModelAccess(
-					modelmanager.NewStateBackend(api.state), modelTag, api.apiUser,
+					common.NewModelManagerBackend(api.state), modelTag, api.apiUser,
 					userTag, params.GrantModelAccess, modelAccess, api.isAdmin)
 				if err != nil {
 					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
@@ -137,6 +144,63 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		}
 	}
 	return result, nil
+}
+
+// RemoveUser permanently removes a user from the current controller for each
+// entity provided. While the user is permanently removed we keep it's
+// information around for auditing purposes.
+// TODO(redir): Add information about getting deleted user information when we
+// add that capability.
+func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorResults, error) {
+	var deletions params.ErrorResults
+
+	if err := api.check.ChangeAllowed(); err != nil {
+		return deletions, errors.Trace(err)
+	}
+
+	// Get a handle on the controller model.
+	controllerModel, err := api.state.ControllerModel()
+	if err != nil {
+		return deletions, errors.Trace(err)
+	}
+
+	// Create the results list to populate.
+	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
+
+	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
+	if !api.isAdmin {
+		for i, _ := range deletions.Results {
+			deletions.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return deletions, nil
+	}
+
+	// Remove the entities.
+	for i, e := range entities.Entities {
+		user, err := names.ParseUserTag(e.Tag)
+		if err != nil {
+			deletions.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if controllerModel.Owner().Id() == user.Id() {
+			deletions.Results[i].Error = common.ServerError(
+				errors.Errorf("cannot delete controller owner %q", user.Name()))
+			continue
+		}
+		err = api.state.RemoveUser(user)
+		if err != nil {
+			if errors.IsUserNotFound(err) {
+				deletions.Results[i].Error = common.ServerError(err)
+			} else {
+				deletions.Results[i].Error = common.ServerError(
+					errors.Annotatef(err, "failed to delete user %q", user.Name()))
+			}
+			continue
+		}
+		deletions.Results[i].Error = nil
+	}
+	return deletions, nil
 }
 
 func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
@@ -152,7 +216,7 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 }
 
 // EnableUser enables one or more users.  If the user is already enabled,
-// the action is consided a success.
+// the action is considered a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -161,7 +225,7 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
-// the action is consided a success.
+// the action is considered a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -170,14 +234,20 @@ func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResul
 }
 
 func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
+	var result params.ErrorResults
+
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+
+	// Create the results list to populate.
+	result.Results = make([]params.ErrorResult, len(args.Entities))
+
 	if !api.isAdmin {
-		return result, common.ErrPerm
+		for i, _ := range result.Results {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return result, nil
 	}
 
 	for i, arg := range args.Entities {
@@ -197,6 +267,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
+
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		var lastLogin *time.Time
 		userLastLogin, err := user.LastLogin()
@@ -231,6 +302,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		return results, nil
 	}
 
+	// Create the results list to populate.
 	results.Results = make([]params.UserInfoResult, argCount)
 	for i, arg := range request.Entities {
 		user, err := api.getUser(arg.Tag)
@@ -249,12 +321,15 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
+
+	var result params.ErrorResults
+
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
+
+	// Create the results list to populate.
+	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
 			result.Results[i].Error = common.ServerError(err)

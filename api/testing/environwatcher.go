@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -51,7 +52,7 @@ func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
 	// If the facade doesn't have secrets, we need to replace the config
 	// values in our model to compare against with the secrets replaced.
 	if !s.hasSecrets {
-		env, err := environs.New(envConfig)
+		env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.state)
 		c.Assert(err, jc.ErrorIsNil)
 		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
 		c.Assert(err, jc.ErrorIsNil)

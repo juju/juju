@@ -15,9 +15,9 @@ var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string
-	Code    string
-	Info    *ErrorInfo `json:",omitempty"`
+	Message string     `json:"message"`
+	Code    string     `json:"code"`
+	Info    *ErrorInfo `json:"info,omitempty"`
 }
 
 // ErrorInfo holds additional information provided by an error.
@@ -31,14 +31,14 @@ type ErrorInfo struct {
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
 	// error code.
-	Macaroon *macaroon.Macaroon `json:",omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially
 	// valid for all URLs under the given path.
 	// If it is empty, the macaroon will be associated with
 	// the original URL from which the error was returned.
-	MacaroonPath string `json:",omitempty"`
+	MacaroonPath string `json:"macaroon-path,omitempty"`
 }
 
 func (e Error) Error() string {
@@ -58,6 +58,8 @@ func (e Error) GoString() string {
 // The Code constants hold error codes for some kinds of error.
 const (
 	CodeNotFound                  = "not found"
+	CodeUserNotFound              = "user not found"
+	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
 	CodeCannotEnterScope          = "cannot enter scope"
@@ -85,6 +87,8 @@ const (
 	CodeMethodNotAllowed          = "method not allowed"
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
+	CodeRedirect                  = "redirection required"
+	CodeRetry                     = "retry"
 )
 
 // ErrCode returns the error code associated with
@@ -108,6 +112,14 @@ func IsCodeActionNotAvailable(err error) bool {
 
 func IsCodeNotFound(err error) bool {
 	return ErrCode(err) == CodeNotFound
+}
+
+func IsCodeUserNotFound(err error) bool {
+	return ErrCode(err) == CodeUserNotFound
+}
+
+func IsCodeModelNotFound(err error) bool {
+	return ErrCode(err) == CodeModelNotFound
 }
 
 func IsCodeUnauthorized(err error) bool {
@@ -213,4 +225,8 @@ func IsBadRequest(err error) bool {
 
 func IsMethodNotAllowed(err error) bool {
 	return ErrCode(err) == CodeMethodNotAllowed
+}
+
+func IsRedirect(err error) bool {
+	return ErrCode(err) == CodeRedirect
 }

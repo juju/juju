@@ -228,7 +228,16 @@ func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.Appl
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		currentResult.Actions = ch.Actions()
+		if actions := ch.Actions(); actions != nil {
+			charmActions := make(map[string]params.ActionSpec)
+			for key, value := range actions.ActionSpecs {
+				charmActions[key] = params.ActionSpec{
+					Description: value.Description,
+					Params:      value.Params,
+				}
+			}
+			currentResult.Actions = charmActions
+		}
 	}
 	return result, nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -45,24 +46,23 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the config attributes of the model to import.
-	attr, err := st.ControllerConfig()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	for k, v := range model.Config() {
-		attr[k] = v
-	}
 	// Create the model.
-	cfg, err := config.New(config.NoDefaults, attr)
+	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
 		Owner:         model.Owner(),
 		MigrationMode: MigrationModeImporting,
+
+		// NOTE(axw) we create the model without any storage
+		// pools. We'll need to import the storage pools from
+		// the model description before adding any volumes,
+		// filesystems or storage instances.
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -122,6 +122,10 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := restore.ipaddresses(); err != nil {
 		return nil, nil, errors.Annotate(err, "ipaddresses")
+	}
+
+	if err := restore.storage(); err != nil {
+		return nil, nil, errors.Annotate(err, "storage")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -207,7 +211,7 @@ func (i *importer) modelUsers() error {
 	// the wrong DateCreated, so we remove it, and add in all the users we
 	// know about. It is also possible that the owner of the model no
 	// longer has access to the model due to changes over time.
-	if err := i.st.RemoveModelUser(i.dbModel.Owner()); err != nil {
+	if err := i.st.RemoveUserAccess(i.dbModel.Owner(), i.dbModel.ModelTag()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -215,17 +219,14 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		access := ModelAdminAccess
-		if user.ReadOnly() {
-			access = ModelReadAccess
-		}
-		ops = append(ops, createModelUserOp(
+		ops = append(ops, createModelUserOps(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			access))
+			user.Access())...,
+		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -237,11 +238,7 @@ func (i *importer) modelUsers() error {
 		if lastConnection.IsZero() {
 			continue
 		}
-		envUser, err := i.st.ModelUser(user.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = envUser.updateLastConnection(lastConnection)
+		err := i.st.updateLastModelConnection(user.Name(), lastConnection)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -654,10 +651,21 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
+	workloadVersion := u.WorkloadVersion()
+	versionStatus := status.StatusActive
+	if workloadVersion == "" {
+		versionStatus = status.StatusUnknown
+	}
+	workloadVersionDoc := statusDoc{
+		Status:     versionStatus,
+		StatusInfo: workloadVersion,
+	}
+
 	ops := addUnitOps(i.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: workloadStatusDoc,
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  workloadStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
@@ -696,6 +704,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1121,6 +1132,9 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 			Updated:    statusVal.Updated().UnixNano(),
 		}
 	}
+	if len(docs) == 0 {
+		return nil
+	}
 
 	statusHistory, closer := i.st.getCollection(statusesHistoryC)
 	defer closer()
@@ -1164,5 +1178,212 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	if tags := cons.Tags(); len(tags) > 0 {
 		result.Tags = &tags
 	}
+	if virt := cons.VirtType(); virt != "" {
+		result.VirtType = &virt
+	}
 	return result
+}
+
+func (i *importer) storage() error {
+	if err := i.volumes(); err != nil {
+		return errors.Annotate(err, "volumes")
+	}
+	if err := i.filesystems(); err != nil {
+		return errors.Annotate(err, "filesystems")
+	}
+	return nil
+}
+
+func (i *importer) volumes() error {
+	i.logger.Debugf("importing volumes")
+	for _, volume := range i.model.Volumes() {
+		err := i.addVolume(volume)
+		if err != nil {
+			i.logger.Errorf("error importing volume %s: %s", volume.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing volumes succeeded")
+	return nil
+}
+
+func (i *importer) addVolume(volume description.Volume) error {
+
+	attachments := volume.Attachments()
+	tag := volume.Tag()
+	var binding string
+	bindingTag, err := volume.Binding()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if bindingTag != nil {
+		binding = bindingTag.String()
+	}
+	var params *VolumeParams
+	var info *VolumeInfo
+	if volume.Provisioned() {
+		info = &VolumeInfo{
+			HardwareId: volume.HardwareID(),
+			Size:       volume.Size(),
+			Pool:       volume.Pool(),
+			VolumeId:   volume.VolumeID(),
+			Persistent: volume.Persistent(),
+		}
+	} else {
+		params = &VolumeParams{
+			Size: volume.Size(),
+			Pool: volume.Pool(),
+		}
+	}
+	doc := volumeDoc{
+		Name: tag.Id(),
+		// TODO: add storage ID
+		// StorageId: ...,
+		// Life: ..., // TODO: import life, default is Alive
+		Binding:         binding,
+		Params:          params,
+		Info:            info,
+		AttachmentCount: len(attachments),
+	}
+	status := i.makeStatusDoc(volume.Status())
+	ops := i.st.newVolumeOps(doc, status)
+
+	for _, attachment := range attachments {
+		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
+	}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := i.importStatusHistory(volumeGlobalKey(tag.Id()), volume.StatusHistory()); err != nil {
+		return errors.Annotate(err, "status history")
+	}
+	return nil
+}
+
+func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment) txn.Op {
+	var info *VolumeAttachmentInfo
+	var params *VolumeAttachmentParams
+	if attachment.Provisioned() {
+		info = &VolumeAttachmentInfo{
+			DeviceName: attachment.DeviceName(),
+			DeviceLink: attachment.DeviceLink(),
+			BusAddress: attachment.BusAddress(),
+			ReadOnly:   attachment.ReadOnly(),
+		}
+	} else {
+		params = &VolumeAttachmentParams{
+			ReadOnly: attachment.ReadOnly(),
+		}
+	}
+
+	machineId := attachment.Machine().Id()
+	return txn.Op{
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(machineId, volID),
+		Assert: txn.DocMissing,
+		Insert: &volumeAttachmentDoc{
+			Volume:  volID,
+			Machine: machineId,
+			Params:  params,
+			Info:    info,
+		},
+	}
+}
+
+func (i *importer) filesystems() error {
+	i.logger.Debugf("importing filesystems")
+	for _, fs := range i.model.Filesystems() {
+		err := i.addFilesystem(fs)
+		if err != nil {
+			i.logger.Errorf("error importing filesystem %s: %s", fs.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing filesystems succeeded")
+	return nil
+}
+
+func (i *importer) addFilesystem(filesystem description.Filesystem) error {
+
+	attachments := filesystem.Attachments()
+	tag := filesystem.Tag()
+	var binding string
+	bindingTag, err := filesystem.Binding()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if bindingTag != nil {
+		binding = bindingTag.String()
+	}
+	var params *FilesystemParams
+	var info *FilesystemInfo
+	if filesystem.Provisioned() {
+		info = &FilesystemInfo{
+			Size:         filesystem.Size(),
+			Pool:         filesystem.Pool(),
+			FilesystemId: filesystem.FilesystemID(),
+		}
+	} else {
+		params = &FilesystemParams{
+			Size: filesystem.Size(),
+			Pool: filesystem.Pool(),
+		}
+	}
+	doc := filesystemDoc{
+		FilesystemId: tag.Id(),
+		StorageId:    filesystem.Storage().Id(),
+		VolumeId:     filesystem.Volume().Id(),
+		// Life: ..., // TODO: import life, default is Alive
+		Binding:         binding,
+		Params:          params,
+		Info:            info,
+		AttachmentCount: len(attachments),
+	}
+	status := i.makeStatusDoc(filesystem.Status())
+	ops := i.st.newFilesystemOps(doc, status)
+
+	for _, attachment := range attachments {
+		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))
+	}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := i.importStatusHistory(filesystemGlobalKey(tag.Id()), filesystem.StatusHistory()); err != nil {
+		return errors.Annotate(err, "status history")
+	}
+	return nil
+}
+
+func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description.FilesystemAttachment) txn.Op {
+	var info *FilesystemAttachmentInfo
+	var params *FilesystemAttachmentParams
+	if attachment.Provisioned() {
+		info = &FilesystemAttachmentInfo{
+			MountPoint: attachment.MountPoint(),
+			ReadOnly:   attachment.ReadOnly(),
+		}
+	} else {
+		params = &FilesystemAttachmentParams{
+			Location: attachment.MountPoint(),
+			ReadOnly: attachment.ReadOnly(),
+		}
+	}
+
+	machineId := attachment.Machine().Id()
+	return txn.Op{
+		C:      filesystemAttachmentsC,
+		Id:     filesystemAttachmentId(machineId, fsID),
+		Assert: txn.DocMissing,
+		Insert: &filesystemAttachmentDoc{
+			Filesystem: fsID,
+			Machine:    machineId,
+			// Life: ..., // TODO: import life, default is Alive
+			Params: params,
+			Info:   info,
+		},
+	}
 }

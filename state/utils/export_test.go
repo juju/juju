@@ -4,7 +4,5 @@
 package utils
 
 var (
-	PatchedNewEnvironment = &newEnviron
-
 	TestingCharmMetadata = charmMetadata
 )

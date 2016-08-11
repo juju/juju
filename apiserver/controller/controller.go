@@ -10,14 +10,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -35,13 +39,17 @@ type Controller interface {
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
+	ModelStatus(params.Entities) (params.ModelStatusResults, error)
 	InitiateModelMigration(params.InitiateModelMigrationArgs) (params.InitiateModelMigrationResults, error)
+	ModifyControllerAccess(params.ModifyControllerAccessRequest) (params.ErrorResults, error)
 }
 
 // ControllerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
+	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
+
 	state      *state.State
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -64,7 +72,7 @@ func NewControllerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,11 +81,14 @@ func NewControllerAPI(
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
-		state:      st,
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		resources:  resources,
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
+		state:               st,
+		authorizer:          authorizer,
+		apiUser:             apiUser,
+		resources:           resources,
 	}, nil
 }
 
@@ -191,23 +202,17 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerModel.Config()
+	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result.Config = config.AllAttrs()
-	return result, nil
-}
-
-// ControllerConfig returns the controller's configuration.
-func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error) {
-	result := params.ControllerConfigResult{}
-	config, err := s.state.ControllerConfig()
-	if err != nil {
-		return result, err
+	result.Config = make(map[string]params.ConfigValue)
+	for name, val := range cfg.AllAttrs() {
+		result.Config[name] = params.ConfigValue{
+			Value: val,
+		}
 	}
-	result.Config = params.ControllerConfig(config)
 	return result, nil
 }
 
@@ -384,6 +389,121 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(services),
 	}, nil
+}
+
+// ModifyControllerAccess changes the model access granted to users.
+func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	hasPermission, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for i, arg := range args.Changes {
+		if !hasPermission {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		controllerAccess := description.Access(arg.Access)
+		if err := description.ValidateControllerAccess(controllerAccess); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify controller access"))
+			continue
+		}
+
+		result.Results[i].Error = common.ServerError(
+			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+	}
+	return result, nil
+}
+
+func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+	if errors.IsAlreadyExists(err) {
+		controllerTag := accessor.ControllerTag()
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if errors.IsNotFound(err) {
+			// Conflicts with prior check, must be inconsistent state.
+			err = txn.ErrExcessiveContention
+		}
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+
+		// Only set access if greater access is being granted.
+		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
+			return errors.Errorf("user already has %q access or greater", access)
+		}
+		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
+			return errors.Annotate(err, "could not set controller access for user")
+		}
+		return nil
+
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	controllerTag := accessor.ControllerTag()
+	switch access {
+	case description.LoginAccess:
+		// Revoking login access removes all access.
+		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
+		return errors.Annotate(err, "could not revoke controller access")
+	case description.AddModelAccess:
+		// Revoking add-model access sets login.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.LoginAccess)
+		return errors.Annotate(err, "could not set controller access to read-only")
+	case description.SuperuserAccess:
+		// Revoking superuser sets add-model.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.AddModelAccess)
+		return errors.Annotate(err, "could not set controller access to add-model")
+
+	default:
+		return errors.Errorf("don't know how to revoke %q access", access)
+	}
+
+}
+
+// ChangeControllerAccess performs the requested access grant or revoke action for the
+// specified user on the controller.
+func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
+
+	switch action {
+	case params.GrantControllerAccess:
+		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
+		if err != nil {
+			return errors.Annotate(err, "could not grant controller access")
+		}
+		return nil
+	case params.RevokeControllerAccess:
+		return revokeControllerAccess(accessor, targetUserTag, apiUser, access)
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
 }
 
 func (o orderedBlockInfo) Swap(i, j int) {

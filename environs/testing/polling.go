@@ -12,10 +12,14 @@ import (
 
 // impatientAttempt is an extremely short polling time suitable for tests.
 // It polls at least once, never delays, and times out very quickly.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 var impatientAttempt = utils.AttemptStrategy{}
 
 // savedAttemptStrategy holds the state needed to restore an AttemptStrategy's
 // original setting.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type savedAttemptStrategy struct {
 	address  *utils.AttemptStrategy
 	original utils.AttemptStrategy
@@ -23,6 +27,8 @@ type savedAttemptStrategy struct {
 
 // saveAttemptStrategies captures the information required to restore the
 // given AttemptStrategy objects.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func saveAttemptStrategies(strategies []*utils.AttemptStrategy) []savedAttemptStrategy {
 	savedStrategies := make([]savedAttemptStrategy, len(strategies))
 	for index, strategy := range strategies {
@@ -49,6 +55,8 @@ func restoreAttemptStrategies(strategies []savedAttemptStrategy) {
 // internalPatchAttemptStrategies sets the given AttemptStrategy objects
 // to the impatientAttempt configuration, and returns a function that restores
 // the original configurations.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func internalPatchAttemptStrategies(strategies []*utils.AttemptStrategy) func() {
 	snapshot := saveAttemptStrategies(strategies)
 	for _, strategy := range strategies {
@@ -64,6 +72,8 @@ func internalPatchAttemptStrategies(strategies []*utils.AttemptStrategy) func() 
 // polling and timeout times so that tests can run fast.
 // It returns a cleanup function that restores the original settings.  You must
 // call this afterwards.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 	// The one irregularity here is that LongAttempt goes on the list of
 	// strategies that need patching.  To keep testing simple, we treat

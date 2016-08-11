@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -20,6 +21,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -114,19 +117,19 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<application>",
-		Purpose: "upgrade an application's charm",
+		Purpose: "Upgrade an application's charm.",
 		Doc:     upgradeCharmDoc,
 	}
 }
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.ForceUnits, "force-units", false, "upgrade all units immediately, even if in error state")
-	f.StringVar((*string)(&c.Channel), "channel", "", "channel to use when getting the charm or bundle from the charm store")
-	f.BoolVar(&c.ForceSeries, "force-series", false, "upgrade even if series of deployed applications are not supported by the new charm")
-	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
-	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
-	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
-	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
+	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
+	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
+	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
+	f.StringVar(&c.CharmPath, "path", "", "Upgrade to a charm located at path")
+	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
+	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -161,6 +164,14 @@ func (c *upgradeCharmCommand) newServiceAPIClient() (*application.Client, error)
 	return application.NewClient(root), nil
 }
 
+func (c *upgradeCharmCommand) newModelConfigAPIClient() (*modelconfig.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -174,6 +185,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer serviceClient.Close()
 
 	oldURL, err := serviceClient.GetCharmURL(c.ApplicationName)
 	if err != nil {
@@ -200,13 +212,22 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
 
-	conf, err := getClientConfig(client)
+	modelConfigClient, err := c.newModelConfigAPIClient()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+	conf, err := getModelConfig(modelConfigClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	resolver := newCharmURLResolver(conf, csClient)
 	chID, csMac, err := c.addCharm(oldURL, newRef, client, resolver)
 	if err != nil {
+		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
+			terms := strings.Join(err1.Terms, " ")
+			return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("Added charm %q to the model.", chID.URL)
@@ -247,7 +268,12 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, chID charmsto
 // TODO(ericsnow) Move these helpers into handleResources()?
 
 func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *api.Client, cliResources map[string]string) (map[string]charmresource.Meta, error) {
-	meta, err := getMetaResources(cURL, client)
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmsClient := charms.NewClient(root)
+	meta, err := getMetaResources(cURL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +289,7 @@ func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *ap
 	return filtered, nil
 }
 
-func getMetaResources(cURL *charm.URL, client *api.Client) (map[string]charmresource.Meta, error) {
+func getMetaResources(cURL *charm.URL, client *charms.Client) (map[string]charmresource.Meta, error) {
 	// this gets the charm info that was added to the controller using addcharm.
 	charmInfo, err := client.CharmInfo(cURL.String())
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/testing/factory"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
 
@@ -43,8 +43,8 @@ func (s *clientAuthRootSuite) AssertCallErrPerm(c *gc.C, client *clientAuthRoot,
 }
 
 func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
-	envUser := s.Factory.MakeModelUser(c, nil)
-	client := newClientAuthRoot(&fakeFinder{}, envUser)
+	modelUser := s.Factory.MakeModelUser(c, nil)
+	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
 	s.AssertCallGood(c, client, "Application", 1, "Deploy")
 	s.AssertCallGood(c, client, "UserManager", 1, "UserInfo")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
@@ -52,8 +52,8 @@ func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 }
 
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
-	envUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
-	client := newClientAuthRoot(&fakeFinder{}, envUser)
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
+	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
 	// read only commands are fine

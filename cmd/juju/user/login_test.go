@@ -100,7 +100,7 @@ You are now logged in to "testing" as "current-user@local".
 }
 
 func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
-	err := s.store.RemoveAccount("testing", "current-user@local")
+	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
 	context, args, err := s.run(c, "", "new-user")
 	c.Assert(err, jc.ErrorIsNil)

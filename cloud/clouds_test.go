@@ -61,7 +61,7 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	rackspace := clouds["rackspace"]
-	c.Assert(rackspace.AuthTypes, jc.SameContents, []cloud.AuthType{"access-key", "userpass"})
+	c.Assert(rackspace.AuthTypes, jc.SameContents, cloud.AuthTypes{"access-key", "userpass"})
 }
 
 func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
@@ -80,6 +80,46 @@ func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
 		Config: map[string]interface{}{
 			"k1": "v1",
 			"k2": float64(2.0),
+		},
+	})
+}
+
+func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
+	clouds, err := cloud.ParseCloudMetadata([]byte(`clouds:
+  testing:
+    type: dummy
+    config:
+      k1: v1
+      k2: 2.0
+    region-config:
+      region1:
+        mascot: [eggs, ham]
+      region2:
+        mascot: glenda
+      region3:
+        mascot:  gopher
+`))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	testingCloud := clouds["testing"]
+	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Type: "dummy",
+		Config: map[string]interface{}{
+			"k1": "v1",
+			"k2": float64(2.0),
+		},
+		RegionConfig: cloud.RegionConfig{
+			"region1": cloud.Attrs{
+				"mascot": []interface{}{"eggs", "ham"},
+			},
+
+			"region2": cloud.Attrs{
+				"mascot": "glenda",
+			},
+
+			"region3": cloud.Attrs{
+				"mascot": "gopher",
+			},
 		},
 	})
 }
@@ -190,4 +230,18 @@ clouds:
     auth-types: [ userpass ]
 `[1:]
 	s.assertCompareClouds(c, metadata, false)
+}
+
+func (s *cloudSuite) TestRegionNames(c *gc.C) {
+	regions := []cloud.Region{
+		{Name: "mars"},
+		{Name: "earth"},
+		{Name: "jupiter"},
+	}
+
+	names := cloud.RegionNames(regions)
+	c.Assert(names, gc.DeepEquals, []string{"earth", "jupiter", "mars"})
+
+	c.Assert(cloud.RegionNames([]cloud.Region{}), gc.HasLen, 0)
+	c.Assert(cloud.RegionNames(nil), gc.HasLen, 0)
 }

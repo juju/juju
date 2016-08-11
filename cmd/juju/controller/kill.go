@@ -18,14 +18,17 @@ import (
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller model and all
-hosted models and their resources.
+this command will attempt to destroy the controller model and all hosted models
+and their resources.
 
-If the API server is unreachable, the machines of the controller model
-will be destroyed through the cloud provisioner.  If there are additional
-machines, including machines within hosted models, these machines will
-not be destroyed and will never be reconnected to the Juju controller being
-destroyed. 
+If the API server is unreachable, the machines of the controller model will be
+destroyed through the cloud provisioner.  If there are additional machines,
+including machines within hosted models, these machines will not be destroyed
+and will never be reconnected to the Juju controller being destroyed.
+
+See also:
+    destroy-controller
+    unregister
 `
 
 // NewKillCommand returns a command to kill a controller. Killing is a forceful
@@ -64,14 +67,14 @@ func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill-controller",
 		Args:    "<controller name>",
-		Purpose: "forcibly terminate all machines and other associated resources for a juju controller",
+		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "do not ask for confirmation")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
@@ -115,7 +118,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {

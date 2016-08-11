@@ -210,6 +210,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddRunTextFile(keyFile, w.icfg.Controller.PublicImageSigningKey, 0644)
 	}
 
+	// Write out the introspection helper bash functions in /etc/profile.d.
+	w.conf.AddRunTextFile("/etc/profile.d/juju-introspection.sh", introspectionWorkerBashFuncs, 0644)
+
 	// Make the lock dir and change the ownership of the lock dir itself to
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
@@ -265,6 +268,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			return errors.Trace(err)
 		}
 	}
+
 	return w.addMachineAgentToBoot()
 }
 
@@ -298,6 +302,7 @@ func (w *unixConfigure) configureBootstrap() error {
 	bootstrapAgentArgs := []string{
 		featureFlags + w.icfg.JujuTools() + "/jujud",
 		"bootstrap-state",
+		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),
 		loggingOption,
 		shquote(bootstrapParamsFile),
@@ -444,3 +449,37 @@ func base64yaml(attrs map[string]interface{}) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
+
+const introspectionWorkerBashFuncs = `
+jujuAgentCall () {
+  local agent=$1
+  shift
+  local path=
+  for i in "$@"; do
+    path="$path/$i"
+  done
+  echo -e "GET $path HTTP/1.0\r\n" | socat abstract-connect:jujud-$agent STDIO
+}
+
+jujuMachineAgentName () {
+  local machine=` + "`ls -d /var/lib/juju/agents/machine*`" + `
+  machine=` + "`basename $machine`" + `
+  echo $machine
+}
+
+juju-goroutines () {
+  if [ "$#" -gt 1 ]; then
+    echo "expected no args (for machine agent) or one (unit agent)"
+    return 1
+  fi
+  local agent=$(jujuMachineAgentName)
+  if [ "$#" -eq 1 ]; then
+    agent=$1
+  fi
+  jujuAgentCall $agent debug/pprof/goroutine?debug=1
+}
+
+export -f jujuAgentCall
+export -f jujuMachineAgentName
+export -f juju-goroutines
+`

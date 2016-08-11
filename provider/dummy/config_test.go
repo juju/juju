@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -29,12 +29,14 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		ctx, jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			BaseConfig:     attrs,
-			ControllerName: attrs["name"].(string),
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			ModelConfig:      attrs,
+			ControllerName:   attrs["name"].(string),
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +74,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           `firewall-mode: expected one of \[instance global none ], got "invalid"`,
+		errorMsg:           `firewall-mode: expected one of \[instance global none], got "invalid"`,
 	},
 }
 
@@ -91,12 +93,14 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		ctx := envtesting.BootstrapContext(c)
-		env, err := environs.Prepare(
+		env, err := bootstrap.Prepare(
 			ctx, jujuclienttesting.NewMemStore(),
-			environs.PrepareParams{
-				ControllerName: cfg.Name(),
-				BaseConfig:     cfg.AllAttrs(),
-				CloudName:      "dummy",
+			bootstrap.PrepareParams{
+				ControllerConfig: testing.FakeControllerConfig(),
+				ControllerName:   cfg.Name(),
+				ModelConfig:      cfg.AllAttrs(),
+				Cloud:            dummy.SampleCloudSpec(),
+				AdminSecret:      AdminSecret,
 			},
 		)
 		if test.errorMsg != "" {

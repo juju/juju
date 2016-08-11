@@ -11,11 +11,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -136,14 +135,11 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts)
+	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
+	_, err = poolManager.Create(testPersistentPool, "environscoped", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
-
-	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
-	registry.RegisterEnvironStorageProviders("admin", ec2.EBS_ProviderType)
 }
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {

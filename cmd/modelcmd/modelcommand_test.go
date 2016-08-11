@@ -33,11 +33,8 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["foo"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"bar@baz": {User: "b@r", Password: "hunter2"},
-		},
-		CurrentAccount: "bar@baz",
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar@local", Password: "hunter2",
 	}
 }
 
@@ -50,48 +47,41 @@ func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentAccount(c *gc.C) {
-	delete(s.store.Accounts, "foo")
-	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c *gc.C) {
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "foo:")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerAccountModel(c *gc.C) {
-	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerModel(c *gc.C) {
+	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
+	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "foo:mymodel")
+	c.Assert(env, gc.Equals, "foo:admin@local/mymodel")
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "magic")
+	os.Setenv(osenv.JujuModelEnvKey, "admin@local/magic")
 	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "magic")
+	c.Assert(env, gc.Equals, "admin@local/magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "magic")
+	os.Setenv(osenv.JujuModelEnvKey, "admin@local/magic")
 
-	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
+	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
+	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "magic")
+	c.Assert(env, gc.Equals, "admin@local/magic")
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitExplicit(c *gc.C) {
@@ -105,11 +95,11 @@ func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
-	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
+	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
+	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	s.testEnsureModelName(c, "mymodel")
+	s.testEnsureModelName(c, "admin@local/mymodel")
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
@@ -191,7 +181,6 @@ type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
 	store          *jujuclienttesting.MemStore
 	controllerName string
-	accountName    string
 	modelName      string
 }
 
@@ -202,8 +191,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
 	s.controllerName = "my-controller"
-	s.accountName = "my@account"
-	s.modelName = "my-model"
+	s.modelName = testUser + "/my-model"
 	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
 
@@ -213,20 +201,13 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		ControllerUUID: apiInfo.ModelTag.Id(),
 		CACert:         apiInfo.CACert,
 	}
-	s.store.Accounts[s.controllerName] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			// Empty password forces use of macaroons.
-			s.accountName: {User: s.accountName},
-		},
-		CurrentAccount: s.accountName,
+	s.store.Accounts[s.controllerName] = jujuclient.AccountDetails{
+		// External user forces use of macaroons.
+		User: "me@external",
 	}
-	s.store.Models[s.controllerName] = jujuclient.ControllerAccountModels{
-		AccountModels: map[string]*jujuclient.AccountModels{
-			s.accountName: {
-				Models: map[string]jujuclient.ModelDetails{
-					s.modelName: {modelTag.Id()},
-				},
-			},
+	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			s.modelName: {modelTag.Id()},
 		},
 	}
 }
@@ -236,7 +217,7 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -246,7 +227,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*")
 }
@@ -256,7 +237,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
 }

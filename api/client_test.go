@@ -352,22 +352,6 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	client := s.APIState.Client()
-	var called bool
-	cleanup := api.PatchClientFacadeCall(client,
-		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyModel")
-			called = true
-			return nil
-		})
-	defer cleanup()
-
-	err := client.DestroyModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	client := s.APIState.Client()
 	// Use the no tail option so we don't try to start a tailing cursor
@@ -472,7 +456,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
 }
 
-func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
+func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// Passing in the correct model UUID should work
@@ -488,13 +472,13 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "dead-beef-123456"`,
-		Code:    "not found",
+		Code:    "model not found",
 	})
-	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.
@@ -534,45 +518,6 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 	err := client.AbortCurrentUpgrade()
 	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
-}
-
-func (s *clientSuite) TestEnvironmentGet(c *gc.C) {
-	client := s.APIState.Client()
-	env, err := client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	// Check a known value, just checking that there is something there.
-	c.Assert(env["type"], gc.Equals, "dummy")
-}
-
-func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
-	client := s.APIState.Client()
-	err := client.ModelSet(map[string]interface{}{
-		"some-name":  "value",
-		"other-name": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Check them using ModelGet.
-	env, err := client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["some-name"], gc.Equals, "value")
-	c.Assert(env["other-name"], gc.Equals, true)
-}
-
-func (s *clientSuite) TestEnvironmentUnset(c *gc.C) {
-	client := s.APIState.Client()
-	err := client.ModelSet(map[string]interface{}{
-		"some-name": "value",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now unset it and make sure it isn't there.
-	err = client.ModelUnset("some-name")
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := env["some-name"]
-	c.Assert(found, jc.IsFalse)
 }
 
 // badReader raises err when Read is called.

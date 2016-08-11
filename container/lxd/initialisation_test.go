@@ -9,19 +9,23 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type InitialiserSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 	calledCmds []string
+	testing.PatchExecHelper
 }
 
 var _ = gc.Suite(&InitialiserSuite{})
@@ -77,6 +81,11 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
 	s.PatchValue(&configureZFS, func() {})
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
+	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
+		return &mockConfigSetter{}, nil
+	})
+	// Fake the lxc executable for all the tests.
+	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
 }
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
@@ -110,6 +119,66 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
 		paccmder.InstallCmd("lxd"),
+	})
+}
+
+type mockConfigSetter struct {
+	keys   []string
+	values []string
+}
+
+func (m *mockConfigSetter) SetConfig(key, value string) error {
+	m.keys = append(m.keys, key)
+	m.values = append(m.values, value)
+	return nil
+}
+
+func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
+	// This test is safe on windows because it mocks out all lxd moving parts.
+	setter := &mockConfigSetter{}
+	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
+		return setter, nil
+	})
+
+	proxies := proxy.Settings{
+		Http:    "http://test.local/http/proxy",
+		Https:   "http://test.local/https/proxy",
+		NoProxy: "test.local,localhost",
+	}
+	err := ConfigureLXDProxies(proxies)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(setter.keys, jc.DeepEquals, []string{
+		"core.proxy_http", "core.proxy_https", "core.proxy_ignore_hosts",
+	})
+	c.Check(setter.values, jc.DeepEquals, []string{
+		"http://test.local/http/proxy", "http://test.local/https/proxy", "test.local,localhost",
+	})
+}
+
+func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("no lxd on windows")
+	}
+
+	setter := &mockConfigSetter{}
+	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
+		return setter, nil
+	})
+
+	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
+	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
+	s.PatchEnvironment("no_proxy", "test.local,localhost")
+
+	container := NewContainerInitialiser("")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(setter.keys, jc.DeepEquals, []string{
+		"core.proxy_http", "core.proxy_https", "core.proxy_ignore_hosts",
+	})
+	c.Check(setter.values, jc.DeepEquals, []string{
+		"http://test.local/http/proxy", "http://test.local/https/proxy", "test.local,localhost",
 	})
 }
 

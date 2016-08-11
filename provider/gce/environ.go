@@ -4,10 +4,12 @@
 package gce
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
 
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -56,11 +58,10 @@ type gceConnection interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
-	name string
-	uuid string
-	gce  gceConnection
+	name  string
+	uuid  string
+	cloud environs.CloudSpec
+	gce   gceConnection
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
@@ -75,20 +76,42 @@ type environ struct {
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.
 var (
-	newConnection = func(ecfg *environConfig) (gceConnection, error) {
-		return google.Connect(ecfg.conn, &ecfg.credentials)
+	newConnection = func(conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
+		return google.Connect(conn, creds)
 	}
 	destroyEnv = common.Destroy
 	bootstrap  = common.Bootstrap
 )
 
-func newEnviron(cfg *config.Config) (*environ, error) {
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
+
+	credAttrs := cloud.Credential.Attributes()
+	if cloud.Credential.AuthType() == jujucloud.JSONFileAuthType {
+		contents := credAttrs[credAttrFile]
+		credential, err := parseJSONAuthFile(strings.NewReader(contents))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		credAttrs = credential.Attributes()
+	}
+
+	credential := &google.Credentials{
+		ClientID:    credAttrs[credAttrClientID],
+		ProjectID:   credAttrs[credAttrProjectID],
+		ClientEmail: credAttrs[credAttrClientEmail],
+		PrivateKey:  []byte(credAttrs[credAttrPrivateKey]),
+	}
+	connectionConfig := google.ConnectionConfig{
+		Region:    cloud.Region,
+		ProjectID: credential.ProjectID,
+	}
+
 	// Connect and authenticate.
-	conn, err := newConnection(ecfg)
+	conn, err := newConnection(connectionConfig, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,6 +123,7 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 	return &environ{
 		name:      ecfg.config.Name(),
 		uuid:      ecfg.config.UUID(),
+		cloud:     cloud,
 		ecfg:      ecfg,
 		gce:       conn,
 		namespace: namespace,
@@ -119,8 +143,8 @@ func (*environ) Provider() environs.EnvironProvider {
 // Region returns the CloudSpec to use for the provider, as configured.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region:   env.ecfg.region(),
-		Endpoint: env.ecfg.imageEndpoint(),
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 
@@ -144,11 +168,40 @@ func (env *environ) Config() *config.Config {
 	return env.ecfg.config
 }
 
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		if err := env.gce.VerifyCredentials(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	if err := env.gce.VerifyCredentials(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	// Ensure the API server port is open (globally for all instances
+	// on the network, not just for the specific node of the state
+	// server). See LP bug #1436191 for details.
+	ports := network.PortRange{
+		FromPort: params.ControllerConfig.APIPort(),
+		ToPort:   params.ControllerConfig.APIPort(),
+		Protocol: "tcp",
+	}
+	if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return bootstrap(ctx, env, params)
 }
 
@@ -167,4 +220,10 @@ func (env *environ) Destroy() error {
 	}
 
 	return destroyEnv(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
 }

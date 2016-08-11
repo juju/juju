@@ -16,14 +16,10 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
@@ -46,18 +42,7 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	// is one that isn't registered as a valid provider. For our tests here we
 	// need a real registered provider, so we use the dummy provider.
 	// NOTE: make a better test provider.
-	env, err := environs.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
-		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: "dummycontroller",
-			BaseConfig:     dummy.SampleConfig(),
-			CloudName:      "dummy",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
+	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
 	s.StateSuite.SetUpTest(c)
 }
 
@@ -73,15 +58,13 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	model, err := s.State.Export()
 	c.Check(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ModelConfig()
-	c.Check(err, jc.ErrorIsNil)
-
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
 	// and name so we can import it nicely.
+	uuid := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
 		"name": "new-model",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid,
 	})
 
 	bytes, err := description.Serialize(model)
@@ -93,8 +76,8 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 
 	dbConfig, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	attrs := dbConfig.AllAttrs()
-	c.Assert(attrs["controller-uuid"], gc.Equals, controllerConfig.UUID())
+	c.Assert(dbConfig.UUID(), gc.Equals, uuid)
+	c.Assert(dbConfig.Name(), gc.Equals, "new-model")
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
@@ -276,31 +259,6 @@ func (s *stateGetter) ControllerConfig() (controller.Config, error) {
 	return map[string]interface{}{
 		controller.ControllerUUIDKey: testing.ModelTag.Id(),
 		controller.CACertKey:         testing.CACert,
-		controller.CAPrivateKey:      testing.CAKey,
 		controller.ApiPort:           4321,
 	}, nil
-}
-
-func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
-	controllerModelConfig := testing.CustomModelConfig(c, testing.Attrs{
-		"type": "dummy",
-	})
-	configAttrs := testing.FakeConfig()
-	configAttrs["type"] = "dummy"
-	// Fake the "state-id" so the provider thinks it is prepared already.
-	configAttrs["state-id"] = "42"
-	// We need to specify a valid provider type, so we use dummy.
-	// The dummy provider grabs the UUID from the controller config
-	// and returns it in the map with the key "controller-uuid", similar
-	// to what the azure provider will need to do.
-	model := description.NewModel(description.ModelArgs{
-		Owner:  names.NewUserTag("test-admin"),
-		Config: configAttrs,
-	})
-
-	err := migration.UpdateConfigFromProvider(model, &stateGetter{controllerModelConfig}, controllerModelConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelConfig := model.Config()
-	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerModelConfig.UUID())
 }

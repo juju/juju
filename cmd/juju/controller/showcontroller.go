@@ -4,14 +4,11 @@
 package controller
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -20,7 +17,7 @@ Shows detailed information of a controller.`[1:]
 
 var usageShowControllerDetails = `
 Shows extended information about a controller(s) as well as related models
-and accounts. The active model and user accounts are also displayed.
+and user login details.
 
 Examples:
     juju show-controller
@@ -57,7 +54,7 @@ func (c *showControllerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
-	f.BoolVar(&c.showPasswords, "show-passwords", false, "Show passwords for displayed accounts")
+	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -91,15 +88,14 @@ type ShowControllerDetails struct {
 	// Details contains the same details that client store caches for this controller.
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
 
-	// Accounts is a collection of accounts for this controller.
-	Accounts map[string]*AccountDetails `yaml:"accounts,omitempty" json:"accounts,omitempty"`
+	// Models is a collection of all models for this controller.
+	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
 
-	// CurrentAccount is the name of the current account for this controller.
-	CurrentAccount string `yaml:"current-account,omitempty" json:"current-account,omitempty"`
+	// CurrentModel is the name of the current model for this controller
+	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 
-	// BootstrapConfig contains the bootstrap configuration for this controller.
-	// This is only available on the client that bootstrapped the controller.
-	BootstrapConfig *BootstrapConfig `yaml:"bootstrap-config,omitempty" json:"bootstrap-config,omitempty"`
+	// Account is the account details for the user logged into this controller.
+	Account *AccountDetails `yaml:"account,omitempty" json:"account,omitempty"`
 
 	// Errors is a collection of errors related to accessing this controller details.
 	Errors []string `yaml:"errors,omitempty" json:"errors,omitempty"`
@@ -136,23 +132,6 @@ type AccountDetails struct {
 
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
-
-	// Models is a collection of all models for this controller.
-	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
-
-	// CurrentModel is the name of the current model for this controller
-	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-}
-
-// BootstrapConfig holds the configuration used to bootstrap a controller.
-type BootstrapConfig struct {
-	Config               map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
-	Cloud                string                 `yaml:"cloud" json:"cloud"`
-	CloudType            string                 `yaml:"cloud-type" json:"cloud-type"`
-	CloudRegion          string                 `yaml:"region,omitempty" json:"region,omitempty"`
-	CloudEndpoint        string                 `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-	CloudStorageEndpoint string                 `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
-	Credential           string                 `yaml:"credential,omitempty" json:"credential,omitempty"`
 }
 
 func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
@@ -165,87 +144,46 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			CloudRegion:    details.CloudRegion,
 		},
 	}
+	c.convertModelsForShow(controllerName, &controller)
 	c.convertAccountsForShow(controllerName, &controller)
-	c.convertBootstrapConfigForShow(controllerName, &controller)
 	return controller
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails) {
-	accounts, err := c.store.AllAccounts(controllerName)
+	storeDetails, err := c.store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
-
-	if len(accounts) > 0 {
-		controller.Accounts = make(map[string]*AccountDetails)
-		for accountName, account := range accounts {
-			details := &AccountDetails{User: account.User}
-			controller.Accounts[accountName] = details
-			if c.showPasswords {
-				details.Password = account.Password
-			}
-			if err := c.convertModelsForShow(controllerName, accountName, details); err != nil {
-				controller.Errors = append(controller.Errors, err.Error())
-			}
-		}
+	if storeDetails == nil {
+		return
 	}
-
-	controller.CurrentAccount, err = c.store.CurrentAccount(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		controller.Errors = append(controller.Errors, err.Error())
+	details := &AccountDetails{
+		User: storeDetails.User,
 	}
+	if c.showPasswords {
+		details.Password = storeDetails.Password
+	}
+	controller.Account = details
 }
 
-func (c *showControllerCommand) convertModelsForShow(controllerName, accountName string, account *AccountDetails) error {
-	models, err := c.store.AllModels(controllerName, accountName)
+func (c *showControllerCommand) convertModelsForShow(controllerName string, controller *ShowControllerDetails) {
+	models, err := c.store.AllModels(controllerName)
 	if errors.IsNotFound(err) {
-		return nil
+		return
 	} else if err != nil {
-		return err
+		controller.Errors = append(controller.Errors, err.Error())
+		return
 	}
 	if len(models) > 0 {
-		account.Models = make(map[string]ModelDetails)
+		controller.Models = make(map[string]ModelDetails)
 		for modelName, model := range models {
-			account.Models[modelName] = ModelDetails{model.ModelUUID}
+			controller.Models[modelName] = ModelDetails{model.ModelUUID}
 		}
 	}
-	account.CurrentModel, err = c.store.CurrentModel(controllerName, accountName)
+	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
-
-func (c *showControllerCommand) convertBootstrapConfigForShow(controllerName string, controller *ShowControllerDetails) {
-	bootstrapConfig, err := c.store.BootstrapConfigForController(controllerName)
-	if errors.IsNotFound(err) {
-		return
-	} else if err != nil {
 		controller.Errors = append(controller.Errors, err.Error())
 		return
-	}
-	cfg := make(map[string]interface{})
-	var cloudType string
-	for k, v := range bootstrapConfig.Config {
-		switch k {
-		case config.NameKey:
-			// Name is always "admin" for the admin model,
-			// which is not interesting to us here.
-		case config.TypeKey:
-			// Pull Type up to the top level.
-			cloudType = fmt.Sprint(v)
-		default:
-			cfg[k] = v
-		}
-	}
-	controller.BootstrapConfig = &BootstrapConfig{
-		Config:               cfg,
-		Cloud:                bootstrapConfig.Cloud,
-		CloudType:            cloudType,
-		CloudRegion:          bootstrapConfig.CloudRegion,
-		CloudEndpoint:        bootstrapConfig.CloudEndpoint,
-		CloudStorageEndpoint: bootstrapConfig.CloudStorageEndpoint,
-		Credential:           bootstrapConfig.Credential,
 	}
 }
 

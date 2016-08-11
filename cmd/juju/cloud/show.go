@@ -76,31 +76,36 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 type regionDetails struct {
-	Name            string `yaml:"-" json:"-"`
-	Endpoint        string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-	StorageEndpoint string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	Name             string `yaml:"-" json:"-"`
+	Endpoint         string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	IdentityEndpoint string `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 }
 
 type cloudDetails struct {
-	Source          string   `yaml:"defined,omitempty" json:"defined,omitempty"`
-	CloudType       string   `yaml:"type" json:"type"`
-	AuthTypes       []string `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
-	Endpoint        string   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-	StorageEndpoint string   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	Source           string   `yaml:"defined,omitempty" json:"defined,omitempty"`
+	CloudType        string   `yaml:"type" json:"type"`
+	AuthTypes        []string `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
+	Endpoint         string   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	IdentityEndpoint string   `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 	// Regions is for when we want to print regions in order for yaml or tabular output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
-	RegionsMap map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
-	Config     map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	RegionsMap   map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
+	Config       map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	RegionConfig jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	result := &cloudDetails{
-		Source:          "public",
-		CloudType:       cloud.Type,
-		Endpoint:        cloud.Endpoint,
-		StorageEndpoint: cloud.StorageEndpoint,
-		Config:          cloud.Config,
+		Source:           "public",
+		CloudType:        cloud.Type,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Config:           cloud.Config,
+		RegionConfig:     cloud.RegionConfig,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {
@@ -111,6 +116,9 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		r := regionDetails{Name: region.Name}
 		if region.Endpoint != result.Endpoint {
 			r.Endpoint = region.Endpoint
+		}
+		if region.IdentityEndpoint != result.IdentityEndpoint {
+			r.IdentityEndpoint = region.IdentityEndpoint
 		}
 		if region.StorageEndpoint != result.StorageEndpoint {
 			r.StorageEndpoint = region.StorageEndpoint

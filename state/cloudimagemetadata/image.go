@@ -372,16 +372,3 @@ func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, err
 	}
 	return arches, nil
 }
-
-// MetadataArchitectureQuerier isolates querying supported architectures.
-type MetadataArchitectureQuerier struct {
-	Storage Storage
-}
-
-// SupportedArchitectures implements state policy SupportedArchitecturesQuerier.SupportedArchitectures.
-func (q *MetadataArchitectureQuerier) SupportedArchitectures(stream, region string) ([]string, error) {
-	return q.Storage.SupportedArchitectures(MetadataFilter{
-		Stream: stream,
-		Region: region,
-	})
-}

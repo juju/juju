@@ -105,12 +105,15 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 	params := kvm.CreateMachineParams{
 		Hostname:      "foo-bar",
 		NetworkBridge: "br0",
-		Interfaces: []network.InterfaceInfo{
-			{
-				MACAddress:          "00:16:3e:20:b0:11",
-				ParentInterfaceName: "br-eth0.10",
-			},
-		},
+		Interfaces: []network.InterfaceInfo{{
+			InterfaceName:       "eth0",
+			MACAddress:          "00:16:3e:20:b0:11",
+			ParentInterfaceName: "br-eth0.10",
+		}, {
+			InterfaceName:       "eth42",
+			MACAddress:          "00:16:3e:20:b0:12",
+			ParentInterfaceName: "virbr42",
+		}},
 	}
 	tempDir := c.MkDir()
 
@@ -122,10 +125,14 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 
 	template := string(templateBytes)
 
-	c.Assert(template, jc.Contains, "<name>foo-bar</name>")
-	c.Assert(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
-	c.Assert(template, jc.Contains, "<source bridge='br-eth0.10'/>")
-	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
+	c.Check(template, jc.Contains, "<name>foo-bar</name>")
+	c.Check(strings.Count(template, "<interface type='bridge'>"), gc.Equals, 2)
+	c.Check(template, jc.Contains, "<source bridge='br-eth0.10'/>")
+	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
+	c.Check(template, jc.Contains, "<guest dev='eth0'/>")
+	c.Check(template, jc.Contains, "<source bridge='virbr42'/>")
+	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:12'/>")
+	c.Check(template, jc.Contains, "<guest dev='eth42'/>")
 }
 
 func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
@@ -341,7 +348,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		},
 	}} {
 		var tw loggo.TestWriter
-		c.Assert(loggo.RegisterWriter("constraint-tester", &tw, loggo.DEBUG), gc.IsNil)
+		c.Assert(loggo.RegisterWriter("constraint-tester", &tw), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)

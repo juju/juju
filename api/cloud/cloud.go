@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -26,35 +26,75 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-func (c *Client) Cloud() (cloud.Cloud, error) {
-	var result params.Cloud
-	if err := c.facade.FacadeCall("Cloud", nil, &result); err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
+// Cloud returns the details of the cloud with the given tag.
+func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
+	var results params.CloudResults
+	args := params.Entities{[]params.Entity{{tag.String()}}}
+	if err := c.facade.FacadeCall("Cloud", args, &results); err != nil {
+		return jujucloud.Cloud{}, errors.Trace(err)
 	}
-	authTypes := make([]cloud.AuthType, len(result.AuthTypes))
+	if len(results.Results) != 1 {
+		return jujucloud.Cloud{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	if results.Results[0].Error != nil {
+		return jujucloud.Cloud{}, results.Results[0].Error
+	}
+	result := results.Results[0].Cloud
+	authTypes := make([]jujucloud.AuthType, len(result.AuthTypes))
 	for i, authType := range result.AuthTypes {
-		authTypes[i] = cloud.AuthType(authType)
+		authTypes[i] = jujucloud.AuthType(authType)
 	}
-	regions := make([]cloud.Region, len(result.Regions))
+	regions := make([]jujucloud.Region, len(result.Regions))
 	for i, region := range result.Regions {
-		regions[i] = cloud.Region{
-			Name:            region.Name,
-			Endpoint:        region.Endpoint,
-			StorageEndpoint: region.StorageEndpoint,
+		regions[i] = jujucloud.Region{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
 		}
 	}
-	return cloud.Cloud{
-		Type:            result.Type,
-		AuthTypes:       authTypes,
-		Endpoint:        result.Endpoint,
-		StorageEndpoint: result.StorageEndpoint,
-		Regions:         regions,
+	return jujucloud.Cloud{
+		Type:             result.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         result.Endpoint,
+		IdentityEndpoint: result.IdentityEndpoint,
+		StorageEndpoint:  result.StorageEndpoint,
+		Regions:          regions,
 	}, nil
 }
 
-func (c *Client) Credentials(user names.UserTag) (map[string]cloud.Credential, error) {
-	var results params.CloudCredentialsResults
+// CloudDefaults returns the cloud defaults for the given users.
+func (c *Client) CloudDefaults(user names.UserTag) (jujucloud.Defaults, error) {
+	var results params.CloudDefaultsResults
 	args := params.Entities{[]params.Entity{{user.String()}}}
+	if err := c.facade.FacadeCall("CloudDefaults", args, &results); err != nil {
+		return jujucloud.Defaults{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return jujucloud.Defaults{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	if results.Results[0].Error != nil {
+		return jujucloud.Defaults{}, results.Results[0].Error
+	}
+	result := results.Results[0].Result
+	cloudTag, err := names.ParseCloudTag(result.CloudTag)
+	if err != nil {
+		return jujucloud.Defaults{}, errors.Trace(err)
+	}
+	return jujucloud.Defaults{
+		Cloud:      cloudTag.Id(),
+		Region:     result.CloudRegion,
+		Credential: result.CloudCredential,
+	}, nil
+}
+
+// Credentials returns the cloud credentials for the user and cloud with
+// the given tags.
+func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) (map[string]jujucloud.Credential, error) {
+	var results params.CloudCredentialsResults
+	args := params.UserClouds{[]params.UserCloud{
+		{UserTag: user.String(), CloudTag: cloud.String()},
+	}}
 	if err := c.facade.FacadeCall("Credentials", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,17 +104,20 @@ func (c *Client) Credentials(user names.UserTag) (map[string]cloud.Credential, e
 	if results.Results[0].Error != nil {
 		return nil, results.Results[0].Error
 	}
-	credentials := make(map[string]cloud.Credential)
+	credentials := make(map[string]jujucloud.Credential)
 	for name, credential := range results.Results[0].Credentials {
-		credentials[name] = cloud.NewCredential(
-			cloud.AuthType(credential.AuthType),
+		credentials[name] = jujucloud.NewCredential(
+			jujucloud.AuthType(credential.AuthType),
 			credential.Attributes,
 		)
 	}
 	return credentials, nil
 }
 
-func (c *Client) UpdateCredentials(user names.UserTag, credentials map[string]cloud.Credential) error {
+// UpdateCredentials updates the cloud credentials for the user and cloud with
+// the given tags. Exiting credentials that are not named in the map will be
+// untouched.
+func (c *Client) UpdateCredentials(user names.UserTag, cloud names.CloudTag, credentials map[string]jujucloud.Credential) error {
 	var results params.ErrorResults
 	paramsCredentials := make(map[string]params.CloudCredential)
 	for name, credential := range credentials {
@@ -85,6 +128,7 @@ func (c *Client) UpdateCredentials(user names.UserTag, credentials map[string]cl
 	}
 	args := params.UsersCloudCredentials{[]params.UserCloudCredentials{{
 		UserTag:     user.String(),
+		CloudTag:    cloud.String(),
 		Credentials: paramsCredentials,
 	}}}
 	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {

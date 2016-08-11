@@ -64,8 +64,8 @@ func (api *API) Watch() params.NotifyWatchResult {
 
 // GetMigrationStatus returns the details and progress of the latest
 // model migration.
-func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
-	empty := params.FullMigrationStatus{}
+func (api *API) GetMigrationStatus() (params.MasterMigrationStatus, error) {
+	empty := params.MasterMigrationStatus{}
 
 	mig, err := api.backend.LatestModelMigration()
 	if err != nil {
@@ -77,17 +77,12 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 		return empty, errors.Annotate(err, "retrieving target info")
 	}
 
-	attempt, err := mig.Attempt()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving attempt")
-	}
-
 	phase, err := mig.Phase()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving phase")
 	}
 
-	return params.FullMigrationStatus{
+	return params.MasterMigrationStatus{
 		Spec: params.ModelMigrationSpec{
 			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
 			TargetInfo: params.ModelMigrationTargetInfo{
@@ -98,7 +93,7 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 				Password:      target.Password,
 			},
 		},
-		Attempt:          attempt,
+		MigrationId:      mig.Id(),
 		Phase:            phase.String(),
 		PhaseChangedTime: mig.PhaseChangedTime(),
 	}, nil
@@ -120,6 +115,18 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 
 	err = mig.SetPhase(phase)
 	return errors.Annotate(err, "failed to set phase")
+}
+
+// SetStatusMessage sets a human readable status message containing
+// information about the migration's progress. This will be shown in
+// status output shown to the end user.
+func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) error {
+	mig, err := api.backend.LatestModelMigration()
+	if err != nil {
+		return errors.Annotate(err, "could not get migration")
+	}
+	err = mig.SetStatusMessage(args.Message)
+	return errors.Annotate(err, "failed to set status message")
 }
 
 // Export serializes the model associated with the API connection.

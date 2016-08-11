@@ -22,9 +22,8 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name   string
+	cloud  environs.CloudSpec
 	client *client
 
 	archLock               sync.Mutex // archLock protects access to the following fields.
@@ -37,13 +36,13 @@ type environ struct {
 	ecfg *environConfig
 }
 
-func newEnviron(cfg *config.Config) (*environ, error) {
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	client, err := newClient(ecfg)
+	client, err := newClient(cloud)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to create new client")
 	}
@@ -55,6 +54,7 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 
 	env := &environ{
 		name:      ecfg.Name(),
+		cloud:     cloud,
 		ecfg:      ecfg,
 		client:    client,
 		namespace: namespace,
@@ -95,6 +95,16 @@ func (env *environ) Config() *config.Config {
 	return cfg
 }
 
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
+}
+
 //this variable is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
@@ -113,4 +123,9 @@ var DestroyEnv = common.Destroy
 // known environment.
 func (env *environ) Destroy() error {
 	return DestroyEnv(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	return env.Destroy()
 }

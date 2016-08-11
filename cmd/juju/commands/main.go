@@ -248,9 +248,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeJujuCommand(nil))
 	r.Register(application.NewUpgradeCharmCommand())
 
-	// Charm publishing commands.
-	r.Register(newPublishCommand())
-
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
 	r.Register(charmcmd.NewSuperCommand())
@@ -279,6 +276,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewDisableCommand())
 	r.Register(user.NewLoginCommand())
 	r.Register(user.NewLogoutCommand())
+	r.Register(user.NewRemoveCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewRemoveCommand())
@@ -292,6 +290,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage model
 	r.Register(model.NewGetCommand())
+	r.Register(model.NewModelDefaultsCommand())
+	r.Register(model.NewSetModelDefaultsCommand())
+	r.Register(model.NewUnsetModelDefaultsCommand())
 	r.Register(model.NewSetCommand())
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
@@ -303,6 +304,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	if featureflag.Enabled(feature.Migration) {
 		r.Register(newMigrateCommand())
+	}
+	if featureflag.Enabled(feature.DeveloperMode) {
+		r.Register(model.NewDumpCommand())
 	}
 
 	// Manage and control actions

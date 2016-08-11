@@ -20,6 +20,8 @@ type ConstraintsArgs struct {
 
 	Spaces []string
 	Tags   []string
+
+	VirtType string
 }
 
 func newConstraints(args ConstraintsArgs) *constraints {
@@ -44,6 +46,7 @@ func newConstraints(args ConstraintsArgs) *constraints {
 		RootDisk_:     args.RootDisk,
 		Spaces_:       spaces,
 		Tags_:         tags,
+		VirtType_:     args.VirtType,
 	}
 }
 
@@ -60,6 +63,8 @@ type constraints struct {
 
 	Spaces_ []string `yaml:"spaces,omitempty"`
 	Tags_   []string `yaml:"tags,omitempty"`
+
+	VirtType_ string `yaml:"virt-type,omitempty"`
 }
 
 // Architecture implements Constraints.
@@ -117,6 +122,11 @@ func (c *constraints) Tags() []string {
 	return tags
 }
 
+// VirtType implements Constraints.
+func (c *constraints) VirtType() string {
+	return c.VirtType_
+}
+
 func importConstraints(source map[string]interface{}) (*constraints, error) {
 	version, err := getVersion(source)
 	if err != nil {
@@ -149,6 +159,8 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 
 		"spaces": schema.List(schema.String()),
 		"tags":   schema.List(schema.String()),
+
+		"virt-type": schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -162,6 +174,8 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 
 		"spaces": schema.Omit,
 		"tags":   schema.Omit,
+
+		"virt-type": "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -185,6 +199,8 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 
 		Spaces_: convertToStringSlice(valid["spaces"]),
 		Tags_:   convertToStringSlice(valid["tags"]),
+
+		VirtType_: valid["virt-type"].(string),
 	}, nil
 }
 
@@ -202,5 +218,6 @@ func (c ConstraintsArgs) empty() bool {
 		c.Memory == 0 &&
 		c.RootDisk == 0 &&
 		c.Spaces == nil &&
-		c.Tags == nil
+		c.Tags == nil &&
+		c.VirtType == ""
 }

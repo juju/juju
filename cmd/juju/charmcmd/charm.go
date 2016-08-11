@@ -12,7 +12,7 @@ var charmDoc = `
 by charm authors, though only applicable functionality is mirrored.
 `
 
-const charmPurpose = "interact with charms"
+const charmPurpose = "Interact with charms."
 
 // Command is the top-level command wrapping all charm functionality.
 type Command struct {

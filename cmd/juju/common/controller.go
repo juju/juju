@@ -88,6 +88,7 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error {
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
@@ -117,6 +118,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		switch {
 		case errors.Cause(err) == io.EOF,
 			strings.HasSuffix(errorMessage, "connection is shut down"),
+			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
 			ctx.Infof("Waiting for API to become available")
 			continue

@@ -7,11 +7,9 @@
 package featuretests
 
 import (
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -30,7 +28,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -48,6 +45,7 @@ const (
 	RestrictedAPIExposed = false
 )
 
+// TODO(katco): 2016-08-09: lp:1611427
 var ShortAttempt = &utils.AttemptStrategy{
 	Total: time.Second * 10,
 	Delay: time.Millisecond * 200,
@@ -244,7 +242,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 
@@ -317,7 +315,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 				return
 			}
 		case RestrictedAPIExposed:
-			if reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}) {
+			if params.IsCodeUpgradeInProgress(err) {
 				return
 			}
 		}

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -52,21 +52,6 @@ type ifaceInfo struct {
 	DeviceIndex   int
 	InterfaceName string
 	Disabled      bool
-}
-
-// getTestConfig creates a customized sample MAAS provider configuration.
-func getTestConfig(name, server, oauth, secret string) *config.Config {
-	ecfg, err := newConfig(map[string]interface{}{
-		"name":            name,
-		"maas-server":     server,
-		"maas-oauth":      oauth,
-		"admin-secret":    secret,
-		"authorized-keys": "I-am-not-a-real-key",
-	})
-	if err != nil {
-		panic(err)
-	}
-	return ecfg.Config
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -164,7 +149,11 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
 	suite.addSubnet(c, 9, 9, "node0")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -174,7 +163,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -191,7 +180,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.addSubnet(c, 8, 8, "node1")
-	instance, hc := testing.AssertStartInstance(c, env, "1")
+	instance, hc := testing.AssertStartInstance(c, env, suite.controllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
@@ -223,7 +212,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = testing.StartInstance(env, "2")
+	instance, _, _, err = testing.StartInstance(env, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -348,7 +337,7 @@ func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
 
 func (suite *environSuite) TestControllerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
@@ -357,7 +346,7 @@ func (suite *environSuite) TestControllerInstances(c *gc.C) {
 			StateInstances: expected,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		controllerInstances, err := env.ControllerInstances()
+		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
@@ -365,7 +354,7 @@ func (suite *environSuite) TestControllerInstances(c *gc.C) {
 
 func (suite *environSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -401,7 +390,11 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -418,7 +411,11 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -435,7 +432,11 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
 
@@ -448,14 +449,22 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -472,30 +481,6 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
-}
-
-func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
-	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
-	env := suite.makeEnviron()
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
-}
-
-func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
-	// If we cannot query boot-images (e.g. MAAS server version 1.4),
-	// then Juju will fall over to listing all the available nodes.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
-	suite.addSubnet(c, 9, 9, "node0")
-	suite.addSubnet(c, 9, 9, "node1")
-	env := suite.makeEnviron()
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
@@ -782,7 +767,7 @@ func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
-	params := environs.StartInstanceParams{Placement: "zone=" + zone}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Placement: "zone=" + zone}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
@@ -794,7 +779,7 @@ func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
 	s.addSubnet(c, 1, 1, "thenode1")
-	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Constraints: constraints.MustParse("mem=8G")}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
 }
@@ -805,7 +790,7 @@ func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	s.addSubnet(c, 1, 1, "thenode1")
 	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
 	s.addSubnet(c, 2, 2, "thenode2")
-	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Constraints: constraints.MustParse("mem=8G")}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
@@ -856,10 +841,11 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 		"constraint_map":          storageConstraintAttrs,
 	})
 	s.addSubnet(c, 1, 1, "thenode1")
-	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
-		{Tag: names.NewVolumeTag("1"), Size: 2000000},
-		{Tag: names.NewVolumeTag("3"), Size: 2000000},
-	}}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID,
+		Volumes: []storage.VolumeParams{
+			{Tag: names.NewVolumeTag("1"), Size: 2000000},
+			{Tag: names.NewVolumeTag("3"), Size: 2000000},
+		}}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
@@ -906,10 +892,11 @@ func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
 		"memory": 8192,
 	})
 	s.addSubnet(c, 1, 1, "thenode1")
-	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
-		{Tag: names.NewVolumeTag("1"), Size: 2000000},
-		{Tag: names.NewVolumeTag("3"), Size: 2000000},
-	}}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID,
+		Volumes: []storage.VolumeParams{
+			{Tag: names.NewVolumeTag("1"), Size: 2000000},
+			{Tag: names.NewVolumeTag("3"), Size: 2000000},
+		}}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, "requested 2 storage volumes. 0 returned.")
 	operations := s.testMAASObject.TestServer.NodesOperations()
@@ -981,7 +968,10 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		Placement: "bootstrap-host",
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		Placement:        "bootstrap-host",
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -995,7 +985,7 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	// no distribution group specified
 	s.newNode(c, "node1", "host1", nil)
 	s.addSubnet(c, 1, 1, "node1")
-	testing.AssertStartInstance(c, env, "1")
+	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
 	// distribution group specified: ensure it's passed through to AvailabilityZone.
@@ -1003,6 +993,7 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	s.addSubnet(c, 2, 2, "node2")
 	expectedInstances := []instance.Id{"i-0", "i-1"}
 	params := environs.StartInstanceParams{
+		ControllerUUID: s.controllerUUID,
 		DistributionGroup: func() ([]instance.Id, error) {
 			return expectedInstances, nil
 		},
@@ -1018,12 +1009,13 @@ func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		err: errors.New("AvailabilityZoneAllocations failed"),
 	}
 	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err := testing.StartInstance(env, "1")
+	_, _, _, err := testing.StartInstance(env, s.controllerUUID, "1")
 	c.Assert(err, gc.ErrorMatches, "cannot get availability zone allocations: AvailabilityZoneAllocations failed")
 
 	mock.err = nil
 	dgErr := errors.New("DistributionGroup failed")
 	params := environs.StartInstanceParams{
+		ControllerUUID: s.controllerUUID,
 		DistributionGroup: func() ([]instance.Id, error) {
 			return nil, dgErr
 		},
@@ -1037,7 +1029,7 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
 	s.addSubnet(c, 1, 1, "node1")
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, s.controllerUUID, "1")
 	zone, err := inst.(*maas1Instance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "test-available")
@@ -1060,7 +1052,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	s.addSubnet(c, 1, 1, "node2")
 
 	env := s.bootstrap(c)
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, s.controllerUUID, "1")
 	zone, err := inst.(maasInstance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "zone2")
@@ -1070,16 +1062,16 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	})
 	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
 		"name":       []string{"bootstrap-host"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zone1"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zonelord"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}, {
 		"zone":       []string{"zone2"},
-		"agent_name": []string{exampleAgentName},
+		"agent_name": []string{env.Config().UUID()},
 	}})
 }
 
@@ -1100,9 +1092,38 @@ func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
 	s.addSubnet(c, 2, 2, "node2")
 
 	env := s.bootstrap(c)
-	testing.AssertStartInstance(c, env, "1")
+	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
 	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
 		// one acquire for the bootstrap, one for StartInstance.
 		"acquire", "acquire",
 	})
+}
+
+func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
+	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
+		SystemId:   "device1",
+		MACAddress: "mac1",
+	})
+	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
+		SystemId:   "device2",
+		MACAddress: "mac2",
+	})
+	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
+		SystemId:   "device3",
+		MACAddress: "mac3",
+	})
+
+	env := s.makeEnviron()
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+		{MACAddress: "mac1"},
+		{MACAddress: "mac3"},
+		{MACAddress: "mac4"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var systemIds []string
+	for systemId, _ := range s.testMAASObject.TestServer.Devices() {
+		systemIds = append(systemIds, systemId)
+	}
+	c.Assert(systemIds, gc.DeepEquals, []string{"device2"})
 }

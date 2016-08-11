@@ -21,7 +21,7 @@ import (
 var logger = loggo.GetLogger("juju.resource.context")
 
 // HookContextFacade is the name of the API facade for resources in the uniter.
-const HookContextFacade = resource.ComponentName + "-hook-context"
+const HookContextFacade = "ResourcesHookContext"
 
 // APIClient exposes the uniter API functionality needed for resources.
 type APIClient interface {
@@ -145,6 +145,10 @@ func (deps contextDeps) Move(target, source string) error {
 func (deps contextDeps) Copy(target io.Writer, source io.Reader) error {
 	_, err := io.Copy(target, source)
 	return err
+}
+
+func (deps contextDeps) FingerprintMatches(filename string, expected charmresource.Fingerprint) (bool, error) {
+	return FingerprintMatcher{}.FingerprintMatches(filename, expected)
 }
 
 func (deps contextDeps) Join(path ...string) string {

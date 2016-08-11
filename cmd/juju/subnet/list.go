@@ -51,7 +51,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
-		Purpose: "list subnets known to Juju",
+		Purpose: "List subnets known to Juju.",
 		Doc:     strings.TrimSpace(listCommandDoc),
 		Aliases: []string{"list-subnets"},
 	}
@@ -65,8 +65,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json": cmd.FormatJson,
 	})
 
-	f.StringVar(&c.SpaceName, "space", "", "filter results by space name")
-	f.StringVar(&c.ZoneName, "zone", "", "filter results by zone name")
+	f.StringVar(&c.SpaceName, "space", "", "Filter results by space name")
+	f.StringVar(&c.ZoneName, "zone", "", "Filter results by zone name")
 }
 
 // Init is defined on the cmd.Command interface. It checks the

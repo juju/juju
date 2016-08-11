@@ -19,7 +19,7 @@ var usageSCPSummary = `
 Transfers files to/from a Juju machine.`[1:]
 
 var usageSCPDetails = `
-The source or destination arguments made either be a local path or a remote
+The source or destination arguments may either be a local path or a remote
 location. The syntax for a remote location is:
 
     [<user>@]<target>:[<path>]

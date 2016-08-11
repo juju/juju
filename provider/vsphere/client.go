@@ -19,14 +19,17 @@ import (
 	"github.com/juju/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
 const (
-	metadataKeyIsState   = "juju_is_state_key"
-	metadataValueIsState = "juju_is_value_value"
+	metadataKeyIsController     = "juju_is_controller_key"
+	metadataValueIsController   = "juju_is_controller_value"
+	metadataKeyControllerUUID   = "juju_controller_uuid_key"
+	metadataValueControllerUUID = "juju_controller_uuid_value"
 )
 
 type client struct {
@@ -36,17 +39,24 @@ type client struct {
 	recurser   *list.Recurser
 }
 
-var newClient = func(ecfg *environConfig) (*client, error) {
-	url, err := ecfg.url()
-	if err != nil {
-		return nil, err
+var newClient = func(cloud environs.CloudSpec) (*client, error) {
+
+	credAttrs := cloud.Credential.Attributes()
+	username := credAttrs[credAttrUser]
+	password := credAttrs[credAttrPassword]
+	connURL := &url.URL{
+		Scheme: "https",
+		User:   url.UserPassword(username, password),
+		Host:   cloud.Endpoint,
+		Path:   "/sdk",
 	}
-	connection, err := newConnection(url)
+
+	connection, err := newConnection(connURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	finder := find.NewFinder(connection.Client, true)
-	datacenter, err := finder.Datacenter(context.TODO(), ecfg.datacenter())
+	datacenter, err := finder.Datacenter(context.TODO(), cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,14 +78,15 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 type instanceSpec struct {
-	machineID string
-	zone      *vmwareAvailZone
-	hwc       *instance.HardwareCharacteristics
-	img       *OvaFileMetadata
-	userData  []byte
-	sshKey    string
-	isState   bool
-	apiPort   int
+	machineID      string
+	zone           *vmwareAvailZone
+	hwc            *instance.HardwareCharacteristics
+	img            *OvaFileMetadata
+	userData       []byte
+	sshKey         string
+	isController   bool
+	controllerUUID string
+	apiPort        int
 }
 
 // CreateInstance create new vm in vsphere and run it

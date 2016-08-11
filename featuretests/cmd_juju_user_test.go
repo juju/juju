@@ -69,7 +69,7 @@ func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
-		modelUserTags[i] = u.UserTag()
+		modelUserTags[i] = u.UserTag
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
 		user.Tag().(names.UserTag),
@@ -114,6 +114,34 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 	user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
+}
+
+func (s *UserSuite) TestRemoveUserPrompt(c *gc.C) {
+	expected := `
+WARNING! This command will remove the user "jjam" from the "kontroll" controller.
+
+Continue (y/N)? `[1:]
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	ctx, _ := s.RunUserCommand(c, "", "remove-user", "jjam")
+	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)
+}
+
+func (s *UserSuite) TestRemoveUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	_, err := s.RunUserCommand(c, "", "remove-user", "-y", "jjam")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
+}
+
+func (s *UserSuite) TestRemoveUserLongForm(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
+	_, err := s.RunUserCommand(c, "", "remove-user", "--yes", "jjam")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
 }
 
 func (s *UserSuite) TestUserList(c *gc.C) {

@@ -4,8 +4,21 @@
 package maas
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/cloud"
+)
+
+const (
+	credAttrMAASOAuth = "maas-oauth"
 )
 
 type environProviderCredentials struct{}
@@ -13,19 +26,59 @@ type environProviderCredentials struct{}
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		cloud.OAuth1AuthType: {
-			{
-				"maas-oauth", cloud.CredentialAttr{
-					Description: "OAuth/API-key credentials for MAAS",
-					Hidden:      true,
-				},
+		cloud.OAuth1AuthType: {{
+			credAttrMAASOAuth, cloud.CredentialAttr{
+				Description: "OAuth/API-key credentials for MAAS",
+				Hidden:      true,
 			},
-		},
+		}},
 	}
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	// TODO(axw) find out where the MAAS CLI stores credentials.
-	return nil, errors.NotFoundf("credentials")
+	// MAAS stores credentials in a json file: ~/.maasrc
+	// {"Server": "http://<ip>/MAAS", "OAuth": "<key>"}
+	maasrc := filepath.Join(utils.Home(), ".maasrc")
+	fileBytes, err := ioutil.ReadFile(maasrc)
+	if os.IsNotExist(err) {
+		return nil, errors.NotFoundf("maas credentials")
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	details := make(map[string]interface{})
+	err = json.Unmarshal(fileBytes, &details)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	oauthKey := details["OAuth"]
+	if oauthKey == "" {
+		return nil, errors.New("MAAS credentials require a value for OAuth token")
+	}
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		credAttrMAASOAuth: fmt.Sprintf("%v", oauthKey),
+	})
+	server, ok := details["Server"]
+	if server == "" || !ok {
+		server = "unspecified server"
+	}
+	cred.Label = fmt.Sprintf("MAAS credential for %s", server)
+
+	return &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"default": cred,
+		},
+	}, nil
 }
+
+func parseOAuthToken(cred cloud.Credential) (string, error) {
+	oauth := cred.Attributes()[credAttrMAASOAuth]
+	if strings.Count(oauth, ":") != 2 {
+		return "", errMalformedMaasOAuth
+	}
+	return oauth, nil
+}
+
+var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")

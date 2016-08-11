@@ -19,11 +19,13 @@ type providerCommonSuite struct{}
 var _ = gc.Suite(&providerCommonSuite{})
 
 func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
+	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType
-	for pType, p := range provider.CommonProviders() {
+	for _, pType := range registry.StorageProviderTypes() {
 		common = append(common, pType)
-		_, ok := p.(storage.Provider)
-		c.Check(ok, jc.IsTrue)
+		p, err := registry.StorageProvider(pType)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(p, gc.NotNil)
 	}
 	c.Assert(common, jc.SameContents, []storage.ProviderType{
 		provider.LoopProviderType,

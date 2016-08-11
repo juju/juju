@@ -8,8 +8,6 @@ package params
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6-unstable"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -32,8 +30,11 @@ type FullStatus struct {
 // ModelStatusInfo holds status information about the model itself.
 type ModelStatusInfo struct {
 	Name             string `json:"name"`
+	Cloud            string `json:"cloud"`
+	CloudRegion      string `json:"region,omitempty"`
 	Version          string `json:"version"`
 	AvailableVersion string `json:"available-version"`
+	Migration        string `json:"migration,omitempty"`
 }
 
 // MachineStatus holds status info about a machine.
@@ -54,17 +55,18 @@ type MachineStatus struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err           error                  `json:"err,omitempty"`
-	Charm         string                 `json:"charm"`
-	Series        string                 `json:"series"`
-	Exposed       bool                   `json:"exposed"`
-	Life          string                 `json:"life"`
-	Relations     map[string][]string    `json:"relations"`
-	CanUpgradeTo  string                 `json:"can-upgrade-to"`
-	SubordinateTo []string               `json:"subordinate-to"`
-	Units         map[string]UnitStatus  `json:"units"`
-	MeterStatuses map[string]MeterStatus `json:"meter-statuses"`
-	Status        DetailedStatus         `json:"status"`
+	Err             error                  `json:"err,omitempty"`
+	Charm           string                 `json:"charm"`
+	Series          string                 `json:"series"`
+	Exposed         bool                   `json:"exposed"`
+	Life            string                 `json:"life"`
+	Relations       map[string][]string    `json:"relations"`
+	CanUpgradeTo    string                 `json:"can-upgrade-to"`
+	SubordinateTo   []string               `json:"subordinate-to"`
+	Units           map[string]UnitStatus  `json:"units"`
+	MeterStatuses   map[string]MeterStatus `json:"meter-statuses"`
+	Status          DetailedStatus         `json:"status"`
+	WorkloadVersion string                 `json:"workload-version"`
 }
 
 // MeterStatus represents the meter status of a unit.
@@ -79,7 +81,8 @@ type UnitStatus struct {
 	AgentStatus DetailedStatus `json:"agent-status"`
 
 	// WorkloadStatus holds the status for a unit's workload
-	WorkloadStatus DetailedStatus `json:"workload-status"`
+	WorkloadStatus  DetailedStatus `json:"workload-status"`
+	WorkloadVersion string         `json:"workload-version"`
 
 	Machine       string                `json:"machine"`
 	OpenedPorts   []string              `json:"opened-ports"`
@@ -90,19 +93,19 @@ type UnitStatus struct {
 
 // RelationStatus holds status info about a relation.
 type RelationStatus struct {
-	Id        int                 `json:"id"`
-	Key       string              `json:"key"`
-	Interface string              `json:"interface"`
-	Scope     charm.RelationScope `json:"scope"`
-	Endpoints []EndpointStatus    `json:"endpoints"`
+	Id        int              `json:"id"`
+	Key       string           `json:"key"`
+	Interface string           `json:"interface"`
+	Scope     string           `json:"scope"`
+	Endpoints []EndpointStatus `json:"endpoints"`
 }
 
 // EndpointStatus holds status info about a single endpoint
 type EndpointStatus struct {
-	ApplicationName string             `json:"application"`
-	Name            string             `json:"name"`
-	Role            charm.RelationRole `json:"role"`
-	Subordinate     bool               `json:"subordinate"`
+	ApplicationName string `json:"application"`
+	Name            string `json:"name"`
+	Role            string `json:"role"`
+	Subordinate     bool   `json:"subordinate"`
 }
 
 // TODO(ericsnow) Eliminate the String method.

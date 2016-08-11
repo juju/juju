@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/common"
@@ -64,12 +63,12 @@ func (r resources) registerPublicFacade() {
 		return
 	}
 
+	// NOTE: facade is also defined in api/facadeversions.go.
 	common.RegisterStandardFacade(
-		resource.ComponentName,
+		resource.FacadeName,
 		server.Version,
 		resourceadapters.NewPublicFacade,
 	)
-	coreapi.RegisterFacadeVersion(resource.ComponentName, server.Version)
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
@@ -202,7 +201,6 @@ func (r resources) registerHookContextFacade() {
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
-	coreapi.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
 
 	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{

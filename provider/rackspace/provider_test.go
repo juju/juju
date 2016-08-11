@@ -41,14 +41,18 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	s.innerProvider.CheckCallNames(c, "Validate")
 }
 
-func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
-	args := environs.BootstrapConfigParams{CloudRegion: "dfw"}
-	s.provider.BootstrapConfig(args)
+func (s *providerSuite) TestPrepareConfig(c *gc.C) {
+	args := environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Region: "dfw",
+		},
+	}
+	s.provider.PrepareConfig(args)
 
 	expect := args
-	expect.CloudRegion = "DFW"
+	expect.Cloud.Region = "DFW"
 	s.innerProvider.CheckCalls(c, []testing.StubCall{
-		{"BootstrapConfig", []interface{}{expect}},
+		{"PrepareConfig", []interface{}{expect}},
 	})
 }
 
@@ -56,8 +60,8 @@ type fakeProvider struct {
 	testing.Stub
 }
 
-func (p *fakeProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	p.MethodCall(p, "Open", cfg)
+func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	p.MethodCall(p, "Open", args)
 	return nil, nil
 }
 
@@ -66,13 +70,13 @@ func (p *fakeProvider) RestrictedConfigAttributes() []string {
 	return nil
 }
 
-func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
+func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
 	return nil, nil
 }
 
-func (p *fakeProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	p.MethodCall(p, "BootstrapConfig", args)
+func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "PrepareConfig", args)
 	return nil, nil
 }
 

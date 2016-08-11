@@ -25,7 +25,7 @@ func (auth agentAuth) AuthMachineAgent() bool {
 	return auth.machine
 }
 
-// AuthUnitAgent is part of the common.Authorizer interface.
+// AuthUnitAgent is part of the facade.Authorizer interface.
 func (auth agentAuth) AuthUnitAgent() bool {
 	return auth.unit
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -134,6 +135,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	apiInfo := s.APIInfo(c)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	paths.MetricsSpoolDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -245,7 +247,9 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Model(), info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(config.Model(), info, mongotest.DialOpts(), stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	))
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

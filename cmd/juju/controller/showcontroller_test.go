@@ -40,20 +40,14 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
-  accounts:
-    admin@local:
-      user: admin@local
-      models:
-        admin:
-          uuid: abc
-        my-model:
-          uuid: def
-      current-model: my-model
-    bob@local:
-      user: bob@local
-    bob@remote:
-      user: bob@remote
-  current-account: admin@local
+  models:
+    admin:
+      uuid: abc
+    my-model:
+      uuid: def
+  current-model: my-model
+  account:
+    user: admin@local
 `[1:]
 
 	s.assertShowController(c, "mallards")
@@ -76,25 +70,18 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
-  accounts:
-    admin@local:
-      user: admin@local
-      password: hunter2
-      models:
-        admin:
-          uuid: abc
-        my-model:
-          uuid: def
-      current-model: my-model
-    bob@local:
-      user: bob@local
-      password: huntert00
-    bob@remote:
-      user: bob@remote
-  current-account: admin@local
+  models:
+    admin:
+      uuid: abc
+    my-model:
+      uuid: def
+  current-model: my-model
+  account:
+    user: admin@local
+    password: hunter2
 `[1:]
 
-	s.assertShowController(c, "mallards", "--show-passwords")
+	s.assertShowController(c, "mallards", "--show-password")
 }
 
 func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
@@ -114,6 +101,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 			"extra": "value",
 		},
 		Credential:    "my-credential",
+		CloudType:     "maas",
 		Cloud:         "mallards",
 		CloudRegion:   "mallards1",
 		CloudEndpoint: "http://mallards.local/MAAS",
@@ -127,28 +115,14 @@ mallards:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     region: mallards1
-  accounts:
-    admin@local:
-      user: admin@local
-      models:
-        admin:
-          uuid: abc
-        my-model:
-          uuid: def
-      current-model: my-model
-    bob@local:
-      user: bob@local
-    bob@remote:
-      user: bob@remote
-  current-account: admin@local
-  bootstrap-config:
-    config:
-      extra: value
-    cloud: mallards
-    cloud-type: maas
-    region: mallards1
-    endpoint: http://mallards.local/MAAS
-    credential: my-credential
+  models:
+    admin:
+      uuid: abc
+    my-model:
+      uuid: def
+  current-model: my-model
+  account:
+    user: admin@local
 `[1:]
 
 	s.assertShowController(c, "mallards")
@@ -165,13 +139,12 @@ aws-test:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
-  accounts:
-    admin@local:
-      user: admin@local
-      models:
-        admin:
-          uuid: ghi
-      current-model: admin
+  models:
+    admin:
+      uuid: ghi
+  current-model: admin
+  account:
+    user: admin@local
 `[1:]
 	s.assertShowController(c, "aws-test")
 }
@@ -186,22 +159,20 @@ aws-test:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
-  accounts:
-    admin@local:
-      user: admin@local
-      models:
-        admin:
-          uuid: ghi
-      current-model: admin
+  models:
+    admin:
+      uuid: ghi
+  current-model: admin
+  account:
+    user: admin@local
 mark-test-prodstack:
   details:
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
-  accounts:
-    admin@local:
-      user: admin@local
+  account:
+    user: admin@local
 `[1:]
 
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
@@ -211,7 +182,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -220,7 +191,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack"},"accounts":{"admin@local":{"user":"admin@local"}}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack"},"account":{"user":"admin@local"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -242,7 +213,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store := s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}}}
 `[1:]
 	store.CurrentControllerName = "aws-test"
 	s.assertShowController(c, "--format", "json")

@@ -21,40 +21,43 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
 const (
-	InstanceDataC     = instanceDataC
 	MachinesC         = machinesC
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
-	SettingsC         = settingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
+	SettingsC         = settingsC
 )
 
 var (
-	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	ControllerAvailable           = &controllerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	NowToTheSecond                = nowToTheSecond
-	AddVolumeOps                  = (*State).addVolumeOps
-	CombineMeterStatus            = combineMeterStatus
-	ApplicationGlobalKey          = applicationGlobalKey
-	ReadSettings                  = readSettings
-	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
-	MergeBindings                 = mergeBindings
-	UpgradeInProgressError        = errUpgradeInProgress
+	BinarystorageNew                     = &binarystorageNew
+	ImageStorageNewStorage               = &imageStorageNewStorage
+	MachineIdLessThan                    = machineIdLessThan
+	ControllerAvailable                  = &controllerAvailable
+	GetOrCreatePorts                     = getOrCreatePorts
+	GetPorts                             = getPorts
+	NowToTheSecond                       = nowToTheSecond
+	AddVolumeOps                         = (*State).addVolumeOps
+	CombineMeterStatus                   = combineMeterStatus
+	ApplicationGlobalKey                 = applicationGlobalKey
+	ReadSettings                         = readSettings
+	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	ModelGlobalKey                       = modelGlobalKey
+	MergeBindings                        = mergeBindings
+	UpgradeInProgressError               = errUpgradeInProgress
 )
 
 type (
@@ -432,12 +435,13 @@ func MakeLogDoc(
 ) *logDoc {
 	return &logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      t.UnixNano(),
 		ModelUUID: modelUUID,
 		Entity:    entity.String(),
+		Version:   version.Current.String(),
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     int(level),
 		Message:   msg,
 	}
 }
@@ -456,8 +460,8 @@ func IsManagerMachineError(err error) bool {
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
 
-func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
-	return e.updateLastConnection(when)
+func UpdateModelUserLastConnection(st *State, e description.UserAccess, when time.Time) error {
+	return st.updateLastModelConnection(e.UserTag, when)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
@@ -487,8 +491,4 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 		return nil, errors.Trace(err)
 	}
 	return client.Leases(), nil
-}
-
-func DeleteCharm(st *State, curl *charm.URL) error {
-	return st.deleteCharm(curl)
 }

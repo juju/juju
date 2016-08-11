@@ -13,8 +13,10 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -22,14 +24,14 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {
 	srv         *Server
 	root        *apiHandler
-	reqNotifier *requestNotifier
+	apiObserver observer.Observer
 
 	mu       sync.Mutex
 	loggedIn bool
@@ -70,7 +72,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 	}
 
-	var agentPingerNeeded = true
 	isUser := true
 	kind := names.UserTagKind
 	if req.AuthTag != "" {
@@ -88,8 +89,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	serverOnlyLogin := a.root.modelUUID == ""
+	controllerMachineLogin := false
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -127,41 +129,49 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// machine in the controller model, and we don't need a pinger
 		// for it as we already have one running in the machine agent api
 		// worker for the controller model.
-		agentPingerNeeded = false
+		controllerMachineLogin = true
 	}
 	a.root.entity = entity
-
-	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag().String())
-	}
+	a.apiObserver.Login(entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
 
 	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
 	a.loggedIn = true
 
-	if agentPingerNeeded {
+	if !controllerMachineLogin {
 		if err := startPingerIfAgent(a.root, entity); err != nil {
 			return fail, errors.Trace(err)
 		}
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var envUser *state.ModelUser
+	var modelUser description.UserAccess
+	var controllerUser description.UserAccess
 	// Send back user info if user
-	if isUser && !serverOnlyLogin {
+	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
-		envUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
-		if err != nil {
-			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
+		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
-		if envUser.ReadOnly() {
+
+		modelUser, err = a.root.state.UserAccess(entity.Tag().(names.UserTag), a.root.state.ModelTag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
+		}
+
+		if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
+			return fail, errors.NotFoundf("missing ModelUser and ControllerUser for logged in user %s", entity.Tag())
+		}
+		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
+		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
-	}
 
+	}
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
@@ -200,8 +210,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		loginResult.Facades = facades
 	}
 
-	if envUser != nil {
-		authedApi = newClientAuthRoot(authedApi, envUser)
+	if !description.IsEmptyUserAccess(modelUser) || !description.IsEmptyUserAccess(controllerUser) {
+		authedApi = newClientAuthRoot(authedApi, modelUser, controllerUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
@@ -323,12 +333,23 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	modelUser, err := f.st.ModelUser(utag)
-	if err != nil {
+	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
+
+	controllerUser, err := state.ControllerAccess(f.st, utag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
+		return nil, errors.NotFoundf("model or controller user")
+	}
+
 	u := &modelUserEntity{
-		modelUser: modelUser,
+		st:             f.st,
+		modelUser:      modelUser,
+		controllerUser: controllerUser,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -348,8 +369,11 @@ var _ loginEntity = &modelUserEntity{}
 // in such a way that the authentication mechanisms
 // can work without knowing these details.
 type modelUserEntity struct {
-	modelUser *state.ModelUser
-	user      *state.User
+	st *state.State
+
+	controllerUser description.UserAccess
+	modelUser      description.UserAccess
+	user           *state.User
 }
 
 // Refresh implements state.Authenticator.Refresh.
@@ -379,15 +403,28 @@ func (u *modelUserEntity) PasswordValid(pass string) bool {
 
 // Tag implements state.Entity.Tag.
 func (u *modelUserEntity) Tag() names.Tag {
-	return u.modelUser.UserTag()
+	if u.user != nil {
+		return u.user.UserTag()
+	}
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		return u.modelUser.UserTag
+	}
+	return u.controllerUser.UserTag
+
 }
 
 // LastLogin implements loginEntity.LastLogin.
 func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// The last connection for the model takes precedence over
 	// the local user last login time.
-	t, err := u.modelUser.LastConnection()
-	if state.IsNeverConnectedError(err) {
+	var err error
+	var t time.Time
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
+	} else {
+		err = state.NeverConnectedError("controller user")
+	}
+	if state.IsNeverConnectedError(err) || description.IsEmptyUserAccess(u.modelUser) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
@@ -401,14 +438,26 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
-	err := u.modelUser.UpdateLastConnection()
+	var err error
+
+	if !description.IsEmptyUserAccess(u.modelUser) {
+		if u.modelUser.Object.Kind() != names.ModelTagKind {
+			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
+		}
+
+		err = u.st.UpdateLastModelConnection(u.modelUser.UserTag)
+	}
+
 	if u.user != nil {
 		err1 := u.user.UpdateLastLogin()
 		if err == nil {
-			err = err1
+			return err1
 		}
 	}
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // presenceShim exists to represent a statepresence.Agent in a form
@@ -463,11 +512,12 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	//
 	// We should have picked better names...
 	action := func() {
+		logger.Debugf("closing connection due to ping timout")
 		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	pingTimeout := newPingTimeout(action, maxClientPingInterval)
+	pingTimeout := newPingTimeout(action, clock.WallClock, maxClientPingInterval)
 	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 }
 

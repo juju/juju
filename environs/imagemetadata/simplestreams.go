@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 )
@@ -99,7 +100,7 @@ const (
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
 
-	// The ;ocation of juju specific image metadata including non-Ubuntu images
+	// The location of juju specific image metadata including non-Ubuntu images
 	// in public clouds.
 	JujuStreamsImagesURL = "https://streams.canonical.com/juju/images"
 
@@ -109,7 +110,6 @@ const (
 
 // This needs to be a var so we can override it for testing and in bootstrap.
 var (
-	//
 	DefaultUbuntuBaseURL = UbuntuCloudImagesURL
 	DefaultJujuBaseURL   = JujuStreamsImagesURL
 )
@@ -130,7 +130,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 		if publicKey == "" {
-			publicKey = SimplestreamsImagesPublicKey
+			publicKey = keys.JujuPublicKey
 		}
 		result = append(
 			result,

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -53,7 +53,7 @@ func (s *simplestreamsSuite) TestNewDataSource(c *gc.C) {
 	c.Assert(url, gc.Equals, "https://1.2.3.4/streams//my/path")
 
 	c.Assert(source.RequireSigned(), jc.IsTrue)
-	c.Assert(source.PublicSigningKey(), gc.Equals, juju.JujuPublicKey)
+	c.Assert(source.PublicSigningKey(), gc.Equals, keys.JujuPublicKey)
 }
 
 var fetchMetadataTests = []struct {

@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
@@ -24,7 +23,10 @@ var _ = gc.Suite(&storageProviderSuite{})
 
 func (s *storageProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider = gce.GCEStorageProvider()
+
+	var err error
+	s.provider, err = s.Env.StorageProvider("gce")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageProviderSuite) TestValidateConfig(c *gc.C) {
@@ -47,22 +49,19 @@ func (s *storageProviderSuite) TestFSStorageSupport(c *gc.C) {
 }
 
 func (s *storageProviderSuite) TestFSSource(c *gc.C) {
-	eConfig := &config.Config{}
 	sConfig := &storage.Config{}
-	_, err := s.provider.FilesystemSource(eConfig, sConfig)
+	_, err := s.provider.FilesystemSource(sConfig)
 	c.Check(err, gc.ErrorMatches, "filesystems not supported")
 }
 
 func (s *storageProviderSuite) TestVolumeSource(c *gc.C) {
-	connCfg := s.BaseSuite.Config
 	storageCfg := &storage.Config{}
-	_, err := s.provider.VolumeSource(connCfg, storageCfg)
+	_, err := s.provider.VolumeSource(storageCfg)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 type volumeSourceSuite struct {
 	gce.BaseSuite
-	provider         storage.Provider
 	source           storage.VolumeSource
 	params           []storage.VolumeParams
 	instId           instance.Id
@@ -73,9 +72,10 @@ var _ = gc.Suite(&volumeSourceSuite{})
 
 func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider = gce.GCEStorageProvider()
-	var err error
-	s.source, err = s.provider.VolumeSource(s.BaseSuite.Config, &storage.Config{})
+
+	provider, err := s.Env.StorageProvider("gce")
+	c.Assert(err, jc.ErrorIsNil)
+	s.source, err = provider.VolumeSource(&storage.Config{})
 	c.Check(err, jc.ErrorIsNil)
 
 	inst := gce.NewInstance(s.BaseInstance, s.Env)

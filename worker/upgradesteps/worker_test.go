@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -89,7 +90,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
-	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter, loggo.INFO), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter), gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		loggo.RemoveWriter("upgrade-tests")
 		s.logWriter.Clear()
@@ -410,7 +411,10 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	mongoInfo := s.State.MongoConnectionInfo()
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), environs.NewStatePolicy())
+	newPolicy := stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -486,6 +490,7 @@ func makeBumpedCurrentVersion() version.Binary {
 const maxUpgradeRetries = 3
 
 func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
 		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{

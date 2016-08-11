@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -29,7 +30,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	corejujutesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -48,15 +49,19 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	testServer.AddGetResponse("/api/1.0/version/", http.StatusOK, "<html></html>")
 	testServer.Start()
 	suite.AddCleanup(func(*gc.C) { testServer.Close() })
-	testAttrs := corejujutesting.Attrs{}
-	for k, v := range maasEnvAttrs {
-		testAttrs[k] = v
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	cloud := environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   testServer.Server.URL,
+		Credential: &cred,
 	}
-	testAttrs["maas-server"] = testServer.Server.URL
-	attrs := corejujutesting.FakeConfig().Merge(testAttrs)
+	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	return NewEnviron(cfg)
+	return NewEnviron(cloud, cfg)
 }
 
 func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
@@ -65,30 +70,10 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
-	controller := &fakeController{
-		bootResources: []gomaasapi.BootResource{
-			&fakeBootResource{name: "wily", architecture: "amd64/blah"},
-			&fakeBootResource{name: "wily", architecture: "amd64/something"},
-			&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
-		},
-	}
-	env := suite.makeEnviron(c, controller)
-	result, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []string{"amd64", "arm"})
-}
-
-func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
-	env := suite.makeEnviron(c, &fakeController{bootResourcesError: errors.New("Something terrible!")})
-	_, err := env.SupportedArchitectures()
-	c.Assert(err, gc.ErrorMatches, "Something terrible!")
-}
-
 func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) *maasEnviron {
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {
-		expected.AgentName = env.ecfg().maasAgentName()
+		expected.AgentName = env.Config().UUID()
 		c.Assert(args, gc.DeepEquals, expected)
 	}
 	controller := &fakeController{
@@ -109,7 +94,7 @@ func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemI
 	var env *maasEnviron
 	checkArgs := func(args gomaasapi.MachinesArgs) {
 		c.Check(args.SystemIDs, gc.DeepEquals, expectedSystemIDs)
-		c.Check(args.AgentName, gc.Equals, env.ecfg().maasAgentName())
+		c.Check(args.AgentName, gc.Equals, env.Config().UUID())
 	}
 	machines := make([]gomaasapi.Machine, len(returnSystemIDs))
 	for index, id := range returnSystemIDs {
@@ -260,7 +245,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C
 func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
 	args := collectReleaseArgs(controller)
@@ -271,7 +256,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(gomaasapi.NewCannotCompleteError("test1 not allocated"))
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
@@ -282,7 +267,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(
 		gomaasapi.NewBadRequestError("no such machine: test1"),
 		gomaasapi.NewBadRequestError("no such machine: test1"),
@@ -298,7 +283,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c
 }
 
 func (suite *maas2EnvironSuite) checkStopInstancesFails(c *gc.C, withError error) {
-	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(withError)
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot release nodes: %s", withError))
@@ -326,7 +311,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
-	params := environs.StartInstanceParams{}
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
@@ -337,7 +322,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
+				AgentName: env.Config().UUID(),
 				Zone:      "foo",
 				MinMemory: 8192,
 			})
@@ -351,8 +336,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 	params := environs.StartInstanceParams{
-		Placement:   "zone=foo",
-		Constraints: constraints.MustParse("mem=8G"),
+		ControllerUUID: suite.controllerUUID,
+		Placement:      "zone=foo",
+		Constraints:    constraints.MustParse("mem=8G"),
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -364,7 +350,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.Config().UUID()})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
@@ -458,7 +444,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
+				AgentName: env.Config().UUID(),
 				Storage:   getStorage(),
 			})
 		},
@@ -510,7 +496,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName:  env.ecfg().maasAgentName(),
+				AgentName:  env.Config().UUID(),
 				Interfaces: getPositives(),
 				NotSpace:   getNegatives(),
 			})
@@ -680,7 +666,11 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -695,7 +685,11 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -875,7 +869,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	params := environs.StartInstanceParams{}
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
@@ -1016,6 +1010,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		systemID:     "foo",
 	}
 	controller := &fakeController{
+		Stub: &testing.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
 			Stub:         &testing.Stub{},
 			systemID:     "1",
@@ -1171,6 +1166,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		Stub:         &testing.Stub{},
 	}
 	controller := &fakeController{
+		Stub: &testing.Stub{},
 		machines: []gomaasapi.Machine{&fakeMachine{
 			Stub:         &testing.Stub{},
 			systemID:     "1",
@@ -1277,7 +1273,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	subnet := makeFakeSubnet(3)
 	checkMachinesArgs := func(args gomaasapi.MachinesArgs) {
 		expected := gomaasapi.MachinesArgs{
-			AgentName: env.ecfg().maasAgentName(),
+			AgentName: env.Config().UUID(),
 			SystemIDs: []string{"1"},
 		}
 		c.Assert(args, jc.DeepEquals, expected)
@@ -1490,7 +1486,7 @@ func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	suite.setupFakeTools(c)
 	machine := newFakeMachine("gus", arch.HostArch(), "Deployed")
-	file := &fakeFile{name: "agent-prefix-provider-state"}
+	file := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
 	controller := newFakeControllerWithFiles(file)
 	controller.machines = []gomaasapi.Machine{machine}
 	controller.allocateMachine = machine
@@ -1499,7 +1495,11 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine.Stub.CheckCallNames(c, "Start")
@@ -1515,7 +1515,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -1530,7 +1530,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	node1.zoneName = "test_zone"
 	controller.allocateMachine = node1
 
-	instance, hc := jujutesting.AssertStartInstance(c, env, "1")
+	instance, hc := jujutesting.AssertStartInstance(c, env, suite.controllerUUID, "1")
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
@@ -1552,7 +1552,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = jujutesting.StartInstance(env, "2")
+	instance, _, _, err = jujutesting.StartInstance(env, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1560,7 +1560,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 	controller := newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state"))
 	env := suite.makeEnviron(c, controller)
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
@@ -1569,10 +1569,10 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		controller.files = []gomaasapi.File{&fakeFile{
-			name:     "agent-prefix-provider-state",
+			name:     coretesting.ModelTag.Id() + "-provider-state",
 			contents: state,
 		}}
-		controllerInstances, err := env.ControllerInstances()
+		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
@@ -1581,13 +1581,13 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron(c,
 		newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state")))
-	_, err := env.ControllerInstances()
+	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
-	file1 := &fakeFile{name: "agent-prefix-provider-state"}
-	file2 := &fakeFile{name: "agent-prefix-horace"}
+	file1 := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
+	file2 := &fakeFile{name: coretesting.ModelTag.Id() + "-horace"}
 	controller := newFakeControllerWithFiles(file1, file2)
 	controller.machines = []gomaasapi.Machine{&fakeMachine{systemID: "pete"}}
 	env := suite.makeEnviron(c, controller)
@@ -1615,7 +1615,11 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
@@ -1624,7 +1628,11 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*cannot run instances.*")
@@ -1634,7 +1642,7 @@ func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	env := suite.makeEnviron(c, newFakeControllerWithFiles(
-		&fakeFile{name: "agent-prefix-tools/filename", contents: makeRandomBytes(10)},
+		&fakeFile{name: coretesting.ModelTag.Id() + "-tools/filename", contents: makeRandomBytes(10)},
 	))
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1665,4 +1673,63 @@ func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
+	dev1 := newFakeDeviceWithMAC("eleven")
+	dev2 := newFakeDeviceWithMAC("will")
+	controller := newFakeController()
+	controller.devices = []gomaasapi.Device{dev1, dev2}
+
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+		{MACAddress: "will"},
+		{MACAddress: "dustin"},
+		{MACAddress: "eleven"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	c.Assert(ok, jc.IsTrue)
+	expected := gomaasapi.DevicesArgs{MACAddresses: []string{"will", "dustin", "eleven"}}
+	c.Assert(args, gc.DeepEquals, expected)
+
+	dev1.CheckCallNames(c, "Delete")
+	dev2.CheckCallNames(c, "Delete")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *gc.C) {
+	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{{MACAddress: "anything"}})
+	c.Assert(err, gc.ErrorMatches, "Everything done broke")
+}
+
+func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice(c *gc.C) {
+	dev1 := newFakeDeviceWithMAC("eleven")
+	dev1.systemID = "hopper"
+	dev1.SetErrors(errors.New("don't delete me"))
+	controller := newFakeController()
+	controller.devices = []gomaasapi.Device{dev1}
+
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+		{MACAddress: "eleven"},
+	})
+	c.Assert(err, gc.ErrorMatches, "deleting device hopper: don't delete me")
+
+	_, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	c.Assert(ok, jc.IsTrue)
+
+	dev1.CheckCallNames(c, "Delete")
+}
+
+func newFakeDeviceWithMAC(macAddress string) *fakeDevice {
+	return &fakeDevice{
+		Stub: &testing.Stub{},
+		interface_: &fakeInterface{
+			Stub:       &testing.Stub{},
+			macAddress: macAddress,
+		},
+	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -57,7 +58,7 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:     st,
 		resources: common.NewResources(),
@@ -346,6 +347,45 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 // GetAuthEntity returns the authenticated entity.
 func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// HasPermission returns true if the logged in user can perform <operation> on <target>.
+func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) (bool, error) {
+	return hasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
+}
+
+type userAccessFunc func(names.UserTag, names.Tag) (description.UserAccess, error)
+
+func hasPermission(userGetter userAccessFunc, entity names.Tag,
+	operation description.Access, target names.Tag) (bool, error) {
+	validForKind := false
+
+	switch operation {
+	case description.LoginAccess, description.AddModelAccess, description.SuperuserAccess:
+		validForKind = target.Kind() == names.ControllerTagKind
+	case description.ReadAccess, description.WriteAccess, description.AdminAccess:
+		validForKind = target.Kind() == names.ModelTagKind
+	}
+
+	if !validForKind {
+		return false, nil
+	}
+
+	userTag, ok := entity.(names.UserTag)
+	if !ok {
+		return false, errors.NotValidf("obtaining permission for subject kind %q", entity.Kind())
+	}
+
+	user, err := userGetter(userTag, target)
+	if err != nil {
+		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
+	}
+	modelPermission := user.Access.EqualOrGreaterModelAccessThan(operation) && target.Kind() == names.ModelTagKind
+	controllerPermission := user.Access.EqualOrGreaterControllerAccessThan(operation) && target.Kind() == names.ControllerTagKind
+	if !controllerPermission && !modelPermission {
+		return false, nil
+	}
+	return true, nil
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

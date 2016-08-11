@@ -84,6 +84,10 @@ type ManifoldsConfig struct {
 	// SpacesImportedGate will be unlocked when spaces are known to
 	// have been imported.
 	SpacesImportedGate gate.Lock
+
+	// NewEnvironFunc is a function opens a provider "environment"
+	// (typically environs.New).
+	NewEnvironFunc environs.NewEnvironFunc
 }
 
 // Manifolds returns a set of interdependent dependency manifolds that will
@@ -121,7 +125,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Entity:        modelTag,
 			Result:        life.IsNotDead,
-			Filter:        lifeFilter,
+			Filter:        LifeFilter,
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
@@ -130,7 +134,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Entity:        modelTag,
 			Result:        life.IsNotAlive,
-			Filter:        lifeFilter,
+			Filter:        LifeFilter,
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
@@ -161,13 +165,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifNotDead(fortress.Manifold()),
 		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
+			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
 			NewWorker:     migrationmaster.NewWorker,
 		})),
@@ -199,7 +205,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// workers (firewaller, provisioners, address-cleaner?).
 		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
-			NewEnvironFunc: environs.New,
+			NewEnvironFunc: config.NewEnvironFunc,
 		})),
 
 		// The undertaker is currently the only ifNotAlive worker.
@@ -221,12 +227,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: discoverspaces.NewWorker,
 		})),
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        environTrackerName,
+			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
+			EnvironName:   environTrackerName,
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
