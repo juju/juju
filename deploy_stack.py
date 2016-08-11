@@ -538,6 +538,7 @@ class BootstrapManager:
         if not args.logs:
             args.logs = cls._generate_default_clean_dir(args.temp_env_name)
 
+        # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
             env = SimpleEnvironment.from_config(args.env)
             client = fake_juju_client(env=env)
@@ -780,6 +781,7 @@ class BootstrapManager:
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
+    # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
         if sys.platform == 'win32':
             return True

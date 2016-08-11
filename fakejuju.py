@@ -86,7 +86,7 @@ class FakeControllerState:
 
 
 class FakeEnvironmentState:
-    """A Fake environment state that can be used by multiple FakeClients."""
+    """A Fake environment state that can be used by multiple FakeBackends."""
 
     def __init__(self, controller=None):
         self._clear()
