@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/worker"
 )

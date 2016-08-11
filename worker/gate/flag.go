@@ -5,7 +5,7 @@ package gate
 
 import (
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"

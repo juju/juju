@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 )
 
 // OplogDoc represents a document in the oplog.rs collection.

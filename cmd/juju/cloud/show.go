@@ -6,8 +6,8 @@ package cloud
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
-	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 )

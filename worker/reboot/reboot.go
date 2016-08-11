@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"

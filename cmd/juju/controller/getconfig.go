@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/errors"
 	apicontroller "github.com/juju/juju/api/controller"

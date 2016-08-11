@@ -160,7 +160,7 @@ Known Issues
  * Missing support for abstract mutex socket (https://bugs.launchpad.net/snappy/+bug/1604967)
  * Needs LXD interface
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
- * Bash completion doesn't work (https://bugs.launchpad.net/snappy/+bug/1566605)
+ * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Snap doesn't use local source as part for snapcraft
 
 

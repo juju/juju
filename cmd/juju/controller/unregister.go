@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

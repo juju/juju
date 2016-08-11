@@ -1,5 +1,5 @@
 name: juju
-version: 2.0-beta14
+version: 2.0-beta15
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: devmode
@@ -11,12 +11,11 @@ apps:
 
 parts:
   juju:
-    build-packages: [bzr]
     plugin: godeps
     go-importpath: github.com/juju/juju
     source: https://github.com/juju/juju.git
     source-type: git
-    source-tag: juju-2.0-beta16
+    source-tag: juju-2.0-beta15
     snap:
     - -bin/filetoconst
     - -bin/winuserdata

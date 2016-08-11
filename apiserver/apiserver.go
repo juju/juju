@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"

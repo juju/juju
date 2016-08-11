@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
