@@ -303,6 +303,23 @@ func (i *InterfaceInfo) CIDRAddress() string {
 	return ipNet.String()
 }
 
+// ProviderInterfaceInfo holds enough information to identify an
+// interface or link layer device to a provider so that it can be
+// queried or manipulated. Its initial purpose is to pass to
+// provider.ReleaseContainerAddresses.
+type ProviderInterfaceInfo struct {
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string
+
+	// ProviderId is a provider-specific NIC id.
+	ProviderId Id
+
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+}
+
 // LXCNetDefaultConfig is the location of the default network config
 // of the lxc package. It's exported to allow cross-package testing.
 var LXCNetDefaultConfig = "/etc/default/lxc-net"
