@@ -834,6 +834,10 @@ class EnvJujuClient:
 
     status_class = Status
 
+    model_permissions = ['read', 'write', 'admin']
+
+    controller_permissions = ['login', 'addmodel', 'superuser']
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -1810,6 +1814,16 @@ class EnvJujuClient:
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
+    # Future ACL feature.
+    # def add_user(self, username, models=None, permissions='login'):
+    #     """Adds provided user and return register command arguments.
+
+    #     :return: Registration token provided by the add-user command.
+    #     """
+    #     output = self.get_juju_output('add-user', include_e=False)
+    #     self.grant(username, permissions, models)
+    #     return self._get_register_command(output)
+
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
@@ -1882,6 +1896,43 @@ class EnvJujuClient:
                 'Registering user failed: pexpect session timed out')
         return user_client
 
+    # Future ACL feature.
+    # def register_user(self, user, juju_home):
+    #     """Register `user` for the `client` return the cloned client used."""
+    #     username = user.name
+    #     controller_name = '{}_controller'.format(username)
+
+    #     model = self.env.environment
+    #     token = self.add_user(username, models=model,
+    #                           permissions=user.permissions)
+    #     user_client = self.create_cloned_environment(juju_home,
+    #                                                  controller_name)
+
+    #     try:
+    #         child = user_client.expect(
+    #             'register', (token), include_e=False)
+    #         child.expect('(?i)name')
+    #         child.sendline(username + '_controller')
+    #         child.expect('(?i)password')
+    #         child.sendline(username + '_password')
+    #         child.expect('(?i)password')
+    #         child.sendline(username + '_password')
+    #         child.expect(pexpect.EOF)
+    #         if child.isalive():
+    #             raise Exception(
+    #                 'Registering user failed: pexpect session still alive')
+    #     except pexpect.TIMEOUT:
+    #         raise Exception(
+    #             'Registering user failed: pexpect session timed out')
+    #     user_client.env.user_name = username
+    #     return user_client
+
+    # Future ACL feature.
+    # def remove_user(self, username, permission):
+    #     if (permission in self.model_permissions or
+    #             permission in self.controller_permissions):
+    #         self.juju('remove-user', (username,), include_e=False)
+
     def create_cloned_environment(
             self, cloned_juju_home, controller_name, user_name=None):
         """Create a cloned environment.
@@ -1916,10 +1967,6 @@ class EnvJujuClient:
 
 class EnvJujuClient2B9(EnvJujuClient):
 
-    model_permissions = ['read', 'write', 'admin']
-
-    controller_permissions = ['login', 'addmodel', 'superuser']
-
     def update_user_name(self):
         return
 
@@ -1949,51 +1996,6 @@ class EnvJujuClient2B9(EnvJujuClient):
         args = (username, models, '--acl', permissions)
 
         self.controller_juju('revoke', args)
-
-    # Curtis this these are NEW behaviours that belong in EnvJujuClient.
-    # def add_user(self, username, models=None, permissions='login'):
-    #     """Adds provided user and return register command arguments.
-
-    #     :return: Registration token provided by the add-user command.
-    #     """
-    #     output = self.get_juju_output('add-user', include_e=False)
-    #     self.grant(username, permissions, models)
-    #     return self._get_register_command(output)
-
-    # def remove_user(self, username, permission):
-    #     if (permission in self.model_permissions or
-    #             permission in self.controller_permissions):
-    #         self.juju('remove-user', (username,), include_e=False)
-
-    # def register_user(self, user, juju_home):
-    #     """Register `user` for the `client` return the cloned client used."""
-    #     username = user.name
-    #     controller_name = '{}_controller'.format(username)
-
-    #     model = self.env.environment
-    #     token = self.add_user(username, models=model,
-    #                           permissions=user.permissions)
-    #     user_client = self.create_cloned_environment(juju_home,
-    #                                                  controller_name)
-
-    #     try:
-    #         child = user_client.expect(
-    #             'register', (token), include_e=False)
-    #         child.expect('(?i)name')
-    #         child.sendline(username + '_controller')
-    #         child.expect('(?i)password')
-    #         child.sendline(username + '_password')
-    #         child.expect('(?i)password')
-    #         child.sendline(username + '_password')
-    #         child.expect(pexpect.EOF)
-    #         if child.isalive():
-    #             raise Exception(
-    #                 'Registering user failed: pexpect session still alive')
-    #     except pexpect.TIMEOUT:
-    #         raise Exception(
-    #             'Registering user failed: pexpect session timed out')
-    #     user_client.env.user_name = username
-    #     return user_client
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
