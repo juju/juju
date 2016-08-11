@@ -25,6 +25,10 @@ import json
 import shutil
 
 from chaos import background_chaos
+from fakejuju import (
+    FakeBackend,
+    fake_juju_client,
+)
 from jujucharm import (
     local_charm_path,
 )
@@ -534,9 +538,9 @@ class BootstrapManager:
         if not args.logs:
             args.logs = cls._generate_default_clean_dir(args.temp_env_name)
 
+        # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
             env = SimpleEnvironment.from_config(args.env)
-            from tests.test_jujupy import fake_juju_client  # Circular imports
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
@@ -777,10 +781,10 @@ class BootstrapManager:
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
+    # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
         if sys.platform == 'win32':
             return True
-        from tests.test_jujupy import FakeBackend  # Circular imports
         return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):
