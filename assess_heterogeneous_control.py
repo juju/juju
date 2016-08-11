@@ -7,6 +7,9 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
+from fakejuju import (
+    fake_juju_client,
+)
 from jujucharm import (
     local_charm_path,
 )
@@ -45,7 +48,6 @@ def prepare_dummy_env(client):
 def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
     if initial == 'FAKE':
-        from tests.test_jujupy import fake_juju_client
         environment = SimpleEnvironment.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client

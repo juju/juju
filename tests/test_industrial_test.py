@@ -21,6 +21,9 @@ from mock import (
     )
 import yaml
 
+from fakejuju import (
+    fake_juju_client,
+    )
 from industrial_test import (
     AttemptSuite,
     AttemptSuiteFactory,
@@ -67,13 +70,12 @@ from tests import (
     use_context,
 )
 from tests.test_deploy_stack import FakeBootstrapManager
-from test_jujupy import (
+from tests.test_jujupy import (
     assert_juju_call,
-    fake_juju_client,
     FakePopen,
     observable_temp_file,
     )
-from test_substrate import (
+from tests.test_substrate import (
     get_aws_env,
     get_os_config,
     make_os_security_group_instance,
