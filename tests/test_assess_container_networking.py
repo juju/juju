@@ -340,14 +340,13 @@ class TestContainerNetworking(TestCase):
             jcnet.assess_internet_connection, self.client, targets)
 
     def test_private_address(self):
-        side_effect = ["default via 10.0.30.1 dev br-eth1",
+        ssh_results = ["default via 10.0.30.1 dev br-eth1",
                        "5: br-eth1    inet 10.0.30.24/24 brd "
                        "10.0.30.255 scope global br-eth1    "
                        "valid_lft forever preferred_lft forever"]
+        fake_client = object()
         with patch("assess_container_networking.ssh",
-                   autospec=True) as mock_ssh:
-            mock_ssh.side_effect = side_effect
-            fake_client = object()
+                   autospec=True, side_effect=ssh_results) as mock_ssh:
             result = jcnet.private_address(fake_client, "machine.test")
         self.assertEqual(result, "10.0.30.24")
         self.assertEqual(mock_ssh.mock_calls,
