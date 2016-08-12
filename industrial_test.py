@@ -741,7 +741,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 client.juju('remove-machine', ('--force', unit['machine']))
         remove_timeout = {
             LXC_MACHINE: 30,
-            LXD_MACHINE: 60,
+            LXD_MACHINE: 900,
         }[machine_type]
         with wait_until_removed(client, container_machines,
                                 timeout=remove_timeout):
