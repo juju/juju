@@ -93,7 +93,7 @@ fi
 GOPATH=$WORK $GODEPS -u "$WORKPACKAGE/dependencies.tsv"
 
 # Remove godeps, and non-free data
-rm -r $WORK/src/launchpad.net/godeps
+rm -rf $WORK/src/github.com/rogpeppe/godeps
 rm -rf $WORK/src/github.com/kisielk
 rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
 rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
