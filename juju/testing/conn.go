@@ -163,11 +163,14 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = tag
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
+	if controllerOnly {
+		apiInfo.ModelTag = names.ModelTag{}
+	}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiState, gc.NotNil)
@@ -179,14 +182,22 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 // authentication.  The returned api.Connection should not be closed by the caller
 // as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
-	return s.openAPIAs(c, tag, password, "")
+	return s.openAPIAs(c, tag, password, "", false)
+}
+
+func (s *JujuConnSuite) OpenControllerAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
+	return s.openAPIAs(c, tag, password, "", true)
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
 // nonce for authentication. The returned api.Connection should not be closed by
 // the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
-	return s.openAPIAs(c, tag, password, nonce)
+	return s.openAPIAs(c, tag, password, nonce, false)
+}
+
+func (s *JujuConnSuite) OpenControllerAPI(c *gc.C) api.Connection {
+	return s.OpenControllerAPIAs(c, s.AdminUserTag(c), AdminSecret)
 }
 
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
@@ -205,7 +216,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", false), machine
 }
 
 // DefaultVersions returns a slice of unique 'versions' for the current

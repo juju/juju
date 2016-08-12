@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,9 +14,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -36,7 +41,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
-	return controller.NewClient(s.APIState)
+	return controller.NewClient(s.OpenControllerAPI(c))
 }
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {
@@ -47,6 +52,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		Name: "second", Owner: owner}).Close()
 
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	envs, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envs, gc.HasLen, 3)
@@ -65,6 +71,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	cfg, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["name"], gc.Equals, "controller")
@@ -72,6 +79,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	cfg, err := sysManager.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
@@ -87,6 +95,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	st.Close()
 
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	err := sysManager.DestroyController(false)
 	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other models \(controller has hosted models\)`)
 }
@@ -97,6 +106,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	results, err := sysManager.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
@@ -117,6 +127,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	err := sysManager.RemoveBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -129,6 +140,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 
 	w, err := sysManager.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,10 +174,83 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	}
 }
 
+func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
+	c.Skip("blocks forever currently")
+
+	lis, err := net.Listen("tcp", "localhost:0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
+		Cert:        []byte(testing.ServerCert),
+		Key:         []byte(testing.ServerKey),
+		Tag:         names.NewMachineTag("0"),
+		DataDir:     c.MkDir(),
+		LogDir:      c.MkDir(),
+		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+	})
+	c.Assert(err, gc.IsNil)
+
+	// Connect to the API server we've just started.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Addrs = []string{lis.Addr().String()}
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	sysManager := controller.NewClient(apiState)
+	defer sysManager.Close()
+
+	w, err := sysManager.WatchAllModels()
+	c.Assert(err, jc.ErrorIsNil)
+	defer w.Stop()
+
+	deltasC := make(chan struct{}, 2)
+	go func() {
+		defer close(deltasC)
+		for {
+			_, err := w.Next()
+			if err != nil {
+				return
+			}
+			deltasC <- struct{}{}
+		}
+	}()
+	// Read the first event.
+	select {
+	case <-deltasC:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+	// Wait a little while for the Next call to actually arrive.
+	time.Sleep(testing.ShortWait)
+
+	// We should be able to close the server instance
+	// even when there's an outstanding Next call.
+	srvStopped := make(chan struct{})
+	go func() {
+		srv.Stop()
+		close(srvStopped)
+	}()
+
+	select {
+	case <-srvStopped:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for server to stop")
+	}
+
+	// Check that the Next call has returned too.
+	select {
+	case _, ok := <-deltasC:
+		if ok {
+			c.Fatalf("got unexpected event from deltasC")
+		}
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+}
+
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
-	controller := s.OpenAPI(c)
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
 	modelTag := s.State.ModelTag()
-	results, err := controller.ModelStatus(modelTag)
+	results, err := sysManager.ModelStatus(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
 		UUID:               modelTag.Id(),
@@ -192,8 +277,9 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		TargetPassword:       "secret",
 	}
 
-	controller := s.OpenAPI(c)
-	id, err := controller.InitiateModelMigration(spec)
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
+	id, err := sysManager.InitiateModelMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedId := st.ModelUUID() + ":0"
 	c.Check(id, gc.Equals, expectedId)
@@ -214,8 +300,9 @@ func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
 		TargetPassword:       "secret",
 	}
 
-	controller := s.OpenAPI(c)
-	id, err := controller.InitiateModelMigration(spec)
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
+	id, err := sysManager.InitiateModelMigration(spec)
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
 }
