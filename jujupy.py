@@ -834,9 +834,9 @@ class EnvJujuClient:
 
     status_class = Status
 
-    model_permissions = ['read', 'write', 'admin']
+    model_permissions = frozenset(['read', 'write', 'admin'])
 
-    controller_permissions = ['login', 'addmodel', 'superuser']
+    controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
     @classmethod
     def preferred_container(cls):
@@ -1894,44 +1894,11 @@ class EnvJujuClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
         return user_client
 
-    # Future ACL feature.
-    # def register_user(self, user, juju_home):
-    #     """Register `user` for the `client` return the cloned client used."""
-    #     username = user.name
-    #     controller_name = '{}_controller'.format(username)
-
-    #     model = self.env.environment
-    #     token = self.add_user(username, models=model,
-    #                           permissions=user.permissions)
-    #     user_client = self.create_cloned_environment(juju_home,
-    #                                                  controller_name)
-
-    #     try:
-    #         child = user_client.expect(
-    #             'register', (token), include_e=False)
-    #         child.expect('(?i)name')
-    #         child.sendline(username + '_controller')
-    #         child.expect('(?i)password')
-    #         child.sendline(username + '_password')
-    #         child.expect('(?i)password')
-    #         child.sendline(username + '_password')
-    #         child.expect(pexpect.EOF)
-    #         if child.isalive():
-    #             raise Exception(
-    #                 'Registering user failed: pexpect session still alive')
-    #     except pexpect.TIMEOUT:
-    #         raise Exception(
-    #             'Registering user failed: pexpect session timed out')
-    #     user_client.env.user_name = username
-    #     return user_client
-
-    # Future ACL feature.
-    # def remove_user(self, username, permission):
-    #     if (permission in self.model_permissions or
-    #             permission in self.controller_permissions):
-    #         self.juju('remove-user', (username,), include_e=False)
+    def remove_user(self, username):
+        self.juju('remove-user', (username, '-y'), include_e=False)
 
     def create_cloned_environment(
             self, cloned_juju_home, controller_name, user_name=None):

@@ -149,22 +149,16 @@ class TestAsserts(TestCase):
     def test_assert_write_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'wait_for_started'):
-            with patch.object(fake_client, 'deploy', return_value=True):
-                with patch.object(
-                        fake_client, 'remove_service', autospec=True):
-                    assert_write_model(fake_client, 'write', True)
+            with patch.object(fake_client, 'juju', return_value=True):
+                assert_write_model(fake_client, 'write', True)
                 with self.assertRaises(JujuAssertionError):
-                    with patch.object(fake_client, 'remove_service',
-                                      autospec=True):
-                        assert_write_model(fake_client, 'write', False)
+                    assert_write_model(fake_client, 'write', False)
             deploy_side_effect = CalledProcessError(None, None, None)
-            with patch.object(fake_client, 'deploy', return_value=False,
+            with patch.object(fake_client, 'juju', return_value=False,
                               side_effect=deploy_side_effect):
                 assert_write_model(fake_client, 'write', False)
                 with self.assertRaises(JujuAssertionError):
-                    with patch.object(fake_client, 'remove_service',
-                                      autospec=True):
-                        assert_write_model(fake_client, 'write', True)
+                    assert_write_model(fake_client, 'write', True)
 
 
 def make_fake_client():
@@ -198,36 +192,33 @@ class TestAssess(TestCase):
                       autospec=True)
         admin = patch("assess_user_grant_revoke.assert_admin_model",
                       autospec=True)
-        rm = patch("assess_user_grant_revoke.wait_for_removed_services",
-                   autospec=True)
         with cpass as pass_mock, able as able_mock, log as log_mock:
             with read as read_mock, write as write_mock, admin as admin_mock:
                 with expect as expect_mock:
                     expect_mock.return_value.isalive.return_value = False
-                    with rm:
-                        assess_user_grant_revoke(fake_client)
+                    assess_user_grant_revoke(fake_client)
 
-                        self.assertEqual(pass_mock.call_count, 1)
-                        self.assertEqual(able_mock.call_count, 1)
-                        self.assertEqual(log_mock.call_count, 1)
+                    self.assertEqual(pass_mock.call_count, 1)
+                    self.assertEqual(able_mock.call_count, 1)
+                    self.assertEqual(log_mock.call_count, 1)
 
-                        self.assertEqual(read_mock.call_count, 6)
-                        self.assertEqual(write_mock.call_count, 6)
-                        self.assertEqual(admin_mock.call_count, 6)
+                    self.assertEqual(read_mock.call_count, 6)
+                    self.assertEqual(write_mock.call_count, 6)
+                    self.assertEqual(admin_mock.call_count, 6)
 
-                        read_calls = [
-                            call[0][2] for call in
-                            read_mock.call_args_list]
-                        write_calls = [
-                            call[0][2] for call in
-                            write_mock.call_args_list]
-                        admin_calls = [
-                            call[0][3] for call in
-                            admin_mock.call_args_list]
+                    read_calls = [
+                        call[0][2] for call in
+                        read_mock.call_args_list]
+                    write_calls = [
+                        call[0][2] for call in
+                        write_mock.call_args_list]
+                    admin_calls = [
+                        call[0][3] for call in
+                        admin_mock.call_args_list]
 
-                        self.assertEqual(read_calls,
-                                         assert_read_calls)
-                        self.assertEqual(write_calls,
-                                         assert_write_calls)
-                        self.assertEqual(admin_calls,
-                                         assert_admin_calls)
+                    self.assertEqual(read_calls,
+                                     assert_read_calls)
+                    self.assertEqual(write_calls,
+                                     assert_write_calls)
+                    self.assertEqual(admin_calls,
+                                     assert_admin_calls)

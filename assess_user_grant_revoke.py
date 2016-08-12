@@ -104,9 +104,8 @@ def show_user(client):
 
 def assert_read_model(client, permission, has_permission):
     """Test if the user has or doesn't have the read permission"""
+    log.info('Checking read model acl {}'.format(client.env.user_name))
     if has_permission:
-        log.info('Checking read model acl {} with {}'.format(
-            client.env.user_name, permission))
         try:
             client.show_status()
         except subprocess.CalledProcessError:
@@ -114,8 +113,6 @@ def assert_read_model(client, permission, has_permission):
                 'FAIL User could not check status with {} permission'.format(
                     permission))
     else:
-        log.info('Checking read acl {} without {}'.format(
-            client.env.user_name, permission))
         try:
             client.show_status()
         except subprocess.CalledProcessError:
@@ -124,14 +121,13 @@ def assert_read_model(client, permission, has_permission):
             raise JujuAssertionError(
                 'FAIL {} checked status without {} permission'.format(
                     client.env.user_name, permission))
-    log.info('PASS {} read acl'.format(client.env.user_name, permission))
+    log.info('PASS {} read acl'.format(client.env.user_name))
 
 
 def assert_write_model(client, permission, has_permission):
     """Test if the user has or doesn't have the write permission"""
+    log.info('Checking write model acl {}'.format(client.env.user_name))
     if has_permission:
-        log.info('Checking write acl {} with {}'.format(
-            client.env.user_name, permission))
         try:
             tags = 'resource-tags="{}={}"'.format(
                 client.env.user_name, permission)
@@ -141,8 +137,6 @@ def assert_write_model(client, permission, has_permission):
                 'FAIL {} could not set-model-config with {} permission'.format(
                     client.env.user_name, permission))
     else:
-        log.info('Checking write acl {} without {}'.format(
-            client.env.user_name, permission))
         try:
             tags = 'resource-tags="{}=no-{}"'.format(
                 client.env.user_name, permission)
@@ -151,37 +145,40 @@ def assert_write_model(client, permission, has_permission):
             pass
         else:
             raise JujuAssertionError(
-                'FAIL User deployed without {} permission'.format(permission))
-    log.info('PASS {} write acl'.format(client.env.user_name, permission))
+                'FAIL User set-model-config without {} permission'.format(
+                    permission))
+    log.info('PASS {} write model acl'.format(client.env.user_name))
 
 
 def assert_admin_model(controller_client, client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
+    log.info('Checking admin acl with {}'.format(client.env.user_name))
     code = ''.join(random.choice(
         string.ascii_letters + string.digits) for _ in xrange(4))
     new_user = permission + code
+    log.info('Adding user {} for test'.format(new_user))
     controller_client.add_user(new_user, permissions="read")
     if has_permission:
-        log.info('Checking admin acl {} wtih {}'.format(
-            client.env.user_name, permission))
         try:
             client.grant(new_user, permission="write")
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
-                'FAIL {} could not grant write acl to user with {}'.format(
+                'FAIL {} could not grant write acl to user'.format(
                     client.env.user_name, permission))
     else:
-        log.info('Checking admin acl {} without {}'.format(
-            client.env.user_name, permission))
         try:
             client.grant(new_user, permission="write")
         except subprocess.CalledProcessError:
-            pass
+            log.info('Correctly rejected {} use of grant'.format(
+                client.env.user_name))
         else:
             raise JujuAssertionError(
                 'FAIL {} granted access without {} permission'.format(
                     client.env.user_name, permission))
-    log.info('PASS {} admin acl'.format(client.env.user_name, permission))
+    # Remove the user to ensure list-users is sane.
+    log.info('Removing user {} after test'.format(new_user))
+    controller_client.remove_user(new_user)
+    log.info('PASS {} admin acl'.format(client.env.user_name))
 
 
 def assert_user_permissions(user, user_client, controller_client):
@@ -300,7 +297,6 @@ def assert_read_user(controller_client, user):
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
-        user_client.env.user_name = user.name
         log.info('Checking list-users {}'.format(user.name))
         user_list = list_users(controller_client)
         assert_equal(user_list, USER_LIST_ADMIN_READ)
@@ -308,7 +304,8 @@ def assert_read_user(controller_client, user):
         share_list = list_shares(controller_client)
         assert_equal(share_list, SHARE_LIST_ADMIN_READ)
         assert_change_password(user_client, user)
-        assert_logout_login(controller_client, user_client, user, fake_home)
+        user_client = assert_logout_login(
+            controller_client, user_client, user, fake_home)
         assert_user_permissions(user, user_client, controller_client)
     log.info('PASS read {}'.format(user.name))
 
@@ -328,7 +325,7 @@ def assert_write_user(controller_client, user):
         assert_equal(share_list, SHARE_LIST_ADMIN_READ_WRITE)
         assert_disable_enable(controller_client, user)
         assert_user_permissions(user, user_client, controller_client)
-    log.info('PASS read {}'.format(user.name))
+    log.info('PASS write {}'.format(user.name))
 
 
 def assert_admin_user(controller_client, user):
