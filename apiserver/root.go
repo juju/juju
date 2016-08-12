@@ -41,7 +41,7 @@ type objectKey struct {
 }
 
 // apiHandler represents a single client's connection to the state
-// after it has logged in. It contains an rpc.MethodFinder which it
+// after it has logged in. It contains an rpc.Root which it
 // uses to dispatch Api calls appropriately.
 type apiHandler struct {
 	state     *state.State

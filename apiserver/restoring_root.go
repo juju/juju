@@ -17,27 +17,27 @@ var restoreInProgressError = errors.New("juju restore is in progress - Juju api 
 // aboutToRestoreRoot a root that will only allow a limited
 // set of methods to run, defined in allowedMethodsAboutToRestore.
 type aboutToRestoreRoot struct {
-	rpc.MethodFinder
+	rpc.Root
 }
 
 // restoreRoot a root that will not allow calls whatsoever during restore.
 type restoreInProgressRoot struct {
-	rpc.MethodFinder
+	rpc.Root
 }
 
 // newAboutToRestoreRoot creates a root where all API calls
 // but restore will fail with aboutToRestoreError.
-func newAboutToRestoreRoot(finder rpc.MethodFinder) *aboutToRestoreRoot {
+func newAboutToRestoreRoot(root rpc.Root) *aboutToRestoreRoot {
 	return &aboutToRestoreRoot{
-		MethodFinder: finder,
+		Root: root,
 	}
 }
 
 // newRestoreInProressRoot creates a root where all API calls
 // but restore will fail with restoreInProgressError.
-func newRestoreInProgressRoot(finder rpc.MethodFinder) *restoreInProgressRoot {
+func newRestoreInProgressRoot(root rpc.Root) *restoreInProgressRoot {
 	return &restoreInProgressRoot{
-		MethodFinder: finder,
+		Root: root,
 	}
 }
 
@@ -45,7 +45,7 @@ func newRestoreInProgressRoot(finder rpc.MethodFinder) *restoreInProgressRoot {
 // for all API calls except Client.Restore
 // for use while Juju is preparing to restore a backup.
 func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
 // for all API calls.
 // for use while Juju is restoring a backup.
 func (r *restoreInProgressRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	_, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	_, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}

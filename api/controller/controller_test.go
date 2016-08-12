@@ -175,7 +175,6 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
-	c.Skip("blocks forever currently")
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)

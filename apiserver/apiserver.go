@@ -507,13 +507,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	h, err := srv.newAPIHandler(conn, modelUUID)
 	if err != nil {
-		conn.ServeFinder(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {
 			adminApis[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminApis), serverError)
 	}
 	conn.Start()
 	select {

@@ -14,12 +14,12 @@ import (
 
 // upgradingRoot restricts API calls to those supported during an upgrade.
 type upgradingRoot struct {
-	rpc.MethodFinder
+	rpc.Root
 }
 
 // newUpgradingRoot returns a new upgradingRoot.
-func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
-	return &upgradingRoot{finder}
+func newUpgradingRoot(root rpc.Root) *upgradingRoot {
+	return &upgradingRoot{root}
 }
 
 // allowedMethodsDuringUpgrades stores api calls
@@ -60,7 +60,7 @@ func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
 // FindMethod returns UpgradeInProgressError for most API calls except those that are
 // deemed safe or important for use while Juju is upgrading.
 func (r *upgradingRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
