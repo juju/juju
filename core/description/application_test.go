@@ -47,7 +47,8 @@ func minimalApplicationMap() map[interface{}]interface{} {
 		"settings": map[interface{}]interface{}{
 			"key": "value",
 		},
-		"leader": "ubuntu/0",
+		"settings-refcount": 1,
+		"leader":            "ubuntu/0",
 		"leadership-settings": map[interface{}]interface{}{
 			"leader": true,
 		},
@@ -90,7 +91,8 @@ func minimalApplicationArgs() ApplicationArgs {
 		Settings: map[string]interface{}{
 			"key": "value",
 		},
-		Leader: "ubuntu/0",
+		SettingsRefCount: 1,
+		Leader:           "ubuntu/0",
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
@@ -112,7 +114,8 @@ func (s *ApplicationSerializationSuite) TestNewApplication(c *gc.C) {
 		Settings: map[string]interface{}{
 			"key": "value",
 		},
-		Leader: "magic/1",
+		SettingsRefCount: 1,
+		Leader:           "magic/1",
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
@@ -131,6 +134,7 @@ func (s *ApplicationSerializationSuite) TestNewApplication(c *gc.C) {
 	c.Assert(application.Exposed(), jc.IsTrue)
 	c.Assert(application.MinUnits(), gc.Equals, 42)
 	c.Assert(application.Settings(), jc.DeepEquals, args.Settings)
+	c.Assert(application.SettingsRefCount(), gc.Equals, 1)
 	c.Assert(application.Leader(), gc.Equals, "magic/1")
 	c.Assert(application.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
 	c.Assert(application.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
