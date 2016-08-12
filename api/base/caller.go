@@ -26,9 +26,9 @@ type APICaller interface {
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
 
-	// ModelTag returns the tag of the model the client is
-	// connected to.
-	ModelTag() (names.ModelTag, error)
+	// ModelTag returns the tag of the model the client is connected
+	// to if there is one. It returns false for a controller-only connection.
+	ModelTag() (names.ModelTag, bool)
 
 	// HTTPClient returns an httprequest.Client that can be used
 	// to make HTTP requests to the API. URLs passed to the client

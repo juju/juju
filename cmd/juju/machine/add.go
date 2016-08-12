@@ -151,7 +151,7 @@ type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	ModelUUID() (string, error)
+	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -263,9 +263,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		uuid, err := client.ModelUUID()
-		if err != nil {
-			return errors.Trace(err)
+		uuid, ok := client.ModelUUID()
+		if !ok {
+			return errors.New("API connection is controller-only (should never happen)")
 		}
 		c.Placement.Scope = uuid
 	}

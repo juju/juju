@@ -171,6 +171,6 @@ type stubCaller struct {
 }
 
 // ModelTag is part of the base.APICaller interface.
-func (*stubCaller) ModelTag() (names.ModelTag, error) {
-	return names.NewModelTag(validUUID), nil
+func (*stubCaller) ModelTag() (names.ModelTag, bool) {
+	return names.NewModelTag(validUUID), true
 }

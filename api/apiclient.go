@@ -68,13 +68,12 @@ type state struct {
 	// will be associated with (specifically macaroon auth cookies).
 	cookieURL *url.URL
 
-	// modelTag holds the model tag once we're connected
-	modelTag string
+	// modelTag holds the model tag.
+	// It is empty if there is no model tag associated with the connection.
+	modelTag names.ModelTag
 
-	// controllerTag holds the controller tag once we're connected.
-	// This is only set with newer apiservers where they are using
-	// the v1 login mechansim.
-	controllerTag string
+	// controllerTag holds the controller model's tag once we're connected.
+	controllerTag names.ModelTag
 
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
@@ -230,6 +229,7 @@ func open(
 		nonce:        info.Nonce,
 		tlsConfig:    tlsConfig,
 		bakeryClient: bakeryClient,
+		modelTag:     info.ModelTag,
 	}
 	if !info.SkipLogin {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
@@ -302,9 +302,9 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 		}
 		tlsConfig.RootCAs = certPool
 	}
-	path := "/"
-	if info.ModelTag.Id() != "" {
-		path = apiPath(info.ModelTag, "/api")
+	path, err := apiPath(info.ModelTag, "/api")
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 	conn, err := dialWebSocket(info.Addrs, path, tlsConfig, opts)
 	if err != nil {
@@ -343,7 +343,7 @@ func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts Dial
 	return result.(*websocket.Conn), nil
 }
 
-// ConnectStream implements Connection.ConnectStream, whatever that is..
+// ConnectStream implements StreamConnector.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
@@ -376,18 +376,9 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 // ConnectStream only in that it will not retry the connection if it encounters
 // discharge-required error.
 func (st *state) connectStream(path string, attrs url.Values) (base.Stream, error) {
-	if !strings.HasPrefix(path, "/") {
-		return nil, errors.New(`path must start with "/"`)
-	}
-	if _, ok := st.ServerVersion(); ok {
-		// If the server version is set, then we know the server is capable of
-		// serving streams at the model path. We also fully expect
-		// that the server has returned a valid model tag.
-		modelTag, err := st.ModelTag()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get model tag, perhaps connected to system not model")
-		}
-		path = apiPath(modelTag, path)
+	path, err := apiPath(st.modelTag, path)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	target := url.URL{
 		Scheme:   "wss",
@@ -459,17 +450,11 @@ func (st *state) addCookiesToHeader(h http.Header) {
 }
 
 // apiEndpoint returns a URL that refers to the given API slash-prefixed
-// endpoint path and query parameters. Note that the caller
-// is responsible for ensuring that the path *is* prefixed with a slash.
+// endpoint path and query parameters.
 func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
-	if _, err := st.ControllerTag(); err == nil {
-		// The controller tag is set, so the agent version is >= 1.23,
-		// so we can use the model endpoint.
-		modelTag, err := st.ModelTag()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get API endpoint address")
-		}
-		path = apiPath(modelTag, path)
+	path, err := apiPath(st.modelTag, path)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return &url.URL{
 		Scheme:   st.serverScheme,
@@ -480,20 +465,16 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 }
 
 // apiPath returns the given API endpoint path relative
-// to the given model tag. The caller is responsible
-// for ensuring that the model tag is valid and
-// that the path is slash-prefixed.
-func apiPath(modelTag names.ModelTag, path string) string {
+// to the given model tag.
+func apiPath(modelTag names.ModelTag, path string) (string, error) {
 	if !strings.HasPrefix(path, "/") {
-		panic(fmt.Sprintf("apiPath called with non-slash-prefixed path %q", path))
+		return "", errors.Errorf("cannot make API path from non-slash-prefixed path %q", path)
 	}
-	if modelTag.Id() == "" {
-		panic("apiPath called with empty model tag")
+	modelUUID := modelTag.Id()
+	if modelUUID == "" {
+		return path, nil
 	}
-	if modelUUID := modelTag.Id(); modelUUID != "" {
-		return "/model/" + modelUUID + path
-	}
-	return path
+	return "/model/" + modelUUID + path, nil
 }
 
 // tagToString returns the value of a tag's String method, or "" if the tag is nil.
@@ -668,14 +649,14 @@ func (s *state) Addr() string {
 	return s.addr
 }
 
-// ModelTag returns the tag of the model we are connected to.
-func (s *state) ModelTag() (names.ModelTag, error) {
-	return names.ParseModelTag(s.modelTag)
+// ModelTag implements base.APICaller.ModelTag.
+func (s *state) ModelTag() (names.ModelTag, bool) {
+	return s.modelTag, s.modelTag.Id() != ""
 }
 
-// ControllerTag returns the tag of the server we are connected to.
-func (s *state) ControllerTag() (names.ModelTag, error) {
-	return names.ParseModelTag(s.controllerTag)
+// ControllerTag implements base.APICaller.ControllerTag.
+func (s *state) ControllerTag() names.ModelTag {
+	return s.controllerTag
 }
 
 // APIHostPorts returns addresses that may be used to connect

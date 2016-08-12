@@ -306,8 +306,8 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 
 // envEndpoint returns "/model/<model-uuid>/<destination>"
 func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
-	modelTag, err := apiState.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
+	modelTag, ok := apiState.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	return path.Join("/model", modelTag.Id(), destination)
 }
 
@@ -316,8 +316,8 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
-	uuid, err := client.ModelUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	uuid, ok := client.ModelUUID()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, environ.Tag().Id())
 }
 
@@ -363,7 +363,7 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 
 func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	reader, err := s.APIState.ConnectStream("foo", nil)
-	c.Assert(err, gc.ErrorMatches, `path must start with "/"`)
+	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
 

@@ -529,9 +529,9 @@ func (c *DeployCommand) deployCharm(args deployCharmArgs) (rErr error) {
 		return errors.Trace(err)
 	}
 
-	uuid, err := args.client.ModelUUID()
-	if err != nil {
-		return errors.Trace(err)
+	uuid, ok := args.client.ModelUUID()
+	if !ok {
+		return errors.New("API connection is controller-only (should never happen)")
 	}
 
 	deployInfo := DeploymentInfo{

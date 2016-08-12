@@ -291,18 +291,25 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
-	// we expose the API at '/' for compatibility, and at '/ModelUUID/api'
-	// for the correct location, but other Paths should fail.
+	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
+	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
-	// '/' should be fine
-	conn, err := dialWebsocket(c, addr, "/", 0)
+
+	// '/api' should be fine
+	conn, err := dialWebsocket(c, addr, "/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
+
+	// '/`' should be fine
+	conn, err = dialWebsocket(c, addr, "/", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	conn.Close()
+
 	// '/model/MODELUUID/api' should be fine
 	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
