@@ -28,10 +28,10 @@ A new development release of Juju, {version}, is here!
 
 ## How do I get it?
 
-If you are running ubuntu, you can get it from the juju devel ppa:
+If you are running Ubuntu, you can get it from the juju devel ppa:
 
     sudo apt-add-repository ppa:juju/devel
-    sudo apt update; sudo apt install juju-2.0
+    sudo apt-get update; sudo apt-get install juju-2.0
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 
@@ -66,9 +66,10 @@ This release may replace version {previous} on {release_date}.
 
 ## How do I get it?
 
-If you are running ubuntu, you can get it from the juju proposed ppa:
+If you are running Ubuntu, you can get it from the juju proposed ppa:
 
-    https://launchpad.net/~juju/+archive/proposed
+    sudo apt-add-repository ppa:juju/proposed
+    sudo apt-get update; sudo apt-get install juju-core
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 

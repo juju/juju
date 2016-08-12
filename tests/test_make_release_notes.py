@@ -73,7 +73,7 @@ class MakeReleaseNotes(TestCase):
         self.assertIn(
             'A new proposed stable release of Juju, 1.20.0, is here!', text)
         self.assertIn(
-            'https://launchpad.net/~juju/+archive/proposed', text)
+            'sudo apt-add-repository ppa:juju/proposed', text)
         self.assertIn('  * One\n    Lp 1', text)
 
     def test_make_notes_with_devel_purpose(self):
