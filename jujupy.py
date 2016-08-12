@@ -836,6 +836,10 @@ class EnvJujuClient:
 
     agent_metadata_url = 'agent-metadata-url'
 
+    model_permissions = frozenset(['read', 'write', 'admin'])
+
+    controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -1835,11 +1839,21 @@ class EnvJujuClient:
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
+    # Future ACL feature.
+    # def add_user(self, username, models=None, permissions='login'):
+    #     """Adds provided user and return register command arguments.
+
+    #     :return: Registration token provided by the add-user command.
+    #     """
+    #     output = self.get_juju_output('add-user', include_e=False)
+    #     self.grant(username, permissions, models)
+    #     return self._get_register_command(output)
+
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
 
-        args = (username, models, '--acl', permissions)
+        args = (username, permissions, models)
 
         self.controller_juju('revoke', args)
 
@@ -1905,7 +1919,11 @@ class EnvJujuClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
         return user_client
+
+    def remove_user(self, username):
+        self.juju('remove-user', (username, '-y'), include_e=False)
 
     def create_cloned_environment(
             self, cloned_juju_home, controller_name, user_name=None):
@@ -1926,14 +1944,21 @@ class EnvJujuClient:
         return user_client
 
     def grant(self, user_name, permission, model=None):
-        """Grant the user with a model."""
-        if model is None:
-            model = self.model_name
-        self.juju('grant', (user_name, model, '--acl', permission),
-                  include_e=False)
+        """Grant the user with model or controller permission."""
+        if permission in self.controller_permissions:
+            self.juju('grant', (user_name, permission),
+                      include_e=False)
+        elif permission in self.model_permissions:
+            if model is None:
+                model = self.model_name
+            self.juju('grant', (user_name, permission, model),
+                      include_e=False)
+        else:
+            raise
 
 
 class EnvJujuClient2B9(EnvJujuClient):
+
     def update_user_name(self):
         return
 
@@ -1942,13 +1967,27 @@ class EnvJujuClient2B9(EnvJujuClient):
         """Create a cloned environment.
 
         `user_name` is unused in this version of beta.
-
         """
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with a model."""
+        if model is None:
+            model = self.model_name
+        self.juju('grant', (user_name, model, '--acl', permission),
+                  include_e=False)
+
+    def revoke(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):

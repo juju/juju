@@ -2708,22 +2708,21 @@ class TestEnvJujuClient(ClientTest):
             fake_client.revoke(username)
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                 username, default_model,
-                                                 '--acl', default_permissions),
+                                                 username, default_permissions,
+                                                 default_model),
                                                 include_e=False)
 
             fake_client.revoke(username, model)
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                 username, model,
-                                                 '--acl', default_permissions),
+                                                 username, default_permissions,
+                                                 model),
                                                 include_e=False)
 
             fake_client.revoke(username, model, permissions='write')
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                 username, model,
-                                                 '--acl', 'write'),
+                                                 username, 'write', model),
                                                 include_e=False)
 
     def test_add_user(self):
