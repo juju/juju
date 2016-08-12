@@ -92,6 +92,10 @@ func (r *charmURLResolver) resolve(url *charm.URL) (*charm.URL, csparams.Channel
 	if url.Series == "" {
 		if s, ok := r.conf.DefaultSeries(); ok {
 			defaultedSeries = true
+			// TODO(katco): Don't update the value passed in. Not only
+			// is there no indication that this method will do so, we
+			// return a charm.URL which signals to the developer that
+			// we don't modify the original.
 			url.Series = s
 		}
 	}
