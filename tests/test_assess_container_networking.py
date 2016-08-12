@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import logging
 
 from mock import (
+    call,
     patch,
     Mock,
 )
@@ -337,6 +338,22 @@ class TestContainerNetworking(TestCase):
         self.assertRaisesRegexp(
             ValueError, "Default route not found",
             jcnet.assess_internet_connection, self.client, targets)
+
+    def test_private_address(self):
+        ssh_results = ["default via 10.0.30.1 dev br-eth1",
+                       "5: br-eth1    inet 10.0.30.24/24 brd "
+                       "10.0.30.255 scope global br-eth1    "
+                       "valid_lft forever preferred_lft forever"]
+        fake_client = object()
+        with patch("assess_container_networking.ssh",
+                   autospec=True, side_effect=ssh_results) as mock_ssh:
+            result = jcnet.private_address(fake_client, "machine.test")
+        self.assertEqual(result, "10.0.30.24")
+        self.assertEqual(mock_ssh.mock_calls,
+                         [call(fake_client, "machine.test",
+                               "ip -4 -o route list 0/0"),
+                          call(fake_client, "machine.test",
+                               "ip -4 -o addr show br-eth1")])
 
 
 class TestMain(FakeHomeTestCase):

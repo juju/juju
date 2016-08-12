@@ -25,6 +25,10 @@ import json
 import shutil
 
 from chaos import background_chaos
+from fakejuju import (
+    FakeBackend,
+    fake_juju_client,
+)
 from jujucharm import (
     local_charm_path,
 )
@@ -131,10 +135,24 @@ GET_TOKEN_SCRIPT = """
     """
 
 
+def get_token_from_status(client):
+    """Return the token from the application status message or None."""
+    status = client.get_status()
+    unit = status.get_unit('dummy-sink/0')
+    app_status = unit.get('workload-status')
+    if app_status is not None:
+        message = app_status.get('message', '')
+        parts = message.split()
+        if parts:
+            return parts[-1]
+    return None
+
+
 def check_token(client, token, timeout=120):
+    """Check the token found on dummy-sink/0 or raise ValueError."""
+    logging.info('Waiting for applications to reach ready.')
+    client.wait_for_workloads()
     # Wait up to 120 seconds for token to be created.
-    # Utopic is slower, maybe because the devel series gets more
-    # package updates.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
     # Update remote with real address if needed.
@@ -142,10 +160,14 @@ def check_token(client, token, timeout=120):
     start = time.time()
     while True:
         if remote.is_windows():
-            try:
-                result = remote.cat("%ProgramData%\\dummy-sink\\token")
-            except winrm.exceptions.WinRMTransportError as e:
-                print("Skipping token check because of: {}".format(str(e)))
+            result = get_token_from_status(client)
+            if not result:
+                try:
+                    result = remote.cat("%ProgramData%\\dummy-sink\\token")
+                except winrm.exceptions.WinRMTransportError as e:
+                    logging.warning(
+                        "Skipping token check because of: {}".format(str(e)))
+                    return
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
         token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
@@ -377,8 +399,8 @@ def assess_upgrade(old_client, juju_path):
 
 
 def upgrade_juju(client):
-    client.set_testing_tools_metadata_url()
-    tools_metadata_url = client.get_env_option('tools-metadata-url')
+    client.set_testing_agent_metadata_url()
+    tools_metadata_url = client.get_agent_metadata_url()
     logging.info('The tools-metadata-url is %s', tools_metadata_url)
     client.upgrade_juju()
 
@@ -516,9 +538,9 @@ class BootstrapManager:
         if not args.logs:
             args.logs = cls._generate_default_clean_dir(args.temp_env_name)
 
+        # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
             env = SimpleEnvironment.from_config(args.env)
-            from tests.test_jujupy import fake_juju_client  # Circular imports
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
@@ -759,10 +781,10 @@ class BootstrapManager:
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
+    # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
         if sys.platform == 'win32':
             return True
-        from tests.test_jujupy import FakeBackend  # Circular imports
         return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):

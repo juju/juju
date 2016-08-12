@@ -187,7 +187,8 @@ def run_autoload_credentials(client, envvars, answers):
     process.sendline('1')
 
     process.expect(
-        'Enter cloud to which the credential belongs, or Q to quit.*')
+        '(Select the cloud it belongs to|Enter cloud to which the credential)'
+        '.* Q to quit.*')
     process.sendline(answers.save_name)
     process.expect(
         'Saved {listing_display} to cloud {save_name}'.format(

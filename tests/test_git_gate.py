@@ -235,8 +235,8 @@ class TestGoTest(tests.TestCase):
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Getting and installing godeps'),
-            ('go', 'get', '-v', '-d', 'launchpad.net/godeps/...'),
-            ('go', 'install', 'launchpad.net/godeps/...'),
+            ('go', 'get', '-v', '-d', 'github.com/rogpeppe/godeps/...'),
+            ('go', 'install', 'github.com/rogpeppe/godeps/...'),
             ('print', 'Cloning git.testing/project from'
              ' https://git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',

@@ -32,9 +32,10 @@ def win_test(script_dir, address, juju_home, revision_build):
             """.format(revision_build=revision_build)))
 
     ci = [os.path.join(script_dir, f) for f in [
-        'deploy_stack.py', 'deploy_job.py', 'jujupy.py', 'jujuconfig.py',
-        'remote.py', 'substrate.py', 'utility.py', 'get_ami.py', 'chaos.py',
-        'timeout.py', 'jujucharm.py', 'tests/test_jujupy.py', 'winazurearm.py',
+        'deploy_stack.py', 'deploy_job.py', 'fakejuju.py', 'jujupy.py',
+        'jujuconfig.py', 'remote.py', 'substrate.py', 'utility.py',
+        'get_ami.py', 'chaos.py', 'timeout.py', 'jujucharm.py',
+        'winazurearm.py',
         ]]
     ci.extend([install_file, 'run-file'])
     with open('foo.yaml', 'w') as config:

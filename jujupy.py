@@ -10,7 +10,6 @@ from contextlib import (
 )
 from copy import deepcopy
 from cStringIO import StringIO
-from datetime import timedelta
 import errno
 from itertools import chain
 import json
@@ -40,9 +39,11 @@ from utility import (
     JujuResourceTimeout,
     pause,
     quote,
+    qualified_model_name,
     scoped_environ,
     split_address_port,
     temp_dir,
+    unqualified_model_name,
     until_timeout,
 )
 
@@ -90,6 +91,14 @@ def get_timeout_prefix(duration, timeout_path=None):
     if timeout_path is None:
         timeout_path = get_timeout_path()
     return (sys.executable, timeout_path, '%.2f' % duration, '--')
+
+
+def get_teardown_timeout(client):
+    """Return the timeout need byt the client to teardown resources."""
+    if client.env.config['type'] == 'azure':
+        return 1800
+    else:
+        return 600
 
 
 def parse_new_state_server_from_error(error):
@@ -239,7 +248,7 @@ class SimpleEnvironment:
         if model_name is None:
             model_name = self.environment
         else:
-            config['name'] = model_name
+            config['name'] = unqualified_model_name(model_name)
         result = self.__class__(model_name, config, self.juju_home,
                                 self.controller)
         result.local = self.local
@@ -268,7 +277,7 @@ class SimpleEnvironment:
         if set_controller:
             self.controller.name = model_name
         self.environment = model_name
-        self.config['name'] = model_name
+        self.config['name'] = unqualified_model_name(model_name)
 
     @classmethod
     def from_config(cls, name):
@@ -779,6 +788,9 @@ def get_client_class(version):
         client_class = EnvJujuClient2B7
     elif re.match('^2\.0-beta8([^\d]|$)', version):
         client_class = EnvJujuClient2B8
+    # between beta 9-14
+    elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
+        client_class = EnvJujuClient2B9
     else:
         client_class = EnvJujuClient
     return client_class
@@ -821,6 +833,8 @@ class EnvJujuClient:
     config_class = JujuData
 
     status_class = Status
+
+    agent_metadata_url = 'agent-metadata-url'
 
     @classmethod
     def preferred_container(cls):
@@ -1089,12 +1103,16 @@ class EnvJujuClient:
             raise AssertionError(
                 'Controller and environment names should not vary (yet)')
 
+    def update_user_name(self):
+        self.env.user_name = 'admin@local'
+
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
@@ -1103,6 +1121,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
                 log.info('Waiting for bootstrap of {}.'.format(
@@ -1115,7 +1134,7 @@ class EnvJujuClient:
     def destroy_model(self):
         exit_status = self.juju(
             'destroy-model', (self.env.environment, '-y',),
-            include_e=False, timeout=timedelta(minutes=10).total_seconds())
+            include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
     def kill_controller(self):
@@ -1123,7 +1142,7 @@ class EnvJujuClient:
         seen_cmd = self.get_jes_command()
         self.juju(
             _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
-            include_e=False, check=False, timeout=600)
+            include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -1185,7 +1204,8 @@ class EnvJujuClient:
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
-        return yaml.safe_load(self.get_juju_output('get-model-config'))
+        return yaml.safe_load(
+            self.get_juju_output('get-model-config', '--format', 'yaml'))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
@@ -1196,11 +1216,18 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-model-config', (option_value,))
 
-    def set_testing_tools_metadata_url(self):
-        url = self.get_env_option('tools-metadata-url')
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
+
+    def get_agent_metadata_url(self):
+        return self.get_env_option(self.agent_metadata_url)
+
+    def set_testing_agent_metadata_url(self):
+        url = self.get_agent_metadata_url()
         if 'testing' not in url:
             testing_url = url.replace('/tools', '/testing/tools')
-            self.set_env_option('tools-metadata-url', testing_url)
+            self.set_env_option(self.agent_metadata_url, testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
@@ -1476,6 +1503,19 @@ class EnvJujuClient:
             env = self.env.clone(model_name=name)
             return self.clone(env=env)
 
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
+    def get_controller_uuid(self):
+        name = self.env.controller.name
+        output_yaml = self.get_juju_output(
+            'show-controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output[name]['details']['uuid']
+
     def get_controller_client(self):
         """Return a client for the controller model.  May return self.
 
@@ -1535,6 +1575,7 @@ class EnvJujuClient:
         try:
             for remaining in until_timeout(timeout):
                 status = self.get_status(controller=True)
+                status.check_agents_started()
                 states = {}
                 for machine, info in status.iter_machines():
                     status = self.get_controller_member_status(info)
@@ -1647,13 +1688,28 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_juju(self, force_version=True):
+    def upgrade_controller(self, force_version=True):
         args = ()
         if force_version:
             version = self.get_matching_agent_version(no_build=True)
             args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
+
+        self._upgrade_controller(args)
+
+    def _upgrade_controller(self, args):
+        controller = self.get_controller_client()
+        controller.juju('upgrade-juju', args)
+
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        self._upgrade_juju(args)
+
+    def _upgrade_juju(self, args):
         self.juju('upgrade-juju', args)
 
     def upgrade_mongo(self):
@@ -1819,6 +1875,7 @@ class EnvJujuClient:
     def logout(self):
         """Logout an user"""
         self.controller_juju('logout', ())
+        self.env.user_name = ''
 
     def register_user(self, user, juju_home):
         """Register `user` for the `client` return the cloned client used."""
@@ -1829,7 +1886,8 @@ class EnvJujuClient:
         token = self.add_user(username, models=model + ',controller',
                               permissions=user.permissions)
         user_client = self.create_cloned_environment(juju_home,
-                                                     controller_name)
+                                                     controller_name,
+                                                     username)
 
         try:
             child = user_client.expect(
@@ -1847,13 +1905,22 @@ class EnvJujuClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
-        user_client.env.user_name = username
         return user_client
 
-    def create_cloned_environment(self, cloned_juju_home, controller_name):
-        """Create a cloned environment"""
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        If `user_name` is passed ensures that the cloned environment is updated
+        to match.
+
+        """
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
+        if user_name is not None and user_name != self.env.user_name:
+            user_client.env.user_name = user_name
+            user_client.env.environment = qualified_model_name(
+                user_client.env.environment, self.env.user_name)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
@@ -1866,7 +1933,25 @@ class EnvJujuClient:
                   include_e=False)
 
 
-class EnvJujuClient2B8(EnvJujuClient):
+class EnvJujuClient2B9(EnvJujuClient):
+    def update_user_name(self):
+        return
+
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        `user_name` is unused in this version of beta.
+
+        """
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        return user_client
+
+
+class EnvJujuClient2B8(EnvJujuClient2B9):
 
     status_class = ServiceStatus
 
@@ -2170,13 +2255,15 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
+    agent_metadata_url = 'tools-metadata-url'
+
     def _cmd_model(self, include_e, controller):
         if controller:
             return self.get_controller_model_name()
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return unqualified_model_name(self.model_name)
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
@@ -2210,6 +2297,15 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                     return cmd
         raise JESNotSupported()
 
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        if self.env.local:
+            args += ('--upload-tools',)
+        self._upgrade_juju(args)
+
     def make_model_config(self):
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
@@ -2237,7 +2333,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
-            timeout=timedelta(minutes=10).total_seconds())
+            timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
@@ -2500,7 +2596,7 @@ def make_safe_config(client):
     config['test-mode'] = True
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
-    config['name'] = client.env.environment
+    config['name'] = unqualified_model_name(client.env.environment)
     if config['type'] == 'local':
         config.setdefault('root-dir', get_local_root(client.env.juju_home,
                           client.env))
