@@ -436,6 +436,10 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	// thing to do when none is available.
 	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
 	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
+	logger.Infof(
+		"new machine %q has preferred addresses: private %q, public %q",
+		id, privateAddr, publicAddr,
+	)
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,

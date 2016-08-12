@@ -1430,10 +1430,20 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 
 	*field = stateAddresses
 	if changedPrivate {
+		oldPrivate := m.doc.PreferredPrivateAddress.networkAddress()
 		m.doc.PreferredPrivateAddress = newPrivate
+		logger.Infof(
+			"machine %q preferred private address changed from %q to %q",
+			m.Id(), oldPrivate, newPrivate.networkAddress(),
+		)
 	}
 	if changedPublic {
+		oldPublic := m.doc.PreferredPublicAddress.networkAddress()
 		m.doc.PreferredPublicAddress = newPublic
+		logger.Infof(
+			"machine %q preferred public address changed from %q to %q",
+			m.Id(), oldPublic, newPublic.networkAddress(),
+		)
 	}
 	return nil
 }
