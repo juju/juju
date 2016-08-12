@@ -143,18 +143,20 @@ LXC_BRIDGE="ignored"`[1:])
 
 	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{
-		"name": "hosted",
-		"uuid": hostedModelUUID,
+		"name":   "hosted",
+		"uuid":   hostedModelUUID,
+		"region": "some-region",
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
+		"a-key":      "value",
 	}
 	regionConfig := cloud.RegionConfig{
-		"a-region": cloud.Attrs{
+		"some-region": cloud.Attrs{
 			"a-key": "a-value",
 		},
-		"b-region": cloud.Attrs{
-			"b-key": "b-value",
+		"another-region": cloud.Attrs{
+			"a-key": "b-value",
 		},
 	}
 	var envProvider fakeProvider
@@ -166,11 +168,11 @@ LXC_BRIDGE="ignored"`[1:])
 			ControllerCloud: cloud.Cloud{
 				Type:         "dummy",
 				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:      []cloud.Region{{Name: "a-region"}},
+				Regions:      []cloud.Region{{Name: "some-region"}},
 				RegionConfig: regionConfig,
 			},
 			ControllerCloudName:       "dummy",
-			ControllerCloudRegion:     "a-region",
+			ControllerCloudRegion:     "some-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
 			ModelConstraints:          expectModelConstraints,
@@ -229,6 +231,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
+	expectedAttrs["a-key"] = "value"
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
@@ -247,7 +250,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "a-region")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -313,7 +316,8 @@ LXC_BRIDGE="ignored"`[1:])
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
-			Region: "a-region",
+			Region: "some-region",
+			// XXX Something here.
 		},
 		Config: hostedCfg,
 	})

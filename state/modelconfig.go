@@ -285,8 +285,10 @@ func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
 		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
-		// We will also support local cloud region, tenant, user etc
+		{config.JujuControllerSource, st.regionInheritedConfig},
+		// We will also support tenant, user etc
 	}
+
 }
 
 const (
@@ -298,6 +300,27 @@ const (
 // sourced from the local cloud config.
 func (st *State) controllerInheritedConfig() (attrValues, error) {
 	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings.Map(), nil
+}
+
+// regionInheritedConfig returns the configuration attributes for the region in
+// the cloud where the model is targeted.
+func (st *State) regionInheritedConfig() (attrValues, error) {
+	// XXX Some cloud's have no region so we need to handle an empty region by
+	// returning and handling an error or returning nil.
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	settings, err := readSettings(st,
+		globalSettingsC,
+		regionSettingsGlobalKey(
+			model.Cloud(),
+			model.CloudRegion()),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
