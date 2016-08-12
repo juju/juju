@@ -118,16 +118,9 @@ type Conn struct {
 	// mutex guards the following values.
 	mutex sync.Mutex
 
-	// methodFinder is used to lookup methods to serve RPC requests. May be
-	// nil if nothing is being served.
-	methodFinder MethodFinder
-
-	// root is the current object that we are serving.
-	// If it implements the Killer interface, Kill will be called on it
-	// as the connection shuts down.
-	// If it implements the Cleaner interface, Cleanup will be called on
-	// it after the connection has shut down.
-	root interface{}
+	// root represents  the current root object that serves the RPC requests.
+	// It may be nil if nothing is being served.
+	root Root
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -223,33 +216,31 @@ func (conn *Conn) Start() {
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, root, transformErrors)
+		conn.serve(rootValue, transformErrors)
 	} else {
-		conn.serve(nil, nil, transformErrors)
+		conn.serve(nil, transformErrors)
 	}
 }
 
-// ServeFinder serves RPC requests on the connection by invoking methods retrieved
-// from root. Note that it does not start the connection running, though
-// it may be called once the connection is already started.
+// ServeRoot is like Serve except that it gives the root object dynamic
+// control over what methods are available instead of using reflection
+// on the type.
 //
 // The server executes each client request by calling FindMethod to obtain a
 // method to invoke. It invokes that method with the request parameters,
 // possibly returning some result.
 //
-// root can optionally implement the Killer method. If implemented, when the
-// connection is closed, root.Kill() will be called.
-func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
-	conn.serve(finder, finder, transformErrors)
+// The Kill method will be called when the connection is closed.
+func (conn *Conn) ServeRoot(root Root, transformErrors func(error) error) {
+	conn.serve(root, transformErrors)
 }
 
-func (conn *Conn) serve(methodFinder MethodFinder, root interface{}, transformErrors func(error) error) {
+func (conn *Conn) serve(root Root, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	conn.methodFinder = methodFinder
 	conn.root = root
 	conn.transformErrors = transformErrors
 }
@@ -287,7 +278,9 @@ func (conn *Conn) Close() error {
 		return nil
 	}
 	conn.closing = true
-	conn.killRequests()
+	if conn.root != nil {
+		conn.root.Kill()
+	}
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
@@ -300,25 +293,7 @@ func (conn *Conn) Close() error {
 	}
 	<-conn.dead
 
-	conn.mutex.Lock()
-	conn.cleanRoot()
-	conn.mutex.Unlock()
-
 	return conn.inputLoopError
-}
-
-// Kill server requests if appropriate. Client requests will be
-// terminated when the input loop finishes.
-func (conn *Conn) killRequests() {
-	if killer, ok := conn.root.(Killer); ok {
-		killer.Kill()
-	}
-}
-
-func (conn *Conn) cleanRoot() {
-	if cleaner, ok := conn.root.(Cleaner); ok {
-		cleaner.Cleanup()
-	}
 }
 
 // ErrorCoder represents an any error that has an associated
@@ -328,22 +303,17 @@ type ErrorCoder interface {
 	ErrorCode() string
 }
 
-// MethodFinder represents a type that can be used to lookup a Method and place
+// Root represents a type that can be used to lookup a Method and place
 // calls on that method.
-type MethodFinder interface {
+type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
+	Killer
 }
 
 // Killer represents a type that can be asked to abort any outstanding
 // requests.  The Kill method should return immediately.
 type Killer interface {
 	Kill()
-}
-
-// Cleaner represents a type that can be asked to clean up after
-// itself once the connection has closed.
-type Cleaner interface {
-	Cleanup()
 }
 
 // input reads messages from the connection and handles them
@@ -488,14 +458,14 @@ type boundRequest struct {
 // a boundRequest that can call those methods.
 func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
-	methodFinder := conn.methodFinder
+	root := conn.root
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
-	if methodFinder == nil {
+	if root == nil {
 		return boundRequest{}, errors.New("no service")
 	}
-	caller, err := methodFinder.FindMethod(
+	caller, err := root.FindMethod(
 		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {

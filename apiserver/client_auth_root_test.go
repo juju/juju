@@ -44,7 +44,7 @@ func (s *clientAuthRootSuite) AssertCallErrPerm(c *gc.C, client *clientAuthRoot,
 
 func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, nil)
-	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
+	client := newClientAuthRoot(&fakeRoot{}, modelUser, description.UserAccess{})
 	s.AssertCallGood(c, client, "Application", 1, "Deploy")
 	s.AssertCallGood(c, client, "UserManager", 1, "UserInfo")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
@@ -53,7 +53,7 @@ func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
-	client := newClientAuthRoot(&fakeFinder{}, modelUser, description.UserAccess{})
+	client := newClientAuthRoot(&fakeRoot{}, modelUser, description.UserAccess{})
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
 	// read only commands are fine
@@ -69,16 +69,18 @@ func isCallNotImplementedError(err error) bool {
 	return ok
 }
 
-type fakeFinder struct{}
+type fakeRoot struct{}
 
-// FindMethod is the only thing we need to implement rpc.MethodFinder.
-func (f *fakeFinder) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (f *fakeRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	_, _, err := lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
 	// Just return a valid caller.
 	return &fakeCaller{}, nil
+}
+
+func (f *fakeRoot) Kill() {
 }
 
 // fakeCaller implements a rpcreflect.MethodCaller. We don't care what the

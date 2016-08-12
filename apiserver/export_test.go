@@ -87,7 +87,7 @@ func NewErrRoot(err error) *errRoot {
 // TestingApiRoot gives you an ApiRoot as a rpc.Methodfinder that is
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
-func TestingApiRoot(st *state.State) rpc.MethodFinder {
+func TestingApiRoot(st *state.State) rpc.Root {
 	return newApiRoot(st, common.NewResources(), nil)
 }
 
@@ -117,14 +117,14 @@ func TestingApiHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 
 // TestingUpgradingRoot returns a limited srvRoot
 // in an upgrade scenario.
-func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
+func TestingUpgradingRoot(st *state.State) rpc.Root {
 	r := TestingApiRoot(st)
 	return newUpgradingRoot(r)
 }
 
 // TestingRestrictedApiHandler returns a restricted srvRoot as if accessed
 // from the root of the API path.
-func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
+func TestingRestrictedApiHandler(st *state.State) rpc.Root {
 	r := TestingApiRoot(st)
 	return newRestrictedRoot(r)
 }

@@ -53,7 +53,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	// authedApi is the API method finder we'll use after getting logged in.
-	var authedApi rpc.MethodFinder = newApiRoot(a.root.state, a.root.resources, a.root)
+	var authedApi rpc.Root = newApiRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
@@ -214,7 +214,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		authedApi = newClientAuthRoot(authedApi, modelUser, controllerUser)
 	}
 
-	a.root.rpcConn.ServeFinder(authedApi, serverError)
+	a.root.rpcConn.ServeRoot(authedApi, serverError)
 
 	return loginResult, nil
 }
@@ -531,4 +531,7 @@ type errRoot struct {
 // FindMethod conforms to the same API as initialRoot, but we'll always return (nil, err)
 func (r *errRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	return nil, r.err
+}
+
+func (r *errRoot) Kill() {
 }

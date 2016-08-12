@@ -276,7 +276,7 @@ type RestrictedMethods struct {
 	InterfaceMethods
 }
 
-type CustomMethodFinder struct {
+type CustomRoot struct {
 	root *Root
 }
 
@@ -310,7 +310,10 @@ func (c customMethodCaller) Call(objId string, arg reflect.Value) (reflect.Value
 	return c.objMethod.Call(obj, arg)
 }
 
-func (cc *CustomMethodFinder) FindMethod(
+func (cc *CustomRoot) Kill() {
+}
+
+func (cc *CustomRoot) FindMethod(
 	rootMethodName string, version int, objMethodName string,
 ) (
 	rpcreflect.MethodCaller, error,
@@ -563,8 +566,8 @@ func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	})
 }
 
-func (*rpcSuite) TestCustomMethodFinderV0(c *gc.C) {
-	root := &CustomMethodFinder{SimpleRoot()}
+func (*rpcSuite) TestCustomRootV0(c *gc.C) {
+	root := &CustomRoot{SimpleRoot()}
 	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	// V0 of MultiVersion implements only VariableMethods1.Call0r1.
@@ -589,8 +592,8 @@ func (*rpcSuite) TestCustomMethodFinderV0(c *gc.C) {
 	})
 }
 
-func (*rpcSuite) TestCustomMethodFinderV1(c *gc.C) {
-	root := &CustomMethodFinder{SimpleRoot()}
+func (*rpcSuite) TestCustomRootV1(c *gc.C) {
+	root := &CustomRoot{SimpleRoot()}
 	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	// V1 of MultiVersion implements only VariableMethods2.Call1r1.
@@ -615,8 +618,8 @@ func (*rpcSuite) TestCustomMethodFinderV1(c *gc.C) {
 	})
 }
 
-func (*rpcSuite) TestCustomMethodFinderV2(c *gc.C) {
-	root := &CustomMethodFinder{SimpleRoot()}
+func (*rpcSuite) TestCustomRootV2(c *gc.C) {
+	root := &CustomRoot{SimpleRoot()}
 	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	p := testCallParams{
@@ -642,8 +645,8 @@ func (*rpcSuite) TestCustomMethodFinderV2(c *gc.C) {
 	})
 }
 
-func (*rpcSuite) TestCustomMethodFinderUnknownVersion(c *gc.C) {
-	root := &CustomMethodFinder{SimpleRoot()}
+func (*rpcSuite) TestCustomRootUnknownVersion(c *gc.C) {
+	root := &CustomRoot{SimpleRoot()}
 	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	var r stringVal
@@ -979,30 +982,6 @@ func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type KillerCleanerRoot struct {
-	events []string
-	Root
-}
-
-func (r *KillerCleanerRoot) Kill() {
-	r.events = append(r.events, "kill")
-}
-
-func (r *KillerCleanerRoot) Cleanup() {
-	r.events = append(r.events, "cleanup")
-}
-
-func (*rpcSuite) TestRootIsKilledAndCleaned(c *gc.C) {
-	root := &KillerCleanerRoot{}
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
-	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, jc.ErrorIsNil)
-	// Kill should happen first.
-	c.Assert(root.events, jc.DeepEquals, []string{"kill", "cleanup"})
-}
-
 func (*rpcSuite) TestBidirectional(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
@@ -1127,8 +1106,8 @@ func newRPCClientServer(
 			role = roleBoth
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
-		if custroot, ok := root.(*CustomMethodFinder); ok {
-			rpcConn.ServeFinder(custroot, tfErr)
+		if custroot, ok := root.(*CustomRoot); ok {
+			rpcConn.ServeRoot(custroot, tfErr)
 			custroot.root.conn = rpcConn
 		} else {
 			rpcConn.Serve(root, tfErr)
