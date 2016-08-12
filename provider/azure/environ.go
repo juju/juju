@@ -86,11 +86,11 @@ type azureEnviron struct {
 	network       network.ManagementClient
 	storageClient azurestorage.Client
 
-	mu                 sync.Mutex
-	config             *azureModelConfig
-	instanceTypes      map[string]instances.InstanceType
-	storageAccount     *storage.Account
-	storageAccountKeys []storage.AccountKey
+	mu                sync.Mutex
+	config            *azureModelConfig
+	instanceTypes     map[string]instances.InstanceType
+	storageAccount    *storage.Account
+	storageAccountKey *storage.AccountKey
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
@@ -1391,17 +1391,17 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage account")
 	}
-	storageAccountKeys, err := env.getStorageAccountKeysLocked(
+	storageAccountKey, err := env.getStorageAccountKeyLocked(
 		to.String(storageAccount.Name), false,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage account keys")
+		return nil, errors.Annotate(err, "getting storage account key")
 	}
 	client, err := getStorageClient(
 		env.provider.config.NewStorageClient,
 		env.storageEndpoint,
 		storageAccount,
-		storageAccountKeys,
+		storageAccountKey,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage client")
@@ -1443,33 +1443,31 @@ func (env *azureEnviron) getStorageAccountLocked(refresh bool) (*storage.Account
 	return nil, errors.NotFoundf("storage account")
 }
 
-// getStorageAccountKeys returns the storage account keys for this
-// environment's storage account. If refresh is true, cached keys
-// will be refreshed.
-func (env *azureEnviron) getStorageAccountKeys(accountName string, refresh bool) ([]storage.AccountKey, error) {
+// getStorageAccountKey returns a storage account key for this
+// environment's storage account. If refresh is true, any cached
+// key will be refreshed.
+func (env *azureEnviron) getStorageAccountKeys(accountName string, refresh bool) (*storage.AccountKey, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	return env.getStorageAccountKeysLocked(accountName, refresh)
+	return env.getStorageAccountKeyLocked(accountName, refresh)
 }
 
-func (env *azureEnviron) getStorageAccountKeysLocked(accountName string, refresh bool) ([]storage.AccountKey, error) {
-	if !refresh && env.storageAccountKeys != nil {
-		return env.storageAccountKeys, nil
+func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh bool) (*storage.AccountKey, error) {
+	if !refresh && env.storageAccountKey != nil {
+		return env.storageAccountKey, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	var listKeysResult storage.AccountListKeysResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		listKeysResult, err = client.ListKeys(env.resourceGroup, accountName)
-		return listKeysResult.Response, err
-	}); err != nil {
-		return nil, errors.Annotate(err, "listing storage account keys")
+	key, err := getStorageAccountKey(
+		env.callAPI,
+		client,
+		env.resourceGroup,
+		accountName,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if listKeysResult.Keys == nil {
-		return nil, errors.New("no storage account keys found")
-	}
-	env.storageAccountKeys = *listKeysResult.Keys
-	return env.storageAccountKeys, nil
+	env.storageAccountKey = key
+	return key, nil
 }
 
 // AgentMirror is specified in the tools.HasAgentMirror interface.
