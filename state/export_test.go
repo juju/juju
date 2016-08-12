@@ -105,12 +105,16 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+func ServiceSettingsRefCount(st *State, applicationname string, curl *charm.URL) (int, error) {
+	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
 	defer closer()
 
-	key := applicationSettingsKey(appName, curl)
-	return nsRefcounts.read(refcounts, key)
+	key := applicationSettingsKey(applicationname, curl)
+	var doc settingsRefsDoc
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
+		return doc.RefCount, nil
+	}
+	return 0, mgo.ErrNotFound
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {

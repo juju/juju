@@ -590,6 +590,7 @@ func (i *importer) application(s description.Application) error {
 		constraints:    i.constraints(s.Constraints()),
 		// storage          TODO,
 		settings:           s.Settings(),
+		settingsRefCount:   s.SettingsRefCount(),
 		leadershipSettings: s.LeadershipSettings(),
 	})
 

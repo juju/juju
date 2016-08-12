@@ -146,15 +146,12 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
-	key := charmGlobalKey(cdoc.URL)
-	refOp := nsRefcounts.JustCreateOp(refcountsC, key, 0)
-	charmOp := txn.Op{
+	return []txn.Op{{
 		C:      charmsC,
 		Id:     cdoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: cdoc,
-	}
-	return []txn.Op{refOp, charmOp}, nil
+	}}, nil
 }
 
 // updateCharmOps returns the txn operations necessary to update the charm
@@ -225,22 +222,13 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	refcounts, closer := st.getCollection(refcountsC)
-	defer closer()
-
 	var ops []txn.Op
 	for _, doc := range docs {
 		if doc.URL.Revision >= curl.Revision {
 			continue
 		}
-		key := charmGlobalKey(doc.URL)
-		refOp, err := nsRefcounts.RemoveOp(refcounts, key, 0)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, refOp, txn.Op{
-			C:      charms.Name(),
+		ops = append(ops, txn.Op{
+			C:      charmsC,
 			Id:     doc.DocID,
 			Assert: stillPlaceholder,
 			Remove: true,
@@ -343,6 +331,15 @@ func (c *Charm) Actions() *charm.Actions {
 // StoragePath returns the storage path of the charm bundle.
 func (c *Charm) StoragePath() string {
 	return c.doc.StoragePath
+}
+
+// BundleURL returns the url to the charm bundle in
+// the provider storage.
+//
+// DEPRECATED: this is only to be used for migrating
+// charm archives to model storage.
+func (c *Charm) BundleURL() *url.URL {
+	return c.doc.BundleURL
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
