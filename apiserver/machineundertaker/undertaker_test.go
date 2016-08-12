@@ -32,13 +32,13 @@ const (
 
 func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 	backend := &mockBackend{}
-	_, err := machineundertaker.NewMachineUndertakerAPI(
+	_, err := machineundertaker.NewAPI(
 		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{EnvironManager: false},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	_, err = machineundertaker.NewMachineUndertakerAPI(
+	_, err = machineundertaker.NewAPI(
 		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{EnvironManager: true},
@@ -213,10 +213,10 @@ func (*undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
 	backend.CheckCallNames(c, "WatchMachineRemovals")
 }
 
-func makeApi(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machineundertaker.MachineUndertakerAPI) {
+func makeApi(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machineundertaker.API) {
 	backend := &mockBackend{Stub: &testing.Stub{}}
 	res := common.NewResources()
-	api, err := machineundertaker.NewMachineUndertakerAPI(
+	api, err := machineundertaker.NewAPI(
 		backend,
 		res,
 		apiservertesting.FakeAuthorizer{

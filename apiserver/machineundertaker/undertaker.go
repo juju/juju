@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -18,24 +19,25 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.machineundertaker")
 
 func init() {
-	common.RegisterStandardFacade("MachineUndertaker", 1, newMachineUndertakerAPIFromState)
+	common.RegisterStandardFacade("MachineUndertaker", 1, newAPIFromState)
 }
 
-type MachineUndertakerAPI struct {
+// API implements the API facade used by the machine undertaker.
+type API struct {
 	backend        Backend
 	resources      facade.Resources
 	canManageModel func(modelUUID string) bool
 }
 
-// NewMachineUndertakerAPI implements the API used by the machine
-// undertaker worker to find out what provider-level resources need to
-// be cleaned up when a machine goes away.
-func NewMachineUndertakerAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*MachineUndertakerAPI, error) {
+// NewAPI implements the API used by the machine undertaker worker to
+// find out what provider-level resources need to be cleaned up when a
+// machine goes away.
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	api := &MachineUndertakerAPI{
+	api := &API{
 		backend:   backend,
 		resources: resources,
 		canManageModel: func(modelUUID string) bool {
@@ -45,13 +47,13 @@ func NewMachineUndertakerAPI(backend Backend, resources facade.Resources, author
 	return api, nil
 }
 
-func newMachineUndertakerAPIFromState(st *state.State, res facade.Resources, auth facade.Authorizer) (*MachineUndertakerAPI, error) {
-	return NewMachineUndertakerAPI(&backendShim{st}, res, auth)
+func newAPIFromState(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
+	return NewAPI(&backendShim{st}, res, auth)
 }
 
 // AllMachineRemovals returns tags for all of the machines that have
 // been marked for removal in the requested model.
-func (m *MachineUndertakerAPI) AllMachineRemovals(models params.Entities) (params.Entities, error) {
+func (m *API) AllMachineRemovals(models params.Entities) (params.Entities, error) {
 	err := m.checkModelAuthorization(models)
 	if err != nil {
 		return params.Entities{}, errors.Trace(err)
@@ -71,22 +73,12 @@ func (m *MachineUndertakerAPI) AllMachineRemovals(models params.Entities) (param
 
 // GetMachineProviderInterfaceInfo returns the provider details for
 // all network interfaces attached to the machines requested.
-func (m *MachineUndertakerAPI) GetMachineProviderInterfaceInfo(args params.Entities) params.ProviderInterfaceInfoResults {
-	results := make([]params.ProviderInterfaceInfoResult, len(args.Entities))
-	for i, entity := range args.Entities {
+func (m *API) GetMachineProviderInterfaceInfo(machines params.Entities) params.ProviderInterfaceInfoResults {
+	results := make([]params.ProviderInterfaceInfoResult, len(machines.Entities))
+	for i, entity := range machines.Entities {
 		results[i].MachineTag = entity.Tag
 
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := m.backend.Machine(tag.Id())
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		interfaces, err := machine.AllProviderInterfaceInfos()
+		interfaces, err := m.getInterfaceInfoForOneMachine(entity.Tag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -104,11 +96,27 @@ func (m *MachineUndertakerAPI) GetMachineProviderInterfaceInfo(args params.Entit
 	return params.ProviderInterfaceInfoResults{results}
 }
 
+func (m *API) getInterfaceInfoForOneMachine(machineTag string) ([]network.ProviderInterfaceInfo, error) {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machine, err := m.backend.Machine(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	interfaces, err := machine.AllProviderInterfaceInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return interfaces, nil
+}
+
 // CompleteMachineRemovals removes the specified machines from the
 // model database. It should only be called once any provider-level
 // cleanup has been done for those machines.
-func (m *MachineUndertakerAPI) CompleteMachineRemovals(args params.Entities) error {
-	machineIDs, err := collectMachineIDs(args)
+func (m *API) CompleteMachineRemovals(machines params.Entities) error {
+	machineIDs, err := collectMachineIDs(machines)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +125,7 @@ func (m *MachineUndertakerAPI) CompleteMachineRemovals(args params.Entities) err
 
 // WatchMachineRemovals returns a watcher that will signal each time a
 // machine is marked for removal.
-func (m *MachineUndertakerAPI) WatchMachineRemovals(models params.Entities) params.NotifyWatchResult {
+func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResult {
 	err := m.checkModelAuthorization(models)
 	if err != nil {
 		return params.NotifyWatchResult{Error: common.ServerError(err)}
@@ -133,7 +141,7 @@ func (m *MachineUndertakerAPI) WatchMachineRemovals(models params.Entities) para
 	}
 }
 
-func (m *MachineUndertakerAPI) checkModelAuthorization(entities params.Entities) error {
+func (m *API) checkModelAuthorization(entities params.Entities) error {
 	if len(entities.Entities) == 0 {
 		return errors.New("one model tag is required")
 	}
