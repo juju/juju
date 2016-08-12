@@ -18,7 +18,6 @@ from time import (
     )
 from tempfile import mkdtemp
 import warnings
-import xml.etree.ElementTree as ET
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
@@ -249,11 +248,6 @@ def builds_for_revision(job, revision_build, jenkins):
     return result
 
 
-def get_auth_token(root, job):
-    tree = ET.parse(os.path.join(root, 'jobs', job, 'config.xml'))
-    return tree.getroot().find('authToken').text
-
-
 def check_free_disk_space(path, required, purpose):
     df_result = subprocess.check_output(["df", "-k", path])
     df_result = df_result.split('\n')[1]
@@ -351,7 +345,7 @@ def add_basic_testing_arguments(parser, using_jes=False):
                         ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
                         ' order.',
                         default=_generate_default_binary())
-    parser.add_argument('logs',  nargs='?',  type=_clean_dir,
+    parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory',
                         default=None)
