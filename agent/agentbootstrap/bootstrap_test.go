@@ -149,14 +149,11 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
-		"a-key":      "value",
+		"no-proxy":   "value",
 	}
 	regionConfig := cloud.RegionConfig{
 		"some-region": cloud.Attrs{
-			"a-key": "a-value",
-		},
-		"another-region": cloud.Attrs{
-			"a-key": "b-value",
+			"no-proxy": "a-value",
 		},
 	}
 	var envProvider fakeProvider
@@ -231,7 +228,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
-	expectedAttrs["a-key"] = "value"
+	expectedAttrs["no-proxy"] = "value"
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
@@ -317,7 +314,6 @@ LXC_BRIDGE="ignored"`[1:])
 			Type:   "dummy",
 			Name:   "dummy",
 			Region: "some-region",
-			// XXX Something here.
 		},
 		Config: hostedCfg,
 	})

@@ -309,8 +309,6 @@ func (st *State) controllerInheritedConfig() (attrValues, error) {
 // regionInheritedConfig returns the configuration attributes for the region in
 // the cloud where the model is targeted.
 func (st *State) regionInheritedConfig() (attrValues, error) {
-	// XXX Some cloud's have no region so we need to handle an empty region by
-	// returning and handling an error or returning nil.
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -322,6 +320,8 @@ func (st *State) regionInheritedConfig() (attrValues, error) {
 			model.CloudRegion()),
 	)
 	if err != nil {
+		// Some clouds have no region so we need to handle an empty region by
+		// returning and handling an error or returning nil.
 		return nil, errors.Trace(err)
 	}
 	return settings.Map(), nil

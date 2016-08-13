@@ -227,7 +227,11 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
+	modelOps, err := st.modelSetupOps(
+		args.ControllerModelArgs,
+		&lineage{
+			ControllerConfig: args.ControllerInheritedConfig,
+		})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -296,10 +300,20 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	return st, nil
 }
 
+// lineage is a composite of inheritable properties for the extent of
+// passing them into modelSetupOps.
+type lineage struct {
+	ControllerConfig map[string]interface{}
+	RegionConfig     cloud.RegionConfig
+	// Tenant and User config coming soon?
+}
+
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(controllerInheritedConfig); err != nil {
-		return nil, errors.Trace(err)
+func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+	if inherited != nil {
+		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
@@ -344,7 +358,7 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(controllerInheritedConfig) > 0 {
+	if inherited != nil {
 		configSources = []modelConfigSource{
 			{
 				name: config.JujuDefaultSource,
@@ -354,8 +368,9 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 			{
 				name: config.JujuControllerSource,
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					return controllerInheritedConfig, nil
-				})}}
+					return inherited.ControllerConfig, nil
+				})},
+		}
 	} else {
 		configSources = modelConfigSources(st)
 	}
