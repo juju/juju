@@ -101,7 +101,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", writer)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = osenv.JujuXDGDataHome()
+		c.metadataDir = osenv.JujuXDGDataHomeDir()
 	} else {
 		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
@@ -115,7 +115,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	// legacy behaviour is to store all tools in a single "releases" directory.
 	toolsDir := c.stream
 	if c.stream == "" {
-		fmt.Fprintf(context.Stdout, "No stream specified, defaulting to released tools in the releases directory.\n")
+		fmt.Fprintln(context.Stdout, "No stream specified, defaulting to released tools in the releases directory.")
 		c.stream = envtools.ReleasedStream
 		toolsDir = envtools.LegacyReleaseDirectory
 	}

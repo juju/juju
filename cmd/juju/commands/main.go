@@ -130,11 +130,19 @@ func (m main) Run(args []string) int {
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	m.maybeWarnJuju1x()
+	newInstall := m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		return 2
+	}
+
+	if newInstall {
+		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+		updateCmd := cloud.NewUpdateCloudsCommand()
+		if err := updateCmd.Run(ctx); err != nil {
+			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		}
 	}
 
 	for i := range x {
@@ -149,19 +157,22 @@ func (m main) Run(args []string) int {
 	return cmd.Main(jcmd, ctx, args[1:])
 }
 
-func (m main) maybeWarnJuju1x() {
+func (m main) maybeWarnJuju1x() (newInstall bool) {
+	newInstall = !juju2xConfigDataExists()
 	if !shouldWarnJuju1x() {
-		return
+		return newInstall
 	}
 	ver, exists := m.juju1xVersion()
 	if !exists {
-		return
+		return newInstall
 	}
 	fmt.Fprintf(os.Stderr, `
     Welcome to Juju %s. If you meant to use Juju %s you can continue using it
     with the command %s e.g. '%s switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
+
 `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+	return newInstall
 }
 
 func (m main) juju1xVersion() (ver string, exists bool) {

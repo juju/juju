@@ -41,8 +41,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.
-You may want to use the 'agent-metadata-url' configuration setting to specify the tools location.
+const noToolsMessage = `Juju cannot bootstrap because no agent binaries are available for your model.
+You may want to use the 'agent-metadata-url' configuration setting to specify the binaries' location.
 `
 
 var (
@@ -110,15 +110,15 @@ type BootstrapParams struct {
 	// directive used to choose the initial instance.
 	Placement string
 
-	// UploadTools reports whether we should upload the local tools and
-	// override the environment's specified agent-version. It is an error
-	// to specify UploadTools with a nil BuildToolsTarball.
-	UploadTools bool
+	// BuildAgent reports whether we should build and upload the local agent
+	// binary and override the environment's specified agent-version.
+	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
+	BuildAgent bool
 
-	// BuildToolsTarball, if non-nil, is a function that may be used to
+	// BuildAgentTarball, if non-nil, is a function that may be used to
 	// build tools to upload. If this is nil, tools uploading will never
 	// take place.
-	BuildToolsTarball sync.BuildToolsTarballFunc
+	BuildAgentTarball sync.BuildAgentTarballFunc
 
 	// MetadataDir is an optional path to a local directory containing
 	// tools and/or image metadata.
@@ -185,7 +185,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
 		if err != nil {
 			return err
 		}
@@ -219,14 +219,44 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
-	availableTools, err := findAvailableTools(
-		environ, args.AgentVersion, bootstrapConstraints.Arch,
-		bootstrapSeries, args.UploadTools, args.BuildToolsTarball != nil,
-	)
-	if errors.IsNotFound(err) {
+
+	var availableTools coretools.List
+	if !args.BuildAgent {
+		availableTools, err = findPackagedTools(environ, args.AgentVersion, bootstrapConstraints.Arch, bootstrapSeries)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	// If there are no prepackaged tools and a specific version has not been
+	// requested, look for or build a local binary.
+	var builtTools *sync.BuiltAgent
+	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
+		if args.BuildAgentTarball == nil {
+			return errors.New("cannot build agent binary to upload")
+		}
+		if err := validateUploadAllowed(environ, bootstrapConstraints.Arch, bootstrapSeries); err != nil {
+			return err
+		}
+		var forceVersion version.Number
+		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
+		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
+		if err != nil {
+			return errors.Annotate(err, "cannot package bootstrap agent binary")
+		}
+		defer os.RemoveAll(builtTools.Dir)
+		for i, tool := range availableTools {
+			if tool.URL != "" {
+				continue
+			}
+			filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+			tool.URL = fmt.Sprintf("file://%s", filename)
+			tool.Size = builtTools.Size
+			tool.SHA256 = builtTools.Sha256Hash
+			availableTools[i] = tool
+		}
+	}
+	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)
-	} else if err != nil {
-		return err
 	}
 
 	imageMetadata, err := bootstrapImageMetadata(
@@ -278,34 +308,16 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	selectedToolsList, err := setBootstrapTools(environ, matchingTools)
+	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {
 		return err
 	}
-	havePrepackaged := false
-	for i, selectedTools := range selectedToolsList {
-		if selectedTools.URL != "" {
-			havePrepackaged = true
-			continue
-		}
-		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
-		builtTools, err := args.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
-		if err != nil {
-			return errors.Annotate(err, "cannot upload bootstrap tools")
-		}
-		defer os.RemoveAll(builtTools.Dir)
-		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
-		selectedTools.URL = fmt.Sprintf("file://%s", filename)
-		selectedTools.Size = builtTools.Size
-		selectedTools.SHA256 = builtTools.Sha256Hash
-		selectedToolsList[i] = selectedTools
-	}
-	if !havePrepackaged && !args.UploadTools {
-		// There are no prepackaged agents, so we must upload
-		// even though the user didn't ask for it. We only do
-		// this when the image-stream is not "released" and
-		// the agent version hasn't been specified.
-		logger.Infof("no prepackaged tools available")
+	// We set agent-version to the newest version, so the agent will immediately upgrade itself.
+	// Note that this only is relevant if a specific agent version has not been requested, since
+	// in that case the specific version will be the only version available.
+	newestVersion, _ := matchingTools.Newest()
+	if err := setBootstrapToolsVersion(environ, newestVersion); err != nil {
+		return err
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
@@ -515,31 +527,17 @@ func bootstrapImageMetadata(
 	return publicImageMetadata, nil
 }
 
-// setBootstrapTools returns the newest tools from the given tools list,
-// and updates the agent-version configuration attribute.
-func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
+// getBootstrapToolsVersion returns the newest tools from the given tools list.
+func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, error) {
 	if len(possibleTools) == 0 {
-		return nil, fmt.Errorf("no bootstrap tools available")
+		return nil, errors.New("no bootstrap tools available")
 	}
 	var newVersion version.Number
 	newVersion, toolsList := possibleTools.Newest()
 	logger.Infof("newest version: %s", newVersion)
-	cfg := environ.Config()
-	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
-		cfg, err := cfg.Apply(map[string]interface{}{
-			"agent-version": newVersion.String(),
-		})
-		if err == nil {
-			err = environ.SetConfig(cfg)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to update model configuration: %v", err)
-		}
-	}
 	bootstrapVersion := newVersion
 	// We should only ever bootstrap the exact same version as the client,
-	// or we risk bootstrap incompatibility. We still set agent-version to
-	// the newest version, so the agent will immediately upgrade itself.
+	// or we risk bootstrap incompatibility.
 	if !isCompatibleVersion(newVersion, jujuversion.Current) {
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
@@ -553,6 +551,23 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	}
 	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
 	return toolsList, nil
+}
+
+// setBootstrapToolsVersion updates the agent-version configuration attribute.
+func setBootstrapToolsVersion(environ environs.Environ, toolsVersion version.Number) error {
+	cfg := environ.Config()
+	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
+		cfg, err := cfg.Apply(map[string]interface{}{
+			"agent-version": toolsVersion.String(),
+		})
+		if err == nil {
+			err = environ.SetConfig(cfg)
+		}
+		if err != nil {
+			return errors.Errorf("failed to update model configuration: %v", err)
+		}
+	}
+	return nil
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor
@@ -579,7 +594,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // setPrivateMetadataSources sets the default tools metadata source
 // for tools syncing, and adds an image metadata source after verifying
 // the contents.
-func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
 	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
 	tools.DefaultBaseURL = metadataDir
 

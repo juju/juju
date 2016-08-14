@@ -402,7 +402,7 @@ type BootstrapToolsTest struct {
 	Err           string
 }
 
-var noToolsMessage = "Juju cannot bootstrap because no tools are available for your model.*"
+var noToolsMessage = "Juju cannot bootstrap because no agent binaries are available for your model.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{

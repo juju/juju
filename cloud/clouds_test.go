@@ -11,12 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
 type cloudSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&cloudSuite{})
@@ -168,9 +167,6 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 }
 
 func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-
 	clouds := map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
 			Type:      "aws",

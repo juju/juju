@@ -12,21 +12,15 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type defaultCredentialSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&defaultCredentialSuite{})
-
-func (s *defaultCredentialSuite) SetUpTest(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-}
 
 func (s *defaultCredentialSuite) TestBadArgs(c *gc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()

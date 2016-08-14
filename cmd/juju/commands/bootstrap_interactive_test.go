@@ -30,12 +30,12 @@ func (BSInteractSuite) TestInitEmpty(c *gc.C) {
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitUploadTools(c *gc.C) {
+func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"--upload-tools"})
+	err := jujutesting.InitCommand(cmd, []string{"--build-agent"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
-	c.Assert(cmd.UploadTools, jc.IsTrue)
+	c.Assert(cmd.BuildAgent, jc.IsTrue)
 }
 
 func (BSInteractSuite) TestInitArg(c *gc.C) {

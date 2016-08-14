@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type maas2EnvironSuite struct {
@@ -1608,19 +1608,16 @@ func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 
 func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
-	// Disable auto-uploading by setting the agent version.
-	cfg, err := env.Config().Apply(map[string]interface{}{
-		"agent-version": jujuversion.Current.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	vers := version.MustParse("1.2.3")
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      jujutesting.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
+		// Disable auto-uploading by setting the agent version
+		// to something that's not the current version.
+		AgentVersion: &vers,
 	})
-	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
 func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

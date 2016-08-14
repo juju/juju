@@ -263,12 +263,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = utils.SetHome(home)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
+	jujuHome := filepath.Join(home, ".local", "share")
+	err = os.MkdirAll(jujuHome, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(filepath.Join(home, ".local", "share", "juju"))
-	err = os.MkdirAll(osenv.JujuXDGDataHome(), 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	s.oldJujuXDGDataHome = osenv.JujuXDGDataHome()
+	osenv.SetJujuXDGDataHome(jujuHome)
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
