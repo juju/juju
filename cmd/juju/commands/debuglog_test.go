@@ -4,10 +4,6 @@
 package commands
 
 import (
-	"io"
-	"io/ioutil"
-	"strings"
-
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -130,29 +126,33 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 
 func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
-		return &fakeDebugLogAPI{log: "this is the log output"}, nil
+		return &fakeDebugLogAPI{log: []api.LogMessage{
+			{Message: "this is the log output"}}}, nil
 	})
 	ctx, err := testing.RunCommand(c, newDebugLogCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
-}
-
-func newFakeDebugLogAPI(log string) DebugLogAPI {
-	return &fakeDebugLogAPI{log: log}
+	c.Assert(testing.Stdout(ctx), gc.Matches, ".*this is the log output\n")
 }
 
 type fakeDebugLogAPI struct {
-	log    string
+	log    []api.LogMessage
 	params api.DebugLogParams
 	err    error
 }
 
-func (fake *fakeDebugLogAPI) WatchDebugLog(params api.DebugLogParams) (io.ReadCloser, error) {
+func (fake *fakeDebugLogAPI) WatchDebugLog(params api.DebugLogParams) (<-chan api.LogMessage, error) {
 	if fake.err != nil {
 		return nil, fake.err
 	}
 	fake.params = params
-	return ioutil.NopCloser(strings.NewReader(fake.log)), nil
+	response := make(chan api.LogMessage)
+	go func() {
+		defer close(response)
+		for _, msg := range fake.log {
+			response <- msg
+		}
+	}()
+	return response, nil
 }
 
 func (fake *fakeDebugLogAPI) Close() error {
