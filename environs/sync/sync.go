@@ -326,7 +326,11 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 		return nil, errors.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fileInfo.Size()
-	logger.Infof("using agent binary %v (%dkB)", toolsVersion, (size+512)/1024)
+	reportedVersion := toolsVersion
+	if forceVersion != nil {
+		reportedVersion.Number = *forceVersion
+	}
+	logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err
