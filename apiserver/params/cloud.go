@@ -74,25 +74,6 @@ type UsersCloudCredentials struct {
 	Users []UserCloudCredentials `json:"users"`
 }
 
-// CloudDefaults contains defaults for cloud name, region, and
-// credential for a user.
-type CloudDefaults struct {
-	CloudTag        string `json:"cloud-tag"`
-	CloudRegion     string `json:"region,omitempty"`
-	CloudCredential string `json:"credential,omitempty"`
-}
-
-// CloudDefaultsResult contains a CloudDefaults or an error.
-type CloudDefaultsResult struct {
-	Result *CloudDefaults `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
-}
-
-// CloudDefaultsResults contains a set of CloudDefaultsResults.
-type CloudDefaultsResults struct {
-	Results []CloudDefaultsResult `json:"results,omitempty"`
-}
-
 // CloudSpec holds a cloud specification.
 type CloudSpec struct {
 	Type             string           `json:"type"`

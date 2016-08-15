@@ -63,29 +63,21 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	}, nil
 }
 
-// CloudDefaults returns the cloud defaults for the given users.
-func (c *Client) CloudDefaults(user names.UserTag) (jujucloud.Defaults, error) {
-	var results params.CloudDefaultsResults
-	args := params.Entities{[]params.Entity{{user.String()}}}
-	if err := c.facade.FacadeCall("CloudDefaults", args, &results); err != nil {
-		return jujucloud.Defaults{}, errors.Trace(err)
+// DefaultCloud returns the tag of the cloud that models will be
+// created in by default.
+func (c *Client) DefaultCloud() (names.CloudTag, error) {
+	var result params.StringResult
+	if err := c.facade.FacadeCall("DefaultCloud", nil, &result); err != nil {
+		return names.CloudTag{}, errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return jujucloud.Defaults{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	if result.Error != nil {
+		return names.CloudTag{}, result.Error
 	}
-	if results.Results[0].Error != nil {
-		return jujucloud.Defaults{}, results.Results[0].Error
-	}
-	result := results.Results[0].Result
-	cloudTag, err := names.ParseCloudTag(result.CloudTag)
+	cloudTag, err := names.ParseCloudTag(result.Result)
 	if err != nil {
-		return jujucloud.Defaults{}, errors.Trace(err)
+		return names.CloudTag{}, errors.Trace(err)
 	}
-	return jujucloud.Defaults{
-		Cloud:      cloudTag.Id(),
-		Region:     result.CloudRegion,
-		Credential: result.CloudCredential,
-	}, nil
+	return cloudTag, nil
 }
 
 // Credentials returns the cloud credentials for the user and cloud with
