@@ -186,38 +186,11 @@ func (st *State) RemoveExportingModelDocs() error {
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
-	env, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
-	ops := []txn.Op{{
-		// Cleanup the owner:envName unique key.
-		C:      usermodelnameC,
-		Id:     id,
-		Remove: true,
-	}, {
-		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
-		Remove: true,
-	}, {
-		C:      modelsC,
-		Id:     st.ModelUUID(),
-		Assert: modelAssertion,
-		Remove: true,
-	}}
-	if !st.IsController() {
-		ops = append(ops, decHostedModelCountOp())
-	}
+	modelUUID := st.ModelUUID()
 
-	var rawCollections []string
 	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
-		if info.global {
-			continue
-		}
-		if info.rawAccess {
-			rawCollections = append(rawCollections, name)
+		if info.global || info.rawAccess {
 			continue
 		}
 
@@ -228,7 +201,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		// Make sure we gate everything on the model assertion.
 		ops = append([]txn.Op{{
 			C:      modelsC,
-			Id:     st.ModelUUID(),
+			Id:     modelUUID,
 			Assert: modelAssertion,
 		}}, ops...)
 		err = st.runTransaction(ops)
@@ -236,14 +209,53 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			return errors.Trace(err)
 		}
 	}
-	// Now remove raw collections
-	for _, name := range rawCollections {
-		if err := st.removeAllInCollectionRaw(name); err != nil {
-			return errors.Trace(err)
+
+	// Remove from the raw (non-transactional) collections.
+	for name, info := range st.database.Schema() {
+		if !info.global && info.rawAccess {
+			if err := st.removeAllInCollectionRaw(name); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
-	// Run the remaining ops to remove the model.
+	// Remove all user permissions for the model.
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Now remove remove the model.
+	env, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
+	ops = []txn.Op{{
+		// Cleanup the owner:envName unique key.
+		C:      usermodelnameC,
+		Id:     id,
+		Remove: true,
+	}, {
+		C:      modelEntityRefsC,
+		Id:     modelUUID,
+		Remove: true,
+	}, {
+		C:      modelsC,
+		Id:     modelUUID,
+		Assert: modelAssertion,
+		Remove: true,
+	}}
+	if !st.IsController() {
+		ops = append(ops, decHostedModelCountOp())
+	}
 	return st.runTransaction(ops)
 }
 
@@ -259,11 +271,17 @@ func (st *State) removeAllInCollectionRaw(name string) error {
 // removeAllInCollectionOps appends to ops operations to
 // remove all the documents in the given named collection.
 func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
+	return st.removeInCollectionOps(name, nil)
+}
+
+// removeInCollectionOps generates operations to remove all documents
+// from the named collection matching a specific selector.
+func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
 	coll, closer := st.getCollection(name)
 	defer closer()
 
 	var ids []bson.M
-	err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
