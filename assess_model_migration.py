@@ -96,7 +96,7 @@ def _update_client_controller(client):
 
     admin_client = client.get_controller_client()
     admin_client.env.local = True
-    admin_client.upgrade_controller()
+    admin_client.upgrade_controller(force_version=False)
     admin_client.wait_for_version(
         admin_client.get_matching_agent_version(), 600)
     # assess_upgrade(admin_client, admin_client.full_path)
