@@ -38,27 +38,25 @@ log = logging.getLogger("assess_user_grant_revoke")
 User = namedtuple('User', ['name', 'permissions', 'expect'])
 
 
-USER_LIST_ADMIN = [{"user-name": "admin", "display-name": "admin"}]
-USER_LIST_ADMIN_READ = copy.deepcopy(USER_LIST_ADMIN)
+USER_LIST_CTRL = [{"user-name": "admin", "display-name": "admin"}]
+USER_LIST_CTRL_READ = copy.deepcopy(USER_LIST_CTRL)
 # Created user has no display name, bug 1606354
-USER_LIST_ADMIN_READ.append({"user-name": "readuser", "display-name": ""})
-USER_LIST_ADMIN_READ_WRITE = copy.deepcopy(USER_LIST_ADMIN_READ)
+USER_LIST_CTRL_READ.append({"user-name": "readuser", "display-name": ""})
+USER_LIST_CTRL_WRITE = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
-USER_LIST_ADMIN_READ_WRITE.append({"user-name": "writeuser",
-                                   "display-name": ""})
-user_list_all = copy.deepcopy(USER_LIST_ADMIN_READ_WRITE)
+USER_LIST_CTRL_WRITE.append({"user-name": "writeuser",
+                             "display-name": ""})
+USER_LIST_CTRL_ADMIN = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
-user_list_all.append({"user-name": "adminuser", "display-name": ""})
-SHARE_LIST_ADMIN = {"admin@local": {"display-name": "admin",
-                                    "access": "admin"}}
-SHARE_LIST_ADMIN_READ = copy.deepcopy(SHARE_LIST_ADMIN)
-SHARE_LIST_ADMIN_READ["readuser@local"] = {"access": "read"}
-SHARE_LIST_ADMIN_READ_WRITE = copy.deepcopy(SHARE_LIST_ADMIN_READ)
-SHARE_LIST_ADMIN_READ_WRITE["writeuser@local"] = {"access": "write"}
-del SHARE_LIST_ADMIN_READ_WRITE['readuser@local']
-SHARE_LIST_ALL = copy.deepcopy(SHARE_LIST_ADMIN_READ_WRITE)
-SHARE_LIST_ALL["adminuser@local"] = {"access": "admin"}
-SHARE_LIST_ALL["writeuser@local"]["access"] = "read"
+USER_LIST_CTRL_ADMIN.append({"user-name": "adminuser", "display-name": ""})
+SHARE_LIST_CTRL = {"admin@local": {"display-name": "admin",
+                                   "access": "admin"}}
+SHARE_LIST_CTRL_READ = copy.deepcopy(SHARE_LIST_CTRL)
+SHARE_LIST_CTRL_READ["readuser@local"] = {"access": "read"}
+SHARE_LIST_CTRL_WRITE = copy.deepcopy(SHARE_LIST_CTRL)
+SHARE_LIST_CTRL_WRITE["writeuser@local"] = {"access": "write"}
+SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
+SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
 
 
 # This needs refactored out to utility
@@ -201,23 +199,6 @@ def assert_user_permissions(user, user_client, controller_client):
         controller_client, user_client, permission, expect.next())
 
 
-def assert_users_shares(controller_client, client, user):
-    """Test if user_list and share_list are expected"""
-    if user.name == 'readuser':
-        user_list_expected = USER_LIST_ADMIN_READ
-        share_list_expected = SHARE_LIST_ADMIN_READ
-    else:
-        user_list_expected = USER_LIST_ADMIN_READ_WRITE
-        share_list_expected = SHARE_LIST_ALL
-    user_list = list_users(controller_client)
-    share_list = list_shares(controller_client)
-    log.info('Checking list-users')
-    assert_equal(user_list, user_list_expected)
-    log.info('Checking list-shares')
-    assert_equal(share_list, share_list_expected)
-    log.info('PASS list-users, list-shares')
-
-
 def assert_change_password(client, user):
     """Test changing user's password"""
     log.info('Checking change-user-password')
@@ -250,13 +231,13 @@ def assert_disable_enable(controller_client, user):
     log.info('Disabled {}'.format(user.name))
     user_list = list_users(controller_client)
     log.info('Checking list-users {}'.format(user.name))
-    assert_equal(user_list, USER_LIST_ADMIN_READ)
+    assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking enable {}'.format(user.name))
     controller_client.enable_user(user.name)
     log.info('Enabled {}'.format(user.name))
     user_list = list_users(controller_client)
     log.info('Checking list-users {}'.format(user.name))
-    assert_equal(user_list, USER_LIST_ADMIN_READ_WRITE)
+    assert_equal(user_list, USER_LIST_CTRL_WRITE)
 
 
 def assert_logout_login(controller_client, user_client, user, fake_home):
@@ -264,7 +245,7 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     user_client.logout()
     log.info('Checking list-users after logout')
     user_list = list_users(controller_client)
-    assert_equal(user_list, USER_LIST_ADMIN_READ)
+    assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking list-users after login')
     username = user.name
     controller_name = '{}_controller'.format(username)
@@ -299,14 +280,15 @@ def assert_read_user(controller_client, user):
             user, fake_home)
         log.info('Checking list-users {}'.format(user.name))
         user_list = list_users(controller_client)
-        assert_equal(user_list, USER_LIST_ADMIN_READ)
+        assert_equal(user_list, USER_LIST_CTRL_READ)
         log.info('Checking list-shares {}'.format(user.name))
         share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_ADMIN_READ)
+        assert_equal(share_list, SHARE_LIST_CTRL_READ)
         assert_change_password(user_client, user)
         user_client = assert_logout_login(
             controller_client, user_client, user, fake_home)
         assert_user_permissions(user, user_client, controller_client)
+        controller_client.remove_user(user.name)
     log.info('PASS read {}'.format(user.name))
 
 
@@ -319,12 +301,13 @@ def assert_write_user(controller_client, user):
         user_client.env.user_name = user.name
         log.info('Checking list-users {}'.format(user.name))
         user_list = list_users(controller_client)
-        assert_equal(user_list, USER_LIST_ADMIN_READ_WRITE)
+        assert_equal(user_list, USER_LIST_CTRL_WRITE)
         log.info('Checking list-shares {}'.format(user.name))
         share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_ADMIN_READ_WRITE)
+        assert_equal(share_list, SHARE_LIST_CTRL_WRITE)
         assert_disable_enable(controller_client, user)
         assert_user_permissions(user, user_client, controller_client)
+        controller_client.remove_user(user.name)
     log.info('PASS write {}'.format(user.name))
 
 
@@ -337,11 +320,12 @@ def assert_admin_user(controller_client, user):
         user_client.env.user_name = user.name
         log.info('Checking list-users {}'.format(user.name))
         user_list = list_users(controller_client)
-        assert_equal(user_list, user_list_all)
+        assert_equal(user_list, USER_LIST_CTRL_ADMIN)
         log.info('Checking list-shares {}'.format(user.name))
         share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_ALL)
+        assert_equal(share_list, SHARE_LIST_CTRL_ADMIN)
         assert_user_permissions(user, user_client, controller_client)
+        controller_client.remove_user(user.name)
     log.info('PASS admin {}'.format(user.name))
 
 
@@ -358,13 +342,13 @@ def assess_user_grant_revoke(controller_client):
                       [True, True, True, True, True, True])
     log.info('Checking list-users admin')
     user_list = list_users(controller_client)
-    assert_equal(user_list, USER_LIST_ADMIN)
+    assert_equal(user_list, USER_LIST_CTRL)
     log.info('Checking list-shares admin')
     share_list = list_shares(controller_client)
-    assert_equal(share_list, SHARE_LIST_ADMIN)
+    assert_equal(share_list, SHARE_LIST_CTRL)
     log.info('Checking show-user admin')
     user_status = show_user(controller_client)
-    assert_equal(user_status, USER_LIST_ADMIN[0])
+    assert_equal(user_status, USER_LIST_CTRL[0])
     assert_read_user(controller_client, read_user)
     assert_write_user(controller_client, write_user)
     assert_admin_user(controller_client, admin_user)

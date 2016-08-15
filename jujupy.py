@@ -1897,7 +1897,7 @@ class EnvJujuClient:
         controller_name = '{}_controller'.format(username)
 
         model = self.env.environment
-        token = self.add_user(username, models=model + ',controller',
+        token = self.add_user(username, models=model,
                               permissions=user.permissions)
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,

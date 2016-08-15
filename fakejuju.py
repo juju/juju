@@ -545,6 +545,11 @@ class FakeBackend:
                         per = ''
                     else:
                         per = 'read'
+            if command == 'remove-user':
+                username = args[0]
+                self.controller_state.users.pop(username)
+                if username in self.controller_state.shares:
+                    self.controller_state.shares.remove(username)
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,

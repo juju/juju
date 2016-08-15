@@ -7,6 +7,7 @@ import argparse
 import logging
 import random
 import string
+import subprocess
 import sys
 
 from assess_user_grant_revoke import (
@@ -48,7 +49,8 @@ def assert_destroy_model(user_client, permission):
         user_client.destroy_model()
     except subprocess.CalledProcessError:
         raise JujuAssertionError(
-            "Controller can't destroy model with {} permission".format(permission))
+            "Controller can't destroy model with {} permission".format(
+                permission))
 
 
 def assert_add_remove_user(user_client, permission):
@@ -56,17 +58,22 @@ def assert_add_remove_user(user_client, permission):
         code = ''.join(random.choice(
             string.ascii_letters + string.digits) for _ in xrange(4))
         try:
-            user_client.add_user(permission + code, permissions=controller_permission)
+            user_client.add_user(permission + code,
+                                 permissions=controller_permission)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
-                'Controller could not add {} controller with {} permission'.format(
+                'Controller could not add {}'
+                ' controller with {} permission'.format(
                     controller_permission, permission))
         try:
-            user_client.remove_user(permission + code, permissions=controller_permission)
+            user_client.remove_user(permission + code,
+                                    permissions=controller_permission)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
-                'Controller could not remove {} controller with {} permission'.format(
+                'Controller could not remove {}'
+                ' controller with {} permission'.format(
                     controller_permission, permission))
+
 
 def assert_login_controller(controller_client, user):
     with temp_dir() as fake_home:
@@ -102,7 +109,8 @@ def assess_controller_permissions(controller_client):
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Test controller permissions.")
+    parser = argparse.ArgumentParser(
+        description="Test controller permissions.")
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 
