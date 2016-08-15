@@ -215,7 +215,16 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 	return stdoutBuf.String(), nil
 }
 
+// Destroy implements the Environ interface.
 func (e *manualEnviron) Destroy() error {
+	// There is nothing we can do for manual environments,
+	// except when destroying the controller as a whole
+	// (see DestroyController below).
+	return nil
+}
+
+// DestroyController implements the Environ interface.
+func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
 set -x
 touch %s
@@ -245,11 +254,6 @@ exit 0
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	return err
-}
-
-// DestroyController implements the Environ interface.
-func (e *manualEnviron) DestroyController(controllerUUID string) error {
-	return e.Destroy()
 }
 
 func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {

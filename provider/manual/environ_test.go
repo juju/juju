@@ -73,7 +73,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	c.Assert(instances[0], gc.IsNil)
 }
 
-func (s *environSuite) TestDestroy(c *gc.C) {
+func (s *environSuite) TestDestroyController(c *gc.C) {
 	var resultStderr string
 	var resultErr error
 	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
@@ -105,7 +105,7 @@ exit 0
 	for i, t := range tests {
 		c.Logf("test %d: %v", i, t)
 		resultStderr, resultErr = t.stderr, t.err
-		err := s.env.Destroy()
+		err := s.env.DestroyController("controller-uuid")
 		if t.match == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
