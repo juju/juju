@@ -357,6 +357,8 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 
 // ModelInfo returns information about the current model (default
 // series and type).
+//
+// TODO(axw) drop this method after 2.0-beta16 is out.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	state := c.api.stateAccessor
 	conf, err := state.ModelConfig()

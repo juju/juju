@@ -45,7 +45,7 @@ type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
-	DestroyModel() error
+	DestroyModels(args params.Entities) (params.ErrorResults, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is
@@ -411,6 +411,8 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 
 // DestroyModel will try to destroy the current model.
 // If there is a block on destruction, this method will return an error.
+//
+// TODO(axw) drop this method after 2.0-beta16 is out.
 func (m *ModelManagerAPI) DestroyModel() error {
 	// Any user is able to delete their own model (until real fine
 	// grain permissions are available), and admins (the creator of the state
@@ -424,6 +426,38 @@ func (m *ModelManagerAPI) DestroyModel() error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+}
+
+// DestroyModels will try to destroy the specified models.
+// If there is a block on destruction, this method will return an error.
+func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	destroyModel := func(tag names.ModelTag) error {
+		model, err := m.state.GetModel(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.authCheck(model.Owner()); err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+	}
+
+	for i, arg := range args.Entities {
+		tag, err := names.ParseModelTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := destroyModel(tag); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // ModelInfo returns information about the specified models.

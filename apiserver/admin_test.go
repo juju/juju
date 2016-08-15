@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -764,23 +765,34 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) assertRemoteModel(c *gc.C, st api.Connection, expected names.ModelTag) {
+func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected names.ModelTag) {
 	// Look at what the api thinks it has.
-	tag, err := st.ModelTag()
+	tag, err := api.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
-	client := st.Client()
+	client := api.Client()
 
 	// ModelUUID looks at the env tag on the api state connection.
 	uuid, err := client.ModelUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid, gc.Equals, expected.Id())
 
-	// ModelInfo calls a remote method that looks up the environment.
-	info, err := client.ModelInfo()
+	// The code below is to verify that the API connection is operating on
+	// the expected model. We make a change in state on that model, and
+	// then check that it is picked up by a call to the API.
+
+	st, err := s.State.ForModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.UUID, gc.Equals, expected.Id())
+	defer st.Close()
+
+	expectedCons := constraints.MustParse("mem=8G")
+	err = st.SetModelConstraints(expectedCons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := client.GetModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, expectedCons)
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
