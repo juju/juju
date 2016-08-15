@@ -1,0 +1,11 @@
+<pool type='dir'>
+  <name>maaspool1</name>
+  <target>
+    <path>/images/maaspool1</path>
+    <permissions>
+      <mode>0711</mode>
+      <owner>-1</owner>
+      <group>-1</group>
+    </permissions>
+  </target>
+</pool>
