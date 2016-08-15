@@ -287,7 +287,7 @@ func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
 	err := w.transferModel(targetInfo, modelUUID)
 	if err != nil {
-		w.setErrorStatus("model export failed: %v", err)
+		w.setErrorStatus("model data transfer failed: %v", err)
 		return coremigration.ABORT, nil
 	}
 	return coremigration.VALIDATION, nil
