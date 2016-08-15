@@ -492,3 +492,16 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 	}
 	return client.Leases(), nil
 }
+
+func ResetMigrationMode(c *gc.C, st *State) {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.M{
+			"$set": bson.M{"migration-mode": MigrationModeActive},
+		},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
