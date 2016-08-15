@@ -5,7 +5,7 @@ from unittest import TestCase
 from mock import (
     MagicMock,
     patch,
-    )
+)
 
 from assess_heterogeneous_control import (
     assess_heterogeneous,
@@ -13,15 +13,15 @@ from assess_heterogeneous_control import (
     get_clients,
     parse_args,
     test_control_heterogeneous,
-    )
-from jujupy import (
-    _temp_env,
-    )
-from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import (
+)
+from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-    )
+)
+from jujupy import (
+    _temp_env,
+)
+from tests.test_deploy_stack import FakeBootstrapManager
 
 __metaclass__ = type
 

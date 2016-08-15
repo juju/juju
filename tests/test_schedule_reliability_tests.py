@@ -20,7 +20,6 @@ from schedule_reliability_tests import (
     )
 from test_utility import (
     make_candidate_dir,
-    write_config,
     )
 from tests import parse_error
 from utility import temp_dir
@@ -76,30 +75,28 @@ class TestBuildJob(TestCase):
     def test_build_job(self):
         jenkins_cxt = patch('schedule_reliability_tests.Jenkins')
         with jenkins_cxt as jenkins_mock, temp_dir() as root:
-            write_config(root, 'foo', 'quxxx')
             build_job(Credentials('jrandom', 'password1'), root, 'foo',
                       [('bar', 1), ('baz', 2)], ['qux'])
         jenkins_mock.assert_called_once_with(
-            'http://localhost:8080', 'jrandom', 'password1')
+            'http://juju-ci.vapour.ws:8080', 'jrandom', 'password1')
         calls = jenkins_mock.return_value.build_job.mock_calls
         expected = [
             call('foo', {
                 'suite': 'qux',
                 'attempts': '10',
                 'revision_build': '1',
-                }, token='quxxx'),
+                }),
             call('foo', {
                 'suite': 'qux',
                 'attempts': '10',
                 'revision_build': '2'
-                }, token='quxxx'),
+                }),
             ]
         self.assertEqual(calls, expected)
 
     def test_build_job_multi_suite(self):
         jenkins_cxt = patch('schedule_reliability_tests.Jenkins')
         with jenkins_cxt as jenkins_mock, temp_dir() as root:
-            write_config(root, 'foo', 'bar')
             build_job(Credentials('jrandom', 'password1'), root, 'foo',
                       [('baz', 1)], ['qux', 'quxx'])
         jenkins_mock.return_value.build_job.assert_called_once_with(
@@ -107,7 +104,7 @@ class TestBuildJob(TestCase):
                 'suite': 'qux,quxx',
                 'attempts': '10',
                 'revision_build': '1',
-                }, token='bar')
+                })
 
 
 class TestMain(TestCase):
@@ -115,7 +112,6 @@ class TestMain(TestCase):
     @contextmanager
     def build_job_context(self):
         with temp_dir() as root:
-            write_config(root, 'foo', 'quxxx')
             yield root
 
     def run_main(self, root):
@@ -132,7 +128,7 @@ class TestMain(TestCase):
             'attempts': '10',
             'suite': 'full',
             'revision_build': '1234',
-            }, token='quxxx')
+            })
 
     def test_limit_3(self):
         # Even though it's only testing the latest, it should only test 3,

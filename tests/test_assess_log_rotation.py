@@ -16,6 +16,10 @@ from assess_log_rotation import (
     assess_debug_log,
     assess_machine_rotation,
 )
+from fakejuju import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 from jujupy import (
     EnvJujuClient,
     JujuData,
@@ -23,10 +27,6 @@ from jujupy import (
     yaml_loads,
     )
 from tests import TestCase
-from tests.test_jujupy import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 
 good_yaml = \
     """

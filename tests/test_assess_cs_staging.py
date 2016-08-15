@@ -11,14 +11,14 @@ from assess_cs_staging import (
     main,
     _set_charm_store_ip,
 )
+from fakejuju import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 
 
 class TestParseArgs(TestCase):

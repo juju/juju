@@ -96,9 +96,12 @@ def _update_client_controller(client):
     log.info('Updating clients ({}) controller'.format(
         client.env.environment))
 
-    admin_client = client.get_admin_client()
+    admin_client = client.get_controller_client()
     admin_client.env.local = True
-    assess_upgrade(admin_client, admin_client.full_path)
+    admin_client.upgrade_controller(force_version=False)
+    admin_client.wait_for_version(
+        admin_client.get_matching_agent_version(), 600)
+    # assess_upgrade(admin_client, admin_client.full_path)
     # After upgrade, is there an exception perhaps?
 
 

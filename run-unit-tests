@@ -205,11 +205,14 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp if it is dirty."
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    sudo rm -rf /tmp/adduser-* || true
-    sudo rm -rf /tmp/go-* || true
-    sudo rm -rf /tmp/gocheck-* || true
-    sudo rm -rf /tmp/juju-* || true
-    sudo rm -rf /tmp/test-* || true
+    rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
+    rm -rf /tmp/go-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
+    rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
+    rm -rf /tmp/test-* || true
 fi
 
 make setup-lxd || true
@@ -237,15 +240,15 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    rm -rf /home/ubuntu/$juju_version
+    rm -rf /home/ubuntu/$juju_version || true
     rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
     rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck-* || true
-    rm -rf /tmp/gui-* || true
-    rm -rf /tmp/pprof-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
     rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
     rm -rf /tmp/test-* || true
-    rm -rf /tmp/gui-* || true
 EOT
 else
     set +e
