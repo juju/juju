@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -2353,6 +2354,7 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
+	modelUUID := st.ModelUUID()
 	for _, collName := range state.MultiEnvCollections() {
 		// skip adding constraints, modelUser and settings as they were added when the
 		// model was created
@@ -2365,16 +2367,18 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 			err := coll.Insert(bson.M{
 				"_id":        state.DocID(st, "arbitraryid"),
-				"model-uuid": st.ModelUUID(),
+				"model-uuid": modelUUID,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			ops = append(ops, mgotxn.Op{
 				C:      collName,
 				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"model-uuid": st.ModelUUID()}})
+				Insert: bson.M{"model-uuid": modelUUID},
+			})
 		}
 	}
+
 	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2389,6 +2393,16 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a model user whose permissions should get removed
+	// when the model is.
+	_, err = s.State.AddModelUser(state.UserAccessSpec{
+		User:      names.NewUserTag("amelia@external"),
+		CreatedBy: s.Owner,
+		Access:    description.ReadAccess,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
 }
 
@@ -2423,6 +2437,14 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
+
+	// ensure user permissions for the model are removed
+	permPattern := fmt.Sprintf("^%s#%s#", state.ModelGlobalKey, st.ModelUUID())
+	permissions, closer := state.GetCollection(st, "permissions")
+	defer closer()
+	permCount, err := permissions.Find(bson.M{"_id": bson.M{"$regex": permPattern}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(permCount, gc.Equals, 0)
 }
 
 func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
