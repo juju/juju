@@ -94,15 +94,16 @@ func (mock *mockSetter) SetPassword(pw string) {
 type mockConn struct {
 	stub *testing.Stub
 	api.Connection
-	broken chan struct{}
+	controllerOnly bool
+	broken         chan struct{}
 }
 
-func (mock *mockConn) ModelTag() (names.ModelTag, error) {
+func (mock *mockConn) ModelTag() (names.ModelTag, bool) {
 	mock.stub.AddCall("ModelTag")
-	if err := mock.stub.NextErr(); err != nil {
-		return names.ModelTag{}, err
+	if mock.controllerOnly {
+		return names.ModelTag{}, false
 	}
-	return coretesting.ModelTag, nil
+	return coretesting.ModelTag, true
 }
 
 func (mock *mockConn) Broken() <-chan struct{} {
@@ -152,9 +153,8 @@ func assertStopError(c *gc.C, w worker.Worker, match string) {
 }
 
 func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
-	expectConn := &mockConn{stub: stub}
 	newFacade := func(apiCaller base.APICaller) (apiagent.ConnFacade, error) {
-		c.Check(apiCaller, jc.DeepEquals, expectConn)
+		c.Check(apiCaller, gc.FitsTypeOf, (*mockConn)(nil))
 		return newMockConnFacade(stub, life), nil
 	}
 	unpatch := testing.PatchValue(apicaller.NewConnFacade, newFacade)

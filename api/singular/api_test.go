@@ -37,10 +37,10 @@ func (s *APISuite) TestBadControllerTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "controller tag not valid")
 }
 
-func (s *APISuite) TestBadModelTag(c *gc.C) {
+func (s *APISuite) TestControllerOnlyAPI(c *gc.C) {
 	api, err := singular.NewAPI(mockAPICaller{}, machine123)
 	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no tags for you")
+	c.Check(err, gc.ErrorMatches, `cannot use singular API on controller-only connection`)
 }
 
 func (s *APISuite) TestNoCalls(c *gc.C) {
@@ -181,6 +181,6 @@ type mockAPICaller struct {
 	base.APICaller
 }
 
-func (mockAPICaller) ModelTag() (names.ModelTag, error) {
-	return names.ModelTag{}, errors.New("no tags for you")
+func (mockAPICaller) ModelTag() (names.ModelTag, bool) {
+	return names.ModelTag{}, false
 }

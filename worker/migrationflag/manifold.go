@@ -52,9 +52,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelTag, err := apiCaller.ModelTag()
-	if err != nil {
-		return nil, errors.Trace(err)
+	modelTag, ok := apiCaller.ModelTag()
+	if !ok {
+		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 	worker, err := config.NewWorker(Config{
 		Facade: facade,

@@ -29,9 +29,10 @@ var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
 func NewClient(apiCaller base.APICaller) (*Client, error) {
-	modelTag, err := apiCaller.ModelTag()
-	if err != nil {
-		return nil, errors.Trace(err)
+	modelTag, ok := apiCaller.ModelTag()
+	if !ok {
+		return nil, errors.New("metricsmanager client is not appropriate for controller-only API")
+
 	}
 	facade := base.NewFacadeCaller(apiCaller, "MetricsManager")
 	return &Client{

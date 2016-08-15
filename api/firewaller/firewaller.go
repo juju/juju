@@ -41,7 +41,7 @@ func (st *State) BestAPIVersion() int {
 }
 
 // ModelTag returns the current model's tag.
-func (st *State) ModelTag() (names.ModelTag, error) {
+func (st *State) ModelTag() (names.ModelTag, bool) {
 	return st.facade.RawAPICaller().ModelTag()
 }
 
@@ -96,16 +96,15 @@ func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
 func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
-	modelTag, err := st.ModelTag()
-	if err != nil {
-		return nil, errors.Annotatef(err, "invalid model tag")
+	modelTag, ok := st.ModelTag()
+	if !ok {
+		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
-	err = st.facade.FacadeCall("WatchOpenedPorts", args, &results)
-	if err != nil {
+	if err := st.facade.FacadeCall("WatchOpenedPorts", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {

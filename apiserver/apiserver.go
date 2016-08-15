@@ -398,6 +398,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
 		},
 	)
+	add("/api", mainAPIHandler)
+	// Serve the API at / (only) for backward compatiblity. Note that the
+	// pat muxer special-cases / so that it does not serve all
+	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
 	return endpoints

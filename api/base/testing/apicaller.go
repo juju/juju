@@ -32,8 +32,8 @@ func (APICallerFunc) BestFacadeVersion(facade string) int {
 	return 0
 }
 
-func (APICallerFunc) ModelTag() (names.ModelTag, error) {
-	return coretesting.ModelTag, nil
+func (APICallerFunc) ModelTag() (names.ModelTag, bool) {
+	return coretesting.ModelTag, true
 }
 
 func (APICallerFunc) Close() error {

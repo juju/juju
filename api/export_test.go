@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 )
 
 var (
@@ -53,11 +54,19 @@ type TestingStateParams struct {
 // isn't backed onto an actual API server, so actual RPC methods can't be
 // called on it. But it can be used for testing general behaviour.
 func NewTestingState(params TestingStateParams) Connection {
+	var modelTag names.ModelTag
+	if params.ModelTag != "" {
+		t, err := names.ParseModelTag(params.ModelTag)
+		if err != nil {
+			panic("invalid model tag")
+		}
+		modelTag = t
+	}
 	st := &state{
 		client:            params.RPCConnection,
 		clock:             params.Clock,
 		addr:              params.Address,
-		modelTag:          params.ModelTag,
+		modelTag:          modelTag,
 		hostPorts:         params.APIHostPorts,
 		facadeVersions:    params.FacadeVersions,
 		serverScheme:      params.ServerScheme,
