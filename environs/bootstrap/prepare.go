@@ -117,7 +117,7 @@ func decorateAndWriteInfo(
 		names.NewUserTag(details.AccountDetails.User),
 		modelName,
 	)
-	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
+	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	if err := store.UpdateBootstrapConfig(controllerName, details.BootstrapConfig); err != nil {

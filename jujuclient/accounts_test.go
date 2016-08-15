@@ -94,7 +94,7 @@ func (s *AccountsSuite) TestRemoveAccount(c *gc.C) {
 
 func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("kontroll", jujuclient.ControllerDetails{
+	err := store.AddController("kontroll", jujuclient.ControllerDetails{
 		ControllerUUID: "abc",
 		CACert:         "woop",
 	})
