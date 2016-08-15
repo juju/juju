@@ -252,6 +252,43 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	}
 }
 
+func (s *ModelMigrationSuite) TestLatestModelMigrationPreviousMigration(c *gc.C) {
+	// Check the scenario of a model having been migrated away and
+	// then migrated back. The previous migration shouldn't be
+	// reported by LatestModelMigration.
+
+	// Make it appear as if the model has been successfully
+	// migrated. Don't actually remove model documents to simulate it
+	// having been migrated back to the controller.
+	phases := []migration.Phase{
+		migration.PRECHECK,
+		migration.IMPORT,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.DONE,
+	}
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, phase := range phases {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+	state.ResetMigrationMode(c, s.State2)
+
+	// Previous migration shouldn't be reported.
+	_, err = s.State2.LatestModelMigration()
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+
+	// Start a new migration attempt, which should be reported.
+	mig2, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2b, err := s.State2.LatestModelMigration()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mig2b.Id(), gc.Equals, mig2.Id())
+}
+
 func (s *ModelMigrationSuite) TestModelMigration(c *gc.C) {
 	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
