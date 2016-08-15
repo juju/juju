@@ -4,11 +4,11 @@ set -eu
 
 # GO (and Juju) compile by OS and arch. All Linux releases are the same!
 RELEASES="precise trusty xenial centos7"
-WIN_RELEASES="win2012hvr2"
+WIN_RELEASES="win2012hvr2 win2012r2"
 
 STREAM_DIR=$1
 JUJUD=$2
-WIN_JUJUD=${3"-}
+WIN_JUJUD=${3:-}
 
 
 if [[ ! -d $STREAM_DIR ]]; then
