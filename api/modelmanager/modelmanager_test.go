@@ -34,7 +34,7 @@ func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	defer modelManager.Close()
-	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", nil)
+	_, err := modelManager.CreateModel("mymodel", "not a user", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
@@ -43,7 +43,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	defer modelManager.Close()
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newModel, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
+	newModel, err := modelManager.CreateModel("new-model", owner, "", names.CloudCredentialTag{}, map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller
 		"controller": false,

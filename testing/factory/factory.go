@@ -126,7 +126,7 @@ type ModelParams struct {
 	ConfigAttrs             testing.Attrs
 	CloudName               string
 	CloudRegion             string
-	CloudCredential         string
+	CloudCredential         names.CloudCredentialTag
 	StorageProviderRegistry storage.ProviderRegistry
 }
 

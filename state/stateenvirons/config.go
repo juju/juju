@@ -26,17 +26,16 @@ func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, 
 	}
 	cloudName := model.Cloud()
 	regionName := model.CloudRegion()
-	credentialName := model.CloudCredential()
-	modelOwner := model.Owner()
-	return CloudSpec(g.State, cloudName, regionName, credentialName, modelOwner)
+	credentialTag, _ := model.CloudCredential()
+	return CloudSpec(g.State, cloudName, regionName, credentialTag)
 }
 
 // CloudSpec returns an environs.CloudSpec from a *state.State,
 // given the cloud, region and credential names.
 func CloudSpec(
 	accessor state.CloudAccessor,
-	cloudName, regionName, credentialName string,
-	credentialOwner names.UserTag,
+	cloudName, regionName string,
+	credentialTag names.CloudCredentialTag,
 ) (environs.CloudSpec, error) {
 	modelCloud, err := accessor.Cloud(cloudName)
 	if err != nil {
@@ -44,15 +43,10 @@ func CloudSpec(
 	}
 
 	var credential *cloud.Credential
-	if credentialName != "" {
-		credentials, err := accessor.CloudCredentials(credentialOwner, cloudName)
+	if credentialTag != (names.CloudCredentialTag{}) {
+		credentialValue, err := accessor.CloudCredential(credentialTag)
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
-		}
-		var ok bool
-		credentialValue, ok := credentials[credentialName]
-		if !ok {
-			return environs.CloudSpec{}, errors.NotFoundf("credential %q", credentialName)
 		}
 		credential = &credentialValue
 	}
