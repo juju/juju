@@ -5,6 +5,8 @@ package sync_test
 
 import (
 	"bytes"
+	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/tar"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -33,6 +36,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -483,6 +487,25 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 }
 
 func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
+	checkTools := func(tools *sync.BuiltAgent, vers version.Binary) {
+		c.Check(tools.StorageName, gc.Equals, "name")
+		c.Check(tools.Version, jc.DeepEquals, vers)
+
+		f, err := os.Open(filepath.Join(tools.Dir, "name"))
+		c.Assert(err, jc.ErrorIsNil)
+		defer f.Close()
+
+		gzr, err := gzip.NewReader(f)
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, tr, err := tar.FindFile(gzr, names.Jujud)
+		c.Assert(err, jc.ErrorIsNil)
+
+		content, err := ioutil.ReadAll(tr)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(string(content), gc.Equals, fmt.Sprintf("jujud contents %s", vers))
+	}
+
 	current := version.MustParseBinary("1.9.1-trusty-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
@@ -490,28 +513,12 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(true, nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
-
-	builtTools.Dir = ""
-
-	expectedBuiltTools := &sync.BuiltAgent{
-		StorageName: "name",
-		Version:     current,
-		Size:        127,
-		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
-	}
-	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+	checkTools(builtTools, current)
 
 	vers := version.MustParseBinary("1.5.3-trusty-amd64")
 	builtTools, err = buildToolsFunc(true, &vers.Number, "released")
 	c.Assert(err, jc.ErrorIsNil)
-	builtTools.Dir = ""
-	expectedBuiltTools = &sync.BuiltAgent{
-		StorageName: "name",
-		Version:     vers,
-		Size:        127,
-		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
-	}
-	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+	checkTools(builtTools, vers)
 }
 
 func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
