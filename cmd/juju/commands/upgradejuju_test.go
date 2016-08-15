@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -138,7 +139,7 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"3.3.0-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectVersion:  "2.8.2",
+	expectErr:      "no compatible tools available",
 }, {
 	about:          "no next supported available",
 	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
@@ -150,7 +151,7 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.1.0",
+	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "latest current, when agent is dev",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
@@ -170,7 +171,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--version", "3.0.2"},
-	expectVersion:  "3.0.2",
+	expectVersion:  "3.0.2.1",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified version missing, but already set",
@@ -301,7 +302,7 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1-quantal-amd64",
 	agentVersion:   "1.20.14",
-	expectVersion:  "1.21.3",
+	expectVersion:  "1.22.1.1",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -454,6 +455,71 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		agentVersion:   "1.99.99.1",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := coretesting.RunCommand(c, cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.1"))
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := coretesting.RunCommand(c, cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0000-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		agentVersion:   "1.99.99.1",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := coretesting.RunCommand(c, cmd)
+	c.Assert(err, gc.ErrorMatches, "no more recent supported versions available")
+}
+
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
@@ -469,6 +535,7 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 		name:           "dummy-model",
 		uuid:           "deadbeef-0000-400d-8000-4b1d0d06f00d",
 		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
 		return fakeAPI, nil
@@ -645,7 +712,7 @@ best version:
 		tools:             []string{"6.0.5-trusty-amd64", "5.9.9-trusty-amd64"},
 		currentVersion:    "6.0.0-trusty-amd64",
 		agentVersion:      "5.9.8",
-		expectedVersion:   "6.0.5",
+		expectedVersion:   "6.0.5.1",
 		excludedLogOutput: `incompatible with this client (6.0.0)`,
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
@@ -654,7 +721,7 @@ best version:
 		tools:             []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
 		currentVersion:    "6.0.1-trusty-amd64",
 		agentVersion:      "5.10.8",
-		expectedVersion:   "6.0.5",
+		expectedVersion:   "6.0.5.1",
 		excludedLogOutput: `incompatible with this client (6.0.1)`,
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
@@ -933,12 +1000,40 @@ func (a *fakeUpgradeJujuAPI) Close() error {
 // Mock an API with no state
 type fakeUpgradeJujuAPINoState struct {
 	upgradeJujuAPI
-	name           string
-	uuid           string
-	controllerUUID string
+	name              string
+	uuid              string
+	controllerUUID    string
+	agentVersion      string
+	tools             coretools.List
+	modelAgentVersion version.Number
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
+	return nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+	var result params.FindToolsResult
+	if len(a.tools) == 0 {
+		result.Error = common.ServerError(errors.NotFoundf("tools"))
+	} else {
+		result.List = a.tools
+	}
+	return result, nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error) {
+	a.tools = coretools.List{&coretools.Tools{Version: vers}}
+	for _, s := range additionalSeries {
+		v := vers
+		v.Series = s
+		a.tools = append(a.tools, &coretools.Tools{Version: v})
+	}
+	return a.tools, nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number) error {
+	a.modelAgentVersion = version
 	return nil
 }
 
@@ -947,5 +1042,6 @@ func (a *fakeUpgradeJujuAPINoState) ModelGet() (map[string]interface{}, error) {
 		"name":            a.name,
 		"uuid":            a.uuid,
 		"controller-uuid": a.controllerUUID,
+		"agent-version":   a.agentVersion,
 	}), nil
 }
