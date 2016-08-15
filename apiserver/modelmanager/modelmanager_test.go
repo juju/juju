@@ -628,8 +628,12 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.modelmanager.DestroyModel()
+	results, err := s.modelmanager.DestroyModels(params.Entities{
+		Entities: []params.Entity{{"model-" + m.UUID}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -654,8 +658,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 	other := s.AdminUserTag(c)
 	s.setAPIUser(c, other)
-	err = s.modelmanager.DestroyModel()
+
+	results, err := s.modelmanager.DestroyModels(params.Entities{
+		Entities: []params.Entity{{"model-" + m.UUID}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	s.setAPIUser(c, owner)
 	model, err := st.Model()
@@ -663,7 +672,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
-func (s *modelManagerStateSuite) TestUserDestroysOtherModelDenied(c *gc.C) {
+func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	owner := names.NewUserTag("admin@local")
 	s.setAPIUser(c, owner)
 	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
@@ -679,8 +688,31 @@ func (s *modelManagerStateSuite) TestUserDestroysOtherModelDenied(c *gc.C) {
 
 	user := names.NewUserTag("other@remote")
 	s.setAPIUser(c, user)
-	err = s.modelmanager.DestroyModel()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	results, err := s.modelmanager.DestroyModels(params.Entities{
+		Entities: []params.Entity{
+			{"model-" + m.UUID},
+			{"model-9f484882-2f18-4fd2-967d-db9663db7bea"},
+			{"machine-42"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{
+		// we don't have admin access to the model
+		&params.Error{
+			Message: "permission denied",
+			Code:    params.CodeUnauthorized,
+		},
+	}, {
+		&params.Error{
+			Message: "model not found",
+			Code:    params.CodeNotFound,
+		},
+	}, {
+		&params.Error{
+			Message: `"machine-42" is not a valid model tag`,
+		},
+	}})
 
 	s.setAPIUser(c, owner)
 	model, err := st.Model()

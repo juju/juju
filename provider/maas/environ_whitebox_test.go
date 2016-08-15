@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type environSuite struct {
@@ -442,19 +442,16 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
-	// Disable auto-uploading by setting the agent version.
-	cfg, err := env.Config().Apply(map[string]interface{}{
-		"agent-version": jujuversion.Current.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	vers := version.MustParse("1.2.3")
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
+		// Disable auto-uploading by setting the agent version
+		// to something that's not the current version.
+		AgentVersion: &vers,
 	})
-	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
@@ -1114,7 +1111,7 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	})
 
 	env := s.makeEnviron()
-	err := env.ReleaseContainerAddresses([]network.InterfaceInfo{
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
 		{MACAddress: "mac1"},
 		{MACAddress: "mac3"},
 		{MACAddress: "mac4"},

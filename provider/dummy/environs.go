@@ -1569,6 +1569,6 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }

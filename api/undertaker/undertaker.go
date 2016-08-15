@@ -25,9 +25,9 @@ type Client struct {
 
 // NewClient creates a new client for accessing the undertaker API.
 func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error) {
-	modelTag, err := caller.ModelTag()
-	if err != nil {
-		return nil, errors.Trace(err)
+	modelTag, ok := caller.ModelTag()
+	if !ok {
+		return nil, errors.New("undertaker client is not appropriate for controller-only API")
 	}
 	return &Client{
 		modelTag:   modelTag,

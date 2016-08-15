@@ -106,8 +106,8 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	defer st.Close()
 
 	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
-	modelTag, err := st.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
+	modelTag, ok := st.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(modelTag, gc.Equals, s.State.ModelTag())
 
 	remoteVersion, versionSet := st.ServerVersion()
@@ -369,5 +369,5 @@ func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, modelUUID, tail s
 }
 
 func assertConnAddrForRoot(c *gc.C, conn *websocket.Conn, addr string) {
-	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/$")
+	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/api$")
 }

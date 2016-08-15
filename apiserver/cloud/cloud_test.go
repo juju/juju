@@ -68,50 +68,12 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudDefaults(c *gc.C) {
-	results, err := s.api.CloudDefaults(params.Entities{[]params.Entity{
-		{"machine-0"},
-		{"user-admin"},
-		{"user-bruce"},
-	}})
+func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
+	result, err := s.api.DefaultCloud()
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c,
-		"IsControllerAdmin", // for auth-checking
-		"ControllerModel",
-		"IsControllerAdmin", // to get default credential
-	)
-	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
-		Message: `"machine-0" is not a valid user tag`,
-	})
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
-		Message: "permission denied", Code: params.CodeUnauthorized,
-	})
-	c.Assert(results.Results[2].Error, gc.IsNil)
-	c.Assert(results.Results[2].Result, jc.DeepEquals, &params.CloudDefaults{
-		CloudTag:        "cloud-some-cloud",
-		CloudRegion:     "some-region",
-		CloudCredential: "",
-	})
-}
-
-func (s *cloudSuite) TestCloudDefaultsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin@local")
-	results, err := s.api.CloudDefaults(params.Entities{[]params.Entity{
-		{"user-admin"},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c,
-		"IsControllerAdmin", // for auth-checking
-		"ControllerModel",
-		"IsControllerAdmin", // to get default credential
-	)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Result, jc.DeepEquals, &params.CloudDefaults{
-		CloudTag:        "cloud-some-cloud",
-		CloudRegion:     "some-region",
-		CloudCredential: "some-credential",
+	s.backend.CheckCallNames(c, "ControllerModel")
+	c.Assert(result, jc.DeepEquals, params.StringResult{
+		Result: "cloud-some-cloud",
 	})
 }
 

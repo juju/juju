@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/engine"

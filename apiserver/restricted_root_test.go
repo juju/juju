@@ -16,7 +16,7 @@ import (
 type restrictedRootSuite struct {
 	testing.BaseSuite
 
-	root rpc.MethodFinder
+	root rpc.Root
 }
 
 var _ = gc.Suite(&restrictedRootSuite{})

@@ -143,3 +143,24 @@ dynamic completion for commands requiring service, unit or machine names (like e
 juju status <service>, juju ssh <instance>, juju terminate-machine <machine#>, etc),
 by parsing cached `juju status` output for speedup. It also does command flags
 completion by parsing `juju help ...` output.
+
+Building Juju as a Snap Package
+===============================
+
+Building
+--------
+This requires the godeps plugin -- make sure your snapcraft version is > 2.13.1. Run snapcraft at the root of the repository. A snap will build.
+
+Current State
+-------------
+Needs devmode per the known issues below. The resulting snap itself works perfectly in developer mode. Do note however credentials are not shared with a debian packaged juju, and any installed juju's will own `juju` on your `$PATH` over the snap.
+
+Known Issues
+----------------
+ * Missing support for abstract mutex socket (https://bugs.launchpad.net/snappy/+bug/1604967)
+ * Needs LXD interface
+ * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
+ * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
+ * Snap doesn't use local source as part for snapcraft
+
+

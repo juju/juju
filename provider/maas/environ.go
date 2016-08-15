@@ -2216,7 +2216,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	return finalInterfaces, nil
 }
 
-func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	macAddresses := make([]string, len(interfaces))
 	for i, info := range interfaces {
 		macAddresses[i] = info.MACAddress

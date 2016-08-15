@@ -16,14 +16,14 @@ import (
 // authorisation checks are only for read only access to the model, but in the
 // near future, full ACL support is desirable.
 type clientAuthRoot struct {
-	finder         rpc.MethodFinder
+	rpc.Root
 	modelUser      description.UserAccess
 	controllerUser description.UserAccess
 }
 
 // newClientAuthRoot returns a new restrictedRoot.
-func newClientAuthRoot(finder rpc.MethodFinder, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
-	return &clientAuthRoot{finder, modelUser, controllerUser}
+func newClientAuthRoot(root rpc.Root, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
+	return &clientAuthRoot{root, modelUser, controllerUser}
 }
 
 // FindMethod returns a not supported error if the rootName is not one of the
@@ -31,7 +31,7 @@ func newClientAuthRoot(finder rpc.MethodFinder, modelUser description.UserAccess
 func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	// The lookup of the name is done first to return a not found error if the
 	// user is looking for a method that we just don't have.
-	caller, err := r.finder.FindMethod(rootName, version, methodName)
+	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}

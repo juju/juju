@@ -5,11 +5,11 @@ package commands
 
 import (
 	"fmt"
-	"io"
+	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -143,7 +143,7 @@ func (c *debugLogCommand) Init(args []string) error {
 }
 
 type DebugLogAPI interface {
-	WatchDebugLog(params api.DebugLogParams) (io.ReadCloser, error)
+	WatchDebugLog(params api.DebugLogParams) (<-chan api.LogMessage, error)
 	Close() error
 }
 
@@ -158,11 +158,32 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer client.Close()
-	debugLog, err := client.WatchDebugLog(c.params)
+	messages, err := client.WatchDebugLog(c.params)
 	if err != nil {
 		return err
 	}
-	defer debugLog.Close()
-	_, err = io.Copy(ctx.Stdout, debugLog)
-	return err
+	for {
+		msg, ok := <-messages
+		if !ok {
+			break
+		}
+		fmt.Fprint(ctx.Stdout, c.formatLogRecord(msg))
+	}
+
+	return nil
+}
+
+func (c *debugLogCommand) formatLogRecord(r api.LogMessage) string {
+	return fmt.Sprintf("%s: %s %s %s %s %s\n",
+		r.Entity,
+		c.formatTime(r.Timestamp),
+		r.Severity,
+		r.Module,
+		r.Location,
+		r.Message,
+	)
+}
+
+func (c *debugLogCommand) formatTime(t time.Time) string {
+	return t.In(time.UTC).Format("2006-01-02 15:04:05")
 }

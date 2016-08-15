@@ -308,6 +308,11 @@ func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, e
 	return st, st.NextErr()
 }
 
+func (st *mockState) GetModel(tag names.ModelTag) (common.Model, error) {
+	st.MethodCall(st, "GetModel", tag)
+	return st.model, st.NextErr()
+}
+
 func (st *mockState) Model() (common.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()

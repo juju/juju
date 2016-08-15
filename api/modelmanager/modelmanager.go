@@ -126,12 +126,24 @@ func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error)
 	return result.Result, nil
 }
 
-// DestroyModel puts the model into a "dying" state,
-// and removes all non-manager machine instances. DestroyModel
-// will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyModel() error {
-	return c.facade.FacadeCall("DestroyModel", nil, nil)
+// DestroyModel puts the specified model into a "dying" state, which will
+// cause the model's resources to be cleaned up, after which the model will
+// be removed.
+func (c *Client) DestroyModel(tag names.ModelTag) error {
+	var results params.ErrorResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+	if err := c.facade.FacadeCall("DestroyModels", entities, &results); err != nil {
+		return errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ParseModelAccess parses an access permission argument into

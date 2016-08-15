@@ -64,10 +64,10 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 		Channel: params.StableChannel,
 	}, {
 		URL:     bar,
-		Channel: params.DevelopmentChannel,
+		Channel: params.EdgeChannel,
 	}, {
 		URL:     baz,
-		Channel: params.DevelopmentChannel,
+		Channel: params.EdgeChannel,
 	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []CharmRevision{{
@@ -79,8 +79,8 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 	}}
 	c.Check(ret, jc.SameContents, expected)
 	s.wrapper.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{foo}, map[string][]string(nil))
-	s.wrapper.devStub.CheckCall(c, 0, "Latest", params.DevelopmentChannel, []*charm.URL{bar}, map[string][]string(nil))
-	s.wrapper.devStub.CheckCall(c, 1, "Latest", params.DevelopmentChannel, []*charm.URL{baz}, map[string][]string(nil))
+	s.wrapper.devStub.CheckCall(c, 0, "Latest", params.EdgeChannel, []*charm.URL{bar}, map[string][]string(nil))
+	s.wrapper.devStub.CheckCall(c, 1, "Latest", params.EdgeChannel, []*charm.URL{baz}, map[string][]string(nil))
 }
 
 func (s *ClientSuite) TestListResources(c *gc.C) {
@@ -130,10 +130,10 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 		Channel: params.StableChannel,
 	}, {
 		URL:     bar,
-		Channel: params.DevelopmentChannel,
+		Channel: params.EdgeChannel,
 	}, {
 		URL:     baz,
-		Channel: params.DevelopmentChannel,
+		Channel: params.EdgeChannel,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -152,8 +152,8 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 		{dev2Out},
 	})
 	s.wrapper.stableStub.CheckCall(c, 0, "ListResources", params.StableChannel, foo)
-	s.wrapper.devStub.CheckCall(c, 0, "ListResources", params.DevelopmentChannel, bar)
-	s.wrapper.devStub.CheckCall(c, 1, "ListResources", params.DevelopmentChannel, baz)
+	s.wrapper.devStub.CheckCall(c, 0, "ListResources", params.EdgeChannel, bar)
+	s.wrapper.devStub.CheckCall(c, 1, "ListResources", params.EdgeChannel, baz)
 }
 
 func (s *ClientSuite) TestListResourcesError(c *gc.C) {
@@ -194,7 +194,7 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 
 	req := ResourceRequest{
 		Charm:    charm.MustParseURL("cs:mysql"),
-		Channel:  params.DevelopmentChannel,
+		Channel:  params.EdgeChannel,
 		Name:     "name",
 		Revision: 5,
 	}
@@ -205,8 +205,8 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 	c.Check(data.Resource, gc.DeepEquals, expected)
 	c.Check(data.ReadCloser, gc.DeepEquals, rc)
 	// call #0 is a call to makeWrapper
-	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.DevelopmentChannel, req.Charm, req.Name, req.Revision)
-	s.wrapper.stub.CheckCall(c, 2, "GetResource", params.DevelopmentChannel, req.Charm, req.Name, req.Revision)
+	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.EdgeChannel, req.Charm, req.Name, req.Revision)
+	s.wrapper.stub.CheckCall(c, 2, "GetResource", params.EdgeChannel, req.Charm, req.Name, req.Revision)
 }
 
 func (s *ClientSuite) TestResourceInfo(c *gc.C) {

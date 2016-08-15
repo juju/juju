@@ -77,25 +77,25 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
+func (s *stateSuite) TestModelTag(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// We haven't called Login yet, so the ModelTag shouldn't be set.
-	modelTag, err := apistate.ModelTag()
-	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
-	c.Check(modelTag, gc.Equals, names.ModelTag{})
+	// Even though we haven't called Login, the model tag should
+	// still be set.
+	modelTag, ok := apistate.ModelTag()
+	c.Check(ok, jc.IsTrue)
+	c.Check(modelTag, gc.Equals, env.ModelTag())
 	err = apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// Now that we've logged in, ModelTag should be updated correctly.
-	modelTag, err = apistate.ModelTag()
-	c.Check(err, jc.ErrorIsNil)
+	// Now that we've logged in, ModelTag should still be the same.
+	modelTag, ok = apistate.ModelTag()
+	c.Check(ok, jc.IsTrue)
 	c.Check(modelTag, gc.Equals, env.ModelTag())
 	// The controller tag is also set, and since the model is the
 	// controller model, the uuid is the same.
-	controllerTag, err := apistate.ControllerTag()
-	c.Check(err, jc.ErrorIsNil)
+	controllerTag := apistate.ControllerTag()
 	c.Check(controllerTag, gc.Equals, env.ModelTag())
 }
 
@@ -115,8 +115,8 @@ func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
 	c.Assert(s.APIState.ReadOnly(), jc.IsFalse)
 
 	// Check with an user in read-only mode.
-	modeltag, err := s.APIState.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
+	modeltag, ok := s.APIState.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	manager := usermanager.NewClient(s.APIState)
 	usertag, _, err := manager.AddUser("ro", "ro", "ro-password", "read", modeltag.Id())
 	c.Assert(err, jc.ErrorIsNil)

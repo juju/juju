@@ -180,7 +180,7 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "foo", "-m", "mymodel", "-p", "pluginarg")
-	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n.*home is:  .*\\.local/share/juju\n"
+	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n"
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
@@ -235,7 +235,6 @@ fi
 
 echo {{.Name}} $*
 echo "model is: " $JUJU_MODEL
-echo "home is: " $JUJU_DATA
 exit {{.ExitStatus}}
 `
 

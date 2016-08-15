@@ -14,13 +14,13 @@ import (
 // restrictedRoot restricts API calls to the environment manager and
 // user manager when accessed through the root path on the API server.
 type restrictedRoot struct {
-	rpc.MethodFinder
+	rpc.Root
 }
 
 // newRestrictedRoot returns a new restrictedRoot.
-func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
+func newRestrictedRoot(root rpc.Root) *restrictedRoot {
 	return &restrictedRoot{
-		MethodFinder: finder,
+		Root: root,
 	}
 }
 
@@ -46,7 +46,7 @@ func (r *restrictedRoot) FindMethod(rootName string, version int, methodName str
 	if !restrictedRootNames.Contains(rootName) {
 		return nil, errors.NotSupportedf("logged in to server, no model, %q", rootName)
 	}
-	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}

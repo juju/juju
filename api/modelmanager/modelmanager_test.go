@@ -77,17 +77,24 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
 }
 
-func (s *modelmanagerSuite) TestDestroyEnvironment(c *gc.C) {
+func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
 	modelManagerClient := s.OpenAPI(c)
 	var called bool
 	modelmanager.PatchFacadeCall(&s.CleanupSuite, modelManagerClient,
 		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyModel")
+			c.Assert(req, gc.Equals, "DestroyModels")
+			c.Assert(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{testing.ModelTag.String()}},
+			})
+			results := resp.(*params.ErrorResults)
+			*results = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
 			called = true
 			return nil
 		})
 
-	err := modelManagerClient.DestroyModel()
+	err := modelManagerClient.DestroyModel(testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

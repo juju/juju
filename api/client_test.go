@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -307,8 +306,8 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 
 // envEndpoint returns "/model/<model-uuid>/<destination>"
 func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
-	modelTag, err := apiState.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
+	modelTag, ok := apiState.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	return path.Join("/model", modelTag.Id(), destination)
 }
 
@@ -317,8 +316,8 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
-	uuid, err := client.ModelUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	uuid, ok := client.ModelUUID()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, environ.Tag().Id())
 }
 
@@ -357,15 +356,14 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
-	reader, err := client.WatchDebugLog(api.DebugLogParams{NoTail: true})
+	messages, err := client.WatchDebugLog(api.DebugLogParams{NoTail: true})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reader, gc.NotNil)
-	reader.Close()
+	c.Assert(messages, gc.NotNil)
 }
 
 func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	reader, err := s.APIState.ConnectStream("foo", nil)
-	c.Assert(err, gc.ErrorMatches, `path must start with "/"`)
+	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
 
@@ -407,7 +405,8 @@ func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 }
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	params := api.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -422,10 +421,10 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	}
 
 	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(params)
+	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	connectURL := connectURLFromReader(c, reader)
+	connectURL := catcher.location
 	values := connectURL.Query()
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
@@ -441,8 +440,8 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-	// If the server supports it, we should log at "/model/UUID/log"
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
@@ -450,9 +449,9 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
-	reader, err := apistate.ConnectStream("/path", nil)
+	_, err = apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	connectURL := connectURLFromReader(c, reader)
+	connectURL := catcher.location
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
 }
 
@@ -529,25 +528,17 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
 }
 
-func echoURL(c *gc.C) func(*websocket.Config) (base.Stream, error) {
-	return func(config *websocket.Config) (base.Stream, error) {
-		pr, pw := io.Pipe()
-		go func() {
-			fmt.Fprintf(pw, "null\n")
-			fmt.Fprintf(pw, "%s\n", config.Location)
-		}()
-		return fakeStreamReader{pr}, nil
-	}
+type urlCatcher struct {
+	location *url.URL
 }
 
-func connectURLFromReader(c *gc.C, rc io.ReadCloser) *url.URL {
-	bufReader := bufio.NewReader(rc)
-	location, err := bufReader.ReadString('\n')
-	c.Assert(err, jc.ErrorIsNil)
-	connectURL, err := url.Parse(strings.TrimSpace(location))
-	c.Assert(err, jc.ErrorIsNil)
-	rc.Close()
-	return connectURL
+func (u *urlCatcher) recordLocation(config *websocket.Config) (base.Stream, error) {
+	u.location = config.Location
+	pr, pw := io.Pipe()
+	go func() {
+		fmt.Fprintf(pw, "null\n")
+	}()
+	return fakeStreamReader{pr}, nil
 }
 
 type fakeStreamReader struct {
@@ -562,13 +553,13 @@ func (s fakeStreamReader) Close() error {
 }
 
 func (s fakeStreamReader) Write([]byte) (int, error) {
-	panic("not implemented")
+	return 0, errors.NotImplementedf("Write")
 }
 
 func (s fakeStreamReader) ReadJSON(v interface{}) error {
-	panic("not implemented")
+	return errors.NotImplementedf("ReadJSON")
 }
 
 func (s fakeStreamReader) WriteJSON(v interface{}) error {
-	panic("not implemented")
+	return errors.NotImplementedf("WriteJSON")
 }

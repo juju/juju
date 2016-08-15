@@ -107,6 +107,20 @@ func (v Value) FindMethod(rootMethodName string, version int, objMethodName stri
 	return caller, nil
 }
 
+// killer is the same interface as rpc.Killer, but redeclared
+// here to avoid cyclic dependency.
+type killer interface {
+	Kill()
+}
+
+// Kill implements rpc.Killer.Kill by calling Kill on the root
+// value if it implements Killer.
+func (v Value) Kill() {
+	if killer, ok := v.rootValue.Interface().(killer); ok {
+		killer.Kill()
+	}
+}
+
 func (caller methodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
 	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
 	if err != nil {

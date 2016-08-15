@@ -43,7 +43,11 @@ See also: clouds
 `
 
 // NewUpdateCloudsCommand returns a command to update cloud information.
-func NewUpdateCloudsCommand() cmd.Command {
+var NewUpdateCloudsCommand = func() cmd.Command {
+	return newUpdateCloudsCommand()
+}
+
+func newUpdateCloudsCommand() cmd.Command {
 	return &updateCloudsCommand{
 		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
@@ -59,7 +63,7 @@ func (c *updateCloudsCommand) Info() *cmd.Info {
 }
 
 func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprint(ctxt.Stdout, "Fetching latest public cloud list...\n")
+	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
 	resp, err := client.Get(c.publicCloudURL)
 	if err != nil {
@@ -70,7 +74,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			fmt.Fprintln(ctxt.Stdout, "Public cloud list is unavailable right now.")
+			fmt.Fprintln(ctxt.Stderr, "Public cloud list is unavailable right now.")
 			return nil
 		case http.StatusUnauthorized:
 			return errors.Unauthorizedf("unauthorised access to URL %q", c.publicCloudURL)
@@ -96,14 +100,14 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stdout, "Your list of public clouds is up to date, see `juju clouds`.")
+		fmt.Fprintln(ctxt.Stderr, "Your list of public clouds is up to date, see `juju clouds`.")
 		return nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {
 		return errors.Annotate(err, "error writing new local public cloud data")
 	}
 	updateDetails := diffClouds(newPublicClouds, currentPublicClouds)
-	fmt.Fprintln(ctxt.Stdout, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
+	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
 	return nil
 }
 

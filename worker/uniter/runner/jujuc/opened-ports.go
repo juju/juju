@@ -5,7 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // OpenedPortsCommand implements the opened-ports command.

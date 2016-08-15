@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
@@ -48,11 +48,12 @@ func NewRestoreCommand() cmd.Command {
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints constraints.Value
-	filename    string
-	backupId    string
-	bootstrap   bool
-	uploadTools bool
+	constraints           constraints.Value
+	filename              string
+	backupId              string
+	bootstrap             bool
+	buildAgent            bool
+	uploadToolsDeprecated bool
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
@@ -111,7 +112,8 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
-	f.BoolVar(&c.uploadTools, "upload-tools", false, "Upload tools if bootstraping a new machine")
+	f.BoolVar(&c.buildAgent, "build-agent", false, "Build binary agent if bootstraping a new machine")
+	f.BoolVar(&c.uploadToolsDeprecated, "upload-tools", false, "DEPRECATED: see build-agent")
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -125,6 +127,12 @@ func (c *restoreCommand) Init(args []string) error {
 	if c.backupId != "" && c.bootstrap {
 		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
 	}
+
+	// TODO(wallyworld) - remove me when CI scripts updated
+	if c.uploadToolsDeprecated {
+		c.buildAgent = c.uploadToolsDeprecated
+	}
+
 	var err error
 	if c.filename != "" {
 		c.filename, err = filepath.Abs(c.filename)
@@ -316,8 +324,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		CloudCredentialName: params.CredentialName,
 		CloudCredential:     params.Cloud.Credential,
 		ModelConstraints:    c.constraints,
-		UploadTools:         c.uploadTools,
-		BuildToolsTarball:   sync.BuildToolsTarball,
+		BuildAgent:          c.buildAgent,
+		BuildAgentTarball:   sync.BuildAgentTarball,
 		ControllerConfig:    params.ControllerConfig,
 		HostedModelConfig:   hostedModelConfig,
 		BootstrapSeries:     meta.Series,

@@ -95,7 +95,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	expectedNumber := jujuversion.Current
+	expectedNumber.Build = 1235
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &expectedNumber))
 
 	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string) error {
 		return nil
@@ -178,6 +180,12 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
 		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
+		v.Build = 1
+		if test.upload != "" {
+			uploadVers := version.MustParseBinary(test.upload)
+			v.Number = uploadVers.Number
+		}
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &v.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -193,15 +201,20 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"--config", "default-series=raring",
 	}, test.args...)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(), args...)
+	var err error
+	select {
+	case err = <-errc:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	// Check for remaining operations/errors.
 	if test.err != "" {
-		err := <-errc
 		c.Assert(err, gc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, gc.Matches, test.err)
 		return restore
 	}
-	if !c.Check(<-errc, gc.IsNil) {
+	if !c.Check(err, gc.IsNil) {
 		return restore
 	}
 
@@ -288,29 +301,29 @@ var bootstrapTests = []bootstrapTest{{
 	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
 }, {
-	info:        "--upload-tools uses arch from constraint if it matches current version",
+	info:        "--build-agent uses arch from constraint if it matches current version",
 	version:     "1.3.3-saucy-ppc64el",
 	hostArch:    "ppc64el",
-	args:        []string{"--upload-tools", "--constraints", "arch=ppc64el"},
+	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
 	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
-	info:     "--upload-tools rejects mismatched arch",
+	info:     "--build-agent rejects mismatched arch",
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	err:      `failed to bootstrap model: cannot build tools for "ppc64el" using a machine running on "amd64"`,
+	args:     []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	err:      `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 }, {
-	info:     "--upload-tools rejects non-supported arch",
+	info:     "--build-agent rejects non-supported arch",
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
-	args:     []string{"--upload-tools"},
+	args:     []string{"--build-agent"},
 	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 }, {
-	info:     "--upload-tools always bumps build number",
+	info:     "--build-agent always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools"},
+	args:     []string{"--build-agent"},
 	upload:   "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
@@ -325,9 +338,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
 }, {
-	info: "--agent-version with --upload-tools",
-	args: []string{"--agent-version", "1.1.0", "--upload-tools"},
-	err:  `--agent-version and --upload-tools can't be used together`,
+	info: "--agent-version with --build-agent",
+	args: []string{"--agent-version", "1.1.0", "--build-agent"},
+	err:  `--agent-version and --build-agent can't be used together`,
 }, {
 	info: "invalid --agent-version value",
 	args: []string{"--agent-version", "foo"},
@@ -554,7 +567,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
-		return nil, fmt.Errorf("mock-prepare")
+		return nil, errors.New("mock-prepare")
 	})
 
 	ctx := coretesting.Context(c)
@@ -595,7 +608,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		s.writeControllerModelAccountInfo(c, "foo", "foobar@local/bar", "foobar@local")
-		return nil, fmt.Errorf("mock-prepare")
+		return nil, errors.New("mock-prepare")
 	})
 
 	s.writeControllerModelAccountInfo(c, "olddevcontroller", "fred@local/fredmodel", "fred@local")
@@ -643,7 +656,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 		c, s.newBootstrapCommand(), "--metadata-source", c.MkDir(),
 		"devcontroller", "dummy",
 	)
-	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*`)
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*`)
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -795,7 +808,9 @@ my-dummy-cloud
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	patchedVersion := version.MustParse(vers)
+	patchedVersion.Build = 1
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -822,22 +837,16 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--config", "default-series=raring",
 		"--auto-upgrade",
 	)
-	c.Assert(<-errc, gc.IsNil)
+	select {
+	case err := <-errc:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
-}
-
-func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := cmdtesting.RunCommand(
-		cmdtesting.NullContext(c), s.newBootstrapCommand(),
-		"devcontroller", "dummy-cloud/region-1",
-	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -845,36 +854,34 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(),
 		"devcontroller", "dummy-cloud/region-1",
-		"--config", "default-series=raring",
+		"--config", "default-series=raring", "--agent-version=1.8.4",
 	)
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
-	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
-		return nil, fmt.Errorf("an error")
+	BuildAgentTarballAlwaysFails := func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
+		return nil, errors.New("an error")
 	}
 
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
-	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
+	s.PatchValue(&sync.BuildAgentTarball, BuildAgentTarballAlwaysFails)
 
 	ctx, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"devcontroller", "dummy-cloud/region-1",
 		"--config", "default-series=raring",
 		"--config", "agent-stream=proposed",
-		"--auto-upgrade",
+		"--auto-upgrade", "--agent-version=1.7.3",
 	)
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Creating Juju controller "devcontroller" on dummy-cloud/region-1
 Bootstrapping model %q
-Starting new instance for initial controller
-Building tools to upload (1.7.3.1-raring-%s)
-`[1:], bootstrap.ControllerModelName, arch.HostArch()))
-	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
+`[1:], bootstrap.ControllerModelName))
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -887,8 +894,13 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	select {
+	case err := <-errc:
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {
@@ -915,8 +927,12 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	select {
+	case err := <-errc:
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	done := false
 	for !done {
 		select {
@@ -1089,7 +1105,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 		params bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		prepareParams = params
-		return nil, fmt.Errorf("mock-prepare")
+		return nil, errors.New("mock-prepare")
 	})
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/DUMMY")
@@ -1338,12 +1354,8 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
 func resetJujuXDGDataHome(c *gc.C) {
-	jenvDir := testing.JujuXDGDataHomePath("models")
-	err := os.RemoveAll(jenvDir)
-	c.Assert(err, jc.ErrorIsNil)
-
 	cloudsPath := cloud.JujuPersonalCloudsPath()
-	err = ioutil.WriteFile(cloudsPath, []byte(`
+	err := ioutil.WriteFile(cloudsPath, []byte(`
 clouds:
     dummy-cloud:
         type: dummy

@@ -21,7 +21,7 @@ type CreateSuite struct {
 var _ = gc.Suite(&CreateSuite{})
 
 func (s *CreateSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	s.BaseSubnetSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
 	s.command, _ = subnet.NewCreateCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)

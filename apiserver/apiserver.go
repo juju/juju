@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
@@ -398,6 +398,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
 		},
 	)
+	add("/api", mainAPIHandler)
+	// Serve the API at / (only) for backward compatiblity. Note that the
+	// pat muxer special-cases / so that it does not serve all
+	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
 	return endpoints
@@ -507,13 +511,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	h, err := srv.newAPIHandler(conn, modelUUID)
 	if err != nil {
-		conn.ServeFinder(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {
 			adminApis[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminApis), serverError)
 	}
 	conn.Start()
 	select {

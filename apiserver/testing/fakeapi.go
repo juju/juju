@@ -82,7 +82,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
 	}
-	conn.ServeFinder(root, nil)
+	conn.ServeRoot(root, nil)
 	conn.Start()
 	<-conn.Dead()
 	conn.Close()
@@ -91,9 +91,9 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 // allVersions serves the same methods as would be served
 // by rpc.Conn.Serve except that the facade version is ignored.
 type allVersions struct {
-	x rpcreflect.Value
+	rpcreflect.Value
 }
 
 func (av allVersions) FindMethod(rootMethodName string, version int, objMethodName string) (rpcreflect.MethodCaller, error) {
-	return av.x.FindMethod(rootMethodName, 0, objMethodName)
+	return av.Value.FindMethod(rootMethodName, 0, objMethodName)
 }

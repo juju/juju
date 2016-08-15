@@ -57,7 +57,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCloudDefaults(c *gc.C) {
+func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -66,31 +66,18 @@ func (s *cloudSuite) TestCloudDefaults(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "Cloud")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "CloudDefaults")
-			c.Check(a, jc.DeepEquals, params.Entities{
-				[]params.Entity{{"user-bob"}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.CloudDefaultsResults{})
-			results := result.(*params.CloudDefaultsResults)
-			results.Results = append(results.Results, params.CloudDefaultsResult{
-				Result: &params.CloudDefaults{
-					CloudTag:        "cloud-foo",
-					CloudRegion:     "some-region",
-					CloudCredential: "some-credential",
-				},
-			})
+			c.Check(request, gc.Equals, "DefaultCloud")
+			c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+			results := result.(*params.StringResult)
+			results.Result = "cloud-foo"
 			return nil
 		},
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	result, err := client.CloudDefaults(names.NewUserTag("bob"))
+	result, err := client.DefaultCloud()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.Defaults{
-		Cloud:      "foo",
-		Region:     "some-region",
-		Credential: "some-credential",
-	})
+	c.Assert(result, jc.DeepEquals, names.NewCloudTag("foo"))
 }
 
 func (s *cloudSuite) TestCredentials(c *gc.C) {

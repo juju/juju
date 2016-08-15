@@ -726,30 +726,56 @@ func getStorageClient(
 	newClient internalazurestorage.NewClientFunc,
 	storageEndpoint string,
 	storageAccount *armstorage.Account,
-	storageAccountKeys []armstorage.AccountKey,
+	storageAccountKey *armstorage.AccountKey,
 ) (internalazurestorage.Client, error) {
-
-	var storageAccountKey string
-	for _, key := range storageAccountKeys {
-		if key.Permissions != armstorage.FULL {
-			continue
-		}
-		storageAccountKey = to.String(key.Value)
-		break
-	}
-	if storageAccountKey == "" {
-		return nil, errors.Errorf(
-			"no storage account key with %q permission",
-			armstorage.FULL,
-		)
-	}
-
 	storageAccountName := to.String(storageAccount.Name)
 	const useHTTPS = true
 	return newClient(
-		storageAccountName, storageAccountKey,
-		storageEndpoint, azurestorage.DefaultAPIVersion, useHTTPS,
+		storageAccountName,
+		to.String(storageAccountKey.Value),
+		storageEndpoint,
+		azurestorage.DefaultAPIVersion,
+		useHTTPS,
 	)
+}
+
+func getStorageAccountKey(
+	callAPI callAPIFunc,
+	client armstorage.AccountsClient,
+	resourceGroup, accountName string,
+) (*armstorage.AccountKey, error) {
+	logger.Debugf("getting keys for storage account %q", accountName)
+	var listKeysResult armstorage.AccountListKeysResult
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		listKeysResult, err = client.ListKeys(resourceGroup, accountName)
+		return listKeysResult.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing storage account keys")
+	}
+	if listKeysResult.Keys == nil {
+		return nil, errors.NotFoundf("storage account keys")
+	}
+
+	// We need a storage key with full permissions.
+	var fullKey *armstorage.AccountKey
+	for _, key := range *listKeysResult.Keys {
+		logger.Debugf("storage account key: %#v", key)
+		// At least some of the time, Azure returns the permissions
+		// in title-case, which does not match the constant.
+		if strings.ToUpper(string(key.Permissions)) != string(armstorage.FULL) {
+			continue
+		}
+		fullKey = &key
+		break
+	}
+	if fullKey == nil {
+		return nil, errors.NotFoundf(
+			"storage account key with %q permission",
+			armstorage.FULL,
+		)
+	}
+	return fullKey, nil
 }
 
 // RandomStorageAccountName returns a random storage account name.

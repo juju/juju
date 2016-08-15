@@ -1004,6 +1004,35 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	s.storageClient.CheckCall(c, 2, "DeleteBlobIfExists", "osvhds", "machine-1")
 }
 
+func (s *environSuite) TestStopInstancesStorageAccountNoKeys(c *gc.C) {
+	s.PatchValue(&s.storageAccountKeys.Keys, nil)
+	s.testStopInstancesStorageKeysError(c, "getting storage account key: storage account keys not found")
+}
+
+func (s *environSuite) TestStopInstancesStorageAccountNoFullKey(c *gc.C) {
+	keys := *s.storageAccountKeys.Keys
+	s.PatchValue(&keys[0].Permissions, storage.READ)
+	s.testStopInstancesStorageKeysError(c, `getting storage account key: storage account key with "FULL" permission not found`)
+}
+
+func (s *environSuite) testStopInstancesStorageKeysError(c *gc.C, expect string) {
+	env := s.openEnviron(c)
+
+	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
+	nic0IPConfiguration.Properties.PublicIPAddress = &network.PublicIPAddress{}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
+	s.sender = azuretesting.Senders{
+		s.networkInterfacesSender(nic0),
+		s.virtualMachinesSender(makeVirtualMachine("machine-0")),
+		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
+		s.storageAccountsSender(),
+		s.storageAccountKeysSender(),
+	}
+
+	err := env.StopInstances("machine-0")
+	c.Assert(err, gc.ErrorMatches, expect)
+}
+
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	unsupported, err := validator.Validate(constraints.MustParse(

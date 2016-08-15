@@ -4,6 +4,7 @@
 package bootstrap_test
 
 import (
+	"io/ioutil"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -11,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,10 +57,17 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 	})
 }
 
+func (s *ConfigSuite) addFiles(c *gc.C, files ...gitjujutesting.TestFile) {
+	for _, f := range files {
+		err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
 func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *gc.C) {
-	s.Home.AddFiles(c, []gitjujutesting.TestFile{
-		{".local/share/juju/ca-cert.pem", testing.CACert},
-		{".local/share/juju/ca-private-key.pem", testing.CAKey},
+	s.addFiles(c, []gitjujutesting.TestFile{
+		{"ca-cert.pem", testing.CACert},
+		{"ca-private-key.pem", testing.CAKey},
 	}...)
 
 	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), nil)
@@ -69,9 +78,9 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *gc.C) {
-	s.Home.AddFiles(c, []gitjujutesting.TestFile{
-		{".local/share/juju/ca-cert-2.pem", testing.OtherCACert},
-		{".local/share/juju/ca-private-key-2.pem", testing.OtherCAKey},
+	s.addFiles(c, []gitjujutesting.TestFile{
+		{"ca-cert-2.pem", testing.OtherCACert},
+		{"ca-private-key-2.pem", testing.OtherCAKey},
 	}...)
 
 	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), map[string]interface{}{

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

@@ -173,7 +173,7 @@ type Connection interface {
 	// (as opposed to the model tag of the currently connected
 	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.ModelTag, error)
+	ControllerTag() names.ModelTag
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.

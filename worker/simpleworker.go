@@ -3,7 +3,7 @@
 
 package worker
 
-import "launchpad.net/tomb"
+import "gopkg.in/tomb.v1"
 
 // simpleWorker implements the worker returned by NewSimpleWorker.
 type simpleWorker struct {

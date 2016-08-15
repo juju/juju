@@ -25,11 +25,10 @@ func init() {
 // CloudAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type CloudAPI struct {
-	backend                  Backend
-	authorizer               facade.Authorizer
-	apiUser                  names.UserTag
-	getCredentialsAuthFunc   common.GetAuthFunc
-	getCloudDefaultsAuthFunc common.GetAuthFunc
+	backend                Backend
+	authorizer             facade.Authorizer
+	apiUser                names.UserTag
+	getCredentialsAuthFunc common.GetAuthFunc
 }
 
 func newFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
@@ -57,10 +56,9 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 		}, nil
 	}
 	return &CloudAPI{
-		backend:                  backend,
-		authorizer:               authorizer,
-		getCredentialsAuthFunc:   getUserAuthFunc,
-		getCloudDefaultsAuthFunc: getUserAuthFunc,
+		backend:                backend,
+		authorizer:             authorizer,
+		getCredentialsAuthFunc: getUserAuthFunc,
 	}, nil
 }
 
@@ -111,46 +109,16 @@ func (mm *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	return results, nil
 }
 
-// CloudDefaults returns the cloud defaults for a set of users.
-func (mm *CloudAPI) CloudDefaults(args params.Entities) (params.CloudDefaultsResults, error) {
-	results := params.CloudDefaultsResults{
-		Results: make([]params.CloudDefaultsResult, len(args.Entities)),
-	}
-	authFunc, err := mm.getCloudDefaultsAuthFunc()
-	if err != nil {
-		return results, err
-	}
+// DefaultCloud returns the tag of the cloud that models will be
+// created in by default.
+func (mm *CloudAPI) DefaultCloud() (params.StringResult, error) {
 	controllerModel, err := mm.backend.ControllerModel()
 	if err != nil {
-		return results, err
+		return params.StringResult{}, err
 	}
-	for i, arg := range args.Entities {
-		userTag, err := names.ParseUserTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !authFunc(userTag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		isAdmin, err := mm.backend.IsControllerAdmin(userTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		cloudDefaults := params.CloudDefaults{
-			CloudTag:    names.NewCloudTag(controllerModel.Cloud()).String(),
-			CloudRegion: controllerModel.CloudRegion(),
-		}
-		if isAdmin {
-			// As a special case, controller admins will default to
-			// using the same credential that was used to bootstrap.
-			cloudDefaults.CloudCredential = controllerModel.CloudCredential()
-		}
-		results.Results[i].Result = &cloudDefaults
-	}
-	return results, nil
+	return params.StringResult{
+		Result: names.NewCloudTag(controllerModel.Cloud()).String(),
+	}, nil
 }
 
 // Credentials returns the cloud credentials for a set of users.

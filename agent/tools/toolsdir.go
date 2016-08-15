@@ -73,11 +73,8 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		return err
 	}
 	defer os.Remove(f.Name())
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When we can ensure all tools records have valid checksums recorded,
-	// we can remove this test short circuit.
 	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
-	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
+	if tools.SHA256 != gzipSHA256 {
 		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
 	}
 
