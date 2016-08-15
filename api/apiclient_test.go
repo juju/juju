@@ -340,12 +340,12 @@ type redirectAPIAdmin struct {
 	r *redirectAPI
 }
 
-func (a *redirectAPIAdmin) Login(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *redirectAPIAdmin) Login(req params.LoginRequest) (params.LoginResult, error) {
 	if a.r.modelUUID != "beef1beef1-0000-0000-000011112222" {
-		return params.LoginResultV1{}, errors.New("logged into unexpected model")
+		return params.LoginResult{}, errors.New("logged into unexpected model")
 	}
 	a.r.redirected = true
-	return params.LoginResultV1{}, params.Error{
+	return params.LoginResult{}, params.Error{
 		Message: "redirect",
 		Code:    params.CodeRedirect,
 	}

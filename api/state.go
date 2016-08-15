@@ -32,22 +32,8 @@ import (
 // or macaroons. Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	err := st.loginV3(tag, password, nonce, ms)
-	return errors.Trace(err)
-}
-
-// loginV2 is retained for testing logins from older clients.
-func (st *state) loginV2(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	return st.loginForVersion(tag, password, nonce, ms, 2)
-}
-
-func (st *state) loginV3(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	return st.loginForVersion(tag, password, nonce, ms, 3)
-}
-
-func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroons []macaroon.Slice, vers int) error {
-	var result params.LoginResultV1
+func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
+	var result params.LoginResult
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
 		Credentials: password,
@@ -61,7 +47,7 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
 		)
 	}
-	err := st.APICall("Admin", vers, "", "Login", request, &result)
+	err := st.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		var resp params.RedirectInfoResult
 		if params.IsRedirect(err) {
@@ -99,8 +85,8 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
-		result = params.LoginResultV1{} // zero result
-		err = st.APICall("Admin", vers, "", "Login", request, &result)
+		result = params.LoginResult{} // zero result
+		err = st.APICall("Admin", 3, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}

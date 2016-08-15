@@ -165,19 +165,16 @@ func (e *RedirectError) Error() string {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, clock.WallClock, (*state).Login)
+	return open(info, opts, clock.WallClock)
 }
 
-// This unexported open method is used both directly above in the Open
-// function, and also the OpenWithVersion function below to explicitly cause
-// the API server to think that the client is older than it really is.
+// open is the unexported version of open that also includes
+// an explicit clock instance argument.
 func open(
 	info *Info,
 	opts DialOpts,
 	clock clock.Clock,
-	loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error,
 ) (Connection, error) {
-
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
 	}
@@ -238,7 +235,7 @@ func open(
 		modelTag:     info.ModelTag,
 	}
 	if !info.SkipLogin {
-		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
+		if err := st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
 			conn.Close()
 			return nil, errors.Trace(err)
 		}
@@ -267,22 +264,6 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 		return t.primary.RoundTrip(req)
 	}
 	return t.fallback.RoundTrip(req)
-}
-
-// OpenWithVersion uses an explicit version of the Admin facade to call Login
-// on. This allows the caller to pretend to be an older client, and is used
-// only in testing.
-func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
-	var loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error
-	switch loginVersion {
-	case 2:
-		loginFunc = (*state).loginV2
-	case 3:
-		loginFunc = (*state).loginV3
-	default:
-		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
-	}
-	return open(info, opts, clock.WallClock, loginFunc)
 }
 
 // connectWebsocket establishes a websocket connection to the RPC

@@ -42,8 +42,9 @@ var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
-func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.LoginResultV1, error) {
-	var fail params.LoginResultV1
+// login is the internal version of the Login API call.
+func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
+	var fail params.LoginResult
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -94,7 +95,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-			loginResult := params.LoginResultV1{
+			loginResult := params.LoginResult{
 				DischargeRequired:       err.Macaroon,
 				DischargeRequiredReason: err.Error(),
 			}
@@ -208,7 +209,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
 	}
 
-	loginResult := params.LoginResultV1{
+	loginResult := params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
