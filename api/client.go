@@ -185,13 +185,6 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
-// ModelInfo returns details about the Juju model.
-func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	var info params.ModelInfo
-	err := c.facade.FacadeCall("ModelInfo", nil, &info)
-	return info, err
-}
-
 // ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() (string, error) {
 	tag, err := c.st.ModelTag()

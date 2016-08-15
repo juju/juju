@@ -36,6 +36,7 @@ type ModelManagerBackend interface {
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
+	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
 	AllModels() ([]Model, error)
 	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
@@ -105,6 +106,15 @@ func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBacken
 		return nil, err
 	}
 	return modelManagerStateShim{otherState}, nil
+}
+
+// GetModel implements ModelManagerBackend.
+func (st modelManagerStateShim) GetModel(tag names.ModelTag) (Model, error) {
+	m, err := st.State.GetModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	return modelShim{m}, nil
 }
 
 // Model implements ModelManagerBackend.
