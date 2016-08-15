@@ -107,8 +107,8 @@ type AddModelAPI interface {
 }
 
 type CloudAPI interface {
+	DefaultCloud() (names.CloudTag, error)
 	Cloud(names.CloudTag) (cloud.Cloud, error)
-	CloudDefaults(names.UserTag) (cloud.Defaults, error)
 	Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error)
 	UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error
 }
@@ -158,11 +158,10 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		cloudClient := c.newCloudAPI(api)
 		modelOwnerTag := names.NewUserTag(modelOwner)
 
-		defaults, err := cloudClient.CloudDefaults(modelOwnerTag)
+		cloudTag, err := cloudClient.DefaultCloud()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		cloudTag := names.NewCloudTag(defaults.Cloud)
 		credentials, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
 		if err != nil {
 			return errors.Trace(err)
