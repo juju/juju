@@ -504,6 +504,13 @@ func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
 	s.checkApiHandlerTeardown(c, s.State, otherState)
 }
 
+func (s *serverSuite) TestApiHandlerConnectedModel(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+	handler, _ := apiserver.TestingApiHandler(c, s.State, otherState)
+	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
+}
+
 func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
 	resource := new(fakeResource)

@@ -96,6 +96,10 @@ type Authorizer interface {
 	// HasPermission returns true if the given access is allowed for the given
 	// target by the authenticated entity.
 	HasPermission(operation description.Access, target names.Tag) (bool, error)
+
+	// ConnectedModel returns the UUID of the model to which the API
+	// connection was made.
+	ConnectedModel() string
 }
 
 // Resources allows you to store and retrieve Resource implementations.

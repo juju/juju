@@ -13,6 +13,7 @@ import (
 type FakeAuthorizer struct {
 	Tag            names.Tag
 	EnvironManager bool
+	ModelUUID      string
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -55,4 +56,10 @@ func (fa FakeAuthorizer) HasPermission(operation description.Access, target name
 		return false, nil
 	}
 	return true, nil
+}
+
+// ConnectedModel returns the UUID of the model the current client is
+// connected to.
+func (fa FakeAuthorizer) ConnectedModel() string {
+	return fa.ModelUUID
 }

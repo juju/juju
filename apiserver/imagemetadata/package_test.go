@@ -43,7 +43,7 @@ func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true, ""}
 
 	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
 

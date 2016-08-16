@@ -488,6 +488,33 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevices(c *gc.C) {
 	}
 }
 
+func (s *linkLayerDevicesStateSuite) TestMachineAllProviderInterfaceInfos(c *gc.C) {
+	err := s.machine.SetLinkLayerDevices(state.LinkLayerDeviceArgs{
+		Name:       "sara-lynn",
+		MACAddress: "ab:cd:ef:01:23:45",
+		ProviderID: "thing1",
+		Type:       state.EthernetDevice,
+	}, state.LinkLayerDeviceArgs{
+		Name:       "bojack",
+		MACAddress: "ab:cd:ef:01:23:46",
+		ProviderID: "thing2",
+		Type:       state.EthernetDevice,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.machine.AllProviderInterfaceInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.SameContents, []network.ProviderInterfaceInfo{{
+		InterfaceName: "sara-lynn",
+		MACAddress:    "ab:cd:ef:01:23:45",
+		ProviderId:    "thing1",
+	}, {
+		InterfaceName: "bojack",
+		MACAddress:    "ab:cd:ef:01:23:46",
+		ProviderId:    "thing2",
+	}})
+}
+
 func (s *linkLayerDevicesStateSuite) assertNoDevicesOnMachine(c *gc.C, machine *state.Machine) {
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, machine, 0)
 }
