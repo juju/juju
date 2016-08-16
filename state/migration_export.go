@@ -108,6 +108,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.actions(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -760,6 +764,30 @@ func (e *exporter) sshHostKeys() error {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			MachineID: machine.Id(),
 			Keys:      keys,
+		})
+	}
+	return nil
+}
+
+func (e *exporter) actions() error {
+	actions, err := e.st.AllActions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d actions", len(actions))
+	for _, action := range actions {
+		results, message := action.Results()
+		e.model.AddAction(description.ActionArgs{
+			Receiver:   action.Receiver(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+			Enqueued:   action.Enqueued(),
+			Started:    action.Started(),
+			Completed:  action.Completed(),
+			Status:     string(action.Status()),
+			Results:    results,
+			Message:    message,
+			Id:         action.Id(),
 		})
 	}
 	return nil

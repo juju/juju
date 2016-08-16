@@ -700,6 +700,26 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
 }
 
+func (s *MigrationImportSuite) TestAction(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	actions, _ := newSt.AllActions()
+	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, state.ActionPending)
+}
+
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
