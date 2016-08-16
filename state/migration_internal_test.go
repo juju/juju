@@ -62,6 +62,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		filesystemsC,
 		filesystemAttachmentsC,
+		storageInstancesC,
+		storageAttachmentsC,
 		volumesC,
 		volumeAttachmentsC,
 	)
@@ -163,8 +165,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		storageInstancesC,
-		storageAttachmentsC,
 		storageConstraintsC,
 
 		// uncategorised
@@ -752,6 +752,35 @@ func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
 		"MountPoint", "ReadOnly"))
 	s.AssertExportedFields(c, FilesystemAttachmentParams{}, set.NewStrings(
 		"Location", "ReadOnly"))
+}
+
+func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Id",
+		"Kind",
+		"Owner",
+		"StorageName",
+		"AttachmentCount", // through count of attachment instances
+	)
+	s.AssertExportedFields(c, storageInstanceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestStorageAttachmentDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Unit",
+		"StorageInstance",
+	)
+	s.AssertExportedFields(c, storageAttachmentDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

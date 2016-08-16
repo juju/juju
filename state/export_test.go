@@ -493,6 +493,14 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 	return client.Leases(), nil
 }
 
+func StorageAttachmentCount(instance StorageInstance) int {
+	internal, ok := instance.(*storageInstance)
+	if !ok {
+		return -1
+	}
+	return internal.doc.AttachmentCount
+}
+
 func ResetMigrationMode(c *gc.C, st *State) {
 	ops := []txn.Op{{
 		C:      modelsC,

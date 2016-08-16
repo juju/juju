@@ -691,6 +691,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 
 	if err := i.st.runTransaction(ops); err != nil {
+		i.logger.Debugf("failed ops: %#v", ops)
 		return errors.Trace(err)
 	}
 
@@ -1185,11 +1186,61 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
+	if err := i.storageInstances(); err != nil {
+		return errors.Annotate(err, "storage instances")
+	}
 	if err := i.volumes(); err != nil {
 		return errors.Annotate(err, "volumes")
 	}
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
+	}
+	return nil
+}
+
+func (i *importer) storageInstances() error {
+	i.logger.Debugf("importing storage instances")
+	for _, storage := range i.model.Storages() {
+		err := i.addStorageInstance(storage)
+		if err != nil {
+			i.logger.Errorf("error importing storage %s: %s", storage.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing storage instances succeeded")
+	return nil
+}
+
+func (i *importer) addStorageInstance(storage description.Storage) error {
+	kind := parseStorageKind(storage.Kind())
+	if kind == StorageKindUnknown {
+		return errors.Errorf("storage kind %q is unknown", storage.Kind())
+	}
+	owner, err := storage.Owner()
+	if err != nil {
+		return errors.Annotate(err, "storage owner")
+	}
+	attachments := storage.Attachments()
+	tag := storage.Tag()
+	var ops []txn.Op
+	for _, unit := range attachments {
+		ops = append(ops, createStorageAttachmentOp(tag, unit))
+	}
+	doc := &storageInstanceDoc{
+		Id:              storage.Tag().Id(),
+		Kind:            kind,
+		Owner:           owner.String(),
+		StorageName:     storage.Name(),
+		AttachmentCount: len(attachments),
+	}
+	ops = append(ops, txn.Op{
+		C:      storageInstancesC,
+		Id:     tag.Id(),
+		Assert: txn.DocMissing,
+		Insert: doc,
+	})
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

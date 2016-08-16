@@ -15,8 +15,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -82,6 +85,35 @@ func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname stri
 		units[leader].Name(),
 		time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
+	pool := "loop-pool"
+	kind := "block"
+	// Create a default pool for block devices.
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := s.AddTestingCharm(c, "storage-"+kind)
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons(pool, 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := service.AddUnit()
+
+	machine := s.Factory.MakeMachine(c, nil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	err = unit.SetAgentVersion(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	return service, unit, storageTag
 }
 
 type MigrationExportSuite struct {
@@ -822,4 +854,26 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	// Make sure there is a status.
 	status := provisioned.Status()
 	c.Check(status.Value(), gc.Equals, "pending")
+}
+
+func (s *MigrationExportSuite) TestStorage(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	storages := model.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+
+	storage := storages[0]
+
+	c.Check(storage.Tag(), gc.Equals, storageTag)
+	c.Check(storage.Kind(), gc.Equals, "block")
+	owner, err := storage.Owner()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owner, gc.Equals, u.Tag())
+	c.Check(storage.Name(), gc.Equals, "data")
+	c.Check(storage.Attachments(), jc.DeepEquals, []names.UnitTag{
+		u.UnitTag(),
+	})
 }
