@@ -80,6 +80,10 @@ func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFu
 	return errors.Trace(iter.Close())
 }
 
+// AllProviderInterfaceInfos returns the provider details for all of
+// the link layer devices belonging to this machine. These can be used
+// to identify the devices when interacting with the provider
+// directly (for example, releasing container addresses).
 func (m *Machine) AllProviderInterfaceInfos() ([]network.ProviderInterfaceInfo, error) {
 	devices, err := m.AllLinkLayerDevices()
 	if err != nil {
