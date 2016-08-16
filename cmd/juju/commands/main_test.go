@@ -191,6 +191,10 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
 
 	// remove the new juju-home and create a fake old juju home.
 	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
@@ -219,9 +223,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
     with the command juju-1 e.g. 'juju-1 switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-Since Juju 2 is being run for the first time, downloading latest cloud information.
-Fetching latest public cloud list...
-Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n", jujuversion.Current))
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -236,6 +238,10 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
+	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
 	})
 
 	// remove the new juju-home and create a fake old juju home.
@@ -255,10 +261,8 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 
-	c.Assert(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloading latest cloud information.
-Fetching latest public cloud list...
-Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n")
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -307,6 +311,10 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
 
 	// remove the new juju-home.
 	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
@@ -326,10 +334,8 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 
 	assertNoArgs(c, argChan)
-	c.Assert(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloading latest cloud information.
-Fetching latest public cloud list...
-Your list of public clouds is up to date, see `[1:]+"`juju clouds`.\n")
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
