@@ -54,15 +54,18 @@ Please send this command to bob:
 	c.Logf("%q", jujuRegisterCommand)
 
 	// Now run the "juju register" command. We need to pass the
-	// controller name and password to set.
+	// controller name and password to set, and we need a different
+	// file store to mimic a different local OS user.
+	userHomeParams := jujutesting.UserHomeParams{Username: "bob"}
+	s.CreateUserHome(c, &userHomeParams)
 	stdin := strings.NewReader("bob-controller\nhunter2\nhunter2\n")
 	args := jujuRegisterCommand[1:] // drop the "juju"
-	context = s.run(c, stdin, args...)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, `
-WARNING: The controller proposed "kontroll" which clashes with an existing controller. The two controllers are entirely different.
 
-Enter a name for this controller: 
+	// The expected prompt does not include a warning about the controller
+	// name, as this new local user does not have a controller named
+	// "kontroll" registered.
+	expectedPrompt := `
+Enter a name for this controller [kontroll]: 
 Enter a new password: 
 Confirm password: 
 
@@ -72,7 +75,11 @@ There are no models available. You can add models with
 "juju add-model", or you can ask an administrator or owner
 of a model to grant access to that model with "juju grant".
 
-`[1:])
+`[1:]
+
+	context = s.run(c, stdin, args...)
+	c.Check(testing.Stdout(context), gc.Equals, "")
+	c.Check(testing.Stderr(context), gc.Equals, expectedPrompt)
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.

@@ -165,7 +165,7 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	// Plugins are run as model commands, and so require a current
 	// account and model.
 	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("myctrl", jujuclient.ControllerDetails{
+	err := store.AddController("myctrl", jujuclient.ControllerDetails{
 		ControllerUUID: testing.ModelTag.Id(),
 		CACert:         "fake",
 	})

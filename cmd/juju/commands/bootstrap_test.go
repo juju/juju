@@ -579,10 +579,24 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, model, user string) {
-	err := s.store.UpdateController(controller, jujuclient.ControllerDetails{
-		CACert:         "x",
-		ControllerUUID: "y",
+type controllerModelAccountParams struct {
+	controller     string
+	controllerUUID string
+	model          string
+	user           string
+}
+
+func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *controllerModelAccountParams) {
+	controller := context.controller
+	model := context.model
+	user := context.user
+	controllerUUID := "a-uuid"
+	if context.controllerUUID != "" {
+		controllerUUID = context.controllerUUID
+	}
+	err := s.store.AddController(controller, jujuclient.ControllerDetails{
+		CACert:         "a-cert",
+		ControllerUUID: controllerUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.SetCurrentController(controller)
@@ -607,11 +621,22 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
-		s.writeControllerModelAccountInfo(c, "foo", "foobar@local/bar", "foobar@local")
+		ctx := controllerModelAccountParams{
+			controller: "foo",
+			model:      "foobar@local/bar",
+			user:       "foobar@local",
+		}
+		s.writeControllerModelAccountInfo(c, &ctx)
 		return nil, errors.New("mock-prepare")
 	})
 
-	s.writeControllerModelAccountInfo(c, "olddevcontroller", "fred@local/fredmodel", "fred@local")
+	ctx := controllerModelAccountParams{
+		controller:     "olddevcontroller",
+		controllerUUID: "another-uuid",
+		model:          "fred@local/fredmodel",
+		user:           "fred@local",
+	}
+	s.writeControllerModelAccountInfo(c, &ctx)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
@@ -629,7 +654,12 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
 	s.patchVersionAndSeries(c, "raring")
 
-	s.writeControllerModelAccountInfo(c, "devcontroller", "fred@local/fredmodel", "fred@local")
+	cmaCtx := controllerModelAccountParams{
+		controller: "devcontroller",
+		model:      "fred@local/fredmodel",
+		user:       "fred@local",
+	}
+	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
@@ -1304,7 +1334,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// Simulate another controller being bootstrapped during the
 	// bootstrap. Changing the current controller shouldn't affect the
 	// bootstrap process.
-	c.Assert(s.store.UpdateController("another", jujuclient.ControllerDetails{
+	c.Assert(s.store.AddController("another", jujuclient.ControllerDetails{
 		ControllerUUID: "uuid",
 		CACert:         "cert",
 	}), jc.ErrorIsNil)

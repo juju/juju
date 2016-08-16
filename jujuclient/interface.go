@@ -106,11 +106,19 @@ type BootstrapConfig struct {
 
 // ControllerUpdater stores controller details.
 type ControllerUpdater interface {
-	// UpdateController adds the given controller to the controller
+	// AddController adds the given controller to the controller
 	// collection.
 	//
-	// If the controller does not already exist, it will be added.
-	// Otherwise, it will be overwritten with the new details.
+	// Where UpdateController is concerned with the controller name,
+	// AddController uses the controller UUID and will not add a
+	// duplicate even if the name is different.
+	AddController(controllerName string, details ControllerDetails) error
+
+	// UpdateController updates the given controller in the controller
+	// collection.
+	//
+	// If a controller of controllerName exists it will be overwritten
+	// with the new details.
 	UpdateController(controllerName string, details ControllerDetails) error
 
 	// SetCurrentController sets the name of the current controller.
