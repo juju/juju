@@ -223,8 +223,7 @@ type uploadSuite struct {
 	env environs.Environ
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
-	targetStorage        storage.Storage
-	expectedForceVersion *version.Number
+	targetStorage storage.Storage
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
@@ -238,10 +237,12 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	s.targetStorage = stor
+}
 
+func (s *uploadSuite) patchBundleTools(c *gc.C, v *version.Number) {
 	// Mock out building of tools. Sync should not care about the contents
 	// of tools archives, other than that they hash correctly.
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, s.expectedForceVersion))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, v))
 }
 
 func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
@@ -254,6 +255,7 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
+	s.patchBundleTools(c, nil)
 	t, err := sync.Upload(s.targetStorage, "released", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
@@ -262,6 +264,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
+	s.patchBundleTools(c, nil)
 	seriesToUpload := "precise"
 	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
@@ -274,12 +277,14 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	vers := jujuversion.Current
 	vers.Patch++
+	s.patchBundleTools(c, &vers)
 	t, err := sync.Upload(s.targetStorage, "released", &vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, version.Binary{Number: jujuversion.Current, Arch: arch.HostArch(), Series: series.HostSeries()})
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
+	s.patchBundleTools(c, nil)
 	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
@@ -289,6 +294,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 }
 
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
+	s.patchBundleTools(c, nil)
 	seriesToUpload := "precise"
 	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
@@ -304,7 +310,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	vers := jujuversion.Current
 	vers.Patch++
-	s.expectedForceVersion = &vers
+	s.patchBundleTools(c, &vers)
 	builtTools, err := sync.BuildAgentTarball(true, &vers, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
@@ -458,6 +464,12 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	builtTools, err = sync.BuildAgentTarball(true, nil, "released")
 	s.assertEqualsCurrentVersion(c, builtTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
+	builtTools, err := sync.BuildAgentTarball(false, nil, "released")
+	c.Assert(err, gc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
+	c.Assert(builtTools, gc.IsNil)
 }
 
 func (s *uploadSuite) TestMockBundleTools(c *gc.C) {

@@ -208,13 +208,12 @@ func buildJujud(dir string) error {
 }
 
 func packageLocalTools(toolsDir string, buildAgent bool) error {
-	// TODO(wallyworld) - when upload-tools compatibility is removed, either build or copy, not both
-	//if !buildAgent {
-	if err := copyExistingJujud(toolsDir); err == nil {
+	if !buildAgent {
+		if err := copyExistingJujud(toolsDir); err != nil {
+			return errors.New("no prepackaged agent available and no jujud binary can be found")
+		}
 		return nil
 	}
-	logger.Warningf("no prepackaged agent available and no jujud binary found")
-
 	logger.Infof("Building agent binary to upload (%s)", jujuversion.Current.String())
 	if err := buildJujud(toolsDir); err != nil {
 		return errors.Annotate(err, "cannot build jujud agent binary from source")
