@@ -34,6 +34,34 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// SetModelDefaults contains the arguments for SetModelDefaults
+// client API call.
+type SetModelDefaults struct {
+	Config []ModelDefaultValues `json:"config"`
+}
+
+// ModelDefaultValues contains the default model values for
+// a cloud/region.
+type ModelDefaultValues struct {
+	CloudTag    string                 `json:"cloud-tag,omitempty"`
+	CloudRegion string                 `json:"cloud-region,omitempty"`
+	Config      map[string]interface{} `json:"config"`
+}
+
+// ModelUnsetKeys contains the config keys to unset for
+// a cloud/region.
+type ModelUnsetKeys struct {
+	CloudTag    string   `json:"cloud-tag,omitempty"`
+	CloudRegion string   `json:"cloud-region,omitempty"`
+	Keys        []string `json:"keys"`
+}
+
+// UnsetModelDefaults contains the arguments for UnsetModelDefaults
+// client API call.
+type UnsetModelDefaults struct {
+	Keys []ModelUnsetKeys `json:"keys"`
+}
+
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {

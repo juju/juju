@@ -141,7 +141,21 @@ func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
 }
 
 // SetModelDefaults writes new values for the specified default model settings.
-func (c *ModelConfigAPI) SetModelDefaults(args params.ModelSet) error {
+func (c *ModelConfigAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Config {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.setModelDefaults(arg),
+		)
+	}
+	return results, nil
+}
+
+func (c *ModelConfigAPI) setModelDefaults(args params.ModelDefaultValues) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -153,9 +167,16 @@ func (c *ModelConfigAPI) SetModelDefaults(args params.ModelSet) error {
 }
 
 // UnsetModelDefaults removes the specified default model settings.
-func (c *ModelConfigAPI) UnsetModelDefaults(args params.ModelUnset) error {
+func (c *ModelConfigAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
 	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
+		return results, errors.Trace(err)
 	}
-	return c.backend.UpdateModelConfigDefaultValues(nil, args.Keys)
+	for i, arg := range args.Keys {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.backend.UpdateModelConfigDefaultValues(nil, arg.Keys),
+		)
+	}
+	return results, nil
 }
