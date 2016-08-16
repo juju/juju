@@ -42,7 +42,8 @@ type Info struct {
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
-	// trying to connect to.
+	// trying to connect to. If this is empty, a controller-only
+	// login will be made.
 	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism

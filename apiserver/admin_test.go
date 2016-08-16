@@ -35,7 +35,7 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
-	setAdminApi func(*apiserver.Server)
+	setAdminAPI func(*apiserver.Server)
 }
 
 type loginSuite struct {
@@ -44,8 +44,8 @@ type loginSuite struct {
 
 var _ = gc.Suite(&loginSuite{
 	baseLoginSuite{
-		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 3)
+		setAdminAPI: func(srv *apiserver.Server) {
+			apiserver.SetAdminAPIVersions(srv, 3)
 		},
 	},
 })
@@ -591,8 +591,8 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.setAdminApi, gc.NotNil)
-	s.setAdminApi(srv)
+	c.Assert(s.setAdminAPI, gc.NotNil)
+	s.setAdminAPI(srv)
 	info := &api.Info{
 		Tag:      nil,
 		Password: "",

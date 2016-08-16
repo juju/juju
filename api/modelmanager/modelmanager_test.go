@@ -28,17 +28,19 @@ func (s *modelmanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
-	return modelmanager.NewClient(s.APIState)
+	return modelmanager.NewClient(s.OpenControllerAPI(c))
 }
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
+	defer modelManager.Close()
 	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	modelManager := s.OpenAPI(c)
+	defer modelManager.Close()
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
 	newModel, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
@@ -55,6 +57,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 
 func (s *modelmanagerSuite) TestListModelsBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
+	defer modelManager.Close()
 	_, err := modelManager.ListModels("not a user")
 	c.Assert(err, gc.ErrorMatches, `invalid user name "not a user"`)
 }
@@ -67,6 +70,7 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 		Name: "second", Owner: owner}).Close()
 
 	modelManager := s.OpenAPI(c)
+	defer modelManager.Close()
 	models, err := modelManager.ListModels("user@remote")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 2)
@@ -78,9 +82,10 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
-	modelManagerClient := s.OpenAPI(c)
+	modelManager := s.OpenAPI(c)
+	defer modelManager.Close()
 	var called bool
-	modelmanager.PatchFacadeCall(&s.CleanupSuite, modelManagerClient,
+	modelmanager.PatchFacadeCall(&s.CleanupSuite, modelManager,
 		func(req string, args interface{}, resp interface{}) error {
 			c.Assert(req, gc.Equals, "DestroyModels")
 			c.Assert(args, jc.DeepEquals, params.Entities{
@@ -94,7 +99,7 @@ func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
 			return nil
 		})
 
-	err := modelManagerClient.DestroyModel(testing.ModelTag)
+	err := modelManager.DestroyModel(testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

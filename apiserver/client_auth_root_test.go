@@ -32,7 +32,7 @@ func (*clientAuthRootSuite) AssertCallGood(c *gc.C, client *clientAuthRoot, root
 
 func (*clientAuthRootSuite) AssertCallNotImplemented(c *gc.C, client *clientAuthRoot, rootName string, version int, methodName string) {
 	caller, err := client.FindMethod(rootName, version, methodName)
-	c.Check(errors.Cause(err), jc.Satisfies, isCallNotImplementedError)
+	c.Check(err, jc.Satisfies, isCallNotImplementedError)
 	c.Assert(caller, gc.IsNil)
 }
 
@@ -58,14 +58,12 @@ func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
 	// read only commands are fine
 	s.AssertCallGood(c, client, "Client", 1, "FullStatus")
-	// calls on the restricted root is also fine
-	s.AssertCallGood(c, client, "UserManager", 1, "AddUser")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
 	s.AssertCallNotImplemented(c, client, "Unknown", 1, "Method")
 }
 
 func isCallNotImplementedError(err error) bool {
-	_, ok := err.(*rpcreflect.CallNotImplementedError)
+	_, ok := errors.Cause(err).(*rpcreflect.CallNotImplementedError)
 	return ok
 }
 

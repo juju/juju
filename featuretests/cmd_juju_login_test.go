@@ -36,7 +36,8 @@ func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Conte
 	}
 	command := commands.NewJujuCommand(context)
 	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
-	c.Assert(command.Run(context), jc.ErrorIsNil)
+	err := command.Run(context)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))
 	loggo.RemoveWriter("warning") // remove logger added by main command
 	return context
 }

@@ -21,15 +21,21 @@ type clientAuthRoot struct {
 	controllerUser description.UserAccess
 }
 
-// newClientAuthRoot returns a new restrictedRoot.
+// newClientAuthRoot returns a new API root that
+// restricts RPC calls to those appropriate for
+// the given user access.
+//
+// This is not appropriate for use on controller-only API connections.
 func newClientAuthRoot(root rpc.Root, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
 	return &clientAuthRoot{root, modelUser, controllerUser}
 }
 
-// FindMethod returns a not supported error if the rootName is not one of the
-// facades available at the server root when there is no active model.
+// FindMethod implements rpc.Root.FindMethod.
+// It returns a permission-denied error if the call is not appropriate
+// for the user access rights.
 func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// The lookup of the name is done first to return a not found error if the
+	// The lookup of the name is done first to return a
+	// rpcreflect.CallNotImplementedError error if the
 	// user is looking for a method that we just don't have.
 	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
@@ -37,22 +43,11 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	}
 	// ReadOnly User
 	if r.modelUser.Access == description.ReadAccess {
-		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
-			isCallReadOnly(rootName, methodName)
+		canCall := isCallReadOnly(rootName, methodName)
 		if !canCall {
 			return nil, errors.Trace(common.ErrPerm)
 		}
 	}
 
 	return caller, nil
-}
-
-// isCallAllowableByReadOnlyUser returns whether or not the method on the facade
-// can be called by a read only user.
-func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
-	// At this stage, any facade that is part of the restricted root (those
-	// that are accessable outside of models) are OK because the user would
-	// have access to those facades if they went through the controller API
-	// endpoint rather than a model oriented one.
-	return restrictedRootNames.Contains(facade)
 }

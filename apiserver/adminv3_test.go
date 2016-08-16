@@ -22,8 +22,8 @@ type loginV3Suite struct {
 var _ = gc.Suite(&loginV3Suite{
 	loginSuite{
 		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 3)
+			setAdminAPI: func(srv *apiserver.Server) {
+				apiserver.SetAdminAPIVersions(srv, 3)
 			},
 		},
 	},
@@ -56,7 +56,7 @@ func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetModelConstraints()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `logged in to server, no model, "Client" not supported`,
+		Message: `facade "Client" not supported for API connection type`,
 		Code:    "not supported",
 	})
 }

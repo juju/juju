@@ -451,10 +451,10 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 	return u, ctag
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionLogin(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
@@ -462,11 +462,11 @@ func (s *serverSuite) TestApiHandlerHasPermissionLogin(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionAdmodel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, description.AddModelAccess)
@@ -478,11 +478,11 @@ func (s *serverSuite) TestApiHandlerHasPermissionAdmodel(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionSuperUser(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, description.SuperuserAccess)
@@ -494,25 +494,25 @@ func (s *serverSuite) TestApiHandlerHasPermissionSuperUser(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, true)
 }
 
-func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
-	s.checkApiHandlerTeardown(c, s.State, s.State)
+func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {
+	s.checkAPIHandlerTeardown(c, s.State, s.State)
 }
 
-func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	s.checkApiHandlerTeardown(c, s.State, otherState)
+	s.checkAPIHandlerTeardown(c, s.State, otherState)
 }
 
-func (s *serverSuite) TestApiHandlerConnectedModel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	handler, _ := apiserver.TestingApiHandler(c, s.State, otherState)
+	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 
-func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
-	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
+func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
+	handler, resources := apiserver.TestingAPIHandler(c, srvSt, st)
 	resource := new(fakeResource)
 	resources.Register(resource)
 

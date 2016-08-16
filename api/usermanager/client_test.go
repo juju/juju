@@ -26,8 +26,13 @@ var _ = gc.Suite(&usermanagerSuite{})
 
 func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.usermanager = usermanager.NewClient(s.APIState)
+	s.usermanager = usermanager.NewClient(s.OpenControllerAPI(c))
 	c.Assert(s.usermanager, gc.NotNil)
+}
+
+func (s *usermanagerSuite) TearDownTest(c *gc.C) {
+	s.usermanager.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
