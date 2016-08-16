@@ -59,7 +59,7 @@ func (i *action) Enqueued() time.Time {
 func (i *action) Started() time.Time {
 	var zero time.Time
 	if i.Started_ == nil {
-		return zero
+		return zero.UTC()
 	}
 	return *i.Started_
 }
@@ -68,7 +68,7 @@ func (i *action) Started() time.Time {
 func (i *action) Completed() time.Time {
 	var zero time.Time
 	if i.Completed_ == nil {
-		return zero
+		return zero.UTC()
 	}
 	return *i.Completed_
 }
@@ -196,16 +196,18 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		Status_:     valid["status"].(string),
 		Message_:    valid["message"].(string),
 		Parameters_: valid["parameters"].(map[string]interface{}),
-		Enqueued_:   valid["enqueued"].(time.Time),
+		Enqueued_:   valid["enqueued"].(time.Time).UTC(),
 		Results_:    valid["results"].(map[string]interface{}),
 	}
 
 	started := valid["started"].(time.Time)
 	if !started.IsZero() {
+		started = started.UTC()
 		action.Started_ = &started
 	}
 	completed := valid["completed"].(time.Time)
 	if !started.IsZero() {
+		completed = completed.UTC()
 		action.Completed_ = &completed
 	}
 	return action, nil
