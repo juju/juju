@@ -59,7 +59,7 @@ func (i *action) Enqueued() time.Time {
 func (i *action) Started() time.Time {
 	var zero time.Time
 	if i.Started_ == nil {
-		return zero.UTC()
+		return zero
 	}
 	return *i.Started_
 }
@@ -68,7 +68,7 @@ func (i *action) Started() time.Time {
 func (i *action) Completed() time.Time {
 	var zero time.Time
 	if i.Completed_ == nil {
-		return zero.UTC()
+		return zero
 	}
 	return *i.Completed_
 }
