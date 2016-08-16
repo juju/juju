@@ -984,6 +984,18 @@ class TestEnvJujuClient(ClientTest):
                 client.get_juju_output('bar')
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
+    def test_get_juju_output_merge_stderr(self):
+        env = JujuData('foo')
+        fake_popen = FakePopen('Err on out', None, 0)
+        client = EnvJujuClient(env, None, 'juju')
+        with patch('subprocess.Popen', return_value=fake_popen) as mock_popen:
+            result = client.get_juju_output('bar', merge_stderr=True)
+        self.assertEqual(result, 'Err on out')
+        mock_popen.assert_called_once_with(
+            ('juju', '--show-log', 'bar', '-m', 'foo:foo'),
+            stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE)
+
     def test_get_juju_output_full_cmd(self):
         env = JujuData('foo')
         fake_popen = FakePopen(None, 'Hello!', 1)
@@ -2568,7 +2580,7 @@ class TestEnvJujuClient(ClientTest):
             'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
             frozenset(
                 ['address-allocation', 'migration']), 'foo',
-            'name:name', None, user_name=None)
+            'name:name', user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -2809,6 +2821,51 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertEqual(cloned.env.controller.name, controller_name)
         self.assertEqual(fake_client.env.controller.name, 'name')
+
+    def test_ssh_keys(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        given_output = 'ssh keys output'
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=given_output) as mock:
+            output = client.ssh_keys()
+        self.assertEqual(output, given_output)
+        mock.assert_called_once_with('ssh-keys')
+
+    def test_ssh_keys_full(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        given_output = 'ssh keys full output'
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=given_output) as mock:
+            output = client.ssh_keys(full=True)
+        self.assertEqual(output, given_output)
+        mock.assert_called_once_with('ssh-keys', '--full')
+
+    def test_add_ssh_key(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.add_ssh_key('ak', 'bk')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'add-ssh-key', 'ak', 'bk', merge_stderr=True)
+
+    def test_remove_ssh_key(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.remove_ssh_key('ak', 'bk')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'remove-ssh-key', 'ak', 'bk', merge_stderr=True)
+
+    def test_import_ssh_key(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.import_ssh_key('gh:au', 'lp:bu')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'import-ssh-key', 'gh:au', 'lp:bu', merge_stderr=True)
 
 
 class TestEnvJujuClient2B8(ClientTest):
@@ -4643,7 +4700,7 @@ class TestEnvJujuClient1X(ClientTest):
             'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
             frozenset(
                 ['address-allocation', 'migration']),
-            'foo', 'name', None, user_name=None)
+            'foo', 'name', user_name=None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4732,6 +4789,51 @@ class TestEnvJujuClient1X(ClientTest):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for juju get'):
                 client.get_service_config('foo')
+
+    def test_ssh_keys(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        given_output = 'ssh keys output'
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=given_output) as mock:
+            output = client.ssh_keys()
+        self.assertEqual(output, given_output)
+        mock.assert_called_once_with('authorized-keys', 'list')
+
+    def test_ssh_keys_full(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        given_output = 'ssh keys full output'
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=given_output) as mock:
+            output = client.ssh_keys(full=True)
+        self.assertEqual(output, given_output)
+        mock.assert_called_once_with('authorized-keys', 'list', '--full')
+
+    def test_add_ssh_key(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.add_ssh_key('ak', 'bk')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'authorized-keys', 'add', 'ak', 'bk', merge_stderr=True)
+
+    def test_remove_ssh_key(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.remove_ssh_key('ak', 'bk')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'authorized-keys', 'delete', 'ak', 'bk', merge_stderr=True)
+
+    def test_import_ssh_key(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='') as mock:
+            output = client.import_ssh_key('gh:au', 'lp:bu')
+        self.assertEqual(output, '')
+        mock.assert_called_once_with(
+            'authorized-keys', 'import', 'gh:au', 'lp:bu', merge_stderr=True)
 
 
 class TestUniquifyLocal(TestCase):

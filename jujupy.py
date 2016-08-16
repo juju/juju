@@ -672,8 +672,9 @@ class Juju2Backend:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None, user_name=None):
+    def get_juju_output(self, command, args, used_feature_flags, juju_home,
+                        model=None, timeout=None, user_name=None,
+                        merge_stderr=False):
         args = self.full_args(command, args, model, timeout)
         env = self.shell_environ(used_feature_flags, juju_home)
         log.debug(args)
@@ -682,7 +683,7 @@ class Juju2Backend:
         with scoped_environ(env):
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
             sub_output, sub_error = proc.communicate()
             log.debug(sub_output)
             if proc.returncode != 0:
@@ -690,7 +691,7 @@ class Juju2Backend:
                 e = subprocess.CalledProcessError(
                     proc.returncode, args, sub_output)
                 e.stderr = sub_error
-                if (
+                if sub_error and (
                     'Unable to connect to environment' in sub_error or
                         'MissingOrIncorrectVersionHeader' in sub_error or
                         '307: Temporary Redirect' in sub_error):
@@ -1157,10 +1158,11 @@ class EnvJujuClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
-        timeout = kwargs.get('timeout')
+        pass_kwargs = dict(
+            (k, kwargs[k]) for k in kwargs if k in ['timeout', 'merge_stderr'])
         return self._backend.get_juju_output(
             command, args, self.used_feature_flags, self.env.juju_home,
-            model, timeout, user_name=self.env.user_name)
+            model, user_name=self.env.user_name, **pass_kwargs)
 
     def show_status(self):
         """Print the status to output."""
@@ -1956,6 +1958,25 @@ class EnvJujuClient:
         else:
             raise
 
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('ssh-keys', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('add-ssh-key', *keys, merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('remove-ssh-key', *keys, merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 
@@ -2445,6 +2466,28 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         self.juju('storage pool create',
                   (name, provider,
                    'size={}'.format(size)))
+
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('authorized-keys', 'list', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('authorized-keys', 'add', *keys,
+                                    merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('authorized-keys', 'delete', *keys,
+                                    merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('authorized-keys', 'import', *keys,
+                                    merge_stderr=True)
 
 
 class EnvJujuClient22(EnvJujuClient1X):
