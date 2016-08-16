@@ -73,7 +73,7 @@ func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
 			}),
 			newAction(ActionArgs{
 				Name:       "bing",
-				Enqueued:   time.Now(),
+				Enqueued:   time.Now().UTC(),
 				Parameters: map[string]interface{}{"bop": 4, "beep": "fish"},
 				Results:    map[string]interface{}{"eggs": 5, "spam": "wow"},
 			}),
