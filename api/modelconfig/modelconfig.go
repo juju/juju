@@ -5,6 +5,7 @@ package modelconfig
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -92,13 +93,43 @@ func (c *Client) ModelDefaults() (config.ConfigValues, error) {
 }
 
 // SetModelDefaults updates the specified default model config values.
-func (c *Client) SetModelDefaults(config map[string]interface{}) error {
-	args := params.ModelSet{Config: config}
-	return c.facade.FacadeCall("SetModelDefaults", args, nil)
+func (c *Client) SetModelDefaults(cloud, region string, config map[string]interface{}) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config:      config,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("SetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }
 
 // UnsetModelDefaults removes the specified default model config values.
-func (c *Client) UnsetModelDefaults(keys ...string) error {
-	args := params.ModelUnset{Keys: keys}
-	return c.facade.FacadeCall("UnsetModelDefaults", args, nil)
+func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys:        keys,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("UnsetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

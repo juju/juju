@@ -93,7 +93,7 @@ type setModelDefaultsAPI interface {
 
 	// SetModelDefaults sets the default config values to use
 	// when creating new models.
-	SetModelDefaults(config map[string]interface{}) error
+	SetModelDefaults(cloud, region string, config map[string]interface{}) error
 }
 
 func (c *setDefaultsCommand) Run(ctx *cmd.Context) error {
@@ -103,5 +103,6 @@ func (c *setDefaultsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.SetModelDefaults(c.values), block.BlockChange)
+	// TODO(wallyworld) - call with cloud and region when that bit is done
+	return block.ProcessBlockedError(client.SetModelDefaults("", "", c.values), block.BlockChange)
 }
