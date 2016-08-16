@@ -11,6 +11,7 @@ import sys
 from time import sleep
 
 import pexpect
+from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     assess_upgrade,
@@ -19,6 +20,7 @@ from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    temp_dir,
     until_timeout,
 )
 
@@ -32,7 +34,9 @@ log = logging.getLogger("assess_model_migration")
 def assess_model_migration(bs1, bs2, upload_tools):
     # ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
     # ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
-    ensure_migrating_with_user_permissions(bs1, bs2, upload_tools)
+    with temp_dir() as temp:
+        ensure_migrating_with_user_permissions(
+            bs1, bs2, upload_tools, temp)
 
 
 def parse_args(argv):
@@ -162,6 +166,8 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
 def migrate_model_to_controller(source_environ, dest_environ):
+    # I think this should be changed so that source_environ is a client
+    # (JujuEnv)
     source_environ.client.controller_juju(
         'migrate',
         (source_environ.client.env.environment,
@@ -299,7 +305,7 @@ def _register_user(client, register_token, controller, password):
                 'Registering user failed: pexpect session timed out')
 
 
-def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools):
+def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
     """To migrate a user must have controller admin privileges.
 
     A Regular user (just read access to a model) cannot migrate a model
@@ -308,33 +314,45 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools):
 
     """
     with bs1.booted_context(upload_tools):
+        import ipdb; ipdb.set_trace()
         bs1.client.enable_feature('migration')
 
         # Create a normal user.
-        register_token = bs1.client.add_user(
-            'model-creator', permissions='write')
-        # Set password and logout.
-        _set_user_password(bs1.client, 'admin', 'juju')
-        bs1.client.juju('logout', (), include_e=False)
+        new_user_home = os.path.join(temp_dir, 'userA')
+        os.makedirs(new_user_home)
+        new_user = User('model-creator', 'write', [])
+        normal_user_client = bs1.client.register_user(new_user, new_user_home)
+        bs1.client.juju(
+            'grant', (new_user.name, 'addmodel'), include_e=False)
+        # register_token = bs1.client.add_user(
+        #     'model-creator', permissions='write')
+        # # Set password and logout.
 
-        # Have this normie register and login
-        _register_user(
-            bs1.client, register_token, 'normal_controller', 'juju')
+        # Needed?
+        # _set_user_password(bs1.client, 'admin', 'juju')
+
+        # bs1.client.juju('logout', (), include_e=False)
+
+        # # Have this normie register and login
+        # _register_user(
+        #     bs1.client, register_token, 'normal_controller', 'juju')
         # And create a model && deploy
 
         # Workout the id pub rsa to pass in :
         # --config authorized-keys="ssh-rsa
         def _get_rsa_pub(home_dir):
-            # Actually find the right file. Hard code for now.
             full_path = os.path.join(home_dir, 'ssh', 'juju_id_rsa.pub')
             with open(full_path, 'r') as f:
                 return f.read().replace('\n', '')
 
         # Need to log user into the controller.
-        normal_user_client = bs1.client.clone(bs1.client.env.clone())
-        _log_user_in(normal_user_client, 'model-creator', 'juju')
+        # >> Handled by .register_user
+        # normal_user_client = bs1.client.clone(bs1.client.env.clone())
+
+        # _log_user_in(normal_user_client, 'model-creator', 'model-creator_password')
         rsa_pub = _get_rsa_pub(normal_user_client.env.juju_home)
         normal_user_client.env.config['authorized-keys'] = rsa_pub
+        # Step into this method.
         normal_user_client.add_model(normal_user_client.env.clone('new-model'))
 
         # Comment for now for time.
@@ -342,10 +360,12 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools):
         # normal_user_client.wait_for_started()
 
         # Normie logs out, thanks normie.
-        normal_user_client.controller_juju('logout', ())
+        # normal_user_client.controller_juju('logout', ())
+        normal_user_client.logout()
 
         # Log back in admin/sys user.
-        _log_user_in(bs1.client, 'admin', 'juju')
+        # Needed?
+        # _log_user_in(bs1.client, 'admin', 'juju')
 
         # Bootstrap new env
         log.info('Booting second instance')
@@ -354,13 +374,17 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools):
             log.info('Initiating migration process')
             # Admin starts migration
             # This should be the new-model client
-            bs1.client.controller_juju(
-                'migrate',
-                (normal_user_client.env.environment,
-                 'local.{}'.format(bs2.client.env.controller.name)))
+            # bs1.client.controller_juju(
+            #     'migrate',
+            #     (normal_user_client.env.environment,
+            #      'local.{}'.format(bs2.client.env.controller.name)))
 
-            migration_target_client = bs2.client.clone(
-                bs2.client.env.clone(normal_user_client.env.environment))
+            # migration_target_client = bs2.client.clone(
+            #     bs2.client.env.clone(normal_user_client.env.environment))
+
+            # bs1.client.env.environment will be different to
+            # normal_user_client.env.environment
+            migration_target_client = migrate_model_to_controller(bs1, bs2)
 
             wait_for_model(
                 migration_target_client, normal_user_client.env.environment)
