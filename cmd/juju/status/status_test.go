@@ -3156,7 +3156,59 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	// This test isn't part of statusTests because migrations can't be
 	// run on controller models.
+	s.setupMigrationTest(c)
 
+	expected := M{
+		"model": M{
+			"name":       "hosted",
+			"controller": "kontroll",
+			"cloud":      "dummy",
+			"version":    "1.2.3",
+			"migration":  "foo bar",
+		},
+		"machines":     M{},
+		"applications": M{},
+	}
+
+	for _, format := range statusFormats {
+		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
+		c.Check(code, gc.Equals, 0)
+		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		// Roundtrip expected through format so that types will match.
+		buf, err := format.marshal(expected)
+		c.Assert(err, jc.ErrorIsNil)
+		var expectedForFormat M
+		err = format.unmarshal(buf, &expectedForFormat)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var actual M
+		c.Assert(format.unmarshal(stdout, &actual), jc.ErrorIsNil)
+		c.Check(actual, jc.DeepEquals, expectedForFormat)
+	}
+}
+
+func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
+	expected := `
+MODEL   CONTROLLER  CLOUD/REGION  VERSION  MESSAGE
+hosted  kontroll    dummy         1.2.3    migrating: foo bar
+
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+
+UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+
+`[1:]
+
+	s.setupMigrationTest(c)
+	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	c.Check(code, gc.Equals, 0)
+	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+	c.Assert(string(stdout), gc.Equals, expected)
+}
+
+func (s *StatusSuite) setupMigrationTest(c *gc.C) {
 	const hostedModelName = "hosted"
 	const statusText = "foo bar"
 
@@ -3179,35 +3231,6 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mig.SetStatusMessage(statusText)
 	c.Assert(err, jc.ErrorIsNil)
-
-	expected := M{
-		"model": M{
-			"name":       hostedModelName,
-			"controller": "kontroll",
-			"cloud":      "dummy",
-			"version":    "1.2.3",
-			"migration":  statusText,
-		},
-		"machines":     M{},
-		"applications": M{},
-	}
-
-	for _, format := range statusFormats {
-		code, stdout, stderr := runStatus(c, "-m", hostedModelName, "--format", format.name)
-		c.Check(code, gc.Equals, 0)
-		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-
-		// Roundtrip expected through format so that types will match.
-		buf, err := format.marshal(expected)
-		c.Assert(err, jc.ErrorIsNil)
-		var expectedForFormat M
-		err = format.unmarshal(buf, &expectedForFormat)
-		c.Assert(err, jc.ErrorIsNil)
-
-		var actual M
-		c.Assert(format.unmarshal(stdout, &actual), jc.ErrorIsNil)
-		c.Check(actual, jc.DeepEquals, expectedForFormat)
-	}
 }
 
 type fakeApiClient struct {
@@ -3434,8 +3457,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
-controller  kontroll    dummy         1.2.3    1.2.4
+MODEL       CONTROLLER  CLOUD/REGION  VERSION  MESSAGE
+controller  kontroll    dummy         1.2.3    upgrade available: 1.2.4
 
 APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
 logging    a bi...               true     jujucharms  logging    1    ubuntu
