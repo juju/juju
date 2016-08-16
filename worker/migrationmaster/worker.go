@@ -287,7 +287,7 @@ func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
 	err := w.transferModel(targetInfo, modelUUID)
 	if err != nil {
-		w.setErrorStatus("model data transfer failed: %v", err)
+		w.setErrorStatus("model data transfer failed, %v", err)
 		return coremigration.ABORT, nil
 	}
 	return coremigration.VALIDATION, nil
@@ -336,7 +336,7 @@ func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID str
 	// Once all agents have validated, activate the model.
 	err := w.activateModel(targetInfo, modelUUID)
 	if err != nil {
-		w.setErrorStatus("model activation failed %v", err)
+		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil
 	}
 	return coremigration.SUCCESS, nil
@@ -373,7 +373,7 @@ func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
-	w.setInfoStatus("successful: removing model from source controller")
+	w.setInfoStatus("successful, removing model from source controller")
 	err := w.config.Facade.Reap()
 	if err != nil {
 		return coremigration.REAPFAILED, errors.Trace(err)
@@ -382,11 +382,11 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	w.setInfoStatus("aborted: removing model from target controller")
+	w.setInfoStatus("aborted, removing model from target controller")
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.
-		w.setErrorStatus("failed to remove model from target controller: %v", err)
+		w.setErrorStatus("failed to remove model from target controller, %v", err)
 	}
 	return coremigration.ABORTDONE, nil
 }
@@ -458,7 +458,7 @@ func (w *Worker) waitForMinions(
 	maxWait := maxMinionWait - clk.Now().Sub(status.PhaseChangedTime)
 	timeout := clk.After(maxWait)
 
-	w.setInfoStatus("%s: waiting for agents to report back", infoPrefix)
+	w.setInfoStatus("%s, waiting for agents to report back", infoPrefix)
 	w.logger.Infof("waiting for agents to report back for migration phase %s (will wait up to %s)",
 		status.Phase, truncDuration(maxWait))
 
@@ -479,8 +479,8 @@ func (w *Worker) waitForMinions(
 			return false, w.catacomb.ErrDying()
 
 		case <-timeout:
-			w.logger.Errorf(formatMinionTimeout(reports, status))
-			w.setErrorStatus("%s: timed out waiting for all agents to report", infoPrefix)
+			w.logger.Errorf(formatMinionTimeout(reports, status, infoPrefix))
+			w.setErrorStatus("%s, timed out waiting for agents to report", infoPrefix)
 			return false, nil
 
 		case <-watch.Changes():
@@ -494,23 +494,26 @@ func (w *Worker) waitForMinions(
 			}
 			failures := len(reports.FailedMachines) + len(reports.FailedUnits)
 			if failures > 0 {
-				w.logger.Errorf(formatMinionFailure(reports))
-				w.setErrorStatus("%s: some agents reported failure", infoPrefix)
+				w.logger.Errorf(formatMinionFailure(reports, infoPrefix))
+				w.setErrorStatus("%s, some agents reported failure", infoPrefix)
 				if waitPolicy == failFast {
 					return false, nil
 				}
 			}
 			if reports.UnknownCount == 0 {
-				w.logger.Infof(formatMinionWaitDone(reports))
+				msg := formatMinionWaitDone(reports, infoPrefix)
 				if failures > 0 {
-					w.setErrorStatus("%s: some agents reported failure", infoPrefix)
+					w.logger.Infof(msg)
+					w.setErrorStatus("%s, some agents reported failure", infoPrefix)
 					return false, nil
 				}
+				w.logger.Errorf(msg)
+				w.setInfoStatus("%s, all agents reported success", infoPrefix)
 				return true, nil
 			}
 
 		case <-logProgress:
-			w.setInfoStatus("%s: ", infoPrefix, formatMinionWaitUpdate(reports))
+			w.setInfoStatus("%s, %s", infoPrefix, formatMinionWaitUpdate(reports))
 			logProgress = clk.After(minionWaitLogInterval)
 		}
 	}
@@ -532,30 +535,40 @@ func validateMinionReports(reports coremigration.MinionReports, status coremigra
 	return nil
 }
 
-func formatMinionTimeout(reports coremigration.MinionReports, status coremigration.MigrationStatus) string {
+func formatMinionTimeout(
+	reports coremigration.MinionReports,
+	status coremigration.MigrationStatus,
+	infoPrefix string,
+) string {
 	if reports.IsZero() {
 		return fmt.Sprintf("no agents reported in time")
 	}
 
-	msg := "%s agents failed to report in time for migration phase %s including:"
+	var fails []string
 	if len(reports.SomeUnknownMachines) > 0 {
-		msg += fmt.Sprintf("machines: %s;", strings.Join(reports.SomeUnknownMachines, ", "))
+		fails = append(fails, fmt.Sprintf("machines: %s", strings.Join(reports.SomeUnknownMachines, ",")))
 	}
 	if len(reports.SomeUnknownUnits) > 0 {
-		msg += fmt.Sprintf(" units: %s", strings.Join(reports.SomeUnknownUnits, ", "))
+		fails = append(fails, fmt.Sprintf("units: %s", strings.Join(reports.SomeUnknownUnits, ",")))
 	}
-	return msg
+	return fmt.Sprintf("%d agents failed to report in time for %q phase (including %s)",
+		reports.UnknownCount, infoPrefix, strings.Join(fails, "; "))
 }
 
-func formatMinionFailure(reports coremigration.MinionReports) string {
-	msg := fmt.Sprintf("some agents failed %s: ", reports.Phase)
+func formatMinionFailure(reports coremigration.MinionReports, infoPrefix string) string {
+	var fails []string
 	if len(reports.FailedMachines) > 0 {
-		msg += fmt.Sprintf("failed machines: %s; ", strings.Join(reports.FailedMachines, ", "))
+		fails = append(fails, fmt.Sprintf("machines: %s", strings.Join(reports.FailedMachines, ",")))
 	}
 	if len(reports.FailedUnits) > 0 {
-		msg += fmt.Sprintf("failed units: %s", strings.Join(reports.FailedUnits, ", "))
+		fails = append(fails, fmt.Sprintf("units: %s", strings.Join(reports.FailedUnits, ",")))
 	}
-	return msg
+	return fmt.Sprintf("agents failed phase %q (%s)", infoPrefix, strings.Join(fails, "; "))
+}
+
+func formatMinionWaitDone(reports coremigration.MinionReports, infoPrefix string) string {
+	return fmt.Sprintf("completed waiting for agents to report for %q, %d succeeded, %d failed",
+		infoPrefix, reports.SuccessCount, len(reports.FailedMachines)+len(reports.FailedUnits))
 }
 
 func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
@@ -570,11 +583,6 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 		msg += fmt.Sprintf(", %d failed", failed)
 	}
 	return msg
-}
-
-func formatMinionWaitDone(reports coremigration.MinionReports) string {
-	return fmt.Sprintf("completed waiting for agents to report for %s: %d succeeded, %d failed",
-		reports.Phase, reports.SuccessCount, len(reports.FailedMachines)+len(reports.FailedUnits))
 }
 
 func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {
