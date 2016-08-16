@@ -951,7 +951,8 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(),
+	ctx := coretesting.Context(c)
+	opc, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(),
 		"--keep-broken",
 		"devcontroller", "dummy-cloud/region-1",
 		"--config", "broken=Bootstrap Destroy",
@@ -980,6 +981,8 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 			break
 		}
 	}
+	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	c.Assert(stderr, gc.Matches, `.*See .*juju kill\-controller.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {

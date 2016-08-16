@@ -48,7 +48,7 @@ Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
-We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west-1’
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.
 
@@ -603,10 +603,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Infof(`
-bootstrap failed but --keep-broken was specified so model is not being destroyed.
-When you are finished diagnosing the problem, remember to run juju destroy-model --force
-to clean up the model.`[1:])
+				ctx.Infof(`
+bootstrap failed but --keep-broken was specified so resources are not being destroyed.
+When you have finished diagnosing the problem, remember to clean up the failed controller.
+See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
