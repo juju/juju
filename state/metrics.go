@@ -171,15 +171,11 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	return results, nil
 }
 
-func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
+func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
-	if query == nil {
-		query = bson.M{}
-	}
-	query["charmurl"] = bson.M{"$regex": "^local:"}
-	err := c.Find(query).All(&docs)
+	err := c.Find(query).Sort("-created").All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -190,13 +186,13 @@ func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
 	return results, nil
 }
 
-// MetricBatchesUnit returns metric batches for the given unit.
+// MetricBatchesForUnit returns metric batches for the given unit.
 func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
-	return st.queryLocalMetricBatches(bson.M{"unit": unit})
+	return st.queryMetricBatches(bson.M{"unit": unit})
 }
 
-// MetricBatchesUnit returns metric batches for the given application.
-func (st *State) MetricBatchesForService(application string) ([]MetricBatch, error) {
+// MetricBatchesForApplication returns metric batches for the given application.
+func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
 	svc, err := st.Application(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -209,7 +205,7 @@ func (st *State) MetricBatchesForService(application string) ([]MetricBatch, err
 	for i, u := range units {
 		unitNames[i] = bson.M{"unit": u.Name()}
 	}
-	return st.queryLocalMetricBatches(bson.M{"$or": unitNames})
+	return st.queryMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.
