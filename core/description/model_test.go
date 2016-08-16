@@ -637,7 +637,7 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 
 func (s *ModelSerializationSuite) TestAction(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	enqueued := time.Now()
+	enqueued := time.Now().UTC()
 	action := initial.AddAction(ActionArgs{
 		Name:       "foo",
 		Enqueued:   enqueued,
