@@ -69,9 +69,6 @@ func NewControllerAPI(
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,6 +77,9 @@ func NewControllerAPI(
 	if !isAdmin {
 		return nil, errors.Trace(common.ErrPerm)
 	}
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
@@ -92,10 +92,43 @@ func NewControllerAPI(
 	}, nil
 }
 
+func (s *ControllerAPI) hasReadAccess() (bool, error) {
+	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canRead, err
+
+}
+
+func (s *ControllerAPI) hasWriteAccess() (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
+}
+
+func (s *ControllerAPI) hasAdminAccess() (bool, error) {
+	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return isAdmin, err
+}
+
 // AllModels allows controller administrators to get the list of all the
 // environments in the controller.
 func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
+
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
 
 	// Get all the environments that the authenticated user can see, and
 	// supplement that with the other environments that exist that the user
@@ -153,7 +186,13 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 // list.
 func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !admin {
+		return results, common.ServerError(common.ErrPerm)
+	}
 	blocks, err := s.state.AllBlocksForController()
 	if err != nil {
 		return results, errors.Trace(err)
@@ -196,6 +235,13 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // client.ModelGet
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
 
 	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
@@ -218,6 +264,14 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 
 // RemoveBlocks removes all the blocks in the controller.
 func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !admin {
+		return common.ServerError(common.ErrPerm)
+	}
+
 	if !args.All {
 		return errors.New("not supported")
 	}
@@ -265,6 +319,14 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
 	envs := req.Entities
 	results := params.ModelStatusResults{}
+	admin, err := c.hasAdminAccess()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !admin {
+		return results, common.ServerError(common.ErrPerm)
+	}
+
 	status := make([]params.ModelStatus, len(envs))
 	for i, env := range envs {
 		envStatus, err := c.environStatus(env.Tag)
@@ -285,6 +347,14 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 	out := params.InitiateModelMigrationResults{
 		Results: make([]params.InitiateModelMigrationResult, len(reqArgs.Specs)),
 	}
+	admin, err := c.hasAdminAccess()
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+	if !admin {
+		return out, common.ServerError(common.ErrPerm)
+	}
+
 	for i, spec := range reqArgs.Specs {
 		result := &out.Results[i]
 		result.ModelTag = spec.ModelTag
@@ -491,7 +561,6 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
 func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
-
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)

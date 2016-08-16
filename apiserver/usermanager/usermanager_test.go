@@ -203,14 +203,8 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	got, err := usermanager.AddUser(args)
-
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals,
-			&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.AddUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -359,12 +353,8 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	got, err := usermanager.DisableUser(args)
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.DisableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -382,12 +372,8 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	got, err := usermanager.EnableUser(args)
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.EnableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -685,12 +671,9 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove jjam as chuck and fail.
-	got, err := usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(got.Results, gc.HasLen, 1)
-	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
-		&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Make sure jjam is still around.
 	err = jjam.Refresh()
@@ -718,12 +701,9 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove the user as the user
-	got, err := usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
-		&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Check if deleted.
 	err = jjam.Refresh()

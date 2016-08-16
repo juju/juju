@@ -4,9 +4,9 @@
 package apiserver
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"

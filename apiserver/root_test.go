@@ -421,7 +421,7 @@ func (r *rootSuite) TestNoUserTagLacksPermission(c *gc.C) {
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	hasPermission, err := apiserver.HasPermission((&fakeUserAccess{}).call, nonUser, description.ReadAccess, target)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "obtaining permission for subject kind \"model\" not valid")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (r *rootSuite) TestHasPermission(c *gc.C) {
@@ -503,8 +503,8 @@ func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
 		err:  errors.NotFoundf("a user"),
 	}
 	hasPermission, err := apiserver.HasPermission(userGetter.call, user, description.ReadAccess, target)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "while obtaining model user: a user not found")
 	c.Assert(userGetter.subjects, gc.HasLen, 1)
 	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
 	c.Assert(userGetter.objects, gc.HasLen, 1)

@@ -335,12 +335,12 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	controllerUser, err := state.ControllerAccess(f.st, utag)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
 		return nil, errors.NotFoundf("model or controller user")
@@ -354,7 +354,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		u.user = user
 	}
@@ -433,7 +433,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 		// to implement LastLogin error semantics too.
 		err = state.NeverLoggedInError(err.Error())
 	}
-	return t, err
+	return t, errors.Trace(err)
 }
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.

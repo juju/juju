@@ -32,7 +32,8 @@ var _ = gc.Suite(&modelconfigSuite{})
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("bruce@local"),
+		Tag:      names.NewUserTag("bruce@local"),
+		AdminTag: names.NewUserTag("bruce@local"),
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
@@ -272,6 +273,10 @@ func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, err
 	} else {
 		return nil, false, nil
 	}
+}
+
+func (m *mockBackend) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
 type mockBlock struct {
