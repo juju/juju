@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
@@ -214,6 +215,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if args.BootstrapSeries != "" {
 		bootstrapSeries = &args.BootstrapSeries
 	}
+	// If no arch is specified as a constraint, we'll bootstrap
+	// on the same arch as the client used to bootstrap.
+	var bootstrapArch string
+	if bootstrapConstraints.Arch != nil {
+		bootstrapArch = *bootstrapConstraints.Arch
+	} else {
+		bootstrapArch = arch.HostArch()
+	}
 
 	ctx.Infof("Bootstrapping model %q", cfg.Name())
 	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
@@ -222,7 +231,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, bootstrapConstraints.Arch, bootstrapSeries)
+		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -234,7 +243,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err := validateUploadAllowed(environ, bootstrapConstraints.Arch, bootstrapSeries); err != nil {
+		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries); err != nil {
 			return err
 		}
 		var forceVersion version.Number

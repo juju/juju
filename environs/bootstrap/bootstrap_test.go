@@ -285,6 +285,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		c.Fatal("should not call FindTools if BuildAgent is specified")
 		return nil, errors.NotFoundf("tools")
 	})
 
@@ -306,6 +307,44 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	agentVersion, valid := cfg.AgentVersion()
 	c.Check(valid, jc.IsTrue)
 	c.Check(agentVersion.String(), gc.Equals, "1.99.0.1")
+}
+
+func (s *bootstrapSuite) TestBootstrapPackagedToolsAvailable(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
+	// such as s390.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	findToolsOk := false
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, _ int, _ int, _ string, filter tools.Filter) (tools.List, error) {
+		c.Assert(filter.Arch, gc.Equals, arch.ARM64)
+		c.Assert(filter.Series, gc.Equals, "quantal")
+		findToolsOk = true
+		vers := version.Binary{
+			Number: jujuversion.Current,
+			Series: "quantal",
+			Arch:   arch.ARM64,
+		}
+		return tools.List{{
+			Version: vers,
+		}}, nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapSeries:  "quantal",
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			c.Fatal("should not call BuildAgentTarball if there are packaged tools")
+			return nil, nil
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(findToolsOk, jc.IsTrue)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {

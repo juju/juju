@@ -48,12 +48,11 @@ func NewRestoreCommand() cmd.Command {
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints           constraints.Value
-	filename              string
-	backupId              string
-	bootstrap             bool
-	buildAgent            bool
-	uploadToolsDeprecated bool
+	constraints constraints.Value
+	filename    string
+	backupId    string
+	bootstrap   bool
+	buildAgent  bool
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
@@ -113,7 +112,6 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
 	f.BoolVar(&c.buildAgent, "build-agent", false, "Build binary agent if bootstraping a new machine")
-	f.BoolVar(&c.uploadToolsDeprecated, "upload-tools", false, "DEPRECATED: see build-agent")
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -126,11 +124,6 @@ func (c *restoreCommand) Init(args []string) error {
 	}
 	if c.backupId != "" && c.bootstrap {
 		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
-	}
-
-	// TODO(wallyworld) - remove me when CI scripts updated
-	if c.uploadToolsDeprecated {
-		c.buildAgent = c.uploadToolsDeprecated
 	}
 
 	var err error
