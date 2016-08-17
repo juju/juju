@@ -49,34 +49,6 @@ func (s *UserSuite) TestUserAdd(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
 
-func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
-	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "amodel",
-	})
-	defer sharedModelState.Close()
-
-	ctx, err := s.RunUserCommand(c, "", "add-user", "test", "--models", "amodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
-	user, err := s.State.User(names.NewLocalUserTag("test"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.IsDisabled(), jc.IsFalse)
-
-	// Check model is shared with expected users.
-	sharedModel, err := sharedModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	users, err := sharedModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	var modelUserTags = make([]names.UserTag, len(users))
-	for i, u := range users {
-		modelUserTags[i] = u.UserTag
-	}
-	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
-		user.Tag().(names.UserTag),
-		names.NewLocalUserTag("admin"),
-	})
-}
-
 func (s *UserSuite) TestUserChangePassword(c *gc.C) {
 	user, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)

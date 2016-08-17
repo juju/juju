@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
@@ -136,31 +135,6 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 			}
 		}
 
-		if len(arg.SharedModelTags) > 0 {
-			modelAccess, err := modelmanager.FromModelAccessParam(arg.ModelAccess)
-			if err != nil {
-				err = errors.Annotatef(err, "user %q created but models not shared", arg.Username)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			userTag := user.Tag().(names.UserTag)
-			for _, modelTagStr := range arg.SharedModelTags {
-				modelTag, err := names.ParseModelTag(modelTagStr)
-				if err != nil {
-					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
-					result.Results[i].Error = common.ServerError(err)
-					break
-				}
-				err = modelmanager.ChangeModelAccess(
-					common.NewModelManagerBackend(api.state), modelTag, api.apiUser,
-					userTag, params.GrantModelAccess, modelAccess, api.isAdmin)
-				if err != nil {
-					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
-					result.Results[i].Error = common.ServerError(err)
-					break
-				}
-			}
-		}
 	}
 	return result, nil
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -78,11 +77,9 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermis
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{
-			Username:        "foobar",
-			DisplayName:     "Foo Bar",
-			Password:        "password",
-			SharedModelTags: sharedModelTags,
-			ModelAccess:     access,
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+			Password:    "password",
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
@@ -132,40 +129,6 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
 		Tag:       foobarTag.String(),
 		SecretKey: user.SecretKey(),
-	})
-}
-
-func (s *userManagerSuite) TestAddReadAccessUser(c *gc.C) {
-	s.addUserWithSharedModel(c, params.ModelReadAccess)
-}
-
-func (s *userManagerSuite) TestAddWriteAccessUser(c *gc.C) {
-	s.addUserWithSharedModel(c, params.ModelWriteAccess)
-}
-
-func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.UserAccessPermission) {
-	sharedModelState := s.Factory.MakeModel(c, nil)
-	defer sharedModelState.Close()
-
-	s.assertAddUser(c, access, []string{sharedModelState.ModelTag().String()})
-
-	// Check that the model has been shared.
-	sharedModel, err := sharedModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	users, err := sharedModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	var modelUserTags = make([]names.UserTag, len(users))
-	for i, u := range users {
-		modelUserTags[i] = u.UserTag
-		if u.UserName == "foobar" {
-			c.Assert(u.Access, gc.Equals, description.ReadAccess)
-		} else if u.UserName == "admin" {
-			c.Assert(u.Access, gc.Equals, description.AdminAccess)
-		}
-	}
-	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
-		names.NewLocalUserTag("foobar"),
-		names.NewLocalUserTag("admin"),
 	})
 }
 
