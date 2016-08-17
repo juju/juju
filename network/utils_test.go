@@ -6,8 +6,10 @@
 package network_test
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -118,4 +120,28 @@ search two three #comment ;also-comment still-comment
 	c.Check(result, jc.DeepEquals, &network.DNSConfig{
 		SearchDomains: []string{"two", "three"},
 	})
+}
+
+func (s *UtilsSuite) TestSupportsIPv6Error(c *gc.C) {
+	s.PatchValue(network.NetListen, func(netFamily, bindAddress string) (net.Listener, error) {
+		c.Check(netFamily, gc.Equals, "tcp6")
+		c.Check(bindAddress, gc.Equals, "[::1]:0")
+		return nil, errors.New("boom!")
+	})
+	c.Check(network.SupportsIPv6(), jc.IsFalse)
+}
+
+type mockListener struct {
+	net.Listener
+}
+
+func (*mockListener) Close() error {
+	return nil
+}
+
+func (s *UtilsSuite) TestSupportsIPv6OK(c *gc.C) {
+	s.PatchValue(network.NetListen, func(_, _ string) (net.Listener, error) {
+		return &mockListener{}, nil
+	})
+	c.Check(network.SupportsIPv6(), jc.IsTrue)
 }
