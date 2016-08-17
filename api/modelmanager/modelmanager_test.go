@@ -49,7 +49,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newModel.Name, gc.Equals, "new-model")
 	c.Assert(newModel.OwnerTag, gc.Equals, user.Tag().String())
-	c.Assert(newModel.CloudRegion, gc.Equals, "")
+	c.Assert(newModel.CloudRegion, gc.Equals, "dummy-region")
 	c.Assert(utils.IsValidUUIDString(newModel.UUID), jc.IsTrue)
 }
 

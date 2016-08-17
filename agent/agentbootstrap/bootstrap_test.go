@@ -165,11 +165,11 @@ LXC_BRIDGE="ignored"`[1:])
 			ControllerCloud: cloud.Cloud{
 				Type:         "dummy",
 				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:      []cloud.Region{{Name: "some-region"}},
+				Regions:      []cloud.Region{{Name: "dummy-region"}},
 				RegionConfig: regionConfig,
 			},
 			ControllerCloudName:       "dummy",
-			ControllerCloudRegion:     "some-region",
+			ControllerCloudRegion:     "dummy-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
 			ModelConstraints:          expectModelConstraints,
@@ -247,7 +247,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -313,7 +313,7 @@ LXC_BRIDGE="ignored"`[1:])
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
-			Region: "some-region",
+			Region: "dummy-region",
 		},
 		Config: hostedCfg,
 	})

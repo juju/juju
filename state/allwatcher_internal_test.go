@@ -57,7 +57,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"uuid": utils.MustNewUUID().String(),
 	})
 	_, st, err := s.state.NewModel(ModelArgs{
-		CloudName: "dummy", Config: cfg, Owner: s.owner,
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: s.owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

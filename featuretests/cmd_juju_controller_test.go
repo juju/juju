@@ -68,7 +68,7 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
 CONTROLLER  MODEL       USER         CLOUD/REGION
-kontroll*   controller  admin@local  dummy
+kontroll*   controller  admin@local  dummy/dummy-region
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -103,6 +103,7 @@ models:
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
   cloud: dummy
+  region: dummy-region
   type: dummy
   life: alive
   status:
@@ -156,7 +157,7 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Added 'new-model' model with credential 'cred' for user 'admin'
+Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'admin'
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
@@ -189,6 +190,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
+		CloudRegion: "dummy-region",
 	})
 	defer st.Close()
 	factory.NewFactory(st).MakeApplication(c, nil)
@@ -260,7 +262,8 @@ func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 
 func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "foo",
+		Name:        "foo",
+		CloudRegion: "dummy-region",
 	})
 
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")

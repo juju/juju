@@ -96,6 +96,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"test-mode":                 true,
 		},
 		Cloud:                 "dummy",
+		CloudRegion:           "dummy-region",
 		CloudType:             "dummy",
 		CloudEndpoint:         "dummy-endpoint",
 		CloudIdentityEndpoint: "dummy-identity-endpoint",

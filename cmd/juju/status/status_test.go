@@ -162,6 +162,7 @@ var (
 		"name":       "controller",
 		"controller": "kontroll",
 		"cloud":      "dummy",
+		"region":     "dummy-region",
 		"version":    "1.2.3",
 	}
 
@@ -2380,6 +2381,7 @@ var statusTests = []testCase{
 					"name":              "controller",
 					"controller":        "kontroll",
 					"cloud":             "dummy",
+					"region":            "dummy-region",
 					"version":           "1.2.3",
 					"upgrade-available": "1.2.4",
 				},
@@ -3185,6 +3187,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			"name":       hostedModelName,
 			"controller": "kontroll",
 			"cloud":      "dummy",
+			"region":     "dummy-region",
 			"version":    "1.2.3",
 			"migration":  statusText,
 		},
@@ -3434,8 +3437,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
-controller  kontroll    dummy         1.2.3    1.2.4
+MODEL       CONTROLLER  CLOUD/REGION        VERSION  UPGRADE-AVAILABLE
+controller  kontroll    dummy/dummy-region  1.2.3    1.2.4
 
 APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
 logging    a bi...               true     jujucharms  logging    1    ubuntu
@@ -3756,6 +3759,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  name: controller\n" +
 		"  controller: kontroll\n" +
 		"  cloud: dummy\n" +
+		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
@@ -4048,6 +4052,7 @@ var statusTimeTest = test(
 				"name":       "controller",
 				"controller": "kontroll",
 				"cloud":      "dummy",
+				"region":     "dummy-region",
 				"version":    "1.2.3",
 			},
 			"machines": M{
