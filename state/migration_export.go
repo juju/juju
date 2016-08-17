@@ -1176,7 +1176,15 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 	args := description.VolumeArgs{
 		Tag:     vol.VolumeTag(),
 		Binding: vol.LifeBinding(),
-		// TODO: add storage link
+	}
+	if tag, err := vol.StorageInstance(); err == nil {
+		// only returns an error when no storage tag.
+		args.Storage = tag
+	} else {
+		if !errors.IsNotAssigned(err) {
+			// This is an unexpected error.
+			return errors.Trace(err)
+		}
 	}
 	logger.Debugf("addVolume: %#v", vol.doc)
 	if info, err := vol.Info(); err == nil {

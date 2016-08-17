@@ -116,10 +116,6 @@ type machineDoc struct {
 	PasswordHash  string
 	Clean         bool
 
-	// TODO(axw) 2015-06-22 #1467379
-	// We need an upgrade step to populate "volumes" and "filesystems"
-	// for entities created in 1.24.
-	//
 	// Volumes contains the names of volumes attached to the machine.
 	Volumes []string `bson:"volumes,omitempty"`
 	// Filesystems contains the names of filesystems attached to the machine.
