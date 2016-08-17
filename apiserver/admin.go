@@ -193,14 +193,16 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		ServerVersion: jujuversion.Current.String(),
 	}
 
+	connType := "model"
 	allowFacade := isModelFacade
 	if controllerOnlyLogin {
+		connType = "controller"
 		allowFacade = isControllerFacade
 		// Remove the ModelTag from the response as there is no
 		// model here.
 		loginResult.ModelTag = ""
 	}
-	authedAPI = newRestrictedRoot(authedAPI, allowFacade)
+	authedAPI = newRestrictedRoot(authedAPI, connType, allowFacade)
 	// Strip out the facades that are not supported from the result.
 	facades := make([]params.FacadeVersions, 0, len(loginResult.Facades))
 	for _, facade := range loginResult.Facades {
