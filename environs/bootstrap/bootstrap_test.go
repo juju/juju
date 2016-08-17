@@ -309,23 +309,23 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	c.Check(agentVersion.String(), gc.Equals, "1.99.0.1")
 }
 
-func (s *bootstrapSuite) TestBootstrapPackagedToolsAvailable(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
+func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientArch string) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
-	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(&arch.HostArch, func() string { return clientArch })
+	toolsArch := clientArch
+	if toolsArch == "i386" {
+		toolsArch = "amd64"
+	}
 	findToolsOk := false
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, _ int, _ int, _ string, filter tools.Filter) (tools.List, error) {
-		c.Assert(filter.Arch, gc.Equals, arch.ARM64)
+		c.Assert(filter.Arch, gc.Equals, toolsArch)
 		c.Assert(filter.Series, gc.Equals, "quantal")
 		findToolsOk = true
 		vers := version.Binary{
 			Number: jujuversion.Current,
 			Series: "quantal",
-			Arch:   arch.ARM64,
+			Arch:   toolsArch,
 		}
 		return tools.List{{
 			Version: vers,
@@ -345,6 +345,15 @@ func (s *bootstrapSuite) TestBootstrapPackagedToolsAvailable(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsOk, jc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestBootstrapPackagedTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+	for _, a := range arch.AllSupportedArches {
+		s.assertBootstrapPackagedToolsAvailable(c, a)
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
@@ -931,10 +940,10 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C
 
 func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
-		return arch.I386
+		return arch.S390X
 	})
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
-		c.Fail()
+		c.Fatal("find packaged tools should not be called")
 		return nil, errors.New("unexpected")
 	})
 
@@ -950,7 +959,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "i386"`)
+	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "s390x"`)
 }
 
 type bootstrapEnviron struct {
@@ -1006,7 +1015,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}
-	return &environs.BootstrapResult{Arch: arch.HostArch(), Series: series, Finalize: finalizer}, nil
+	return &environs.BootstrapResult{Arch: args.AvailableTools.Arches()[0], Series: series, Finalize: finalizer}, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {

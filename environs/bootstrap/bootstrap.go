@@ -222,6 +222,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		bootstrapArch = *bootstrapConstraints.Arch
 	} else {
 		bootstrapArch = arch.HostArch()
+		// We no longer support controllers on i386.
+		// If we are bootstrapping from an i386 client,
+		// we'll look for amd64 tools.
+		if bootstrapArch == arch.I386 {
+			bootstrapArch = arch.AMD64
+		}
 	}
 
 	ctx.Infof("Bootstrapping model %q", cfg.Name())

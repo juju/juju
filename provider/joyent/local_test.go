@@ -80,7 +80,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = GetFakeConfig().Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
-	s.LiveTests.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
@@ -131,8 +131,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv.setupServer(c)
 	s.AddCleanup(s.cSrv.destroyServer)
-
-	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.Tests.SetUpTest(c)
 
 	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
