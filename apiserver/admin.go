@@ -121,6 +121,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		if kind != names.MachineTagKind {
 			return fail, errors.Trace(err)
 		}
+		if errors.Cause(err) != common.ErrBadCreds {
+			return fail, err
+		}
 		entity, err = a.checkControllerMachineCreds(req)
 		if err != nil {
 			return fail, errors.Trace(err)
