@@ -704,3 +704,18 @@ func (s *ModelSerializationSuite) TestFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Filesystems(), jc.DeepEquals, filesystems)
 }
+
+func (s *ModelSerializationSuite) TestStorage(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	storage := initial.AddStorage(testStorageArgs())
+	storages := initial.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+	c.Assert(storages[0], jc.DeepEquals, storage)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Storages(), jc.DeepEquals, storages)
+}

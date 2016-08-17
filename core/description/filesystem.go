@@ -174,6 +174,9 @@ func (f *filesystem) Validate() error {
 	if f.Status_ == nil {
 		return errors.NotValidf("filesystem %q missing status", f.ID_)
 	}
+	if _, err := f.Binding(); err != nil {
+		return errors.Wrap(err, errors.NotValidf("filesystem %q binding", f.ID_))
+	}
 	return nil
 }
 

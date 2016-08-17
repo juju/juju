@@ -1102,11 +1102,10 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 		return nil, -1, err
 	}
 	meta := charm.Meta()
-	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, numStorageAttachments, err = createStorageOps(
-		s.st, tag, meta, url, cons,
+		s.st, tag, meta, cons,
 		s.doc.Series,
 		false, // unit is not assigned yet; don't create machine storage
 	)
