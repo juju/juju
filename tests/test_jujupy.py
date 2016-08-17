@@ -2810,6 +2810,22 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(cloned.env.controller.name, controller_name)
         self.assertEqual(fake_client.env.controller.name, 'name')
 
+    def test_list_clouds(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_juju_output') as mock:
+            client.list_clouds()
+        mock.assert_called_with(
+            'list-clouds', '--format', 'json', include_e=False)
+
+    def test_show_controller(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_juju_output') as mock:
+            client.show_controller()
+        mock.assert_called_with(
+            'show-controller', '--format', 'json', include_e=False)
+
 
 class TestEnvJujuClient2B8(ClientTest):
 

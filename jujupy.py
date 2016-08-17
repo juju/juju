@@ -1956,6 +1956,16 @@ class EnvJujuClient:
         else:
             raise
 
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return self.get_juju_output('list-clouds', '--format',
+                                    format, include_e=False)
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return self.get_juju_output('show-controller', '--format',
+                                    format, include_e=False)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 
