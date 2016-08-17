@@ -850,6 +850,34 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	c.Check(attParams.ReadOnly, jc.IsTrue)
 }
 
+func (s *MigrationImportSuite) TestStorage(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+	original, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	originalCount := state.StorageAttachmentCount(original)
+	c.Assert(originalCount, gc.Equals, 1)
+	originalAttachments, err := s.State.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalAttachments, gc.HasLen, 1)
+	c.Assert(originalAttachments[0].Unit(), gc.Equals, u.UnitTag())
+
+	_, newSt := s.importModel(c)
+
+	instance, err := newSt.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(instance.Tag(), gc.Equals, original.Tag())
+	c.Check(instance.Kind(), gc.Equals, original.Kind())
+	c.Check(instance.Life(), gc.Equals, original.Life())
+	c.Check(instance.StorageName(), gc.Equals, original.StorageName())
+	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
+
+	attachments, err := newSt.StorageAttachments(storageTag)
+
+	c.Assert(attachments, gc.HasLen, 1)
+	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

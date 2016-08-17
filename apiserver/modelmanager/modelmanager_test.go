@@ -102,9 +102,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   description.WriteAccess,
 			}},
 		},
-		creds: map[string]cloud.Credential{
-			"some-credential": cloud.NewEmptyCredential(),
-		},
+		cred: cloud.NewEmptyCredential(),
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
@@ -121,8 +119,8 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
-		CloudRegion:     "qux",
-		CloudCredential: "some-credential",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-some-cloud_admin@local_some-credential",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +130,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ControllerModel",
 		"Cloud",
-		"CloudCredentials",
+		"CloudCredential",
 		"ControllerConfig",
 		"ComposeNewModelConfig",
 		"NewModel",
@@ -178,11 +176,13 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	newModelArgs.StorageProviderRegistry = nil
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
-		Owner:           names.NewUserTag("admin@local"),
-		CloudName:       "some-cloud",
-		CloudRegion:     "qux",
-		CloudCredential: "some-credential",
-		Config:          cfg,
+		Owner:       names.NewUserTag("admin@local"),
+		CloudName:   "some-cloud",
+		CloudRegion: "qux",
+		CloudCredential: names.NewCloudCredentialTag(
+			"some-cloud/admin@local/some-credential",
+		),
+		Config: cfg,
 	})
 }
 
@@ -236,7 +236,9 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 		}
 	}
 
-	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
+	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.NewCloudCredentialTag(
+		"some-cloud/bob@local/some-credential",
+	))
 }
 
 func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
@@ -257,7 +259,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(newModelArgs.CloudCredential, gc.Equals, "")
+	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.CloudCredentialTag{})
 }
 
 func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) {
@@ -271,13 +273,14 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 }
 
 func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
+	s.st.SetErrors(nil, nil, errors.NotFoundf("credential"))
 	args := params.ModelCreateArgs{
-		Name:            "foo",
-		OwnerTag:        "user-admin@local",
-		CloudCredential: "bar",
+		Name:               "foo",
+		OwnerTag:           "user-admin@local",
+		CloudCredentialTag: "cloudcred-some-cloud_admin@local_bar",
 	}
 	_, err := s.api.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, `no such credential "bar"`)
+	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {

@@ -90,24 +90,16 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 			c.Check(objType, gc.Equals, "Cloud")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Credentials")
-			c.Assert(result, gc.FitsTypeOf, &params.CloudCredentialsResults{})
+			c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
 			c.Assert(a, jc.DeepEquals, params.UserClouds{[]params.UserCloud{{
 				UserTag:  "user-bob@local",
 				CloudTag: "cloud-foo",
 			}}})
-			*result.(*params.CloudCredentialsResults) = params.CloudCredentialsResults{
-				Results: []params.CloudCredentialsResult{{
-					Credentials: map[string]params.CloudCredential{
-						"one": {
-							AuthType: "empty",
-						},
-						"two": {
-							AuthType: "userpass",
-							Attributes: map[string]string{
-								"username": "admin",
-								"password": "adm1n",
-							},
-						},
+			*result.(*params.StringsResults) = params.StringsResults{
+				Results: []params.StringsResult{{
+					Result: []string{
+						"cloudcred-foo_bob@local_one",
+						"cloudcred-foo_bob@local_two",
 					},
 				}},
 			}
@@ -118,12 +110,9 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.Credentials(names.NewUserTag("bob@local"), names.NewCloudTag("foo"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]cloud.Credential{
-		"one": cloud.NewEmptyCredential(),
-		"two": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-			"username": "admin",
-			"password": "adm1n",
-		}),
+	c.Assert(result, jc.SameContents, []names.CloudCredentialTag{
+		names.NewCloudCredentialTag("foo/bob@local/one"),
+		names.NewCloudCredentialTag("foo/bob@local/two"),
 	})
 }
 
@@ -139,19 +128,13 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "UpdateCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			c.Assert(a, jc.DeepEquals, params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-				UserTag:  "user-bob@local",
-				CloudTag: "cloud-foo",
-				Credentials: map[string]params.CloudCredential{
-					"one": {
-						AuthType: "empty",
-					},
-					"two": {
-						AuthType: "userpass",
-						Attributes: map[string]string{
-							"username": "admin",
-							"password": "adm1n",
-						},
+			c.Assert(a, jc.DeepEquals, params.UpdateCloudCredentials{[]params.UpdateCloudCredential{{
+				Tag: "cloudcred-foo_bob@local_bar",
+				Credential: params.CloudCredential{
+					AuthType: "userpass",
+					Attributes: map[string]string{
+						"username": "admin",
+						"password": "adm1n",
 					},
 				},
 			}}})
@@ -164,13 +147,11 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	err := client.UpdateCredentials(names.NewUserTag("bob@local"), names.NewCloudTag("foo"), map[string]cloud.Credential{
-		"one": cloud.NewEmptyCredential(),
-		"two": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-			"username": "admin",
-			"password": "adm1n",
-		}),
-	})
+	tag := names.NewCloudCredentialTag("foo/bob@local/bar")
+	err := client.UpdateCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "admin",
+		"password": "adm1n",
+	}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

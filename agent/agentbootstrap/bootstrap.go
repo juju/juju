@@ -4,6 +4,8 @@
 package agentbootstrap
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -90,9 +92,16 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
-	cloudCredentials := make(map[string]cloud.Credential)
-	if args.ControllerCloudCredential != nil {
-		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
+		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+			"%s/%s/%s",
+			args.ControllerCloudName,
+			adminUser.Canonical(),
+			args.ControllerCloudCredentialName,
+		))
+		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
@@ -103,7 +112,7 @@ func InitializeState(
 			Constraints:             args.ModelConstraints,
 			CloudName:               args.ControllerCloudName,
 			CloudRegion:             args.ControllerCloudRegion,
-			CloudCredential:         args.ControllerCloudCredentialName,
+			CloudCredential:         cloudCredentialTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
 		},
 		CloudName:                 args.ControllerCloudName,
@@ -201,7 +210,7 @@ func InitializeState(
 		Constraints:             args.ModelConstraints,
 		CloudName:               args.ControllerCloudName,
 		CloudRegion:             args.ControllerCloudRegion,
-		CloudCredential:         args.ControllerCloudCredentialName,
+		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
 	})
 	if err != nil {

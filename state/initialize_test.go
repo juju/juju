@@ -68,6 +68,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	uuid := cfg.UUID()
 	owner := names.NewLocalUserTag("initialize-admin")
 
+	userPassCredentialTag := names.NewCloudCredentialTag(
+		"dummy/" + owner.Canonical() + "/some-credential",
+	)
+	emptyCredentialTag := names.NewCloudCredentialTag(
+		"dummy/" + owner.Canonical() + "/empty-credential",
+	)
 	userpassCredential := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -75,12 +81,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			"password": "hunter2",
 		},
 	)
-	userpassCredential.Label = "some-credential"
+	userpassCredential.Label = userPassCredentialTag.Name()
 	emptyCredential := cloud.NewEmptyCredential()
-	emptyCredential.Label = "empty-credential"
-	cloudCredentialsIn := map[string]cloud.Credential{
-		userpassCredential.Label: userpassCredential,
-		emptyCredential.Label:    emptyCredential,
+	emptyCredential.Label = emptyCredentialTag.Name()
+	cloudCredentialsIn := map[names.CloudCredentialTag]cloud.Credential{
+		userPassCredentialTag: userpassCredential,
+		emptyCredentialTag:    emptyCredential,
 	}
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = uuid
@@ -92,7 +98,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			Config:                  cfg,
 			CloudName:               "dummy",
 			CloudRegion:             "some-region",
-			CloudCredential:         "some-credential",
+			CloudCredential:         userPassCredentialTag,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
@@ -160,7 +166,9 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check that the model's cloud and credential names are as
 	// expected, and the owner's cloud credentials are initialised.
 	c.Assert(model.Cloud(), gc.Equals, "dummy")
-	c.Assert(model.CloudCredential(), gc.Equals, "some-credential")
+	credentialTag, ok := model.CloudCredential()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudCredentials, jc.DeepEquals, cloudCredentialsIn)
@@ -171,6 +179,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = modelCfg.UUID()
+	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/borken")
 	_, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -186,14 +195,14 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 				cloud.AccessKeyAuthType, cloud.OAuth1AuthType,
 			},
 		},
-		CloudCredentials: map[string]cloud.Credential{
-			"borken": cloud.NewCredential(cloud.UserPassAuthType, nil),
+		CloudCredentials: map[names.CloudCredentialTag]cloud.Credential{
+			credentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`validating initialization args: validating cloud credentials: credential "borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
+		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin@local/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
 	)
 }
 

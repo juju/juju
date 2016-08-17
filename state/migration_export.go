@@ -1142,6 +1142,9 @@ func (e *exporter) storage() error {
 	if err := e.filesystems(); err != nil {
 		return errors.Trace(err)
 	}
+	if err := e.storageInstances(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1348,5 +1351,62 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 		return nil, errors.Annotate(err, "failed to read filesystem attachments")
 	}
 	e.logger.Debugf("read %d filesystem attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) storageInstances() error {
+	coll, closer := e.st.getCollection(storageInstancesC)
+	defer closer()
+
+	attachments, err := e.readStorageAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc storageInstanceDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		instance := &storageInstance{e.st, doc}
+		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read storage instances")
+	}
+	return nil
+}
+
+func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	args := description.StorageArgs{
+		Tag:         instance.StorageTag(),
+		Kind:        instance.Kind().String(),
+		Owner:       instance.Owner(),
+		Name:        instance.StorageName(),
+		Attachments: attachments,
+	}
+	e.model.AddStorage(args)
+	return nil
+}
+
+func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
+	coll, closer := e.st.getCollection(storageAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]names.UnitTag)
+	var doc storageAttachmentDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		unit := names.NewUnitTag(doc.Unit)
+		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read storage attachments")
+	}
+	e.logger.Debugf("read %d storage attachment documents", count)
 	return result, nil
 }

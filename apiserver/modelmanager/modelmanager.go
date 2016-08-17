@@ -8,7 +8,6 @@
 package modelmanager
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -201,10 +200,16 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Annotate(err, "getting cloud definition")
 	}
 
-	cloudCredentialName := args.CloudCredential
-	if cloudCredentialName == "" {
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.CloudCredentialTag != "" {
+		var err error
+		cloudCredentialTag, err = names.ParseCloudCredentialTag(args.CloudCredentialTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+	} else {
 		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
-			cloudCredentialName = controllerModel.CloudCredential()
+			cloudCredentialTag, _ = controllerModel.CloudCredential()
 		} else {
 			// TODO(axw) check if the user has one and only one
 			// cloud credential, and if so, use it? For now, we
@@ -230,18 +235,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	}
 
 	var credential *jujucloud.Credential
-	if cloudCredentialName != "" {
-		ownerCredentials, err := mm.state.CloudCredentials(ownerTag, controllerModel.Cloud())
+	if cloudCredentialTag != (names.CloudCredentialTag{}) {
+		credentialValue, err := mm.state.CloudCredential(cloudCredentialTag)
 		if err != nil {
-			return result, errors.Annotate(err, "getting credentials")
+			return result, errors.Annotate(err, "getting credential")
 		}
-		elem, ok := ownerCredentials[cloudCredentialName]
-		if !ok {
-			return result, errors.NewNotValid(nil, fmt.Sprintf(
-				"no such credential %q", cloudCredentialName,
-			))
-		}
-		credential = &elem
+		credential = &credentialValue
 	}
 
 	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudName, cloudRegionName, credential)
@@ -280,7 +279,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	model, st, err := mm.state.NewModel(state.ModelArgs{
 		CloudName:       cloudName,
 		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialName,
+		CloudCredential: cloudCredentialTag,
 		Config:          newConfig,
 		Owner:           ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
@@ -528,17 +527,20 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 
 	owner := model.Owner()
 	info := params.ModelInfo{
-		Name:            cfg.Name(),
-		UUID:            cfg.UUID(),
-		ControllerUUID:  controllerCfg.ControllerUUID(),
-		OwnerTag:        owner.String(),
-		Life:            params.Life(model.Life().String()),
-		Status:          common.EntityStatusFromState(status),
-		ProviderType:    cfg.Type(),
-		DefaultSeries:   config.PreferredSeries(cfg),
-		Cloud:           model.Cloud(),
-		CloudRegion:     model.CloudRegion(),
-		CloudCredential: model.CloudCredential(),
+		Name:           cfg.Name(),
+		UUID:           cfg.UUID(),
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		OwnerTag:       owner.String(),
+		Life:           params.Life(model.Life().String()),
+		Status:         common.EntityStatusFromState(status),
+		ProviderType:   cfg.Type(),
+		DefaultSeries:  config.PreferredSeries(cfg),
+		Cloud:          model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+	}
+
+	if cloudCredentialTag, ok := model.CloudCredential(); ok {
+		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 
 	authorizedOwner := m.authCheck(owner) == nil

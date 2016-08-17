@@ -122,7 +122,7 @@ type InitializeParams struct {
 
 	// CloudCredentials contains the credentials for the owner of
 	// the controller model to store in the controller.
-	CloudCredentials map[string]cloud.Credential
+	CloudCredentials map[names.CloudCredentialTag]cloud.Credential
 
 	// ControllerConfig contains config attributes for
 	// the controller.
@@ -185,7 +185,6 @@ func (p InitializeParams) Validate() error {
 		p.CloudName,
 		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
-		p.ControllerModelArgs.Owner,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
 	}
@@ -283,13 +282,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
 	}
 
-	for credName, cred := range args.CloudCredentials {
-		ops = append(ops, createCloudCredentialOp(
-			args.ControllerModelArgs.Owner,
-			args.CloudName,
-			credName,
-			cred,
-		))
+	for tag, cred := range args.CloudCredentials {
+		ops = append(ops, createCloudCredentialOp(tag, cred))
 	}
 	ops = append(ops, modelOps...)
 

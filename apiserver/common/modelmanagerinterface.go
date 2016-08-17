@@ -62,7 +62,7 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	Cloud() string
-	CloudCredential() string
+	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]description.UserAccess, error)
 	Destroy() error

@@ -97,6 +97,9 @@ type Model interface {
 	Filesystems() []Filesystem
 	AddFilesystem(FilesystemArgs) Filesystem
 
+	Storages() []Storage
+	AddStorage(StorageArgs) Storage
+
 	Validate() error
 }
 
@@ -469,4 +472,19 @@ type FilesystemAttachment interface {
 	Provisioned() bool
 	MountPoint() string
 	ReadOnly() bool
+}
+
+// Storage represents the state of a unit or application-wide storage instance
+// in the model.
+type Storage interface {
+	Tag() names.StorageTag
+	Kind() string
+	// Owner returns the tag of the application or unit that owns this storage
+	// instance.
+	Owner() (names.Tag, error)
+	Name() string
+
+	Attachments() []names.UnitTag
+
+	Validate() error
 }
