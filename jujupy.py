@@ -1509,8 +1509,9 @@ class EnvJujuClient:
 
     def get_model_uuid(self):
         name = self.env.environment
+        model = self._cmd_model(True, False)
         output_yaml = self.get_juju_output(
-            'show-model', '--format', 'yaml', include_e=False)
+            'show-model', '--format', 'yaml', model, include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
 

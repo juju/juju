@@ -1737,7 +1737,7 @@ class TestEnvJujuClient(ClientTest):
                 model_uuid
             )
             m_get_juju_output.assert_called_once_with(
-                'show-model', '--format', 'yaml', include_e=False)
+                'show-model', '--format', 'yaml', 'foo:foo', include_e=False)
 
     def test_get_controller_uuid_returns_uuid(self):
         controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
