@@ -230,6 +230,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	modelOps, err := st.modelSetupOps(
 		args.ControllerModelArgs,
 		&lineage{
+			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29390 add
+			// regiond config here too.
 			ControllerConfig: args.ControllerInheritedConfig,
 		})
 	if err != nil {
@@ -305,7 +307,6 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 type lineage struct {
 	ControllerConfig map[string]interface{}
 	RegionConfig     cloud.RegionConfig
-	// Tenant and User config coming soon?
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
@@ -370,6 +371,8 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
 					return inherited.ControllerConfig, nil
 				})},
+			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29392 need
+			// to add region config to modelConfigSources here too.
 		}
 	} else {
 		configSources = modelConfigSources(st)

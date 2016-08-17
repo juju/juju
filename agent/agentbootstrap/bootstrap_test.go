@@ -143,9 +143,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{
-		"name":   "hosted",
-		"uuid":   hostedModelUUID,
-		"region": "some-region",
+		"name": "hosted",
+		"uuid": hostedModelUUID,
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",

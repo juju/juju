@@ -286,7 +286,6 @@ func modelConfigSources(st *State) []modelConfigSource {
 		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
 		{config.JujuControllerSource, st.regionInheritedConfig},
-		// We will also support tenant, user etc
 	}
 
 }
@@ -322,6 +321,10 @@ func (st *State) regionInheritedConfig() (attrValues, error) {
 	if err != nil {
 		// Some clouds have no region so we need to handle an empty region by
 		// returning and handling an error or returning nil.
+		// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29388 check for
+		// model.CloudRegion() == "" above and return a NotFound error there,
+		// saving searching for non-existent settings with a partially
+		// constructed key
 		return nil, errors.Trace(err)
 	}
 	return settings.Map(), nil

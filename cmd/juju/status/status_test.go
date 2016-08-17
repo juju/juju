@@ -3490,7 +3490,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION        VERSION  UPGRADE-AVAILABLE
+MODEL       CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
 controller  kontroll    dummy/dummy-region  1.2.3    1.2.4
 
 APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
