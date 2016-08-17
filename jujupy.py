@@ -2200,6 +2200,14 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         """List the models registered with the current controller."""
         log.info('The model is environment {}'.format(self.env.environment))
 
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return {}
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return {}
+
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
         return {}
