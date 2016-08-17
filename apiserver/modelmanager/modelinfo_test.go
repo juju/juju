@@ -104,16 +104,16 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
-		Name:            "testenv",
-		UUID:            s.st.model.cfg.UUID(),
-		ControllerUUID:  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		OwnerTag:        "user-bob@local",
-		ProviderType:    "someprovider",
-		Cloud:           "some-cloud",
-		CloudRegion:     "some-region",
-		CloudCredential: "some-credential",
-		DefaultSeries:   series.LatestLts(),
-		Life:            params.Dying,
+		Name:               "testenv",
+		UUID:               s.st.model.cfg.UUID(),
+		ControllerUUID:     "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		OwnerTag:           "user-bob@local",
+		ProviderType:       "someprovider",
+		Cloud:              "some-cloud",
+		CloudRegion:        "some-region",
+		CloudCredentialTag: "cloudcred-some-cloud_bob@local_some-credential",
+		DefaultSeries:      series.LatestLts(),
+		Life:               params.Dying,
 		Status: params.EntityStatus{
 			Status: status.StatusDestroying,
 			Since:  &time.Time{},
@@ -239,7 +239,7 @@ type mockState struct {
 	model           *mockModel
 	controllerModel *mockModel
 	users           []description.UserAccess
-	creds           map[string]cloud.Credential
+	cred            cloud.Credential
 }
 
 type fakeModelDescription struct {
@@ -351,9 +351,9 @@ func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	st.MethodCall(st, "CloudCredentials", user, cloudName)
-	return st.creds, st.NextErr()
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredential", tag)
+	return st.cred, st.NextErr()
 }
 
 func (st *mockState) Close() error {
@@ -446,10 +446,10 @@ func (m *mockModel) CloudRegion() string {
 	return "some-region"
 }
 
-func (m *mockModel) CloudCredential() string {
+func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredential")
 	m.PopNoErr()
-	return "some-credential"
+	return names.NewCloudCredentialTag("some-cloud/bob@local/some-credential"), true
 }
 
 func (m *mockModel) Users() ([]description.UserAccess, error) {

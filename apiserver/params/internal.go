@@ -117,12 +117,12 @@ type ModelCreateArgs struct {
 	// the same region as the controller model.
 	CloudRegion string `json:"region,omitempty"`
 
-	// CloudCredential is the name of the cloud credential to use
+	// CloudCredentialTag is the tag of the cloud credential to use
 	// for managing the model's resources. If the cloud does not
 	// require credentials, this may be empty. If this is empty,
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
-	CloudCredential string `json:"credential,omitempty"`
+	CloudCredentialTag string `json:"credential,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID

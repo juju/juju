@@ -848,27 +848,30 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {
+	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
 	st, owner := s.initializeState(
-		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[string]cloud.Credential{
-			"controller-credentials": cloud.NewCredential(cloud.UserPassAuthType, nil),
+		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
+			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
 	defer st.Close()
+	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/unknown-credential")
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
 		CloudName:               "dummy",
 		Config:                  cfg,
 		Owner:                   owner,
-		CloudCredential:         "unknown-credential",
+		CloudCredential:         unknownCredentialTag,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, gc.ErrorMatches, `credential "unknown-credential" not found`)
+	c.Assert(err, gc.ErrorMatches, `credential "dummy/test@remote/unknown-credential" not found`)
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) {
+	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
 	st, owner := s.initializeState(
-		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[string]cloud.Credential{
-			"controller-credentials": cloud.NewCredential(cloud.UserPassAuthType, nil),
+		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
+			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
 	defer st.Close()
@@ -896,15 +899,36 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 	newSt.Close()
 }
 
+func (s *ModelCloudValidationSuite) TestNewModelOtherUserCloudCredential(c *gc.C) {
+	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
+	st, _ := s.initializeState(
+		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
+			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
+		},
+	)
+	defer st.Close()
+	owner := factory.NewFactory(st).MakeUser(c, nil).UserTag()
+	cfg, _ := createTestModelConfig(c, st.ModelUUID())
+	_, _, err := st.NewModel(state.ModelArgs{
+		CloudName:               "dummy",
+		Config:                  cfg,
+		Owner:                   owner,
+		CloudCredential:         controllerCredentialTag,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, gc.ErrorMatches, `credential "dummy/test@remote/controller-credential" not found`)
+}
+
 func (s *ModelCloudValidationSuite) initializeState(
 	c *gc.C,
 	regions []cloud.Region,
 	authTypes []cloud.AuthType,
-	credentials map[string]cloud.Credential,
+	credentials map[names.CloudCredentialTag]cloud.Credential,
 ) (*state.State, names.UserTag) {
 	owner := names.NewUserTag("test@remote")
 	cfg, _ := createTestModelConfig(c, "")
-	var controllerRegion, controllerCredential string
+	var controllerRegion string
+	var controllerCredential names.CloudCredentialTag
 	if len(regions) > 0 {
 		controllerRegion = regions[0].Name
 	}

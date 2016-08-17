@@ -724,10 +724,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 
-			cloudCredentials := make(map[string]cloud.Credential)
-			if icfg.Bootstrap.ControllerCloudCredential != nil {
-				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
-					*icfg.Bootstrap.ControllerCloudCredential
+			adminUser := names.NewUserTag("admin@local")
+			var cloudCredentialTag names.CloudCredentialTag
+			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+					"%s/%s/%s",
+					icfg.Bootstrap.ControllerCloudName,
+					adminUser.Canonical(),
+					icfg.Bootstrap.ControllerCloudCredentialName,
+				))
+			}
+
+			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
 			info := stateInfo()
@@ -738,12 +748,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					Owner:                   names.NewUserTag("admin@local"),
+					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
 					CloudName:               icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
-					CloudCredential:         icfg.Bootstrap.ControllerCloudCredentialName,
+					CloudCredential:         cloudCredentialTag,
 					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
