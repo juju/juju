@@ -9,12 +9,13 @@ from assess_controller_permissions import (
     parse_args,
     main,
 )
-from assess_user_grant_revoke import User
+from test_assess_user_grant_revoke import (
+    make_fake_client,
+)
 from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
@@ -60,21 +61,35 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    @patch('assess_controller_permissions.assert_superuser_controller',
-           autospec=True)
-    @patch('assess_controller_permissions.assert_addmodel_controller',
-           autospec=True)
-    @patch('assess_controller_permissions.assert_login_controller',
-           autospec=True)
-    def test_controller_permissions(self, lc_mock, ac_mock, sc_mock):
-        fake_client = Mock(wraps=fake_juju_client())
+    def test_assess_controller_permissions(self):
+        fake_client = make_fake_client()
         fake_client.bootstrap()
-        patch('assess_controller_permissions.assert_login_controller.')
-        assess_controller_permissions(fake_client)
-        lc_mock.assert_called_once_with(
-            fake_client, User('login_controller', 'login', []))
-        ac_mock.assert_called_once_with(
-            fake_client, User('addmodel_controller', 'addmodel', []))
-        sc_mock.assert_called_once_with(
-            fake_client, User('superuser_controller', 'superuser', []))
-        self.assertNotIn("TODO", self.log_stream.getvalue())
+        assert_lc_calls = [True, True, True]
+        assert_ac_calls = [False, True, True]
+        assert_sc_calls = [False, False, True]
+        lc = patch('assess_controller_permissions.assert_login_permission',
+                   autospec=True)
+        ac = patch('assess_controller_permissions.assert_addmodel_permission',
+                   autospec=True)
+        sc = patch('assess_controller_permissions.assert_superuser_permission',
+                   autospec=True)
+        with lc as lc_mock, ac as ac_mock, sc as sc_mock:
+            with patch("jujupy.EnvJujuClient.expect",
+                       autospec=True) as expect_mock:
+                expect_mock.return_value.isalive.return_value = False
+                assess_controller_permissions(fake_client)
+                lc_calls = [
+                    call[0][4] for call in
+                    lc_mock.call_args_list]
+                ac_calls = [
+                    call[0][2] for call in
+                    ac_mock.call_args_list]
+                sc_calls = [
+                    call[0][2] for call in
+                    sc_mock.call_args_list]
+                self.assertEqual(lc_calls,
+                                 assert_lc_calls)
+                self.assertEqual(ac_calls,
+                                 assert_ac_calls)
+                self.assertEqual(sc_calls,
+                                 assert_sc_calls)
