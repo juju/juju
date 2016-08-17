@@ -1509,7 +1509,9 @@ class EnvJujuClient:
 
     def get_model_uuid(self):
         name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        model = self._cmd_model(True, False)
+        output_yaml = self.get_juju_output(
+            'show-model', '--format', 'yaml', model, include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
 
@@ -1973,6 +1975,12 @@ class EnvJujuClient2B9(EnvJujuClient):
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
+
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with a model."""
