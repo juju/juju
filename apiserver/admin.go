@@ -24,6 +24,10 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+// EverybodyTagName represents a special group that encompasses
+// all external users.
+const EverybodyTagName = "everybody@external"
+
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
@@ -147,24 +151,41 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser description.UserAccess
 	var controllerUser description.UserAccess
+	var everybodyGroupUser description.UserAccess
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
+		userTag := entity.Tag().(names.UserTag)
 		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
 		if err != nil && !errors.IsNotFound(err) {
 			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
 
-		modelUser, err = a.root.state.UserAccess(entity.Tag().(names.UserTag), a.root.state.ModelTag())
+		// TODO(perrito666) remove the following section about everybody group
+		// when groups are implemented, this accounts only for the lack of a local
+		// ControllerUser when logging in from an external user that has not been granted
+		// permissions on the controller but there are permissions for the special
+		// everybody group.
+		if !userTag.IsLocal() {
+			everybodyTag := names.NewUserTag(EverybodyTagName)
+			everybodyGroupUser, err = state.ControllerAccess(a.root.state, everybodyTag)
+			if err != nil && !errors.IsNotFound(err) {
+				return fail, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+			}
+		}
+
+		modelUser, err = a.root.state.UserAccess(userTag, a.root.state.ModelTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
 		}
 
-		if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
-			return fail, errors.NotFoundf("missing ModelUser and ControllerUser for logged in user %s", entity.Tag())
+		if description.IsEmptyUserAccess(modelUser) &&
+			description.IsEmptyUserAccess(controllerUser) &&
+			description.IsEmptyUserAccess(everybodyGroupUser) {
+			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
 		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
 		if maybeUserInfo.ReadOnly {
@@ -210,7 +231,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	loginResult.Facades = facades
 
-	if !description.IsEmptyUserAccess(modelUser) || !description.IsEmptyUserAccess(controllerUser) {
+	if !description.IsEmptyUserAccess(modelUser) ||
+		!description.IsEmptyUserAccess(controllerUser) ||
+		!description.IsEmptyUserAccess(everybodyGroupUser) {
 		authedAPI = newClientAuthRoot(authedAPI, modelUser, controllerUser)
 	}
 
@@ -342,7 +365,21 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
+
+	// TODO(perrito666) remove the following section about everybody group
+	// when groups are implemented, this accounts only for the lack of a local
+	// ControllerUser when logging in from an external user that has not been granted
+	// permissions on the controller but there are permissions for the special
+	// everybody group.
+	if !utag.IsLocal() {
+		controllerUser, err = maybeUseGroupPermission(f.st.UserAccess, controllerUser, f.st.ControllerTag(), utag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+		}
+	}
+
+	if description.IsEmptyUserAccess(modelUser) &&
+		description.IsEmptyUserAccess(controllerUser) {
 		return nil, errors.NotFoundf("model or controller user")
 	}
 

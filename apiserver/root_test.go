@@ -510,3 +510,71 @@ func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
 	c.Assert(userGetter.objects, gc.HasLen, 1)
 	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
 }
+
+type fakeEverybodyUserAccess struct {
+	user      description.UserAccess
+	everybody description.UserAccess
+}
+
+func (f *fakeEverybodyUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+	if subject.Canonical() == apiserver.EverybodyTagName {
+		return f.everybody, nil
+	}
+	return f.user, nil
+}
+
+func (r *rootSuite) TestEverybodyAtExternal(c *gc.C) {
+	testCases := []struct {
+		title            string
+		userGetterAccess description.Access
+		everybodyAccess  description.Access
+		user             names.UserTag
+		target           names.Tag
+		access           description.Access
+		expected         bool
+	}{
+		{
+			title:            "user has lesser permissions than everybody",
+			userGetterAccess: description.LoginAccess,
+			everybodyAccess:  description.AddModelAccess,
+			user:             names.NewUserTag("validuser@external"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         true,
+		},
+		{
+			title:            "user has greater permissions than everybody",
+			userGetterAccess: description.AddModelAccess,
+			everybodyAccess:  description.LoginAccess,
+			user:             names.NewUserTag("validuser@external"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         true,
+		},
+		{
+			title:            "everibody not considered if user is local",
+			userGetterAccess: description.LoginAccess,
+			everybodyAccess:  description.AddModelAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         false,
+		},
+	}
+
+	for i, t := range testCases {
+		userGetter := &fakeEverybodyUserAccess{
+			user: description.UserAccess{
+				Access: t.userGetterAccess,
+			},
+			everybody: description.UserAccess{
+				Access: t.everybodyAccess,
+			},
+		}
+		c.Logf(`HasPermission "everybody" test n %d: %s`, i, t.title)
+		hasPermission, err := apiserver.HasPermission(userGetter.call, t.user, t.access, t.target)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(hasPermission, gc.Equals, t.expected)
+	}
+
+}
