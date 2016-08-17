@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -50,7 +51,7 @@ func NewUserManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := st.IsControllerAdmin(apiUser)
+	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,6 +75,24 @@ func NewUserManagerAPI(
 	}, nil
 }
 
+func (api *UserManagerAPI) hasReadAccess() (bool, error) {
+	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canRead, err
+
+}
+
+func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
+	ctag := names.NewControllerTag(api.state.ControllerUUID())
+	isAdmin, err := api.authorizer.HasPermission(description.SuperuserAccess, ctag)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return isAdmin, err
+}
+
 // AddUser adds a user with a username, and either a password or
 // a randomly generated secret key which will be returned.
 func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
@@ -90,12 +109,12 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	// Create the results list to populate.
 	result.Results = make([]params.AddUserResult, len(args.Users))
 
-	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
-	if !api.isAdmin {
-		for i, _ := range result.Results {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-		}
-		return result, nil
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isSuperUser {
+		return result, common.ErrPerm
 	}
 
 	for i, arg := range args.Users {
@@ -167,12 +186,12 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 	// Create the results list to populate.
 	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
 
-	// Make sure we have admin. If not fail each of the requests and return w/o a top level error.
-	if !api.isAdmin {
-		for i, _ := range deletions.Results {
-			deletions.Results[i].Error = common.ServerError(common.ErrPerm)
-		}
-		return deletions, nil
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return deletions, errors.Trace(err)
+	}
+	if !api.isAdmin && !isSuperUser {
+		return deletions, common.ErrPerm
 	}
 
 	// Remove the entities.
@@ -218,6 +237,14 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is considered a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if !isSuperUser {
+		return params.ErrorResults{}, common.ErrPerm
+	}
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -227,6 +254,14 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is considered a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if !isSuperUser {
+		return params.ErrorResults{}, common.ErrPerm
+	}
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -240,15 +275,17 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 		return result, nil
 	}
 
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if !api.isAdmin && isSuperUser {
+		return result, common.ErrPerm
+	}
+
 	// Create the results list to populate.
 	result.Results = make([]params.ErrorResult, len(args.Entities))
-
-	if !api.isAdmin {
-		for i, _ := range result.Results {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-		}
-		return result, nil
-	}
 
 	for i, arg := range args.Entities {
 		user, err := api.getUser(arg.Tag)
@@ -267,6 +304,13 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
+	ro, err := api.hasReadAccess()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !ro {
+		return results, common.ErrPerm
+	}
 
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		var lastLogin *time.Time
@@ -343,7 +387,13 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.apiUser != user.UserTag() && !api.isAdmin {
+
+	isSuperUser, err := api.hasControllerAdminAccess()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if api.apiUser != user.UserTag() && !api.isAdmin && !isSuperUser {
 		return errors.Trace(common.ErrPerm)
 	}
 	if arg.Password == "" {
@@ -366,7 +416,13 @@ func (api *UserManagerAPI) CreateLocalLoginMacaroon(args params.Entities) (param
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if api.apiUser != user.UserTag() && !api.isAdmin {
+
+		isSuperUser, err := api.hasControllerAdminAccess()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if api.apiUser != user.UserTag() && !api.isAdmin && isSuperUser {
 			return nil, errors.Trace(common.ErrPerm)
 		}
 		return api.createLocalLoginMacaroon(user.UserTag())

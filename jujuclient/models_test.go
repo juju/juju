@@ -187,7 +187,7 @@ func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
 
 func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("kontroll", jujuclient.ControllerDetails{
+	err := store.AddController("kontroll", jujuclient.ControllerDetails{
 		ControllerUUID: "abc",
 		CACert:         "woop",
 	})

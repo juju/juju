@@ -35,7 +35,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 
 	// Define the source controller in the config and set it as the default.
-	err := s.store.UpdateController("source", jujuclient.ControllerDetails{
+	err := s.store.AddController("source", jujuclient.ControllerDetails{
 		ControllerUUID: "eeeeeeee-0bad-400d-8000-4b1d0d06f00d",
 		CACert:         "somecert",
 	})
@@ -63,7 +63,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the target controller in the config.
-	err = s.store.UpdateController("target", jujuclient.ControllerDetails{
+	err = s.store.AddController("target", jujuclient.ControllerDetails{
 		ControllerUUID: targetControllerUUID,
 		APIEndpoints:   []string{"1.2.3.4:5"},
 		CACert:         "cert",

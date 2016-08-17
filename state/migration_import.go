@@ -95,6 +95,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.sshHostKeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshHostKeys")
 	}
+	if err := restore.actions(); err != nil {
+		return nil, nil, errors.Annotate(err, "actions")
+	}
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
@@ -1064,6 +1067,57 @@ func (i *importer) sshHostKeys() error {
 		}
 	}
 	i.logger.Debugf("importing ssh host keys succeeded")
+	return nil
+}
+
+func (i *importer) actions() error {
+	i.logger.Debugf("importing actions")
+	for _, action := range i.model.Actions() {
+		err := i.addAction(action)
+		if err != nil {
+			i.logger.Errorf("error importing action %v: %s", action, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing actions succeeded")
+	return nil
+}
+
+func (i *importer) addAction(action description.Action) error {
+	modelUUID := i.st.ModelUUID()
+	newDoc := &actionDoc{
+		DocId:      i.st.docID(action.Id()),
+		ModelUUID:  modelUUID,
+		Receiver:   action.Receiver(),
+		Name:       action.Name(),
+		Parameters: action.Parameters(),
+		Enqueued:   action.Enqueued(),
+		Results:    action.Results(),
+		Message:    action.Message(),
+		Started:    action.Started(),
+		Completed:  action.Completed(),
+		Status:     ActionStatus(action.Status()),
+	}
+	prefix := ensureActionMarker(action.Receiver())
+	notificationDoc := &actionNotificationDoc{
+		DocId:     i.st.docID(prefix + action.Id()),
+		ModelUUID: modelUUID,
+		Receiver:  action.Receiver(),
+		ActionID:  action.Id(),
+	}
+	ops := []txn.Op{{
+		C:      actionsC,
+		Id:     newDoc.DocId,
+		Insert: newDoc,
+	}, {
+		C:      actionNotificationsC,
+		Id:     notificationDoc.DocId,
+		Insert: notificationDoc,
+	}}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

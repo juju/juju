@@ -42,7 +42,8 @@ type Info struct {
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
-	// trying to connect to.
+	// trying to connect to. If this is empty, a controller-only
+	// login will be made.
 	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
@@ -173,7 +174,7 @@ type Connection interface {
 	// (as opposed to the model tag of the currently connected
 	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.ModelTag, error)
+	ControllerTag() names.ModelTag
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.

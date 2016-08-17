@@ -84,7 +84,7 @@ func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
 	case WriteAccess:
 		return access == ReadAccess ||
 			access == UndefinedAccess
-	case AdminAccess:
+	case AdminAccess, SuperuserAccess:
 		return access == ReadAccess ||
 			access == WriteAccess
 	}

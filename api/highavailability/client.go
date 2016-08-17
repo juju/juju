@@ -26,10 +26,7 @@ type Client struct {
 
 // NewClient returns a new HighAvailability client.
 func NewClient(caller base.APICallCloser) *Client {
-	modelTag, err := caller.ModelTag()
-	if err != nil {
-		logger.Errorf("ignoring invalid model tag: %v", err)
-	}
+	modelTag, _ := caller.ModelTag()
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
 	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
 }

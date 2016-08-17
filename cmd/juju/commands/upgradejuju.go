@@ -70,13 +70,12 @@ func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...mod
 // upgradeJujuCommand upgrades the agents in a juju installation.
 type upgradeJujuCommand struct {
 	modelcmd.ModelCommandBase
-	vers                  string
-	Version               version.Number
-	BuildAgent            bool
-	UploadToolsDeprecated bool
-	DryRun                bool
-	ResetPrevious         bool
-	AssumeYes             bool
+	vers          string
+	Version       version.Number
+	BuildAgent    bool
+	DryRun        bool
+	ResetPrevious bool
+	AssumeYes     bool
 
 	// minMajorUpgradeVersion maps known major numbers to
 	// the minimum version that can be upgraded to that
@@ -96,7 +95,6 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&c.UploadToolsDeprecated, "upload-tools", false, "DEPRECATED: see build-agent")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
@@ -104,9 +102,6 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
-	if c.UploadToolsDeprecated {
-		c.BuildAgent = c.UploadToolsDeprecated
-	}
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {

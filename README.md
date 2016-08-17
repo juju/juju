@@ -118,21 +118,6 @@ provider because it uses LXC, which requires root privileges)
     juju switch local
     sudo juju bootstrap
 
---upload-tools
---------------
-
-The `juju` client program, and the juju 'tools' are deployed in lockstep. When a
-release of `juju` is made, the compiled tools matching that version of juju
-are extracted and uploaded to a known location. This consumes a release version
-number, and implies that no tools are available for the next, development, version
-of juju. Therefore, when using the development version of juju you will need to
-pass an additional flag, `--upload-tools` to instruct the `juju` client to build
-a set of tools from source and upload them to the model as part of the
-bootstrap process.
-
-    juju bootstrap -m your-model --upload-tools {--debug}
-
-
 Installing bash completion for juju
 ===================================
 

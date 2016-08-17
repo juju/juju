@@ -46,7 +46,8 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.ModelInfo {
-	modelManager := modelmanager.NewClient(s.APIState)
+	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer modelManager.Close()
 	model, err := modelManager.CreateModel(modelname, s.AdminUserTag(c).Id(), "", "", map[string]interface{}{
 		"controller": isServer,
 	})
@@ -56,7 +57,8 @@ func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isS
 
 func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
 	s.run(c, "add-user", "test")
-	modelManager := modelmanager.NewClient(s.APIState)
+	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer modelManager.Close()
 	_, err := modelManager.CreateModel(modelname, names.NewLocalUserTag("test").Id(), "", "", map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,

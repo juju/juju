@@ -163,7 +163,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
-	if err := store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+	if err := store.AddController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
@@ -394,8 +394,7 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-const errControllerConflicts = `WARNING: The controller proposed %q which clashes with an existing` +
-	` controller. The two controllers are entirely different.
+const errControllerConflicts = `WARNING: You already have a controller registered with the name %q. Please choose a different name for the new controller.
 
 `
 

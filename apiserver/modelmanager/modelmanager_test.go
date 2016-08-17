@@ -82,7 +82,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   description.AdminAccess,
 			}, {
 				userName: "otheruser",
-				access:   description.AdminAccess,
+				access:   description.WriteAccess,
 			}},
 		},
 		model: &mockModel{
@@ -99,7 +99,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   description.AdminAccess,
 			}, {
 				userName: "otheruser",
-				access:   description.AdminAccess,
+				access:   description.WriteAccess,
 			}},
 		},
 		creds: map[string]cloud.Credential{
@@ -127,10 +127,9 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
-		"IsControllerAdmin",
+		"ControllerTag",
 		"ModelUUID",
 		"ControllerTag",
-		"IsControllerAdmin",
 		"ControllerModel",
 		"Cloud",
 		"CloudCredentials",
@@ -142,8 +141,8 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerConfig",
 		"LastModelConnection",
 		"LastModelConnection",
-		"Close", // close new model's state
-		"Close", // close controller model's state
+		"Close",
+		"Close",
 	)
 
 	// We cannot predict the UUID, because it's generated,
@@ -324,8 +323,6 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
-	s.st.SetErrors(nil, errors.New("boom"))
-
 	authoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("other@local"),
 	}
@@ -337,12 +334,12 @@ func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
 
 	calls := s.st.Calls()
 	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ModelUser")
+	c.Check(lastCall.FuncName, gc.Equals, "ModelTag")
 
 	result := results.Results[0]
 	c.Assert(result.Result, gc.IsNil)
 	c.Assert(result.Error, gc.NotNil)
-	c.Check(result.Error.Message, gc.Equals, `boom`)
+	c.Check(result.Error.Message, gc.Equals, `permission denied`)
 }
 
 // modelManagerStateSuite contains end-to-end tests.

@@ -48,7 +48,7 @@ Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
-We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west-1’
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.
 
@@ -126,7 +126,6 @@ type bootstrapCommand struct {
 	BootstrapSeries       string
 	BootstrapImage        string
 	BuildAgent            bool
-	UploadToolsDeprecated bool
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
@@ -168,7 +167,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.BoolVar(&c.UploadToolsDeprecated, "upload-tools", false, "DEPRECATED: see build-agent")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
@@ -198,10 +196,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			}
 			// some other flag was set, which means non-interactive.
 		}
-	}
-	// TODO(wallyworld) - remove me when CI scripts updated
-	if c.UploadToolsDeprecated {
-		c.BuildAgent = c.UploadToolsDeprecated
 	}
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
@@ -312,9 +306,6 @@ specify a credential using the --credential argument`[1:],
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	if c.UploadToolsDeprecated {
-		fmt.Fprintln(ctx.Stderr, "WARNING: --upload-tools is deprecated, please use --build-agent instead")
-	}
 	if c.interactive {
 		if err := c.runInteractive(ctx); err != nil {
 			return errors.Trace(err)
@@ -612,10 +603,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Infof(`
-bootstrap failed but --keep-broken was specified so model is not being destroyed.
-When you are finished diagnosing the problem, remember to run juju destroy-model --force
-to clean up the model.`[1:])
+				ctx.Infof(`
+bootstrap failed but --keep-broken was specified so resources are not being destroyed.
+When you have finished diagnosing the problem, remember to clean up the failed controller.
+See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(

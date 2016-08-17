@@ -43,7 +43,7 @@ func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), EnvironManager: true, AdminTag: names.NewUserTag("testuser")}
 
 	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
 
@@ -83,6 +83,9 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config, model imagem
 		model: func() (imagemetadata.Model, error) {
 			return model, nil
 		},
+		controllerTag: func() names.ControllerTag {
+			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+		},
 	}
 }
 
@@ -94,6 +97,7 @@ type mockState struct {
 	deleteMetadata func(imageId string) error
 	environConfig  func() (*config.Config, error)
 	model          func() (imagemetadata.Model, error)
+	controllerTag  func() names.ControllerTag
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -119,6 +123,11 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 func (st *mockState) Model() (imagemetadata.Model, error) {
 	st.Stub.MethodCall(st, "Model")
 	return st.model()
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	st.Stub.MethodCall(st, "ControllerTag")
+	return st.controllerTag()
 }
 
 type mockModel struct {

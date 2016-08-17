@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -43,6 +44,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
+
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -57,8 +59,34 @@ var getState = func(st *state.State) blockAccess {
 	return stateShim{st}
 }
 
+func (a *API) checkCanRead() error {
+	canRead, err := a.authorizer.HasPermission(description.ReadAccess, a.access.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (a *API) checkCanWrite() error {
+	canWrite, err := a.authorizer.HasPermission(description.WriteAccess, a.access.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // List implements Block.List().
 func (a *API) List() (params.BlockResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.BlockResults{}, err
+	}
+
 	all, err := a.access.AllBlocks()
 	if err != nil {
 		return params.BlockResults{}, common.ServerError(err)
@@ -88,12 +116,20 @@ func convertBlock(b state.Block) params.BlockResult {
 
 // SwitchBlockOn implements Block.SwitchBlockOn().
 func (a *API) SwitchBlockOn(args params.BlockSwitchParams) params.ErrorResult {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}
+	}
+
 	err := a.access.SwitchBlockOn(state.ParseBlockType(args.Type), args.Message)
 	return params.ErrorResult{Error: common.ServerError(err)}
 }
 
 // SwitchBlockOff implements Block.SwitchBlockOff().
 func (a *API) SwitchBlockOff(args params.BlockSwitchParams) params.ErrorResult {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}
+	}
+
 	err := a.access.SwitchBlockOff(state.ParseBlockType(args.Type))
 	return params.ErrorResult{Error: common.ServerError(err)}
 }

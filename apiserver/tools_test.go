@@ -507,7 +507,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// Create a new user, and a local login macaroon for it.
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
-	conn := s.OpenAPIAs(c, user.Tag(), "hunter2")
+	conn := s.OpenControllerAPIAs(c, user.Tag(), "hunter2")
 	defer conn.Close()
 	mac, err := usermanager.NewClient(conn).CreateLocalLoginMacaroon(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)

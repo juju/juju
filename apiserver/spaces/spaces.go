@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -53,11 +54,27 @@ func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	isAdmin, err := api.authorizer.HasPermission(description.AdminAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return results, errors.Trace(err)
+	}
+	if !isAdmin {
+		return results, common.ServerError(common.ErrPerm)
+	}
+
 	return networkingcommon.CreateSpaces(api.backing, args)
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
+	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return results, errors.Trace(err)
+	}
+	if !canRead {
+		return results, common.ServerError(common.ErrPerm)
+	}
+
 	err = networkingcommon.SupportsSpaces(api.backing)
 	if err != nil {
 		return results, common.ServerError(errors.Trace(err))

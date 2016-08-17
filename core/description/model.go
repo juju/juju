@@ -50,6 +50,7 @@ func NewModel(args ModelArgs) Model {
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
+	m.setActions(nil)
 	m.setVolumes(nil)
 	m.setFilesystems(nil)
 	return m
@@ -122,6 +123,7 @@ type model struct {
 	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
+	Actions_          actions          `yaml:"actions"`
 
 	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
 
@@ -399,6 +401,29 @@ func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
 	m.SSHHostKeys_ = sshHostKeys{
 		Version:      1,
 		SSHHostKeys_: addressesList,
+	}
+}
+
+// Actions implements Model.
+func (m *model) Actions() []Action {
+	var result []Action
+	for _, addr := range m.Actions_.Actions_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddAction implements Model.
+func (m *model) AddAction(args ActionArgs) Action {
+	addr := newAction(args)
+	m.Actions_.Actions_ = append(m.Actions_.Actions_, addr)
+	return addr
+}
+
+func (m *model) setActions(actionsList []*action) {
+	m.Actions_ = actions{
+		Version:  1,
+		Actions_: actionsList,
 	}
 }
 
@@ -752,6 +777,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"applications":     schema.StringMap(schema.Any()),
 		"relations":        schema.StringMap(schema.Any()),
 		"sshhostkeys":      schema.StringMap(schema.Any()),
+		"actions":          schema.StringMap(schema.Any()),
 		"ipaddresses":      schema.StringMap(schema.Any()),
 		"spaces":           schema.StringMap(schema.Any()),
 		"subnets":          schema.StringMap(schema.Any()),
@@ -878,6 +904,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "sshhostkeys")
 	}
 	result.setSSHHostKeys(hostKeys)
+
+	actionsMap := valid["actions"].(map[string]interface{})
+	actions, err := importActions(actionsMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "actions")
+	}
+	result.setActions(actions)
 
 	volumes, err := importVolumes(valid["volumes"].(map[string]interface{}))
 	if err != nil {

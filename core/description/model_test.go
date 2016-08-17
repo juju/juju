@@ -635,6 +635,29 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
 
+func (s *ModelSerializationSuite) TestAction(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	enqueued := time.Now().UTC()
+	action := initial.AddAction(ActionArgs{
+		Name:       "foo",
+		Enqueued:   enqueued,
+		Parameters: map[string]interface{}{},
+		Results:    map[string]interface{}{},
+	})
+	c.Assert(action.Name(), gc.Equals, "foo")
+	c.Assert(action.Enqueued(), gc.Equals, enqueued)
+	actions := initial.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	c.Assert(actions[0], jc.DeepEquals, action)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Actions(), jc.DeepEquals, actions)
+}
+
 func (s *ModelSerializationSuite) TestVolumeValidation(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddVolume(testVolumeArgs())

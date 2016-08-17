@@ -32,7 +32,8 @@ var _ = gc.Suite(&modelconfigSuite{})
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("bruce@local"),
+		Tag:      names.NewUserTag("bruce@local"),
+		AdminTag: names.NewUserTag("bruce@local"),
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
@@ -167,13 +168,15 @@ func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
-	params := params.ModelSet{
-		Config: map[string]interface{}{
-			"attr3": "val3",
-			"attr4": "val4"},
-	}
-	err := s.api.SetModelDefaults(params)
+	params := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"attr3": "val3",
+				"attr4": "val4"},
+		}}}
+	result, err := s.api.SetModelDefaults(params)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
 	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
 		"attr":  {Value: "val", Source: "controller"},
 		"attr2": {Value: "val2", Source: "controller"},
@@ -184,14 +187,18 @@ func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
 
 func (s *modelconfigSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
 	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
-	err := s.api.SetModelDefaults(params.ModelSet{})
+	_, err := s.api.SetModelDefaults(params.SetModelDefaults{})
 	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
 }
 
 func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
-	args := params.ModelUnset{[]string{"attr"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
 	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
 		"attr2": {Value: "val2", Source: "controller"},
 	})
@@ -199,16 +206,23 @@ func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
 
 func (s *modelconfigSuite) TestBlockUnsetModelDefaults(c *gc.C) {
 	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
-	args := params.ModelUnset{[]string{"abc"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"abc"},
+		}}}
+	_, err := s.api.UnsetModelDefaults(args)
 	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
 }
 
 func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
-	args := params.ModelUnset{[]string{"not_there"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"not there"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
 type mockBackend struct {
@@ -259,6 +273,10 @@ func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, err
 	} else {
 		return nil, false, nil
 	}
+}
+
+func (m *mockBackend) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
 type mockBlock struct {

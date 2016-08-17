@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -58,6 +59,14 @@ func NewImageManagerAPI(st *state.State, resources facade.Resources, authorizer 
 // ListImages returns images matching the specified filter.
 func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.ListImageResult, error) {
 	var result params.ListImageResult
+	admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
+
 	if len(arg.Images) > 1 {
 		return result, errors.New("image filter with multiple terms not supported")
 	}
@@ -89,10 +98,19 @@ func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.Lis
 
 // DeleteImages deletes the images matching the specified filter.
 func (api *ImageManagerAPI) DeleteImages(arg params.ImageFilterParams) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	var result params.ErrorResults
+
 	result.Results = make([]params.ErrorResult, len(arg.Images))
 	stor := api.state.ImageStorage()
 	for i, imageSpec := range arg.Images {

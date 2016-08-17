@@ -50,7 +50,7 @@ type baseStorageSuite struct {
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("admin"), EnvironManager: true}
 	s.calls = []string{}
 	s.state = s.constructState()
 

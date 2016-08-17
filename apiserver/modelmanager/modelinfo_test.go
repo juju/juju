@@ -50,6 +50,23 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
 	}
+	s.st.controllerModel = &mockModel{
+		owner: names.NewUserTag("admin@local"),
+		life:  state.Alive,
+		cfg:   coretesting.ModelConfig(c),
+		status: status.StatusInfo{
+			Status: status.StatusAvailable,
+			Since:  &time.Time{},
+		},
+		users: []*mockModelUser{{
+			userName: "admin",
+			access:   description.AdminAccess,
+		}, {
+			userName: "otheruser",
+			access:   description.AdminAccess,
+		}},
+	}
+
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
@@ -58,6 +75,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			Status: status.StatusDestroying,
 			Since:  &time.Time{},
 		},
+
 		users: []*mockModelUser{{
 			userName: "admin",
 			access:   description.AdminAccess,
@@ -117,7 +135,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"IsControllerAdmin", []interface{}{names.NewUserTag("admin@local")}},
+		{"ControllerTag", nil},
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},

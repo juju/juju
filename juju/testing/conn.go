@@ -251,32 +251,71 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	return versions
 }
 
-func (s *JujuConnSuite) setUpConn(c *gc.C) {
-	if s.RootDir != "" {
-		c.Fatal("JujuConnSuite.setUpConn without teardown")
+// UserHomeParams stores parameters with which to create an os user home dir.
+type UserHomeParams struct {
+	// The username of the operating system user whose fake home
+	// directory is to be created.
+	Username string
+
+	// Override the default osenv.JujuModelEnvKey.
+	ModelEnvKey string
+
+	// Should the oldJujuXDGDataHome field be set?
+	// This is likely only true during setUpConn, as we want teardown to
+	// reset to the most original value.
+	SetOldHome bool
+}
+
+// Create a home directory and Juju data home for user username.
+// This is used by setUpConn to create the 'ubuntu' user home, after RootDir,
+// and may be used again later for other users.
+func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
+	if s.RootDir == "" {
+		c.Fatal("JujuConnSuite.setUpConn required first for RootDir")
 	}
-	s.RootDir = c.MkDir()
-	s.oldHome = utils.Home()
-	home := filepath.Join(s.RootDir, "/home/ubuntu")
+	c.Assert(params.Username, gc.Not(gc.Equals), "")
+	home := filepath.Join(s.RootDir, "home", params.Username)
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	err = utils.SetHome(home)
 	c.Assert(err, jc.ErrorIsNil)
 
 	jujuHome := filepath.Join(home, ".local", "share")
-	err = os.MkdirAll(jujuHome, 0777)
+	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.oldJujuXDGDataHome = osenv.JujuXDGDataHome()
-	osenv.SetJujuXDGDataHome(jujuHome)
+
+	previousJujuXDGDataHome := osenv.SetJujuXDGDataHome(jujuHome)
+	if params.SetOldHome {
+		s.oldJujuXDGDataHome = previousJujuXDGDataHome
+	}
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuModelEnvKey, "controller")
+
+	jujuModelEnvKey := "JUJU_MODEL"
+	if params.ModelEnvKey != "" {
+		jujuModelEnvKey = params.ModelEnvKey
+	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, jujuModelEnvKey)
+
+	s.ControllerStore = jujuclient.NewFileClientStore()
+}
+
+func (s *JujuConnSuite) setUpConn(c *gc.C) {
+	if s.RootDir != "" {
+		c.Fatal("JujuConnSuite.setUpConn without teardown")
+	}
+	s.RootDir = c.MkDir()
+	s.oldHome = utils.Home()
+	userHomeParams := UserHomeParams{
+		Username:    "ubuntu",
+		ModelEnvKey: "controller",
+		SetOldHome:  true,
+	}
+	s.CreateUserHome(c, &userHomeParams)
 
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()

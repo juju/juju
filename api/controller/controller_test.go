@@ -192,6 +192,7 @@ func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	// Connect to the API server we've just started.
 	apiInfo := s.APIInfo(c)
 	apiInfo.Addrs = []string{lis.Addr().String()}
+	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	sysManager := controller.NewClient(apiState)
 	defer sysManager.Close()

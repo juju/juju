@@ -642,6 +642,25 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
+func (s *MigrationExportSuite) TestActions(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := model.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, "pending")
+	c.Check(action.Message(), gc.Equals, "")
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token

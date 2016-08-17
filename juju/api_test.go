@@ -250,10 +250,10 @@ func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, ad
 }
 
 // newClientStore returns a client store that contains information
-// based on the given controller namd and info.
+// based on the given controller name and info.
 func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore {
 	store := jujuclienttesting.NewMemStore()
-	err := store.UpdateController(controllerName, jujuclient.ControllerDetails{
+	err := store.AddController(controllerName, jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",
 		APIEndpoints:   []string{"0.1.2.3:5678"},
@@ -339,7 +339,7 @@ func (s *CacheAPIEndpointsSuite) assertCreateController(c *gc.C, name string) ju
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",
 	}
-	err := s.ControllerStore.UpdateController(name, controllerDetails)
+	err := s.ControllerStore.AddController(name, controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	return controllerDetails
 }
@@ -383,7 +383,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 		CACert:                 "certificate",
 		UnresolvedAPIEndpoints: network.HostPortsToStrings(hps),
 	}
-	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
+	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
@@ -432,7 +432,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 		CACert:                 "certificate",
 		UnresolvedAPIEndpoints: strUnsorted,
 	}
-	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
+	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
@@ -482,7 +482,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 		UnresolvedAPIEndpoints: strUnsorted,
 		APIEndpoints:           strResolved,
 	}
-	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
+	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
@@ -530,7 +530,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",
 	}
-	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
+	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(

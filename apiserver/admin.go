@@ -24,7 +24,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminApiFactory func(*Server, *apiHandler, observer.Observer) interface{}
+type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
@@ -52,19 +52,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		return fail, errAlreadyLoggedIn
 	}
 
-	// authedApi is the API method finder we'll use after getting logged in.
-	var authedApi rpc.Root = newApiRoot(a.root.state, a.root.resources, a.root)
+	// authedAPI is the API root we'll use after getting logged in.
+	var authedAPI rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
 		case params.UpgradeInProgressError:
-			authedApi = newUpgradingRoot(authedApi)
+			authedAPI = newUpgradingRoot(authedAPI)
 		case AboutToRestoreError:
-			authedApi = newAboutToRestoreRoot(authedApi)
+			authedAPI = newAboutToRestoreRoot(authedAPI)
 		case RestoreInProgressError:
-			authedApi = newRestoreInProgressRoot(authedApi)
+			authedAPI = newRestoreInProgressRoot(authedAPI)
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
@@ -88,7 +88,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 	}
 
-	serverOnlyLogin := a.root.modelUUID == ""
+	controllerOnlyLogin := a.root.modelUUID == ""
 	controllerMachineLogin := false
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
@@ -193,28 +193,28 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		ServerVersion: jujuversion.Current.String(),
 	}
 
-	// For sufficiently modern login versions, stop serving the
-	// controller model at the root of the API.
-	if serverOnlyLogin {
-		authedApi = newRestrictedRoot(authedApi)
+	allowFacade := isModelFacade
+	if controllerOnlyLogin {
+		allowFacade = isControllerFacade
 		// Remove the ModelTag from the response as there is no
 		// model here.
 		loginResult.ModelTag = ""
-		// Strip out the facades that are not supported from the result.
-		var facades []params.FacadeVersions
-		for _, facade := range loginResult.Facades {
-			if restrictedRootNames.Contains(facade.Name) {
-				facades = append(facades, facade)
-			}
-		}
-		loginResult.Facades = facades
 	}
+	authedAPI = newRestrictedRoot(authedAPI, allowFacade)
+	// Strip out the facades that are not supported from the result.
+	facades := make([]params.FacadeVersions, 0, len(loginResult.Facades))
+	for _, facade := range loginResult.Facades {
+		if allowFacade(facade.Name) {
+			facades = append(facades, facade)
+		}
+	}
+	loginResult.Facades = facades
 
 	if !description.IsEmptyUserAccess(modelUser) || !description.IsEmptyUserAccess(controllerUser) {
-		authedApi = newClientAuthRoot(authedApi, modelUser, controllerUser)
+		authedAPI = newClientAuthRoot(authedAPI, modelUser, controllerUser)
 	}
 
-	a.root.rpcConn.ServeRoot(authedApi, serverError)
+	a.root.rpcConn.ServeRoot(authedAPI, serverError)
 
 	return loginResult, nil
 }
@@ -246,7 +246,7 @@ var doCheckCreds = checkCreds
 
 // checkCreds validates the entities credentials in the current model.
 // If the entity is a user, and lookForModelUser is true, a model user must exist
-// for the model.  In the case of a user logging in to the server, but
+// for the model.  In the case of a user logging in to the controller, but
 // not a model, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
 //
@@ -335,12 +335,12 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	controllerUser, err := state.ControllerAccess(f.st, utag)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if description.IsEmptyUserAccess(modelUser) && description.IsEmptyUserAccess(controllerUser) {
 		return nil, errors.NotFoundf("model or controller user")
@@ -354,7 +354,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		u.user = user
 	}
@@ -433,7 +433,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 		// to implement LastLogin error semantics too.
 		err = state.NeverLoggedInError(err.Error())
 	}
-	return t, err
+	return t, errors.Trace(err)
 }
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -49,6 +50,28 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (Subn
 	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
 }
 
+func (api *subnetsAPI) checkCanRead() error {
+	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.backing.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ServerError(common.ErrPerm)
+	}
+	return nil
+}
+
+func (api *subnetsAPI) checkCanWrite() error {
+	canWrite, err := api.authorizer.HasPermission(description.WriteAccess, api.backing.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ServerError(common.ErrPerm)
+	}
+	return nil
+}
+
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
 func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (SubnetsAPI, error) {
@@ -65,11 +88,18 @@ func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade
 
 // AllZones is defined on the API interface.
 func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ZoneResults{}, err
+	}
 	return networkingcommon.AllZones(api.backing)
 }
 
 // AllSpaces is defined on the API interface.
 func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.SpaceResults{}, err
+	}
+
 	var results params.SpaceResults
 
 	spaces, err := api.backing.AllSpaces()
@@ -89,11 +119,18 @@ func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
 
 // AddSubnets is defined on the API interface.
 func (api *subnetsAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
 	return networkingcommon.AddSubnets(api.backing, args)
 }
 
 // ListSubnets lists all the available subnets or only those matching
 // all given optional filters.
 func (api *subnetsAPI) ListSubnets(args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ListSubnetsResults{}, err
+	}
+
 	return networkingcommon.ListSubnets(api.backing, args)
 }
