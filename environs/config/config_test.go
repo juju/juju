@@ -520,6 +520,18 @@ var configTests = []configTest{
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
 	}, {
+		about:       "transmit-vendor-metrics asserted with default value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"transmit-vendor-metrics": true,
+		}),
+	}, {
+		about:       "transmit-vendor-metrics asserted false",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"transmit-vendor-metrics": false,
+		}),
+	}, {
 		about:       "Valid syslog config values",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -698,6 +710,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		}
 	} else {
 		c.Assert(resourceTags, gc.HasLen, 0)
+	}
+
+	xmit := cfg.TransmitVendorMetrics()
+	expectedXmit, xmitAsserted := test.attrs["transmit-vendor-metrics"]
+	if xmitAsserted {
+		c.Check(xmit, gc.Equals, expectedXmit)
+	} else {
+		c.Check(xmit, jc.IsTrue)
 	}
 }
 
