@@ -252,7 +252,7 @@ func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
-	fields := set.NewStrings(
+	ignored := set.NewStrings(
 		// DocID is the env + machine id
 		"DocID",
 		// ID is the machine id
@@ -262,13 +262,24 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
-
+		// NoVote and HasVote only matter for machines with manage state job
+		// and we don't support migrating the controller model.
+		"NoVote",
+		"HasVote",
+		// Ignored at this stage, could be an issue if mongo 3.0 isn't
+		// available.
+		"StopMongoUntilVersion",
+	)
+	migrated := set.NewStrings(
 		"Addresses",
 		"ContainerType",
 		"Jobs",
 		"MachineAddresses",
 		"Nonce",
 		"PasswordHash",
+		"Clean",
+		"Volumes",
+		"Filesystems",
 		"Placement",
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
@@ -277,19 +288,8 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"SupportedContainers",
 		"SupportedContainersKnown",
 		"Tools",
-
-		// Ignored at this stage, could be an issue if mongo 3.0 isn't
-		// available.
-		"StopMongoUntilVersion",
 	)
-	todo := set.NewStrings(
-		"Volumes",
-		"NoVote",
-		"Clean",
-		"Filesystems",
-		"HasVote",
-	)
-	s.AssertExportedFields(c, machineDoc{}, fields.Union(todo))
+	s.AssertExportedFields(c, machineDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
@@ -314,7 +314,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 	s.AssertExportedFields(c, instanceData{}, fields)
 }
 
-func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
+func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		// DocID is the env + name
 		"DocID",
@@ -358,35 +358,29 @@ func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// DocID itself isn't migrated
-		"DocID",
-		"Name",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
+	ignored := set.NewStrings(
 		"ModelUUID",
+		"DocID",
+		"Life",
 		// Application is implicit in the migration structure through containment.
 		"Application",
-		// Series, CharmURL, and Channel also come from the service.
-		"Series",
-		"CharmURL",
-		"Principal",
-		"Subordinates",
-		"MachineId",
 		// Resolved is not migrated as we check that all is good before we start.
 		"Resolved",
-		"Tools",
-		// Life isn't migrated as we only migrate live things.
-		"Life",
-		// TxnRevno isn't migrated.
+		// Series and CharmURL also come from the service.
+		"Series",
+		"CharmURL",
 		"TxnRevno",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"Principal",
+		"Subordinates",
+		"StorageAttachmentCount",
+		"MachineId",
+		"Tools",
 		"PasswordHash",
 	)
-	todo := set.NewStrings(
-		"StorageAttachmentCount",
-	)
-
-	s.AssertExportedFields(c, unitDoc{}, fields.Union(todo))
+	s.AssertExportedFields(c, unitDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
@@ -677,13 +671,13 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Name",
+		"StorageId",
 		"AttachmentCount", // through count of attachment instances
 		"Binding",
 		"Info",
 		"Params",
 	)
-	todo := set.NewStrings("StorageId")
-	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored).Union(todo))
+	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeInfo{}, set.NewStrings(
 		"HardwareId", "Size", "Pool", "VolumeId", "Persistent"))

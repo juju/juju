@@ -273,7 +273,6 @@ func (i *importer) machine(m description.Machine) error {
 	//    - adds status doc
 	//    - adds machine block devices doc
 
-	// TODO: consider filesystems and volumes
 	mStatus := m.Status()
 	if mStatus == nil {
 		return errors.NotValidf("missing status")
@@ -448,6 +447,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	machineTag := m.Tag()
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
@@ -462,7 +462,9 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		NoVote:                   true,  // State servers can't be migrated yet.
 		HasVote:                  false, // State servers can't be migrated yet.
 		PasswordHash:             m.PasswordHash(),
-		Clean:                    true, // check this later
+		Clean:                    !i.machineHasUnits(machineTag),
+		Volumes:                  i.machineVolumes(machineTag),
+		Filesystems:              i.machineFilesystems(machineTag),
 		Addresses:                i.makeAddresses(m.ProviderAddresses()),
 		MachineAddresses:         i.makeAddresses(m.MachineAddresses()),
 		PreferredPrivateAddress:  i.makeAddress(m.PreferredPrivateAddress()),
@@ -471,6 +473,41 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		SupportedContainers:      supportedContainers,
 		Placement:                m.Placement(),
 	}, nil
+}
+
+func (i *importer) machineHasUnits(tag names.MachineTag) bool {
+	for _, app := range i.model.Applications() {
+		for _, unit := range app.Units() {
+			if unit.Machine() == tag {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (i *importer) machineVolumes(tag names.MachineTag) []string {
+	var result []string
+	for _, volume := range i.model.Volumes() {
+		for _, attachment := range volume.Attachments() {
+			if attachment.Machine() == tag {
+				result = append(result, volume.Tag().Id())
+			}
+		}
+	}
+	return result
+}
+
+func (i *importer) machineFilesystems(tag names.MachineTag) []string {
+	var result []string
+	for _, filesystem := range i.model.Filesystems() {
+		for _, attachment := range filesystem.Attachments() {
+			if attachment.Machine() == tag {
+				result = append(result, filesystem.Tag().Id())
+			}
+		}
+	}
+	return result
 }
 
 func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
@@ -770,18 +807,30 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	}
 
 	return &unitDoc{
-		Name:         u.Name(),
-		Application:  s.Name(),
-		Series:       s.Series(),
-		CharmURL:     charmUrl,
-		Principal:    u.Principal().Id(),
-		Subordinates: subordinates,
-		// StorageAttachmentCount int `bson:"storageattachmentcount"`
-		MachineId:    u.Machine().Id(),
-		Tools:        i.makeTools(u.Tools()),
-		Life:         Alive,
-		PasswordHash: u.PasswordHash(),
+		Name:                   u.Name(),
+		Application:            s.Name(),
+		Series:                 s.Series(),
+		CharmURL:               charmUrl,
+		Principal:              u.Principal().Id(),
+		Subordinates:           subordinates,
+		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),
+		MachineId:              u.Machine().Id(),
+		Tools:                  i.makeTools(u.Tools()),
+		Life:                   Alive,
+		PasswordHash:           u.PasswordHash(),
 	}, nil
+}
+
+func (i *importer) unitStorageAttachmentCount(unit names.UnitTag) int {
+	count := 0
+	for _, storage := range i.model.Storages() {
+		for _, tag := range storage.Attachments() {
+			if tag == unit {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func (i *importer) relations() error {
@@ -1287,9 +1336,8 @@ func (i *importer) addVolume(volume description.Volume) error {
 		}
 	}
 	doc := volumeDoc{
-		Name: tag.Id(),
-		// TODO: add storage ID
-		// StorageId: ...,
+		Name:      tag.Id(),
+		StorageId: volume.Storage().Id(),
 		// Life: ..., // TODO: import life, default is Alive
 		Binding:         binding,
 		Params:          params,
