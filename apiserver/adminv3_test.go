@@ -56,7 +56,7 @@ func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetModelConstraints()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `facade "Client" not supported for API connection type`,
+		Message: `facade "Client" not supported for controller API connection`,
 		Code:    "not supported",
 	})
 }

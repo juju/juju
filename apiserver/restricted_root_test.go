@@ -47,12 +47,14 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 	r.assertMethodAllowed(c, "Controller", 3, "DestroyController")
 	r.assertMethodAllowed(c, "Controller", 3, "ModelConfig")
 	r.assertMethodAllowed(c, "Controller", 3, "ListBlockedModels")
+
+	r.assertMethodAllowed(c, "Pinger", 1, "Ping")
 }
 
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 	caller, err := r.root.FindMethod("Client", 1, "FullStatus")
 
-	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for API connection type`)
+	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for controller API connection`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
@@ -60,7 +62,7 @@ func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
 
-	c.Assert(err, gc.ErrorMatches, `facade "SomeFacade" not supported for API connection type`)
+	c.Assert(err, gc.ErrorMatches, `facade "SomeFacade" not supported for controller API connection`)
 	c.Assert(caller, gc.IsNil)
 }
 
