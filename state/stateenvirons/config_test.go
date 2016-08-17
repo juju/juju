@@ -56,8 +56,12 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	cloudSpec, err := stateenvirons.EnvironConfigGetter{st}.CloudSpec(st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
-		Type:       "dummy",
-		Name:       "dummy",
-		Credential: &emptyCredential,
+		Type:             "dummy",
+		Name:             "dummy",
+		Region:           "dummy-region",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &emptyCredential,
 	})
 }

@@ -575,6 +575,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.CloudName == "" {
 		params.CloudName = "dummy"
 	}
+	if params.CloudRegion == "" {
+		params.CloudRegion = "dummy-region"
+	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)

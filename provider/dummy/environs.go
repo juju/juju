@@ -83,6 +83,7 @@ func SampleCloudSpec() environs.CloudSpec {
 		Name:             "dummy",
 		Endpoint:         "dummy-endpoint",
 		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
 		StorageEndpoint:  "dummy-storage-endpoint",
 		Credential:       &cred,
 	}

@@ -35,9 +35,10 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Config:    cfg,
-			Owner:     owner,
+			CloudName:   "dummy",
+			CloudRegion: "dummy-region",
+			Config:      cfg,
+			Owner:       owner,
 			StorageProviderRegistry: StorageProviders(),
 		},
 		ControllerInheritedConfig: controllerInheritedConfig,
@@ -45,6 +46,14 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:             "dummy-region",
+					Endpoint:         "dummy-endpoint",
+					IdentityEndpoint: "dummy-identity-endpoint",
+					StorageEndpoint:  "dummy-storage-endpoint",
+				},
+			},
 		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,

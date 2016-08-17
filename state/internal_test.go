@@ -62,6 +62,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
 			CloudName:               "dummy",
+			CloudRegion:             "dummy-region",
 			Owner:                   s.owner,
 			Config:                  modelCfg,
 			StorageProviderRegistry: provider.CommonStorageProviders(),
@@ -70,6 +71,11 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name: "dummy-region",
+				},
+			},
 		},
 		MongoInfo:     info,
 		MongoDialOpts: mongotest.DialOpts(),

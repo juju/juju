@@ -236,7 +236,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	})
 	owner := names.NewUserTag("test@remote")
 	_, st, err := s.State.NewModel(state.ModelArgs{
-		Config: cfg, Owner: owner, CloudName: "dummy",
+		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "dummy-region",
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

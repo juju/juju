@@ -361,12 +361,21 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudName:        cloudSpec.Name,
+		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
 			Type:             cloudSpec.Type,
 			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
 			Endpoint:         cloudSpec.Endpoint,
 			IdentityEndpoint: cloudSpec.IdentityEndpoint,
 			StorageEndpoint:  cloudSpec.StorageEndpoint,
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:             "dummy-region",
+					Endpoint:         "dummy-endpoint",
+					IdentityEndpoint: "dummy-identity-endpoint",
+					StorageEndpoint:  "dummy-storage-endpoint",
+				},
+			},
 		},
 		CloudCredential:     cloudSpec.Credential,
 		CloudCredentialName: "cred",

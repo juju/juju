@@ -384,7 +384,7 @@ func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserT
 		"uuid": uuid.String(),
 	})
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", Config: cfg, Owner: owner,
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
