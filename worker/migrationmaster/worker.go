@@ -77,9 +77,9 @@ type Facade interface {
 	// minion has made a report for the current migration phase.
 	WatchMinionReports() (watcher.NotifyWatcher, error)
 
-	// GetMinionReports returns details of the reports made by migration
+	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
-	GetMinionReports() (coremigration.MinionReports, error)
+	MinionReports() (coremigration.MinionReports, error)
 }
 
 // Config defines the operation of a Worker.
@@ -485,7 +485,7 @@ func (w *Worker) waitForMinions(
 
 		case <-watch.Changes():
 			var err error
-			reports, err = w.config.Facade.GetMinionReports()
+			reports, err = w.config.Facade.MinionReports()
 			if err != nil {
 				return false, errors.Trace(err)
 			}

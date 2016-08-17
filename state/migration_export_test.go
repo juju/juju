@@ -37,18 +37,18 @@ var testAnnotations = map[string]string{
 	"another": "one",
 }
 
-type MigrationSuite struct {
+type MigrationBaseSuite struct {
 	ConnSuite
 }
 
-func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
+func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
+func (s *MigrationBaseSuite) setRandSequenceValue(c *gc.C, name string) int {
 	var value int
 	var err error
 	count := rand.Intn(5) + 1
@@ -60,13 +60,13 @@ func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 	return value + 1
 }
 
-func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
+func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
 	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"index": count - i}
 	}, 0)
 }
 
-func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
+func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
 	c.Assert(leader < count, jc.IsTrue)
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -87,7 +87,7 @@ func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname stri
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MigrationSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
+func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
 	pool := "loop-pool"
 	kind := "block"
 	// Create a default pool for block devices.
@@ -117,7 +117,7 @@ func (s *MigrationSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *stat
 }
 
 type MigrationExportSuite struct {
-	MigrationSuite
+	MigrationBaseSuite
 }
 
 var _ = gc.Suite(&MigrationExportSuite{})

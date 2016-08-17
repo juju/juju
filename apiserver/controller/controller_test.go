@@ -305,7 +305,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}})
 }
 
-func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
@@ -314,11 +314,11 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	defer st2.Close()
 
 	// Kick off the migration.
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
 			{
 				ModelTag: st1.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
@@ -327,7 +327,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 				},
 			}, {
 				ModelTag: st2.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
@@ -337,7 +337,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
@@ -352,7 +352,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
-		mig, err := st.LatestModelMigration()
+		mig, err := st.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
@@ -367,19 +367,19 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationValidationError(c *gc.C) {
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	// Kick off the migration with missing details.
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
 			ModelTag: st.ModelTag().String(),
 			// TargetInfo missing
 		}},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
@@ -388,15 +388,15 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
 			{
 				ModelTag: st.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
@@ -408,7 +408,7 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 

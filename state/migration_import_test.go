@@ -23,7 +23,7 @@ import (
 )
 
 type MigrationImportSuite struct {
-	MigrationSuite
+	MigrationBaseSuite
 }
 
 var _ = gc.Suite(&MigrationImportSuite{})

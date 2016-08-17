@@ -177,7 +177,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 		// QUIESCE
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 
 		// PRECHECK
@@ -207,7 +207,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 		// SUCCESS
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 
 		// LOGTRANSFER
@@ -236,7 +236,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
 		{"masterFacade.Reap", nil},
@@ -382,7 +382,7 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
 		apiOpenCallController,
 		abortCall,
@@ -496,7 +496,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
 		{"masterFacade.Reap", nil},
@@ -526,7 +526,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.GetMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
 		{"masterFacade.Reap", nil},
@@ -738,8 +738,8 @@ func (c *stubMasterFacade) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(c.minionReportsChanges), nil
 }
 
-func (c *stubMasterFacade) GetMinionReports() (coremigration.MinionReports, error) {
-	c.stub.AddCall("masterFacade.GetMinionReports")
+func (c *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) {
+	c.stub.AddCall("masterFacade.MinionReports")
 	if c.minionReportsErr != nil {
 		return coremigration.MinionReports{}, c.minionReportsErr
 	}

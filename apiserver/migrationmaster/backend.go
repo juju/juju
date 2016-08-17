@@ -13,7 +13,7 @@ import (
 type Backend interface {
 	migration.StateExporter
 
-	WatchForModelMigration() state.NotifyWatcher
-	LatestModelMigration() (state.ModelMigration, error)
+	WatchForMigration() state.NotifyWatcher
+	LatestMigration() (state.ModelMigration, error)
 	RemoveExportingModelDocs() error
 }

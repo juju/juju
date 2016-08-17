@@ -3249,7 +3249,7 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 		Name: hostedModelName,
 	})
 
-	mig, err := hostedSt.CreateModelMigration(state.ModelMigrationSpec{
+	mig, err := hostedSt.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
