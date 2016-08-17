@@ -454,7 +454,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
 			return nil, resolveInfo, err
 		}
-		if _, ok := err.(*noMatchingProductsError); ok {
+		if _, ok := err.(*noMatchingProductsError); !ok {
 			logger.Debugf("%v", err)
 		}
 	}
@@ -951,6 +951,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	logger.Tracef("finding products at path %q", productFilesPath)
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
+		logger.Tracef("can't read product data: %v", err)
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}
 	return ParseCloudMetadata(data, format, url, indexRef.valueParams.ValueTemplate)
