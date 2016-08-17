@@ -119,9 +119,9 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
-			BaseConfig:       s.TestConfig,
+			ModelConfig:      s.TestConfig,
 			ControllerName:   s.TestConfig["name"].(string),
-			CloudName:        "dummy",
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      AdminSecret,
 		},
 	)

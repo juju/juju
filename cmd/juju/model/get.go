@@ -12,8 +12,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 )
@@ -41,9 +42,10 @@ Examples:
     juju get-model-config default-series
     juju get-model-config -m mymodel type
 
-See also: models
-          set-model-config
-          unset-model-config
+See also:
+    models
+    set-model-config
+    unset-model-config
 `
 
 func (c *getCommand) Info() *cmd.Info {
@@ -52,7 +54,7 @@ func (c *getCommand) Info() *cmd.Info {
 		Aliases: []string{"model-config"},
 		Args:    "[<model key>]",
 		Purpose: "Displays configuration settings for a model.",
-		Doc:     strings.TrimSpace(getModelHelpDoc),
+		Doc:     getModelHelpDoc,
 	}
 }
 
@@ -79,7 +81,19 @@ func (c *getCommand) getAPI() (GetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return modelconfig.NewClient(api), nil
+}
+
+func (c *getCommand) isModelAttrbute(attr string) bool {
+	switch attr {
+	case config.NameKey, config.TypeKey, config.UUIDKey:
+		return true
+	}
+	return false
 }
 
 func (c *getCommand) Run(ctx *cmd.Context) error {
@@ -92,6 +106,14 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return err
+	}
+
+	for attrName := range attrs {
+		// We don't want model attributes included, these are available
+		// via show-model.
+		if c.isModelAttrbute(attrName) {
+			delete(attrs, attrName)
+		}
 	}
 
 	if c.key != "" {

@@ -149,6 +149,6 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "-m", "admin", "whoops")
+	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

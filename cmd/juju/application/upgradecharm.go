@@ -7,20 +7,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -162,6 +164,14 @@ func (c *upgradeCharmCommand) newServiceAPIClient() (*application.Client, error)
 	return application.NewClient(root), nil
 }
 
+func (c *upgradeCharmCommand) newModelConfigAPIClient() (*modelconfig.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -175,6 +185,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer serviceClient.Close()
 
 	oldURL, err := serviceClient.GetCharmURL(c.ApplicationName)
 	if err != nil {
@@ -201,13 +212,22 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
 
-	conf, err := getClientConfig(client)
+	modelConfigClient, err := c.newModelConfigAPIClient()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+	conf, err := getModelConfig(modelConfigClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	resolver := newCharmURLResolver(conf, csClient)
 	chID, csMac, err := c.addCharm(oldURL, newRef, client, resolver)
 	if err != nil {
+		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
+			terms := strings.Join(err1.Terms, " ")
+			return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("Added charm %q to the model.", chID.URL)

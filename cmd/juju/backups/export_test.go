@@ -71,39 +71,52 @@ func NewRestoreCommandForTest(
 	store jujuclient.ClientStore,
 	api RestoreAPI,
 	getArchive func(string) (ArchiveReader, *params.BackupsMetadataResult, error),
-	getEnviron func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error),
+	newEnviron func(environs.OpenParams) (environs.Environ, error),
+	getRebootstrapParams func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error),
 ) cmd.Command {
 	c := &restoreCommand{
-		getArchiveFunc: getArchive,
-		getEnvironFunc: getEnviron,
+		getArchiveFunc:           getArchive,
+		newEnvironFunc:           newEnviron,
+		getRebootstrapParamsFunc: getRebootstrapParams,
 		newAPIClientFunc: func() (RestoreAPI, error) {
 			return api, nil
 		},
 		waitForAgentFunc: func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error {
 			return nil
-		}}
-	if getEnviron == nil {
-		c.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-			return c.getEnviron(controllerNme, meta)
-		}
+		},
+	}
+	if getRebootstrapParams == nil {
+		c.getRebootstrapParamsFunc = c.getRebootstrapParams
+	}
+	if newEnviron == nil {
+		c.newEnvironFunc = environs.New
 	}
 	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
-func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-		return e, &restoreBootstrapParams{
+func GetEnvironFunc(e environs.Environ) func(environs.OpenParams) (environs.Environ, error) {
+	return func(environs.OpenParams) (environs.Environ, error) {
+		return e, nil
+	}
+}
+
+func GetRebootstrapParamsFunc(cloud string) func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+	return func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+		return &restoreBootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
-			CloudName:        cloud,
-			CloudRegion:      "a-region",
+			Cloud: environs.CloudSpec{
+				Type:   "lxd",
+				Name:   cloud,
+				Region: "a-region",
+			},
 		}, nil
 	}
 }
 
-func GetEnvironFuncWithError() func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-		return nil, nil, errors.New("failed")
+func GetRebootstrapParamsFuncWithError() func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+	return func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+		return nil, errors.New("failed")
 	}
 }

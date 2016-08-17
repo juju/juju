@@ -126,8 +126,8 @@ func testingEnvConfig(c *gc.C) *config.Config {
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
-			BaseConfig:       dummy.SampleConfig(),
-			CloudName:        "dummy",
+			ModelConfig:      dummy.SampleConfig(),
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

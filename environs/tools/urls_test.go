@@ -49,8 +49,8 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
-			BaseConfig:       attrs,
-			CloudName:        "dummy",
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

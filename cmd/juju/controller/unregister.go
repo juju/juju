@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -33,16 +33,18 @@ type unregisterCommand struct {
 }
 
 var usageUnregisterDetails = `
-Removes local connection information for the specified controller.
-This command does not destroy the controller.  In order to regain
-access to an unregistered controller, it will need to be added
-again using the juju register command.
+Removes local connection information for the specified controller.  This
+command does not destroy the controller.  In order to regain access to an
+unregistered controller, it will need to be added again using the juju register
+command.
 
 Examples:
 
     juju unregister my-controller
 
-See Also:
+See also:
+    juju destroy-controller
+    juju kill-controller
     juju register`
 
 // Info implements Command.Info

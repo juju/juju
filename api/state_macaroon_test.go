@@ -60,7 +60,8 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	dischargeCount := 0
 	s.DischargerLogin = func() string {
@@ -77,13 +78,14 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	conn, err := s.client.ConnectStream("/path", nil)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
-	connectURL := connectURLFromReader(c, conn)
+	connectURL := catcher.location
 	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.ModelTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 
 func (s *macaroonLoginSuite) TestConnectStreamWithoutLogin(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	conn, err := s.client.ConnectStream("/path", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)

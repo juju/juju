@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 )
 
 // DestroyController will attempt to destroy the controller. If the args
@@ -20,6 +21,14 @@ import (
 // that it should wait for hosted models to be completely cleaned up
 // before proceeding.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
+	hasPermission, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hasPermission {
+		return errors.Trace(common.ErrPerm)
+	}
+
 	st := common.NewModelManagerBackend(s.state)
 	controllerModel, err := st.ControllerModel()
 	if err != nil {

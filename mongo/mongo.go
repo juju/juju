@@ -449,7 +449,17 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, mgoVersion, true)
+	svcConf := newConf(ConfigArgs{
+		DataDir:     args.DataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongoPath,
+		Port:        args.StatePort,
+		OplogSizeMB: oplogSizeMB,
+		WantNumaCtl: args.SetNumaControlPolicy,
+		Version:     mgoVersion,
+		Auth:        true,
+		IPv6:        network.SupportsIPv6(),
+	})
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err

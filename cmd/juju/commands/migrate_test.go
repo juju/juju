@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
@@ -34,7 +35,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 
 	// Define the source controller in the config and set it as the default.
-	err := s.store.UpdateController("source", jujuclient.ControllerDetails{
+	err := s.store.AddController("source", jujuclient.ControllerDetails{
 		ControllerUUID: "eeeeeeee-0bad-400d-8000-4b1d0d06f00d",
 		CACert:         "somecert",
 	})
@@ -62,7 +63,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the target controller in the config.
-	err = s.store.UpdateController("target", jujuclient.ControllerDetails{
+	err = s.store.AddController("target", jujuclient.ControllerDetails{
 		ControllerUUID: targetControllerUUID,
 		APIEndpoints:   []string{"1.2.3.4:5"},
 		CACert:         "cert",
@@ -73,22 +74,22 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MigrateSuite) TestMissingModel(c *gc.C) {
-	_, err := s.runCommand(c)
+	_, err := s.makeAndRun(c)
 	c.Assert(err, gc.ErrorMatches, "model not specified")
 }
 
 func (s *MigrateSuite) TestMissingTargetController(c *gc.C) {
-	_, err := s.runCommand(c, "mymodel")
+	_, err := s.makeAndRun(c, "mymodel")
 	c.Assert(err, gc.ErrorMatches, "target controller not specified")
 }
 
 func (s *MigrateSuite) TestTooManyArgs(c *gc.C) {
-	_, err := s.runCommand(c, "one", "too", "many")
+	_, err := s.makeAndRun(c, "one", "too", "many")
 	c.Assert(err, gc.ErrorMatches, "too many arguments specified")
 }
 
 func (s *MigrateSuite) TestSuccess(c *gc.C) {
-	ctx, err := s.runCommand(c, "model", "target")
+	ctx, err := s.makeAndRun(c, "model", "target")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
@@ -103,22 +104,40 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
-	_, err := s.runCommand(c, "wat", "target")
+	cmd := s.makeCommand()
+	cmd.SetModelApi(&fakeModelAPI{})
+	_, err := s.run(c, cmd, "wat", "target")
 	c.Check(err, gc.ErrorMatches, "model .+ not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
 }
 
+func (s *MigrateSuite) TestModelDoesntExistBeforeRefresh(c *gc.C) {
+	cmd := s.makeCommand()
+	cmd.SetModelApi(&fakeModelAPI{model: "wat"}) // Model is available after refresh
+	_, err := s.run(c, cmd, "wat", "target")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.api.specSeen, gc.NotNil)
+}
+
 func (s *MigrateSuite) TestControllerDoesntExist(c *gc.C) {
-	_, err := s.runCommand(c, "model", "wat")
+	_, err := s.makeAndRun(c, "model", "wat")
 	c.Check(err, gc.ErrorMatches, "controller wat not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
 }
 
-func (s *MigrateSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *MigrateSuite) makeAndRun(c *gc.C, args ...string) (*cmd.Context, error) {
+	return s.run(c, s.makeCommand(), args...)
+}
+
+func (s *MigrateSuite) makeCommand() *migrateCommand {
 	cmd := &migrateCommand{
 		api: s.api,
 	}
 	cmd.SetClientStore(s.store)
+	return cmd
+}
+
+func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
@@ -129,4 +148,23 @@ type fakeMigrateAPI struct {
 func (a *fakeMigrateAPI) InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
+}
+
+type fakeModelAPI struct {
+	model string
+}
+
+func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
+	if m.model == "" {
+		return []base.UserModel{}, nil
+	}
+	return []base.UserModel{{
+		Name:  m.model,
+		UUID:  modelUUID,
+		Owner: "source@local",
+	}}, nil
+}
+
+func (m *fakeModelAPI) Close() error {
+	return nil
 }

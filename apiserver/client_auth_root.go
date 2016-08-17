@@ -5,84 +5,49 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 )
 
 // clientAuthRoot restricts API calls for users of a model. Initially the
 // authorisation checks are only for read only access to the model, but in the
 // near future, full ACL support is desirable.
 type clientAuthRoot struct {
-	finder rpc.MethodFinder
-	user   *state.ModelUser
+	rpc.Root
+	modelUser      description.UserAccess
+	controllerUser description.UserAccess
 }
 
-// newClientAuthRoot returns a new restrictedRoot.
-func newClientAuthRoot(finder rpc.MethodFinder, user *state.ModelUser) *clientAuthRoot {
-	return &clientAuthRoot{finder, user}
+// newClientAuthRoot returns a new API root that
+// restricts RPC calls to those appropriate for
+// the given user access.
+//
+// This is not appropriate for use on controller-only API connections.
+func newClientAuthRoot(root rpc.Root, modelUser description.UserAccess, controllerUser description.UserAccess) *clientAuthRoot {
+	return &clientAuthRoot{root, modelUser, controllerUser}
 }
 
-// FindMethod returns a not supported error if the rootName is not one of the
-// facades available at the server root when there is no active model.
+// FindMethod implements rpc.Root.FindMethod.
+// It returns a permission-denied error if the call is not appropriate
+// for the user access rights.
 func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// The lookup of the name is done first to return a not found error if the
+	// The lookup of the name is done first to return a
+	// rpcreflect.CallNotImplementedError error if the
 	// user is looking for a method that we just don't have.
-	caller, err := r.finder.FindMethod(rootName, version, methodName)
+	caller, err := r.Root.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
 	// ReadOnly User
-	if r.user.IsReadOnly() {
-		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
-			isCallReadOnly(rootName, methodName)
+	if r.modelUser.Access == description.ReadAccess {
+		canCall := isCallReadOnly(rootName, methodName)
 		if !canCall {
 			return nil, errors.Trace(common.ErrPerm)
 		}
 	}
 
-	// Check if our call requires higher access than the user has.
-	if doesCallRequireAdmin(rootName, methodName) && !r.user.IsAdmin() {
-		logger.Debugf("THE METHOD %s.%s MIGHT REQUIRE ADMIN", rootName, methodName)
-		return nil, errors.Trace(common.ErrPerm)
-	}
-
 	return caller, nil
-}
-
-// isCallAllowableByReadOnlyUser returns whether or not the method on the facade
-// can be called by a read only user.
-func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
-	// At this stage, any facade that is part of the restricted root (those
-	// that are accessable outside of models) are OK because the user would
-	// have access to those facades if they went through the controller API
-	// endpoint rather than a model oriented one.
-	return restrictedRootNames.Contains(facade)
-}
-
-var modelManagerMethods = set.NewStrings(
-	"ModifyModelAccess",
-	"CreateModel",
-)
-
-var controllerMethods = set.NewStrings(
-	"DestroyController",
-)
-
-func doesCallRequireAdmin(facade, method string) bool {
-	// TODO(perrito666) This should filter adding users to controllers.
-	// TODO(perrito666) Add an exaustive list of facades/methods that are
-	// admin only and put them in an authoritative source to be re-used.
-	// TODO(perrito666) This is a stub, the idea is to maintain the current
-	// status of permissions until we decide what goes to admin only.
-	switch facade {
-	case "ModelManager":
-		return modelManagerMethods.Contains(method)
-	case "Controller":
-		return controllerMethods.Contains(method)
-	}
-	return false
 }

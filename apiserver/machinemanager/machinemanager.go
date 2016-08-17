@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -55,6 +56,15 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
+
+	canWrite, err := mm.authorizer.HasPermission(description.WriteAccess, mm.st.ModelTag())
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !canWrite {
+		return results, common.ErrPerm
+	}
+
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
@@ -98,7 +108,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	if p.Series == "" {
 		conf, err := mm.st.ModelConfig()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		p.Series = config.PreferredSeries(conf)
 	}
@@ -107,7 +117,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	if p.Placement != nil {
 		env, err := mm.st.Model()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
@@ -137,7 +147,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 	jobs, err := common.StateJobs(p.Jobs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
 		Series:      p.Series,

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -87,16 +87,20 @@ func (s *suite) TestRestartsErrorWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestNeverRestartsFinishedWorker(c *gc.C) {
+func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
+	// It must be possible to restart the workers for a model due to
+	// model migrations: a model can be migrated away from a
+	// controller and then migrated back later.
 	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
 		backend.sendModelChange("uuid")
 		workers := s.waitWorkers(c, 1)
-		workers[0].tomb.Kill(nil)
+		workertest.CleanKill(c, workers[0])
 
-		// even when we get a change for it
+		s.assertNoWorkers(c)
+
 		backend.sendModelChange("uuid")
 		workertest.CheckAlive(c, w)
-		s.assertNoWorkers(c)
+		s.waitWorkers(c, 1)
 	})
 }
 

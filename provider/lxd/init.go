@@ -7,15 +7,9 @@ package lxd
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage/provider/registry"
-)
-
-const (
-	providerType = "lxd"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 func init() {
-	environs.RegisterProvider(providerType, providerInstance)
-
-	registry.RegisterEnvironStorageProviders(providerType)
+	environs.RegisterProvider(lxdnames.ProviderType, providerInstance)
 }

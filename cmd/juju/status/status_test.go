@@ -15,14 +15,17 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -34,6 +37,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	coreversion "github.com/juju/juju/version"
 )
 
@@ -158,6 +162,7 @@ var (
 		"name":       "controller",
 		"controller": "kontroll",
 		"cloud":      "dummy",
+		"region":     "dummy-region",
 		"version":    "1.2.3",
 	}
 
@@ -2376,6 +2381,7 @@ var statusTests = []testCase{
 					"name":              "controller",
 					"controller":        "kontroll",
 					"cloud":             "dummy",
+					"region":            "dummy-region",
 					"version":           "1.2.3",
 					"upgrade-available": "1.2.4",
 				},
@@ -3131,9 +3137,9 @@ func (e expect) step(c *gc.C, ctx *context) {
 type setToolsUpgradeAvailable struct{}
 
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
-	env, err := ctx.st.Model()
+	model, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion)
+	err = model.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3147,6 +3153,117 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 			ctx.run(c, t.steps)
 		}(t)
 	}
+}
+
+func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
+	// This test isn't part of statusTests because migrations can't be
+	// run on controller models.
+	st := s.setupMigrationTest(c)
+	defer st.Close()
+
+	expected := M{
+		"model": M{
+			"name":       "hosted",
+			"controller": "kontroll",
+			"cloud":      "dummy",
+			"region":     "dummy-region",
+			"version":    "1.2.3",
+			"migration":  "foo bar",
+		},
+		"machines":     M{},
+		"applications": M{},
+	}
+
+	for _, format := range statusFormats {
+		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
+		c.Check(code, gc.Equals, 0)
+		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		// Roundtrip expected through format so that types will match.
+		buf, err := format.marshal(expected)
+		c.Assert(err, jc.ErrorIsNil)
+		var expectedForFormat M
+		err = format.unmarshal(buf, &expectedForFormat)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var actual M
+		c.Assert(format.unmarshal(stdout, &actual), jc.ErrorIsNil)
+		c.Check(actual, jc.DeepEquals, expectedForFormat)
+	}
+}
+
+func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
+	expected := `
+MODEL   CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+
+UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+
+`[1:]
+
+	st := s.setupMigrationTest(c)
+	defer st.Close()
+	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	c.Check(code, gc.Equals, 0)
+	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+	c.Assert(string(stdout), gc.Equals, expected)
+}
+
+func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
+	expected := `
+MODEL   CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+
+UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+
+`[1:]
+
+	st := s.setupMigrationTest(c)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.UpdateLatestToolsVersion(nextVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
+	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	c.Check(code, gc.Equals, 0)
+	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+	c.Assert(string(stdout), gc.Equals, expected)
+}
+
+func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
+	const hostedModelName = "hosted"
+	const statusText = "foo bar"
+
+	f := factory.NewFactory(s.BackingState)
+	hostedSt := f.MakeModel(c, &factory.ModelParams{
+		Name: hostedModelName,
+	})
+
+	mig, err := hostedSt.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = mig.SetStatusMessage(statusText)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return hostedSt
 }
 
 type fakeApiClient struct {
@@ -3373,8 +3490,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
-controller  kontroll    dummy         1.2.3    1.2.4
+MODEL       CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
 APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
 logging    a bi...               true     jujucharms  logging    1    ubuntu
@@ -3388,11 +3505,11 @@ info               mysql      logging    subordinate
 db                 mysql      wordpress  regular
 logging-directory  wordpress  logging    subordinate
 
-UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE
-mysql/0      maintenance  idle   2               controller-2.dns  installing all the things
-  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs
-wordpress/0  active       idle   1               controller-1.dns  
-  logging/0  active       idle                   controller-1.dns  
+UNIT         WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
+mysql/0      maintenance  idle   2        controller-2.dns         installing all the things
+  logging/1  error        idle            controller-2.dns         somehow lost in all those logs
+wordpress/0  active       idle   1        controller-1.dns         
+  logging/0  active       idle            controller-1.dns         
 
 MACHINE  STATE    DNS               INS-ID        SERIES   AZ
 0        started  controller-0.dns  controller-0  quantal  us-east-1a
@@ -3445,7 +3562,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
 APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo                   false                   0    
 
-UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+UNIT   WORKLOAD     AGENT      MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
 
@@ -3537,7 +3654,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
 APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo                   false                   0    
 
-UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+UNIT   WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0                                                   
 foo/1                                                   
 
@@ -3695,6 +3812,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  name: controller\n" +
 		"  controller: kontroll\n" +
 		"  cloud: dummy\n" +
+		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
@@ -3987,6 +4105,7 @@ var statusTimeTest = test(
 				"name":       "controller",
 				"controller": "kontroll",
 				"cloud":      "dummy",
+				"region":     "dummy-region",
 				"version":    "1.2.3",
 			},
 			"machines": M{

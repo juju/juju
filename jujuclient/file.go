@@ -108,7 +108,46 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	return nil, errors.NotFoundf("controller %s", name)
 }
 
-// UpdateController implements ControllersUpdater.
+// AddController implements ControllerUpdater.
+func (s *store) AddController(name string, details ControllerDetails) error {
+	if err := ValidateControllerName(name); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateControllerDetails(details); err != nil {
+		return errors.Trace(err)
+	}
+
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return errors.Annotatef(err, "cannot add controller %v", name)
+	}
+	defer releaser.Release()
+
+	all, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get controllers")
+	}
+
+	if len(all.Controllers) == 0 {
+		all.Controllers = make(map[string]ControllerDetails)
+	}
+
+	if _, ok := all.Controllers[name]; ok {
+		return errors.AlreadyExistsf("controller with name %s", name)
+	}
+
+	for k, v := range all.Controllers {
+		if v.ControllerUUID == details.ControllerUUID {
+			return errors.AlreadyExistsf("controller with UUID %s (%s)",
+				details.ControllerUUID, k)
+		}
+	}
+
+	all.Controllers[name] = details
+	return WriteControllersFile(all)
+}
+
+// UpdateController implements ControllerUpdater.
 func (s *store) UpdateController(name string, details ControllerDetails) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -129,14 +168,25 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 	}
 
 	if len(all.Controllers) == 0 {
-		all.Controllers = make(map[string]ControllerDetails)
+		return errors.NotFoundf("controllers")
+	}
+
+	for k, v := range all.Controllers {
+		if v.ControllerUUID == details.ControllerUUID && k != name {
+			return errors.AlreadyExistsf("controller %s with UUID %s",
+				k, v.ControllerUUID)
+		}
+	}
+
+	if _, ok := all.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %s", name)
 	}
 
 	all.Controllers[name] = details
 	return WriteControllersFile(all)
 }
 
-// SetCurrentController implements ControllersUpdater.
+// SetCurrentController implements ControllerUpdater.
 func (s *store) SetCurrentController(name string) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -635,6 +685,12 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 	cfg, ok := configs[controllerName]
 	if !ok {
 		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+	}
+	if cfg.CloudType == "" {
+		// TODO(axw) 2016-07-25 #1603841
+		// Drop this when we get to 2.0. This exists only for
+		// compatibility with previous beta releases.
+		cfg.CloudType, _ = cfg.Config["type"].(string)
 	}
 	return &cfg, nil
 }

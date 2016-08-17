@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 // StorageInstance represents the state of a unit or application-wide storage
@@ -34,7 +33,7 @@ type StorageInstance interface {
 	// Kind returns the storage instance kind.
 	Kind() StorageKind
 
-	// Owner returns the tag of the service or unit that owns this storage
+	// Owner returns the tag of the application or unit that owns this storage
 	// instance.
 	Owner() names.Tag
 
@@ -45,9 +44,6 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
-
-	// CharmURL returns the charm URL that this storage instance was created with.
-	CharmURL() *charm.URL
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -81,6 +77,31 @@ type storageInstance struct {
 	doc storageInstanceDoc
 }
 
+// String returns a human readable string represting the type.
+func (k StorageKind) String() string {
+	switch k {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "filesystem"
+	default:
+		return "unknown"
+	}
+}
+
+// parseStorageKind is used by the migration code to go from the
+// string representation back to the enum.
+func parseStorageKind(value string) StorageKind {
+	switch value {
+	case "block":
+		return StorageKindBlock
+	case "filesystem":
+		return StorageKindFilesystem
+	default:
+		return StorageKindUnknown
+	}
+}
+
 func (s *storageInstance) Tag() names.Tag {
 	return s.StorageTag()
 }
@@ -111,11 +132,6 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
-// CharmURL returns the charm URL that this storage instance was created with.
-func (s *storageInstance) CharmURL() *charm.URL {
-	return s.doc.CharmURL
-}
-
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID     string `bson:"_id"`
@@ -127,7 +143,6 @@ type storageInstanceDoc struct {
 	Owner           string      `bson:"owner"`
 	StorageName     string      `bson:"storagename"`
 	AttachmentCount int         `bson:"attachmentcount"`
-	CharmURL        *charm.URL  `bson:"charmurl"`
 }
 
 type storageAttachment struct {
@@ -334,7 +349,6 @@ func createStorageOps(
 	st *State,
 	entity names.Tag,
 	charmMeta *charm.Meta,
-	curl *charm.URL,
 	cons map[string]StorageConstraints,
 	series string,
 	machineOpsNeeded bool,
@@ -403,7 +417,6 @@ func createStorageOps(
 				Kind:        kind,
 				Owner:       owner,
 				StorageName: t.storageName,
-				CharmURL:    curl,
 			}
 			if unit, ok := entity.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
@@ -911,25 +924,15 @@ func validateStoragePool(
 		}
 	}
 
-	// Ensure the pool type is supported by the model.
-	conf, err := st.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	envType := conf.Type()
-	if !registry.IsProviderSupported(envType, providerType) {
-		return errors.Errorf(
-			"pool %q uses storage provider %q which is not supported for models of type %q",
-			poolName,
-			providerType,
-			envType,
-		)
-	}
 	return nil
 }
 
 func poolStorageProvider(st *State, poolName string) (storage.ProviderType, storage.Provider, error) {
-	poolManager := poolmanager.New(NewStateSettings(st))
+	registry, err := st.storageProviderRegistry()
+	if err != nil {
+		return "", nil, errors.Annotate(err, "getting storage provider registry")
+	}
+	poolManager := poolmanager.New(NewStateSettings(st), registry)
 	pool, err := poolManager.Get(poolName)
 	if errors.IsNotFound(err) {
 		// If there's no pool called poolName, maybe a provider type
@@ -1179,7 +1182,6 @@ func (st *State) constructAddUnitStorageOps(
 		st,
 		u.Tag(),
 		ch.Meta(),
-		ch.URL(),
 		map[string]StorageConstraints{name: cons},
 		u.Series(),
 		true, // create machine storage

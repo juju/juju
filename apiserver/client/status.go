@@ -103,6 +103,7 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
+
 	results := params.StatusHistoryResults{}
 	// TODO(perrito666) the contents of the loop could be split into
 	// a oneHistory method for clarity.
@@ -112,6 +113,15 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			Date:  request.Filter.Date,
 			Delta: request.Filter.Delta,
 		}
+		if err := c.checkCanRead(); err != nil {
+			history := params.StatusHistoryResult{
+				Error: common.ServerError(err),
+			}
+			results.Results = append(results.Results, history)
+			continue
+
+		}
+
 		if err := filter.Validate(); err != nil {
 			history := params.StatusHistoryResult{
 				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
@@ -154,6 +164,10 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.FullStatus{}, err
+	}
+
 	var noStatus params.FullStatus
 	var context statusContext
 	var err error
@@ -293,7 +307,39 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		}
 	}
 
+	migStatus, err := c.getMigrationStatus()
+	if err != nil {
+		// It's not worth killing the entire status out if migration
+		// status can't be retrieved.
+		logger.Errorf("error retrieving migration status: %v", err)
+		info.Migration = "error retrieving migration status"
+	} else {
+		info.Migration = migStatus
+	}
+
 	return info, nil
+}
+
+func (c *Client) getMigrationStatus() (string, error) {
+	mig, err := c.api.stateAccessor.LatestModelMigration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if phase.IsTerminal() {
+		// There has been a migration attempt but it's no longer
+		// active - don't include this in status.
+		return "", nil
+	}
+
+	return mig.StatusMessage(), nil
 }
 
 type statusContext struct {
@@ -311,7 +357,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -342,7 +388,7 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 // fetchAllApplicationsAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
-	st stateInterface,
+	st Backend,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
@@ -393,7 +439,7 @@ func fetchAllApplicationsAndUnits(
 // to have the relations for each service. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // service that used to happen in processServiceRelations().
-func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
+func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err

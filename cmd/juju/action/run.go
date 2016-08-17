@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
@@ -43,7 +43,7 @@ The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
  
 Params are validated according to the charm for the unit's application.  The 
-valid params can be seen using "juju action defined <application> --schema".
+valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
 

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
@@ -45,7 +44,7 @@ func dummySampleConfig() testing.Attrs {
 }
 
 type CloudInitSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&CloudInitSuite{})
@@ -140,8 +139,6 @@ func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
 }
 
 func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
-	testJujuXDGDataHome := c.MkDir()
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(testJujuXDGDataHome))
 	// Use actual series paths instead of local defaults
 	logDir := must(paths.LogDir(series))
 	metricsSpoolDir := must(paths.MetricsSpoolDir(series))

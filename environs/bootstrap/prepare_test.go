@@ -43,6 +43,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
 		"controller": false,
 		"name":       "erewhemos",
+		"test-mode":  true,
 	}).Delete(
 		"admin-secret",
 	)
@@ -60,8 +61,8 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
-		BaseConfig:       cfg.AllAttrs(),
-		CloudName:        "dummy",
+		ModelConfig:      cfg.AllAttrs(),
+		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,17 +93,22 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"name":                      "erewhemos",
 			"controller":                false,
 			"development":               false,
-			"test-mode":                 false,
+			"test-mode":                 true,
 		},
-		Cloud: "dummy",
+		Cloud:                 "dummy",
+		CloudRegion:           "dummy-region",
+		CloudType:             "dummy",
+		CloudEndpoint:         "dummy-endpoint",
+		CloudIdentityEndpoint: "dummy-identity-endpoint",
+		CloudStorageEndpoint:  "dummy-storage-endpoint",
 	})
 
 	// Check we cannot call Prepare again.
 	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
-		BaseConfig:       cfg.AllAttrs(),
-		CloudName:        "dummy",
+		ModelConfig:      cfg.AllAttrs(),
+		Cloud:            dummy.SampleCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)

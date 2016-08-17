@@ -18,6 +18,7 @@ type Backend interface {
 	ModelConfig() (*config.Config, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
+	ModelTag() names.ModelTag
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to

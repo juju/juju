@@ -116,8 +116,8 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 	return st, entity, nil
 }
 
-// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
-// except that it also verifies that the authenticated entity is a user.
+// stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
+// except that it also verifies that the authenticated entity is an agent.
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
 	authFunc := common.AuthEither(
 		common.AuthFuncForTagKind(names.MachineTagKind),
@@ -180,14 +180,15 @@ func (ctxt *httpContext) stop() <-chan struct{} {
 
 // sendJSON writes a JSON-encoded response value
 // to the given writer along with a trailing newline.
-func sendJSON(w io.Writer, response interface{}) {
+func sendJSON(w io.Writer, response interface{}) error {
 	body, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
+		return err
 	}
 	body = append(body, '\n')
-	w.Write(body)
+	_, err = w.Write(body)
+	return err
 }
 
 // sendStatusAndJSON sends an HTTP status code and

@@ -103,8 +103,8 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
-			BaseConfig:       attrs,
-			CloudName:        "dummy",
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)
@@ -195,7 +195,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.TRACE), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	logger := loggo.GetLogger("juju.environs")
 	defer logger.SetLogLevel(logger.LogLevel())
@@ -208,10 +208,10 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	messages := []jc.SimpleMessage{
-		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.TRACE, "no architecture specified when finding tools, looking for "},
-		{loggo.TRACE, "no series specified when finding tools, looking for \\[.*\\]"},
+		{loggo.INFO, "reading agent binaries with major version 1"},
+		{loggo.INFO, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
+		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)

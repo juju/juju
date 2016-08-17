@@ -16,15 +16,10 @@ import (
 )
 
 type addSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&addSuite{})
-
-func (s *addSuite) SetUpTest(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-}
 
 func (s *addSuite) TestAddBadArgs(c *gc.C) {
 	addCmd := cloud.NewAddCloudCommand()

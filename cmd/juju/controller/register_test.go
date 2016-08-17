@@ -151,7 +151,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	c.Assert(s.listModelsUserName, gc.Equals, "bob@local")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller (controller-name):
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -168,14 +168,14 @@ func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "theoneandonly",
-			Owner: "bob@local",
+			Owner: "carol@local",
 			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
 		}}, nil
 	}
 	s.testRegister(c, "")
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
-		gc.Equals, "bob@local/theoneandonly",
+		gc.Equals, "carol@local/theoneandonly",
 	)
 }
 
@@ -201,7 +201,7 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller (controller-name):
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -309,7 +309,7 @@ func (s *RegisterSuite) TestRegisterEmptyControllerName(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
-	err := s.store.UpdateController("controller-name", jujuclient.ControllerDetails{
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
 		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 		CACert:         testing.CACert,
 	})
@@ -321,9 +321,37 @@ func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `controller "controller-name" already exists`)
 }
 
-func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
-	err := s.store.UpdateController("controller-name", jujuclient.ControllerDetails{
+func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
+	// Controller has the UUID from s.testRegister to mimic a user with
+	// this controller already registered (regardless of its name).
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
 		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		CACert:         testing.CACert,
+	})
+
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model-name",
+			Owner: "bob@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
+		}}, nil
+	}
+
+	s.testRegister(c, "you must specify a non-empty controller name")
+
+	secretKey := []byte(strings.Repeat("X", 32))
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+
+	stdin := strings.NewReader("another-controller-name\nhunter2\nhunter2\n")
+	_, err = s.run(c, stdin, registrationData)
+	c.Assert(err, gc.ErrorMatches, "controller with UUID.*already exists")
+}
+
+func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
+	// Controller does not have the UUID from s.testRegister, thereby
+	// mimicing a user with an already registered 'foreign' controller.
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
 
@@ -339,14 +367,15 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 
 	secretKey := []byte(strings.Repeat("X", 32))
 	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
-	stdin := strings.NewReader("controller-name1\nhunter2\nhunter2\n")
+
+	stdin := strings.NewReader("another-controller-name\nhunter2\nhunter2\n")
 	_, err = s.run(c, stdin, registrationData)
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-WARNING: the controller proposed "controller-name" which clashes with an existing controller. The two controllers are entirely different.
+WARNING: You already have a controller registered with the name "controller-name". Please choose a different name for the new controller.
 
-Please set a name for this controller:
+Enter a name for this controller: 
 `[1:])
 
 }

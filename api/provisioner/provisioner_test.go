@@ -71,7 +71,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
-	s.provisioner = s.st.Provisioner()
+	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
@@ -233,7 +233,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 

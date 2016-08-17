@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/discoverspaces"
@@ -188,9 +189,7 @@ func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 
 func (s *WorkerSuite) startWorker(c *gc.C) (worker.Worker, gate.Lock) {
 	// create fresh environ to see any injected broken-ness
-	config, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	environ, err := environs.New(config)
+	environ, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lock := gate.NewLock()

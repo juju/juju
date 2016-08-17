@@ -50,7 +50,7 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 // model migration.
 func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
-	var status params.FullMigrationStatus
+	var status params.MasterMigrationStatus
 	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
@@ -78,8 +78,8 @@ func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 	}
 
 	return migration.MigrationStatus{
+		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
-		Attempt:          status.Attempt,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
@@ -98,6 +98,15 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 		Phase: phase.String(),
 	}
 	return c.caller.FacadeCall("SetPhase", args, nil)
+}
+
+// SetStatusMessage sets a human readable message regarding the
+// progress of a migration.
+func (c *Client) SetStatusMessage(message string) error {
+	args := params.SetMigrationStatusMessageArgs{
+		Message: message,
+	}
+	return c.caller.FacadeCall("SetStatusMessage", args, nil)
 }
 
 // Export returns a serialized representation of the model associated

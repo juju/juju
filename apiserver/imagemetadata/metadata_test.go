@@ -22,7 +22,7 @@ func (s *metadataSuite) TestFindNil(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
+	s.assertCalls(c, "ControllerTag", findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmpty(c *gc.C) {
@@ -33,7 +33,7 @@ func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
+	s.assertCalls(c, "ControllerTag", findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
@@ -47,7 +47,7 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
+	s.assertCalls(c, "ControllerTag", findMetadata)
 }
 
 func (s *metadataSuite) TestFindError(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *metadataSuite) TestFindError(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
+	s.assertCalls(c, "ControllerTag", findMetadata)
 }
 
 func (s *metadataSuite) TestFindOrder(c *gc.C) {
@@ -92,14 +92,14 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 		params.CloudImageMetadata{ImageId: customImageId2, Priority: 20},
 		params.CloudImageMetadata{ImageId: publicImageId, Priority: 15},
 	})
-	s.assertCalls(c, findMetadata)
+	s.assertCalls(c, "ControllerTag", findMetadata)
 }
 
 func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	errs, err := s.api.Save(params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
-	s.assertCalls(c)
+	s.assertCalls(c, "ControllerTag")
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
@@ -130,14 +130,14 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, environConfig, "Model", saveMetadata, saveMetadata)
+	s.assertCalls(c, "ControllerTag", environConfig, "Model", saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
 	errs, err := s.api.Delete(params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
-	s.assertCalls(c)
+	s.assertCalls(c, "ControllerTag")
 }
 
 func (s *metadataSuite) TestDelete(c *gc.C) {
@@ -157,5 +157,5 @@ func (s *metadataSuite) TestDelete(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, deleteMetadata, deleteMetadata)
+	s.assertCalls(c, "ControllerTag", deleteMetadata, deleteMetadata)
 }

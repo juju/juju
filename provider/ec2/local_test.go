@@ -50,12 +50,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type ProviderSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&ProviderSuite{})
-
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"name":          "sample",
 	"type":          "ec2",
@@ -301,8 +295,8 @@ func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
 	t.makeTestingDefaultVPCUnavailable(c)
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
-	params.BaseConfig["vpc-id-force"] = true
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.ModelConfig["vpc-id-force"] = true
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
@@ -311,7 +305,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
 	const emptyVPCID = ""
 
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = emptyVPCID
+	params.ModelConfig["vpc-id"] = emptyVPCID
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, emptyVPCID)
 }
@@ -333,14 +327,14 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 
 func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = "none"
+	params.ModelConfig["vpc-id"] = "none"
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, ec2.VPCIDNone)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
 
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
@@ -617,7 +611,10 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	cfg, err := env.Config().Apply(map[string]interface{}{"controller-uuid": "7e386e08-cba7-44a4-a76e-7c1633584210"})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err = environs.New(cfg)
+	env, err = environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := "destroy security group error"
@@ -640,12 +637,13 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.New(environs.OpenParams{t.CloudSpec(), cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
-	ebsProvider := ec2.EBSProvider()
-	vs, err := ebsProvider.VolumeSource(env.Config(), nil)
+	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),
@@ -1477,23 +1475,27 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BaseConfig:       localConfigAttrs,
-			Credential: cloud.NewCredential(
-				cloud.AccessKeyAuthType,
-				map[string]string{
-					"access-key": "x",
-					"secret-key": "x",
-				},
-			),
-			ControllerName: localConfigAttrs["name"].(string),
-			CloudName:      "ec2",
-			CloudRegion:    "test",
-			AdminSecret:    testing.AdminSecret,
+			ModelConfig:      localConfigAttrs,
+			ControllerName:   localConfigAttrs["name"].(string),
+			Cloud: environs.CloudSpec{
+				Type:       "ec2",
+				Region:     "test",
+				Credential: &credential,
+			},
+			AdminSecret: testing.AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -100,7 +100,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
 		Attempt:        2,
-		Phase:          "READONLY",
+		Phase:          "PRECHECK",
 		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
 		SourceCACert:   "no worries",
 		TargetAPIAddrs: []string{"1.2.3.4:5555"},
@@ -201,7 +201,7 @@ func (m *fakeModelMigration) Attempt() (int, error) {
 }
 
 func (m *fakeModelMigration) Phase() (migration.Phase, error) {
-	return migration.READONLY, nil
+	return migration.PRECHECK, nil
 }
 
 func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {

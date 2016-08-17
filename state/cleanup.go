@@ -203,14 +203,7 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 		if _, isContainer := m.ParentId(); isContainer {
 			continue
 		}
-		manual, err := m.IsManual()
-		if err != nil {
-			return err
-		} else if manual {
-			continue
-		}
-		err = m.ForceDestroy()
-		if err != nil {
+		if err := m.ForceDestroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -308,14 +301,26 @@ func (st *State) cleanupDyingUnit(name string) error {
 	}
 	// Mark storage attachments as dying, so that they are detached
 	// and removed from state, allowing the unit to terminate.
-	storageAttachments, err := st.UnitStorageAttachments(unit.UnitTag())
+	return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+}
+
+func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
+	storageAttachments, err := st.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return err
 	}
 	for _, storageAttachment := range storageAttachments {
-		err := st.DestroyStorageAttachment(
-			storageAttachment.StorageInstance(), unit.UnitTag(),
-		)
+		storageTag := storageAttachment.StorageInstance()
+		err := st.DestroyStorageAttachment(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if !remove {
+			continue
+		}
+		err = st.RemoveStorageAttachment(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -373,9 +378,6 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	} else if err != nil {
 		return err
 	}
-	if err := cleanupDyingMachineResources(machine); err != nil {
-		return err
-	}
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
 	// But machine destruction is unsophisticated, and doesn't allow for
@@ -388,6 +390,9 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 		if err := st.obliterateUnit(unitName); err != nil {
 			return err
 		}
+	}
+	if err := cleanupDyingMachineResources(machine); err != nil {
+		return err
 	}
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
@@ -492,6 +497,10 @@ func (st *State) obliterateUnit(unitName string) error {
 		return nil
 	} else if err != nil {
 		return err
+	}
+	// Destroy and remove all storage attachments for the unit.
+	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true); err != nil {
+		return errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 	}
 	for _, subName := range unit.SubordinateNames() {
 		if err := st.obliterateUnit(subName); err != nil {

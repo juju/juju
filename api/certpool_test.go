@@ -30,7 +30,7 @@ func (s *certPoolSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logs = &certLogs{}
 	loggo.GetLogger("juju.api").SetLogLevel(loggo.TRACE)
-	loggo.RegisterWriter("api-certs", s.logs, loggo.TRACE)
+	loggo.RegisterWriter("api-certs", s.logs)
 }
 
 func (*certPoolSuite) TestCreateCertPoolNoCert(c *gc.C) {
@@ -137,8 +137,8 @@ type certLogs struct {
 	messages []string
 }
 
-func (c *certLogs) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	if strings.HasSuffix(filename, "certpool.go") {
-		c.messages = append(c.messages, fmt.Sprintf("%s %s", level, message))
+func (c *certLogs) Write(entry loggo.Entry) {
+	if strings.HasSuffix(entry.Filename, "certpool.go") {
+		c.messages = append(c.messages, fmt.Sprintf("%s %s", entry.Level, entry.Message))
 	}
 }

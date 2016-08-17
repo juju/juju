@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,7 +56,10 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(ModelArgs{CloudName: "dummy", Config: cfg, Owner: s.owner})
+	_, st, err := s.state.NewModel(ModelArgs{
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: s.owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
@@ -292,7 +296,7 @@ type allWatcherStateSuite struct {
 	allWatcherBaseSuite
 }
 
-func (s *allWatcherStateSuite) Reset(c *gc.C) {
+func (s *allWatcherStateSuite) reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
@@ -429,7 +433,7 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 		entities := all.All()
 		substNilSinceTimeForEntities(c, entities)
 		assertEntitiesEqual(c, entities, test.expectContents)
-		s.Reset(c)
+		s.reset(c)
 	}
 }
 
@@ -565,7 +569,6 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
-	defer s.Reset(c)
 	// Init the test model.
 	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	u, err := wordpress.AddUnit()
@@ -660,7 +663,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
-	defer s.Reset(c)
 	// Init the test model.
 	svc := AddTestingService(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
 	b := newAllWatcherStateBacking(s.state)
@@ -1101,7 +1103,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(otherState, w2, w1)
 		}()
-		s.Reset(c)
+		s.reset(c)
 	}
 }
 

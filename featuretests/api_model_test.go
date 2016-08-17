@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -41,15 +42,16 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	username := "foo@ubuntuone"
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	mm := modelmanager.NewClient(s.APIState)
+	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mm.Close()
 	err = mm.GrantModel(username, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	lastConn, err := modelUser.LastConnection()
+	c.Assert(modelUser.UserName, gc.Equals, user.Canonical())
+	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -59,47 +61,48 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "foo@ubuntuone"})
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	mm := modelmanager.NewClient(s.APIState)
+	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mm.Close()
 
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.UserAccess(user.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.NotNil)
+	c.Assert(modelUser, gc.Not(gc.DeepEquals), description.UserAccess{})
 
 	// Then test unsharing the environment.
-	err = mm.RevokeModel(user.UserName(), "read", model.UUID())
+	err = mm.RevokeModel(user.UserName, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err = s.State.ModelUser(user.UserTag())
+	modelUser, err = s.State.UserAccess(user.UserTag, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.IsNil)
+	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
 }
 
 func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
-	env, err := s.State.Model()
+	mod, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	owner, err := s.State.ModelUser(env.Owner())
+	owner, err := s.State.UserAccess(mod.Owner(), mod.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, []params.ModelUserInfo{
 		{
-			UserName:       owner.UserName(),
-			DisplayName:    owner.DisplayName(),
+			UserName:       owner.UserName,
+			DisplayName:    owner.DisplayName,
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, owner),
+			LastConnection: lastConnPointer(c, s.State, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, modelUser),
+			LastConnection: lastConnPointer(c, s.State, modelUser),
 		},
 	})
 }
 
-func lastConnPointer(c *gc.C, modelUser *state.ModelUser) *time.Time {
-	lastConn, err := modelUser.LastConnection()
+func lastConnPointer(c *gc.C, st *state.State, modelUser description.UserAccess) *time.Time {
+	lastConn, err := st.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil

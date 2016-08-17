@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -36,35 +35,21 @@ func NewClient(st base.APICallCloser) *Client {
 
 // AddUser creates a new local user in the controller, sharing with that user any specified models.
 func (c *Client) AddUser(
-	username, displayName, password, access string, modelUUIDs ...string,
+	username, displayName, password string,
 ) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
 		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
 	}
-	modelTags := make([]string, len(modelUUIDs))
-	for i, uuid := range modelUUIDs {
-		modelTags[i] = names.NewModelTag(uuid).String()
-	}
-
-	var accessPermission params.ModelAccessPermission
-	var err error
-	if len(modelTags) > 0 {
-		accessPermission, err = modelmanager.ParseModelAccess(access)
-		if err != nil {
-			return names.UserTag{}, nil, errors.Trace(err)
-		}
-	}
 
 	userArgs := params.AddUsers{
 		Users: []params.AddUser{{
-			Username:        username,
-			DisplayName:     displayName,
-			Password:        password,
-			SharedModelTags: modelTags,
-			ModelAccess:     accessPermission}},
+			Username:    username,
+			DisplayName: displayName,
+			Password:    password,
+		}},
 	}
 	var results params.AddUserResults
-	err = c.facade.FacadeCall("AddUser", userArgs, &results)
+	err := c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -101,15 +86,21 @@ func (c *Client) userCall(username string, methodCall string) error {
 }
 
 // DisableUser disables a user.  If the user is already disabled, the action
-// is consided a success.
+// is considered a success.
 func (c *Client) DisableUser(username string) error {
 	return c.userCall(username, "DisableUser")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
-// consided a success.
+// considered a success.
 func (c *Client) EnableUser(username string) error {
 	return c.userCall(username, "EnableUser")
+}
+
+// RemoveUser deletes a user. That is it permanently removes the user, while
+// retaining the record of the user to maintain provenance.
+func (c *Client) RemoveUser(username string) error {
+	return c.userCall(username, "RemoveUser")
 }
 
 // IncludeDisabled is a type alias to avoid bare true/false values

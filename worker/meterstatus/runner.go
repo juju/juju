@@ -48,10 +48,12 @@ func (w *hookRunner) acquireExecutionLock(interrupt <-chan struct{}) (mutex.Rele
 		Delay:  250 * time.Millisecond,
 		Cancel: interrupt,
 	}
+	logger.Debugf("acquire lock %q for meter status hook execution", w.machineLockName)
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("lock %q acquired", w.machineLockName)
 	return releaser, nil
 }
 
@@ -68,6 +70,8 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runE
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire machine lock")
 	}
+	// Defer the logging first so it is executed after the Release. LIFO.
+	defer logger.Debugf("release lock %q for meter status hook execution", w.machineLockName)
 	defer releaser.Release()
 	return r.RunHook(string(hooks.MeterStatusChanged))
 }

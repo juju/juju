@@ -95,7 +95,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
+		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
+	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
 	return testing.RunCommand(c, add, args...)
 }
 
@@ -218,8 +218,8 @@ func (f *fakeAddMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeAddMachineAPI) ModelUUID() (string, error) {
-	return "fake-uuid", nil
+func (f *fakeAddMachineAPI) ModelUUID() (string, bool) {
+	return "fake-uuid", true
 }
 
 func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {

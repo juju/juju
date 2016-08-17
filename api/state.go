@@ -17,11 +17,9 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -148,8 +146,22 @@ type loginResultParams struct {
 
 func (st *state) setLoginResult(p loginResultParams) error {
 	st.authTag = p.tag
-	st.modelTag = p.modelTag
-	st.controllerTag = p.controllerTag
+	var modelTag names.ModelTag
+	if p.modelTag != "" {
+		var err error
+		modelTag, err = names.ParseModelTag(p.modelTag)
+		if err != nil {
+			return errors.Annotatef(err, "invalid model tag in login result")
+		}
+	}
+	if modelTag.Id() != st.modelTag.Id() {
+		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), st.modelTag.Id())
+	}
+	ctag, err := names.ParseModelTag(p.controllerTag)
+	if err != nil {
+		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.modelTag)
+	}
+	st.controllerTag = ctag
 	st.readOnly = p.readOnly
 
 	hostPorts, err := addAddress(p.servers, st.addr)
@@ -236,12 +248,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
 }
 
-// Provisioner returns a version of the state that provides functionality
-// required by the provisioner worker.
-func (st *state) Provisioner() *provisioner.State {
-	return provisioner.NewState(st)
-}
-
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *state) Uniter() (*uniter.State, error) {
@@ -250,12 +256,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// Firewaller returns a version of the state that provides functionality
-// required by the firewaller worker.
-func (st *state) Firewaller() *firewaller.State {
-	return firewaller.NewState(st)
 }
 
 // Upgrader returns access to the Upgrader API

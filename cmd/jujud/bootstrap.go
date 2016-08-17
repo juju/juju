@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -127,7 +127,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(args.ControllerModelConfig)
+	cloudSpec, err := environs.MakeCloudSpec(
+		args.ControllerCloud,
+		args.ControllerCloudName,
+		args.ControllerCloudRegion,
+		args.ControllerCloudCredential,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: args.ControllerModelConfig,
+	})
 	if err != nil {
 		return err
 	}
@@ -246,10 +258,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
-				args, addrs, jobs, sharedSecret,
+				StateInitializationParams: args,
+				BootstrapMachineAddresses: addrs,
+				BootstrapMachineJobs:      jobs,
+				SharedSecret:              sharedSecret,
+				Provider:                  environs.Provider,
+				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			environs.NewStatePolicy(),
+			stateenvirons.GetNewPolicyFunc(
+				stateenvirons.GetNewEnvironFunc(environs.New),
+			),
 		)
 		return stateErr
 	})
@@ -276,11 +295,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if err := c.saveCustomImageMetadata(st, args.CustomImageMetadata); err != nil {
 			return err
 		}
-	}
-
-	// Populate the storage pools.
-	if err = c.populateDefaultStoragePools(st); err != nil {
-		return err
 	}
 
 	// bootstrap machine always gets the vote
@@ -337,12 +351,6 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	logger.Infof("started mongo")
 	return nil
-}
-
-// populateDefaultStoragePools creates the default storage pools.
-func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
-	settings := state.NewStateSettings(st)
-	return poolmanager.AddDefaultStoragePools(settings)
 }
 
 // populateTools stores uploaded tools in provider storage

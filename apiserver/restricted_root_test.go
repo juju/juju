@@ -16,14 +16,14 @@ import (
 type restrictedRootSuite struct {
 	testing.BaseSuite
 
-	root rpc.MethodFinder
+	root rpc.Root
 }
 
 var _ = gc.Suite(&restrictedRootSuite{})
 
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
-	r.root = apiserver.TestingRestrictedApiHandler(nil)
+	r.root = apiserver.TestingRestrictedAPIHandler(nil)
 }
 
 func (r *restrictedRootSuite) assertMethodAllowed(c *gc.C, rootName string, version int, method string) {
@@ -47,12 +47,14 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 	r.assertMethodAllowed(c, "Controller", 3, "DestroyController")
 	r.assertMethodAllowed(c, "Controller", 3, "ModelConfig")
 	r.assertMethodAllowed(c, "Controller", 3, "ListBlockedModels")
+
+	r.assertMethodAllowed(c, "Pinger", 1, "Ping")
 }
 
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 	caller, err := r.root.FindMethod("Client", 1, "FullStatus")
 
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
+	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for controller API connection`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
@@ -60,7 +62,7 @@ func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
 
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "SomeFacade" not supported`)
+	c.Assert(err, gc.ErrorMatches, `facade "SomeFacade" not supported for controller API connection`)
 	c.Assert(caller, gc.IsNil)
 }
 

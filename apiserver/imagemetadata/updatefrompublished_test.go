@@ -12,16 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
@@ -165,19 +162,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		env, err := bootstrap.Prepare(
-			modelcmd.BootstrapContext(testing.Context(c)),
-			jujuclienttesting.NewMemStore(),
-			bootstrap.PrepareParams{
-				ControllerConfig: testing.FakeControllerConfig(),
-				ControllerName:   "dummycontroller",
-				BaseConfig:       dummy.SampleConfig(),
-				CloudName:        "dummy",
-				AdminSecret:      "admin-secret",
-			},
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		return env.Config(), err
+		return config.New(config.UseDefaults, dummy.SampleConfig())
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
@@ -187,7 +172,6 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig)
 	c.Assert(saved, jc.SameContents, []cloudimagemetadata.Metadata{})
 }
 
@@ -218,24 +202,6 @@ func (e *mockEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   "dummy_region",
 		Endpoint: "https://anywhere",
 	}, nil
-}
-
-// mockEnvironProvider is the smallest possible provider to
-// test image metadata retrieval with region support.
-type mockEnvironProvider struct {
-	environs.EnvironProvider
-}
-
-func (p mockEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	return args.Config, nil
-}
-
-func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, *config.Config) (environs.Environ, error) {
-	return &mockEnviron{}, nil
-}
-
-func (p mockEnvironProvider) Open(*config.Config) (environs.Environ, error) {
-	return &mockEnviron{}, nil
 }
 
 var _ = gc.Suite(&regionMetadataSuite{})
@@ -316,7 +282,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, "ControllerTag", "ControllerTag", environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -431,7 +397,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, environConfig, "Model", saveMetadata, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, "ControllerTag", "ControllerTag", environConfig, "Model", saveMetadata, "ControllerTag", environConfig, "Model", saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 

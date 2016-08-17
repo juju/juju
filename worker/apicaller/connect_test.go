@@ -72,7 +72,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 }
 
 func (*ScaryConnectSuite) TestModelTagCannotChangeConfig(c *gc.C) {
-	stub := checkModelTagUpdate(c, errors.New("oh noes"))
+	stub := checkModelTagUpdate(c, false, errors.New("oh noes"))
 	stub.CheckCallNames(c,
 		"ChangeConfig",
 		"Life", "SetPassword",
@@ -80,7 +80,7 @@ func (*ScaryConnectSuite) TestModelTagCannotChangeConfig(c *gc.C) {
 }
 
 func (*ScaryConnectSuite) TestModelTagCannotGetTag(c *gc.C) {
-	stub := checkModelTagUpdate(c, nil, errors.New("oh noes"))
+	stub := checkModelTagUpdate(c, true)
 	stub.CheckCallNames(c,
 		"ChangeConfig", "ModelTag",
 		"Life", "SetPassword",
@@ -88,7 +88,7 @@ func (*ScaryConnectSuite) TestModelTagCannotGetTag(c *gc.C) {
 }
 
 func (*ScaryConnectSuite) TestModelTagCannotMigrate(c *gc.C) {
-	stub := checkModelTagUpdate(c, nil, nil, errors.New("oh noes"))
+	stub := checkModelTagUpdate(c, false, nil, errors.New("oh noes"))
 	stub.CheckCallNames(c,
 		"ChangeConfig", "ModelTag", "Migrate",
 		"Life", "SetPassword",
@@ -99,7 +99,7 @@ func (*ScaryConnectSuite) TestModelTagCannotMigrate(c *gc.C) {
 }
 
 func (*ScaryConnectSuite) TestModelTagSuccess(c *gc.C) {
-	stub := checkModelTagUpdate(c)
+	stub := checkModelTagUpdate(c, false)
 	stub.CheckCallNames(c,
 		"ChangeConfig", "ModelTag", "Migrate",
 		"Life", "SetPassword",
@@ -109,12 +109,15 @@ func (*ScaryConnectSuite) TestModelTagSuccess(c *gc.C) {
 	})
 }
 
-func checkModelTagUpdate(c *gc.C, errs ...error) *testing.Stub {
+func checkModelTagUpdate(c *gc.C, controllerOnly bool, errs ...error) *testing.Stub {
 	// success case; just a little failure we don't mind, otherwise
 	// equivalent to testEntityFine.
 	stub := &testing.Stub{}
 	stub.SetErrors(errs...) // from ChangeConfig
-	expectConn := &mockConn{stub: stub}
+	expectConn := &mockConn{
+		controllerOnly: controllerOnly,
+		stub:           stub,
+	}
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
 	}

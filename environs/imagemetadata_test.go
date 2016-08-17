@@ -51,8 +51,8 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
-			BaseConfig:       attrs,
-			CloudName:        "dummy",
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

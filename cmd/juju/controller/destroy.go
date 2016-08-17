@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
@@ -59,7 +59,8 @@ Examples:
     juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-    kill-controller`
+    kill-controller
+    unregister`
 
 var usageSummary = `
 Destroys a controller.`[1:]
@@ -68,13 +69,14 @@ var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
 This includes all machines, applications, data and other resources.
 
-Continue [y/N]? `[1:]
+Continue? (y/N):`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
 	ModelConfig() (map[string]interface{}, error)
+	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
 	DestroyController(destroyModels bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
@@ -340,27 +342,66 @@ func (c *destroyCommandBase) Init(args []string) error {
 // Environ by first checking the config store, then querying the
 // API if the information is not in the store.
 func (c *destroyCommandBase) getControllerEnviron(
-	store jujuclient.ClientStore, controllerName string, sysAPI destroyControllerAPI,
-) (_ environs.Environ, err error) {
-	cfg, err := modelcmd.NewGetBootstrapConfigFunc(store)(controllerName)
+	store jujuclient.ClientStore,
+	controllerName string,
+	sysAPI destroyControllerAPI,
+) (environs.Environ, error) {
+	env, err := c.getControllerEnvironFromStore(store, controllerName)
 	if errors.IsNotFound(err) {
-		if sysAPI == nil {
-			return nil, errors.New(
-				"unable to get bootstrap information from client store or API",
-			)
-		}
-		bootstrapConfig, err := sysAPI.ModelConfig()
-		if err != nil {
-			return nil, errors.Annotate(err, "getting bootstrap config from API")
-		}
-		cfg, err = config.New(config.NoDefaults, bootstrapConfig)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
 	} else if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap config from client store")
+		return nil, errors.Annotate(err, "getting environ using bootstrap config from client store")
 	}
-	return environs.New(cfg)
+	return env, nil
+}
+
+func (c *destroyCommandBase) getControllerEnvironFromStore(
+	store jujuclient.ClientStore,
+	controllerName string,
+) (environs.Environ, error) {
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(bootstrapConfig.CloudType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := provider.PrepareConfig(*params)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return environs.New(environs.OpenParams{
+		Cloud:  params.Cloud,
+		Config: cfg,
+	})
+}
+
+func (c *destroyCommandBase) getControllerEnvironFromAPI(
+	api destroyControllerAPI,
+	controllerName string,
+) (environs.Environ, error) {
+	if api == nil {
+		return nil, errors.New(
+			"unable to get bootstrap information from client store or API",
+		)
+	}
+	attrs, err := api.ModelConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model config from API")
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudSpec, err := api.CloudSpec(names.NewModelTag(cfg.UUID()))
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cloud spec from API")
+	}
+	return environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 }
 
 func confirmDestruction(ctx *cmd.Context, controllerName string) error {

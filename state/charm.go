@@ -392,12 +392,8 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 	return nil
 }
 
-// deleteCharmArchive deletes a charm archive from blob storage
-// and removes the corresponding charm record from state.
+// deleteCharmArchive deletes a charm archive from blob storage.
 func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
-	if err := st.deleteCharm(curl); err != nil {
-		return errors.Annotate(err, "cannot delete charm record from state")
-	}
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	if err := stor.Remove(storagePath); err != nil {
 		return errors.Annotate(err, "cannot delete charm from storage")
@@ -435,20 +431,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
-}
-
-// deleteCharm removes the charm record with curl from state.
-func (st *State) deleteCharm(curl *charm.URL) error {
-	op := []txn.Op{{
-		C:      charmsC,
-		Id:     curl.String(),
-		Remove: true,
-	}}
-	err := st.runTransaction(op)
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 type hasMeta interface {

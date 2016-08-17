@@ -36,13 +36,15 @@ func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Conte
 	}
 	command := commands.NewJujuCommand(context)
 	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
-	c.Assert(command.Run(context), jc.ErrorIsNil)
+	err := command.Run(context)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))
 	loggo.RemoveWriter("warning") // remove logger added by main command
 	return context
 }
 
 func (s *cmdLoginSuite) createTestUser(c *gc.C) {
-	s.run(c, nil, "add-user", "test", "--models", "controller")
+	s.run(c, nil, "add-user", "test")
+	s.run(c, nil, "grant", "test", "read", "controller")
 	s.changeUserPassword(c, "test", "hunter2")
 }
 

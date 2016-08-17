@@ -56,7 +56,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -159,18 +158,8 @@ type localLiveSuite struct {
 }
 
 func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
-	// Override the cinder storage provider, since there is no test
-	// double for cinder.
-	old, err := registry.StorageProvider(openstack.CinderProviderType)
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterProvider(openstack.CinderProviderType, nil)
-	registry.RegisterProvider(
-		openstack.CinderProviderType,
-		openstack.NewCinderProvider(&mockAdapter{}),
-	)
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider(openstack.CinderProviderType, nil)
-		registry.RegisterProvider(openstack.CinderProviderType, old)
+	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
+		return &mockAdapter{}, nil
 	})
 }
 
@@ -281,7 +270,10 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  s.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -1298,7 +1290,10 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
@@ -1820,13 +1815,21 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		BaseConfig:       attrs,
+		ModelConfig:      attrs,
 		ControllerName:   attrs["name"].(string),
-		Credential:       makeCredential(cred),
-		CloudName:        "openstack",
-		CloudEndpoint:    cred.URL,
-		CloudRegion:      cred.Region,
+		Cloud:            makeCloudSpec(cred),
 		AdminSecret:      testing.AdminSecret,
+	}
+}
+
+func makeCloudSpec(cred *identity.Credentials) environs.CloudSpec {
+	credential := makeCredential(cred)
+	return environs.CloudSpec{
+		Type:       "openstack",
+		Name:       "openstack",
+		Endpoint:   cred.URL,
+		Region:     cred.Region,
+		Credential: &credential,
 	}
 }
 

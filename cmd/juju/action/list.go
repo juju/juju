@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -35,7 +35,7 @@ const listDoc = `
 List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 
-For more information, see also the 'run-ation' command, which executes actions.
+For more information, see also the 'run-action' command, which executes actions.
 `
 
 // Set up the output.

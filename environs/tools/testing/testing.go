@@ -37,25 +37,27 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
-	return func(w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
+	return func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+		if expectedForceVersion != nil {
+			c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
+		} else {
+			c.Assert(forceVersion, gc.IsNil)
+		}
 		vers := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
-		}
-		if forceVersion != nil {
-			vers.Number = *forceVersion
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, sha256Hash, nil
 	}
 }
 
-// GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
+// GetMockBuildTools returns a sync.BuildAgentTarballFunc implementation which generates
 // a fake tools tarball.
-func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
+func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
+	return func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
 		vers := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
@@ -73,7 +75,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		name := "name"
 		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
-		return &sync.BuiltTools{
+		return &sync.BuiltAgent{
 			Dir:         toolsDir,
 			StorageName: name,
 			Version:     vers,

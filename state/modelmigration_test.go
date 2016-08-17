@@ -70,7 +70,7 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
-	c.Check(mig.StatusMessage(), gc.Equals, "")
+	c.Check(mig.StatusMessage(), gc.Equals, "starting")
 	c.Check(mig.InitiatedBy(), gc.Equals, "admin")
 
 	info, err := mig.TargetInfo()
@@ -252,6 +252,43 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	}
 }
 
+func (s *ModelMigrationSuite) TestLatestModelMigrationPreviousMigration(c *gc.C) {
+	// Check the scenario of a model having been migrated away and
+	// then migrated back. The previous migration shouldn't be
+	// reported by LatestModelMigration.
+
+	// Make it appear as if the model has been successfully
+	// migrated. Don't actually remove model documents to simulate it
+	// having been migrated back to the controller.
+	phases := []migration.Phase{
+		migration.PRECHECK,
+		migration.IMPORT,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.DONE,
+	}
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, phase := range phases {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+	state.ResetMigrationMode(c, s.State2)
+
+	// Previous migration shouldn't be reported.
+	_, err = s.State2.LatestModelMigration()
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+
+	// Start a new migration attempt, which should be reported.
+	mig2, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2b, err := s.State2.LatestModelMigration()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mig2b.Id(), gc.Equals, mig2.Id())
+}
+
 func (s *ModelMigrationSuite) TestModelMigration(c *gc.C) {
 	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,13 +312,13 @@ func (s *ModelMigrationSuite) TestRefresh(c *gc.C) {
 	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig1.SetPhase(migration.READONLY)
+	err = mig1.SetPhase(migration.PRECHECK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertPhase(c, mig2, migration.QUIESCE)
 	err = mig2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig2, migration.READONLY)
+	assertPhase(c, mig2, migration.PRECHECK)
 }
 
 func (s *ModelMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
@@ -295,7 +332,6 @@ func (s *ModelMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	phases := []migration.Phase{
-		migration.READONLY,
 		migration.PRECHECK,
 		migration.IMPORT,
 		migration.VALIDATION,
@@ -366,7 +402,6 @@ func (s *ModelMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 
 	// Advance the migration to REAPFAILED.
 	phases := []migration.Phase{
-		migration.READONLY,
 		migration.PRECHECK,
 		migration.IMPORT,
 		migration.VALIDATION,
@@ -404,18 +439,18 @@ func (s *ModelMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State2, func() {
 		mig, err := s.State2.LatestModelMigration()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
 	}).Check()
 
-	err = mig.SetPhase(migration.READONLY)
+	err = mig.SetPhase(migration.PRECHECK)
 	c.Assert(err, gc.ErrorMatches, "phase already changed")
 	assertPhase(c, mig, migration.QUIESCE)
 
 	// After a refresh it the phase change should be ok.
 	c.Assert(mig.Refresh(), jc.ErrorIsNil)
-	err = mig.SetPhase(migration.READONLY)
+	err = mig.SetPhase(migration.PRECHECK)
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig, migration.READONLY)
+	assertPhase(c, mig, migration.PRECHECK)
 }
 
 func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
@@ -425,8 +460,8 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 	mig2, err := s.State2.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(mig.StatusMessage(), gc.Equals, "")
-	c.Check(mig2.StatusMessage(), gc.Equals, "")
+	c.Check(mig.StatusMessage(), gc.Equals, "starting")
+	c.Check(mig2.StatusMessage(), gc.Equals, "starting")
 
 	err = mig.SetStatusMessage("foo bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -522,7 +557,7 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change phase.
-	c.Assert(mig2.SetPhase(migration.READONLY), jc.ErrorIsNil)
+	c.Assert(mig2.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// End it.
@@ -636,7 +671,7 @@ func (s *ModelMigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
 	c.Check(reports.Succeeded, gc.HasLen, 0)
 
 	// Advance the migration
-	c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
 
 	// Submit minion report for the old phase.
 	tag := names.NewMachineTag("42")

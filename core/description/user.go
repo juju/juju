@@ -80,19 +80,9 @@ func (u *user) LastConnection() time.Time {
 	return *u.LastConnection_
 }
 
-// IsRead implements User.
-func (u *user) IsReadOnly() bool {
-	return u.Access_ == ReadAccess
-}
-
-// IsReadWrite implements User.
-func (u *user) IsReadWrite() bool {
-	return u.Access_ == WriteAccess
-}
-
-// IsAdmin implements User.
-func (u *user) IsAdmin() bool {
-	return u.Access_ == AdminAccess
+// Access implements User.
+func (u *user) Access() Access {
+	return u.Access_
 }
 
 func importUsers(source map[string]interface{}) ([]*user, error) {

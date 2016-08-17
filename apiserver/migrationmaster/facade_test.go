@@ -91,7 +91,7 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 
 	status, err := api.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, params.FullMigrationStatus{
+	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
 		Spec: params.ModelMigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
 			TargetInfo: params.ModelMigrationTargetInfo{
@@ -102,8 +102,8 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 				Password:      "secret",
 			},
 		},
-		Attempt:          1,
-		Phase:            "READONLY",
+		MigrationId:      "id",
+		Phase:            "PRECHECK",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
 }
@@ -138,6 +138,30 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 
 	err := api.SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, gc.ErrorMatches, "failed to set phase: blam")
+}
+
+func (s *Suite) TestSetStatusMessage(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.backend.migration.messageSet, gc.Equals, "foo")
+}
+
+func (s *Suite) TestSetStatusMessageNoMigration(c *gc.C) {
+	s.backend.getErr = errors.New("boom")
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Check(err, gc.ErrorMatches, "could not get migration: boom")
+}
+
+func (s *Suite) TestSetStatusMessageError(c *gc.C) {
+	s.backend.migration.setMessageErr = errors.New("blam")
+	api := s.mustMakeAPI(c)
+
+	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
 }
 
 func (s *Suite) TestExport(c *gc.C) {
@@ -237,7 +261,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	}
 	c.Assert(reports, gc.DeepEquals, params.MinionReports{
 		MigrationId:   "id",
-		Phase:         "READONLY",
+		Phase:         "PRECHECK",
 		SuccessCount:  3,
 		UnknownCount:  len(unknown),
 		UnknownSample: expectedSample,
@@ -300,6 +324,8 @@ type stubMigration struct {
 	stub          *testing.Stub
 	setPhaseErr   error
 	phaseSet      coremigration.Phase
+	setMessageErr error
+	messageSet    string
 	minionReports *state.MinionReports
 }
 
@@ -308,7 +334,7 @@ func (m *stubMigration) Id() string {
 }
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
-	return coremigration.READONLY, nil
+	return coremigration.PRECHECK, nil
 }
 
 func (m *stubMigration) PhaseChangedTime() time.Time {
@@ -338,6 +364,14 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 		return m.setPhaseErr
 	}
 	m.phaseSet = phase
+	return nil
+}
+
+func (m *stubMigration) SetStatusMessage(message string) error {
+	if m.setMessageErr != nil {
+		return m.setMessageErr
+	}
+	m.messageSet = message
 	return nil
 }
 

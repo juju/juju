@@ -17,12 +17,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
@@ -45,20 +42,7 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	// is one that isn't registered as a valid provider. For our tests here we
 	// need a real registered provider, so we use the dummy provider.
 	// NOTE: make a better test provider.
-	env, err := bootstrap.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
-		jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			ControllerName:   "dummycontroller",
-			BaseConfig:       dummy.SampleConfig(),
-			CloudName:        "dummy",
-			AdminSecret:      "admin-secret",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
+	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
 	s.StateSuite.SetUpTest(c)
 }
 

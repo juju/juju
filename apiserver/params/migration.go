@@ -48,6 +48,12 @@ type SetMigrationPhaseArgs struct {
 	Phase string `json:"phase"`
 }
 
+// SetMigrationStatusMessageArgs provides a migration status message
+// to the migrationmaster.SetStatusMessage API method.
+type SetMigrationStatusMessageArgs struct {
+	Message string `json:"message"`
+}
+
 // SerializedModel wraps a buffer contain a serialised Juju model. It
 // also contains lists of the charms and tools used in the model.
 type SerializedModel struct {
@@ -73,6 +79,16 @@ type ModelArgs struct {
 	ModelTag string `json:"model-tag"`
 }
 
+// MasterMigrationStatus is used to report the current status of a
+// model migration for the migrationmaster. It includes authentication
+// details for the remote controller.
+type MasterMigrationStatus struct {
+	Spec             ModelMigrationSpec `json:"spec"`
+	MigrationId      string             `json:"migration-id"`
+	Phase            string             `json:"phase"`
+	PhaseChangedTime time.Time          `json:"phase-changed-time"`
+}
+
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
 	MigrationId string `json:"migration-id"`
@@ -85,16 +101,6 @@ type MigrationStatus struct {
 
 	TargetAPIAddrs []string `json:"target-api-addrs"`
 	TargetCACert   string   `json:"target-ca-cert"`
-}
-
-// FullMigrationStatus reports the current status of a model
-// migration, including authentication details for the remote
-// controller.
-type FullMigrationStatus struct {
-	Spec             ModelMigrationSpec `json:"spec"`
-	Attempt          int                `json:"attempt"`
-	Phase            string             `json:"phase"`
-	PhaseChangedTime time.Time          `json:"phase-changed-time"`
 }
 
 // PhasesResults holds the phase of one or more model migrations.

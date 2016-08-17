@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"os"
-
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -17,7 +15,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -92,10 +89,6 @@ func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	return cfg
 }
 
-const (
-	SampleModelName = "erewhemos"
-)
-
 const DefaultMongoPassword = "conn-from-name-secret"
 
 // FakeJujuXDGDataHomeSuite isolates the user's home directory and
@@ -103,20 +96,14 @@ const DefaultMongoPassword = "conn-from-name-secret"
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
-	oldJujuXDGDataHome string
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuXDGDataHome := gitjujutesting.JujuXDGDataHomePath()
-	err := os.MkdirAll(jujuXDGDataHome, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 }
 
 func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
-	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.FakeHomeSuite.TearDownTest(c)
 	s.JujuOSEnvSuite.TearDownTest(c)
 }

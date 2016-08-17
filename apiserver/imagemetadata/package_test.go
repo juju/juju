@@ -15,22 +15,14 @@ import (
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
-}
-
-func init() {
-	provider := mockEnvironProvider{}
-	environs.RegisterProvider("mock", provider)
 }
 
 type baseImageMetadataSuite struct {
@@ -51,12 +43,14 @@ func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), EnvironManager: true, AdminTag: names.NewUserTag("testuser")}
 
 	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
 
 	var err error
-	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
+	s.api, err = imagemetadata.CreateAPI(s.state, func() (environs.Environ, error) {
+		return &mockEnviron{}, nil
+	}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -89,6 +83,9 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config, model imagem
 		model: func() (imagemetadata.Model, error) {
 			return model, nil
 		},
+		controllerTag: func() names.ControllerTag {
+			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+		},
 	}
 }
 
@@ -100,6 +97,7 @@ type mockState struct {
 	deleteMetadata func(imageId string) error
 	environConfig  func() (*config.Config, error)
 	model          func() (imagemetadata.Model, error)
+	controllerTag  func() names.ControllerTag
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -127,6 +125,11 @@ func (st *mockState) Model() (imagemetadata.Model, error) {
 	return st.model()
 }
 
+func (st *mockState) ControllerTag() names.ControllerTag {
+	st.Stub.MethodCall(st, "ControllerTag")
+	return st.controllerTag()
+}
+
 type mockModel struct {
 	cloudRegion string
 }
@@ -136,21 +139,9 @@ func (m *mockModel) CloudRegion() string {
 }
 
 func testConfig(c *gc.C) *config.Config {
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":       "mock",
-		"controller": true,
-	})
-	env, err := bootstrap.Prepare(
-		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			ControllerName:   "dummycontroller",
-			BaseConfig:       attrs,
-			CloudName:        "dummy",
-			AdminSecret:      "admin-secret",
-		},
-	)
+	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"type": "mock",
+	}))
 	c.Assert(err, jc.ErrorIsNil)
-	return env.Config()
+	return cfg
 }

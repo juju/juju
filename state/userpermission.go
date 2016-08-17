@@ -7,10 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/description"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/description"
 )
 
 // permission represents the permission a user has
@@ -39,17 +40,32 @@ func accessToString(a description.Access) string {
 }
 
 // userPermission returns a Permission for the given Subject and User.
-func (st *State) userPermission(objectKey, subjectKey string) (*permission, error) {
+func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*permission, error) {
 	userPermission := &permission{}
 	permissions, closer := st.getCollection(permissionsC)
 	defer closer()
 
-	err := permissions.FindId(permissionID(objectKey, subjectKey)).One(&userPermission.doc)
+	id := permissionID(objectGlobalKey, subjectGlobalKey)
+	err := permissions.FindId(id).One(&userPermission.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", subjectKey)
+		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
 	return userPermission, nil
+}
 
+// controllerUserPermission returns a Permission for the given Subject and User.
+func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*permission, error) {
+	userPermission := &permission{}
+
+	permissions, closer := st.getCollection(permissionsC)
+	defer closer()
+
+	id := permissionID(objectGlobalKey, subjectGlobalKey)
+	err := permissions.FindId(id).One(&userPermission.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("user permissions for user %q", id)
+	}
+	return userPermission, nil
 }
 
 // isReadOnly returns whether or not the user has write access or only
@@ -74,16 +90,23 @@ func (p *permission) access() description.Access {
 	return stringToAccess(p.doc.Access)
 }
 
-func (p *permission) isGreaterAccess(a description.Access) bool {
-	return stringToAccess(p.doc.Access).IsGreaterAccess(a)
-}
-
-func permissionID(objectKey, subjectKey string) string {
-	// example: e#mo#jim
-	// e: model global key (its always e).
-	// mo: model user key prefix.
-	// jim: an arbitrary username.
-	return fmt.Sprintf("%s#%s", objectKey, subjectKey)
+func permissionID(objectGlobalKey, subjectGlobalKey string) string {
+	// example: e#:deadbeef#us#jim
+	// e: object global key
+	// deadbeef: object uuid
+	// us#jim: subject global key
+	// the first element (e in this example) is the global key for the object
+	// (model in this example)
+	// the second, is the : prefixed model uuid
+	// the third, in this example is a user with name jim, hence the globalKey
+	// ( a user global key) being us#jim.
+	// another example, now with controller and user maria:
+	// c#:deadbeef#us#maria
+	// c: object global key, in this case controller.
+	// :deadbeef controller uuid
+	// us#maria: its the user global key for maria.
+	// if this where for model, it would be e#us#maria
+	return fmt.Sprintf("%s#%s", objectGlobalKey, subjectGlobalKey)
 }
 
 func updatePermissionOp(objectGlobalKey, subjectGlobalKey string, access description.Access) txn.Op {

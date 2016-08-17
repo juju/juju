@@ -33,7 +33,7 @@ type BlobStorageClient interface {
 	// Otherwise returns false.
 	//
 	// See https://godoc.org/github.com/Azure/azure-sdk-for-go/storage#BlobStorageClient.DeleteBlobIfExists
-	DeleteBlobIfExists(container, name string) (bool, error)
+	DeleteBlobIfExists(container, name string, extraHeaders map[string]string) (bool, error)
 }
 
 // NewClientFunc is the type of the NewClient function.

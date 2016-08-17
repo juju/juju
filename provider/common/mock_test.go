@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -33,6 +34,7 @@ type mockEnviron struct {
 	getToolsSources  getToolsSourcesFunc
 	config           configFunc
 	setConfig        setConfigFunc
+	storageProviders jujustorage.StaticProviderRegistry
 	environs.Environ // stub out other methods with panics
 }
 
@@ -86,6 +88,14 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	}
 	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseToolsPath, simplestreams.SPECIFIC_CLOUD_DATA, false)
 	return []simplestreams.DataSource{datasource}, nil
+}
+
+func (env *mockEnviron) StorageProviderTypes() []jujustorage.ProviderType {
+	return env.storageProviders.StorageProviderTypes()
+}
+
+func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
+	return env.storageProviders.StorageProvider(t)
 }
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)

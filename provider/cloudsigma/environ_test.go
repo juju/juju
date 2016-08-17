@@ -41,12 +41,15 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBase(c *gc.C) {
-	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
+	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(baseConfig)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: baseConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 
@@ -84,12 +87,15 @@ func (s *environSuite) TestBase(c *gc.C) {
 }
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
-	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
+	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(baseConfig)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: baseConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 

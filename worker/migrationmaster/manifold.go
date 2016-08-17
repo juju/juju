@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/migration"
@@ -18,6 +19,7 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
+	AgentName     string
 	APICallerName string
 	FortressName  string
 
@@ -26,8 +28,11 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 }
 
-// validate is called by start to check for bad configuration.
-func (config ManifoldConfig) validate() error {
+// Validate is called by start to check for bad configuration.
+func (config ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -48,7 +53,12 @@ func (config ManifoldConfig) validate() error {
 
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	if err := config.validate(); err != nil {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var agent agent.Agent
+	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var apiConn api.Connection
@@ -65,6 +75,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	apiClient := apiConn.Client()
 	worker, err := config.NewWorker(Config{
+		ModelUUID:       agent.CurrentConfig().Model().Id(),
 		Facade:          facade,
 		Guard:           guard,
 		APIOpen:         api.Open,
@@ -79,10 +90,31 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return worker, nil
 }
 
+func errorFilter(err error) error {
+	switch err {
+	case ErrMigrated:
+		// If the model has migrated, the migrationmaster should no
+		// longer be running.
+		return dependency.ErrUninstall
+	case ErrInactive:
+		// If the migration is no longer active, restart the
+		// migrationmaster immediately so it can wait for the next
+		// attempt.
+		return dependency.ErrBounce
+	default:
+		return err
+	}
+}
+
 // Manifold packages a Worker for use in a dependency.Engine.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.FortressName},
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.FortressName,
+		},
 		Start:  config.start,
+		Filter: errorFilter,
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -53,7 +54,9 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 			return tag == names.NewMachineTag("0") || tag == names.NewMachineTag("42")
 		}, nil
 	}
-	tg := common.NewToolsGetter(s.State, s.State, s.State, sprintfURLGetter("tools:%s"), getCanRead)
+	tg := common.NewToolsGetter(
+		s.State, stateenvirons.EnvironConfigGetter{s.State}, s.State, sprintfURLGetter("tools:%s"), getCanRead,
+	)
 	c.Assert(tg, gc.NotNil)
 
 	err := s.machine0.SetAgentVersion(current)
@@ -82,7 +85,9 @@ func (s *toolsSuite) TestToolsError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
-	tg := common.NewToolsGetter(s.State, s.State, s.State, sprintfURLGetter("%s"), getCanRead)
+	tg := common.NewToolsGetter(
+		s.State, stateenvirons.EnvironConfigGetter{s.State}, s.State, sprintfURLGetter("%s"), getCanRead,
+	)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
@@ -175,7 +180,9 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		c.Assert(filter.Arch, gc.Equals, "alpha")
 		return envtoolsList, nil
 	})
-	toolsFinder := common.NewToolsFinder(s.State, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"))
+	toolsFinder := common.NewToolsFinder(
+		stateenvirons.EnvironConfigGetter{s.State}, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"),
+	)
 	result, err := toolsFinder.FindTools(params.FindToolsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
@@ -202,7 +209,7 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(s.State, s.State, sprintfURLGetter("%s"))
+	toolsFinder := common.NewToolsFinder(stateenvirons.EnvironConfigGetter{s.State}, s.State, sprintfURLGetter("%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
@@ -246,7 +253,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		}
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(s.State, t, sprintfURLGetter("tools:%s"))
+	toolsFinder := common.NewToolsFinder(stateenvirons.EnvironConfigGetter{s.State}, t, sprintfURLGetter("tools:%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
@@ -270,7 +277,7 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(s.State, &mockToolsStorage{
+	toolsFinder := common.NewToolsFinder(stateenvirons.EnvironConfigGetter{s.State}, &mockToolsStorage{
 		err: errors.New("AllMetadata failed"),
 	}, sprintfURLGetter("tools:%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{

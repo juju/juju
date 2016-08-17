@@ -117,6 +117,9 @@ func (s *addSuite) TestInit(c *gc.C) {
 			args:   []string{"new-model", "--config", "key=value", "--config", "key2=value2"},
 			name:   "new-model",
 			values: map[string]interface{}{"key": "value", "key2": "value2"},
+		}, {
+			args: []string{"new-model", "extra", "args"},
+			err:  `unrecognized args: \["extra" "args"\]`,
 		},
 	} {
 		c.Logf("test %d", i)
@@ -302,7 +305,7 @@ func (s *addSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 type fakeAddClient struct {
 	owner           string
 	cloudRegion     string
-	cloudCredential string
+	cloudCredential names.CloudCredentialTag
 	config          map[string]interface{}
 	err             error
 	model           params.ModelInfo
@@ -314,7 +317,7 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(name, owner, cloudRegion, cloudCredential string, config map[string]interface{}) (params.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(name, owner, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (params.ModelInfo, error) {
 	if f.err != nil {
 		return params.ModelInfo{}, f.err
 	}
@@ -330,12 +333,12 @@ type fakeCloudAPI struct {
 	controller.CloudAPI
 }
 
-func (c *fakeCloudAPI) Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error) {
-	return map[string]cloud.Credential{
-		"default": cloud.NewEmptyCredential(),
+func (c *fakeCloudAPI) Credentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error) {
+	return []names.CloudCredentialTag{
+		names.NewCloudCredentialTag("cloud/admin@local/default"),
 	}, nil
 }
 
-func (c *fakeCloudAPI) UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error {
+func (c *fakeCloudAPI) UpdateCredential(names.CloudCredentialTag, cloud.Credential) error {
 	return nil
 }

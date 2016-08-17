@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -32,7 +31,7 @@ var _ = gc.Suite(&constraintsValidationSuite{})
 
 func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts(
 			[]string{constraints.InstanceType},
@@ -270,7 +269,7 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 
 func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterVocabulary(constraints.VirtType, []string{"kvm"})
 		return validator, nil

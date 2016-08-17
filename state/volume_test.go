@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
@@ -112,7 +113,7 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	// Register a default pool.
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
@@ -739,13 +740,12 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
 
 	// Cannot advance to Dead while there are persistent, or
-	// unprovisioned dynamic volumes (regardless of scope).
+	// unprovisioned environ-scoped dynamic volumes.
 	err = machine.EnsureDead()
 	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
-	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1 volume-0-2\\]")
+	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/1"))
-	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/2"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
@@ -758,9 +758,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	for _, v := range allVolumes {
 		remaining.Add(v.Tag().String())
 	}
-	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
-		"volume-0", "volume-0-1", "volume-0-2",
-	})
+	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{"volume-0", "volume-0-1"})
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)

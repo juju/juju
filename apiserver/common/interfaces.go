@@ -50,6 +50,15 @@ func AuthNever() GetAuthFunc {
 	}
 }
 
+// AuthFuncForTag returns an authentication function that always returns true iff it is passed a specific tag.
+func AuthFuncForTag(valid names.Tag) GetAuthFunc {
+	return func() (AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == valid
+		}, nil
+	}
+}
+
 // AuthFuncForTagKind returns a GetAuthFunc which creates an AuthFunc
 // allowing only the given tag kind and denies all others. Passing an
 // empty kind is an error.

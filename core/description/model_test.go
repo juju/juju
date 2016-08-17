@@ -634,3 +634,88 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
+
+func (s *ModelSerializationSuite) TestAction(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	enqueued := time.Now().UTC()
+	action := initial.AddAction(ActionArgs{
+		Name:       "foo",
+		Enqueued:   enqueued,
+		Parameters: map[string]interface{}{},
+		Results:    map[string]interface{}{},
+	})
+	c.Assert(action.Name(), gc.Equals, "foo")
+	c.Assert(action.Enqueued(), gc.Equals, enqueued)
+	actions := initial.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	c.Assert(actions[0], jc.DeepEquals, action)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Actions(), jc.DeepEquals, actions)
+}
+
+func (s *ModelSerializationSuite) TestVolumeValidation(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddVolume(testVolumeArgs())
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `volume\[0\]: volume "1234" missing status not valid`)
+}
+
+func (s *ModelSerializationSuite) TestVolumes(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	volume := initial.AddVolume(testVolumeArgs())
+	volume.SetStatus(minimalStatusArgs())
+	volumes := initial.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	c.Assert(volumes[0], gc.Equals, volume)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Volumes(), jc.DeepEquals, volumes)
+}
+
+func (s *ModelSerializationSuite) TestFilesystemValidation(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddFilesystem(testFilesystemArgs())
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `filesystem\[0\]: filesystem "1234" missing status not valid`)
+}
+
+func (s *ModelSerializationSuite) TestFilesystems(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	filesystem := initial.AddFilesystem(testFilesystemArgs())
+	filesystem.SetStatus(minimalStatusArgs())
+	filesystem.AddAttachment(testFilesystemAttachmentArgs())
+	filesystems := initial.Filesystems()
+	c.Assert(filesystems, gc.HasLen, 1)
+	c.Assert(filesystems[0], gc.Equals, filesystem)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Filesystems(), jc.DeepEquals, filesystems)
+}
+
+func (s *ModelSerializationSuite) TestStorage(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	storage := initial.AddStorage(testStorageArgs())
+	storages := initial.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+	c.Assert(storages[0], jc.DeepEquals, storage)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Storages(), jc.DeepEquals, storages)
+}

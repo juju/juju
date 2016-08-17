@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
@@ -34,14 +34,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -743,7 +744,12 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(
+		agentConfig.Model(), info, mongo.DefaultDialOpts(),
+		stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -780,7 +786,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
-	pr := st.Provisioner()
+	pr := apiprovisioner.NewState(st)
 	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := pr.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
@@ -799,37 +805,11 @@ func (a *MachineAgent) updateSupportedContainers(
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	modelUUID, err := st.ModelTag()
-	if err != nil {
-		return err
-	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	// There may not be a CA certificate private key available, and without
-	// it we can't ensure that other Juju nodes can connect securely, so only
-	// use an image URL getter if there's a private key.
-	var imageURLGetter container.ImageURLGetter
-	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		cfg, err := pr.ModelConfig()
-		if err != nil {
-			return errors.Annotate(err, "unable to get environ config")
-		}
-		imageURLGetter = container.NewImageURLGetter(
-			// Explicitly call the non-named constructor so if anyone
-			// adds additional fields, this fails.
-			container.ImageURLGetterConfig{
-				ServerRoot:        st.Addr(),
-				ModelUUID:         modelUUID.Id(),
-				CACert:            []byte(agentConfig.CACert()),
-				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
-				Stream:            cfg.ImageStream(),
-				ImageDownloadFunc: container.ImageDownloadURL,
-			})
-	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: containers,
-		ImageURLGetter:      imageURLGetter,
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
@@ -898,7 +878,12 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 				return w, nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-				w, err := peergrouperNew(st)
+				env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+				if err != nil {
+					return nil, errors.Annotate(err, "getting environ from state")
+				}
+				supportsSpaces := environs.SupportsSpaces(env)
+				w, err := peergrouperNew(st, supportsSpaces)
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start peergrouper worker")
 				}
@@ -1001,6 +986,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		StatusHistoryPrunerMaxHistoryMB:   5120,            // 5G
 		StatusHistoryPrunerInterval:       5 * time.Minute,
 		SpacesImportedGate:                a.discoverSpacesComplete,
+		NewEnvironFunc:                    newEnvirons,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
@@ -1128,14 +1114,13 @@ func newObserverFn(
 	var observerFactories []observer.ObserverFactory
 
 	// Common logging of RPC requests
-	var connectionID int64
 	observerFactories = append(observerFactories, func() observer.Observer {
 		logger := loggo.GetLogger("juju.apiserver")
 		ctx := observer.RequestObserverContext{
 			Clock:  clock,
 			Logger: logger,
 		}
-		return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
+		return observer.NewRequestObserver(ctx)
 	})
 
 	// Auditing observer
@@ -1285,7 +1270,11 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, dialOpts,
+		stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	)
 	if err != nil {
 		return nil, nil, err
 	}

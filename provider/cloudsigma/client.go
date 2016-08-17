@@ -17,9 +17,8 @@ import (
 )
 
 type environClient struct {
-	conn   *gosigma.Client
-	uuid   string
-	config *environConfig
+	conn *gosigma.Client
+	uuid string
 }
 
 type tracer struct{}
@@ -29,12 +28,15 @@ func (tracer) Logf(format string, args ...interface{}) {
 }
 
 // newClient returns an instance of the CloudSigma client.
-var newClient = func(cfg *environConfig) (client *environClient, err error) {
-	uuid := cfg.UUID()
+var newClient = func(cloud environs.CloudSpec, uuid string) (client *environClient, err error) {
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
+	credAttrs := cloud.Credential.Attributes()
+	username := credAttrs[credAttrUsername]
+	password := credAttrs[credAttrPassword]
+
 	// create connection to CloudSigma
-	conn, err := gosigma.NewClient(cfg.endpoint(), cfg.username(), cfg.password(), nil)
+	conn, err := gosigma.NewClient(cloud.Endpoint, username, password, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +47,8 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	}
 
 	client = &environClient{
-		conn:   conn,
-		uuid:   uuid,
-		config: cfg,
+		conn: conn,
+		uuid: uuid,
 	}
 
 	return client, nil
@@ -150,7 +151,12 @@ func (c *environClient) stopInstance(id instance.Id) error {
 }
 
 //newInstance creates and starts new instance.
-func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, ar string, err error) {
+func (c *environClient) newInstance(
+	args environs.StartInstanceParams,
+	img *imagemetadata.ImageMetadata,
+	userData []byte,
+	authorizedKeys string,
+) (srv gosigma.Server, drv gosigma.Drive, ar string, err error) {
 
 	defer func() {
 		if err == nil {
@@ -198,7 +204,9 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		}
 	}
 
-	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv, userData)
+	cc, err := c.generateSigmaComponents(
+		baseName, constraints, args, drv, userData, authorizedKeys,
+	)
 	if err != nil {
 		return nil, nil, "", errors.Trace(err)
 	}
@@ -227,7 +235,14 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	return srv, drv, ar, nil
 }
 
-func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive, userData []byte) (cc gosigma.Components, err error) {
+func (c *environClient) generateSigmaComponents(
+	baseName string,
+	constraints *sigmaConstraints,
+	args environs.StartInstanceParams,
+	drv gosigma.Drive,
+	userData []byte,
+	authorizedKeys string,
+) (cc gosigma.Components, err error) {
 	cc.SetName(baseName)
 	cc.SetDescription(baseName)
 	cc.SetSMP(constraints.cores)
@@ -240,8 +255,8 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 		return
 	}
 	cc.SetVNCPassword(vncpass)
-	logger.Debugf("Setting ssh key: %s end", c.config.AuthorizedKeys())
-	cc.SetSSHPublicKey(c.config.AuthorizedKeys())
+	logger.Debugf("Setting ssh key: %s end", authorizedKeys)
+	cc.SetSSHPublicKey(authorizedKeys)
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 

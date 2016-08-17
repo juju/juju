@@ -198,6 +198,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
+	// TODO(katco): 2016-08-09: This type is deprecated: lp:1611427
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
 		Min:    u.hookRetryStrategy.MinRetryTime,
 		Max:    u.hookRetryStrategy.MaxRetryTime,
@@ -521,10 +522,12 @@ func (u *Uniter) acquireExecutionLock() (mutex.Releaser, error) {
 		Delay:  250 * time.Millisecond,
 		Cancel: u.catacomb.Dying(),
 	}
+	logger.Debugf("acquire lock %q for uniter hook execution", u.hookLockName)
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("lock %q acquired", u.hookLockName)
 	return releaser, nil
 }
 

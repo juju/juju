@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -81,6 +82,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
 
+		// The introspection worker provides debugging information over
+		// an abstract domain socket - linux only (for now).
+		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
+			AgentName:  agentName,
+			WorkerFunc: introspection.NewWorker,
+		}),
+
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -133,7 +141,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
@@ -171,6 +179,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			WorkerFunc:    proxyupdater.NewWorker,
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is
@@ -265,6 +274,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
+	introspectionName        = "introspection"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"

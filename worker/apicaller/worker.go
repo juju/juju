@@ -6,7 +6,7 @@ package apicaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/worker"

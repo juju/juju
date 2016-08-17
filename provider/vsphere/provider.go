@@ -24,54 +24,25 @@ var _ environs.EnvironProvider = providerInstance
 var logger = loggo.GetLogger("juju.provider.vmware")
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
-// BootstrapConfig implements environs.EnvironProvider.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		credentialAttrs := args.Credentials.Attributes()
-		var err error
-		cfg, err = cfg.Apply(map[string]interface{}{
-			cfgUser:     credentialAttrs["user"],
-			cfgPassword: credentialAttrs["password"],
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+// PrepareConfig implements environs.EnvironProvider.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
-}
-
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return env, nil
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
+	return args.Config, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		cfgDatacenter,
-		cfgHost,
-		cfgUser,
-		cfgPassword,
-	}
+	return []string{}
 }
 
 // Validate implements environs.EnvironProvider.
@@ -99,10 +70,19 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 
 // SecretAttrs implements environs.EnvironProvider.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
+	return map[string]string{}, nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	return ecfg.secret(), nil
+	// TODO(axw) add validation of endpoint/region.
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }

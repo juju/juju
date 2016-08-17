@@ -44,10 +44,9 @@ var (
 )
 
 type manualEnviron struct {
-	cfg                 *environConfig
-	cfgmutex            sync.Mutex
-	ubuntuUserInited    bool
-	ubuntuUserInitMutex sync.Mutex
+	host     string
+	cfgmutex sync.Mutex
+	cfg      *environConfig
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -81,18 +80,29 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-// Bootstrap is specified on the Environ interface.
+// PrepareForBootstrap is part of the Environ interface.
+func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.envConfig()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *manualEnviron) Create(environs.CreateParams) error {
+	return nil
+}
+
+// Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	envConfig := e.envConfig()
-	host := envConfig.bootstrapHost()
-	provisioned, err := manualCheckProvisioned(host)
+	provisioned, err := manualCheckProvisioned(e.host)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
 		return nil, manual.ErrProvisioned
 	}
-	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(e.host)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +112,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, icfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg)
 	}
 
 	result := &environs.BootstrapResult{
@@ -139,7 +149,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		noAgentDir,
 	)
 	out, err := runSSHCommand(
-		"ubuntu@"+e.cfg.bootstrapHost(),
+		"ubuntu@"+e.host,
 		[]string{"/bin/bash"},
 		stdin,
 	)
@@ -178,7 +188,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 	var found bool
 	for i, id := range ids {
 		if id == BootstrapInstanceId {
-			instances[i] = manualBootstrapInstance{e.envConfig().bootstrapHost()}
+			instances[i] = manualBootstrapInstance{e.host}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -205,13 +215,23 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 	return stdoutBuf.String(), nil
 }
 
+// Destroy implements the Environ interface.
 func (e *manualEnviron) Destroy() error {
+	// There is nothing we can do for manual environments,
+	// except when destroying the controller as a whole
+	// (see DestroyController below).
+	return nil
+}
+
+// DestroyController implements the Environ interface.
+func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
 set -x
 touch %s
 pkill -%d jujud && exit
 stop %s
 rm -f /etc/init/juju*
+rm -f /etc/systemd/system/juju*
 rm -fr %s %s
 exit 0
 `
@@ -230,15 +250,10 @@ exit 0
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
 	_, err := runSSHCommand(
-		"ubuntu@"+e.envConfig().bootstrapHost(),
+		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	return err
-}
-
-// DestroyController implements the Environ interface.
-func (e *manualEnviron) DestroyController(controllerUUID string) error {
-	return e.Destroy()
 }
 
 func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {

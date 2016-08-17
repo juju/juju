@@ -26,17 +26,14 @@ type Client struct {
 
 // NewClient returns a new HighAvailability client.
 func NewClient(caller base.APICallCloser) *Client {
-	modelTag, err := caller.ModelTag()
-	if err != nil {
-		logger.Errorf("ignoring invalid model tag: %v", err)
-	}
+	modelTag, _ := caller.ModelTag()
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
 	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
 }
 
 // EnableHA ensures the availability of Juju controllers.
 func (c *Client) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string,
+	numControllers int, cons constraints.Value, placement []string,
 ) (params.ControllersChanges, error) {
 
 	var results params.ControllersChangeResults
@@ -45,7 +42,6 @@ func (c *Client) EnableHA(
 			ModelTag:       c.modelTag.String(),
 			NumControllers: numControllers,
 			Constraints:    cons,
-			Series:         series,
 			Placement:      placement,
 		}}}
 

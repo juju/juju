@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // ActionGetCommand implements the action-get command.

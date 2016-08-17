@@ -32,7 +32,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
-	loggo.ResetLoggers()
+	loggo.DefaultContext().ResetLoggerLevels()
 }
 
 func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {

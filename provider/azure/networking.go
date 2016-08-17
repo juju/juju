@@ -8,10 +8,10 @@ import (
 	"net"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
@@ -68,7 +68,7 @@ var sshSecurityRule = network.SecurityRule{
 		DestinationAddressPrefix: to.StringPtr("*"),
 		DestinationPortRange:     to.StringPtr("22"),
 		Access:                   network.Allow,
-		Priority:                 to.IntPtr(securityRuleInternalSSHInbound),
+		Priority:                 to.Int32Ptr(securityRuleInternalSSHInbound),
 		Direction:                network.Inbound,
 	},
 }
@@ -83,19 +83,26 @@ func createInternalVirtualNetwork(
 	addressPrefixes := []string{"10.0.0.0/16"}
 	virtualNetworkParams := network.VirtualNetwork{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.VirtualNetworkPropertiesFormat{
 			AddressSpace: &network.AddressSpace{&addressPrefixes},
 		},
 	}
 	logger.Debugf("creating virtual network %q", internalNetworkName)
 	vnetClient := network.VirtualNetworksClient{client}
+	if err := callAPI(func() (autorest.Response, error) {
+		return vnetClient.CreateOrUpdate(
+			resourceGroup, internalNetworkName, virtualNetworkParams,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating virtual network %q", internalNetworkName)
+	}
+
 	var vnet network.VirtualNetwork
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		vnet, err = vnetClient.CreateOrUpdate(
-			resourceGroup, internalNetworkName, virtualNetworkParams,
-		)
+		vnet, err = vnetClient.Get(resourceGroup, internalNetworkName, "")
 		return vnet.Response, err
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating virtual network %q", internalNetworkName)
@@ -145,7 +152,7 @@ func createInternalSubnet(
 	securityRules := []network.SecurityRule{sshSecurityRule}
 	securityGroupParams := network.SecurityGroup{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &securityRules,
 		},
@@ -153,12 +160,19 @@ func createInternalSubnet(
 	securityGroupClient := network.SecurityGroupsClient{client}
 	securityGroupName := internalSecurityGroupName
 	logger.Debugf("creating security group %q", securityGroupName)
+	if err := callAPI(func() (autorest.Response, error) {
+		return securityGroupClient.CreateOrUpdate(
+			resourceGroup, securityGroupName, securityGroupParams,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
+	}
+
 	var nsg network.SecurityGroup
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		nsg, err = securityGroupClient.CreateOrUpdate(
-			resourceGroup, securityGroupName, securityGroupParams,
-		)
+		nsg, err = securityGroupClient.Get(resourceGroup, securityGroupName, "")
 		return nsg.Response, err
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
@@ -170,20 +184,37 @@ func createInternalSubnet(
 	subnetParams := network.Subnet{
 		Properties: &network.SubnetPropertiesFormat{
 			AddressPrefix:        to.StringPtr(nextAddressPrefix),
-			NetworkSecurityGroup: &network.SubResource{nsg.ID},
+			NetworkSecurityGroup: &nsg,
 		},
 	}
 	logger.Debugf("creating subnet %q (%s)", subnetName, nextAddressPrefix)
 	subnetClient := network.SubnetsClient{client}
+	if err := callAPI(func() (autorest.Response, error) {
+		return subnetClient.CreateOrUpdate(
+			resourceGroup, internalNetworkName, subnetName, subnetParams,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating subnet %q", subnetName)
+	}
+	return getInternalSubnet(callAPI, client, resourceGroup)
+}
+
+func getInternalSubnet(
+	callAPI callAPIFunc,
+	client network.ManagementClient,
+	resourceGroup string,
+) (*network.Subnet, error) {
+	subnetClient := network.SubnetsClient{client}
+	vnetName := internalNetworkName
+	subnetName := internalSubnetName
 	var subnet network.Subnet
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		subnet, err = subnetClient.CreateOrUpdate(
-			resourceGroup, internalNetworkName, subnetName, subnetParams,
-		)
+		subnet, err = subnetClient.Get(resourceGroup, vnetName, subnetName, "")
 		return subnet.Response, err
 	}); err != nil {
-		return nil, errors.Annotatef(err, "creating subnet %q", subnetName)
+		return nil, errors.Annotate(err, "getting internal subnet")
 	}
 	return &subnet, nil
 }
@@ -205,21 +236,28 @@ func newNetworkProfile(
 	pipClient := network.PublicIPAddressesClient{client}
 	publicIPAddressParams := network.PublicIPAddress{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAllocationMethod: network.Dynamic,
 		},
 	}
 	publicIPAddressName := vmName + "-public-ip"
+	if err := callAPI(func() (autorest.Response, error) {
+		return pipClient.CreateOrUpdate(
+			resourceGroup, publicIPAddressName, publicIPAddressParams,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating public IP address for %q", vmName)
+	}
+
 	var publicIPAddress network.PublicIPAddress
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		publicIPAddress, err = pipClient.CreateOrUpdate(
-			resourceGroup, publicIPAddressName, publicIPAddressParams,
-		)
+		publicIPAddress, err = pipClient.Get(resourceGroup, publicIPAddressName, "")
 		return publicIPAddress.Response, err
 	}); err != nil {
-		return nil, errors.Annotatef(err, "creating public IP address for %q", vmName)
+		return nil, errors.Annotatef(err, "getting public IP address for %q", vmName)
 	}
 
 	// Determine the next available private IP address.
@@ -237,25 +275,34 @@ func newNetworkProfile(
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
 			PrivateIPAddress:          to.StringPtr(privateIPAddress),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet:          &network.SubResource{internalSubnet.ID},
-			PublicIPAddress: &network.SubResource{publicIPAddress.ID},
+			Subnet:          internalSubnet,
+			PublicIPAddress: &publicIPAddress,
 		},
 	}}
 	primaryNicName := vmName + "-primary"
 	primaryNicParams := network.Interface{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
 	}
+	if err := callAPI(func() (autorest.Response, error) {
+		return nicClient.CreateOrUpdate(
+			resourceGroup, primaryNicName, primaryNicParams,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating network interface for %q", vmName)
+	}
+
 	var primaryNic network.Interface
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		primaryNic, err = nicClient.CreateOrUpdate(resourceGroup, primaryNicName, primaryNicParams)
+		primaryNic, err = nicClient.Get(resourceGroup, primaryNicName, "")
 		return primaryNic.Response, err
 	}); err != nil {
-		return nil, errors.Annotatef(err, "creating network interface for %q", vmName)
+		return nil, errors.Annotatef(err, "getting network interface for %q", vmName)
 	}
 
 	// Create a network security rule for the machine if we need to open
@@ -267,7 +314,7 @@ func newNetworkProfile(
 		var securityGroup network.SecurityGroup
 		if err := callAPI(func() (autorest.Response, error) {
 			var err error
-			securityGroup, err = securityGroupClient.Get(resourceGroup, securityGroupName)
+			securityGroup, err = securityGroupClient.Get(resourceGroup, securityGroupName, "")
 			return securityGroup.Response, err
 		}); err != nil {
 			return nil, errors.Annotate(err, "querying network security group")
@@ -298,17 +345,17 @@ func newNetworkProfile(
 				DestinationAddressPrefix: to.StringPtr(privateIPAddress),
 				DestinationPortRange:     to.StringPtr(fmt.Sprint(*apiPort)),
 				Access:                   network.Allow,
-				Priority:                 to.IntPtr(nextPriority),
+				Priority:                 to.Int32Ptr(nextPriority),
 				Direction:                network.Inbound,
 			},
 		}
 		logger.Debugf("- creating API network security rule")
 		securityRuleClient := network.SecurityRulesClient{client}
 		if err := callAPI(func() (autorest.Response, error) {
-			result, err := securityRuleClient.CreateOrUpdate(
+			return securityRuleClient.CreateOrUpdate(
 				resourceGroup, securityGroupName, apiSecurityRuleName, apiSecurityRule,
+				nil, // abort channel
 			)
-			return result.Response, err
 		}); err != nil {
 			return nil, errors.Annotate(err, "creating API network security rule")
 		}
@@ -326,14 +373,14 @@ func newNetworkProfile(
 
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
-func nextSecurityRulePriority(group network.SecurityGroup, min, max int) (int, error) {
+func nextSecurityRulePriority(group network.SecurityGroup, min, max int32) (int32, error) {
 	if group.Properties.SecurityRules == nil {
 		return min, nil
 	}
 	for p := min; p <= max; p++ {
 		var found bool
 		for _, rule := range *group.Properties.SecurityRules {
-			if to.Int(rule.Properties.Priority) == p {
+			if to.Int32(rule.Properties.Priority) == p {
 				found = true
 				break
 			}

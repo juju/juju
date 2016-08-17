@@ -79,12 +79,23 @@ func (s *mockAPIState) APIHostPorts() [][]network.HostPort {
 	return s.apiHostPorts
 }
 
-func (s *mockAPIState) ModelTag() (names.ModelTag, error) {
-	return names.ParseModelTag(s.modelTag)
+func (s *mockAPIState) ModelTag() (names.ModelTag, bool) {
+	if s.modelTag == "" {
+		return names.ModelTag{}, false
+	}
+	t, err := names.ParseModelTag(s.modelTag)
+	if err != nil {
+		panic("bad model tag")
+	}
+	return t, true
 }
 
-func (s *mockAPIState) ControllerTag() (names.ModelTag, error) {
-	return names.ParseModelTag(s.controllerTag)
+func (s *mockAPIState) ControllerTag() names.ModelTag {
+	t, err := names.ParseModelTag(s.controllerTag)
+	if err != nil {
+		panic("bad controller tag")
+	}
+	return t
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

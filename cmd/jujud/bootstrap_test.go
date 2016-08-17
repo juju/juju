@@ -57,7 +57,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -178,7 +177,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -205,7 +204,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -226,7 +225,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -242,7 +241,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
@@ -260,7 +259,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -369,7 +368,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -422,7 +421,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -449,7 +448,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -485,7 +484,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -506,7 +505,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -529,9 +528,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	}
 
 	// Check we can log in to mongo as admin.
-	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
 	info.Tag, info.Password = nil, testPassword
-	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -558,7 +556,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(testing.ModelTag, stateinfo, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err = state.Open(testing.ModelTag, stateinfo, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -599,7 +597,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -620,7 +618,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -690,7 +688,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	expectedSeries := make(set.Strings)
@@ -739,7 +737,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 			CACert: testing.CACert,
 		},
 		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
+	}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -799,12 +797,17 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = cfg.UUID()
-	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Config:         cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
+	env, err := provider.Open(environs.OpenParams{
+		Cloud:  dummy.SampleCloudSpec(),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.PrepareForBootstrap(nullContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
@@ -860,28 +863,4 @@ func (m b64yaml) encode() string {
 		panic(err)
 	}
 	return base64.StdEncoding.EncodeToString(data)
-}
-
-func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), environs.NewStatePolicy())
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	settings := state.NewStateSettings(st)
-	pm := poolmanager.New(settings)
-	for _, p := range []string{"ebs-ssd"} {
-		_, err = pm.Get(p)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }

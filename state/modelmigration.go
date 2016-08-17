@@ -603,6 +603,7 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
+			StatusMessage:    "starting",
 		}
 		return []txn.Op{{
 			C:      migrationsC,
@@ -662,6 +663,23 @@ func (st *State) LatestModelMigration() (ModelMigration, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Hide previous migrations for models which have been migrated
+	// away from a model and then migrated back.
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if phase == migration.DONE {
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if model.MigrationMode() == MigrationModeActive {
+			return nil, errors.NotFoundf("migration")
+		}
+	}
+
 	return mig, nil
 }
 

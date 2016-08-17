@@ -17,7 +17,6 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apiserveragent "github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -181,7 +180,7 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), nil)
 	if err == nil {
 		st.Close()
 	}

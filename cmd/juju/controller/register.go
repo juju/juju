@@ -60,23 +60,24 @@ var usageRegisterSummary = `
 Registers a Juju user to a controller.`[1:]
 
 var usageRegisterDetails = `
-Connects to a controller and completes the user registration process that
-began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
-that is referred to in Usage.
-The user will be prompted for a password, which, once set, causes the 
-registration string to be voided. In order to start using Juju the user 
-can now either add a model or wait for a model to be shared with them.
-Some machine providers will require the user to be in possession of 
-certain credentials in order to add a model.
+Connects to a controller and completes the user registration process that began
+with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string' that is
+referred to in Usage.
+
+The user will be prompted for a password, which, once set, causes the
+registration string to be voided. In order to start using Juju the user can now
+either add a model or wait for a model to be shared with them.  Some machine
+providers will require the user to be in possession of certain credentials in
+order to add a model.
 
 Examples:
 
-    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
-    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
 See also: 
     add-user
-    change-user-password`
+    change-user-password
+    unregister`
 
 // Info implements Command.Info
 // `register` may seem generic, but is seen as simple and without potential
@@ -162,7 +163,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
-	if err := store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+	if err := store.AddController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
@@ -224,12 +225,14 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 	if len(models) == 1 {
 		// There is exactly one model shared,
 		// so set it as the current model.
-		modelName := models[0].Name
+		model := models[0]
+		owner := names.NewUserTag(model.Owner)
+		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q\n\n", modelName)
+		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q.\n\n", modelName)
 	} else {
 		fmt.Fprintf(ctx.Stderr, `
 There are %d models available. Use "juju switch" to select
@@ -391,8 +394,7 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-const errControllerConflicts = `WARNING: the controller proposed %q which clashes with an` +
-	` existing controller. The two controllers are entirely different.
+const errControllerConflicts = `WARNING: You already have a controller registered with the name %q. Please choose a different name for the new controller.
 
 `
 
@@ -402,11 +404,12 @@ func (c *registerCommand) promptControllerName(store jujuclient.ClientStore, sug
 		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
 		suggestedName = ""
 	}
-	setMsg := "Please set a name for this controller"
+	var setMsg string
+	setMsg = "Enter a name for this controller: "
 	if suggestedName != "" {
-		setMsg = setMsg + " (" + suggestedName + ")"
+		setMsg = fmt.Sprintf("Enter a name for this controller [%s]: ",
+			suggestedName)
 	}
-	setMsg = setMsg + ":"
 	fmt.Fprintf(stderr, setMsg)
 	defer stderr.Write([]byte{'\n'})
 	name, err := c.readLine(stdin)

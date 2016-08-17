@@ -4,15 +4,11 @@
 package testing_test
 
 import (
-	"os"
-
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
@@ -22,35 +18,6 @@ type fakeHomeSuite struct {
 
 var _ = gc.Suite(&fakeHomeSuite{})
 
-func (s *fakeHomeSuite) SetUpTest(c *gc.C) {
-	err := utils.SetHome(home)
-	c.Assert(err, jc.ErrorIsNil)
-	os.Setenv("JUJU_DATA", jujuXDGDataHome)
-	osenv.SetJujuXDGDataHome(jujuXDGDataHome)
-
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-}
-
-func (s *fakeHomeSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-
-	// Test that the environment is restored.
-	c.Assert(utils.Home(), gc.Equals, jujuXDGDataHome)
-	c.Assert(os.Getenv("JUJU_DATA"), gc.Equals, jujuXDGDataHome)
-	c.Assert(osenv.JujuXDGDataHome(), gc.Equals, jujuXDGDataHome)
-}
-
-func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuXDGDataHome(c *gc.C) {
-	jujuDir := gitjujutesting.JujuXDGDataHomePath()
-	c.Assert(jujuDir, jc.IsDirectory)
-}
-
-func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuXDGDataHome(c *gc.C) {
-	s.PatchEnvironment(osenv.XDGDataHome, "")
-	expected := gitjujutesting.JujuXDGDataHomePath()
-	c.Assert(osenv.JujuXDGDataHome(), gc.Equals, expected)
-}
-
 func (s *fakeHomeSuite) TestModelTagValid(c *gc.C) {
 	asString := testing.ModelTag.String()
 	tag, err := names.ParseModelTag(asString)
@@ -58,6 +25,6 @@ func (s *fakeHomeSuite) TestModelTagValid(c *gc.C) {
 	c.Assert(tag, gc.Equals, testing.ModelTag)
 }
 
-func (s *fakeHomeSuite) TestEnvironUUIDValid(c *gc.C) {
+func (s *fakeHomeSuite) TestModelUUIDValid(c *gc.C) {
 	c.Assert(utils.IsValidUUIDString(testing.ModelTag.Id()), jc.IsTrue)
 }

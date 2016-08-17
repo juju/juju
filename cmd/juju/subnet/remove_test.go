@@ -21,7 +21,7 @@ type RemoveSuite struct {
 var _ = gc.Suite(&RemoveSuite{})
 
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	s.BaseSubnetSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
 	s.command, _ = subnet.NewRemoveCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)

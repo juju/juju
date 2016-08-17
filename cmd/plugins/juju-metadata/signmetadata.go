@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -64,7 +64,10 @@ func (c *signMetadataCommand) Init(args []string) error {
 }
 
 func (c *signMetadataCommand) Run(context *cmd.Context) error {
-	loggo.RegisterWriter("signmetadata", cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("signmetadata", writer)
 	defer loggo.RemoveWriter("signmetadata")
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {

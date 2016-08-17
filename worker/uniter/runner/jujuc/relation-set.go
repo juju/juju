@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 	goyaml "gopkg.in/yaml.v2"
-	"launchpad.net/gnuflag"
 )
 
 const relationSetDoc = `

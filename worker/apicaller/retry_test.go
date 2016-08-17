@@ -39,6 +39,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 		errNotProvisioned, // first strategy attempt
 		nil,               // success on second strategy attempt
 	)
+	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub}, apiOpen)
@@ -56,6 +57,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 		errNotProvisioned, // first strategy attempt
 		nil,               // second strategy attempt
 	)
+	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub}, apiOpen)
@@ -85,6 +87,7 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned,       // second strategy attempt
 		errors.New("splat pow"), // third strategy attempt
 	)
+	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return connect(&mockAgent{stub: stub}, apiOpen)
@@ -113,6 +116,7 @@ func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned, // second strategy attempt
 		errNotProvisioned, // third strategy attempt
 	)
+	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return connect(&mockAgent{stub: stub}, apiOpen)

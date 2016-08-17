@@ -7,24 +7,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/storage"
 )
 
 const (
+	azureStorageProviderType = "azure"
+
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
 	//
 	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
@@ -42,9 +43,22 @@ const (
 	vhdExtension = ".vhd"
 )
 
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{azureStorageProviderType}
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (env *azureEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == azureStorageProviderType {
+		return &azureStorageProvider{env}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
 // azureStorageProvider is a storage provider for Azure disks.
 type azureStorageProvider struct {
-	environProvider *azureEnvironProvider
+	env *azureEnviron
 }
 
 var _ storage.Provider = (*azureStorageProvider)(nil)
@@ -68,43 +82,42 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	return azureStorageConfig, nil
 }
 
-// ValidateConfig is defined on the Provider interface.
+// ValidateConfig is part of the Provider interface.
 func (e *azureStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newAzureStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 
-// Supports is defined on the Provider interface.
+// Supports is part of the Provider interface.
 func (e *azureStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
-// Scope is defined on the Provider interface.
+// Scope is part of the Provider interface.
 func (e *azureStorageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-// Dynamic is defined on the Provider interface.
+// Dynamic is part of the Provider interface.
 func (e *azureStorageProvider) Dynamic() bool {
 	return true
 }
 
-// VolumeSource is defined on the Provider interface.
-func (e *azureStorageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
+// DefaultPools is part of the Provider interface.
+func (e *azureStorageProvider) DefaultPools() []*storage.Config {
+	return nil
+}
+
+// VolumeSource is part of the Provider interface.
+func (e *azureStorageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	if err := e.ValidateConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := newEnviron(e.environProvider, environConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &azureVolumeSource{env}, nil
+	return &azureVolumeSource{e.env}, nil
 }
 
-// FilesystemSource is defined on the Provider interface.
-func (e *azureStorageProvider) FilesystemSource(
-	environConfig *config.Config, providerConfig *storage.Config,
-) (storage.FilesystemSource, error) {
+// FilesystemSource is part of the Provider interface.
+func (e *azureStorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
@@ -198,8 +211,8 @@ func (v *azureVolumeSource) createVolume(
 
 	sizeInGib := mibToGib(p.Size)
 	dataDisk := compute.DataDisk{
-		Lun:          to.IntPtr(lun),
-		DiskSizeGB:   to.IntPtr(int(sizeInGib)),
+		Lun:          to.Int32Ptr(lun),
+		DiskSizeGB:   to.Int32Ptr(int32(sizeInGib)),
 		Name:         to.StringPtr(dataDiskName),
 		Vhd:          &compute.VirtualHardDisk{to.StringPtr(vhdURI)},
 		Caching:      compute.ReadWrite,
@@ -322,7 +335,7 @@ func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		_, err := blobsClient.DeleteBlobIfExists(
-			dataDiskVHDContainer, volumeId+vhdExtension,
+			dataDiskVHDContainer, volumeId+vhdExtension, nil,
 		)
 		results[i] = err
 	}
@@ -440,7 +453,7 @@ func (v *azureVolumeSource) attachVolume(
 			p.Volume,
 			p.Machine,
 			storage.VolumeAttachmentInfo{
-				BusAddress: diskBusAddress(to.Int(disk.Lun)),
+				BusAddress: diskBusAddress(to.Int32(disk.Lun)),
 			},
 		}
 		return volumeAttachment, false, nil
@@ -452,7 +465,7 @@ func (v *azureVolumeSource) attachVolume(
 	}
 
 	dataDisk := compute.DataDisk{
-		Lun:          to.IntPtr(lun),
+		Lun:          to.Int32Ptr(lun),
 		Name:         to.StringPtr(dataDiskName),
 		Vhd:          &compute.VirtualHardDisk{to.StringPtr(vhdURI)},
 		Caching:      compute.ReadWrite,
@@ -618,10 +631,10 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			continue
 		}
 		if err := v.env.callAPI(func() (autorest.Response, error) {
-			result, err := vmsClient.CreateOrUpdate(
+			return vmsClient.CreateOrUpdate(
 				v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
+				nil, // abort channel
 			)
-			return result.Response, err
 		}); err != nil {
 			results[i] = err
 			vm.err = err
@@ -633,13 +646,13 @@ func (v *azureVolumeSource) updateVirtualMachines(
 	return results, nil
 }
 
-func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
+func nextAvailableLUN(vm *compute.VirtualMachine) (int32, error) {
 	// Pick the smallest LUN not in use. We have to choose them in order,
 	// or the disks don't show up.
 	var inUse [32]bool
 	if vm.Properties.StorageProfile.DataDisks != nil {
 		for _, disk := range *vm.Properties.StorageProfile.DataDisks {
-			lun := to.Int(disk.Lun)
+			lun := to.Int32(disk.Lun)
 			if lun < 0 || lun > 31 {
 				logger.Debugf("ignore disk with invalid LUN: %+v", disk)
 				continue
@@ -649,7 +662,7 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
 	}
 	for i, inUse := range inUse {
 		if !inUse {
-			return i, nil
+			return int32(i), nil
 		}
 	}
 	return -1, errors.New("all LUNs are in use")
@@ -657,7 +670,7 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
 
 // diskBusAddress returns the value to use in the BusAddress field of
 // VolumeAttachmentInfo for a disk with the specified LUN.
-func diskBusAddress(lun int) string {
+func diskBusAddress(lun int32) string {
 	return fmt.Sprintf("scsi@5:0.0.%d", lun)
 }
 
@@ -713,15 +726,56 @@ func getStorageClient(
 	newClient internalazurestorage.NewClientFunc,
 	storageEndpoint string,
 	storageAccount *armstorage.Account,
-	storageAccountKeys *armstorage.AccountKeys,
+	storageAccountKey *armstorage.AccountKey,
 ) (internalazurestorage.Client, error) {
 	storageAccountName := to.String(storageAccount.Name)
-	storageAccountKey := to.String(storageAccountKeys.Key1)
 	const useHTTPS = true
 	return newClient(
-		storageAccountName, storageAccountKey,
-		storageEndpoint, azurestorage.DefaultAPIVersion, useHTTPS,
+		storageAccountName,
+		to.String(storageAccountKey.Value),
+		storageEndpoint,
+		azurestorage.DefaultAPIVersion,
+		useHTTPS,
 	)
+}
+
+func getStorageAccountKey(
+	callAPI callAPIFunc,
+	client armstorage.AccountsClient,
+	resourceGroup, accountName string,
+) (*armstorage.AccountKey, error) {
+	logger.Debugf("getting keys for storage account %q", accountName)
+	var listKeysResult armstorage.AccountListKeysResult
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		listKeysResult, err = client.ListKeys(resourceGroup, accountName)
+		return listKeysResult.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing storage account keys")
+	}
+	if listKeysResult.Keys == nil {
+		return nil, errors.NotFoundf("storage account keys")
+	}
+
+	// We need a storage key with full permissions.
+	var fullKey *armstorage.AccountKey
+	for _, key := range *listKeysResult.Keys {
+		logger.Debugf("storage account key: %#v", key)
+		// At least some of the time, Azure returns the permissions
+		// in title-case, which does not match the constant.
+		if strings.ToUpper(string(key.Permissions)) != string(armstorage.FULL) {
+			continue
+		}
+		fullKey = &key
+		break
+	}
+	if fullKey == nil {
+		return nil, errors.NotFoundf(
+			"storage account key with %q permission",
+			armstorage.FULL,
+		)
+	}
+	return fullKey, nil
 }
 
 // RandomStorageAccountName returns a random storage account name.

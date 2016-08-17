@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,6 +20,7 @@ type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	*common.ControllerConfigAPI
+	*cloudspec.CloudSpecAPI
 }
 
 // NewClient creates a new `Client` based on an existing authenticated API
@@ -29,6 +31,7 @@ func NewClient(st base.APICallCloser) *Client {
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
 	}
 }
 
@@ -138,6 +141,42 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 
 	}
 	return results, nil
+}
+
+// GrantController grants a user access to the controller.
+func (c *Client) GrantController(user, access string) error {
+	return c.modifyControllerUser(params.GrantControllerAccess, user, access)
+}
+
+// RevokeController revokes a user's access to the controller.
+func (c *Client) RevokeController(user, access string) error {
+	return c.modifyControllerUser(params.RevokeControllerAccess, user, access)
+}
+
+func (c *Client) modifyControllerUser(action params.ControllerAction, user, access string) error {
+	var args params.ModifyControllerAccessRequest
+
+	if !names.IsValidUser(user) {
+		return errors.Errorf("invalid username: %q", user)
+	}
+	userTag := names.NewUserTag(user)
+
+	args.Changes = []params.ModifyControllerAccess{{
+		UserTag: userTag.String(),
+		Action:  action,
+		Access:  access,
+	}}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ModifyControllerAccess", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
+
+	return result.Combine()
 }
 
 // ModelMigrationSpec holds the details required to start the

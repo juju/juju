@@ -12,7 +12,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/storage"
 )
+
+// NewPolicyFunc is the type of a function that,
+// given a *State, returns a Policy for that State.
+type NewPolicyFunc func(*State) Policy
 
 // Policy is an interface provided to State that may
 // be consulted by State to validate or modify the
@@ -24,20 +29,20 @@ import (
 // be ignored. Any other error will cause an error
 // in the use of the policy.
 type Policy interface {
-	// Prechecker takes a *config.Config and returns a Prechecker or an error.
-	Prechecker(*config.Config) (Prechecker, error)
+	// Prechecker returns a Prechecker or an error.
+	Prechecker() (Prechecker, error)
 
-	// ConfigValidator takes a provider type name and returns a ConfigValidator
-	// or an error.
-	ConfigValidator(providerType string) (ConfigValidator, error)
+	// ConfigValidator returns a config.Validator or an error.
+	ConfigValidator() (config.Validator, error)
 
-	// ConstraintsValidator takes a *config.Config and SupportedArchitecturesQuerier
-	// to return a constraints.Validator or an error.
-	ConstraintsValidator(*config.Config, SupportedArchitecturesQuerier) (constraints.Validator, error)
+	// ConstraintsValidator returns a constraints.Validator or an error.
+	ConstraintsValidator() (constraints.Validator, error)
 
-	// InstanceDistributor takes a *config.Config and returns an
-	// InstanceDistributor or an error.
-	InstanceDistributor(*config.Config) (InstanceDistributor, error)
+	// InstanceDistributor returns an instance.Distributor or an error.
+	InstanceDistributor() (instance.Distributor, error)
+
+	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
+	StorageProviderRegistry() (storage.ProviderRegistry, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -54,23 +59,13 @@ type Prechecker interface {
 	PrecheckInstance(series string, cons constraints.Value, placement string) error
 }
 
-// ConfigValidator is a policy interface that is provided to State
-// to check validity of new configuration attributes before applying them to state.
-type ConfigValidator interface {
-	Validate(cfg, old *config.Config) (valid *config.Config, err error)
-}
-
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
 func (st *State) precheckInstance(series string, cons constraints.Value, placement string) error {
 	if st.policy == nil {
 		return nil
 	}
-	cfg, err := st.ModelConfig()
-	if err != nil {
-		return err
-	}
-	prechecker, err := st.policy.Prechecker(cfg)
+	prechecker, err := st.policy.Prechecker()
 	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
@@ -85,25 +80,44 @@ func (st *State) precheckInstance(series string, cons constraints.Value, placeme
 func (st *State) constraintsValidator() (constraints.Validator, error) {
 	// Default behaviour is to simply use a standard validator with
 	// no model specific behaviour built in.
-	defaultValidator := constraints.NewValidator()
-	if st.policy == nil {
-		return defaultValidator, nil
+	var validator constraints.Validator
+	if st.policy != nil {
+		var err error
+		validator, err = st.policy.ConstraintsValidator()
+		if errors.IsNotImplemented(err) {
+			validator = constraints.NewValidator()
+		} else if err != nil {
+			return nil, err
+		} else if validator == nil {
+			return nil, fmt.Errorf("policy returned nil constraints validator without an error")
+		}
+	} else {
+		validator = constraints.NewValidator()
 	}
-	cfg, err := st.ModelConfig()
+
+	// Add supported architectures gleaned from cloud image
+	// metadata to the validator's vocabulary.
+	model, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting model")
 	}
-	validator, err := st.policy.ConstraintsValidator(
-		cfg,
-		&cloudimagemetadata.MetadataArchitectureQuerier{st.CloudImageMetadataStorage},
-	)
-	if errors.IsNotImplemented(err) {
-		return defaultValidator, nil
-	} else if err != nil {
-		return nil, err
-	}
-	if validator == nil {
-		return nil, fmt.Errorf("policy returned nil constraints validator without an error")
+	if region := model.CloudRegion(); region != "" {
+		cfg, err := st.ModelConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		arches, err := st.CloudImageMetadataStorage.SupportedArchitectures(
+			cloudimagemetadata.MetadataFilter{
+				Stream: cfg.AgentStream(),
+				Region: region,
+			},
+		)
+		if err != nil {
+			return nil, errors.Annotate(err, "querying supported architectures")
+		}
+		if len(arches) != 0 {
+			validator.UpdateVocabulary(constraints.Arch, arches)
+		}
 	}
 	return validator, nil
 }
@@ -133,13 +147,13 @@ func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 }
 
 // validate calls the state's assigned policy, if non-nil, to obtain
-// a ConfigValidator, and calls Validate if a non-nil ConfigValidator is
+// a config.Validator, and calls Validate if a non-nil config.Validator is
 // returned.
 func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if st.policy == nil {
 		return cfg, nil
 	}
-	configValidator, err := st.policy.ConfigValidator(cfg.Type())
+	configValidator, err := st.policy.ConfigValidator()
 	if errors.IsNotImplemented(err) {
 		return cfg, nil
 	} else if err != nil {
@@ -151,28 +165,9 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 	return configValidator.Validate(cfg, old)
 }
 
-// InstanceDistributor is a policy interface that is provided
-// to State to perform distribution of units across instances
-// for high availability.
-type InstanceDistributor interface {
-	// DistributeInstance takes a set of clean, empty
-	// instances, and a distribution group, and returns
-	// the subset of candidates which the policy will
-	// allow entry into the distribution group.
-	//
-	// The AssignClean and AssignCleanEmpty unit
-	// assignment policies will attempt to assign a
-	// unit to each of the resulting instances until
-	// one is successful. If no instances can be assigned
-	// to (e.g. because of concurrent deployments), then
-	// a new machine will be allocated.
-	DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error)
-}
-
-// SupportedArchitecturesQuerier implements access to stored cloud image metadata
-// to retrieve a collection of supported architectures.
-type SupportedArchitecturesQuerier interface {
-	// SupportedArchitectures returns a collection of unique architectures
-	// from cloud image metadata that satisfy passed in filtering parameters.
-	SupportedArchitectures(stream, region string) ([]string, error)
+func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
+	if st.policy == nil {
+		return storage.StaticProviderRegistry{}, nil
+	}
+	return st.policy.StorageProviderRegistry()
 }

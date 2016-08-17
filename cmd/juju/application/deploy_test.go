@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -32,7 +33,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -42,8 +42,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -309,12 +307,8 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
 // (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-block")
-	err = runDeploy(c, ch, "--storage", "data=loop-pool,1G", "--series", "trusty")
+	err := runDeploy(c, ch, "--storage", "data=machinescoped,1G", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	application, _ := s.AssertService(c, "storage-block", curl, 1, 0)
@@ -323,7 +317,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
-			Pool:  "loop-pool",
+			Pool:  "machinescoped",
 			Count: 1,
 			Size:  1024,
 		},
@@ -658,10 +652,10 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	err := s.client.UploadCharmWithRevision(id, ch, -1)
 	c.Assert(err, gc.IsNil)
 
-	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.EdgeChannel}, nil)
 	c.Assert(err, gc.IsNil)
 
-	_, err = runDeployCommand(c, "--channel", "development", "~client-username/wordpress")
+	_, err = runDeployCommand(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
 	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{

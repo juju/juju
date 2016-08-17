@@ -15,6 +15,7 @@ type StubStore struct {
 
 	AllControllersFunc       func() (map[string]jujuclient.ControllerDetails, error)
 	ControllerByNameFunc     func(name string) (*jujuclient.ControllerDetails, error)
+	AddControllerFunc        func(name string, one jujuclient.ControllerDetails) error
 	UpdateControllerFunc     func(name string, one jujuclient.ControllerDetails) error
 	RemoveControllerFunc     func(name string) error
 	SetCurrentControllerFunc func(name string) error
@@ -48,6 +49,9 @@ func NewStubStore() *StubStore {
 	}
 	result.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
 		return nil, result.Stub.NextErr()
+	}
+	result.AddControllerFunc = func(name string, one jujuclient.ControllerDetails) error {
+		return result.Stub.NextErr()
 	}
 	result.UpdateControllerFunc = func(name string, one jujuclient.ControllerDetails) error {
 		return result.Stub.NextErr()
@@ -117,6 +121,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub := NewStubStore()
 	stub.AllControllersFunc = underlying.AllControllers
 	stub.ControllerByNameFunc = underlying.ControllerByName
+	stub.AddControllerFunc = underlying.AddController
 	stub.UpdateControllerFunc = underlying.UpdateController
 	stub.RemoveControllerFunc = underlying.RemoveController
 	stub.SetCurrentControllerFunc = underlying.SetCurrentController
@@ -147,7 +152,13 @@ func (c *StubStore) ControllerByName(name string) (*jujuclient.ControllerDetails
 	return c.ControllerByNameFunc(name)
 }
 
-// UpdateController implements ControllersUpdater.UpdateController
+// AddController implements ControllerUpdater.AddController
+func (c *StubStore) AddController(name string, one jujuclient.ControllerDetails) error {
+	c.MethodCall(c, "AddController", name, one)
+	return c.AddControllerFunc(name, one)
+}
+
+// UpdateController implements ControllerUpdater.UpdateController
 func (c *StubStore) UpdateController(name string, one jujuclient.ControllerDetails) error {
 	c.MethodCall(c, "UpdateController", name, one)
 	return c.UpdateControllerFunc(name, one)
@@ -159,7 +170,7 @@ func (c *StubStore) RemoveController(name string) error {
 	return c.RemoveControllerFunc(name)
 }
 
-// SetCurrentController implements ControllersUpdater.SetCurrentController.
+// SetCurrentController implements ControllerUpdater.SetCurrentController.
 func (c *StubStore) SetCurrentController(name string) error {
 	c.MethodCall(c, "SetCurrentController", name)
 	return c.SetCurrentControllerFunc(name)

@@ -16,16 +16,13 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/utils/set"
 )
 
@@ -40,10 +37,13 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the controller's certificate, in PEM format.
+	// If this is empty, the standard system root certificates
+	// will be used.
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
-	// trying to connect to.
+	// trying to connect to. If this is empty, a controller-only
+	// login will be made.
 	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
@@ -91,9 +91,6 @@ func (info *Info) Validate() error {
 	}
 	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
 		return errors.NotValidf("host addresses: %v", err)
-	}
-	if info.CACert == "" {
-		return errors.NotValidf("missing CA certificate")
 	}
 	if info.SkipLogin {
 		if info.Tag != nil {
@@ -177,7 +174,7 @@ type Connection interface {
 	// (as opposed to the model tag of the currently connected
 	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.ModelTag, error)
+	ControllerTag() names.ModelTag
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
@@ -187,10 +184,6 @@ type Connection interface {
 	// inside it as well. We should figure this out sometime -- we should
 	// either expose Ping() or Broken() but not both.
 	Ping() error
-
-	// RPCClient is apparently exported for testing purposes only, but this
-	// seems to indicate *some* sort of layering confusion.
-	RPCClient() *rpc.Conn
 
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.
@@ -210,9 +203,7 @@ type Connection interface {
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	Firewaller() *firewaller.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	DiscoverSpaces() *discoverspaces.API

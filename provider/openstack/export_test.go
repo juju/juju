@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -36,9 +35,10 @@ var (
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) envstorage.Storage {
-	ecfg := e.(*Environ).ecfg()
+	env := e.(*Environ)
+	ecfg := env.ecfg()
 	container := "juju-dist-test"
-	client, err := authClient(ecfg)
+	client, err := authClient(env.cloud, ecfg)
 	if err != nil {
 		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
@@ -71,22 +71,13 @@ func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
 var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
+	NewOpenstackStorage         = &newOpenstackStorage
 )
-
-type OpenstackStorage openstackStorage
-
-func NewCinderProvider(s OpenstackStorage) storage.Provider {
-	return &cinderProvider{
-		func(*config.Config) (openstackStorage, error) {
-			return openstackStorage(s), nil
-		},
-	}
-}
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
 	modelUUID := testing.ModelTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
+	return &cinderVolumeSource{s, envName, modelUUID}
 }
 
 // Include images for arches currently supported.  i386 is no longer
@@ -433,7 +424,7 @@ func FindInstanceSpec(
 	return findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.ecfg().region(),
+		Region:      env.cloud.Region,
 		Constraints: constraints.MustParse(cons),
 	}, imageMetadata)
 }

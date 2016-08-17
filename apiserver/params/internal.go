@@ -75,6 +75,18 @@ type StringResults struct {
 	Results []StringResult `json:"results"`
 }
 
+// MapResult holds a generic map or an error.
+type MapResult struct {
+	Result map[string]interface{} `json:"result"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// MapResults holds the bulk operation result of an API call
+// that returns a map or an error.
+type MapResults struct {
+	Results []MapResult `json:"results"`
+}
+
 // ModelResult holds the result of an API call returning a name and UUID
 // for a model.
 type ModelResult struct {
@@ -105,12 +117,12 @@ type ModelCreateArgs struct {
 	// the same region as the controller model.
 	CloudRegion string `json:"region,omitempty"`
 
-	// CloudCredential is the name of the cloud credential to use
+	// CloudCredentialTag is the tag of the cloud credential to use
 	// for managing the model's resources. If the cloud does not
 	// require credentials, this may be empty. If this is empty,
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
-	CloudCredential string `json:"credential,omitempty"`
+	CloudCredentialTag string `json:"credential,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID
@@ -694,4 +706,14 @@ type GUIArchiveResponse struct {
 type GUIVersionRequest struct {
 	// Version holds the Juju GUI version number.
 	Version version.Number `json:"version"`
+}
+
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
 }

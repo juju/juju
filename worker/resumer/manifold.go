@@ -4,56 +4,95 @@
 package resumer
 
 import (
+	"time"
+
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
-	apiresumer "github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig engine.AgentApiManifoldConfig
-
-// Manifold returns a dependency manifold that runs a resumer worker,
-// using the api connection resource named in the supplied config.
-func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig(config)
-	return engine.AgentApiManifold(typedConfig, newWorker)
+// ManifoldConfig defines the names of the manifolds on which a Manifold
+// will depend.
+type ManifoldConfig struct {
+	AgentName     string
+	APICallerName string
+	Clock         clock.Clock
+	Interval      time.Duration
+	NewFacade     func(base.APICaller) (Facade, error)
+	NewWorker     func(Config) (worker.Worker, error)
 }
 
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	cfg := a.CurrentConfig()
-	// Grab the tag and ensure that it's for a machine.
-	tag, ok := cfg.Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.New("this manifold may only be used inside a machine agent")
-	}
+// newWorker is an engine.AgentApiStartFunc that draws context from the
+// ManifoldConfig on which it is defined.
+func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 
-	// Get the machine agent's jobs.
-	// TODO(fwereade): this functionality should be on the
-	// deployer facade instead.
-	agentFacade := apiagent.NewState(apiCaller)
-	entity, err := agentFacade.Entity(tag)
-	if err != nil {
-		return nil, err
-	}
-
-	var isModelManager bool
-	for _, job := range entity.Jobs() {
-		if job == multiwatcher.JobManageModel {
-			isModelManager = true
-			break
-		}
-	}
-	if !isModelManager {
+	// This bit should be encapsulated in another manifold
+	// satisfying jujud/agent/engine.Flag, as described in
+	// the implementation below. Shouldn't be a concern here.
+	if ok, err := isModelManager(a, apiCaller); err != nil {
+		return nil, errors.Trace(err)
+	} else if !ok {
+		// This depends on a job change triggering an agent
+		// bounce, which does happen today, but is not ideal;
+		// another reason to use a flag.
 		return nil, dependency.ErrMissing
 	}
 
-	return NewResumer(apiresumer.NewAPI(apiCaller)), nil
+	// Get the API facade.
+	if config.NewFacade == nil {
+		logger.Errorf("nil NewFacade not valid, uninstalling")
+		return nil, dependency.ErrUninstall
+	}
+	facade, err := config.NewFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Start the worker.
+	if config.NewWorker == nil {
+		logger.Errorf("nil NewWorker not valid, uninstalling")
+		return nil, dependency.ErrUninstall
+	}
+	worker, err := config.NewWorker(Config{
+		Facade:   facade,
+		Clock:    config.Clock,
+		Interval: config.Interval,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return worker, nil
+}
+
+// Manifold returns a dependency manifold that runs a resumer worker,
+// using the resources named or defined in the supplied config.
+func Manifold(config ManifoldConfig) dependency.Manifold {
+	aaConfig := engine.AgentApiManifoldConfig{
+		AgentName:     config.AgentName,
+		APICallerName: config.APICallerName,
+	}
+	return engine.AgentApiManifold(aaConfig, config.newWorker)
+}
+
+// isModelManager returns whether the agent has JobManageModel,
+// or an error.
+func isModelManager(a agent.Agent, apiCaller base.APICaller) (bool, error) {
+	agentFacade := apiagent.NewState(apiCaller)
+	entity, err := agentFacade.Entity(a.CurrentConfig().Tag())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, job := range entity.Jobs() {
+		if job == multiwatcher.JobManageModel {
+			return true, nil
+		}
+	}
+	return false, nil
 }

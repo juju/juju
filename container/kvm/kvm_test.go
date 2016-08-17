@@ -348,7 +348,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		},
 	}} {
 		var tw loggo.TestWriter
-		c.Assert(loggo.RegisterWriter("constraint-tester", &tw, loggo.DEBUG), gc.IsNil)
+		c.Assert(loggo.RegisterWriter("constraint-tester", &tw), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)

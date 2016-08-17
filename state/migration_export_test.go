@@ -15,8 +15,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -84,6 +87,35 @@ func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname stri
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
+	pool := "loop-pool"
+	kind := "block"
+	// Create a default pool for block devices.
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := s.AddTestingCharm(c, "storage-"+kind)
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons(pool, 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := service.AddUnit()
+
+	machine := s.Factory.MakeMachine(c, nil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	err = unit.SetAgentVersion(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	return service, unit, storageTag
+}
+
 type MigrationExportSuite struct {
 	MigrationSuite
 }
@@ -122,7 +154,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
+	modelCfg := model.Config()
+	// Config as read from state has resources tags coerced to a map.
+	modelCfg["resource-tags"] = map[string]string{}
+	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
@@ -144,19 +179,19 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond()
-	owner, err := s.State.ModelUser(s.Owner)
+	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(owner, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(state.ModelUserSpec{
+	bob, err := s.State.AddModelUser(state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		Access:    description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(bob, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -170,18 +205,18 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	exportedAdmin := users[1]
 
 	c.Assert(exportedAdmin.Name(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName())
+	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName)
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
+	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated)
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.Access(), gc.Equals, description.AdminAccess)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
+	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated)
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.Access(), gc.Equals, description.ReadAccess)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
@@ -639,9 +674,206 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
+func (s *MigrationExportSuite) TestActions(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := model.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, "pending")
+	c.Check(action.Message(), gc.Equals, "")
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token
 func (*goodToken) Check(interface{}) error {
 	return nil
+}
+
+func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume: state.VolumeParams{Size: 4000},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 2)
+	provisioned, notProvisioned := volumes[0], volumes[1]
+
+	c.Check(provisioned.Tag(), gc.Equals, volTag)
+	binding, err := provisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(provisioned.Provisioned(), jc.IsTrue)
+	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
+	c.Check(provisioned.Pool(), gc.Equals, "loop")
+	c.Check(provisioned.HardwareID(), gc.Equals, "magic")
+	c.Check(provisioned.VolumeID(), gc.Equals, "volume id")
+	c.Check(provisioned.Persistent(), jc.IsTrue)
+	attachments := provisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	c.Check(notProvisioned.Tag(), gc.Equals, names.NewVolumeTag("0/1"))
+	binding, err = notProvisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
+	c.Check(notProvisioned.Size(), gc.Equals, uint64(4000))
+	c.Check(notProvisioned.Pool(), gc.Equals, "loop")
+	c.Check(notProvisioned.HardwareID(), gc.Equals, "")
+	c.Check(notProvisioned.VolumeID(), gc.Equals, "")
+	c.Check(notProvisioned.Persistent(), jc.IsFalse)
+	attachments = notProvisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment = attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
+	c.Check(attachment.ReadOnly(), jc.IsFalse)
+	c.Check(attachment.DeviceName(), gc.Equals, "")
+	c.Check(attachment.DeviceLink(), gc.Equals, "")
+	c.Check(attachment.BusAddress(), gc.Equals, "")
+
+	// Make sure there is a status.
+	status := provisioned.Status()
+	c.Check(status.Value(), gc.Equals, "pending")
+}
+
+func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Size: 1234},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "location",
+				ReadOnly: true},
+		}, {
+			Filesystem: state.FilesystemParams{Size: 4000},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first filesystem is called "0/0" as it is the first
+	// filesystem (filesystems use sequences), and it is bound to machine 0.
+	fsTag := names.NewFilesystemTag("0/0")
+	err := s.State.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+		Size:         1500,
+		FilesystemId: "filesystem id",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+		MountPoint: "/mnt/foo",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystems := model.Filesystems()
+	c.Assert(filesystems, gc.HasLen, 2)
+	provisioned, notProvisioned := filesystems[0], filesystems[1]
+
+	c.Check(provisioned.Tag(), gc.Equals, fsTag)
+	c.Check(provisioned.Volume(), gc.Equals, names.VolumeTag{})
+	c.Check(provisioned.Storage(), gc.Equals, names.StorageTag{})
+	binding, err := provisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(provisioned.Provisioned(), jc.IsTrue)
+	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
+	c.Check(provisioned.Pool(), gc.Equals, "rootfs")
+	c.Check(provisioned.FilesystemID(), gc.Equals, "filesystem id")
+	attachments := provisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.MountPoint(), gc.Equals, "/mnt/foo")
+
+	c.Check(notProvisioned.Tag(), gc.Equals, names.NewFilesystemTag("0/1"))
+	c.Check(notProvisioned.Volume(), gc.Equals, names.VolumeTag{})
+	c.Check(notProvisioned.Storage(), gc.Equals, names.StorageTag{})
+	binding, err = notProvisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
+	c.Check(notProvisioned.Size(), gc.Equals, uint64(4000))
+	c.Check(notProvisioned.Pool(), gc.Equals, "rootfs")
+	c.Check(notProvisioned.FilesystemID(), gc.Equals, "")
+	attachments = notProvisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment = attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
+	c.Check(attachment.ReadOnly(), jc.IsFalse)
+	c.Check(attachment.MountPoint(), gc.Equals, "")
+
+	// Make sure there is a status.
+	status := provisioned.Status()
+	c.Check(status.Value(), gc.Equals, "pending")
+}
+
+func (s *MigrationExportSuite) TestStorage(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	storages := model.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+
+	storage := storages[0]
+
+	c.Check(storage.Tag(), gc.Equals, storageTag)
+	c.Check(storage.Kind(), gc.Equals, "block")
+	owner, err := storage.Owner()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owner, gc.Equals, u.Tag())
+	c.Check(storage.Name(), gc.Equals, "data")
+	c.Check(storage.Attachments(), jc.DeepEquals, []names.UnitTag{
+		u.UnitTag(),
+	})
 }

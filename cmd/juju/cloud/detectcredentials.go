@@ -37,38 +37,44 @@ type detectCredentialsCommand struct {
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 }
 
+const detectCredentialsSummary = `Attempts to automatically add or replace credentials for a cloud.`
+
 var detectCredentialsDoc = `
-The autoload-credentials command looks for well known locations for supported clouds and
-allows the user to interactively save these into the Juju credentials store to make these
-available when bootstrapping new controllers and creating new models.
+Well known locations for specific clouds are searched and any found
+information is presented interactively to the user.
+An alternative to this command is ` + "`juju add-credential`" + `.
+Below are the cloud types for which credentials may be autoloaded,
+including the locations searched.
 
-The resulting credentials may be viewed with ` + "`juju credentials`" + `.
-
-The clouds for which credentials may be autoloaded are:
-
-AWS
-  Credentials and regions are located in:
-    1. On Linux, $HOME/.aws/credentials and $HOME/.aws/config 
+EC2
+  Credentials and regions:
+    1. On Linux, $HOME/.aws/credentials and $HOME/.aws/config
     2. Environment variables AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-    
+
 GCE
-  Credentials are located in:
-    1. A JSON file whose path is specified by the GOOGLE_APPLICATION_CREDENTIALS environment variable
-    2. A JSON file in a knowm location eg on Linux $HOME/.config/gcloud/application_default_credentials.json
-  Default region is specified by the CLOUDSDK_COMPUTE_REGION environment variable.  
-    
+  Credentials:
+    1. A JSON file whose path is specified by the
+       GOOGLE_APPLICATION_CREDENTIALS environment variable
+    2. On Linux, $HOME/.config/gcloud/application_default_credentials.json
+       Default region is specified by the CLOUDSDK_COMPUTE_REGION environment
+       variable.
+    3. On Windows, %APPDATA%\gcloud\application_default_credentials.json
+
 OpenStack
-  Credentials are located in:
+  Credentials:
     1. On Linux, $HOME/.novarc
-    2. Environment variables OS_USERNAME, OS_PASSWORD, OS_TENANT_NAME 
-    
+    2. Environment variables OS_USERNAME, OS_PASSWORD, OS_TENANT_NAME,
+       OS_DOMAIN_NAME
+
 Example:
-   juju autoload-credentials
+    juju autoload-credentials
    
 See Also:
-   juju credentials
-   juju add-credential
-`
+    list-credentials
+    remove-credential
+    set-default-credential
+    add-credential
+`[1:]
 
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
@@ -86,7 +92,7 @@ func NewDetectCredentialsCommand() cmd.Command {
 func (c *detectCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "autoload-credentials",
-		Purpose: "Looks for cloud credentials and caches those for use by Juju when bootstrapping.",
+		Purpose: detectCredentialsSummary,
 		Doc:     detectCredentialsDoc,
 	}
 }
@@ -329,7 +335,7 @@ func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, dis
 }
 
 func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.Reader) (string, error) {
-	fmt.Fprint(out, "Save any? Type number, or Q to quit, then enter. ")
+	fmt.Fprint(out, "Select a credential to save by number, or type Q to quit: ")
 	defer out.Write([]byte{'\n'})
 	input, err := readLine(in)
 	if err != nil {
@@ -339,7 +345,7 @@ func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.R
 }
 
 func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, defaultCloudName, cloudType string) (string, error) {
-	text := fmt.Sprintf(`Enter cloud to which the credential belongs, or Q to quit [%s] `, defaultCloudName)
+	text := fmt.Sprintf(`Select the cloud it belongs to, or type Q to quit [%s]: `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
 	input, err := readLine(in)

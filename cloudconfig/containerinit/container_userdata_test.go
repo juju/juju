@@ -29,8 +29,10 @@ func Test(t *stdtesting.T) {
 type UserDataSuite struct {
 	testing.BaseSuite
 
-	networkInterfacesFile string
-	fakeInterfaces        []network.InterfaceInfo
+	networkInterfacesFile       string
+	systemNetworkInterfacesFile string
+
+	fakeInterfaces []network.InterfaceInfo
 
 	expectedSampleConfig     string
 	expectedSampleUserData   string
@@ -42,9 +44,10 @@ var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.networkInterfacesFile = filepath.Join(c.MkDir(), "interfaces")
+	s.networkInterfacesFile = filepath.Join(c.MkDir(), "juju-interfaces")
+	s.systemNetworkInterfacesFile = filepath.Join(c.MkDir(), "system-interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
-		InterfaceName:    "eth0",
+		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
@@ -54,25 +57,25 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 	}, {
-		InterfaceName:    "eth1",
-		CIDR:             "0.1.2.0/24",
+		InterfaceName:    "any1",
+		CIDR:             "0.2.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          network.NewAddress("0.1.2.4"),
+		Address:          network.NewAddress("0.2.2.4"),
 		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		GatewayAddress:   network.NewAddress("0.2.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
 	}, {
-		InterfaceName: "eth2",
+		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
 	}, {
-		InterfaceName: "eth3",
+		InterfaceName: "any3",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   false,
 	}, {
-		InterfaceName: "eth4",
+		InterfaceName: "any4",
 		ConfigType:    network.ConfigManual,
 		NoAutoStart:   true,
 	}}
@@ -82,21 +85,21 @@ iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
   dns-search bar foo
 
-auto eth0
-iface eth0 inet static
+auto any0
+iface any0 inet static
   address 0.1.2.3/24
   gateway 0.1.2.1
 
-auto eth1
-iface eth1 inet static
-  address 0.1.2.4/24
+auto any1
+iface any1 inet static
+  address 0.2.2.4/24
 
-iface eth2 inet dhcp
+iface any2 inet dhcp
 
-auto eth3
-iface eth3 inet dhcp
+auto any3
+iface any3 inet dhcp
 
-iface eth4 inet manual
+iface any4 inet manual
 `
 	s.expectedSampleUserData = `
 #cloud-config
@@ -109,22 +112,34 @@ bootcmd:
     dns-nameservers ns1.invalid ns2.invalid
     dns-search bar foo
 
-  auto eth0
-  iface eth0 inet static
+  auto any0
+  iface any0 inet static
     address 0.1.2.3/24
     gateway 0.1.2.1
 
-  auto eth1
-  iface eth1 inet static
-    address 0.1.2.4/24
+  auto any1
+  iface any1 inet static
+    address 0.2.2.4/24
 
-  iface eth2 inet dhcp
+  iface any2 inet dhcp
 
-  auto eth3
-  iface eth3 inet dhcp
+  auto any3
+  iface any3 inet dhcp
 
-  iface eth4 inet manual
+  iface any4 inet manual
   ' > '%[1]s'
+runcmd:
+- |-
+  if [ -f %[1]s ]; then
+      ifdown -a
+      sleep 1.5
+      if ifup -a --interfaces=%[1]s; then
+          cp %[2]s %[2]s-orig
+          cp %[1]s %[2]s
+      else
+          ifup -a
+      fi
+  fi
 `[1:]
 
 	s.expectedFallbackConfig = `
@@ -146,9 +161,22 @@ bootcmd:
   auto eth0
   iface eth0 inet dhcp
   ' > '%[1]s'
+runcmd:
+- |-
+  if [ -f %[1]s ]; then
+      ifdown -a
+      sleep 1.5
+      if ifup -a --interfaces=%[1]s; then
+          cp %[2]s %[2]s-orig
+          cp %[1]s %[2]s
+      else
+          ifup -a
+      fi
+  fi
 `[1:]
 
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
+	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
@@ -174,7 +202,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 
-	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile)
+	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -183,8 +211,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
-
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile)
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -196,9 +223,16 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.NotNil)
 
-	// Extract the "#cloud-config" header and all lines between from the
-	// "bootcmd" section up to (but not including) the "output" sections to
-	// match against expected.
+	// Extract the "#cloud-config" header and all lines between
+	// from the "bootcmd" section up to (but not including) the
+	// "output" sections to match against expected. But we cannot
+	// possibly handle all the /other/ output that may be added by
+	// CloudInitUserData() in the future, so we also truncate at
+	// the first runcmd which now happens to include the runcmd's
+	// added for raising the network interfaces captured in
+	// expectedFallbackUserData. However, the other tests above do
+	// check for that output.
+
 	var linesToMatch []string
 	seenBootcmd := false
 	for _, line := range strings.Split(string(data), "\n") {
@@ -219,8 +253,18 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 			linesToMatch = append(linesToMatch, line)
 		}
 	}
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile)
-	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, expected)
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {

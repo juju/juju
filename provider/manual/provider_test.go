@@ -33,14 +33,6 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) TestPrepareForCreateEnvironment(c *gc.C) {
-	testConfig, err := config.New(config.UseDefaults, manual.MinimalConfigValues())
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := manual.ProviderInstance.PrepareForCreateEnvironment(coretesting.ModelTag.Id(), testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, gc.Equals, testConfig)
-}
-
 func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,17 +49,26 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	testConfig, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:        testConfig,
-		CloudEndpoint: endpoint,
-		CloudRegion:   region,
+	cloudSpec := environs.CloudSpec{
+		Endpoint: endpoint,
+		Region:   region,
+	}
+	testConfig, err = manual.ProviderInstance.PrepareConfig(environs.PrepareConfigParams{
+		Config: testConfig,
+		Cloud:  cloudSpec,
+	})
+	if err != nil {
+		return nil, err
+	}
+	env, err := manual.ProviderInstance.Open(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: testConfig,
 	})
 	if err != nil {
 		return nil, err
 	}
 	ctx := envtesting.BootstrapContext(c)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(ctx, testConfig)
-	return ctx, err
+	return ctx, env.PrepareForBootstrap(ctx)
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {
@@ -84,7 +85,7 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := manual.MinimalConfigValues()
-	testConfig, err := config.New(config.UseDefaults, attrs)
+	testConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)

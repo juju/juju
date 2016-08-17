@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -185,20 +185,21 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
+// ModelUUID returns the model UUID from the client connection
+// and reports whether it is valud.
+func (c *Client) ModelUUID() (string, bool) {
+	tag, ok := c.st.ModelTag()
+	if !ok {
+		return "", false
+	}
+	return tag.Id(), true
+}
+
 // ModelInfo returns details about the Juju model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	var info params.ModelInfo
 	err := c.facade.FacadeCall("ModelInfo", nil, &info)
 	return info, err
-}
-
-// ModelUUID returns the model UUID from the client connection.
-func (c *Client) ModelUUID() (string, error) {
-	tag, err := c.st.ModelTag()
-	if err != nil {
-		return "", errors.Annotate(err, "model tag not an model")
-	}
-	return tag.Id(), nil
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -235,44 +236,6 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
-}
-
-// ModelGet returns all model settings.
-func (c *Client) ModelGet() (map[string]interface{}, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	values := make(map[string]interface{})
-	for name, val := range result.Config {
-		values[name] = val.Value
-	}
-	return values, err
-}
-
-// ModelGetWithMetadata returns all model settings along with extra
-// metadata like the source of the setting value.
-func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	values := make(config.ConfigValues)
-	for name, val := range result.Config {
-		values[name] = config.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
-		}
-	}
-	return values, err
-}
-
-// ModelSet sets the given key-value pairs in the model.
-func (c *Client) ModelSet(config map[string]interface{}) error {
-	args := params.ModelSet{Config: config}
-	return c.facade.FacadeCall("ModelSet", args, nil)
-}
-
-// ModelUnset sets the given key-value pairs in the model.
-func (c *Client) ModelUnset(keys ...string) error {
-	args := params.ModelUnset{Keys: keys}
-	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
 // SetModelAgentVersion sets the model agent-version setting
@@ -632,19 +595,19 @@ func (args DebugLogParams) URLQuery() url.Values {
 	return attrs
 }
 
-// WatchDebugLog returns a ReadCloser that the caller can read the log
-// lines from. Only log lines that match the filtering specified in
-// the DebugLogParams are returned. It returns an error that satisfies
-// errors.IsNotImplemented when the API server does not support the
-// end-point.
-func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
-	// The websocket connection just hangs if the server doesn't have the log
-	// end point. So do a version check, as version was added at the same time
-	// as the remote end point.
-	_, err := c.AgentVersion()
-	if err != nil {
-		return nil, errors.NotSupportedf("WatchDebugLog")
-	}
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string
+	Timestamp time.Time
+	Severity  string
+	Module    string
+	Location  string
+	Message   string
+}
+
+// WatchDebugLog returns a channel of structured Log Messages. Only log entries
+// that match the filtering specified in the DebugLogParams are returned.
+func (c *Client) WatchDebugLog(args DebugLogParams) (<-chan LogMessage, error) {
 	// Prepare URL query attributes.
 	attrs := args.URLQuery()
 
@@ -652,5 +615,27 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return connection, nil
+
+	messages := make(chan LogMessage)
+	go func() {
+		defer close(messages)
+
+		for {
+			var msg params.LogMessage
+			err := connection.ReadJSON(&msg)
+			if err != nil {
+				return
+			}
+			messages <- LogMessage{
+				Entity:    msg.Entity,
+				Timestamp: msg.Timestamp,
+				Severity:  msg.Severity,
+				Module:    msg.Module,
+				Location:  msg.Location,
+				Message:   msg.Message,
+			}
+		}
+	}()
+
+	return messages, nil
 }

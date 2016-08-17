@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -30,7 +29,13 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	if !ok {
 		return nil, errors.NotSupportedf("non-cloudsigma model")
 	}
-	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
+	return simplestreams.NewURLDataSource(
+		"cloud images",
+		fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.cloud.Region),
+		utils.VerifySSLHostnames,
+		simplestreams.SPECIFIC_CLOUD_DATA,
+		false,
+	), nil
 }
 
 type environProvider struct {
@@ -49,17 +54,27 @@ func init() {
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
-	registry.RegisterEnvironStorageProviders(providerType)
 }
 
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 
-	env := &environ{name: cfg.Name()}
-	if err := env.SetConfig(cfg); err != nil {
+	client, err := newClient(args.Cloud, args.Config.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env := &environ{
+		name:   args.Config.Name(),
+		cloud:  args.Cloud,
+		client: client,
+	}
+	if err := env.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
 
@@ -70,50 +85,15 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 // the config that really cannot or should not be changed across
 // environments running inside a single juju server.
 func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region"}
+	return []string{}
 }
 
-// PrepareForCreateEnvironment prepares an environment for creation. Any
-// additional configuration attributes are added to the config passed in
-// and returned.  This allows providers to add additional required config
-// for new environments that may be created in an existing juju server.
-func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-// BootstrapConfig is defined by EnvironProvider.
-func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		var err error
-		credentialAttributes := args.Credentials.Attributes()
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"username": credentialAttributes["username"],
-			"password": credentialAttributes["password"],
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+// PrepareConfig is defined by EnvironProvider.
+func (environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	// Ensure cloud info is in config.
-	cfg, err := cfg.Apply(map[string]interface{}{
-		"region":   args.CloudRegion,
-		"endpoint": args.CloudEndpoint,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cfg, nil
-}
-
-// PrepareForBootstrap is defined by EnvironProvider.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing model %q", cfg.Name())
-	return providerInstance.Open(cfg)
+	return args.Config, nil
 }
 
 // Validate ensures that config is a valid configuration for this
@@ -148,29 +128,18 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 // which are considered sensitive. All of the values of these secret
 // attributes need to be strings.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	logger.Infof("filtering secret attributes for model %q", cfg.Name())
+	return map[string]string{}, nil
+}
 
-	// If you keep configSecretFields up to date, this method should Just Work.
-	ecfg, err := validateConfig(cfg, nil)
-	if err != nil {
-		return nil, err
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	secretAttrs := map[string]string{}
-	for _, field := range configSecretFields {
-		if value, ok := ecfg.attrs[field]; ok {
-			if stringValue, ok := value.(string); ok {
-				secretAttrs[field] = stringValue
-			} else {
-				// All your secret attributes must be strings at the moment. Sorry.
-				// It's an expedient and hopefully temporary measure that helps us
-				// plug a security hole in the API.
-				return nil, errors.Errorf(
-					"secret %q field must have a string value; got %v",
-					field, value,
-				)
-			}
-		}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
 	}
-
-	return secretAttrs, nil
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }

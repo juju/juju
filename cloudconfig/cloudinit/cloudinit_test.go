@@ -252,7 +252,6 @@ var ctests = []struct {
 		// packages (see cloudArchivePackagesUbuntu in juju/utils
 		// repo).
 		"--target-release", "precise-updates/cloud-tools", "cloud-utils",
-		"--target-release", "precise-updates/cloud-tools", "cloud-image-utils",
 		// Other regular packages.
 		"ubuntu",
 	}},
@@ -273,10 +272,6 @@ var ctests = []struct {
 		cfg.AddPackage("--target-release")
 		cfg.AddPackage("precise-updates/cloud-tools")
 		cfg.AddPackage("cloud-utils")
-
-		cfg.AddPackage("--target-release")
-		cfg.AddPackage("precise-updates/cloud-tools")
-		cfg.AddPackage("cloud-image-utils")
 
 		cfg.AddPackage("ubuntu")
 	},

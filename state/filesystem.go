@@ -753,29 +753,34 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		ops = append(ops, volumeOps...)
 	}
 
-	filesystemOps := []txn.Op{
-		createStatusOp(st, filesystemGlobalKey(filesystemId), statusDoc{
-			Status: status.StatusPending,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			Updated: time.Now().UnixNano(),
-		}),
+	status := statusDoc{
+		Status: status.StatusPending,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+	}
+	doc := filesystemDoc{
+		FilesystemId: filesystemId,
+		VolumeId:     volumeId,
+		StorageId:    params.storage.Id(),
+		Binding:      params.binding.String(),
+		Params:       &params,
+		// Every filesystem is created with one attachment.
+		AttachmentCount: 1,
+	}
+	ops = append(ops, st.newFilesystemOps(doc, status)...)
+	return ops, filesystemTag, volumeTag, nil
+}
+
+func (st *State) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn.Op {
+	return []txn.Op{
+		createStatusOp(st, filesystemGlobalKey(doc.FilesystemId), status),
 		{
 			C:      filesystemsC,
-			Id:     filesystemId,
+			Id:     doc.FilesystemId,
 			Assert: txn.DocMissing,
-			Insert: &filesystemDoc{
-				FilesystemId: filesystemId,
-				VolumeId:     volumeId,
-				StorageId:    params.storage.Id(),
-				Binding:      params.binding.String(),
-				Params:       &params,
-				// Every filesystem is created with one attachment.
-				AttachmentCount: 1,
-			},
+			Insert: &doc,
 		},
 	}
-	ops = append(ops, filesystemOps...)
-	return ops, filesystemTag, volumeTag, nil
 }
 
 func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {

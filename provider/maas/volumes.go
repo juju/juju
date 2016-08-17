@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
@@ -33,6 +32,19 @@ const (
 	// to specify tag values for requested volumes.
 	tagsAttribute = "tags"
 )
+
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (*maasEnviron) StorageProviderTypes() []storage.ProviderType {
+	return []storage.ProviderType{maasStorageProviderType}
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (*maasEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == maasStorageProviderType {
+		return maasStorageProvider{}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
 
 // maasStorageProvider allows volumes to be specified when a node is acquired.
 type maasStorageProvider struct{}
@@ -82,34 +94,39 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 }
 
 // ValidateConfig is defined on the Provider interface.
-func (e *maasStorageProvider) ValidateConfig(cfg *storage.Config) error {
+func (maasStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 
 // Supports is defined on the Provider interface.
-func (e *maasStorageProvider) Supports(k storage.StorageKind) bool {
+func (maasStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
 // Scope is defined on the Provider interface.
-func (e *maasStorageProvider) Scope() storage.Scope {
+func (maasStorageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
 // Dynamic is defined on the Provider interface.
-func (e *maasStorageProvider) Dynamic() bool {
+func (maasStorageProvider) Dynamic() bool {
 	return false
 }
 
+// DefaultPools is defined on the Provider interface.
+func (maasStorageProvider) DefaultPools() []*storage.Config {
+	return nil
+}
+
 // VolumeSource is defined on the Provider interface.
-func (e *maasStorageProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (maasStorageProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	// Dynamic volumes not supported.
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (e *maasStorageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (maasStorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 

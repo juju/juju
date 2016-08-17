@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -72,6 +73,21 @@ var transientErrorInjection chan error
 const BootstrapInstanceId = "localhost"
 
 var errNotPrepared = errors.New("model is not prepared")
+
+// SampleCloudSpec returns an environs.CloudSpec that can be used to
+// open a dummy Environ.
+func SampleCloudSpec() environs.CloudSpec {
+	cred := cloud.NewEmptyCredential()
+	return environs.CloudSpec{
+		Type:             "dummy",
+		Name:             "dummy",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &cred,
+	}
+}
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -134,6 +150,7 @@ type OpFinalizeBootstrap struct {
 
 type OpDestroy struct {
 	Env   string
+	Cloud environs.CloudSpec
 	Error error
 }
 
@@ -196,7 +213,7 @@ type OpPutFile struct {
 type environProvider struct {
 	mu                     sync.Mutex
 	ops                    chan<- Operation
-	statePolicy            state.Policy
+	newStatePolicy         state.NewPolicyFunc
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
 	apiPort                int
@@ -214,7 +231,7 @@ func ApiPort(p environs.EnvironProvider) int {
 type environState struct {
 	name            string
 	ops             chan<- Operation
-	statePolicy     state.Policy
+	newStatePolicy  state.NewPolicyFunc
 	mu              sync.Mutex
 	maxId           int // maximum instance id allocated so far.
 	maxAddr         int // maximum allocated address last byte
@@ -231,8 +248,10 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	storage.ProviderRegistry
 	name         string
 	modelUUID    string
+	cloud        environs.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
@@ -254,9 +273,11 @@ func init() {
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:                    discardOperations,
-	state:                  make(map[string]*environState),
-	statePolicy:            environs.NewStatePolicy(),
+	ops:   discardOperations,
+	state: make(map[string]*environState),
+	newStatePolicy: stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	),
 	supportsSpaces:         true,
 	supportsSpaceDiscovery: false,
 }
@@ -267,54 +288,79 @@ var dummy = environProvider{
 func Reset(c *gc.C) {
 	logger.Infof("reset model")
 	dummy.mu.Lock()
-	defer dummy.mu.Unlock()
 	dummy.ops = discardOperations
-	for _, s := range dummy.state {
+	oldState := dummy.state
+	dummy.state = make(map[string]*environState)
+	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	dummy.supportsSpaces = true
+	dummy.supportsSpaceDiscovery = false
+	dummy.mu.Unlock()
+
+	// NOTE(axw) we must destroy the old states without holding
+	// the provider lock, or we risk deadlocking. Destroying
+	// state involves closing the embedded API server, which
+	// may require waiting on RPC calls that interact with the
+	// EnvironProvider (e.g. EnvironProvider.Open).
+	for _, s := range oldState {
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
 		s.destroy()
 	}
-	dummy.state = make(map[string]*environState)
 	if mongoAlive() {
 		err := gitjujutesting.MgoServer.Reset()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	dummy.statePolicy = environs.NewStatePolicy()
-	dummy.supportsSpaces = true
-	dummy.supportsSpaceDiscovery = false
 }
 
 func (state *environState) destroy() {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.destroyLocked()
+}
+
+func (state *environState) destroyLocked() {
 	if !state.bootstrapped {
 		return
 	}
+	apiServer := state.apiServer
+	apiStatePool := state.apiStatePool
+	apiState := state.apiState
+	state.apiServer = nil
+	state.apiStatePool = nil
+	state.apiState = nil
+	state.bootstrapped = false
 
-	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
+	// Release the lock while we close resources. In particular,
+	// we must not hold the lock while the API server is being
+	// closed, as it may need to interact with the Environ while
+	// shutting down.
+	state.mu.Unlock()
+	defer state.mu.Lock()
+
+	if apiServer != nil {
+		if err := apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiServer = nil
 	}
 
-	if state.apiStatePool != nil {
-		if err := state.apiStatePool.Close(); err != nil && mongoAlive() {
+	if apiStatePool != nil {
+		if err := apiStatePool.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiStatePool = nil
 	}
 
-	if state.apiState != nil {
-		if err := state.apiState.Close(); err != nil && mongoAlive() {
+	if apiState != nil {
+		if err := apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiState = nil
 	}
 
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	state.bootstrapped = false
 }
 
 // mongoAlive reports whether the mongo server is
@@ -348,13 +394,13 @@ func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
 }
 
 // newState creates the state for a new environment with the given name.
-func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
+func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyFunc) *environState {
 	s := &environState{
-		name:        name,
-		ops:         ops,
-		statePolicy: policy,
-		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[network.PortRange]bool),
+		name:           name,
+		ops:            ops,
+		newStatePolicy: newStatePolicy,
+		insts:          make(map[instance.Id]*dummyInstance),
+		globalPorts:    make(map[network.PortRange]bool),
 	}
 	return s
 }
@@ -368,14 +414,6 @@ func (s *environState) listenAPI() int {
 	}
 	s.apiListener = l
 	return l.Addr().(*net.TCPAddr).Port
-}
-
-// SetStatePolicy sets the state.Policy to use when a
-// controller is initialised by dummy.
-func SetStatePolicy(policy state.Policy) {
-	dummy.mu.Lock()
-	dummy.statePolicy = policy
-	dummy.mu.Unlock()
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
@@ -510,17 +548,19 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
-func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	ecfg, err := p.newConfig(cfg)
+	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
 	env := &environ{
-		name:         ecfg.Name(),
-		ecfgUnlocked: ecfg,
-		modelUUID:    cfg.UUID(),
+		ProviderRegistry: StorageProviders(),
+		name:             ecfg.Name(),
+		modelUUID:        args.Config.UUID(),
+		cloud:            args.Cloud,
+		ecfgUnlocked:     ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -533,29 +573,8 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 	return nil
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
-	// NOTE: this check might appear redundant, but it's not: some tests
-	// (apiserver/modelmanager) inject a string value and determine that
-	// the config is validated later; validating here would render that
-	// test meaningless.
-	if cfg.AllAttrs()["controller"] == true {
-		// NOTE: cfg.Apply *does* validate, but we're only adding a
-		// valid value so it doesn't matter.
-		return cfg.Apply(map[string]interface{}{
-			"controller": false,
-		})
-	}
-	return cfg, nil
-}
-
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	return p.Open(cfg)
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
@@ -565,11 +584,23 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 
 	controllerUUID := args.ControllerUUID
 	if controllerUUID != args.Config.UUID() {
-		return nil, errors.Errorf("invalid bootstrap config, model UUID %v doesn't equal controller UUID %v", controllerUUID, args.Config.UUID())
+		// NOTE: this check might appear redundant, but it's not: some tests
+		// (apiserver/modelmanager) inject a string value and determine that
+		// the config is validated later; validating here would render that
+		// test meaningless.
+		if args.Config.AllAttrs()["controller"] == true {
+			// NOTE: cfg.Apply *does* validate, but we're only adding a
+			// valid value so it doesn't matter.
+			return args.Config.Apply(map[string]interface{}{
+				"controller": false,
+			})
+		}
+		return args.Config, nil
 	}
+
 	envState, ok := p.state[controllerUUID]
 	if ok {
-		// BootstrapConfig is expected to return the same result given
+		// PrepareConfig is expected to return the same result given
 		// the same input. We assume that the args are the same for a
 		// previously prepared/bootstrapped controller.
 		return envState.bootstrapConfig, nil
@@ -584,8 +615,8 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 
 	// The environment has not been prepared, so create it and record it.
 	// We don't start listening for State or API connections until
-	// PrepareForBootstrapConfig has been called.
-	envState = newState(name, p.ops, p.statePolicy)
+	// PrepareForBootstrap has been called.
+	envState = newState(name, p.ops, p.newStatePolicy)
 	cfg := args.Config
 	if ecfg.controller() {
 		p.apiPort = envState.listenAPI()
@@ -630,6 +661,16 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	if placement != "" && placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", placement)
 	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *environ) Create(args environs.CreateParams) error {
+	return nil
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 
@@ -684,10 +725,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 
-			cloudCredentials := make(map[string]cloud.Credential)
-			if icfg.Bootstrap.ControllerCloudCredential != nil {
-				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
-					*icfg.Bootstrap.ControllerCloudCredential
+			adminUser := names.NewUserTag("admin@local")
+			var cloudCredentialTag names.CloudCredentialTag
+			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+					"%s/%s/%s",
+					icfg.Bootstrap.ControllerCloudName,
+					adminUser.Canonical(),
+					icfg.Bootstrap.ControllerCloudCredentialName,
+				))
+			}
+
+			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
 			info := stateInfo()
@@ -698,19 +749,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					Owner:           names.NewUserTag("admin@local"),
-					Config:          icfg.Bootstrap.ControllerModelConfig,
-					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
-					CloudName:       icfg.Bootstrap.ControllerCloudName,
-					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
-					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
+					Owner:                   adminUser,
+					Config:                  icfg.Bootstrap.ControllerModelConfig,
+					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:               icfg.Bootstrap.ControllerCloudName,
+					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
+					CloudCredential:         cloudCredentialTag,
+					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
 				CloudName:        icfg.Bootstrap.ControllerCloudName,
 				CloudCredentials: cloudCredentials,
 				MongoInfo:        info,
 				MongoDialOpts:    mongotest.DialOpts(),
-				Policy:           estate.statePolicy,
+				NewPolicy:        estate.newStatePolicy,
 			})
 			if err != nil {
 				return err
@@ -821,8 +873,14 @@ func (e *environ) Destroy() (res error) {
 		// under the covers. What we need to do is use the state mutex to add a memory
 		// barrier such that the ops channel we see here is the latest.
 		estate.mu.Lock()
-		defer estate.mu.Unlock()
-		estate.ops <- OpDestroy{Env: estate.name, Error: res}
+		ops := estate.ops
+		name := estate.name
+		estate.mu.Unlock()
+		ops <- OpDestroy{
+			Env:   name,
+			Cloud: e.cloud,
+			Error: res,
+		}
 	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
@@ -830,8 +888,6 @@ func (e *environ) Destroy() (res error) {
 	if !e.ecfg().controller() {
 		return nil
 	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
 	estate.destroy()
 	return nil
 }
@@ -1522,4 +1578,8 @@ func delay() {
 
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
+}
+
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
 }

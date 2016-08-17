@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -162,11 +163,14 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = tag
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
+	if controllerOnly {
+		apiInfo.ModelTag = names.ModelTag{}
+	}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiState, gc.NotNil)
@@ -178,14 +182,22 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 // authentication.  The returned api.Connection should not be closed by the caller
 // as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
-	return s.openAPIAs(c, tag, password, "")
+	return s.openAPIAs(c, tag, password, "", false)
+}
+
+func (s *JujuConnSuite) OpenControllerAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
+	return s.openAPIAs(c, tag, password, "", true)
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
 // nonce for authentication. The returned api.Connection should not be closed by
 // the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
-	return s.openAPIAs(c, tag, password, nonce)
+	return s.openAPIAs(c, tag, password, nonce, false)
+}
+
+func (s *JujuConnSuite) OpenControllerAPI(c *gc.C) api.Connection {
+	return s.OpenControllerAPIAs(c, s.AdminUserTag(c), AdminSecret)
 }
 
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
@@ -204,7 +216,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", false), machine
 }
 
 // DefaultVersions returns a slice of unique 'versions' for the current
@@ -239,48 +251,86 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	return versions
 }
 
+// UserHomeParams stores parameters with which to create an os user home dir.
+type UserHomeParams struct {
+	// The username of the operating system user whose fake home
+	// directory is to be created.
+	Username string
+
+	// Override the default osenv.JujuModelEnvKey.
+	ModelEnvKey string
+
+	// Should the oldJujuXDGDataHome field be set?
+	// This is likely only true during setUpConn, as we want teardown to
+	// reset to the most original value.
+	SetOldHome bool
+}
+
+// Create a home directory and Juju data home for user username.
+// This is used by setUpConn to create the 'ubuntu' user home, after RootDir,
+// and may be used again later for other users.
+func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
+	if s.RootDir == "" {
+		c.Fatal("JujuConnSuite.setUpConn required first for RootDir")
+	}
+	c.Assert(params.Username, gc.Not(gc.Equals), "")
+	home := filepath.Join(s.RootDir, "home", params.Username)
+	err := os.MkdirAll(home, 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	err = utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
+
+	jujuHome := filepath.Join(home, ".local", "share")
+	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	previousJujuXDGDataHome := osenv.SetJujuXDGDataHome(jujuHome)
+	if params.SetOldHome {
+		s.oldJujuXDGDataHome = previousJujuXDGDataHome
+	}
+
+	err = os.MkdirAll(s.DataDir(), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	jujuModelEnvKey := "JUJU_MODEL"
+	if params.ModelEnvKey != "" {
+		jujuModelEnvKey = params.ModelEnvKey
+	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, jujuModelEnvKey)
+
+	s.ControllerStore = jujuclient.NewFileClientStore()
+}
+
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
 		c.Fatal("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
 	s.oldHome = utils.Home()
-	home := filepath.Join(s.RootDir, "/home/ubuntu")
-	err := os.MkdirAll(home, 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	err = utils.SetHome(home)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(filepath.Join(home, ".local", "share", "juju"))
-	err = os.MkdirAll(osenv.JujuXDGDataHome(), 0777)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = os.MkdirAll(s.DataDir(), 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuModelEnvKey, "controller")
+	userHomeParams := UserHomeParams{
+		Username:    "ubuntu",
+		ModelEnvKey: "controller",
+		SetOldHome:  true,
+	}
+	s.CreateUserHome(c, &userHomeParams)
 
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value
 	}
+	cloudSpec := dummy.SampleCloudSpec()
 	environ, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
-			BaseConfig:       cfg.AllAttrs(),
-			Credential:       cloud.NewEmptyCredential(),
+			ModelConfig:      cfg.AllAttrs(),
+			Cloud:            cloudSpec,
 			ControllerName:   ControllerName,
-			CloudName:        "dummy",
 			AdminSecret:      AdminSecret,
 		},
 	)
@@ -310,13 +360,27 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
-		CloudName:        "dummy",
+		CloudName:        cloudSpec.Name,
+		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Type:             cloudSpec.Type,
+			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+			Endpoint:         cloudSpec.Endpoint,
+			IdentityEndpoint: cloudSpec.IdentityEndpoint,
+			StorageEndpoint:  cloudSpec.StorageEndpoint,
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:             "dummy-region",
+					Endpoint:         "dummy-endpoint",
+					IdentityEndpoint: "dummy-identity-endpoint",
+					StorageEndpoint:  "dummy-storage-endpoint",
+				},
+			},
 		},
-		AdminSecret:  AdminSecret,
-		CAPrivateKey: testing.CAKey,
+		CloudCredential:     cloudSpec.Credential,
+		CloudCredentialName: "cred",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -384,6 +448,7 @@ func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	s.AddToolsToState(c, versions...)
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var redialStrategy = utils.AttemptStrategy{
 	Total: 60 * time.Second,
 	Delay: 250 * time.Millisecond,
@@ -401,13 +466,16 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 
 	mongoInfo.Password = password
 	opts := mongotest.DialOpts()
-	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	st, err := state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}

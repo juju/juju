@@ -24,6 +24,13 @@ type HasConstraints interface {
 	SetConstraints(ConstraintsArgs)
 }
 
+// HasStatus defines the common methods for setting and getting status
+// entries for the various entities.
+type HasStatus interface {
+	Status() Status
+	SetStatus(StatusArgs)
+}
+
 // HasStatusHistory defines the common methods for setting and
 // getting historical status entries for the various entities.
 type HasStatusHistory interface {
@@ -78,8 +85,20 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
+	Actions() []Action
+	AddAction(ActionArgs) Action
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
+
+	Volumes() []Volume
+	AddVolume(VolumeArgs) Volume
+
+	Filesystems() []Filesystem
+	AddFilesystem(FilesystemArgs) Filesystem
+
+	Storages() []Storage
+	AddStorage(StorageArgs) Storage
 
 	Validate() error
 }
@@ -92,9 +111,7 @@ type User interface {
 	CreatedBy() names.UserTag
 	DateCreated() time.Time
 	LastConnection() time.Time
-	IsReadOnly() bool
-	IsReadWrite() bool
-	IsAdmin() bool
+	Access() Access
 }
 
 // Address represents an IP Address of some form.
@@ -119,6 +136,7 @@ type AgentTools interface {
 type Machine interface {
 	HasAnnotations
 	HasConstraints
+	HasStatus
 	HasStatusHistory
 
 	Id() string
@@ -148,9 +166,6 @@ type Machine interface {
 
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
-
-	Status() Status
-	SetStatus(StatusArgs)
 
 	// TODO:
 	// Storage
@@ -230,6 +245,7 @@ type Status interface {
 type Application interface {
 	HasAnnotations
 	HasConstraints
+	HasStatus
 	HasStatusHistory
 
 	Tag() names.ApplicationTag
@@ -250,9 +266,6 @@ type Application interface {
 	LeadershipSettings() map[string]interface{}
 
 	MetricsCredentials() []byte
-
-	Status() Status
-	SetStatus(StatusArgs)
 
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
@@ -383,4 +396,95 @@ type IPAddress interface {
 type SSHHostKey interface {
 	MachineID() string
 	Keys() []string
+}
+
+// Action represents an IP action.
+type Action interface {
+	Id() string
+	Receiver() string
+	Name() string
+	Parameters() map[string]interface{}
+	Enqueued() time.Time
+	Started() time.Time
+	Completed() time.Time
+	Results() map[string]interface{}
+	Status() string
+	Message() string
+}
+
+// Volume represents a volume (disk, logical volume, etc.) in the model.
+type Volume interface {
+	HasStatus
+	HasStatusHistory
+
+	Tag() names.VolumeTag
+	Storage() names.StorageTag
+
+	Binding() (names.Tag, error)
+
+	Provisioned() bool
+
+	Size() uint64
+	Pool() string
+
+	HardwareID() string
+	VolumeID() string
+	Persistent() bool
+
+	Attachments() []VolumeAttachment
+	AddAttachment(VolumeAttachmentArgs) VolumeAttachment
+}
+
+// VolumeAttachment represents a volume attached to a machine.
+type VolumeAttachment interface {
+	Machine() names.MachineTag
+	Provisioned() bool
+	ReadOnly() bool
+	DeviceName() string
+	DeviceLink() string
+	BusAddress() string
+}
+
+// Filesystem represents a filesystem in the model.
+type Filesystem interface {
+	HasStatus
+	HasStatusHistory
+
+	Tag() names.FilesystemTag
+	Volume() names.VolumeTag
+	Storage() names.StorageTag
+	Binding() (names.Tag, error)
+
+	Provisioned() bool
+
+	Size() uint64
+	Pool() string
+
+	FilesystemID() string
+
+	Attachments() []FilesystemAttachment
+	AddAttachment(FilesystemAttachmentArgs) FilesystemAttachment
+}
+
+// FilesystemAttachment represents a filesystem attached to a machine.
+type FilesystemAttachment interface {
+	Machine() names.MachineTag
+	Provisioned() bool
+	MountPoint() string
+	ReadOnly() bool
+}
+
+// Storage represents the state of a unit or application-wide storage instance
+// in the model.
+type Storage interface {
+	Tag() names.StorageTag
+	Kind() string
+	// Owner returns the tag of the application or unit that owns this storage
+	// instance.
+	Owner() (names.Tag, error)
+	Name() string
+
+	Attachments() []names.UnitTag
+
+	Validate() error
 }

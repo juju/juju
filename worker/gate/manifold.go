@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"

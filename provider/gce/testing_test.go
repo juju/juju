@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -35,6 +36,7 @@ const (
 	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
 	ClientID    = ClientName + ".apps.googleusercontent.com"
 	ClientEmail = ClientName + "@developer.gserviceaccount.com"
+	ProjectID   = "my-juju"
 	PrivateKey  = `-----BEGIN PRIVATE KEY-----
 ...
 ...
@@ -66,16 +68,33 @@ var (
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "gce",
-		"private-key":     PrivateKey,
-		"client-id":       ClientID,
-		"client-email":    ClientEmail,
-		"region":          "home",
-		"project-id":      "my-juju",
-		"image-endpoint":  "https://www.googleapis.com",
 		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
+
+func MakeTestCloudSpec() environs.CloudSpec {
+	cred := MakeTestCredential()
+	return environs.CloudSpec{
+		Type:       "gce",
+		Name:       "google",
+		Region:     "us-east1",
+		Endpoint:   "https://www.googleapis.com",
+		Credential: &cred,
+	}
+}
+
+func MakeTestCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{
+			"project-id":   ProjectID,
+			"client-id":    ClientID,
+			"client-email": ClientEmail,
+			"private-key":  PrivateKey,
+		},
+	)
+}
 
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
@@ -117,7 +136,8 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
-		name: "google",
+		name:  "google",
+		cloud: MakeTestCloudSpec(),
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
@@ -280,7 +300,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
+	s.PatchValue(&newConnection, func(google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)

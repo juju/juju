@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -20,11 +19,11 @@ const ControllerModelName = "controller"
 // PrepareParams contains the parameters for preparing a controller Environ
 // for bootstrapping.
 type PrepareParams struct {
-	// BaseConfig contains the base configuration for the controller model.
+	// ModelConfig contains the base configuration for the controller model.
 	//
-	// This includes the model name, cloud type, and any user-supplied
-	// configuration. It does not include any default attributes.
-	BaseConfig map[string]interface{}
+	// This includes the model name, cloud type, any user-supplied
+	// configuration, config inherited from controller, and any defaults.
+	ModelConfig map[string]interface{}
 
 	// ControllerConfig is the configuration of the controller being prepared.
 	ControllerConfig controller.Config
@@ -32,26 +31,9 @@ type PrepareParams struct {
 	// ControllerName is the name of the controller being prepared.
 	ControllerName string
 
-	// CloudName is the name of the cloud that the controller is being
-	// prepared for.
-	CloudName string
-
-	// CloudRegion is the name of the region of the cloud to create
-	// the Juju controller in. This will be empty for clouds without
-	// regions.
-	CloudRegion string
-
-	// CloudEndpoint is the location of the primary API endpoint to
-	// use when communicating with the cloud.
-	CloudEndpoint string
-
-	// CloudStorageEndpoint is the location of the API endpoint to use
-	// when communicating with the cloud's storage service. This will
-	// be empty for clouds that have no cloud-specific API endpoint.
-	CloudStorageEndpoint string
-
-	// Credential is the credential to use to bootstrap.
-	Credential cloud.Credential
+	// Cloud is the specification of the cloud that the controller is
+	// being prepared for.
+	Cloud environs.CloudSpec
 
 	// CredentialName is the name of the credential to use to bootstrap.
 	// This will be empty for auto-detected credentials.
@@ -69,7 +51,7 @@ func (p PrepareParams) Validate() error {
 	if p.ControllerName == "" {
 		return errors.NotValidf("empty controller name")
 	}
-	if p.CloudName == "" {
+	if p.Cloud.Name == "" {
 		return errors.NotValidf("empty cloud name")
 	}
 	if p.AdminSecret == "" {
@@ -101,7 +83,7 @@ func Prepare(
 		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
 	}
 
-	cloudType, ok := args.BaseConfig["type"].(string)
+	cloudType, ok := args.ModelConfig["type"].(string)
 	if !ok {
 		return nil, errors.NotFoundf("cloud type in base configuration")
 	}
@@ -135,7 +117,7 @@ func decorateAndWriteInfo(
 		names.NewUserTag(details.AccountDetails.User),
 		modelName,
 	)
-	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
+	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	if err := store.UpdateBootstrapConfig(controllerName, details.BootstrapConfig); err != nil {
@@ -160,20 +142,25 @@ func prepare(
 ) (environs.Environ, prepareDetails, error) {
 	var details prepareDetails
 
-	cfg, err := config.New(config.UseDefaults, args.BaseConfig)
+	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
 
-	cfg, err = p.BootstrapConfig(environs.BootstrapConfigParams{
-		args.ControllerConfig.ControllerUUID(), cfg, args.Credential, args.CloudRegion,
-		args.CloudEndpoint, args.CloudStorageEndpoint,
+	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{
+		args.ControllerConfig.ControllerUUID(), args.Cloud, cfg,
 	})
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	env, err := p.PrepareForBootstrap(ctx, cfg)
+	env, err := p.Open(environs.OpenParams{
+		Cloud:  args.Cloud,
+		Config: cfg,
+	})
 	if err != nil {
+		return nil, details, errors.Trace(err)
+	}
+	if err := env.PrepareForBootstrap(ctx); err != nil {
 		return nil, details, errors.Trace(err)
 	}
 
@@ -182,7 +169,7 @@ func prepare(
 	// UUIDs stored in the bootstrap config. Make a copy, so
 	// we don't disturb the caller's config map.
 	details.Config = make(map[string]interface{})
-	for k, v := range args.BaseConfig {
+	for k, v := range args.ModelConfig {
 		details.Config[k] = v
 	}
 	delete(details.Config, config.UUIDKey)
@@ -205,17 +192,25 @@ func prepare(
 		}
 		details.ControllerConfig[k] = v
 	}
+	for k, v := range args.ControllerConfig {
+		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
+			continue
+		}
+		details.ControllerConfig[k] = v
+	}
 	details.CACert = caCert
 	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
 	details.User = environs.AdminUser
 	details.Password = args.AdminSecret
 	details.ModelUUID = cfg.UUID()
-	details.ControllerDetails.Cloud = args.CloudName
-	details.ControllerDetails.CloudRegion = args.CloudRegion
-	details.BootstrapConfig.Cloud = args.CloudName
-	details.BootstrapConfig.CloudRegion = args.CloudRegion
-	details.CloudEndpoint = args.CloudEndpoint
-	details.CloudStorageEndpoint = args.CloudStorageEndpoint
+	details.ControllerDetails.Cloud = args.Cloud.Name
+	details.ControllerDetails.CloudRegion = args.Cloud.Region
+	details.BootstrapConfig.CloudType = args.Cloud.Type
+	details.BootstrapConfig.Cloud = args.Cloud.Name
+	details.BootstrapConfig.CloudRegion = args.Cloud.Region
+	details.CloudEndpoint = args.Cloud.Endpoint
+	details.CloudIdentityEndpoint = args.Cloud.IdentityEndpoint
+	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 
 	return env, details, nil

@@ -8,40 +8,50 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 type MockPolicy struct {
-	GetPrechecker           func(*config.Config) (state.Prechecker, error)
-	GetConfigValidator      func(string) (state.ConfigValidator, error)
-	GetConstraintsValidator func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error)
-	GetInstanceDistributor  func(*config.Config) (state.InstanceDistributor, error)
+	GetPrechecker              func() (state.Prechecker, error)
+	GetConfigValidator         func() (config.Validator, error)
+	GetConstraintsValidator    func() (constraints.Validator, error)
+	GetInstanceDistributor     func() (instance.Distributor, error)
+	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
 }
 
-func (p *MockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
+func (p *MockPolicy) Prechecker() (state.Prechecker, error) {
 	if p.GetPrechecker != nil {
-		return p.GetPrechecker(cfg)
+		return p.GetPrechecker()
 	}
 	return nil, errors.NotImplementedf("Prechecker")
 }
 
-func (p *MockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
 	if p.GetConfigValidator != nil {
-		return p.GetConfigValidator(providerType)
+		return p.GetConfigValidator()
 	}
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (p *MockPolicy) ConstraintsValidator(cfg *config.Config, querier state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+func (p *MockPolicy) ConstraintsValidator() (constraints.Validator, error) {
 	if p.GetConstraintsValidator != nil {
-		return p.GetConstraintsValidator(cfg, querier)
+		return p.GetConstraintsValidator()
 	}
-	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
+	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (p *MockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+func (p *MockPolicy) InstanceDistributor() (instance.Distributor, error) {
 	if p.GetInstanceDistributor != nil {
-		return p.GetInstanceDistributor(cfg)
+		return p.GetInstanceDistributor()
 	}
-	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
+	return nil, errors.NotImplementedf("InstanceDistributor")
+}
+
+func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	if p.GetStorageProviderRegistry != nil {
+		return p.GetStorageProviderRegistry()
+	}
+	return nil, errors.NotImplementedf("StorageProviderRegistry")
 }

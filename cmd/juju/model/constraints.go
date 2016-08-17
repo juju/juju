@@ -5,7 +5,7 @@ package model
 
 import (
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -30,10 +30,11 @@ Examples:
     juju get-model-constraints
     juju get-model-constraints -m mymodel
 
-See also: models
-          set-model-constraints
-          set-constraints
-          get-constraints
+See also:
+    models
+    get-constraints
+    set-constraints
+    set-model-constraints
 `
 
 // setConstraintsDoc is multi-line since we need to use ` to denote
@@ -53,10 +54,11 @@ Examples:
     juju set-model-constraints cpu-cores=8 mem=16G
     juju set-model-constraints -m mymodel root-disk=64G
 
-See also: models
-          get-model-constraints
-          set-constraints
-          get-constraints
+See also:
+    models
+    get-model-constraints
+    get-constraints
+    set-constraints
 `
 
 // ConstraintsAPI defines methods on the client API that

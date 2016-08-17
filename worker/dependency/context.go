@@ -63,19 +63,19 @@ func (ctx *context) expire() {
 
 // rawAccess is a GetResourceFunc that neither checks enpiry nor records access.
 func (ctx *context) rawAccess(resourceName string, out interface{}) error {
-	input := ctx.workers[resourceName]
-	if input == nil {
-		// No worker running (or not declared).
-		return ErrMissing
+	input, found := ctx.workers[resourceName]
+	if !found {
+		return errors.Annotatef(ErrMissing, "%q not declared", resourceName)
+	} else if input == nil {
+		return errors.Annotatef(ErrMissing, "%q not running", resourceName)
 	}
 	if out == nil {
-		// No conversion necessary.
+		// No conversion necessary, just an exist check.
 		return nil
 	}
 	convert := ctx.outputs[resourceName]
 	if convert == nil {
-		// Conversion required, no func available.
-		return ErrMissing
+		return errors.Annotatef(ErrMissing, "%q not exposed", resourceName)
 	}
 	return convert(input, out)
 }

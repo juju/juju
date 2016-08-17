@@ -4,7 +4,6 @@
 package syslog_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,14 +46,13 @@ func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateZeroValue(c *gc.C) {
 	var cfg syslog.RawConfig
-
 	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 	cfg := syslog.RawConfig{
+		Enabled:    true,
 		Host:       "",
 		CACert:     validCACert,
 		ClientCert: validCert,
@@ -66,8 +64,21 @@ func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `Host "" not valid`)
 }
 
+func (s *ConfigSuite) TestRawValidateMissingHostNotEnabled(c *gc.C) {
+	cfg := syslog.RawConfig{
+		Host:       "",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  validKey,
+	}
+
+	err := cfg.Validate()
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 	cfg := syslog.RawConfig{
+		Enabled:    true,
 		Host:       ":9876",
 		CACert:     validCACert,
 		ClientCert: validCert,

@@ -14,8 +14,9 @@ import (
 type rawConnSuite struct {
 	BaseSuite
 
-	op       *compute.Operation
-	rawConn  *rawConn
+	op      *compute.Operation
+	rawConn *rawConn
+	// TODO(katco): 2016-08-09: lp:1611427
 	strategy utils.AttemptStrategy
 
 	callCount int

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -34,7 +35,7 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
-	setAdminApi func(*apiserver.Server)
+	setAdminAPI func(*apiserver.Server)
 }
 
 type loginSuite struct {
@@ -43,8 +44,8 @@ type loginSuite struct {
 
 var _ = gc.Suite(&loginSuite{
 	baseLoginSuite{
-		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 3)
+		setAdminAPI: func(srv *apiserver.Server) {
+			apiserver.SetAdminAPIVersions(srv, 3)
 		},
 	},
 })
@@ -473,9 +474,12 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
+	ctag := names.NewControllerTag(s.State.ControllerUUID())
+	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
+	c.Assert(err, jc.ErrorIsNil)
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
-	_, err := api.Open(info, fastDialOpts)
+	_, err = api.Open(info, fastDialOpts)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
@@ -520,7 +524,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
-		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
+		c.Assert(err, jc.Satisfies, params.IsCodeUpgradeInProgress)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }
@@ -587,8 +591,8 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.setAdminApi, gc.NotNil)
-	s.setAdminApi(srv)
+	c.Assert(s.setAdminAPI, gc.NotNil)
+	s.setAdminAPI(srv)
 	info := &api.Info{
 		Tag:      nil,
 		Password: "",
@@ -761,23 +765,34 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) assertRemoteModel(c *gc.C, st api.Connection, expected names.ModelTag) {
+func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected names.ModelTag) {
 	// Look at what the api thinks it has.
-	tag, err := st.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
+	tag, ok := api.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
-	client := st.Client()
+	client := api.Client()
 
 	// ModelUUID looks at the env tag on the api state connection.
-	uuid, err := client.ModelUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	uuid, ok := client.ModelUUID()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, expected.Id())
 
-	// ModelInfo calls a remote method that looks up the environment.
-	info, err := client.ModelInfo()
+	// The code below is to verify that the API connection is operating on
+	// the expected model. We make a change in state on that model, and
+	// then check that it is picked up by a call to the API.
+
+	st, err := s.State.ForModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.UUID, gc.Equals, expected.Id())
+	defer st.Close()
+
+	expectedCons := constraints.MustParse("mem=8G")
+	err = st.SetModelConstraints(expectedCons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := client.GetModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, expectedCons)
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
@@ -809,9 +824,9 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The env user is also updated.
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := modelUser.LastConnection()
+	when, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)

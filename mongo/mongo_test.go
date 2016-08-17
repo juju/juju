@@ -108,6 +108,20 @@ func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 	}
 }
 
+func (s *MongoSuite) makeConfigArgs(dataDir string) mongo.ConfigArgs {
+	return mongo.ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dataDir,
+		MongoPath:   mongo.JujuMongod24Path,
+		Port:        1234,
+		OplogSizeMB: 1024,
+		WantNumaCtl: false,
+		Version:     s.mongodVersion,
+		Auth:        true,
+		IPv6:        true,
+	}
+}
+
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -476,7 +490,7 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 	s.patchSeries(test.series)
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("mongosuite", &tw, loggo.INFO), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("mongosuite", &tw), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("mongosuite")
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
@@ -534,7 +548,8 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 	s.data.SetStatus(mongo.ServiceName, "installed")
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&tw, loggo.ERROR)
+	c.Assert(loggo.RegisterWriter("test-writer", writer), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test-writer")
 
 	dataDir := c.MkDir()
@@ -578,30 +593,34 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(s.makeConfigArgs(c.MkDir()))
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, true, s.mongodVersion, true)
+	args := s.makeConfigArgs(c.MkDir())
+	args.WantNumaCtl = true
+	conf := mongo.NewConf(args)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
-func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+func (s *MongoSuite) TestNewServiceWithIPv6(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	args.IPv6 = true
+	conf := mongo.NewConf(args)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
-func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
-	dataDir := c.MkDir()
+func (s *MongoSuite) TestNewServiceWithoutIPv6(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	args.IPv6 = false
+	conf := mongo.NewConf(args)
+	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsFalse)
+}
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	conf := mongo.NewConf(args)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 

@@ -37,19 +37,19 @@ func (s *GetSuite) TestInit(c *gc.C) {
 }
 
 func (s *GetSuite) TestSingleValue(c *gc.C) {
-	context, err := s.run(c, "name")
+	context, err := s.run(c, "special")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, "test-model")
+	c.Assert(output, gc.Equals, "special value")
 }
 
 func (s *GetSuite) TestSingleValueJSON(c *gc.C) {
-	context, err := s.run(c, "--format=json", "name")
+	context, err := s.run(c, "--format=json", "special")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, "test-model")
+	c.Assert(output, gc.Equals, "special value")
 }
 
 func (s *GetSuite) TestAllValuesYAML(c *gc.C) {
@@ -58,9 +58,6 @@ func (s *GetSuite) TestAllValuesYAML(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"name:\n" +
-		"  value: test-model\n" +
-		"  source: model\n" +
 		"running:\n" +
 		"  value: true\n" +
 		"  source: model\n" +
@@ -75,7 +72,7 @@ func (s *GetSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"name":{"Value":"test-model","Source":"model"},"running":{"Value":true,"Source":"model"},"special":{"Value":"special value","Source":"model"}}`
+	expected := `{"running":{"Value":true,"Source":"model"},"special":{"Value":"special value","Source":"model"}}`
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -86,7 +83,6 @@ func (s *GetSuite) TestAllValuesTabular(c *gc.C) {
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
 		"ATTRIBUTE  FROM   VALUE\n" +
-		"name       model  test-model\n" +
 		"running    model  True\n" +
 		"special    model  special value"
 	c.Assert(output, gc.Equals, expected)

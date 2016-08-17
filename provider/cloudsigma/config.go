@@ -10,23 +10,11 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-var configFields = schema.Fields{
-	"username": schema.String(),
-	"password": schema.String(),
-	"region":   schema.String(),
-	"endpoint": schema.String(),
-}
+var configFields = schema.Fields{}
 
 var configDefaultFields = schema.Defaults{}
 
-var configSecretFields = []string{
-	"password",
-}
-
-var configImmutableFields = []string{
-	"region",
-	"endpoint",
-}
+var configImmutableFields = []string{}
 
 func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
 	// Check sanity of juju-level fields.
@@ -85,34 +73,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	return ecfg, nil
 }
 
-// configChanged checks if CloudSigma client environment configuration is changed
-func (c environConfig) clientConfigChanged(newConfig *environConfig) bool {
-	// compare
-	if newConfig.region() != c.region() || newConfig.username() != c.username() ||
-		newConfig.password() != c.password() {
-		return true
-	}
-
-	return false
-}
-
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
-}
-
-func (c environConfig) region() string {
-	return c.attrs["region"].(string)
-}
-
-func (c environConfig) endpoint() string {
-	return c.attrs["endpoint"].(string)
-}
-
-func (c environConfig) username() string {
-	return c.attrs["username"].(string)
-}
-
-func (c environConfig) password() string {
-	return c.attrs["password"].(string)
 }

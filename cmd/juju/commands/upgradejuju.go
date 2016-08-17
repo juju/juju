@@ -14,10 +14,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
-	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -71,7 +72,7 @@ type upgradeJujuCommand struct {
 	modelcmd.ModelCommandBase
 	vers          string
 	Version       version.Number
-	UploadTools   bool
+	BuildAgent    bool
 	DryRun        bool
 	ResetPrevious bool
 	AssumeYes     bool
@@ -93,7 +94,7 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools; for development use only")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
@@ -106,14 +107,14 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 		if err != nil {
 			return err
 		}
-		if c.UploadTools && vers.Build != 0 {
+		if c.BuildAgent && vers.Build != 0 {
 			// TODO(fwereade): when we start taking versions from actual built
-			// code, we should disable --version when used with --upload-tools.
+			// code, we should disable --version when used with --build-agent.
 			// For now, it's the only way to experiment with version upgrade
 			// behaviour live, so the only restriction is that Build cannot
 			// be used (because its value needs to be chosen internally so as
 			// not to collide with existing tools).
-			return fmt.Errorf("cannot specify build number when uploading tools")
+			return errors.New("cannot specify build number when building an agent")
 		}
 		c.Version = vers
 	}
@@ -164,7 +165,6 @@ func formatTools(tools coretools.List) string {
 }
 
 type upgradeJujuAPI interface {
-	ModelGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 	AbortCurrentUpgrade() error
@@ -172,8 +172,21 @@ type upgradeJujuAPI interface {
 	Close() error
 }
 
+type modelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+	Close() error
+}
+
 var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
+}
+
+var getModelConfigAPI = func(c *upgradeJujuCommand) (modelConfigAPI, error) {
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(api), nil
 }
 
 // Run changes the version proposed for the juju envtools.
@@ -184,6 +197,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer client.Close()
+	modelConfigClient, err := getModelConfigAPI(c)
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
 	defer func() {
 		if err == errUpToDate {
 			ctx.Infof(err.Error())
@@ -192,7 +210,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	attrs, err := client.ModelGet()
+	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -205,19 +223,20 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if c.UploadTools && (cfg.UUID() != controller.ControllerUUID) {
+	isControllerModel := cfg.UUID() == controller.ControllerUUID
+	if c.BuildAgent && !isControllerModel {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
-		return errors.Errorf("--upload-tools can only be used with the controller model")
+		return errors.Errorf("--build-agent can only be used with the controller model")
 	}
 
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
-		return fmt.Errorf("incomplete model configuration")
+		return errors.New("incomplete model configuration")
 	}
 
-	if c.UploadTools && c.Version == version.Zero {
+	if c.BuildAgent && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
 		// the same as jujuversion.Current if not specified with
 		// --version.
@@ -228,12 +247,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	case !canUpgradeRunningVersion(agentVersion):
 		// This version of upgrade-juju cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
-		return fmt.Errorf("cannot upgrade a %s model with a %s client",
+		return errors.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, jujuversion.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
-		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
+		return errors.Errorf(downgradeErrMsg, agentVersion, c.Version)
 	case agentVersion.Major != jujuversion.Current.Major:
 		// Running environment is the previous major version (a higher major
 		// version wouldn't have passed the check in canUpgradeRunningVersion).
@@ -253,7 +272,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	case c.Version.Major > agentVersion.Major:
 		// User is requesting an upgrade to a new major number
 		// Only upgrade to a different major number if:
-		// 1 - Explicitly requested with --version or using --upload-tools, and
+		// 1 - Explicitly requested with --version or using --build-agent, and
 		// 2 - The environment is running a valid version to upgrade from, and
 		// 3 - The upgrade is to a minor version of 0.
 		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
@@ -272,7 +291,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			retErr = true
 		}
 		if retErr {
-			return fmt.Errorf("unable to upgrade to requested version")
+			return errors.New("unable to upgrade to requested version")
 		}
 	}
 
@@ -280,11 +299,21 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if c.UploadTools && !c.DryRun {
-		if err := context.uploadTools(); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
+	// If we're running a custom build or the user has asked for a new agent
+	// to be built, upload a local jujud binary if possible.
+	uploadLocalBinary := isControllerModel && tryImplicitUpload(agentVersion)
+	if !warnCompat && (uploadLocalBinary || c.BuildAgent) && !c.DryRun {
+		if err := context.uploadTools(c.BuildAgent); err != nil {
+			// If we've explicitly asked to build an agent binary, or the upload failed
+			// because changes were blocked, we'll return an error.
+			// Otherwise, we'll try and find a pre-packaged upgraded binary to use below.
+			if err2 := block.ProcessBlockedError(err, block.BlockChange); c.BuildAgent || err2 == cmd.ErrSilent {
+				return err2
+			}
 		}
 	}
+	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
+	// since there may still be a valid upgrade and the user didn't ask for any local binary.
 	if err := context.validate(); err != nil {
 		return err
 	}
@@ -325,6 +354,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	return nil
 }
 
+func tryImplicitUpload(agentVersion version.Number) bool {
+	newerAgent := jujuversion.Current.Compare(agentVersion) > 0
+	return newerAgent || agentVersion.Build > 0 || jujuversion.Current.Build > 0
+}
+
 const resetPreviousUpgradeMessage = `
 WARNING! using --reset-previous-upgrade when an upgrade is in progress
 will cause the upgrade to fail. Only use this option to clear an
@@ -336,7 +370,7 @@ func (c *upgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 	if c.AssumeYes {
 		return true, nil
 	}
-	fmt.Fprintf(ctx.Stdout, resetPreviousUpgradeMessage)
+	fmt.Fprint(ctx.Stdout, resetPreviousUpgradeMessage)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
@@ -374,7 +408,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		if !params.IsCodeNotFound(err) {
 			return nil, err
 		}
-		if !c.UploadTools {
+		if !tryImplicitUpload(agentVersion) && !c.BuildAgent {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
 			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
@@ -410,7 +444,7 @@ type upgradeContext struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (context *upgradeContext) uploadTools() (err error) {
+func (context *upgradeContext) uploadTools(buildAgent bool) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -432,14 +466,16 @@ func (context *upgradeContext) uploadTools() (err error) {
 	}
 	context.chosen = uploadVersion(context.chosen, context.tools)
 
-	builtTools, err := sync.BuildToolsTarball(&context.chosen, "upgrade")
+	builtTools, err := sync.BuildAgentTarball(buildAgent, &context.chosen, "upgrade")
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
+	uploadToolsVersion := builtTools.Version
+	uploadToolsVersion.Number = context.chosen
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof("uploading tools %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
+	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", uploadToolsVersion, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -450,7 +486,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 		return errors.Trace(err)
 	}
 	additionalSeries := series.OSSupportedSeries(os)
-	uploaded, err := context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
+	uploaded, err := context.apiClient.UploadTools(f, uploadToolsVersion, additionalSeries...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -486,9 +522,9 @@ func (context *upgradeContext) validate() (err error) {
 				context.chosen = newestCurrent
 			} else {
 				if context.agent.Major != context.client.Major {
-					return fmt.Errorf("no compatible tools available")
+					return errors.New("no compatible tools available")
 				} else {
-					return fmt.Errorf("no more recent supported versions available")
+					return errors.New("no more recent supported versions available")
 				}
 			}
 		}
@@ -513,7 +549,7 @@ func (context *upgradeContext) validate() (err error) {
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf(downgradeErrMsg, context.agent, context.chosen)
+		return errors.Errorf(downgradeErrMsg, context.agent, context.chosen)
 	}
 
 	return nil

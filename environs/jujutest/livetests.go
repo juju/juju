@@ -76,6 +76,8 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
@@ -121,7 +123,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
-	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -157,13 +159,16 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	}
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		BaseConfig:       t.TestConfig,
-		Credential:       credential,
-		CloudEndpoint:    t.CloudEndpoint,
-		CloudRegion:      t.CloudRegion,
-		ControllerName:   t.TestConfig["name"].(string),
-		CloudName:        t.TestConfig["type"].(string),
-		AdminSecret:      AdminSecret,
+		ModelConfig:      t.TestConfig,
+		Cloud: environs.CloudSpec{
+			Type:       t.TestConfig["type"].(string),
+			Name:       t.TestConfig["type"].(string),
+			Region:     t.CloudRegion,
+			Endpoint:   t.CloudEndpoint,
+			Credential: &credential,
+		},
+		ControllerName: t.TestConfig["name"].(string),
+		AdminSecret:    AdminSecret,
 	}
 }
 
@@ -731,6 +736,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Bi
 	}
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
@@ -805,7 +811,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":       "dummy storage",
 	})
 	args := t.prepareForBootstrapParams(c)
-	args.BaseConfig = dummyCfg
+	args.ModelConfig = dummyCfg
 	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		args,
@@ -819,7 +825,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":           "livetests",
 		"default-series": other.Series,
 	})
-	args.BaseConfig = attrs
+	args.ModelConfig = attrs
 	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)

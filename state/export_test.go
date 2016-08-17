@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -38,6 +39,7 @@ const (
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
 	GlobalSettingsC   = globalSettingsC
+	SettingsC         = settingsC
 )
 
 var (
@@ -53,6 +55,7 @@ var (
 	ApplicationGlobalKey                 = applicationGlobalKey
 	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
 )
@@ -457,8 +460,8 @@ func IsManagerMachineError(err error) bool {
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
 
-func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
-	return e.updateLastConnection(when)
+func UpdateModelUserLastConnection(st *State, e description.UserAccess, when time.Time) error {
+	return st.updateLastModelConnection(e.UserTag, when)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
@@ -490,6 +493,23 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 	return client.Leases(), nil
 }
 
-func DeleteCharm(st *State, curl *charm.URL) error {
-	return st.deleteCharm(curl)
+func StorageAttachmentCount(instance StorageInstance) int {
+	internal, ok := instance.(*storageInstance)
+	if !ok {
+		return -1
+	}
+	return internal.doc.AttachmentCount
+}
+
+func ResetMigrationMode(c *gc.C, st *State) {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.M{
+			"$set": bson.M{"migration-mode": MigrationModeActive},
+		},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 }

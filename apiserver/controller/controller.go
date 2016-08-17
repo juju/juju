@@ -10,14 +10,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -35,14 +39,17 @@ type Controller interface {
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
+	ModelStatus(params.Entities) (params.ModelStatusResults, error)
 	InitiateModelMigration(params.InitiateModelMigrationArgs) (params.InitiateModelMigrationResults, error)
+	ModifyControllerAccess(params.ModifyControllerAccessRequest) (params.ErrorResults, error)
 }
 
 // ControllerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
+
 	state      *state.State
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -62,10 +69,7 @@ func NewControllerAPI(
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,9 +77,14 @@ func NewControllerAPI(
 	if !isAdmin {
 		return nil, errors.Trace(common.ErrPerm)
 	}
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		state:               st,
 		authorizer:          authorizer,
 		apiUser:             apiUser,
@@ -83,10 +92,43 @@ func NewControllerAPI(
 	}, nil
 }
 
+func (s *ControllerAPI) hasReadAccess() (bool, error) {
+	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canRead, err
+
+}
+
+func (s *ControllerAPI) hasWriteAccess() (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
+}
+
+func (s *ControllerAPI) hasAdminAccess() (bool, error) {
+	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return isAdmin, err
+}
+
 // AllModels allows controller administrators to get the list of all the
 // environments in the controller.
 func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
+
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
 
 	// Get all the environments that the authenticated user can see, and
 	// supplement that with the other environments that exist that the user
@@ -144,7 +186,13 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 // list.
 func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !admin {
+		return results, common.ServerError(common.ErrPerm)
+	}
 	blocks, err := s.state.AllBlocksForController()
 	if err != nil {
 		return results, errors.Trace(err)
@@ -187,6 +235,13 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // client.ModelGet
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !admin {
+		return result, common.ServerError(common.ErrPerm)
+	}
 
 	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
@@ -209,6 +264,14 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 
 // RemoveBlocks removes all the blocks in the controller.
 func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+	admin, err := s.hasAdminAccess()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !admin {
+		return common.ServerError(common.ErrPerm)
+	}
+
 	if !args.All {
 		return errors.New("not supported")
 	}
@@ -256,6 +319,14 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
 	envs := req.Entities
 	results := params.ModelStatusResults{}
+	admin, err := c.hasAdminAccess()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !admin {
+		return results, common.ServerError(common.ErrPerm)
+	}
+
 	status := make([]params.ModelStatus, len(envs))
 	for i, env := range envs {
 		envStatus, err := c.environStatus(env.Tag)
@@ -276,6 +347,14 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 	out := params.InitiateModelMigrationResults{
 		Results: make([]params.InitiateModelMigrationResult, len(reqArgs.Specs)),
 	}
+	admin, err := c.hasAdminAccess()
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+	if !admin {
+		return out, common.ServerError(common.ErrPerm)
+	}
+
 	for i, spec := range reqArgs.Specs {
 		result := &out.Results[i]
 		result.ModelTag = spec.ModelTag
@@ -380,6 +459,120 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(services),
 	}, nil
+}
+
+// ModifyControllerAccess changes the model access granted to users.
+func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	hasPermission, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for i, arg := range args.Changes {
+		if !hasPermission {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		controllerAccess := description.Access(arg.Access)
+		if err := description.ValidateControllerAccess(controllerAccess); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify controller access"))
+			continue
+		}
+
+		result.Results[i].Error = common.ServerError(
+			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+	}
+	return result, nil
+}
+
+func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+	if errors.IsAlreadyExists(err) {
+		controllerTag := accessor.ControllerTag()
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if errors.IsNotFound(err) {
+			// Conflicts with prior check, must be inconsistent state.
+			err = txn.ErrExcessiveContention
+		}
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+
+		// Only set access if greater access is being granted.
+		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
+			return errors.Errorf("user already has %q access or greater", access)
+		}
+		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
+			return errors.Annotate(err, "could not set controller access for user")
+		}
+		return nil
+
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	controllerTag := accessor.ControllerTag()
+	switch access {
+	case description.LoginAccess:
+		// Revoking login access removes all access.
+		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
+		return errors.Annotate(err, "could not revoke controller access")
+	case description.AddModelAccess:
+		// Revoking add-model access sets login.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.LoginAccess)
+		return errors.Annotate(err, "could not set controller access to read-only")
+	case description.SuperuserAccess:
+		// Revoking superuser sets add-model.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.AddModelAccess)
+		return errors.Annotate(err, "could not set controller access to add-model")
+
+	default:
+		return errors.Errorf("don't know how to revoke %q access", access)
+	}
+
+}
+
+// ChangeControllerAccess performs the requested access grant or revoke action for the
+// specified user on the controller.
+func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
+	switch action {
+	case params.GrantControllerAccess:
+		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
+		if err != nil {
+			return errors.Annotate(err, "could not grant controller access")
+		}
+		return nil
+	case params.RevokeControllerAccess:
+		return revokeControllerAccess(accessor, targetUserTag, apiUser, access)
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
 }
 
 func (o orderedBlockInfo) Swap(i, j int) {

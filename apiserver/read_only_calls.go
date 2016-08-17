@@ -61,6 +61,7 @@ var readOnlyCalls = set.NewStrings(
 	"Subnets.AllZones",
 	"Subnets.ListSubnets",
 	"UserManager.UserInfo",
+	"UserManager.CreateLocalLoginMacaroon",
 )
 
 // isCallReadOnly returns whether or not the method on the facade

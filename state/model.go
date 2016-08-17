@@ -5,10 +5,10 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,15 +16,21 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
-	"github.com/juju/version"
+	"github.com/juju/juju/storage"
 )
 
 // modelGlobalKey is the key for the model, its
 // settings and constraints.
 const modelGlobalKey = "e"
+
+// modelKey will create the kei for a given model using the modelGlobalKey.
+func modelKey(modelUUID string) string {
+	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
+}
 
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
@@ -69,7 +75,7 @@ type modelDoc struct {
 	// deployed. This will be empty for clouds that do not support regions.
 	CloudRegion string `bson:"cloud-region,omitempty"`
 
-	// CloudCredential is the name of the cloud credential that is used
+	// CloudCredential is the ID of the cloud credential that is used
 	// for managing cloud resources for this model. This will be empty
 	// for clouds that do not require credentials.
 	CloudCredential string `bson:"cloud-credential,omitempty"`
@@ -87,8 +93,8 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Services contains the names of the services in the model.
-	Services []string `bson:"applications"`
+	// Applicatons contains the names of the applications in the model.
+	Applications []string `bson:"applications"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -158,16 +164,20 @@ type ModelArgs struct {
 	// deployed. This will be empty for clouds that do not support regions.
 	CloudRegion string
 
-	// CloudCredential is the name of the cloud credential that will be
-	// used for managing cloud resources for this model. This will be empty
-	// for clouds that do not require credentials.
-	CloudCredential string
+	// CloudCredential is the tag of the cloud credential that will be
+	// used for managing cloud resources for this model. This will be
+	// empty for clouds that do not require credentials.
+	CloudCredential names.CloudCredentialTag
 
 	// Config is the model config.
 	Config *config.Config
 
 	// Constraints contains the initial constraints for the model.
 	Constraints constraints.Value
+
+	// StorageProviderRegistry is used to determine and store the
+	// details of the default storage pools.
+	StorageProviderRegistry storage.ProviderRegistry
 
 	// Owner is the user that owns the model.
 	Owner names.UserTag
@@ -181,11 +191,14 @@ func (m ModelArgs) Validate() error {
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
-	if m.CloudName == "" {
-		return errors.NotValidf("empty Cloud Name")
+	if !names.IsValidCloud(m.CloudName) {
+		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
+	}
+	if m.StorageProviderRegistry == nil {
+		return errors.NotValidf("nil StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeActive, MigrationModeImporting:
@@ -238,7 +251,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	assertCloudCredentialOp, err := validateCloudCredential(
-		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential, owner,
+		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -252,7 +265,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), session, st.mongoInfo, st.policy)
+	newSt, err := newState(names.NewModelTag(uuid), session, st.mongoInfo, st.newPolicy)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -261,7 +274,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 			newSt.Close()
 		}
 	}()
-	newSt.controllerTag = st.controllerTag
+	newSt.controllerModelTag = st.controllerModelTag
 
 	modelOps, err := newSt.modelSetupOps(args, nil)
 	if err != nil {
@@ -299,7 +312,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerModelTag)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -344,21 +357,35 @@ func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (t
 // validateCloudCredential validates the given cloud credential
 // name against the provided cloud definition and credentials,
 // and returns a txn.Op to include in a transaction to assert the
-// same.
+// same. A user is supplied, for which access to the credential
+// will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
 	cloudName string,
-	cloudCredentials map[string]jujucloud.Credential,
-	cloudCredentialName string,
-	cloudCredentialOwner names.UserTag,
+	cloudCredentials map[names.CloudCredentialTag]jujucloud.Credential,
+	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
-	if cloudCredentialName != "" {
-		if _, ok := cloudCredentials[cloudCredentialName]; !ok {
-			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredentialName)
+	if cloudCredential != (names.CloudCredentialTag{}) {
+		if cloudCredential.Cloud().Id() != cloudName {
+			return txn.Op{}, errors.NotValidf("credential %q", cloudCredential.Id())
 		}
+		var found bool
+		for tag := range cloudCredentials {
+			if tag.Canonical() == cloudCredential.Canonical() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredential.Id())
+		}
+		// NOTE(axw) if we add ACLs for credentials,
+		// we'll need to check access here. The map
+		// we check above contains only the credentials
+		// that the model owner has access to.
 		return txn.Op{
 			C:      cloudCredentialsC,
-			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudName, cloudCredentialName),
+			Id:     cloudCredentialDocID(cloudCredential),
 			Assert: txn.DocExists,
 		}, nil
 	}
@@ -424,10 +451,13 @@ func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
 }
 
-// CloudCredential returns the name of the cloud credential used for managing the
-// model's cloud resources.
-func (m *Model) CloudCredential() string {
-	return m.doc.CloudCredential
+// CloudCredential returns the tag of the cloud credential used for managing the
+// model's cloud resources, and a boolean indicating whether a credential is set.
+func (m *Model) CloudCredential() (names.CloudCredentialTag, bool) {
+	if names.IsValidCloudCredential(m.doc.CloudCredential) {
+		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
+	}
+	return names.CloudCredentialTag{}, false
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -577,22 +607,22 @@ func (m *Model) refresh(query mongo.Query) error {
 }
 
 // Users returns a slice of all users for this model.
-func (m *Model) Users() ([]*ModelUser, error) {
+func (m *Model) Users() ([]description.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
 	coll, closer := m.st.getCollection(modelUsersC)
 	defer closer()
 
-	var userDocs []modelUserDoc
+	var userDocs []userAccessDoc
 	err := coll.Find(nil).All(&userDocs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var modelUsers []*ModelUser
+	var modelUsers []description.UserAccess
 	for _, doc := range userDocs {
-		mu, err := NewModelUser(m.st, doc)
+		mu, err := NewModelUserAccess(m.st, doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -691,10 +721,6 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		return nil, errors.Trace(err)
 	}
 	defer closeState()
-
-	if err := ensureDestroyable(st); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
@@ -818,7 +844,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 }
 
 // checkEmpty checks that the machine is empty of any entities that may
-// require external resource cleanup. If the machine is not empty, then
+// require external resource cleanup. If the model is not empty, then
 // an error will be returned.
 func (m *Model) checkEmpty() error {
 	st, closeState, err := m.getState()
@@ -840,8 +866,8 @@ func (m *Model) checkEmpty() error {
 	if n := len(doc.Machines); n > 0 {
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
-	if n := len(doc.Services); n > 0 {
-		return errors.Errorf("model not empty, found %d services(s)", n)
+	if n := len(doc.Applications); n > 0 {
+		return errors.Errorf("model not empty, found %d applications(s)", n)
 	}
 	return nil
 }
@@ -880,58 +906,12 @@ func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 	}
 }
 
-// checkManualMachines checks if any of the machines in the slice were
-// manually provisioned, and are non-manager machines. These machines
-// must (currently) be manually destroyed via destroy-machine before
-// destroy-model can successfully complete.
-func checkManualMachines(machines []*Machine) error {
-	var ids []string
-	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		manual, err := m.IsManual()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if manual {
-			ids = append(ids, m.Id())
-		}
-	}
-	if len(ids) > 0 {
-		return errors.Errorf("manually provisioned machines must first be destroyed with `juju destroy-machine %s`", strings.Join(ids, " "))
-	}
-	return nil
-}
-
-// ensureDestroyable an error if any manual machines or persistent volumes are
-// found.
-func ensureDestroyable(st *State) error {
-
-	// TODO(waigani) bug #1475212: Model destroy can miss manual
-	// machines. We need to be able to assert the absence of these as
-	// part of the destroy txn, but in order to do this  manual machines
-	// need to add refcounts to their models.
-
-	// Check for manual machines. We bail out if there are any,
-	// to stop the user from prematurely hobbling the model.
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := checkManualMachines(machines); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
 func createModelOp(
 	owner names.UserTag,
-	name, uuid, server, cloudName, cloudRegion, cloudCredential string,
+	name, uuid, server, cloudName, cloudRegion string,
+	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
 ) txn.Op {
 	doc := &modelDoc{
@@ -943,7 +923,7 @@ func createModelOp(
 		MigrationMode:   migrationMode,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
-		CloudCredential: cloudCredential,
+		CloudCredential: cloudCredential.Canonical(),
 	}
 	return txn.Op{
 		C:      modelsC,

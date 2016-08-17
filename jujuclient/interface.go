@@ -65,9 +65,13 @@ type BootstrapConfig struct {
 	// ControllerConfig is the controller configuration.
 	ControllerConfig controller.Config `yaml:"controller-config"`
 
-	// ModelConfig is the base configuration for the provider. This should
-	// be updated with the region, endpoint and credentials.
-	Config map[string]interface{} `yaml:"base-model-config"`
+	// Config is the complete configuration for the provider.
+	// This should be updated with the region, endpoint and credentials.
+	Config map[string]interface{} `yaml:"model-config"`
+
+	// TODO(wallyworld) - drop when we get to beta 15.
+	// This is for backwards compatibility with beta 13.
+	OldConfig map[string]interface{} `yaml:"base-model-config,omitempty"`
 
 	// Credential is the name of the credential used to bootstrap.
 	//
@@ -76,6 +80,9 @@ type BootstrapConfig struct {
 
 	// Cloud is the name of the cloud to create the Juju controller in.
 	Cloud string `yaml:"cloud"`
+
+	// CloudType is the type of the cloud to create the Juju controller in.
+	CloudType string `yaml:"type"`
 
 	// CloudRegion is the name of the region of the cloud to create
 	// the Juju controller in. This will be empty for clouds without
@@ -86,19 +93,32 @@ type BootstrapConfig struct {
 	// use when communicating with the cloud.
 	CloudEndpoint string `yaml:"endpoint,omitempty"`
 
+	// CloudIdentityEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's identity service. This will
+	// be empty for clouds that have no identity-specific API endpoint.
+	CloudIdentityEndpoint string `yaml:"identity-endpoint,omitempty"`
+
 	// CloudStorageEndpoint is the location of the API endpoint to use
 	// when communicating with the cloud's storage service. This will
-	// be empty for clouds that have no cloud-specific API endpoint.
+	// be empty for clouds that have no storage-specific API endpoint.
 	CloudStorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
 // ControllerUpdater stores controller details.
 type ControllerUpdater interface {
-	// UpdateController adds the given controller to the controller
+	// AddController adds the given controller to the controller
 	// collection.
 	//
-	// If the controller does not already exist, it will be added.
-	// Otherwise, it will be overwritten with the new details.
+	// Where UpdateController is concerned with the controller name,
+	// AddController uses the controller UUID and will not add a
+	// duplicate even if the name is different.
+	AddController(controllerName string, details ControllerDetails) error
+
+	// UpdateController updates the given controller in the controller
+	// collection.
+	//
+	// If a controller of controllerName exists it will be overwritten
+	// with the new details.
 	UpdateController(controllerName string, details ControllerDetails) error
 
 	// SetCurrentController sets the name of the current controller.

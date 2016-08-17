@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -344,7 +344,7 @@ func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*conf
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
-func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.BootstrapConfigParams, error) {
+func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	return bootstrapConfigGetter{store}.getBootstrapConfigParams
 }
 
@@ -353,28 +353,24 @@ type bootstrapConfigGetter struct {
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
-	_, params, err := g.getBootstrapConfigParams(controllerName)
+	bootstrapConfig, params, err := g.getBootstrapConfigParams(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, err := environs.Provider(params.Config.Type())
+	provider, err := environs.Provider(bootstrapConfig.CloudType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return provider.BootstrapConfig(*params)
+	return provider.PrepareConfig(*params)
 }
 
-func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.BootstrapConfigParams, error) {
+func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
 	}
 	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting bootstrap config")
-	}
-	cloudType, ok := bootstrapConfig.Config["type"].(string)
-	if !ok {
-		return nil, nil, errors.NotFoundf("cloud type in bootstrap config")
 	}
 
 	var credential *cloud.Credential
@@ -384,7 +380,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.Credential,
 			bootstrapConfig.Cloud,
-			cloudType,
+			bootstrapConfig.CloudType,
 		)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -392,7 +388,8 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	} else {
 		// The credential was auto-detected; run auto-detection again.
 		cloudCredential, err := DetectCredential(
-			bootstrapConfig.Cloud, cloudType,
+			bootstrapConfig.Cloud,
+			bootstrapConfig.CloudType,
 		)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -411,24 +408,21 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
 
-	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
+	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return &jujuclient.BootstrapConfig{
-			ControllerConfig:     bootstrapConfig.ControllerConfig,
-			Credential:           bootstrapConfig.Credential,
-			Cloud:                bootstrapConfig.Cloud,
-			CloudRegion:          bootstrapConfig.CloudRegion,
-			Config:               bootstrapConfig.Config,
-			CloudEndpoint:        bootstrapConfig.CloudEndpoint,
-			CloudStorageEndpoint: bootstrapConfig.CloudStorageEndpoint,
-		},
-		&environs.BootstrapConfigParams{
-			controllerDetails.ControllerUUID,
-			cfg, *credential,
+	return bootstrapConfig, &environs.PrepareConfigParams{
+		controllerDetails.ControllerUUID,
+		environs.CloudSpec{
+			bootstrapConfig.CloudType,
+			bootstrapConfig.Cloud,
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.CloudEndpoint,
+			bootstrapConfig.CloudIdentityEndpoint,
 			bootstrapConfig.CloudStorageEndpoint,
-		}, nil
+			credential,
+		},
+		cfg,
+	}, nil
 }

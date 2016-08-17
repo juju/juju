@@ -191,9 +191,6 @@ func NewConfig(controllerUUID string, attrs map[string]interface{}) (Config, err
 // corresponding "-path" attribute is set, or otherwise from a default
 // path.
 func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (content string, userSpecified bool, _ error) {
-	if !osenv.IsJujuXDGDataHomeSet() {
-		return "", false, errors.Errorf("$JUJU_DATA is not set, cannot read %q", key)
-	}
 	path, ok := attrs[key+"-path"].(string)
 	if ok {
 		userSpecified = true

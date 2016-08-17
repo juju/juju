@@ -6,9 +6,6 @@
 package vsphere
 
 import (
-	"fmt"
-	"net/url"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -17,41 +14,23 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgDatacenter      = "datacenter"
-	cfgHost            = "host"
-	cfgUser            = "user"
-	cfgPassword        = "password"
 	cfgExternalNetwork = "external-network"
 )
 
 // configFields is the spec for each vmware config value's type.
-var configFields = schema.Fields{
-	cfgHost:            schema.String(),
-	cfgUser:            schema.String(),
-	cfgPassword:        schema.String(),
-	cfgDatacenter:      schema.String(),
-	cfgExternalNetwork: schema.String(),
-}
+var (
+	configFields = schema.Fields{
+		cfgExternalNetwork: schema.String(),
+	}
 
-var requiredFields = []string{
-	cfgHost,
-	cfgUser,
-	cfgPassword,
-	cfgDatacenter,
-}
+	requiredFields = []string{}
 
-var configDefaults = schema.Defaults{
-	cfgExternalNetwork: "",
-}
+	configDefaults = schema.Defaults{
+		cfgExternalNetwork: "",
+	}
 
-var configSecretFields = []string{
-	cfgPassword,
-}
-
-var configImmutableFields = []string{
-	cfgHost,
-	cfgDatacenter,
-}
+	configImmutableFields = []string{}
+)
 
 type environConfig struct {
 	*config.Config
@@ -96,37 +75,8 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	return ecfg, nil
 }
 
-func (c *environConfig) datacenter() string {
-	return c.attrs[cfgDatacenter].(string)
-}
-
-func (c *environConfig) host() string {
-	return c.attrs[cfgHost].(string)
-}
-
-func (c *environConfig) user() string {
-	return c.attrs[cfgUser].(string)
-}
-
-func (c *environConfig) password() string {
-	return c.attrs[cfgPassword].(string)
-}
-
 func (c *environConfig) externalNetwork() string {
 	return c.attrs[cfgExternalNetwork].(string)
-}
-
-func (c *environConfig) url() (*url.URL, error) {
-	return url.Parse(fmt.Sprintf("https://%s:%s@%s/sdk", c.user(), c.password(), c.host()))
-}
-
-// secret gathers the "secret" config values and returns them.
-func (c *environConfig) secret() map[string]string {
-	secretAttrs := make(map[string]string, len(configSecretFields))
-	for _, key := range configSecretFields {
-		secretAttrs[key] = c.attrs[key].(string)
-	}
-	return secretAttrs
 }
 
 // validate checks vmware-specific config values.
@@ -137,10 +87,6 @@ func (c environConfig) validate() error {
 			return errors.Errorf("%s: must not be empty", field)
 		}
 	}
-	if _, err := c.url(); err != nil {
-		return errors.Trace(err)
-	}
-
 	return nil
 }
 

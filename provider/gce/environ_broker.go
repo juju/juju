@@ -96,7 +96,7 @@ func (env *environ) buildInstanceSpec(args environs.StartInstanceParams) (*insta
 	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(
 		env, &instances.InstanceConstraint{
-			Region:      env.ecfg.region(),
+			Region:      env.cloud.Region,
 			Series:      series,
 			Arches:      arches,
 			Constraints: args.Constraints,

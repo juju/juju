@@ -41,7 +41,7 @@ func (c *MockStorageClient) ListBlobs(
 	return storage.BlobListResponse{}, c.NextErr()
 }
 
-func (c *MockStorageClient) DeleteBlobIfExists(container, name string) (bool, error) {
+func (c *MockStorageClient) DeleteBlobIfExists(container, name string, headers map[string]string) (bool, error) {
 	c.MethodCall(c, "DeleteBlobIfExists", container, name)
 	if c.DeleteBlobIfExistsFunc != nil {
 		return c.DeleteBlobIfExistsFunc(container, name)

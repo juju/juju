@@ -57,40 +57,43 @@ func (s *localCloudAPIServer) destroyServer(c *gc.C) {
 }
 
 type localLiveSuite struct {
-	providerSuite
+	baseSuite
 	jujutest.LiveTests
 	cSrv localCloudAPIServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.providerSuite.SetUpSuite(c)
+	s.baseSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
 	s.cSrv.setupServer(c)
 	s.AddCleanup(s.cSrv.destroyServer)
 
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
-	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
+	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"sdc-user":    testUser,
+		"sdc-key-id":  testKeyFingerprint,
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
+	})
+	s.CloudEndpoint = s.cSrv.Server.URL
+	s.CloudRegion = "some-region"
+
+	s.TestConfig = GetFakeConfig().Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
-	s.LiveTests.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
-	s.providerSuite.TearDownSuite(c)
+	s.baseSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.providerSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
-	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
-	s.Credential = cloud.NewCredential(
-		cloud.UserPassAuthType,
-		credentialsAttrs,
-	)
-	creds := joyent.MakeCredentials(c, s.TestConfig)
+	creds := joyent.MakeCredentials(c, s.CloudEndpoint, s.Credential)
 	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -100,7 +103,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.providerSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Joyent service double.
@@ -108,13 +111,13 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Joyent server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	providerSuite
+	baseSuite
 	jujutest.Tests
 	cSrv localCloudAPIServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.providerSuite.SetUpSuite(c)
+	s.baseSuite.SetUpSuite(c)
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
@@ -123,22 +126,26 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.providerSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv.setupServer(c)
 	s.AddCleanup(s.cSrv.destroyServer)
-
-	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.Tests.SetUpTest(c)
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
-	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
-	s.Credential = cloud.NewCredential(
-		cloud.UserPassAuthType,
-		credentialsAttrs,
-	)
+
+	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"sdc-user":    testUser,
+		"sdc-key-id":  testKeyFingerprint,
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
+	})
+	s.CloudEndpoint = s.cSrv.Server.URL
+	s.CloudRegion = "some-region"
+	s.TestConfig = GetFakeConfig()
+
 	// Put some fake image metadata in place.
-	creds := joyent.MakeCredentials(c, s.TestConfig)
+	creds := joyent.MakeCredentials(c, s.CloudEndpoint, s.Credential)
 	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
@@ -146,7 +153,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 func (s *localServerSuite) TearDownTest(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.Tests.TearDownTest(c)
-	s.providerSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {

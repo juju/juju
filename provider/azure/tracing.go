@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/loggo"
 )
 

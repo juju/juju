@@ -84,9 +84,13 @@ func credentialByName(
 		return nil, "", "", errors.Annotate(err, "loading credentials")
 	}
 	if credentialName == "" {
-		// No credential specified, so use the default for the cloud.
 		credentialName = cloudCredentials.DefaultCredential
-		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
+		if credentialName == "" {
+			// No credential specified, but there's more than one.
+			if len(cloudCredentials.AuthCredentials) > 1 {
+				return nil, "", "", ErrMultipleCredentials
+			}
+			// No credential specified, so use the default for the cloud.
 			for credentialName = range cloudCredentials.AuthCredentials {
 			}
 		}

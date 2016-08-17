@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 )
 
 // Request holds a single download request.

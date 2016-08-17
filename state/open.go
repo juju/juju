@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/worker"
 )
 
@@ -32,8 +34,8 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
-	st, err := open(tag, info, opts, policy)
+func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
+	st, err := open(tag, info, opts, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,7 +54,7 @@ func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	return st, nil
 }
 
-func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -82,7 +84,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 		tag = ssInfo.ModelTag
 	}
 
-	st, err := newState(tag, session, info, policy)
+	st, err := newState(tag, session, info, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,7 +122,7 @@ type InitializeParams struct {
 
 	// CloudCredentials contains the credentials for the owner of
 	// the controller model to store in the controller.
-	CloudCredentials map[string]cloud.Credential
+	CloudCredentials map[names.CloudCredentialTag]cloud.Credential
 
 	// ControllerConfig contains config attributes for
 	// the controller.
@@ -130,8 +132,13 @@ type InitializeParams struct {
 	// models on the specified cloud.
 	ControllerInheritedConfig map[string]interface{}
 
-	// Policy is the set of state policies to apply.
-	Policy Policy
+	// RegionInheritedConfig contains region specific configuration for
+	// models running on specific cloud regions.
+	RegionInheritedConfig cloud.RegionConfig
+
+	// NewPolicy is a function that returns the set of state policies
+	// to apply.
+	NewPolicy NewPolicyFunc
 
 	// MongoInfo contains the information required to address and
 	// authenticate with Mongo.
@@ -178,7 +185,6 @@ func (p InitializeParams) Validate() error {
 		p.CloudName,
 		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
-		p.ControllerModelArgs.Owner,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
 	}
@@ -196,7 +202,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.Policy)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -207,7 +213,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			}
 		}
 	}()
-	st.controllerTag = modelTag
+	st.controllerModelTag = modelTag
 
 	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -220,7 +226,13 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
+	modelOps, err := st.modelSetupOps(
+		args.ControllerModelArgs,
+		&lineage{
+			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29390 add
+			// regiond config here too.
+			ControllerConfig: args.ControllerInheritedConfig,
+		})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -229,9 +241,10 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := []txn.Op{
-		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
-		{
+	ops := createInitialUserOps(st.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	ops = append(ops,
+
+		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
@@ -241,19 +254,19 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud, args.CloudName),
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-		{
+		txn.Op{
 			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
@@ -261,14 +274,16 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
+	)
+	for k, v := range args.Cloud.RegionConfig {
+		// Create an entry keyed on cloudname#<key>, value for each region in
+		// region-config. The values here are themselves
+		// map[string]interface{}.
+		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
 	}
-	if len(args.CloudCredentials) > 0 {
-		credentialsOps := updateCloudCredentialsOps(
-			args.ControllerModelArgs.Owner,
-			args.CloudName,
-			args.CloudCredentials,
-		)
-		ops = append(ops, credentialsOps...)
+
+	for tag, cred := range args.CloudCredentials {
+		ops = append(ops, createCloudCredentialOp(tag, cred))
 	}
 	ops = append(ops, modelOps...)
 
@@ -281,16 +296,25 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	return st, nil
 }
 
+// lineage is a composite of inheritable properties for the extent of
+// passing them into modelSetupOps.
+type lineage struct {
+	ControllerConfig map[string]interface{}
+	RegionConfig     cloud.RegionConfig
+}
+
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(ControllerInheritedConfig); err != nil {
-		return nil, errors.Trace(err)
+func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+	if inherited != nil {
+		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerUUID := st.controllerTag.Id()
+	controllerUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
@@ -317,17 +341,33 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 		ops = append(ops, incHostedModelCountOp())
 	}
 
+	// Create the default storage pools for the model.
+	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, defaultStoragePoolsOps...)
+
 	// Create the final map of config attributes for the model.
 	// If we have ControllerInheritedConfig passed in, that means state
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(ControllerInheritedConfig) > 0 {
-		configSources = []modelConfigSource{{
-			name: config.JujuControllerSource,
-			sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-				return ControllerInheritedConfig, nil
-			})}}
+	if inherited != nil {
+		configSources = []modelConfigSource{
+			{
+				name: config.JujuDefaultSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return config.ConfigDefaults(), nil
+				})},
+			{
+				name: config.JujuControllerSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					return inherited.ControllerConfig, nil
+				})},
+			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29392 need
+			// to add region config to modelConfigSources here too.
+		}
 	} else {
 		configSources = modelConfigSources(st)
 	}
@@ -335,6 +375,8 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Some values require marshalling before storage.
+	modelCfg = config.CoerceForStorage(modelCfg)
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
@@ -348,6 +390,28 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
+	return ops, nil
+}
+
+func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
+	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(m, registry)
+	for _, providerType := range registry.StorageProviderTypes() {
+		p, err := registry.StorageProvider(providerType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := poolmanager.AddDefaultStoragePools(p, pm); err != nil {
+			return nil, errors.Annotatef(
+				err, "adding default storage pools for %q", providerType,
+			)
+		}
+	}
+
+	var ops []txn.Op
+	for key, settings := range m.Settings {
+		ops = append(ops, createSettingsOp(settingsC, key, settings))
+	}
 	return ops, nil
 }
 
@@ -387,7 +451,7 @@ func isUnauthorized(err error) bool {
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, err error) {
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, newPolicy NewPolicyFunc) (_ *State, err error) {
 
 	defer func() {
 		if err != nil {
@@ -406,13 +470,17 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 	}
 
 	// Create State.
-	return &State{
+	st := &State{
 		modelTag:  modelTag,
 		mongoInfo: mongoInfo,
 		session:   session,
 		database:  database,
-		policy:    policy,
-	}, nil
+		newPolicy: newPolicy,
+	}
+	if newPolicy != nil {
+		st.policy = newPolicy(st)
+	}
+	return st, nil
 }
 
 // MongoConnectionInfo returns information for connecting to mongo

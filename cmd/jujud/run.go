@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -181,10 +181,15 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 		Clock: clock.WallClock,
 		Delay: 250 * time.Millisecond,
 	}
+	logger.Debugf("acquire lock %q for juju-run", c.MachineLockName)
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("lock %q acquired", c.MachineLockName)
+
+	// Defer the logging first so it is executed after the Release. LIFO.
+	defer logger.Debugf("release lock %q for juju-run", c.MachineLockName)
 	defer releaser.Release()
 
 	runCmd := c.appendProxyToCommands()

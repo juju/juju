@@ -11,7 +11,7 @@ import (
 	"net/rpc"
 	"sync"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"

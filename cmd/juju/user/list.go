@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/modelcmd"

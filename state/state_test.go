@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -37,9 +38,9 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -72,7 +73,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -137,14 +138,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
-	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.ModelTag(), gc.Equals, s.modelTag)
@@ -154,7 +155,7 @@ func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -163,7 +164,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -176,7 +177,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 permissions doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -274,7 +275,7 @@ type MultiEnvStateSuite struct {
 
 func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -885,10 +886,9 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
@@ -1858,7 +1858,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.State.SetModelConstraints(cons)
@@ -2354,6 +2354,7 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
+	modelUUID := st.ModelUUID()
 	for _, collName := range state.MultiEnvCollections() {
 		// skip adding constraints, modelUser and settings as they were added when the
 		// model was created
@@ -2366,16 +2367,18 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 			err := coll.Insert(bson.M{
 				"_id":        state.DocID(st, "arbitraryid"),
-				"model-uuid": st.ModelUUID(),
+				"model-uuid": modelUUID,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			ops = append(ops, mgotxn.Op{
 				C:      collName,
 				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"model-uuid": st.ModelUUID()}})
+				Insert: bson.M{"model-uuid": modelUUID},
+			})
 		}
 	}
+
 	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2390,6 +2393,16 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a model user whose permissions should get removed
+	// when the model is.
+	_, err = s.State.AddModelUser(state.UserAccessSpec{
+		User:      names.NewUserTag("amelia@external"),
+		CreatedBy: s.Owner,
+		Access:    description.ReadAccess,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
 }
 
@@ -2424,6 +2437,14 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
+
+	// ensure user permissions for the model are removed
+	permPattern := fmt.Sprintf("^%s#%s#", state.ModelGlobalKey, st.ModelUUID())
+	permissions, closer := state.GetCollection(st, "permissions")
+	defer closer()
+	permCount, err := permissions.Find(bson.M{"_id": bson.M{"$regex": permPattern}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(permCount, gc.Equals, 0)
 }
 
 func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
@@ -2615,7 +2636,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), nil)
 	if err == nil {
 		err = st.Close()
 	}
@@ -2644,7 +2665,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(testing.ModelTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -2660,7 +2681,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	t0 := time.Now()
 	st, err := state.Open(testing.ModelTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -3329,7 +3350,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3367,7 +3388,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4133,9 +4154,10 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    cfg,
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

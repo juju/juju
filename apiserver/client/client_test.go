@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -45,7 +47,8 @@ import (
 
 type serverSuite struct {
 	baseSuite
-	client *client.Client
+	client     *client.Client
+	newEnviron func() (environs.Environ, error)
 }
 
 var _ = gc.Suite(&serverSuite{})
@@ -61,7 +64,29 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
-	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
+	urlGetter := common.NewToolsURLGetter(s.State.ModelUUID(), s.State)
+	configGetter := stateenvirons.EnvironConfigGetter{s.State}
+	statusSetter := common.NewStatusSetter(s.State, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, s.State, urlGetter)
+	s.newEnviron = func() (environs.Environ, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
+	newEnviron := func() (environs.Environ, error) {
+		return s.newEnviron()
+	}
+	blockChecker := common.NewBlockChecker(s.State)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(s.State, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	s.client, err = client.NewClient(
+		client.NewStateBackend(s.State),
+		modelConfigAPI,
+		common.NewResources(),
+		auth,
+		statusSetter,
+		toolsFinder,
+		newEnviron,
+		blockChecker,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -79,9 +104,23 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
+func (s *serverSuite) TestModelInfo(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	conf, _ := s.State.ModelConfig()
+	info, err := s.client.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
+	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
+	c.Assert(info.ProviderType, gc.Equals, conf.Type())
+	c.Assert(info.Name, gc.Equals, conf.Name())
+	c.Assert(info.UUID, gc.Equals, model.UUID())
+	c.Assert(info.ControllerUUID, gc.Equals, model.ControllerUUID())
+}
+
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.ModelUser(testAdmin)
+	owner, err := s.State.UserAccess(testAdmin, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
@@ -93,14 +132,14 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.ModelUserInfoResults
 	for _, r := range []struct {
-		user *state.ModelUser
+		user description.UserAccess
 		info *params.ModelUserInfo
 	}{
 		{
 			owner,
 			&params.ModelUserInfo{
-				UserName:    owner.UserName(),
-				DisplayName: owner.DisplayName(),
+				UserName:    owner.UserName,
+				DisplayName: owner.DisplayName,
 				Access:      "admin",
 			},
 		}, {
@@ -133,7 +172,7 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			},
 		},
 	} {
-		r.info.LastConnection = lastConnPointer(c, r.user)
+		r.info.LastConnection = lastConnPointer(c, r.user, s.State)
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 
@@ -142,8 +181,8 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func lastConnPointer(c *gc.C, modelUser *state.ModelUser) *time.Time {
-	lastConn, err := modelUser.LastConnection()
+func lastConnPointer(c *gc.C, modelUser description.UserAccess, st *state.State) *time.Time {
+	lastConn, err := st.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
@@ -161,10 +200,10 @@ func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
-func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) *state.ModelUser {
+func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) description.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }
@@ -196,9 +235,9 @@ func (m *mockEnviron) AllInstances() ([]instance.Instance, error) {
 
 func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
 	env := &mockEnviron{err: envError}
-	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
+	s.newEnviron = func() (environs.Environ, error) {
 		return env, nil
-	})
+	}
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
@@ -218,7 +257,7 @@ func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
 }
 
 func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
-	s.assertCheckProviderAPI(c, fmt.Errorf("instances error"), "cannot make API call to provider: instances error")
+	s.assertCheckProviderAPI(c, errors.New("instances error"), "cannot make API call to provider: instances error")
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
@@ -370,20 +409,6 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
-}
-
-func (s *clientSuite) TestClientModelInfo(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	conf, _ := s.State.ModelConfig()
-	info, err := s.APIState.Client().ModelInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
-	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
-	c.Assert(info.ProviderType, gc.Equals, conf.Type())
-	c.Assert(info.Name, gc.Equals, conf.Name())
-	c.Assert(info.UUID, gc.Equals, model.UUID())
-	c.Assert(info.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
@@ -729,131 +754,6 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "private")
-}
-
-func (s *serverSuite) TestClientModelGet(c *gc.C) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := make(map[string]params.ConfigValue)
-	for name, val := range modelConfig.AllAttrs() {
-		cfg[name] = params.ConfigValue{
-			Value:  val,
-			Source: "model",
-		}
-	}
-	delete(cfg, "authorized-keys")
-	c.Assert(result.Config, gc.DeepEquals, cfg)
-}
-
-func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, found := modelConfig.AllAttrs()[key]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(value, gc.Equals, expected)
-}
-
-func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := modelConfig.AllAttrs()[key]
-	c.Assert(found, jc.IsFalse)
-}
-
-func (s *serverSuite) TestClientModelSet(c *gc.C) {
-	modelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := modelConfig.AllAttrs()["some-key"]
-	c.Assert(found, jc.IsFalse)
-
-	params := params.ModelSet{
-		Config: map[string]interface{}{
-			"some-key":  "value",
-			"other-key": "other value"},
-	}
-	err = s.client.ModelSet(params)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValue(c, "some-key", "value")
-	s.assertEnvValue(c, "other-key", "other value")
-}
-
-func (s *serverSuite) TestClientModelSetImmutable(c *gc.C) {
-	// The various immutable config values are tested in
-	// environs/config/config_test.go, so just choosing one here.
-	params := params.ModelSet{
-		Config: map[string]interface{}{"firewall-mode": "global"},
-	}
-	err := s.client.ModelSet(params)
-	c.Check(err, gc.ErrorMatches, `cannot change firewall-mode from .* to "global"`)
-}
-
-func (s *serverSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
-	err := s.client.ModelSet(params.ModelSet{args})
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *serverSuite) TestBlockChangesClientModelSet(c *gc.C) {
-	s.BlockAllChanges(c, "TestBlockChangesClientModelSet")
-	args := map[string]interface{}{"some-key": "value"}
-	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
-}
-
-func (s *serverSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
-	args := params.ModelSet{
-		map[string]interface{}{"agent-version": "9.9.9"},
-	}
-	err := s.client.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
-
-	// It's okay to pass env back with the same agent-version.
-	result, err := s.client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config["agent-version"], gc.NotNil)
-	args.Config["agent-version"] = result.Config["agent-version"].Value
-	err = s.client.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestClientModelUnset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.ModelUnset{[]string{"abc"}}
-	err = s.client.ModelUnset(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValueMissing(c, "abc")
-}
-
-func (s *serverSuite) TestBlockClientModelUnset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.BlockAllChanges(c, "TestBlockClientModelUnset")
-
-	args := params.ModelUnset{[]string{"abc"}}
-	err = s.client.ModelUnset(args)
-	s.AssertBlocked(c, err, "TestBlockClientModelUnset")
-}
-
-func (s *serverSuite) TestClientModelUnsetMissing(c *gc.C) {
-	// It's okay to unset a non-existent attribute.
-	args := params.ModelUnset{[]string{"not_there"}}
-	err := s.client.ModelUnset(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestClientModelUnsetError(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// "type" may not be removed, and this will cause an error.
-	// If any one attribute's removal causes an error, there
-	// should be no change.
-	args := params.ModelUnset{[]string{"abc", "type"}}
-	err = s.client.ModelUnset(args)
-	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
-	s.assertEnvValue(c, "abc", 123)
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {

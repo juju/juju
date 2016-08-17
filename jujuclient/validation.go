@@ -77,6 +77,9 @@ func ValidateBootstrapConfig(cfg BootstrapConfig) error {
 	if cfg.Cloud == "" {
 		return errors.NotValidf("empty cloud name")
 	}
+	if cfg.CloudType == "" {
+		return errors.NotValidf("empty cloud type")
+	}
 	if len(cfg.Config) == 0 {
 		return errors.NotValidf("empty config")
 	}

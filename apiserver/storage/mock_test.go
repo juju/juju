@@ -50,6 +50,7 @@ type mockState struct {
 	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices                   func(names.MachineTag) state.NotifyWatcher
 	modelName                           string
+	modelTag                            names.ModelTag
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
@@ -113,6 +114,10 @@ func (st *mockState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatche
 
 func (st *mockState) ModelName() (string, error) {
 	return st.modelName, nil
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	return st.modelTag
 }
 
 func (st *mockState) AllVolumes() ([]state.Volume, error) {

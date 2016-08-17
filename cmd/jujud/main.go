@@ -22,7 +22,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/cmd/pprof"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -192,11 +191,6 @@ func Main(args []string) int {
 	commandName := filepath.Base(args[0])
 	switch commandName {
 	case names.Jujud:
-		// start pprof server and defer cleanup
-		pprofSocketPath := filepath.Join(os.TempDir(), pprof.Filename)
-		stop := pprof.Start(pprofSocketPath)
-		defer stop()
-
 		code, err = jujuDMain(args, ctx)
 	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
@@ -219,25 +213,21 @@ func Main(args []string) int {
 }
 
 type jujudWriter struct {
-	target           io.Writer
-	unitFormatter    simpleFormatter
-	defaultFormatter loggo.DefaultFormatter
+	target io.Writer
 }
 
-func (w *jujudWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
-	if strings.HasPrefix(module, "unit.") {
-		fmt.Fprintln(w.target, w.unitFormatter.Format(level, module, timestamp, message))
+func (w *jujudWriter) Write(entry loggo.Entry) {
+	if strings.HasPrefix(entry.Module, "unit.") {
+		fmt.Fprintln(w.target, w.unitFormat(entry))
 	} else {
-		fmt.Fprintln(w.target, w.defaultFormatter.Format(level, module, filename, line, timestamp, message))
+		fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
 	}
 }
 
-type simpleFormatter struct{}
-
-func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.Time, message string) string {
-	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
+func (w *jujudWriter) unitFormat(entry loggo.Entry) string {
+	ts := entry.Timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
 	// Just show the last element of the module.
-	lastDot := strings.LastIndex(module, ".")
-	module = module[lastDot+1:]
-	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
+	lastDot := strings.LastIndex(entry.Module, ".")
+	module := entry.Module[lastDot+1:]
+	return fmt.Sprintf("%s %s %s %s", ts, entry.Level, module, entry.Message)
 }

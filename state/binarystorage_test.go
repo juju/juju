@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -83,9 +84,11 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"uuid": s.modelUUID,
 	})
 	_, s.st, err = s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     names.NewLocalUserTag("test-admin"),
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       names.NewLocalUserTag("test-admin"),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {

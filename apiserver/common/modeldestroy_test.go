@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,11 +11,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/metricsender"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -98,31 +94,6 @@ func (s *destroyModelSuite) TestMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
-}
-
-func (s *destroyModelSuite) TestDestroyModelManual(c *gc.C) {
-	_, nonManager := s.setUpManual(c)
-
-	// If there are any non-manager manual machines in state, DestroyModel will
-	// error. It will not set the Dying flag on the environment.
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy model: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-
-	// If we remove the non-manager machine, it should pass.
-	// Manager machines will remain.
-	err = nonManager.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = nonManager.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
-
 }
 
 func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
@@ -216,9 +187,8 @@ func (s *destroyModelSuite) TestBlockChangesDestroyModel(c *gc.C) {
 
 type destroyTwoModelsSuite struct {
 	testing.JujuConnSuite
-	otherState       *state.State
-	otherModelOwner  names.UserTag
-	otherModelClient *client.Client
+	otherState      *state.State
+	otherModelOwner names.UserTag
 
 	modelManager      common.ModelManagerBackend
 	otherModelManager common.ModelManagerBackend
@@ -240,15 +210,6 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	s.modelManager = common.NewModelManagerBackend(s.State)
 	s.otherModelManager = common.NewModelManagerBackend(s.otherState)
 	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
-
-	// get the client for the other model
-	auth := apiservertesting.FakeAuthorizer{
-		Tag:            s.otherModelOwner,
-		EnvironManager: false,
-	}
-	s.otherModelClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
-	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 func (s *destroyTwoModelsSuite) TestCleanupModelResources(c *gc.C) {

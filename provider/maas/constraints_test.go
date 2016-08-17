@@ -350,7 +350,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, env.Config().UUID())
 }
 
 func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {

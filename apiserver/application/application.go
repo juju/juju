@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
@@ -51,6 +52,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
+
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -62,8 +64,33 @@ func NewAPI(
 	}, nil
 }
 
+func (api *API) checkCanRead() error {
+	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (api *API) checkCanWrite() error {
+	canWrite, err := api.authorizer.HasPermission(description.WriteAccess, api.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // SetMetricCredentials sets credentials on the application.
 func (api *API) SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Creds)),
 	}
@@ -87,6 +114,9 @@ func (api *API) SetMetricCredentials(args params.ApplicationMetricCredentials) (
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
 func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Applications)),
 	}
@@ -198,12 +228,12 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 	// Validate the settings.
 	changes, err := ch.Config().ParseSettingsStrings(setSettings)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Validate the unsettings and merge them into the changes.
 	unsetSettings, err = ch.Config().ValidateSettings(unsetSettings)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	for name := range unsetSettings {
 		changes[name] = nil
@@ -215,6 +245,9 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 // minimum number of units, settings and constraints.
 // All parameters in params.ApplicationUpdate except the application name are optional.
 func (api *API) Update(args params.ApplicationUpdate) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if !args.ForceCharmUrl {
 		if err := api.check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)
@@ -258,6 +291,9 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 
 // SetCharm sets the charm for a given for the application.
 func (api *API) SetCharm(args params.ApplicationSetCharm) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {
@@ -352,9 +388,12 @@ func applicationSetSettingsYAML(application *state.Application, settings string)
 // GetCharmURL returns the charm URL the given application is
 // running at present.
 func (api *API) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
 	application, err := api.state.Application(args.ApplicationName)
 	if err != nil {
-		return params.StringResult{}, err
+		return params.StringResult{}, errors.Trace(err)
 	}
 	charmURL, _ := application.CharmURL()
 	return params.StringResult{Result: charmURL.String()}, nil
@@ -364,6 +403,9 @@ func (api *API) GetCharmURL(args params.ApplicationGet) (params.StringResult, er
 // It does not unset values that are set to an empty string.
 // Unset should be used for that.
 func (api *API) Set(p params.ApplicationSet) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -387,6 +429,9 @@ func (api *API) Set(p params.ApplicationSet) error {
 
 // Unset implements the server side of Client.Unset.
 func (api *API) Unset(p params.ApplicationUnset) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -404,13 +449,17 @@ func (api *API) Unset(p params.ApplicationUnset) error {
 // CharmRelations implements the server side of Application.CharmRelations.
 func (api *API) CharmRelations(p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
 	var results params.ApplicationCharmRelationsResults
+	if err := api.checkCanRead(); err != nil {
+		return results, errors.Trace(err)
+	}
+
 	application, err := api.state.Application(p.ApplicationName)
 	if err != nil {
-		return results, err
+		return results, errors.Trace(err)
 	}
 	endpoints, err := application.Endpoints()
 	if err != nil {
-		return results, err
+		return results, errors.Trace(err)
 	}
 	results.CharmRelations = make([]string, len(endpoints))
 	for i, endpoint := range endpoints {
@@ -422,6 +471,9 @@ func (api *API) CharmRelations(p params.ApplicationCharmRelations) (params.Appli
 // Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (api *API) Expose(args params.ApplicationExpose) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -435,6 +487,9 @@ func (api *API) Expose(args params.ApplicationExpose) error {
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (api *API) Unexpose(args params.ApplicationUnexpose) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -449,7 +504,7 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*state.Unit, error) {
 	application, err := st.Application(args.ApplicationName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
@@ -459,12 +514,15 @@ func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*s
 
 // AddUnits adds a given number of units to an application.
 func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	units, err := addApplicationUnits(api.state, args)
 	if err != nil {
-		return params.AddApplicationUnitsResults{}, err
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	unitNames := make([]string, len(units))
 	for i, unit := range units {
@@ -475,6 +533,9 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 
 // DestroyUnits removes a given set of application units.
 func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -501,6 +562,9 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 
 // Destroy destroys a given application.
 func (api *API) Destroy(args params.ApplicationDestroy) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -513,16 +577,22 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 
 // GetConstraints returns the constraints for a given application.
 func (api *API) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.GetConstraintsResults{}, errors.Trace(err)
+	}
 	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
-		return params.GetConstraintsResults{}, err
+		return params.GetConstraintsResults{}, errors.Trace(err)
 	}
 	cons, err := svc.Constraints()
-	return params.GetConstraintsResults{cons}, err
+	return params.GetConstraintsResults{cons}, errors.Trace(err)
 }
 
 // SetConstraints sets the constraints for a given application.
 func (api *API) SetConstraints(args params.SetConstraints) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -535,22 +605,25 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 	inEps, err := api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
-		return params.AddRelationResults{}, err
+		return params.AddRelationResults{}, errors.Trace(err)
 	}
 	rel, err := api.state.AddRelation(inEps...)
 	if err != nil {
-		return params.AddRelationResults{}, err
+		return params.AddRelationResults{}, errors.Trace(err)
 	}
 	outEps := make(map[string]params.CharmRelation)
 	for _, inEp := range inEps {
 		outEp, err := rel.Endpoint(inEp.ApplicationName)
 		if err != nil {
-			return params.AddRelationResults{}, err
+			return params.AddRelationResults{}, errors.Trace(err)
 		}
 		outEps[inEp.ApplicationName] = params.CharmRelation{
 			Name:      outEp.Relation.Name,
@@ -566,6 +639,9 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (api *API) DestroyRelation(args params.DestroyRelation) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}

@@ -122,10 +122,12 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD/REGION", "VERSION"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
-	if fs.Model.AvailableVersion != "" {
-		header = append(header, "UPGRADE-AVAILABLE")
-		values = append(values, fs.Model.AvailableVersion)
+	message := getModelMessage(fs.Model)
+	if message != "" {
+		header = append(header, "MESSAGE")
+		values = append(values, message)
 	}
+
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	p(header...)
 	p(values...)
@@ -193,13 +195,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.WorkloadStatusInfo.Current,
 			u.JujuStatusInfo.Current,
 			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			strings.Join(u.OpenedPorts, ","),
 			message,
 		)
 	}
 
-	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE")
+	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PUBLIC-ADDRESS", "PORTS", "MESSAGE")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
@@ -238,6 +240,18 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	printMachines(tw, fs.Machines)
 	tw.Flush()
 	return out.Bytes(), nil
+}
+
+func getModelMessage(model modelStatus) string {
+	// Select the most important message about the model (if any).
+	switch {
+	case model.Migration != "":
+		return "migrating: " + model.Migration
+	case model.AvailableVersion != "":
+		return "upgrade available: " + model.AvailableVersion
+	default:
+		return ""
+	}
 }
 
 func printMachines(tw *tabwriter.Writer, machines map[string]machineStatus) {

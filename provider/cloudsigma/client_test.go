@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -55,16 +56,16 @@ func (s *clientSuite) TearDownTest(c *gc.C) {
 }
 
 func testNewClient(c *gc.C, endpoint, username, password string) (*environClient, error) {
-	ecfg := &environConfig{
-		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),
-		attrs: map[string]interface{}{
-			"region":   "testregion",
-			"endpoint": endpoint,
-			"username": username,
-			"password": password,
-		},
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": username,
+		"password": password,
+	})
+	spec := environs.CloudSpec{
+		Region:     "testregion",
+		Endpoint:   endpoint,
+		Credential: &cred,
 	}
-	return newClient(ecfg)
+	return newClient(spec, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 }
 
 func addTestClientServer(c *gc.C, instance, env string) string {
@@ -166,7 +167,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	server, drive, arch, err := cli.newInstance(params, img, nil)
+	server, drive, arch, err := cli.newInstance(params, img, nil, "")
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
@@ -192,7 +193,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: "invalid-id",
 	}
-	server, drive, arch, err := cli.newInstance(params, img, nil)
+	server, drive, arch, err := cli.newInstance(params, img, nil, "")
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
@@ -238,7 +239,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	mock.ResetDrives()
 	mock.LibDrives.Add(templateDrive)
 
-	server, drive, arch, err := cli.newInstance(params, img, utils.Gzip([]byte{}))
+	server, drive, arch, err := cli.newInstance(params, img, utils.Gzip([]byte{}), "")
 	c.Check(server, gc.NotNil)
 	c.Check(drive, gc.NotNil)
 	c.Check(arch, gc.NotNil)

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -244,7 +245,17 @@ func (s *fakeDebugLogSocket) sendError(err error) {
 	s.writes <- fmt.Sprintf("err: %v", err)
 }
 
-func (s *fakeDebugLogSocket) Write(buf []byte) (int, error) {
-	s.writes <- string(buf)
-	return len(buf), nil
+func (s *fakeDebugLogSocket) sendLogRecord(r *params.LogMessage) error {
+	s.writes <- fmt.Sprintf("%s: %s %s %s %s %s\n",
+		r.Entity,
+		s.formatTime(r.Timestamp),
+		r.Severity,
+		r.Module,
+		r.Location,
+		r.Message)
+	return nil
+}
+
+func (c *fakeDebugLogSocket) formatTime(t time.Time) string {
+	return t.In(time.UTC).Format("2006-01-02 15:04:05")
 }

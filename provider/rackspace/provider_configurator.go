@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/openstack"
 )
 
 type rackspaceConfigurator struct {
@@ -38,14 +37,6 @@ func (c *rackspaceConfigurator) GetCloudConfig(args environs.StartInstanceParams
 // GetConfigDefaults implements ProviderConfigurator interface.
 func (c *rackspaceConfigurator) GetConfigDefaults() schema.Defaults {
 	return schema.Defaults{
-		"username":             "",
-		"password":             "",
-		"tenant-name":          "",
-		"auth-url":             "https://identity.api.rackspacecloud.com/v2.0",
-		"auth-mode":            string(openstack.AuthUserPass),
-		"access-key":           "",
-		"secret-key":           "",
-		"region":               "",
 		"use-floating-ip":      false,
 		"use-default-secgroup": false,
 		"network":              "",

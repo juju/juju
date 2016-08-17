@@ -134,6 +134,11 @@ func allCollections() collectionSchema {
 			global: true,
 		},
 
+		// This collection holds users that are relative to controllers.
+		controllerUsersC: {
+			global: true,
+		},
+
 		// This collection holds the last time the user connected to the API server.
 		userLastLoginC: {
 			global:    true,
@@ -190,7 +195,9 @@ func allCollections() collectionSchema {
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
 		// given operation.
-		permissionsC: {},
+		permissionsC: {
+			global: true,
+		},
 
 		// This collection holds the last time the model user connected
 		// to the model.
@@ -263,6 +270,10 @@ func allCollections() collectionSchema {
 		machinesC:      {},
 		rebootC:        {},
 		sshHostKeysC:   {},
+
+		// This collection contains information from removed machines
+		// that needs to be cleaned up in the provider.
+		machineRemovalsC: {},
 
 		// -----
 
@@ -400,6 +411,7 @@ const (
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
+	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	globalSettingsC          = "globalSettings"
@@ -408,6 +420,7 @@ const (
 	instanceDataC            = "instanceData"
 	leasesC                  = "leases"
 	machinesC                = "machines"
+	machineRemovalsC         = "machineremovals"
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"

@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"

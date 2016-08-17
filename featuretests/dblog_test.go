@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"bufio"
 	"time"
 
 	"github.com/juju/loggo"
@@ -155,35 +154,52 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
 	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
 
-	lines := make(chan string)
-	go func(numLines int) {
+	messages := make(chan api.LogMessage)
+	go func(numMessages int) {
 		client := s.APIState.Client()
-		reader, err := client.WatchDebugLog(api.DebugLogParams{})
+		logMessages, err := client.WatchDebugLog(api.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		defer reader.Close()
 
-		bufReader := bufio.NewReader(reader)
-		for n := 0; n < numLines; n++ {
-			line, err := bufReader.ReadString('\n')
-			c.Assert(err, jc.ErrorIsNil)
-			lines <- line
+		for n := 0; n < numMessages; n++ {
+			messages <- <-logMessages
 		}
 	}(3)
 
-	assertLine := func(expected string) {
+	assertMessage := func(expected api.LogMessage) {
 		select {
-		case actual := <-lines:
-			c.Assert(actual, gc.Equals, expected)
+		case actual := <-messages:
+			c.Assert(actual, jc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatal("timed out waiting for log line")
 		}
 	}
 
 	// Read the 2 lines that are in the logs collection.
-	assertLine("machine-99: 2015-06-23 13:08:49 INFO juju.foo code.go:42 all is well\n")
-	assertLine("machine-99: 2015-06-23 13:08:50 ERROR juju.bar go.go:99 no it isn't\n")
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t,
+		Severity:  "INFO",
+		Module:    "juju.foo",
+		Location:  "code.go:42",
+		Message:   "all is well",
+	})
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t.Add(time.Second),
+		Severity:  "ERROR",
+		Module:    "juju.bar",
+		Location:  "go.go:99",
+		Message:   "no it isn't",
+	})
 
 	// Now write and observe another log. This should be read from the oplog.
 	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
-	assertLine("machine-99: 2015-06-23 13:08:51 WARNING ju.jitsu no.go:3 beep beep\n")
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t.Add(2 * time.Second),
+		Severity:  "WARNING",
+		Module:    "ju.jitsu",
+		Location:  "no.go:3",
+		Message:   "beep beep",
+	})
 }
