@@ -52,6 +52,30 @@ func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionMB in
 	})
 }
 
+func (s *suite) TestDefaultLogPruneParams(c *gc.C) {
+	cfg, _ := s.State.ControllerConfig()
+	c.Assert(dblogpruner.NewLogPruneParams(cfg), gc.DeepEquals, &dblogpruner.LogPruneParams{
+		time.Duration(3*24) * time.Hour,
+		4 * 1024,
+		time.Duration(dblogpruner.DefaultPruneInterval),
+	})
+}
+
+func (s *suite) TestUserDefinedLogPruneParams(c *gc.C) {
+	maxLogAge := 8    // 8 days
+	maxLogSize := 100 // 100 GB
+
+	cfg := testing.FakeControllerConfig()
+	cfg["max-log-size"] = maxLogSize
+	cfg["max-log-age"] = maxLogAge
+
+	c.Assert(dblogpruner.NewLogPruneParams(cfg), gc.DeepEquals, &dblogpruner.LogPruneParams{
+		time.Duration(maxLogAge*24) * time.Hour,
+		maxLogSize * 1024,
+		time.Duration(dblogpruner.DefaultPruneInterval),
+	})
+}
+
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	maxLogAge := 24 * time.Hour
 	noPruneMB := int(1e9)

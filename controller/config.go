@@ -58,6 +58,21 @@ const (
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
+
+	// DefaultMaxLogSize is the default max size in GB of the logs collections
+	DefaultMaxLogSize int = 4
+
+	// DefaultMaxLogAge is the default max retention period in days for
+	// the logs collection.
+	DefaultMaxLogAge int = 3
+
+	// MaxLogAgeKey defines the maximum amount of days for log retention
+	// this value is considered by the dblogpruner worker.
+	MaxLogAgeKey = "max-log-age"
+
+	// MaxLogSizeKey defines the maximun size of the logs collection
+	// in GB, this value is considered by the dblogpruner worker.
+	MaxLogSizeKey = "max-log-size"
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -70,6 +85,8 @@ var ControllerOnlyConfigAttributes = []string{
 	IdentityURL,
 	IdentityPublicKey,
 	SetNumaControlPolicyKey,
+	MaxLogAgeKey,
+	MaxLogSizeKey,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -195,6 +212,24 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// MaxLogSize returns the maximun size of the logs collection
+// in GB, this value is considered by the dblogpruner worker.
+func (c Config) MaxLogSize() int {
+	if logSize, ok := c[MaxLogSizeKey]; ok {
+		return logSize.(int)
+	}
+	return DefaultMaxLogSize
+}
+
+// MaxLogAge returns the maximum retention period of time in days
+// for the logs collection, this value is considered by the dblogpruner.
+func (c Config) MaxLogAge() int {
+	if logAge, ok := c[MaxLogAgeKey]; ok {
+		return logAge.(int)
+	}
+	return DefaultMaxLogAge
+}
+
 // NumaCtlPreference returns if numactl is preferred.
 func (c Config) NumaCtlPreference() bool {
 	if numa, ok := c[SetNumaControlPolicyKey]; ok {
@@ -251,6 +286,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
 	SetNumaControlPolicyKey: schema.Bool(),
+	MaxLogAgeKey:            schema.ForceInt(),
+	MaxLogSizeKey:           schema.ForceInt(),
 }, schema.Defaults{
 	ApiPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -258,4 +295,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,
 	SetNumaControlPolicyKey: DefaultNumaControlPolicy,
+	MaxLogAgeKey:            DefaultMaxLogAge,
+	MaxLogSizeKey:           DefaultMaxLogSize,
 })

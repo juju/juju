@@ -939,8 +939,13 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
+			controllerCfg, err := st.ControllerConfig()
+			if err != nil {
+				return nil, errors.Annotate(err, "could not retrieve the controller config.")
+			}
+
 			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				return dblogpruner.New(st, dblogpruner.NewLogPruneParams(controllerCfg)), nil
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
