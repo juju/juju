@@ -233,9 +233,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// We want to determine a list of valid architectures for which to pick tools and images.
 	// This includes architectures from custom metadata and bootstrap and model constraints if provided.
 	architectures := set.NewStrings()
-	if args.BootstrapConstraints.Arch != nil {
-		architectures.Add(*args.BootstrapConstraints.Arch)
-	}
 	if len(customImageMetadata) > 0 {
 		for _, customMetadata := range customImageMetadata {
 			architectures.Add(customMetadata.Arch)
@@ -246,33 +243,40 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			architectures.Add(iMetadata.Arch)
 		}
 	}
-	if args.ModelConstraints.Arch != nil {
-		architectures.Add(*args.ModelConstraints.Arch)
-	}
-	if args.BootstrapConstraints.Arch != nil {
-		architectures.Add(*args.BootstrapConstraints.Arch)
-	}
-	architectures.Add(arch.HostArch())
 
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
 		return err
 	}
 
+	// IFF there is any image metadata, then and only then do we intersect
+	// the vocabulary with the architectures from the metadata.
 	if len(architectures) != 0 {
+		architectures.Add(arch.HostArch())
 		constraintsValidator.IntersectVocabulary(constraints.Arch, architectures.SortedValues())
 	}
 
-	_, err = constraintsValidator.Merge(
+	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	if bootstrapConstraints.Arch == nil {
+		{
+			bootstrapConstraints.Arch = arch.HostArch()
+			// We no longer support controllers on i386.
+			// If we are bootstrapping from an i386 client,
+			// we'll look for amd64 tools.
+			if bootstrapConstraints.Arch == arch.I386 {
+				bootstrapConstraints.Arch = arch.AMD64
+			}
+		}
+	}
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
+		availableTools, err = findPackagedTools(environ, args.AgentVersion, bootstrapConstraints.Arch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -284,7 +288,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
+		if err := validateUploadAllowed(environ, bootstrapConstraints.Arch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
 		var forceVersion version.Number
@@ -332,8 +336,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
-		BootstrapConstraints: args.BootstrapConstraints,
-		BootstrapSeries:      args.BootstrapSeries,
+		BootstrapConstraints: bootstrapConstraints,
+		BootstrapSeries:      bootstrapSeries,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
@@ -368,7 +372,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
-		args.BootstrapConstraints,
+		bootstrapConstraints,
 		args.ModelConstraints,
 		result.Series,
 		publicKey,
