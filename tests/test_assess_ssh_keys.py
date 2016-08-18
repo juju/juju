@@ -9,7 +9,6 @@ from assess_ssh_keys import (
     main,
     parse_args,
     parse_ssh_keys_output,
-    SSHKey,
 )
 from tests import (
     parse_error,
@@ -41,7 +40,6 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_ssh_keys.configure_logging",
                    autospec=True) as mock_cl:

@@ -52,7 +52,7 @@ _SSH_KEYS_LEAD = "Keys used in model: "
 
 def parse_ssh_keys_output(output, expected_model):
     """Parse and validate output from `juju ssh-keys` command."""
-    if  not output.startswith(_SSH_KEYS_LEAD):
+    if not output.startswith(_SSH_KEYS_LEAD):
         raise AssertionError("Invalid ssh-keys output: {!r}".format(output))
     lines = output.splitlines()
     model = lines[0][len(_SSH_KEYS_LEAD):]
@@ -62,18 +62,23 @@ def parse_ssh_keys_output(output, expected_model):
     return [SSHKey.from_fingerprint_line(line) for line in lines[1:]]
 
 
-def expect_juju_failure(stderr_pattern, method, *args, **kwargs):
-    """Assert method fails with expected stderr output included."""
-    stderr_re = re.compile(stderr_pattern, re.MULTILINE)
+def expect_juju_failure(fail_pattern, method, *args, **kwargs):
+    """Assert method fails with expected output included."""
+    fail_re = re.compile(fail_pattern, re.MULTILINE)
     try:
         output = method(*args, **kwargs)
     except subprocess.CalledProcessError as e:
-        # TODO: mess... actually on output for these commands not stderr
-        if stderr_re.search(e.stderr) is None:
-            raise AssertionError("Failure{!r} {!r}".format(e.stderr, stderr_pattern))
+        # The errors go to stderr, but as the current behaviour is to not
+        # exit calls will have merged stderr into stdout, so check output.
+        if fail_re.search(e.output) is None:
+            raise AssertionError(
+                "Juju failed with output not matching: {!r} {!r}".format(
+                    e.output, fail_pattern))
     else:
-        if stderr_re.search(output) is None:
-            raise AssertionError("Juju did not fail as was expected: {!r} {!r}".format(output, stderr_pattern))
+        if fail_re.search(output) is None:
+            raise AssertionError(
+                "Juju did not fail with output matching: {!r} {!r}".format(
+                    output, fail_pattern))
         log.info("Error found in output but the juju process exited 0.")
 
 
