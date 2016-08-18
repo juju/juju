@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
@@ -109,6 +110,14 @@ type debugLogCommand struct {
 
 	level  string
 	params api.DebugLogParams
+
+	utc      bool
+	location bool
+	date     bool
+	ms       bool
+
+	format string
+	tz     *time.Location
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -128,6 +137,11 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
 	f.BoolVar(&c.params.NoTail, "T", false, "Stop after returning existing log messages")
 	f.BoolVar(&c.params.NoTail, "no-tail", false, "")
+
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+	f.BoolVar(&c.location, "location", false, "Show filename and line numbers")
+	f.BoolVar(&c.date, "date", false, "Show dates as well as times")
+	f.BoolVar(&c.ms, "ms", false, "Show times to millisecond precision")
 }
 
 func (c *debugLogCommand) Init(args []string) error {
@@ -138,6 +152,19 @@ func (c *debugLogCommand) Init(args []string) error {
 				c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		c.params.Level = level
+	}
+	if c.utc {
+		c.tz = time.UTC
+	} else {
+		c.tz = time.Local
+	}
+	if c.date {
+		c.format = "2006-01-02 15:04:05"
+	} else {
+		c.format = "15:04:05"
+	}
+	if c.ms {
+		c.format = c.format + ".000"
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -167,23 +194,17 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 		if !ok {
 			break
 		}
-		fmt.Fprint(ctx.Stdout, c.formatLogRecord(msg))
+		c.writeLogRecord(ctx.Stdout, msg)
 	}
 
 	return nil
 }
 
-func (c *debugLogCommand) formatLogRecord(r api.LogMessage) string {
-	return fmt.Sprintf("%s: %s %s %s %s %s\n",
-		r.Entity,
-		c.formatTime(r.Timestamp),
-		r.Severity,
-		r.Module,
-		r.Location,
-		r.Message,
-	)
-}
-
-func (c *debugLogCommand) formatTime(t time.Time) string {
-	return t.In(time.UTC).Format("2006-01-02 15:04:05")
+func (c *debugLogCommand) writeLogRecord(w io.Writer, r api.LogMessage) {
+	ts := r.Timestamp.In(c.tz).Format(c.format)
+	fmt.Fprintf(w, "%s: %s %s %s ", r.Entity, ts, r.Severity, r.Module)
+	if c.location {
+		fmt.Fprintf(w, "%s ", r.Location)
+	}
+	fmt.Fprintln(w, r.Message)
 }
