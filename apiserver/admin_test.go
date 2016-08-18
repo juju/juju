@@ -728,6 +728,34 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	envOwner := s.Factory.MakeUser(c, nil)
+	envState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Owner: envOwner.UserTag(),
+		ConfigAttrs: map[string]interface{}{
+			"controller": false,
+		},
+	})
+	defer envState.Close()
+
+	f2 := factory.NewFactory(envState)
+	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
+
+	info.ModelTag = envState.ModelTag()
+	st := s.openAPIWithoutLogin(c, info)
+	defer st.Close()
+
+	// If the agent attempts Login before the provisioner has recorded
+	// the machine's nonce in state, then the agent should get back an
+	// error with code "not provisioned".
+	err := st.Login(machine.Tag(), password, "nonce", nil)
+	c.Assert(err, gc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+}
+
 func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
@@ -743,6 +771,33 @@ func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 	defer st.Close()
 
 	err := st.Login(machine.Tag(), password, "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageModel},
+	})
+
+	// Create a hosted model with an unprovisioned machine that has the
+	// same tag as the manager machine.
+	hostedModelState := s.Factory.MakeModel(c, nil)
+	defer hostedModelState.Close()
+	f2 := factory.NewFactory(hostedModelState)
+	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
+	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
+
+	info.ModelTag = hostedModelState.ModelTag()
+	st := s.openAPIWithoutLogin(c, info)
+	defer st.Close()
+
+	// The fact that the machine with the same tag in the hosted
+	// model is unprovisioned should not cause the login to fail
+	// with "not provisioned", because the passwords don't match.
+	err := st.Login(managerMachine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
