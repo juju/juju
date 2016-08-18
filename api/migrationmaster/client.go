@@ -156,13 +156,13 @@ func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
-// GetMinionReports returns details of the reports made by migration
+// MinionReports returns details of the reports made by migration
 // minions to the controller for the current migration phase.
-func (c *Client) GetMinionReports() (migration.MinionReports, error) {
+func (c *Client) MinionReports() (migration.MinionReports, error) {
 	var in params.MinionReports
 	var out migration.MinionReports
 
-	err := c.caller.FacadeCall("GetMinionReports", nil, &in)
+	err := c.caller.FacadeCall("MinionReports", nil, &in)
 	if err != nil {
 		return out, errors.Trace(err)
 	}

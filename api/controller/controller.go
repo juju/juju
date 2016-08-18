@@ -179,9 +179,9 @@ func (c *Client) modifyControllerUser(action params.ControllerAction, user, acce
 	return result.Combine()
 }
 
-// ModelMigrationSpec holds the details required to start the
-// migration of a single model.
-type ModelMigrationSpec struct {
+// MigrationSpec holds the details required to start the migration of
+// a single model.
+type MigrationSpec struct {
 	ModelUUID            string
 	TargetControllerUUID string
 	TargetAddrs          []string
@@ -192,7 +192,7 @@ type ModelMigrationSpec struct {
 
 // Validate performs sanity checks on the migration configuration it
 // holds.
-func (s *ModelMigrationSpec) Validate() error {
+func (s *MigrationSpec) Validate() error {
 	if !names.IsValidModel(s.ModelUUID) {
 		return errors.NotValidf("model UUID")
 	}
@@ -214,20 +214,20 @@ func (s *ModelMigrationSpec) Validate() error {
 	return nil
 }
 
-// InitiateModelMigration attempts to start a migration for the
-// specified model, returning the migration's ID.
+// InitiateMigration attempts to start a migration for the specified
+// model, returning the migration's ID.
 //
 // The API server supports starting multiple migrations in one request
 // but we don't need that at the client side yet (and may never) so
 // this call just supports starting one migration at a time.
-func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error) {
+func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
-			TargetInfo: params.ModelMigrationTargetInfo{
+			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
@@ -236,8 +236,8 @@ func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error)
 			},
 		}},
 	}
-	response := params.InitiateModelMigrationResults{}
-	if err := c.facade.FacadeCall("InitiateModelMigration", args, &response); err != nil {
+	response := params.InitiateMigrationResults{}
+	if err := c.facade.FacadeCall("InitiateMigration", args, &response); err != nil {
 		return "", errors.Trace(err)
 	}
 	if len(response.Results) != 1 {

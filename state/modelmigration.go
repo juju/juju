@@ -74,15 +74,15 @@ type ModelMigration interface {
 	// current progress of the migration.
 	SetStatusMessage(text string) error
 
-	// MinionReport records a report from a migration minion worker
-	// about the success or failure to complete its actions for a
-	// given migration phase.
-	MinionReport(tag names.Tag, phase migration.Phase, success bool) error
+	// SubmitMinionReport records a report from a migration minion
+	// worker about the success or failure to complete its actions for
+	// a given migration phase.
+	SubmitMinionReport(tag names.Tag, phase migration.Phase, success bool) error
 
-	// GetMinionReports returns details of the minions that have
-	// reported success or failure for the current migration phase, as
-	// well as those which are yet to report.
-	GetMinionReports() (*MinionReports, error)
+	// MinionReports returns details of the minions that have reported
+	// success or failure for the current migration phase, as well as
+	// those which are yet to report.
+	MinionReports() (*MinionReports, error)
 
 	// WatchMinionReports returns a notify watcher which triggers when
 	// a migration minion has reported back about the success or failure
@@ -353,8 +353,8 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 	return nil
 }
 
-// MinionReport implements ModelMigration.
-func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, success bool) error {
+// SubmitMinionReport implements ModelMigration.
+func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Phase, success bool) error {
 	globalKey, err := agentTagToGlobalKey(tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -394,8 +394,8 @@ func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, su
 	return nil
 }
 
-// GetMinionReports implements ModelMigration.
-func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
+// MinionReports implements ModelMigration.
+func (mig *modelMigration) MinionReports() (*MinionReports, error) {
 	all, err := mig.getAllAgents()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -533,26 +533,26 @@ func (mig *modelMigration) Refresh() error {
 	return nil
 }
 
-// ModelMigrationSpec holds the information required to create a
+// MigrationSpec holds the information required to create a
 // ModelMigration instance.
-type ModelMigrationSpec struct {
+type MigrationSpec struct {
 	InitiatedBy names.UserTag
 	TargetInfo  migration.TargetInfo
 }
 
-// Validate returns an error if the ModelMigrationSpec contains bad
+// Validate returns an error if the MigrationSpec contains bad
 // data. Nil is returned otherwise.
-func (spec *ModelMigrationSpec) Validate() error {
+func (spec *MigrationSpec) Validate() error {
 	if !names.IsValidUser(spec.InitiatedBy.Id()) {
 		return errors.NotValidf("InitiatedBy")
 	}
 	return spec.TargetInfo.Validate()
 }
 
-// CreateModelMigration initialises state that tracks a model
-// migration. It will return an error if there is already a
-// model migration in progress.
-func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, error) {
+// CreateMigration initialises state that tracks a model migration. It
+// will return an error if there is already a model migration in
+// progress.
+func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
@@ -576,7 +576,7 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			return nil, errors.New("model is not alive")
 		}
 
-		if isActive, err := st.IsModelMigrationActive(); err != nil {
+		if isActive, err := st.IsMigrationActive(); err != nil {
 			return nil, errors.Trace(err)
 		} else if isActive {
 			return nil, errors.New("already in progress")
@@ -652,14 +652,14 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 	return nil
 }
 
-// LatestModelMigration returns the most recent ModelMigration for a
-// model (if any).
-func (st *State) LatestModelMigration() (ModelMigration, error) {
+// LatestMigration returns the most recent ModelMigration for a model
+// (if any).
+func (st *State) LatestMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-_id").Limit(1)
-	mig, err := st.modelMigrationFromQuery(query)
+	mig, err := st.migrationFromQuery(query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -683,19 +683,19 @@ func (st *State) LatestModelMigration() (ModelMigration, error) {
 	return mig, nil
 }
 
-// ModelMigration retrieves a specific ModelMigration by its
-// id. See also LatestModelMigration.
-func (st *State) ModelMigration(id string) (ModelMigration, error) {
+// Migration retrieves a specific ModelMigration by its id. See also
+// LatestMigration.
+func (st *State) Migration(id string) (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
-	mig, err := st.modelMigrationFromQuery(migColl.FindId(id))
+	mig, err := st.migrationFromQuery(migColl.FindId(id))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return mig, nil
 }
 
-func (st *State) modelMigrationFromQuery(query mongo.Query) (ModelMigration, error) {
+func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	var doc modelMigDoc
 	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
@@ -721,9 +721,9 @@ func (st *State) modelMigrationFromQuery(query mongo.Query) (ModelMigration, err
 	}, nil
 }
 
-// IsModelMigrationActive return true if a migration is in progress for
+// IsMigrationActive return true if a migration is in progress for
 // the model associated with the State.
-func (st *State) IsModelMigrationActive() (bool, error) {
+func (st *State) IsMigrationActive() (bool, error) {
 	active, closer := st.getCollection(migrationsActiveC)
 	defer closer()
 	n, err := active.FindId(st.ModelUUID()).Count()

@@ -261,14 +261,14 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}})
 }
 
-func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	_, err := st.LatestModelMigration()
+	_, err := st.LatestMigration()
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
-	spec := controller.ModelMigrationSpec{
+	spec := controller.MigrationSpec{
 		ModelUUID:            st.ModelUUID(),
 		TargetControllerUUID: randomUUID(),
 		TargetAddrs:          []string{"1.2.3.4:5"},
@@ -279,19 +279,19 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	id, err := sysManager.InitiateModelMigration(spec)
+	id, err := sysManager.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedId := st.ModelUUID() + ":0"
 	c.Check(id, gc.Equals, expectedId)
 
 	// Check database.
-	mig, err := st.LatestModelMigration()
+	mig, err := st.LatestMigration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig.Id(), gc.Equals, expectedId)
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
-	spec := controller.ModelMigrationSpec{
+func (s *controllerSuite) TestInitiateMigrationError(c *gc.C) {
+	spec := controller.MigrationSpec{
 		ModelUUID:            randomUUID(), // Model doesn't exist.
 		TargetControllerUUID: randomUUID(),
 		TargetAddrs:          []string{"1.2.3.4:5"},
@@ -302,7 +302,7 @@ func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	id, err := sysManager.InitiateModelMigration(spec)
+	id, err := sysManager.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
 }

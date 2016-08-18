@@ -40,7 +40,7 @@ type Controller interface {
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
 	ModelStatus(params.Entities) (params.ModelStatusResults, error)
-	InitiateModelMigration(params.InitiateModelMigrationArgs) (params.InitiateModelMigrationResults, error)
+	InitiateMigration(params.InitiateMigrationArgs) (params.InitiateMigrationResults, error)
 	ModifyControllerAccess(params.ModifyControllerAccessRequest) (params.ErrorResults, error)
 }
 
@@ -339,13 +339,13 @@ func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResu
 	return results, nil
 }
 
-// InitiateModelMigration attempts to begin the migration of one or
+// InitiateMigration attempts to begin the migration of one or
 // more models to other controllers.
-func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigrationArgs) (
-	params.InitiateModelMigrationResults, error,
+func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) (
+	params.InitiateMigrationResults, error,
 ) {
-	out := params.InitiateModelMigrationResults{
-		Results: make([]params.InitiateModelMigrationResult, len(reqArgs.Specs)),
+	out := params.InitiateMigrationResults{
+		Results: make([]params.InitiateMigrationResult, len(reqArgs.Specs)),
 	}
 	admin, err := c.hasAdminAccess()
 	if err != nil {
@@ -358,7 +358,7 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 	for i, spec := range reqArgs.Specs {
 		result := &out.Results[i]
 		result.ModelTag = spec.ModelTag
-		id, err := c.initiateOneModelMigration(spec)
+		id, err := c.initiateOneMigration(spec)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
@@ -368,7 +368,7 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 	return out, nil
 }
 
-func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec) (string, error) {
+func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string, error) {
 	modelTag, err := names.ParseModelTag(spec.ModelTag)
 	if err != nil {
 		return "", errors.Annotate(err, "model tag")
@@ -398,7 +398,7 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 		return "", errors.Annotate(err, "auth tag")
 	}
 
-	args := state.ModelMigrationSpec{
+	args := state.MigrationSpec{
 		InitiatedBy: c.apiUser,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: controllerTag,
@@ -408,7 +408,7 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 			Password:      targetInfo.Password,
 		},
 	}
-	mig, err := hostedState.CreateModelMigration(args)
+	mig, err := hostedState.CreateMigration(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

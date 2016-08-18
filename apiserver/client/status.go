@@ -321,7 +321,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 }
 
 func (c *Client) getMigrationStatus() (string, error) {
-	mig, err := c.api.stateAccessor.LatestModelMigration()
+	mig, err := c.api.stateAccessor.LatestMigration()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", nil

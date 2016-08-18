@@ -92,9 +92,9 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 	status, err := api.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
-		Spec: params.ModelMigrationSpec{
+		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
-			TargetInfo: params.ModelMigrationTargetInfo{
+			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: names.NewModelTag(controllerUUID).String(),
 				Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 				CACert:        "trust me",
@@ -214,7 +214,7 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c,
-		"LatestModelMigration",
+		"LatestMigration",
 		"ModelMigration.WatchMinionReports",
 	)
 
@@ -229,7 +229,7 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestGetMinionReports(c *gc.C) {
+func (s *Suite) TestMinionReports(c *gc.C) {
 	// Report 16 unknowns. These are in reverse order in order to test
 	// sorting.
 	unknown := make([]names.Tag, 0, 16)
@@ -250,7 +250,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	}
 
 	api := s.mustMakeAPI(c)
-	reports, err := api.GetMinionReports()
+	reports, err := api.MinionReports()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Expect the sample of unknowns to be in order and be limited to
@@ -295,13 +295,13 @@ type stubBackend struct {
 	model     description.Model
 }
 
-func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
-	b.stub.AddCall("WatchForModelMigration")
+func (b *stubBackend) WatchForMigration() state.NotifyWatcher {
+	b.stub.AddCall("WatchForMigration")
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *stubBackend) LatestModelMigration() (state.ModelMigration, error) {
-	b.stub.AddCall("LatestModelMigration")
+func (b *stubBackend) LatestMigration() (state.ModelMigration, error) {
+	b.stub.AddCall("LatestMigration")
 	if b.getErr != nil {
 		return nil, b.getErr
 	}
@@ -380,7 +380,7 @@ func (m *stubMigration) WatchMinionReports() (state.NotifyWatcher, error) {
 	return apiservertesting.NewFakeNotifyWatcher(), nil
 }
 
-func (m *stubMigration) GetMinionReports() (*state.MinionReports, error) {
+func (m *stubMigration) MinionReports() (*state.MinionReports, error) {
 	return m.minionReports, nil
 }
 

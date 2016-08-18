@@ -255,7 +255,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus("")
 
 	// Start it migrating.
-	mig, err := state2.CreateModelMigration(state.ModelMigrationSpec{
+	mig, err := state2.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),

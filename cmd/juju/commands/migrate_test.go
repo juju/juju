@@ -93,7 +93,7 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
-	c.Check(s.api.specSeen, jc.DeepEquals, &controller.ModelMigrationSpec{
+	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
@@ -142,10 +142,10 @@ func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.C
 }
 
 type fakeMigrateAPI struct {
-	specSeen *controller.ModelMigrationSpec
+	specSeen *controller.MigrationSpec
 }
 
-func (a *fakeMigrateAPI) InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error) {
+func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
 }
