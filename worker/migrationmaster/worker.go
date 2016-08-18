@@ -503,11 +503,11 @@ func (w *Worker) waitForMinions(
 			if reports.UnknownCount == 0 {
 				msg := formatMinionWaitDone(reports, infoPrefix)
 				if failures > 0 {
-					w.logger.Infof(msg)
+					w.logger.Errorf(msg)
 					w.setErrorStatus("%s, some agents reported failure", infoPrefix)
 					return false, nil
 				}
-				w.logger.Errorf(msg)
+				w.logger.Infof(msg)
 				w.setInfoStatus("%s, all agents reported success", infoPrefix)
 				return true, nil
 			}
