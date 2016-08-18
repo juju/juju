@@ -5,9 +5,9 @@ package commands
 
 import (
 	"fmt"
-	"io"
 	"time"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -189,22 +189,37 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	writer := ansiterm.NewWriter(ctx.Stdout)
 	for {
 		msg, ok := <-messages
 		if !ok {
 			break
 		}
-		c.writeLogRecord(ctx.Stdout, msg)
+		c.writeLogRecord(writer, msg)
 	}
 
 	return nil
 }
 
-func (c *debugLogCommand) writeLogRecord(w io.Writer, r api.LogMessage) {
+var SeverityColor = map[string]*ansiterm.Context{
+	"TRACE":   ansiterm.Foreground(ansiterm.Default),
+	"DEBUG":   ansiterm.Foreground(ansiterm.Green),
+	"INFO":    ansiterm.Foreground(ansiterm.BrightBlue),
+	"WARNING": ansiterm.Foreground(ansiterm.Yellow),
+	"ERROR":   ansiterm.Foreground(ansiterm.BrightRed),
+	"CRITICAL": &ansiterm.Context{
+		Foreground: ansiterm.White,
+		Background: ansiterm.Red,
+	},
+}
+
+func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r api.LogMessage) {
 	ts := r.Timestamp.In(c.tz).Format(c.format)
-	fmt.Fprintf(w, "%s: %s %s %s ", r.Entity, ts, r.Severity, r.Module)
+	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
+	SeverityColor[r.Severity].Fprintf(w, r.Severity)
+	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
-		fmt.Fprintf(w, "%s ", r.Location)
+		loggo.LocationColor.Fprintf(w, "%s ", r.Location)
 	}
 	fmt.Fprintln(w, r.Message)
 }
