@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -259,6 +260,16 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Owner:              "admin@local",
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+	controller := s.OpenAPI(c)
+	defer controller.Close()
+	err := controller.GrantController("fred@external", "addmodel")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := controller.GetControllerAccess("fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, description.Access("addmodel"))
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {

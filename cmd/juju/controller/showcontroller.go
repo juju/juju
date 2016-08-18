@@ -4,11 +4,16 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -56,9 +61,27 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": formatShowControllersTabular,
 	})
+}
+
+// ControllerAccessAPI defines a subset of the api/controller/Client API.
+type controllerAccessAPI interface {
+	GetControllerAccess(user string) (description.Access, error)
+	Close() error
+}
+
+func (c *showControllerCommand) getAPI(controllerName string) (controllerAccessAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return controller.NewClient(api), nil
 }
 
 // Run implements Command.Run
@@ -74,12 +97,36 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		controllerNames = []string{currentController}
 	}
 	controllers := make(map[string]ShowControllerDetails)
-	for _, name := range controllerNames {
-		one, err := c.store.ControllerByName(name)
+	for _, controllerName := range controllerNames {
+		one, err := c.store.ControllerByName(controllerName)
 		if err != nil {
 			return err
 		}
-		controllers[name] = c.convertControllerForShow(name, one)
+		var access string
+		accountDetails, err := c.store.AccountDetails(controllerName)
+		if err != nil {
+			fmt.Fprintln(ctx.Stderr, err)
+			access = "(error)"
+		} else {
+			client, err := c.getAPI(controllerName)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			userAccess, err := client.GetControllerAccess(accountDetails.User)
+			if err == nil {
+				access = string(userAccess)
+			} else {
+				code := params.ErrCode(err)
+				if code != "" {
+					access = fmt.Sprintf("(%s)", code)
+				} else {
+					fmt.Fprintln(ctx.Stderr, err)
+					access = "(error)"
+				}
+			}
+		}
+		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
 	}
 	return c.out.Write(ctx, controllers)
 }
@@ -130,11 +177,14 @@ type AccountDetails struct {
 	// User is the username for the account.
 	User string `yaml:"user" json:"user"`
 
+	// Access is the level of access the user has on the controller.
+	Access string `yaml:"access,omitempty" json:"access,omitempty"`
+
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
-func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
+func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails, access string) ShowControllerDetails {
 	controller := ShowControllerDetails{
 		Details: ControllerDetails{
 			ControllerUUID: details.ControllerUUID,
@@ -145,11 +195,11 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 		},
 	}
 	c.convertModelsForShow(controllerName, &controller)
-	c.convertAccountsForShow(controllerName, &controller)
+	c.convertAccountsForShow(controllerName, &controller, access)
 	return controller
 }
 
-func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails) {
+func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
 	storeDetails, err := c.store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
@@ -158,7 +208,8 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 		return
 	}
 	details := &AccountDetails{
-		User: storeDetails.User,
+		User:   storeDetails.User,
+		Access: access,
 	}
 	if c.showPasswords {
 		details.Password = storeDetails.Password
@@ -192,6 +243,7 @@ type showControllerCommand struct {
 
 	out   cmd.Output
 	store jujuclient.ClientStore
+	api   controllerAccessAPI
 
 	controllerNames []string
 	showPasswords   bool

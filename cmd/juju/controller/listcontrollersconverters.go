@@ -23,6 +23,7 @@ type ControllerSet struct {
 type ControllerItem struct {
 	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
+	Access         string   `yaml:"access,omitempty" json:"access,omitempty"`
 	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
 	ControllerUUID string   `yaml:"uuid" json:"uuid"`
 	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
