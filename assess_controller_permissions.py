@@ -13,6 +13,7 @@ import sys
 from assess_user_grant_revoke import (
     assert_change_password,
     assert_logout_login,
+    list_users,
     User,
 )
 from deploy_stack import (
@@ -37,6 +38,7 @@ class JujuAssertionError(AssertionError):
 
 
 def assert_add_model(user_client, permission):
+    """Test user's ability of adding models."""
     try:
         user_client.add_model(user_client.env)
     except subprocess.CalledProcessError:
@@ -45,6 +47,7 @@ def assert_add_model(user_client, permission):
 
 
 def assert_destroy_model(user_client, permission):
+    """Test user's ability of destroying models."""
     try:
         user_client.destroy_model()
     except subprocess.CalledProcessError:
@@ -54,6 +57,7 @@ def assert_destroy_model(user_client, permission):
 
 
 def assert_add_remove_user(user_client, permission):
+    """Test user's ability of adding/removing users."""
     for controller_permission in ['login', 'addmodel', 'superuser']:
         code = ''.join(random.choice(
             string.ascii_letters + string.digits) for _ in xrange(4))
@@ -62,43 +66,132 @@ def assert_add_remove_user(user_client, permission):
                                  permissions=controller_permission)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
-                'Controller could not add {}'
-                ' controller with {} permission'.format(
+                'Controller could not add '
+                '{} controller with {} permission'.format(
                     controller_permission, permission))
         try:
             user_client.remove_user(permission + code,
                                     permissions=controller_permission)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
-                'Controller could not remove {}'
-                ' controller with {} permission'.format(
+                'Controller could not remove '
+                '{} controller with {} permission'.format(
                     controller_permission, permission))
 
 
+def assert_lists(user_client):
+    """Test user's ability of retrieving lists."""
+    list_users(user_client)
+    user_client.list_models()
+    user_client.list_clouds()
+    user_client.show_controller()
+
+
+def assert_login_permission(controller_client, user_client,
+                            user, fake_home, has_permission):
+    """Test user's ability with login permission."""
+    if has_permission:
+        try:
+            assert_logout_login(controller_client, user_client,
+                                user, fake_home)
+            assert_change_password(user_client, user)
+            assert_lists(user_client)
+        except subprocess.CalledProcessError:
+            raise JujuAssertionError(
+                'FAIL {} could not login/read with {} permission'.format(
+                    user.name, user.permissions))
+    else:
+        try:
+            assert_logout_login(controller_client, user_client,
+                                user, fake_home)
+            assert_change_password(user_client, user)
+            assert_lists(user_client)
+        except subprocess.CalledProcessError:
+            log.info('Correctly rejected {} use of login/read'.format(
+                user.name))
+        else:
+            raise JujuAssertionError(
+                'FAIL User login/read without login permission')
+
+
+def assert_addmodel_permission(user_client, user, has_permission):
+    """Test user's ability with addmodel permission."""
+    if has_permission:
+        try:
+            assert_add_model(user_client, user.permissions)
+            assert_destroy_model(user_client, user.permissions)
+        except subprocess.CalledProcessError:
+            raise JujuAssertionError(
+                'FAIL {} could not add/remove'
+                ' models with {} permission'.format(
+                    user.name, user.permissions))
+    else:
+        try:
+            assert_add_model(user_client, user.permissions)
+            assert_destroy_model(user_client, user.permissions)
+        except subprocess.CalledProcessError:
+            log.info('Correctly rejected {} use of add/remove model'.format(
+                user.name))
+        else:
+            raise JujuAssertionError(
+                'FAIL User added/removed models without addmodel permission')
+
+
+def assert_superuser_permission(user_client, user, has_permission):
+    """Test user's ability with superuser permission."""
+    if has_permission:
+        try:
+            assert_add_remove_user(user_client, user.permissions)
+        except subprocess.CalledProcessError:
+            raise JujuAssertionError(
+                'FAIL {} could not add/remove users with {} permission'.format(
+                    user.name, user.permissions))
+    else:
+        try:
+            assert_add_remove_user(user_client, user.permissions)
+        except subprocess.CalledProcessError:
+            log.info('Correctly rejected {} use of add/remove users'.format(
+                user.name))
+        else:
+            raise JujuAssertionError(
+                'FAIL User added/removed users without superuser permission')
+
+
 def assert_login_controller(controller_client, user):
+    """Test user with login controller permission."""
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
-        assert_logout_login(controller_client, user_client, user, fake_home)
-        assert_change_password(user_client, user)
+        assert_login_permission(controller_client, user_client,
+                                user, fake_home, True)
+        assert_addmodel_permission(user_client, user, False)
+        assert_superuser_permission(user_client, user, False)
 
 
 def assert_addmodel_controller(controller_client, user):
+    """Test user with addmodel controller permission."""
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
-        assert_add_model(user_client, user.permissions)
-        assert_destroy_model(user_client, user.permissions)
+        assert_login_permission(controller_client, user_client,
+                                user, fake_home, True)
+        assert_addmodel_permission(user_client, user, True)
+        assert_superuser_permission(user_client, user, False)
 
 
 def assert_superuser_controller(controller_client, user):
+    """Test user with superuser controller permission."""
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
-        assert_add_remove_user(user_client, user.permissions)
+        assert_login_permission(controller_client, user_client,
+                                user, fake_home, True)
+        assert_addmodel_permission(user_client, user, True)
+        assert_superuser_permission(user_client, user, True)
 
 
 def assess_controller_permissions(controller_client):
+    """Test controller permissions."""
     login_controller = User('login_controller', 'login', [])
     addmodel_controller = User('addmodel_controller', 'addmodel', [])
     superuser_controller = User('superuser_controller', 'superuser', [])

@@ -1511,7 +1511,9 @@ class EnvJujuClient:
 
     def get_model_uuid(self):
         name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        model = self._cmd_model(True, False)
+        output_yaml = self.get_juju_output(
+            'show-model', '--format', 'yaml', model, include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
 
@@ -1958,6 +1960,16 @@ class EnvJujuClient:
         else:
             raise
 
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return self.get_juju_output('list-clouds', '--format',
+                                    format, include_e=False)
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return self.get_juju_output('show-controller', '--format',
+                                    format, include_e=False)
+
     def ssh_keys(self, full=False):
         """Give the ssh keys registered for the current model."""
         args = []
@@ -1994,6 +2006,12 @@ class EnvJujuClient2B9(EnvJujuClient):
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
+
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with a model."""
@@ -2210,6 +2228,14 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def list_models(self):
         """List the models registered with the current controller."""
         log.info('The model is environment {}'.format(self.env.environment))
+
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return {}
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return {}
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
