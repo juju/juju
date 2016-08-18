@@ -192,7 +192,7 @@ func (w *Worker) run() error {
 		case coremigration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo, status.ModelUUID)
 		case coremigration.VALIDATION:
-			phase, err = w.doVALIDATION(status.TargetInfo, status.ModelUUID)
+			phase, err = w.doVALIDATION(status)
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(status)
 		case coremigration.LOGTRANSFER:
@@ -330,11 +330,19 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	return errors.Annotate(err, "failed migration binaries")
 }
 
-func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	// TODO(mjs) - Wait for all agents to report back.
+func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	// Wait for agents to complete their validation checks.
+	ok, err := w.waitForMinions(status, failFast, "validating")
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	if !ok {
+		return coremigration.ABORT, nil
+	}
 
-	// Once all agents have validated, activate the model.
-	err := w.activateModel(targetInfo, modelUUID)
+	// Once all agents have validated, activate the model in the
+	// target controller.
+	err = w.activateModel(status.TargetInfo, status.ModelUUID)
 	if err != nil {
 		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil

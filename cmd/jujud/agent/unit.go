@@ -19,6 +19,8 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
@@ -140,6 +142,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
 		AgentConfigChanged:  a.configChangedVal,
+		ValidateMigration:   a.validateMigration,
 	})
 
 	config := dependency.EngineConfig{
@@ -169,4 +172,27 @@ func (a *UnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
 	return errors.Trace(err)
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(mjs) - more extensive checks to come.
+	unitTag := names.NewUnitTag(a.UnitName)
+	facade := uniter.NewState(apiCaller, unitTag)
+	_, err := facade.Unit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	model, err := facade.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curModelUUID := a.CurrentConfig().Model().Id()
+	newModelUUID := model.UUID()
+	if newModelUUID != curModelUUID {
+		return errors.Errorf("model mismatch when validating: got %q, expected %q",
+			newModelUUID, curModelUUID)
+	}
+	return nil
 }

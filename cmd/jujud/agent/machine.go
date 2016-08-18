@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
@@ -463,6 +464,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
+			ValidateMigration:    a.validateMigration,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -754,6 +756,15 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(mjs) - more extensive checks to come.
+	facade := apimachiner.NewState(apiCaller)
+	_, err := facade.Machine(names.NewMachineTag(a.machineId))
+	return errors.Trace(err)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
