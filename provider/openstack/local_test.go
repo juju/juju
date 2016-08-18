@@ -988,12 +988,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// i386 is a valid arch, but is no longer supported.  No image
-	// data was created for it for the test.
-	cons := constraints.MustParse("arch=i386")
-	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64 armhf arm64 ppc64el s390x\\]")
-	cons = constraints.MustParse("instance-type=foo")
+	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 

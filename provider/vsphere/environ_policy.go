@@ -29,12 +29,7 @@ var unsupportedConstraints = []string{
 
 // This is provided to avoid double hard-coding of provider specific architecture for
 // use in constraints validator and metadata lookup params (used to validate images).
-var providerSupportedArchitectures = []string{
-	arch.AMD64,
-	arch.ARM,
-	arch.ARM64,
-	arch.S390X,
-}
+var providerSupportedArchitectures = arch.AllSupportedArches
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.

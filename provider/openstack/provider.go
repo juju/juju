@@ -366,13 +366,7 @@ var unsupportedConstraints = []string{
 
 // This is provided to avoid double hard-coding of provider specific architecture for
 // use in constraints validator and metadata lookup params (used to validate images).
-var providerSupportedArchitectures = []string{
-	arch.AMD64,
-	arch.ARM,
-	arch.ARM64,
-	arch.PPC64EL,
-	arch.S390X,
-}
+var providerSupportedArchitectures = arch.AllSupportedArches
 
 // ConstraintsValidator is defined on the Environs interface.
 func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
