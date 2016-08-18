@@ -4,7 +4,7 @@
 #define MyAppName "Juju"
 #define MyAppVersion "2.0-beta16"
 #define MyAppPublisher "Canonical, Ltd"
-#define MyAppURL "http://juju.ubuntu.com/"
+#define MyAppURL "http://jujucharms.com/"
 #define MyAppExeName "juju.exe"
 
 [Setup]
