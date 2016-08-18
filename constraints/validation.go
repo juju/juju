@@ -138,7 +138,7 @@ func (v *validator) IntersectVocabulary(attributeName string, allowedValues inte
 	currentValues := v.vocab[attributeName]
 
 	// contains determines if given item is in the supplied collection.
-	contains := func(one interface{}, all []interface{}) bool {
+	contains := func(all []interface{}, one interface{}) bool {
 		for _, item := range all {
 			if item == one {
 				return true
@@ -149,7 +149,7 @@ func (v *validator) IntersectVocabulary(attributeName string, allowedValues inte
 
 	intersection := map[interface{}]bool{}
 	for _, current := range currentValues {
-		if contains(current, newValues) {
+		if contains(newValues, current) {
 			intersection[current] = true
 		}
 	}
