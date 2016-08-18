@@ -265,15 +265,18 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	if bootstrapConstraints.Arch == nil {
 		{
-			bootstrapConstraints.Arch = arch.HostArch()
+			hostArch := arch.HostArch()
+			bootstrapConstraints.Arch = &hostArch
 			// We no longer support controllers on i386.
 			// If we are bootstrapping from an i386 client,
 			// we'll look for amd64 tools.
-			if bootstrapConstraints.Arch == arch.I386 {
-				bootstrapConstraints.Arch = arch.AMD64
+			if *bootstrapConstraints.Arch == arch.I386 {
+				amd64 := arch.AMD64
+				bootstrapConstraints.Arch = &amd64
 			}
 		}
 	}
+
 	var availableTools coretools.List
 	if !args.BuildAgent {
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, bootstrapConstraints.Arch, bootstrapSeries)
@@ -337,7 +340,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: bootstrapConstraints,
-		BootstrapSeries:      bootstrapSeries,
+		BootstrapSeries:      args.BootstrapSeries,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
