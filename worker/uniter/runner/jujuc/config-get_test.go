@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -34,12 +35,13 @@ var configGetKeyTests = []struct {
 	{[]string{"spline-reticulation"}, "45\n"},
 	{[]string{"--format", "yaml", "spline-reticulation"}, "45\n"},
 	{[]string{"--format", "json", "spline-reticulation"}, "45\n"},
-	{[]string{"missing"}, ""},
-	{[]string{"--format", "yaml", "missing"}, ""},
+	{[]string{"missing"}, "\n"},
+	{[]string{"--format", "yaml", "missing"}, "\n"},
 	{[]string{"--format", "json", "missing"}, "null\n"},
 }
 
 func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range configGetKeyTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
@@ -47,9 +49,9 @@ func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Matches, t.out)
+		c.Check(code, gc.Equals, 0)
+		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Check(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
 }
 
@@ -138,8 +140,8 @@ print service configuration
 Options:
 -a, --all  (= false)
     print all keys
---format  (= smart)
-    Specify output format (json|smart|yaml)
+--format  (= yaml)
+    Specify output format (json|yaml)
 -o, --output (= "")
     Specify an output file
 
@@ -162,7 +164,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "False\n")
+	c.Assert(string(content), gc.Equals, "false\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *gc.C) {

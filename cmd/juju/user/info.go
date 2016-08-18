@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var helpSummary = `
@@ -85,7 +86,7 @@ func (c *infoCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.infoCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.Init.

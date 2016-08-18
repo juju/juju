@@ -42,7 +42,6 @@ var statusGetTests = []struct {
 }{
 	{[]string{"--format", "json", "--include-data"}, formatJson, statusAttributes},
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
-	{[]string{}, -1, "error\n"},
 }
 
 func setFakeStatus(ctx *Context) {
@@ -112,8 +111,8 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 		"Options:\n" +
 		"--application  (= false)\n" +
 		"    print status for all units of this application if this unit is the leader\n" +
-		"--format  (= smart)\n" +
-		"    Specify output format (json|smart|yaml)\n" +
+		"--format  (= yaml)\n" +
+		"    Specify output format (json|yaml)\n" +
 		"--include-data  (= false)\n" +
 		"    print all status data\n" +
 		"-o, --output (= \"\")\n" +

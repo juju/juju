@@ -4,8 +4,8 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -88,13 +88,11 @@ Examples:
 `
 
 // formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
-func formatSimple(value interface{}) ([]byte, error) {
+func formatSimple(writer io.Writer, value interface{}) error {
 	enableHAResult, ok := value.(availabilityInfo)
 	if !ok {
-		return nil, fmt.Errorf("unexpected result type for enable-ha call: %T", value)
+		return fmt.Errorf("unexpected result type for enable-ha call: %T", value)
 	}
-
-	var buf bytes.Buffer
 
 	for _, machineList := range []struct {
 		message string
@@ -128,13 +126,13 @@ func formatSimple(value interface{}) ([]byte, error) {
 		if len(machineList.list) == 0 {
 			continue
 		}
-		_, err := fmt.Fprintf(&buf, machineList.message, strings.Join(machineList.list, ", "))
+		_, err := fmt.Fprintf(writer, machineList.message, strings.Join(machineList.list, ", "))
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
 func (c *enableHACommand) Info() *cmd.Info {

@@ -78,7 +78,12 @@ func (c *runCommand) Info() *cmd.Info {
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+		// default is used to format a single result specially.
+		"default": cmd.FormatYaml,
+	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
@@ -270,9 +275,9 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		<-afterFunc(1 * time.Second)
 	}
 
-	// If we are just dealing with one result, AND we are using the smart
+	// If we are just dealing with one result, AND we are using the default
 	// format, then pretend we were running it locally.
-	if len(values) == 1 && c.out.Name() == "smart" {
+	if len(values) == 1 && c.out.Name() == "default" {
 		result, ok := values[0].(map[string]interface{})
 		if !ok {
 			return errors.New("couldn't read action output")

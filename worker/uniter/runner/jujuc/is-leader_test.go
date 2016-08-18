@@ -6,16 +6,16 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type isLeaderSuite struct {
-	jujutesting.IsolationSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&isLeaderSuite{})
@@ -57,18 +57,22 @@ func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
 }
 
 func (s *isLeaderSuite) TestFormatDefaultYes(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	s.testOutput(c, true, nil, "True\n")
 }
 
 func (s *isLeaderSuite) TestFormatDefaultNo(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	s.testOutput(c, false, nil, "False\n")
 }
 
 func (s *isLeaderSuite) TestFormatSmartYes(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	s.testOutput(c, true, []string{"--format", "smart"}, "True\n")
 }
 
 func (s *isLeaderSuite) TestFormatSmartNo(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	s.testOutput(c, false, []string{"--format", "smart"}, "False\n")
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -69,7 +70,7 @@ type agreeCommand struct {
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
-	c.out.AddFlags(f, "json", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "json", output.DefaultFormatters)
 }
 
 // Info implements Command.Info.

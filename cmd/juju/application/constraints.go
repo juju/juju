@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -108,8 +109,9 @@ func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	}
 }
 
-func formatConstraints(value interface{}) ([]byte, error) {
-	return []byte(value.(constraints.Value).String()), nil
+func formatConstraints(writer io.Writer, value interface{}) error {
+	fmt.Fprint(writer, value.(constraints.Value).String())
+	return nil
 }
 
 func (c *serviceGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {

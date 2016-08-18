@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -22,6 +23,7 @@ type OpenedPortsSuite struct {
 var _ = gc.Suite(&OpenedPortsSuite{})
 
 func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	expectedPorts := []network.PortRange{
 		{10, 20, "tcp"},
 		{80, 80, "tcp"},

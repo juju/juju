@@ -4,6 +4,7 @@
 package application
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/juju/cmd"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var usageGetConfigSummary = `
@@ -60,10 +62,7 @@ func (c *getCommand) Info() *cmd.Info {
 }
 
 func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO(dfc) add json formatting ?
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-	})
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 func (c *getCommand) Init(args []string) error {
@@ -115,11 +114,12 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 		if !found {
 			return fmt.Errorf("key %q not found in %q application settings.", c.key, c.applicationName)
 		}
-		out, err := cmd.FormatSmart(info["value"])
+		out := &bytes.Buffer{}
+		err := cmd.FormatYaml(out, info["value"])
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(ctx.Stdout, "%v\n", string(out))
+		fmt.Fprintln(ctx.Stdout, out.String())
 		return nil
 	}
 

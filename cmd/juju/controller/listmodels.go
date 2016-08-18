@@ -4,9 +4,8 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -246,10 +246,10 @@ func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error {
 	modelSet, ok := value.(ModelSet)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", modelSet, value)
+		return errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
 
 	// We need the tag of the user for which we're listing models,
@@ -263,16 +263,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		userForLastConn = userForListing
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "MODEL")
 	if c.listUUID {
 		fmt.Fprintf(tw, "\tMODEL UUID")
@@ -295,7 +286,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, lastConnection)
 	}
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }
 
 // ownerQualifiedModelName returns the model name qualified with the

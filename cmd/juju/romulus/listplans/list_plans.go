@@ -11,19 +11,19 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cmd/modelcmd"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/yaml.v2"
 
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // apiClient defines the interface of the plan api client need by this command.
@@ -152,13 +152,12 @@ type plan struct {
 }
 
 // formatSummary returns a summary of available plans.
-func formatSummary(value interface{}) ([]byte, error) {
+func formatSummary(writer io.Writer, value interface{}) error {
 	plans, ok := value.([]plan)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", plans, value)
+		return errors.Errorf("expected value of type %T, got %T", plans, value)
 	}
-	var out bytes.Buffer
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 	p := func(values ...interface{}) {
 		for _, v := range values {
 			fmt.Fprintf(tw, "%s\t", v)
@@ -169,19 +168,15 @@ func formatSummary(value interface{}) ([]byte, error) {
 	for _, plan := range plans {
 		p(plan.URL, plan.Price)
 	}
-	err := tw.Flush()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return out.Bytes(), nil
+	tw.Flush()
+	return nil
 }
 
 // formatTabular returns a tabular summary of available plans.
-func formatTabular(value interface{}) ([]byte, error) {
+func formatTabular(writer io.Writer, value interface{}) error {
 	plans, ok := value.([]plan)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", plans, value)
+		return errors.Errorf("expected value of type %T, got %T", plans, value)
 	}
 
 	table := uitable.New()
@@ -192,8 +187,8 @@ func formatTabular(value interface{}) ([]byte, error) {
 	for _, plan := range plans {
 		table.AddRow(plan.URL, plan.Price, plan.Description)
 	}
-
-	return []byte(table.String()), nil
+	fmt.Fprint(writer, table)
+	return nil
 }
 
 type planModel struct {

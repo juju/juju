@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -108,6 +109,7 @@ var relationListTests = []struct {
 }
 
 func (s *RelationListSuite) TestRelationList(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, info := s.newHookContext(t.relid, "")
@@ -122,10 +124,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-			expect := t.out
-			if expect != "" {
-				expect = expect + "\n"
-			}
+			expect := t.out + "\n"
 			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -143,8 +142,8 @@ Summary:
 list relation units
 
 Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
+--format  (= yaml)
+    Specify output format (json|yaml)
 -o, --output (= "")
     Specify an output file
 -r, --relation  (= %s)

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
@@ -111,7 +113,7 @@ func (c *validateToolsMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -218,8 +220,9 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			metadata := map[string]interface{}{
 				"Resolve Metadata": *resolveInfo,
 			}
-			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
-				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			buff := &bytes.Buffer{}
+			if yamlErr := cmd.FormatYaml(buff, metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, buff.String())
 			}
 		}
 		return err

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/controller"
 )
 
@@ -52,7 +53,7 @@ func (c *getConfigCommand) Info() *cmd.Info {
 }
 
 func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 func (c *getConfigCommand) Init(args []string) (err error) {

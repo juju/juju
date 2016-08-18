@@ -9,6 +9,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 // leaderGetCommand implements the leader-get command.
@@ -40,7 +44,11 @@ is given, or if the key is "-", all keys and values will be printed.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *leaderGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	if featureflag.Enabled(feature.SmartFormatter) {
+		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	} else {
+		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	}
 }
 
 // Init is part of the cmd.Command interface.

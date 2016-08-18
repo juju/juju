@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 func NewStatusCommand() cmd.Command {
@@ -32,7 +33,7 @@ If --name <name> is provided the search will be done by name rather than by ID.
 
 // Set up the output.
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.name, "name", "", "Action name")
 }
 

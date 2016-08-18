@@ -125,9 +125,9 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	expected := `
-[Storage]       
-UNIT            ID     LOCATION STATUS  MESSAGE 
-storage-block/0 data/0          pending         
+[Storage]        
+UNIT             ID      LOCATION  STATUS   MESSAGE  
+storage-block/0  data/0            pending           
 
 `[1:]
 	runList(c, expected)
@@ -139,9 +139,9 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
 	expected := `
-[Storage]       
-UNIT            ID     LOCATION STATUS  MESSAGE 
-storage-block/0 data/0          pending         
+[Storage]        
+UNIT             ID      LOCATION  STATUS   MESSAGE  
+storage-block/0  data/0            pending           
 
 `[1:]
 	runList(c, expected)
@@ -545,9 +545,9 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	context, err := runJujuCommand(c, "storage", "list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]            
-UNIT                 ID     LOCATION STATUS  MESSAGE 
-storage-filesystem/0 data/0          pending         
+[Storage]             
+UNIT                  ID      LOCATION  STATUS   MESSAGE  
+storage-filesystem/0  data/0            pending           
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -568,10 +568,10 @@ storage-filesystem/0 data/0          pending
 	context, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]            
-UNIT                 ID     LOCATION STATUS  MESSAGE 
-storage-filesystem/0 data/0          pending         
-storage-filesystem/0 data/1          pending         
+[Storage]             
+UNIT                  ID      LOCATION  STATUS   MESSAGE  
+storage-filesystem/0  data/0            pending           
+storage-filesystem/0  data/1            pending           
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")

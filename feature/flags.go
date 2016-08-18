@@ -39,3 +39,7 @@ const Migration = "migration"
 
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
+
+// SmartFormatter enables the deprecated "smart" formatter for the uniter
+// hook tools.
+const SmartFormatter = "smart-formatter"

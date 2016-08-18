@@ -9,6 +9,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 // UnitGetCommand implements the unit-get command.
@@ -32,7 +36,11 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 }
 
 func (c *UnitGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	if featureflag.Enabled(feature.SmartFormatter) {
+		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	} else {
+		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	}
 }
 
 func (c *UnitGetCommand) Init(args []string) error {
