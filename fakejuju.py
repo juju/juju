@@ -108,6 +108,7 @@ class FakeEnvironmentState:
         self.machine_host_names = {}
         self.current_bundle = None
         self.model_config = None
+        self.ssh_keys = []
 
     @property
     def state(self):
@@ -165,13 +166,15 @@ class FakeEnvironmentState:
         self._clear()
         self.controller.state = 'model-destroyed'
 
+    def _fail_stderr(self, message, returncode=1, cmd='juju', stdout=''):
+        exc = subprocess.CalledProcessError(returncode, cmd, stdout)
+        exc.stderr = message
+        raise exc
+
     def restore_backup(self):
         self.controller.require_controller('restore', self.name)
         if len(self.state_servers) > 0:
-            exc = subprocess.CalledProcessError('Operation not permitted', 1,
-                                                2)
-            exc.stderr = 'Operation not permitted'
-            raise exc
+            return self._fail_stderr('Operation not permitted')
 
     def enable_ha(self):
         self.controller.require_controller('enable-ha', self.name)
@@ -234,6 +237,33 @@ class FakeEnvironmentState:
                 'exposed': service in self.exposed,
                 }
         return {'machines': machines, 'applications': services}
+
+    def add_ssh_key(self, keys_to_add):
+        errors = []
+        for key in keys_to_add:
+            if not key.startswith("ssh-rsa "):
+                errors.append(
+                    'cannot add key "{0}": invalid ssh key: {0}'.format(key))
+            elif key in self.ssh_keys:
+                errors.append(
+                    'cannot add key "{0}": duplicate ssh key: {0}'.format(key))
+            else:
+                self.ssh_keys.append(key)
+        return '\n'.join(errors)
+
+    def remove_ssh_key(self, keys_to_remove):
+        for i in range(len(self.ssh_keys)):
+            if self.ssh_keys[i] in keys_to_remove:
+                keys_to_remove.remove(self.ssh_keys[i])
+                del self.ssh_keys[i]
+        return '\n'.join(
+            'cannot remove key id "{0}": invalid ssh key: {0}'.format(key)
+            for key in keys_to_remove)
+
+    def import_ssh_key(self, names_to_add):
+        for name in names_to_add:
+            self.ssh_keys.append('ssh-rsa FAKE_KEY a key {}'.format(name))
+        return ""
 
 
 class AutoloadCredentials:
@@ -559,8 +589,9 @@ class FakeBackend:
                   juju_home, model, timeout=timeout)
 
     @check_juju_output
-    def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None, user_name=None):
+    def get_juju_output(self, command, args, used_feature_flags, juju_home,
+                        model=None, timeout=None, user_name=None,
+                        merge_stderr=False):
         if 'service' in command:
             raise Exception('No service')
         self._log_command(command, args, model, logging.DEBUG)
@@ -610,6 +641,20 @@ class FakeBackend:
         if command == 'create-backup':
             self.controller_state.require_controller('backup', model)
             return 'juju-backup-0.tar.gz'
+        if command == 'ssh-keys':
+            lines = ['Keys used in model: ' + model_state.name]
+            if '--full' in args:
+                lines.extend(model_state.ssh_keys)
+            else:
+                lines.extend(':fake:fingerprint: ({})'.format(
+                    k.split(' ', 2)[-1]) for k in model_state.ssh_keys)
+            return '\n'.join(lines)
+        if command == 'add-ssh-key':
+            return model_state.add_ssh_key(args)
+        if command == 'remove-ssh-key':
+            return model_state.remove_ssh_key(args)
+        if command == 'import-ssh-key':
+            return model_state.import_ssh_key(args)
         return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
