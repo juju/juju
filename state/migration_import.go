@@ -631,7 +631,6 @@ func (i *importer) application(s description.Application) error {
 		constraints:        i.constraints(s.Constraints()),
 		storage:            i.storageConstraints(s.StorageConstraints()),
 		settings:           s.Settings(),
-		settingsRefCount:   s.SettingsRefCount(),
 		leadershipSettings: s.LeadershipSettings(),
 	})
 

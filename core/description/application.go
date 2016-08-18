@@ -35,8 +35,7 @@ type application struct {
 	Status_        *status `yaml:"status"`
 	StatusHistory_ `yaml:"status-history"`
 
-	Settings_         map[string]interface{} `yaml:"settings"`
-	SettingsRefCount_ int                    `yaml:"settings-refcount"`
+	Settings_ map[string]interface{} `yaml:"settings"`
 
 	Leader_             string                 `yaml:"leader,omitempty"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
@@ -64,7 +63,6 @@ type ApplicationArgs struct {
 	Exposed              bool
 	MinUnits             int
 	Settings             map[string]interface{}
-	SettingsRefCount     int
 	Leader               string
 	LeadershipSettings   map[string]interface{}
 	StorageConstraints   map[string]StorageConstraintArgs
@@ -84,7 +82,6 @@ func newApplication(args ApplicationArgs) *application {
 		Exposed_:              args.Exposed,
 		MinUnits_:             args.MinUnits,
 		Settings_:             args.Settings,
-		SettingsRefCount_:     args.SettingsRefCount,
 		Leader_:               args.Leader,
 		LeadershipSettings_:   args.LeadershipSettings,
 		MetricsCredentials_:   creds,
@@ -153,11 +150,6 @@ func (s *application) MinUnits() int {
 // Settings implements Application.
 func (s *application) Settings() map[string]interface{} {
 	return s.Settings_
-}
-
-// SettingsRefCount implements Application.
-func (s *application) SettingsRefCount() int {
-	return s.SettingsRefCount_
 }
 
 // Leader implements Application.
@@ -325,7 +317,6 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"min-units":           schema.Int(),
 		"status":              schema.StringMap(schema.Any()),
 		"settings":            schema.StringMap(schema.Any()),
-		"settings-refcount":   schema.Int(),
 		"leader":              schema.String(),
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"storage-constraints": schema.StringMap(schema.StringMap(schema.Any())),
@@ -365,7 +356,6 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		Exposed_:              valid["exposed"].(bool),
 		MinUnits_:             int(valid["min-units"].(int64)),
 		Settings_:             valid["settings"].(map[string]interface{}),
-		SettingsRefCount_:     int(valid["settings-refcount"].(int64)),
 		Leader_:               valid["leader"].(string),
 		LeadershipSettings_:   valid["leadership-settings"].(map[string]interface{}),
 		StatusHistory_:        newStatusHistory(),
