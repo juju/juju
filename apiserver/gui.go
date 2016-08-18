@@ -60,8 +60,8 @@ var (
 // - the "jujugui" directory includes a "templates/config.js.go" file which is
 //   used to render the Juju GUI configuration file. The template receives at
 //   least the following variables in its context: "base", "host", "socket",
-//   "staticURL", "uuid" and "version". It might receive more variables but
-//   cannot assume them to be always provided.
+//   "controllerSocket", "staticURL", "uuid" and "version". It might receive
+//   more variables but cannot assume them to be always provided.
 type guiRouter struct {
 	dataDir string
 	ctxt    httpContext
@@ -341,9 +341,10 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":   h.baseURLPath,
-		"host":   req.Host,
-		"socket": "/model/$uuid/api",
+		"base":             h.baseURLPath,
+		"host":             req.Host,
+		"controllerSocket": "/api",
+		"socket":           "/model/$uuid/api",
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),

@@ -415,15 +415,11 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
-// ModelInfo returns information about the current model (default
-// series and type).
-//
-// TODO(axw) drop this method after 2.0-beta16 is out.
+// ModelInfo returns information about the current model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.ModelInfo{}, err
 	}
-
 	state := c.api.stateAccessor
 	conf, err := state.ModelConfig()
 	if err != nil {
@@ -433,20 +429,19 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
-
 	info := params.ModelInfo{
-		DefaultSeries:  config.PreferredSeries(conf),
-		Cloud:          model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		ProviderType:   conf.Type(),
-		Name:           conf.Name(),
-		UUID:           model.UUID(),
-		ControllerUUID: model.ControllerUUID(),
+		DefaultSeries: config.PreferredSeries(conf),
+		Cloud:         model.Cloud(),
+		CloudRegion:   model.CloudRegion(),
+		ProviderType:  conf.Type(),
+		Name:          conf.Name(),
+		UUID:          model.UUID(),
+		OwnerTag:      model.Owner().String(),
+		Life:          params.Life(model.Life().String()),
 	}
 	if tag, ok := model.CloudCredential(); ok {
 		info.CloudCredentialTag = tag.String()
 	}
-
 	return info, nil
 }
 
