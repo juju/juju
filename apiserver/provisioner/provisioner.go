@@ -812,3 +812,31 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 	}
 	return result, nil
 }
+
+// MarkMachinesForRemoval indicates that the specified machines are
+// ready to have any provider-level resources cleaned up and then be
+// removed.
+func (p *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(machines.Entities))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, machine := range machines.Entities {
+		results[i].Error = common.ServerError(p.markOneMachineForRemoval(machine.Tag, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.MarkForRemoval()
+}

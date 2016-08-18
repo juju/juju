@@ -1235,3 +1235,37 @@ func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }
+
+func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
+	err := s.machines[0].EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machines[2].EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.provisioner.MarkMachinesForRemoval(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-2"},         // ok
+			{Tag: "machine-100"},       // not found
+			{Tag: "machine-0"},         // ok
+			{Tag: "machine-1"},         // not dead
+			{Tag: "machine-0-lxd-5"},   // unauthorised
+			{Tag: "application-thing"}, // only machines allowed
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results := res.Results
+	c.Assert(results, gc.HasLen, 6)
+	c.Check(results[0].Error, gc.IsNil)
+	c.Check(*results[1].Error, gc.Equals,
+		*common.ServerError(errors.NotFoundf("machine 100")))
+	c.Check(results[2].Error, gc.IsNil)
+	c.Check(*results[3].Error, gc.Equals,
+		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
+	c.Check(*results[4].Error, gc.Equals, *apiservertesting.ErrUnauthorized)
+	c.Check(*results[5].Error, gc.Equals,
+		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
+
+	removals, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(removals, jc.SameContents, []string{"0", "2"})
+}
