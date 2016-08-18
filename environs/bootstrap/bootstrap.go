@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/mongo"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/utils/set"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no agent binaries are available for your model.
