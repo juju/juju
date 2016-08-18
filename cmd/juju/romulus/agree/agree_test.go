@@ -4,6 +4,7 @@
 package agree_test
 
 import (
+	"runtime"
 	"sync"
 	"testing"
 
@@ -54,6 +55,9 @@ func (s *agreeSuite) TestAgreementNothingToSign(c *gc.C) {
 `)
 }
 func (s *agreeSuite) TestAgreement(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("less not on windows, bug 1614330")
+	}
 	var answer string
 	jujutesting.PatchValue(agree.UserAnswer, func() (string, error) {
 		return answer, nil
