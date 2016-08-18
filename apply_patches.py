@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 
-PATCH_EXTENTIONS = (".diff", ".patch")
+PATCH_EXTENSIONS = (".diff", ".patch")
 
 
 def apply_patch(patch_file, base_dir, dry_run=False, verbose=False):
@@ -48,7 +48,7 @@ def main(argv):
         parser.error("Could not list patch directory: {}".format(e))
     if not os.path.isdir(args.srctree):
         parser.error("Source tree '{}' not a directory".format(args.srctree))
-    patches = [f for f in maybe_patches if f.endswith(PATCH_EXTENTIONS)]
+    patches = [f for f in maybe_patches if f.endswith(PATCH_EXTENSIONS)]
     patch_count = len(patches)
     print(gettext.ngettext(
         u"Applying {} patch", u"Applying {} patches", patch_count).format(
