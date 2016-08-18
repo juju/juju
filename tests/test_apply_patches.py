@@ -129,7 +129,7 @@ class TestMain(unittest.TestCase):
         with temp_dir() as basedir:
             patchdir = os.path.join(basedir, "patches")
             os.mkdir(patchdir)
-            patchfile = os.path.join(patchdir, "sample.patch")
+            patchfile = os.path.join(patchdir, "sample.diff")
             open(patchfile, "w").close()
             with self.patch_output() as messages:
                 with mock.patch(
@@ -138,7 +138,7 @@ class TestMain(unittest.TestCase):
                     main(["test", patchdir, basedir])
             ap_mock.assert_called_once_with(patchfile, basedir, False, False)
             self.assertEqual(messages, [
-                u"Applying 1 patch", u"Applied patch 'sample.patch'"
+                u"Applying 1 patch", u"Applied patch 'sample.diff'"
             ])
 
     def test_bad_patches(self):
@@ -158,3 +158,16 @@ class TestMain(unittest.TestCase):
             self.assertEqual(messages, [
                 u"Applying 2 patches", u"Failed to apply patch 'a.patch'"
             ])
+
+    def test_non_patch(self):
+        with temp_dir() as basedir:
+            patchdir = os.path.join(basedir, "patches")
+            os.mkdir(patchdir)
+            patch_a = os.path.join(patchdir, "readme.txt")
+            open(patch_a, "w").close()
+            with self.patch_output() as messages:
+                with mock.patch(
+                        "apply_patches.apply_patch", autospec=True) as ap_mock:
+                    main(["test", "--verbose", patchdir, basedir])
+            self.assertEqual(ap_mock.mock_calls, [])
+            self.assertEqual(messages, [u"Applying 0 patches"])
