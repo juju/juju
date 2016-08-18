@@ -28,11 +28,11 @@ type Facade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Agent           agent.Agent
-	Facade          Facade
-	Guard           fortress.Guard
-	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
-	ValidationCheck func(base.APICaller) error
+	Agent             agent.Agent
+	Facade            Facade
+	Guard             fortress.Guard
+	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
+	ValidateMigration func(base.APICaller) error
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -49,8 +49,8 @@ func (config Config) Validate() error {
 	if config.APIOpen == nil {
 		return errors.NotValidf("nil APIOpen")
 	}
-	if config.ValidationCheck == nil {
-		return errors.NotValidf("nil ValidationCheck")
+	if config.ValidateMigration == nil {
+		return errors.NotValidf("nil ValidateMigration")
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 	defer conn.Close()
 
 	// Ask the agent to confirm that things look ok.
-	err = w.config.ValidationCheck(conn)
+	err = w.config.ValidateMigration(conn)
 	return errors.Trace(err)
 }
 

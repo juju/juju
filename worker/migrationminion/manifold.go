@@ -16,11 +16,11 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
-	AgentName       string
-	APICallerName   string
-	FortressName    string
-	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
-	ValidationCheck func(base.APICaller) error
+	AgentName         string
+	APICallerName     string
+	FortressName      string
+	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
+	ValidateMigration func(base.APICaller) error
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
@@ -40,8 +40,8 @@ func (config ManifoldConfig) validate() error {
 	if config.APIOpen == nil {
 		return errors.NotValidf("nil APIOpen")
 	}
-	if config.ValidationCheck == nil {
-		return errors.NotValidf("nil ValidationCheck")
+	if config.ValidateMigration == nil {
+		return errors.NotValidf("nil ValidateMigration")
 	}
 	if config.NewFacade == nil {
 		return errors.NotValidf("nil NewFacade")
@@ -75,11 +75,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Agent:           agent,
-		Facade:          facade,
-		Guard:           guard,
-		APIOpen:         config.APIOpen,
-		ValidationCheck: config.ValidationCheck,
+		Agent:             agent,
+		Facade:            facade,
+		Guard:             guard,
+		APIOpen:           config.APIOpen,
+		ValidateMigration: config.ValidateMigration,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

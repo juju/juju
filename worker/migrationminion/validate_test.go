@@ -50,19 +50,19 @@ func (*ValidateSuite) TestMissingAPIOpen(c *gc.C) {
 	checkNotValid(c, config, "nil APIOpen not valid")
 }
 
-func (*ValidateSuite) TestMissingValidateCheck(c *gc.C) {
+func (*ValidateSuite) TestMissingValidateMigration(c *gc.C) {
 	config := validConfig()
-	config.ValidationCheck = nil
-	checkNotValid(c, config, "nil ValidationCheck not valid")
+	config.ValidateMigration = nil
+	checkNotValid(c, config, "nil ValidateMigration not valid")
 }
 
 func validConfig() migrationminion.Config {
 	return migrationminion.Config{
-		Agent:           struct{ agent.Agent }{},
-		Guard:           struct{ fortress.Guard }{},
-		Facade:          struct{ migrationminion.Facade }{},
-		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		ValidationCheck: func(base.APICaller) error { return nil },
+		Agent:             struct{ agent.Agent }{},
+		Guard:             struct{ fortress.Guard }{},
+		Facade:            struct{ migrationminion.Facade }{},
+		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		ValidateMigration: func(base.APICaller) error { return nil },
 	}
 }
 

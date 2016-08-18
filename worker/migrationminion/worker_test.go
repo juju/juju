@@ -57,8 +57,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Guard:   s.guard,
 		Agent:   s.agent,
 		APIOpen: s.apiOpen,
-		ValidationCheck: func(base.APICaller) error {
-			s.stub.AddCall("ValidationCheck")
+		ValidateMigration: func(base.APICaller) error {
+			s.stub.AddCall("ValidateMigration")
 			return nil
 		},
 	}
@@ -177,7 +177,7 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 		"Watch",
 		"Lockdown",
 		"API open",
-		"ValidationCheck",
+		"ValidateMigration",
 		"API close",
 		"Report",
 	})
@@ -218,8 +218,8 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	s.config.ValidationCheck = func(base.APICaller) error {
-		s.stub.AddCall("ValidationCheck")
+	s.config.ValidateMigration = func(base.APICaller) error {
+		s.stub.AddCall("ValidateMigration")
 		return errors.New("boom")
 	}
 	w, err := migrationminion.New(s.config)
@@ -230,7 +230,7 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 		"Watch",
 		"Lockdown",
 		"API open",
-		"ValidationCheck",
+		"ValidateMigration",
 		"API close",
 		"Report",
 	})
