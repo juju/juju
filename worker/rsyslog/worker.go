@@ -196,10 +196,10 @@ func (h *RsyslogConfigHandler) composeTLS(caCert string) (*tls.Config, error) {
 	if !ok {
 		return nil, errors.Errorf("Failed to parse rsyslog root certificate")
 	}
-	return &tls.Config{
-		RootCAs:    cert,
-		ServerName: "juju-rsyslog",
-	}, nil
+	cfg := utils.SecureTLSConfig()
+	cfg.RootCAs = cert
+	cfg.ServerName = "juju-rsyslog"
+	return cfg, nil
 }
 
 func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {

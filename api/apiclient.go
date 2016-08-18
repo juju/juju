@@ -4,7 +4,6 @@
 package api
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"io"
 	"net/http"
@@ -235,10 +234,9 @@ func setUpWebsocket(addr, path string, header http.Header, rootCAs *x509.CertPoo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    rootCAs,
-		ServerName: "juju-apiserver",
-	}
+	cfg.TlsConfig = utils.SecureTLSConfig()
+	cfg.TlsConfig.RootCAs = rootCAs
+	cfg.TlsConfig.ServerName = "juju-apiserver"
 	cfg.Header = header
 	return cfg, nil
 }

@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"bufio"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"io"
@@ -66,7 +65,9 @@ func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, heade
 	config.Header = header
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
+	config.TlsConfig = utils.SecureTLSConfig()
+	config.TlsConfig.RootCAs = caCerts
+	config.TlsConfig.ServerName = "anything"
 	return config
 }
 

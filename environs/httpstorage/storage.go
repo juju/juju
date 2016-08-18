@@ -4,7 +4,6 @@
 package httpstorage
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -54,11 +53,13 @@ func ClientTLS(addr string, caCertPEM string, authkey string) (storage.Storage, 
 	if !caCerts.AppendCertsFromPEM([]byte(caCertPEM)) {
 		return nil, errors.New("error adding CA certificate to pool")
 	}
+	cfg := utils.SecureTLSConfig()
+	cfg.RootCAs = caCerts
 	return &localStorage{
 		addr:    addr,
 		authkey: authkey,
 		client: &http.Client{
-			Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
+			Transport: utils.NewHttpTLSTransport(cfg),
 		},
 	}, nil
 }
