@@ -47,6 +47,15 @@ type Validator interface {
 	//     and new values are {c, d},
 	//     then the merge result would be {a, b, c, d}.
 	UpdateVocabulary(attributeName string, newValues interface{})
+
+	// IntersectVocabulary determines an intersection
+	// between new attribute values and existing ones and updates vocabulary
+	// with the result.
+	// If existing values are {a, b} and new values are {b, d},
+	// then the values after this call would be {b}.
+	// If either existing values or new values are empty {},
+	// intersection result would be empty too.
+	IntersectVocabulary(attributeName string, newValues interface{})
 }
 
 // NewValidator returns a new constraints Validator instance.
@@ -120,11 +129,78 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 	newValues := convertToSlice(allowedValues)
 	writeUnique(newValues)
 
+	v.updateVocabularyFromMap(attributeName, unique)
+}
+
+// IntersectVocabulary is defined on Validator.
+func (v *validator) IntersectVocabulary(attributeName string, allowedValues interface{}) {
+	newValues := convertToSlice(allowedValues)
+
+	invalidateAttributeValues := func() {
+		v.RegisterVocabulary(attributeName, []string{})
+	}
+
+	// If this attribute is not registered, we have nothing to do
+	currentValues, ok := v.vocab[attributeName]
+	if !ok || len(currentValues) == 0 {
+		// If vocabulary wasn't registered but
+		// we do have some new values for this attribute,
+		// then the intersection result is an empty set.
+		// It needs to be registered to ensure that validator
+		// can invalidate all values.
+		if len(newValues) != 0 {
+			invalidateAttributeValues()
+		}
+		return
+	}
+
+	// If there no new values are passed in, the intersection will be an empty set.
+	// This vocabulary should invalidate any value.
+	if len(newValues) == 0 {
+		invalidateAttributeValues()
+		return
+	}
+
+	// contains determines if given item is in the supplied collection.
+	contains := func(one interface{}, all []interface{}) bool {
+		for _, item := range all {
+			if item == one {
+				return true
+			}
+		}
+		return false
+	}
+
+	intersection := map[interface{}]bool{}
+	intersect := func(one, two []interface{}) {
+		for _, current := range one {
+			if contains(current, two) {
+				intersection[current] = true
+			}
+		}
+	}
+	intersect(currentValues, newValues)
+	intersect(newValues, currentValues)
+
+	// There are no values at intersection.
+	// This vocabulary should invalidate any value.
+	if len(intersection) == 0 {
+		invalidateAttributeValues()
+		return
+	}
+	v.updateVocabularyFromMap(attributeName, intersection)
+}
+
+func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
 	var merged []interface{}
-	for one, _ := range unique {
+	for one, _ := range valuesMap {
+		// TODO (anastasiamac) Because it's coming from the map, the order maybe affected
+		// and can be unreliable. Not sure how to fix it yet...
+		// How can we guarantee the order here?
 		merged = append(merged, one)
 	}
 	v.vocab[attributeName] = merged
+
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
