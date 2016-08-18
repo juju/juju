@@ -629,6 +629,16 @@ class BootstrapManager:
             raise AssertionError('Tear down client needs same env!')
         tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
+    def _log_and_wrap_exception(self, exc):
+        logging.exception(exc)
+        stdout = getattr(exc, 'output', None)
+        stderr = getattr(exc, 'stderr', None)
+        if stdout or stderr:
+                logging.info(
+                        'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                        stdout, stderr)
+        return LoggedException(exc)
+
     @contextmanager
     def bootstrap_context(self, machines, omit_config=None):
         """Context for bootstrapping a state server."""
@@ -677,11 +687,7 @@ class BootstrapManager:
                 # before tearing down so that the error is closely tied to
                 # the failed operation.
                 except Exception as e:
-                    logging.exception(e)
-                    if getattr(e, 'output', None):
-                        print_now('\n')
-                        print_now(e.output)
-                    raise LoggedException(e)
+                    raise self._log_and_wrap_exception(e)
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
@@ -725,11 +731,7 @@ class BootstrapManager:
             # before tearing down so that the error is closely tied to
             # the failed operation.
             except Exception as e:
-                logging.exception(e)
-                if getattr(e, 'output', None):
-                    print_now('\n')
-                    print_now(e.output)
-                raise LoggedException(e)
+                raise self._log_and_wrap_exception(e)
         except:
             # If run from a windows machine may not have ssh to get
             # logs
@@ -763,8 +765,7 @@ class BootstrapManager:
             except GeneratorExit:
                 raise
             except BaseException as e:
-                logging.exception(e)
-                raise LoggedException(e)
+                raise self._log_and_wrap_exception(e)
         except:
             safe_print_status(self.client)
             raise
