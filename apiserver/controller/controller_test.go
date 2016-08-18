@@ -63,16 +63,6 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
-	}
-	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
 func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Model) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
@@ -621,4 +611,63 @@ func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+}
+
+func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	user2 := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+
+	err := s.controllerGrant(c, user.UserTag(), string(description.SuperuserAccess))
+	c.Assert(err, gc.IsNil)
+	err = s.controllerGrant(c, user2.UserTag(), string(description.AddModelAccess))
+	c.Assert(err, gc.IsNil)
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: user2.Tag().String()}},
+	}
+	results, err := s.controller.GetControllerAccess(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.UserAccessResult{{
+		Result: &params.UserAccess{
+			Access:  "superuser",
+			UserTag: user.Tag().String(),
+		}}, {
+		Result: &params.UserAccess{
+			Access:  "addmodel",
+			UserTag: user2.Tag().String(),
+		}}})
+}
+
+func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
+	// Set up the user making the call.
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	anAuthoriser := apiservertesting.FakeAuthorizer{
+		Tag: user.Tag(),
+	}
+	endpoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ModifyControllerAccessRequest{
+		Changes: []params.ModifyControllerAccess{{
+			UserTag: user.Tag().String(),
+			Action:  params.GrantControllerAccess,
+			Access:  "superuser",
+		}}}
+	result, err := s.controller.ModifyControllerAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+
+	// We ask for permissions for a different user as well as ourselves.
+	differentUser := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: differentUser.Tag().String()}},
+	}
+	results, err := endpoint.GetControllerAccess(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(*results.Results[0].Result, jc.DeepEquals, params.UserAccess{
+		Access:  "superuser",
+		UserTag: user.Tag().String(),
+	})
+	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
+		Message: "permission denied", Code: "unauthorized access",
+	})
 }

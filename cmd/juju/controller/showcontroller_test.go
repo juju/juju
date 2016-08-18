@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -19,9 +20,15 @@ import (
 
 type ShowControllerSuite struct {
 	baseControllerSuite
+	api *fakeController
 }
 
 var _ = gc.Suite(&ShowControllerSuite{})
+
+func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
+	s.baseControllerSuite.SetUpTest(c)
+	s.api = &fakeController{}
+}
 
 func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
 	s.controllersYaml = `controllers:
@@ -48,6 +55,7 @@ mallards:
   current-model: my-model
   account:
     user: admin@local
+    access: superuser
 `[1:]
 
 	s.assertShowController(c, "mallards")
@@ -78,6 +86,7 @@ mallards:
   current-model: my-model
   account:
     user: admin@local
+    access: superuser
     password: hunter2
 `[1:]
 
@@ -123,6 +132,7 @@ mallards:
   current-model: my-model
   account:
     user: admin@local
+    access: superuser
 `[1:]
 
 	s.assertShowController(c, "mallards")
@@ -145,6 +155,7 @@ aws-test:
   current-model: admin
   account:
     user: admin@local
+    access: superuser
 `[1:]
 	s.assertShowController(c, "aws-test")
 }
@@ -165,6 +176,7 @@ aws-test:
   current-model: admin
   account:
     user: admin@local
+    access: superuser
 mark-test-prodstack:
   details:
     uuid: this-is-a-uuid
@@ -173,16 +185,29 @@ mark-test-prodstack:
     cloud: prodstack
   account:
     user: admin@local
+    access: superuser
 `[1:]
 
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
+}
+
+func (s *ShowControllerSuite) TestShowSomeControllerTabular(c *gc.C) {
+	s.createTestClientStore(c)
+	s.expectedOutput = `
+CONTROLLER           MODEL  USER         ACCESS     CLOUD/REGION
+aws-test             admin  admin@local  superuser  aws/us-east-1
+mark-test-prodstack  -      admin@local  superuser  prodstack
+
+`[1:]
+
+	s.assertShowController(c, "--format", "tabular", "aws-test", "mark-test-prodstack")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -191,7 +216,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack"},"account":{"user":"admin@local"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack"},"account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -213,7 +238,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store := s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	store.CurrentControllerName = "aws-test"
 	s.assertShowController(c, "--format", "json")
@@ -244,7 +269,7 @@ func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) 
 }
 
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.store), args...)
+	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {
@@ -256,4 +281,14 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 	context, err := s.runShowController(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, s.expectedOutput)
+}
+
+type fakeController struct{}
+
+func (*fakeController) GetControllerAccess(user string) (description.Access, error) {
+	return "superuser", nil
+}
+
+func (*fakeController) Close() error {
+	return nil
 }
