@@ -448,7 +448,7 @@ func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
 	} else if u.doc.MachineId == "" {
-		unitLogger.Errorf("unit %v unassigned", u)
+		unitLogger.Tracef("unit %v unassigned", u)
 		return nil, nil
 	}
 
@@ -753,7 +753,7 @@ func (u *Unit) machine() (*Machine, error) {
 func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
@@ -763,7 +763,7 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 func (u *Unit) PrivateAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
