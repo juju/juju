@@ -118,6 +118,7 @@ var (
 // image metadata can be found.
 func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
+
 	// New images metadata for centos and windows and existing clouds.
 	defaultJujuURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
 	if err != nil {
