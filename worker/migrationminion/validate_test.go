@@ -6,6 +6,8 @@ package migrationminion_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/testing"
@@ -30,23 +32,37 @@ func (*ValidateSuite) TestMissingAgent(c *gc.C) {
 	checkNotValid(c, config, "nil Agent not valid")
 }
 
-func (*ValidateSuite) TestMissingGuard(c *gc.C) {
-	config := validConfig()
-	config.Guard = nil
-	checkNotValid(c, config, "nil Guard not valid")
-}
-
 func (*ValidateSuite) TestMissingFacade(c *gc.C) {
 	config := validConfig()
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
+func (*ValidateSuite) TestMissingGuard(c *gc.C) {
+	config := validConfig()
+	config.Guard = nil
+	checkNotValid(c, config, "nil Guard not valid")
+}
+
+func (*ValidateSuite) TestMissingAPIOpen(c *gc.C) {
+	config := validConfig()
+	config.APIOpen = nil
+	checkNotValid(c, config, "nil APIOpen not valid")
+}
+
+func (*ValidateSuite) TestMissingValidateCheck(c *gc.C) {
+	config := validConfig()
+	config.ValidationCheck = nil
+	checkNotValid(c, config, "nil ValidationCheck not valid")
+}
+
 func validConfig() migrationminion.Config {
 	return migrationminion.Config{
-		Agent:  struct{ agent.Agent }{},
-		Guard:  struct{ fortress.Guard }{},
-		Facade: struct{ migrationminion.Facade }{},
+		Agent:           struct{ agent.Agent }{},
+		Guard:           struct{ fortress.Guard }{},
+		Facade:          struct{ migrationminion.Facade }{},
+		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		ValidationCheck: func(base.APICaller) error { return nil },
 	}
 }
 
