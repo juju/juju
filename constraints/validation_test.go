@@ -431,6 +431,10 @@ valid values are: []`
 
 func (s *intersectionSuite) TestIntersectVocabularyBothValueSetsEmpty(c *gc.C) {
 	s.additionalAttributeValues = []string{}
+	s.errorForValidConsAfterIntersection = `invalid constraint value: arch=amd64
+valid values are: []`
+	s.errorAfterIntersection = `invalid constraint value: arch=ppc64el
+valid values are: []`
 	s.assertVocabularyValuesIntersected(c)
 }
 

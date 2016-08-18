@@ -135,31 +135,7 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 // IntersectVocabulary is defined on Validator.
 func (v *validator) IntersectVocabulary(attributeName string, allowedValues interface{}) {
 	newValues := convertToSlice(allowedValues)
-
-	invalidateAttributeValues := func() {
-		v.RegisterVocabulary(attributeName, []string{})
-	}
-
-	// If this attribute is not registered, we have nothing to do
-	currentValues, ok := v.vocab[attributeName]
-	if !ok || len(currentValues) == 0 {
-		// If vocabulary wasn't registered but
-		// we do have some new values for this attribute,
-		// then the intersection result is an empty set.
-		// It needs to be registered to ensure that validator
-		// can invalidate all values.
-		if len(newValues) != 0 {
-			invalidateAttributeValues()
-		}
-		return
-	}
-
-	// If there no new values are passed in, the intersection will be an empty set.
-	// This vocabulary should invalidate any value.
-	if len(newValues) == 0 {
-		invalidateAttributeValues()
-		return
-	}
+	currentValues := v.vocab[attributeName]
 
 	// contains determines if given item is in the supplied collection.
 	contains := func(one interface{}, all []interface{}) bool {
@@ -172,21 +148,10 @@ func (v *validator) IntersectVocabulary(attributeName string, allowedValues inte
 	}
 
 	intersection := map[interface{}]bool{}
-	intersect := func(one, two []interface{}) {
-		for _, current := range one {
-			if contains(current, two) {
-				intersection[current] = true
-			}
+	for _, current := range currentValues {
+		if contains(current, newValues) {
+			intersection[current] = true
 		}
-	}
-	intersect(currentValues, newValues)
-	intersect(newValues, currentValues)
-
-	// There are no values at intersection.
-	// This vocabulary should invalidate any value.
-	if len(intersection) == 0 {
-		invalidateAttributeValues()
-		return
 	}
 	v.updateVocabularyFromMap(attributeName, intersection)
 }
@@ -199,8 +164,7 @@ func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[
 		// How can we guarantee the order here?
 		merged = append(merged, one)
 	}
-	v.vocab[attributeName] = merged
-
+	v.RegisterVocabulary(attributeName, merged)
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
