@@ -907,9 +907,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-	validator.RegisterVocabulary(constraints.Arch, []string{
-		arch.AMD64, arch.PPC64EL, arch.ARM64,
-	})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
 	return validator, nil
 }
 

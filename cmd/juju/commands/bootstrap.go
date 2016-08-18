@@ -636,19 +636,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	// Merge environ and bootstrap-specific constraints.
-	constraintsValidator, err := environ.ConstraintsValidator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bootstrapConstraints, err := constraintsValidator.Merge(
-		c.Constraints, c.BootstrapConstraints,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
-
 	hostedModelConfig := map[string]interface{}{
 		"name":         c.hostedModelName,
 		config.UUIDKey: hostedModelUUID.String(),
@@ -689,7 +676,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:          c.Constraints,
-		BootstrapConstraints:      bootstrapConstraints,
+		BootstrapConstraints:      c.BootstrapConstraints,
 		BootstrapSeries:           c.BootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
