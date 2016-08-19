@@ -23,8 +23,8 @@ type metricsDebug interface {
 	// MetricBatchesForUnit returns metric batches for the given unit.
 	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)
 
-	// MetricBatchesForService returns metric batches for the given service.
-	MetricBatchesForService(service string) ([]state.MetricBatch, error)
+	// MetricBatchesForApplication returns metric batches for the given application.
+	MetricBatchesForApplication(application string) ([]state.MetricBatch, error)
 
 	// Unit returns the unit based on its name.
 	Unit(string) (*state.Unit, error)
@@ -89,7 +89,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 				continue
 			}
 		case names.ApplicationTagKind:
-			batches, err = api.state.MetricBatchesForService(tag.Id())
+			batches, err = api.state.MetricBatchesForApplication(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
@@ -162,15 +162,15 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 			return errors.Trace(err)
 		}
 	case names.ApplicationTag:
-		service, err := api.state.Application(entity.Id())
+		application, err := api.state.Application(entity.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		chURL, _ := service.CharmURL()
+		chURL, _ := application.CharmURL()
 		if chURL.Schema != "local" {
 			return errors.New("not a local charm")
 		}
-		units, err := service.AllUnits()
+		units, err := application.AllUnits()
 		if err != nil {
 			return errors.Trace(err)
 		}
