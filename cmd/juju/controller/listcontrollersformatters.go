@@ -89,15 +89,18 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 		}
 		if name == set.CurrentController {
 			name += "*"
+			output.CurrentHighlight.Fprintf(tw, "%s\t", name)
+		} else {
+			fmt.Fprintf(tw, "%s\t", name)
 		}
 		cloudRegion := c.Cloud
 		if c.CloudRegion != "" {
 			cloudRegion += "/" + c.CloudRegion
 		}
 		if withAccess {
-			print(name, modelName, userName, access, cloudRegion)
+			print(modelName, userName, access, cloudRegion)
 		} else {
-			print(name, modelName, userName, cloudRegion)
+			print(modelName, userName, cloudRegion)
 		}
 	}
 	tw.Flush()

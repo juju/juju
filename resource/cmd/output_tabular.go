@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/output"
 )
@@ -87,7 +87,7 @@ func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 	writeUpdates(info.Updates, writer, tw)
 }
 
-func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *tabwriter.Writer) {
+func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *ansiterm.TabWriter) {
 	if len(updates) > 0 {
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "[Updates Available]")

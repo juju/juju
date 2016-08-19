@@ -9,8 +9,9 @@ import (
 	"io"
 	"net"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
+	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -83,7 +84,7 @@ type summaryFormatter struct {
 	openPorts  set.Strings
 	// status -> count
 	stateToUnit map[status.Status]int
-	tw          *tabwriter.Writer
+	tw          *ansiterm.TabWriter
 }
 
 func (f *summaryFormatter) delimitValuesWithTabs(values ...string) {
