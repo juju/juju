@@ -33,8 +33,10 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -44,6 +46,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	jtesting "github.com/juju/juju/testing"
 )
 
 type DeploySuite struct {
@@ -103,7 +106,8 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharmOrBundle(c *gc.C) {
 	err := runDeploy(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, `no charm or bundle found at .*`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -129,7 +133,8 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 
 func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 	err := runDeploy(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, `no charm or bundle found at .*`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 
 func (s *DeploySuite) TestInvalidURL(c *gc.C) {
@@ -463,6 +468,35 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
 
+func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
+	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
+	output, err := runDeployCommand(c, ch, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	// should not produce any output
+	c.Assert(output, gc.Equals, "Deploying charm local:trusty/terms1")
+
+	curl := charm.MustParseURL("local:trusty/terms1-1")
+	s.AssertService(c, "terms1", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFlags(c *gc.C) {
+	command := DeployCommand{}
+	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
+	command.SetFlags(flagSet)
+	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
+	// Add to the slice below if a new flag is introduced which is valid for
+	// both charms and bundles.
+	charmAndBundleFlags := []string{"channel", "storage"}
+	var allFlags []string
+	flagSet.VisitAll(func(flag *gnuflag.Flag) {
+		allFlags = append(allFlags, flag.Name)
+	})
+	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
+	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
+	sort.Strings(declaredFlags)
+	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
+}
+
 type DeployLocalSuite struct {
 	testing.RepoSuite
 }
@@ -502,31 +536,31 @@ var deployAuthorizationTests = []struct {
 	uploadURL: "cs:~bob/trusty/wordpress1-10",
 	deployURL: "cs:~bob/trusty/wordpress1",
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress1-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress1-10" with the user specified series "trusty".`,
+Located charm "cs:~bob/trusty/wordpress1-10".
+Deploying charm "cs:~bob/trusty/wordpress1-10".`,
 }, {
 	about:     "public charm, fully resolved, success",
 	uploadURL: "cs:~bob/trusty/wordpress2-10",
 	deployURL: "cs:~bob/trusty/wordpress2-10",
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress2-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress2-10" with the user specified series "trusty".`,
+Located charm "cs:~bob/trusty/wordpress2-10".
+Deploying charm "cs:~bob/trusty/wordpress2-10".`,
 }, {
 	about:        "non-public charm, success",
 	uploadURL:    "cs:~bob/trusty/wordpress3-10",
 	deployURL:    "cs:~bob/trusty/wordpress3",
 	readPermUser: clientUserName,
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress3-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress3-10" with the user specified series "trusty".`,
+Located charm "cs:~bob/trusty/wordpress3-10".
+Deploying charm "cs:~bob/trusty/wordpress3-10".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
 	uploadURL:    "cs:~bob/trusty/wordpress4-10",
 	deployURL:    "cs:~bob/trusty/wordpress4-10",
 	readPermUser: clientUserName,
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress4-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress4-10" with the user specified series "trusty".`,
+Located charm "cs:~bob/trusty/wordpress4-10".
+Deploying charm "cs:~bob/trusty/wordpress4-10".`,
 }, {
 	about:        "non-public charm, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
@@ -545,9 +579,9 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the user specified series "t
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 added charm cs:trusty/mysql-0
-application mysql deployed (charm cs:trusty/mysql-0 with the series "trusty" defined by the bundle)
+application mysql deployed (charm cs:trusty/mysql-0)
 added charm cs:trusty/wordpress-1
-application wordpress deployed (charm cs:trusty/wordpress-1 with the series "trusty" defined by the bundle)
+application wordpress deployed (charm cs:trusty/wordpress-1)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -611,8 +645,8 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	output, err := runDeployCommand(c, "trusty/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-Added charm "cs:trusty/terms1-1" to the model.
-Deploying charm "cs:trusty/terms1-1" with the user specified series "trusty".
+Located charm "cs:trusty/terms1-1".
+Deploying charm "cs:trusty/terms1-1".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
@@ -622,17 +656,6 @@ Deployment under prior agreement to terms: term1/1 term3/1
 	})
 	_, err = s.State.Unit("terms1/0")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
-	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
-	output, err := runDeployCommand(c, ch, "--series", "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-	// should not produce any output
-	c.Assert(output, gc.Equals, "")
-
-	curl := charm.MustParseURL("local:trusty/terms1-1")
-	s.AssertService(c, "terms1", curl, 1, 0)
 }
 
 func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
@@ -886,39 +909,89 @@ func (t *testMetricCredentialsSetter) Close() error {
 }
 
 func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	var called bool
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {
-			called = true
-			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var b []byte
-			err := json.Unmarshal(data, &b)
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(b), gc.Equals, "hello registration")
-		},
-	}
-
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
-	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	charmDir := testcharms.Repo.CharmDir("metered")
+
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			0,
+			params.IsMeteredResult{Metered: true},
+			// Call to Deploy
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+			// Call to SetMetricCredentials
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("cs:quantal/metered-1")
-	svc, err := s.State.Application("metered")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := svc.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, curl)
-	c.Assert(called, jc.IsTrue)
+
+	fakeAPI.CheckCall(c, 12, "APICall",
+		"Application",
+		0,
+		"",
+		"SetMetricCredentials",
+		params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{
+				{
+					ApplicationName: "metered",
+					// `"hello registration"\n` (quotes and newline
+					// from json encoding) is returned by the fake
+					// http server. This is binary64 encoded before
+					// the call into SetMetricCredentials.
+					MetricCredentials: append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
+				},
+			},
+		},
+		&params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		},
+	)
+
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -932,39 +1005,88 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
-	var called bool
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {
-			called = true
-			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var b []byte
-			err := json.Unmarshal(data, &b)
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(b), gc.Equals, "hello registration")
-		},
-	}
-
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
-	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	charmDir := testcharms.Repo.CharmDir("metered")
+
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			0,
+			params.IsMeteredResult{Metered: true},
+			// Call to Deploy
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+			// Call to SetMetricCredentials
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("cs:quantal/metered-1")
-	svc, err := s.State.Application("metered")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := svc.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, curl)
-	c.Assert(called, jc.IsTrue)
+
+	fakeAPI.CheckCall(c, 12, "APICall",
+		"Application",
+		0,
+		"",
+		"SetMetricCredentials",
+		params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{
+				{
+					ApplicationName: "metered",
+					// `"hello registration"\n` (quotes and newline
+					// from json encoding) is returned by the fake
+					// http server. This is binary64 encoded before
+					// the call into SetMetricCredentials.
+					MetricCredentials: append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
+				},
+			},
+		},
+		&params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		},
+	)
+
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
@@ -979,49 +1101,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	}})
 }
 
-func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
-	var called bool
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {
-			called = true
-			c.Assert(serviceName, gc.DeepEquals, "dummy")
-			c.Assert(data, gc.DeepEquals, []byte{})
-		},
-	}
-
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
-	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-
-	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{}}}
-	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), ch, "--series", "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "dummy", curl, 1, 0)
-	c.Assert(called, jc.IsFalse)
-}
-
-func (s *DeploySuite) TestDeployFlags(c *gc.C) {
-	command := DeployCommand{}
-	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
-	command.SetFlags(flagSet)
-	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
-	// Add to the slice below if a new flag is introduced which is valid for
-	// both charms and bundles.
-	charmAndBundleFlags := []string{"channel", "storage"}
-	var allFlags []string
-	flagSet.VisitAll(func(flag *gnuflag.Flag) {
-		allFlags = append(allFlags, flag.Name)
-	})
-	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
-	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
-	sort.Strings(declaredFlags)
-	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
-}
-
+// FAILING
 func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
 	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1052,28 +1132,69 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 }
 
 func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {},
-		err: &params.Error{
-			Message: "IsMetered",
-			Code:    params.CodeNotImplemented,
-		},
-	}
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
-	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	charmDir := testcharms.Repo.CharmDir("metered")
+
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			0,
+			params.IsMeteredResult{Metered: true},
+			// Call to Deploy
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+			// Call to SetMetricCredentials
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+	fakeAPI.Stub.SetErrors(errors.New("IsMetered"))
+
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
-	c.Assert(err, gc.ErrorMatches, "IsMetered")
+	c.Check(err, gc.ErrorMatches, "cannot fetch model settings")
+	c.Check(errors.Details(err), gc.Matches, ".*IsMetered.*")
 }
 
 type ParseBindSuite struct {
@@ -1134,4 +1255,201 @@ func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedEr
 	err, parsedBindings := s.runParseBindWithArgs(args)
 	c.Check(err.Error(), gc.Equals, parseBindErrorPrefix+expectedErrorSuffix)
 	c.Check(parsedBindings, gc.IsNil)
+}
+
+type DeployUnitTestSuite struct {
+	jujutesting.IsolationSuite
+	DeployAPI
+}
+
+var _ = gc.Suite(&DeployUnitTestSuite{})
+
+func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc.C) {
+	// Copy dummy charm to path where we can deploy it from
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to AddLocalCharm
+			&charm.URL{
+				Schema:   "local",
+				User:     "joe",
+				Name:     "wordpress",
+				Revision: -1,
+				Series:   "trusty",
+				Channel:  "development",
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			0,
+			params.IsMeteredResult{Metered: false},
+			// Call to Deploy
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+
+	cmd := NewDeployCommandWithAPI(func() (DeployAPI, error) {
+		return fakeAPI, nil
+	})
+	context, err := jtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(jtesting.Stderr(context), gc.Matches, "Deploying charm local:trusty/wordpress\n")
+}
+
+func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to AddLocalCharm
+			&charm.URL{
+				Schema:   "local",
+				User:     "joe",
+				Name:     "dummy",
+				Revision: -1,
+				Series:   "trusty",
+				Channel:  "development",
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			0,
+			params.IsMeteredResult{Metered: false},
+			// Call to Deploy
+			0,
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+	deployCmd := NewDeployCommandWithAPI(func() (DeployAPI, error) { return fakeAPI, nil })
+	_, err := coretesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We never attempt to set metric credentials
+	for _, call := range fakeAPI.Calls() {
+		if call.FuncName == "FacadeCall" {
+			c.Assert(call.Args[0], gc.Not(gc.Matches), "SetMetricCredentials")
+		}
+	}
+}
+
+// fakeDeployAPI is a mock of the API used by the deploy command. It's
+// a little muddled at the moment, but as the DeployAPI interface is
+// sharpened, this will become so as well.
+type fakeDeployAPI struct {
+	jujutesting.Stub
+	DeployAPI
+
+	// ReturnValues holds a set of things the various methods should
+	// return.
+	ReturnValues []interface{}
+}
+
+func (f *fakeDeployAPI) Close() error {
+	f.AddCall("Close")
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
+	f.AddCall("BestFacadeVersion", facade)
+	retVal := f.ReturnValues[0].(int)
+	f.ReturnValues = f.ReturnValues[1:]
+	return retVal
+}
+
+func (f *fakeDeployAPI) FacadeCall(request string, params, response interface{}) error {
+	f.AddCall("FacadeCall", request, params, response)
+	marshaled, err := json.Marshal(f.ReturnValues[0])
+	if err != nil {
+		panic(err)
+	}
+	json.Unmarshal(marshaled, &response)
+	f.ReturnValues = f.ReturnValues[1:]
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) APICall(
+	objType string,
+	version int,
+	id, request string,
+	params, response interface{},
+) error {
+	f.AddCall("APICall", objType, version, id, request, params, response)
+	marshaled, err := json.Marshal(f.ReturnValues[0])
+	if err != nil {
+		panic(err)
+	}
+	json.Unmarshal(marshaled, &response)
+	f.ReturnValues = f.ReturnValues[1:]
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) Client() *api.Client {
+	f.AddCall("Client")
+	retVal := f.ReturnValues[0].(*api.Client)
+	f.ReturnValues = f.ReturnValues[1:]
+	return retVal
+}
+
+func (f *fakeDeployAPI) ModelUUID() (string, bool) {
+	f.MethodCall(f, "ModelUUID")
+	uuid := f.ReturnValues[0].(string)
+	f.ReturnValues = f.ReturnValues[1:]
+
+	ok := f.ReturnValues[0].(bool)
+	f.ReturnValues = f.ReturnValues[1:]
+	return uuid, ok
+}
+
+func (f *fakeDeployAPI) AddLocalCharm(url *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	f.MethodCall(f, "AddLocalCharm", url, ch)
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	retVal := f.ReturnValues[0].(*charm.URL)
+	f.ReturnValues = f.ReturnValues[1:]
+	return retVal, nil
+}
+
+func (f *fakeDeployAPI) AddCharm(url *charm.URL, channel csclientparams.Channel) error {
+	f.MethodCall(f, "AddCharm", url, channel)
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) AddCharmWithAuthorization(
+	url *charm.URL,
+	channel csclientparams.Channel,
+	macaroon *macaroon.Macaroon,
+) error {
+	f.MethodCall(f, "AddCharmWithAuthorization", url, channel, macaroon)
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
+	f.MethodCall(f, "CharmInfo", url)
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	retVal := f.ReturnValues[0].(*charms.CharmInfo)
+	f.ReturnValues = f.ReturnValues[1:]
+	return retVal, nil
 }

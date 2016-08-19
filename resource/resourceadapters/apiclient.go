@@ -6,7 +6,6 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
@@ -16,16 +15,7 @@ import (
 // NewAPIClient is mostly a copy of the newClient code in
 // component/all/resources.go.  It lives here because it simplifies this code
 // immensely.
-func NewAPIClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
-	apiCaller, err := newAPICaller()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return newAPIClient(apiCaller)
-}
-
-func newAPIClient(apiCaller api.Connection) (*client.Client, error) {
+func NewAPIClient(apiCaller base.APICallCloser) (*client.Client, error) {
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.FacadeName, server.Version)
 
 	httpClient, err := apiCaller.HTTPClient()

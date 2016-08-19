@@ -150,14 +150,13 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				previous := series.SetLatestLtsForTesting(test.ltsSeries)
 				defer series.SetLatestLtsForTesting(previous)
 			}
-			series, msg, err := test.seriesSelector.charmSeries()
+			series, err := test.seriesSelector.charmSeries()
 			if test.err != "" {
 				c.Check(err, gc.ErrorMatches, test.err)
 				return
 			}
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(series, gc.Equals, test.expectedSeries)
-			c.Check(msg, gc.Matches, test.message)
 		}()
 	}
 }
