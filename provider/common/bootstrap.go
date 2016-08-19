@@ -55,8 +55,8 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	return bsResult, nil
 }
 
-// BootstrapInstance creates a new instance with the series and architecture
-// of its choice, constrained to those of the available tools, and
+// BootstrapInstance creates a new instance with the series of its choice,
+// constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial Juju controller.

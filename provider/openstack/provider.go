@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -137,8 +136,7 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: providerSupportedArchitectures,
+		Region: region,
 	}, nil
 }
 
@@ -364,18 +362,13 @@ var unsupportedConstraints = []string{
 	constraints.CpuPower,
 }
 
-// This is provided to avoid double hard-coding of provider specific architecture for
-// use in constraints validator and metadata lookup params (used to validate images).
-var providerSupportedArchitectures = arch.AllSupportedArches
-
 // ConstraintsValidator is defined on the Environs interface.
 func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
@@ -1381,10 +1374,9 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Series:   config.PreferredSeries(e.ecfg()),
+		Region:   cloudSpec.Region,
+		Endpoint: cloudSpec.Endpoint,
 	}, nil
 }
 

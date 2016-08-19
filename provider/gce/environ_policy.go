@@ -5,7 +5,6 @@ package gce
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
 )
@@ -59,8 +58,6 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterUnsupported(unsupportedConstraints)
 
 	// vocab
-
-	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64})
 
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {

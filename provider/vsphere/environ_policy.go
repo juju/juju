@@ -6,8 +6,6 @@
 package vsphere
 
 import (
-	"github.com/juju/utils/arch"
-
 	"github.com/juju/juju/constraints"
 )
 
@@ -27,23 +25,11 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 }
 
-// This is provided to avoid double hard-coding of provider specific architecture for
-// use in constraints validator and metadata lookup params (used to validate images).
-var providerSupportedArchitectures = arch.AllSupportedArches
-
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
-
-	// unsupported
-
 	validator.RegisterUnsupported(unsupportedConstraints)
-
-	// vocab
-
-	validator.RegisterVocabulary(constraints.Arch, providerSupportedArchitectures)
-
 	return validator, nil
 }
 

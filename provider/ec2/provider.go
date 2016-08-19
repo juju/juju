@@ -124,9 +124,8 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: providerSupportedArchitectures,
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
 }
 

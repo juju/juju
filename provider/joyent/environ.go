@@ -159,10 +159,9 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 		region = env.cloud.Region
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(env.Ecfg()),
-		Region:        region,
-		Endpoint:      env.cloud.Endpoint,
-		Architectures: providerSupportedArchitectures,
+		Series:   config.PreferredSeries(env.Ecfg()),
+		Region:   region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 

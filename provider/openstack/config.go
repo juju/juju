@@ -88,7 +88,7 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
-				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
+				"for your chosen series and architecture. If this is a private Openstack deployment without\n"+
 				"existing image metadata, please run 'juju-metadata help' to see how suitable image"+
 				"metadata can be generated.",
 			"default-image-id", defaultImageId)
