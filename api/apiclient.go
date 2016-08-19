@@ -88,6 +88,11 @@ type state struct {
 	// Login
 	facadeVersions map[string][]int
 
+	// pingFacadeVersion is the version to use for the pinger. This is lazily
+	// set at initialization to avoid a race in our tests. See
+	// http://pad.lv/1614732 for more details regarding the race.
+	pingerFacadeVersion int
+
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
 
@@ -217,8 +222,9 @@ func open(
 			Host:   conn.Config().Location.Host,
 			Path:   "/",
 		},
-		serverScheme:      "https",
-		serverRootAddress: conn.Config().Location.Host,
+		pingerFacadeVersion: facadeVersions["Pinger"],
+		serverScheme:        "https",
+		serverRootAddress:   conn.Config().Location.Host,
 		// We populate the username and password before
 		// login because, when doing HTTP requests, we'll want
 		// to use the same username and password for authenticating
@@ -589,7 +595,7 @@ func (s *state) heartbeatMonitor() {
 }
 
 func (s *state) Ping() error {
-	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
+	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
 type hasErrorCode interface {
