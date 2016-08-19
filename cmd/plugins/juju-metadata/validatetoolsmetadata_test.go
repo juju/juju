@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/utils/arch"
 )
 
 type ValidateToolsMetadataSuite struct {
