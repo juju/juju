@@ -249,11 +249,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	// IFF there is any image metadata, then and only then do we intersect
-	// the vocabulary with the architectures from the metadata.
+	// IFF there is any image metadata, then and only then do we update
+	// the vocabulary with the architectures from images metadata.
 	if len(architectures) != 0 {
-		architectures.Add(arch.HostArch())
-		constraintsValidator.IntersectVocabulary(constraints.Arch, architectures.SortedValues())
+		constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 	}
 
 	bootstrapConstraints, err := constraintsValidator.Merge(

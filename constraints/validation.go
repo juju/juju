@@ -47,15 +47,6 @@ type Validator interface {
 	//     and new values are {c, d},
 	//     then the merge result would be {a, b, c, d}.
 	UpdateVocabulary(attributeName string, newValues interface{})
-
-	// IntersectVocabulary determines an intersection
-	// between new attribute values and existing ones and updates vocabulary
-	// with the result.
-	// If existing values are {a, b} and new values are {b, d},
-	// then the values after this call would be {b}.
-	// If either existing values or new values are empty {},
-	// intersection result would be empty too.
-	IntersectVocabulary(attributeName string, newValues interface{})
 }
 
 // NewValidator returns a new constraints Validator instance.
@@ -130,30 +121,6 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 	writeUnique(newValues)
 
 	v.updateVocabularyFromMap(attributeName, unique)
-}
-
-// IntersectVocabulary is defined on Validator.
-func (v *validator) IntersectVocabulary(attributeName string, allowedValues interface{}) {
-	newValues := convertToSlice(allowedValues)
-	currentValues := v.vocab[attributeName]
-
-	// contains determines if given item is in the supplied collection.
-	contains := func(all []interface{}, one interface{}) bool {
-		for _, item := range all {
-			if item == one {
-				return true
-			}
-		}
-		return false
-	}
-
-	intersection := map[interface{}]bool{}
-	for _, current := range currentValues {
-		if contains(newValues, current) {
-			intersection[current] = true
-		}
-	}
-	v.updateVocabularyFromMap(attributeName, intersection)
 }
 
 func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
