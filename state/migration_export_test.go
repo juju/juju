@@ -877,3 +877,23 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 		u.UnitTag(),
 	})
 }
+
+func (s *MigrationExportSuite) TestStoragePools(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
+	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
+		"value": 42,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	pools := model.StoragePools()
+	c.Assert(pools, gc.HasLen, 1)
+	pool := pools[0]
+	c.Assert(pool.Name(), gc.Equals, "test-pool")
+	c.Assert(pool.Provider(), gc.Equals, "loop")
+	c.Assert(pool.Attributes(), jc.DeepEquals, map[string]interface{}{
+		"value": 42,
+	})
+}

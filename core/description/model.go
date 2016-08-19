@@ -54,6 +54,7 @@ func NewModel(args ModelArgs) Model {
 	m.setVolumes(nil)
 	m.setFilesystems(nil)
 	m.setStorages(nil)
+	m.setStoragePools(nil)
 	return m
 }
 
@@ -138,9 +139,10 @@ type model struct {
 	CloudRegion_     string `yaml:"cloud-region,omitempty"`
 	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
-	Volumes_     volumes     `yaml:"volumes"`
-	Filesystems_ filesystems `yaml:"filesystems"`
-	Storages_    storages    `yaml:"storages"`
+	Volumes_      volumes      `yaml:"volumes"`
+	Filesystems_  filesystems  `yaml:"filesystems"`
+	Storages_     storages     `yaml:"storages"`
+	StoragePools_ storagepools `yaml:"storage-pools"`
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -534,6 +536,29 @@ func (m *model) setStorages(storageList []*storage) {
 	}
 }
 
+// StoragePools implements Model.
+func (m *model) StoragePools() []StoragePool {
+	var result []StoragePool
+	for _, pool := range m.StoragePools_.Pools_ {
+		result = append(result, pool)
+	}
+	return result
+}
+
+// AddStoragePool implemets Model.
+func (m *model) AddStoragePool(args StoragePoolArgs) StoragePool {
+	pool := newStoragePool(args)
+	m.StoragePools_.Pools_ = append(m.StoragePools_.Pools_, pool)
+	return pool
+}
+
+func (m *model) setStoragePools(poolList []*storagepool) {
+	m.StoragePools_ = storagepools{
+		Version: 1,
+		Pools_:  poolList,
+	}
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -860,6 +885,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"volumes":          schema.StringMap(schema.Any()),
 		"filesystems":      schema.StringMap(schema.Any()),
 		"storages":         schema.StringMap(schema.Any()),
+		"storage-pools":    schema.StringMap(schema.Any()),
 		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -1005,6 +1031,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "storages")
 	}
 	result.setStorages(storages)
+
+	pools, err := importStoragePools(valid["storage-pools"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "storage-pools")
+	}
+	result.setStoragePools(pools)
 
 	return result, nil
 }

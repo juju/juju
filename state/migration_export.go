@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 // Export the current model for the State.
@@ -1145,6 +1146,9 @@ func (e *exporter) storage() error {
 	if err := e.storageInstances(); err != nil {
 		return errors.Trace(err)
 	}
+	if err := e.storagePools(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1416,5 +1420,40 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 		return nil, errors.Annotate(err, "failed to read storage attachments")
 	}
 	e.logger.Debugf("read %d storage attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) storagePools() error {
+	registry, err := e.st.storageProviderRegistry()
+	if err != nil {
+		return errors.Annotate(err, "getting provider registry")
+	}
+	pm := poolmanager.New(storagePoolSettingsManager{e: e}, registry)
+	poolConfigs, err := pm.List()
+	if err != nil {
+		return errors.Annotate(err, "listing pools")
+	}
+	for _, cfg := range poolConfigs {
+		e.model.AddStoragePool(description.StoragePoolArgs{
+			Name:       cfg.Name(),
+			Provider:   string(cfg.Provider()),
+			Attributes: cfg.Attrs(),
+		})
+	}
+	return nil
+}
+
+type storagePoolSettingsManager struct {
+	poolmanager.SettingsManager
+	e *exporter
+}
+
+func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
+	result := make(map[string]map[string]interface{})
+	for key, doc := range m.e.modelSettings {
+		if strings.HasPrefix(key, keyPrefix) {
+			result[key] = doc.Settings
+		}
+	}
 	return result, nil
 }

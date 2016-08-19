@@ -100,6 +100,9 @@ type Model interface {
 	Storages() []Storage
 	AddStorage(StorageArgs) Storage
 
+	StoragePools() []StoragePool
+	AddStoragePool(StoragePoolArgs) StoragePool
+
 	Validate() error
 }
 
@@ -487,4 +490,11 @@ type Storage interface {
 	Attachments() []names.UnitTag
 
 	Validate() error
+}
+
+// StoragePool represents a named storage pool and its settings.
+type StoragePool interface {
+	Name() string
+	Provider() string
+	Attributes() map[string]interface{}
 }
