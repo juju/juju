@@ -70,9 +70,6 @@ type SetModelAgentVersion struct {
 
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
-	// The json names for the fields below are as per the older
-	// field names for backward compatibility. New fields are
-	// camel-cased for consistency within this type only.
 	Name               string `json:"name"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`

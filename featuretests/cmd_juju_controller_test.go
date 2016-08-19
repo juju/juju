@@ -80,9 +80,11 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
-		"controller*  admin@local  available  just now\n"+
-		"new-model    admin@local  available  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL        OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
+		"controller*  admin@local  available  admin   just now\n"+
+		"new-model    admin@local  available  admin   never connected\n"+
 		"\n")
 }
 
@@ -90,9 +92,11 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL              OWNER        STATUS     LAST CONNECTION\n"+
-		"admin/controller*  admin@local  available  just now\n"+
-		"test/new-model     test@local   available  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL              OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
+		"admin/controller*  admin@local  available  admin   just now\n"+
+		"test/new-model     test@local   available          never connected\n"+
 		"\n")
 }
 
@@ -103,6 +107,7 @@ models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-name: kontroll
   owner: admin@local
   cloud: dummy
   region: dummy-region
@@ -142,9 +147,11 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS      LAST CONNECTION\n"+
-		"controller*  admin@local  available   just now\n"+
-		"new-model    admin@local  destroying  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL        OWNER        STATUS      ACCESS  LAST CONNECTION\n"+
+		"controller*  admin@local  available   admin   just now\n"+
+		"new-model    admin@local  destroying  admin   never connected\n"+
 		"\n")
 }
 

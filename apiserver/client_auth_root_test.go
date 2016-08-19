@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/testing/factory"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,22 +41,11 @@ func (s *clientAuthRootSuite) AssertCallErrPerm(c *gc.C, client *clientAuthRoot,
 	c.Assert(caller, gc.IsNil)
 }
 
-func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
+func (s *clientAuthRootSuite) TestCalls(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, nil)
 	client := newClientAuthRoot(&fakeRoot{}, modelUser, description.UserAccess{})
 	s.AssertCallGood(c, client, "Application", 1, "Deploy")
 	s.AssertCallGood(c, client, "UserManager", 1, "UserInfo")
-	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
-	s.AssertCallNotImplemented(c, client, "Unknown", 1, "Method")
-}
-
-func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
-	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
-	client := newClientAuthRoot(&fakeRoot{}, modelUser, description.UserAccess{})
-	// deploys are bad
-	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
-	// read only commands are fine
-	s.AssertCallGood(c, client, "Client", 1, "FullStatus")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
 	s.AssertCallNotImplemented(c, client, "Unknown", 1, "Method")
 }

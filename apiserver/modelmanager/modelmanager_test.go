@@ -820,6 +820,13 @@ func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser description.Us
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 }
 
+func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
+	result, err := s.modelmanager.ModelInfo(params.Entities{Entities: []params.Entity{{Tag: st.ModelTag().String()}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+}
+
 func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	apiUser := s.AdminUserTag(c)
@@ -834,6 +841,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	s.setAPIUser(c, user.UserTag())
+	s.assertModelAccess(c, st)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
@@ -851,6 +860,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
 	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	s.setAPIUser(c, userTag)
+	s.assertModelAccess(c, st)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
@@ -866,6 +877,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, description.WriteAccess)
+	s.setAPIUser(c, user.UserTag())
+	s.assertModelAccess(c, st)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
