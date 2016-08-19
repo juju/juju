@@ -4,8 +4,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
@@ -69,7 +67,7 @@ func (c *sshCommand) Info() *cmd.Info {
 
 func (c *sshCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no target name specified")
+		return errors.Errorf("no target name specified")
 	}
 	c.Target, c.Args = args[0], args[1:]
 	return nil

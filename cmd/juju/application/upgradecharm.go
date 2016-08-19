@@ -4,7 +4,6 @@
 package application
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,22 +135,22 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		if !names.IsValidApplication(args[0]) {
-			return fmt.Errorf("invalid application name %q", args[0])
+			return errors.Errorf("invalid application name %q", args[0])
 		}
 		c.ApplicationName = args[0]
 	case 0:
-		return fmt.Errorf("no application specified")
+		return errors.Errorf("no application specified")
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
 	if c.SwitchURL != "" && c.Revision != -1 {
-		return fmt.Errorf("--switch and --revision are mutually exclusive")
+		return errors.Errorf("--switch and --revision are mutually exclusive")
 	}
 	if c.CharmPath != "" && c.Revision != -1 {
-		return fmt.Errorf("--path and --revision are mutually exclusive")
+		return errors.Errorf("--path and --revision are mutually exclusive")
 	}
 	if c.SwitchURL != "" && c.CharmPath != "" {
-		return fmt.Errorf("--switch and --path are mutually exclusive")
+		return errors.Errorf("--switch and --path are mutually exclusive")
 	}
 	return nil
 }
@@ -362,7 +361,7 @@ func (c *upgradeCharmCommand) addCharm(
 	if err == nil {
 		_, newName := filepath.Split(charmRef)
 		if newName != oldURL.Name {
-			return id, nil, fmt.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
+			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
 		addedURL, err := client.AddLocalCharm(newURL, ch)
 		id.URL = addedURL
@@ -402,12 +401,12 @@ func (c *upgradeCharmCommand) addCharm(
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
 		if refURL.Revision != -1 {
-			return id, nil, fmt.Errorf("already running specified charm %q", newURL)
+			return id, nil, errors.Errorf("already running specified charm %q", newURL)
 		}
 		// No point in trying to upgrade a charm store charm when
 		// we just determined that's the latest revision
 		// available.
-		return id, nil, fmt.Errorf("already running latest charm %q", newURL)
+		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
 	curl, csMac, err := addCharmFromURL(client, newURL, channel, store.Client())

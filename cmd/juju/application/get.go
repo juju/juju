@@ -66,7 +66,6 @@ func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *getCommand) Init(args []string) error {
-	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no application name specified")
 	}
@@ -112,7 +111,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	if c.key != "" {
 		info, found := results.Config[c.key].(map[string]interface{})
 		if !found {
-			return fmt.Errorf("key %q not found in %q application settings.", c.key, c.applicationName)
+			return errors.Errorf("key %q not found in %q application settings.", c.key, c.applicationName)
 		}
 		out := &bytes.Buffer{}
 		err := cmd.FormatYaml(out, info["value"])

@@ -4,7 +4,6 @@
 package action
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -141,7 +140,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 		ActionName := args[1]
 		if valid := ActionNameRule.MatchString(ActionName); !valid {
-			return fmt.Errorf("invalid action name %q", ActionName)
+			return errors.Errorf("invalid action name %q", ActionName)
 		}
 		c.unitTag = names.NewUnitTag(unitName)
 		c.actionName = ActionName
@@ -153,13 +152,13 @@ func (c *runCommand) Init(args []string) error {
 		for _, arg := range args[2:] {
 			thisArg := strings.SplitN(arg, "=", 2)
 			if len(thisArg) != 2 {
-				return fmt.Errorf("argument %q must be of the form key...=value", arg)
+				return errors.Errorf("argument %q must be of the form key...=value", arg)
 			}
 			keySlice := strings.Split(thisArg[0], ".")
 			// check each key for validity
 			for _, key := range keySlice {
 				if valid := keyRule.MatchString(key); !valid {
-					return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+					return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
 				}
 			}
 			// c.args={..., [key, key, key, key, value]}

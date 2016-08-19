@@ -124,10 +124,10 @@ func (c *serviceGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *serviceGetConstraintsCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no application name specified")
+		return errors.Errorf("no application name specified")
 	}
 	if !names.IsValidApplication(args[0]) {
-		return fmt.Errorf("invalid application name %q", args[0])
+		return errors.Errorf("invalid application name %q", args[0])
 	}
 
 	c.ApplicationName, args = args[0], args[1:]
@@ -169,10 +169,10 @@ func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 
 func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no application name specified")
+		return errors.Errorf("no application name specified")
 	}
 	if !names.IsValidApplication(args[0]) {
-		return fmt.Errorf("invalid application name %q", args[0])
+		return errors.Errorf("invalid application name %q", args[0])
 	}
 
 	c.ApplicationName, args = args[0], args[1:]

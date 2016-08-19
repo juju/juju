@@ -93,23 +93,23 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *runCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no commands specified")
+		return errors.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 
 	if c.all {
 		if len(c.machines) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual machines")
+			return errors.Errorf("You cannot specify --all and individual machines")
 		}
 		if len(c.services) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual applications")
+			return errors.Errorf("You cannot specify --all and individual applications")
 		}
 		if len(c.units) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual units")
+			return errors.Errorf("You cannot specify --all and individual units")
 		}
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return fmt.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
+			return errors.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
 		}
 	}
 
@@ -130,7 +130,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 	}
 	if len(nameErrors) > 0 {
-		return fmt.Errorf("The following run targets are not valid:\n%s",
+		return errors.Errorf("The following run targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))
 	}
 

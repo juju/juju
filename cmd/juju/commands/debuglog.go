@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
@@ -148,7 +149,7 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.level != "" {
 		level, ok := loggo.ParseLevel(c.level)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			return errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
 				c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		c.params.Level = level

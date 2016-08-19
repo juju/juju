@@ -58,7 +58,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
 		should:      "schema with tabular output",
-		args:        []string{"--schema", validServiceId},
+		args:        []string{"--format=tabular", "--schema", validServiceId},
 		expectedErr: "full schema not compatible with tabular output",
 	}, {
 		should:               "init properly with valid application name and --schema",

@@ -127,7 +127,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *addCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
-		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
+		return errors.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
 	placement, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {

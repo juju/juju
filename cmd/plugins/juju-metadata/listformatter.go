@@ -21,7 +21,7 @@ func formatMetadataListTabular(writer io.Writer, value interface{}) error {
 	return nil
 }
 
-// formatMetadataTabular returns a tabular summary of cloud image metadata.
+// formatMetadataTabular writes a tabular summary of cloud image metadata.
 func formatMetadataTabular(writer io.Writer, metadata []MetadataInfo) {
 	tw := output.TabWriter(writer)
 	print := func(values ...string) {

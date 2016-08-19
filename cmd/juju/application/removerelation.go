@@ -4,8 +4,6 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -62,7 +60,7 @@ func (c *removeRelationCommand) Info() *cmd.Info {
 
 func (c *removeRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("a relation must involve two applications")
+		return errors.Errorf("a relation must involve two applications")
 	}
 	c.Endpoints = args
 	return nil

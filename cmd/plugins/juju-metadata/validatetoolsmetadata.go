@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -129,10 +130,10 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *validateToolsMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.region == "" {
-			return fmt.Errorf("region required if provider type is specified")
+			return errors.Errorf("region required if provider type is specified")
 		}
 		if c.metadataDir == "" {
-			return fmt.Errorf("metadata directory required if provider type is specified")
+			return errors.Errorf("metadata directory required if provider type is specified")
 		}
 	}
 	if c.exactVersion == "current" {
@@ -155,7 +156,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
-				return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
+				return errors.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
 			}
 			params, err = mdLookup.MetadataLookupParams(c.region)
 			if err != nil {
@@ -180,7 +181,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		mdLookup, ok := prov.(simplestreams.MetadataValidator)
 		if !ok {
-			return fmt.Errorf("%s provider does not support tools metadata validation", c.providerType)
+			return errors.Errorf("%s provider does not support tools metadata validation", c.providerType)
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
@@ -222,7 +223,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			}
 			buff := &bytes.Buffer{}
 			if yamlErr := cmd.FormatYaml(buff, metadata); yamlErr == nil {
-				err = fmt.Errorf("%v\n%v", err, buff.String())
+				err = errors.Errorf("%v\n%v", err, buff.String())
 			}
 		}
 		return err
@@ -242,7 +243,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
+		return errors.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
 	}
 	return nil
 }

@@ -126,7 +126,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 			}
 			return nil
 		}
-		return fmt.Errorf("key %q not found in %q model.", c.key, attrs["name"])
+		return errors.Errorf("key %q not found in %q model.", c.key, attrs["name"])
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)

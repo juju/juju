@@ -91,7 +91,7 @@ Examples:
 func formatSimple(writer io.Writer, value interface{}) error {
 	enableHAResult, ok := value.(availabilityInfo)
 	if !ok {
-		return fmt.Errorf("unexpected result type for enable-ha call: %T", value)
+		return errors.Errorf("unexpected result type for enable-ha call: %T", value)
 	}
 
 	for _, machineList := range []struct {
@@ -157,7 +157,7 @@ func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *enableHACommand) Init(args []string) error {
 	if c.NumControllers < 0 || (c.NumControllers%2 != 1 && c.NumControllers != 0) {
-		return fmt.Errorf("must specify a number of controllers odd and non-negative")
+		return errors.Errorf("must specify a number of controllers odd and non-negative")
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
@@ -173,7 +173,7 @@ func (c *enableHACommand) Init(args []string) error {
 				continue
 			}
 			if err != instance.ErrPlacementScopeMissing {
-				return fmt.Errorf("unsupported enable-ha placement directive %q", spec)
+				return errors.Errorf("unsupported enable-ha placement directive %q", spec)
 			}
 			c.Placement[i] = spec
 		}
