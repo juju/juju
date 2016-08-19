@@ -226,6 +226,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
 	}
+	if test.bootstrapConstraints.Arch == nil {
+		hostArch := arch.HostArch()
+		test.bootstrapConstraints.Arch = &hostArch
+	}
 	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
@@ -279,16 +283,40 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "bad=wrong"},
 	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
 }, {
+	info: "conflicting --constraints",
+	args: []string{"--constraints", "instance-type=foo mem=4G"},
+	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
+}, {
 	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
-	info:     "--build-agent rejects non-supported arch",
-	version:  "1.3.3-saucy-mips64",
-	hostArch: "mips64",
-	args:     []string{"--build-agent"},
-	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+	info:        "constraints",
+	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
+	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+}, {
+	info:                 "bootstrap and environ constraints",
+	args:                 []string{"--constraints", "mem=4G cpu-cores=4", "--bootstrap-constraints", "mem=8G"},
+	constraints:          constraints.MustParse("mem=4G cpu-cores=4"),
+	bootstrapConstraints: constraints.MustParse("mem=8G cpu-cores=4"),
+}, {
+	info:        "unsupported constraint passed through but no error",
+	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
+	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
+}, {
+	info:        "--build-agent uses arch from constraint if it matches current version",
+	version:     "1.3.3-saucy-ppc64el",
+	hostArch:    "ppc64el",
+	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
+	constraints: constraints.MustParse("arch=ppc64el"),
+}, {
+	info:     "--build-agent rejects mismatched arch",
+	version:  "1.3.3-saucy-amd64",
+	hostArch: "amd64",
+	args:     []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	err:      `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--build-agent always bumps build number",
 	version:  "1.2.3.4-raring-amd64",

@@ -231,7 +231,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	// We want to determine a list of valid architectures for which to pick tools and images.
-	// This includes architectures from custom metadata and bootstrap and model constraints if provided.
+	// This includes architectures from custom and other available image metadata.
 	architectures := set.NewStrings()
 	if len(customImageMetadata) > 0 {
 		for _, customMetadata := range customImageMetadata {
