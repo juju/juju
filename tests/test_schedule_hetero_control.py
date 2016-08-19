@@ -57,7 +57,7 @@ class TestBuildJobs(TestCase):
                        autospec=True) as jenkins_mock:
                 build_jobs(credentials, root, [])
             jenkins_mock.assert_called_once_with(
-                'http://localhost:8080', 'jrandom', 'password1')
+                'http://juju-ci.vapour.ws:8080', 'jrandom', 'password1')
 
     def test_build_jobs(self):
         credentials = Credentials('jrandom', 'password1')
@@ -75,24 +75,22 @@ class TestBuildJobs(TestCase):
             call('compatibility-control',
                  {'candidate_path': '1.24.5', 'candidate': '1.24.5',
                   'new_to_old': 'true', 'revision_build': '2999',
-                  'old_version': '1.18.4', 'client_os': 'ubuntu'},
-                 token='asdf'),
+                  'old_version': '1.18.4', 'client_os': 'ubuntu'}),
             call('compatibility-control-osx',
                  {'candidate_path': '1.24.5', 'candidate': '1.24.5',
                   'new_to_old': 'true', 'revision_build': '2999',
-                  'old_version': '1.18.4', 'client_os': 'osx'}, token='asdf'),
+                  'old_version': '1.18.4', 'client_os': 'osx'}),
             call('compatibility-control-windows',
                  {'candidate_path': '1.24.5', 'candidate': '1.24.5',
                   'new_to_old': 'true', 'revision_build': '2999',
-                  'old_version': '1.18.4', 'client_os': 'windows'},
-                 token='asdf')]
+                  'old_version': '1.18.4', 'client_os': 'windows'})]
         with temp_dir() as root:
             write_config(root, 'compatibility-control', 'asdf')
             with patch('schedule_hetero_control.Jenkins',
                        autospec=True) as jenkins_mock:
                 build_jobs(credentials, root, jobs)
             jenkins_mock.assert_called_once_with(
-                'http://localhost:8080', 'jrandom', 'password1')
+                'http://juju-ci.vapour.ws:8080', 'jrandom', 'password1')
             self.assertEqual(
                 jenkins_mock.return_value.build_job.call_args_list, calls)
 
@@ -172,7 +170,7 @@ class CalculateJobs(TestCase):
             os.makedirs(candidate_path_2)
             make_build_var_file(candidate_path_2, '2.0.1')
             jobs = list(calculate_jobs(root))
-        expected = self.make_jobs('2.0.1',  '2.0.0')
+        expected = self.make_jobs('2.0.1', '2.0.0')
         self.assertItemsEqual(jobs, expected)
 
     def test_calculate_jobs_candiade_v1_and_v2(self):
@@ -188,7 +186,7 @@ class CalculateJobs(TestCase):
             os.makedirs(candidate_path_2)
             make_build_var_file(candidate_path_2, '2.0.1')
             jobs = list(calculate_jobs(root))
-        expected = self.make_jobs('2.0.1',  '2.0.0')
+        expected = self.make_jobs('2.0.1', '2.0.0')
         expected.extend(self.make_jobs('1.24.3', '1.20.11'))
         self.assertItemsEqual(jobs, expected)
 

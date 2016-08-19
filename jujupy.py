@@ -672,8 +672,9 @@ class Juju2Backend:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None, user_name=None):
+    def get_juju_output(self, command, args, used_feature_flags, juju_home,
+                        model=None, timeout=None, user_name=None,
+                        merge_stderr=False):
         args = self.full_args(command, args, model, timeout)
         env = self.shell_environ(used_feature_flags, juju_home)
         log.debug(args)
@@ -682,7 +683,7 @@ class Juju2Backend:
         with scoped_environ(env):
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
             sub_output, sub_error = proc.communicate()
             log.debug(sub_output)
             if proc.returncode != 0:
@@ -690,7 +691,7 @@ class Juju2Backend:
                 e = subprocess.CalledProcessError(
                     proc.returncode, args, sub_output)
                 e.stderr = sub_error
-                if (
+                if sub_error and (
                     'Unable to connect to environment' in sub_error or
                         'MissingOrIncorrectVersionHeader' in sub_error or
                         '307: Temporary Redirect' in sub_error):
@@ -835,6 +836,10 @@ class EnvJujuClient:
     status_class = Status
 
     agent_metadata_url = 'agent-metadata-url'
+
+    model_permissions = frozenset(['read', 'write', 'admin'])
+
+    controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
     @classmethod
     def preferred_container(cls):
@@ -1153,10 +1158,11 @@ class EnvJujuClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
-        timeout = kwargs.get('timeout')
+        pass_kwargs = dict(
+            (k, kwargs[k]) for k in kwargs if k in ['timeout', 'merge_stderr'])
         return self._backend.get_juju_output(
             command, args, self.used_feature_flags, self.env.juju_home,
-            model, timeout, user_name=self.env.user_name)
+            model, user_name=self.env.user_name, **pass_kwargs)
 
     def show_status(self):
         """Print the status to output."""
@@ -1505,7 +1511,9 @@ class EnvJujuClient:
 
     def get_model_uuid(self):
         name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        model = self._cmd_model(True, False)
+        output_yaml = self.get_juju_output(
+            'show-model', '--format', 'yaml', model, include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
 
@@ -1835,11 +1843,21 @@ class EnvJujuClient:
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
+    # Future ACL feature.
+    # def add_user(self, username, models=None, permissions='login'):
+    #     """Adds provided user and return register command arguments.
+
+    #     :return: Registration token provided by the add-user command.
+    #     """
+    #     output = self.get_juju_output('add-user', include_e=False)
+    #     self.grant(username, permissions, models)
+    #     return self._get_register_command(output)
+
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
 
-        args = (username, models, '--acl', permissions)
+        args = (username, permissions, models)
 
         self.controller_juju('revoke', args)
 
@@ -1883,7 +1901,7 @@ class EnvJujuClient:
         controller_name = '{}_controller'.format(username)
 
         model = self.env.environment
-        token = self.add_user(username, models=model + ',controller',
+        token = self.add_user(username, models=model,
                               permissions=user.permissions)
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,
@@ -1905,7 +1923,11 @@ class EnvJujuClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
         return user_client
+
+    def remove_user(self, username):
+        self.juju('remove-user', (username, '-y'), include_e=False)
 
     def create_cloned_environment(
             self, cloned_juju_home, controller_name, user_name=None):
@@ -1926,14 +1948,50 @@ class EnvJujuClient:
         return user_client
 
     def grant(self, user_name, permission, model=None):
-        """Grant the user with a model."""
-        if model is None:
-            model = self.model_name
-        self.juju('grant', (user_name, model, '--acl', permission),
-                  include_e=False)
+        """Grant the user with model or controller permission."""
+        if permission in self.controller_permissions:
+            self.juju('grant', (user_name, permission),
+                      include_e=False)
+        elif permission in self.model_permissions:
+            if model is None:
+                model = self.model_name
+            self.juju('grant', (user_name, permission, model),
+                      include_e=False)
+        else:
+            raise
+
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return self.get_juju_output('list-clouds', '--format',
+                                    format, include_e=False)
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return self.get_juju_output('show-controller', '--format',
+                                    format, include_e=False)
+
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('ssh-keys', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('add-ssh-key', *keys, merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('remove-ssh-key', *keys, merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
 
 
 class EnvJujuClient2B9(EnvJujuClient):
+
     def update_user_name(self):
         return
 
@@ -1942,13 +2000,33 @@ class EnvJujuClient2B9(EnvJujuClient):
         """Create a cloned environment.
 
         `user_name` is unused in this version of beta.
-
         """
         user_client = self.clone(env=self.env.clone())
         user_client.env.juju_home = cloned_juju_home
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
+
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with a model."""
+        if model is None:
+            model = self.model_name
+        self.juju('grant', (user_name, model, '--acl', permission),
+                  include_e=False)
+
+    def revoke(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
@@ -2150,6 +2228,14 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def list_models(self):
         """List the models registered with the current controller."""
         log.info('The model is environment {}'.format(self.env.environment))
+
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return {}
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return {}
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
@@ -2406,6 +2492,28 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         self.juju('storage pool create',
                   (name, provider,
                    'size={}'.format(size)))
+
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('authorized-keys', 'list', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('authorized-keys', 'add', *keys,
+                                    merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('authorized-keys', 'delete', *keys,
+                                    merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('authorized-keys', 'import', *keys,
+                                    merge_stderr=True)
 
 
 class EnvJujuClient22(EnvJujuClient1X):

@@ -1761,7 +1761,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         return wur_mock.mock_calls[0][2]['timeout']
 
     def test_wait_until_removed_timeout_lxd(self):
-        self.assertEqual(60, self.get_wait_until_removed_timeout(LXD_MACHINE))
+        self.assertEqual(900, self.get_wait_until_removed_timeout(LXD_MACHINE))
 
     def test_wait_until_removed_timeout_lxc(self):
         self.assertEqual(30, self.get_wait_until_removed_timeout(LXC_MACHINE))

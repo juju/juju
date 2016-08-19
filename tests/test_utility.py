@@ -30,7 +30,6 @@ from utility import (
     _find_candidates,
     find_candidates,
     find_latest_branch_candidates,
-    get_auth_token,
     get_candidates_path,
     get_deb_arch,
     get_winrm_certs,
@@ -99,14 +98,6 @@ def write_config(root, job_name, token):
     with open(job_config, 'w') as config:
         config.write(
             '<config><authToken>{}</authToken></config>'.format(token))
-
-
-class TestGetAuthToken(TestCase):
-
-    def test_get_auth_token(self):
-        with temp_dir() as root:
-            write_config(root, 'job-name', 'foo')
-            self.assertEqual(get_auth_token(root, 'job-name'), 'foo')
 
 
 class TestFindCandidates(TestCase):
@@ -649,19 +640,19 @@ class TestUnqualifiedModelName(TestCase):
 
 class TestQualifiedModelName(TestCase):
 
-    def test_raises_ValueError_when_model_name_blank(self):
+    def test_raises_valueerror_when_model_name_blank(self):
         with self.assertRaises(ValueError):
             qualified_model_name('', 'admin@local')
 
-    def test_raises_ValueError_when_owner_name_blank(self):
+    def test_raises_valueerror_when_owner_name_blank(self):
         with self.assertRaises(ValueError):
             qualified_model_name('default', '')
 
-    def test_raises_ValueError_when_owner_and_model_blank(self):
+    def test_raises_valueerror_when_owner_and_model_blank(self):
         with self.assertRaises(ValueError):
             qualified_model_name('', '')
 
-    def test_raises_ValueError_when_owner_name_doesnt_match_model_owner(self):
+    def test_raises_valueerror_when_owner_name_doesnt_match_model_owner(self):
         with self.assertRaises(ValueError):
             qualified_model_name('test/default', 'admin')
 
