@@ -128,11 +128,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
-	// Should have host arch, since none was explicitly specified.
-	hostArch := arch.HostArch()
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		BootstrapConstraints: constraints.Value{Arch: &hostArch},
+		ControllerConfig: coretesting.FakeControllerConfig(),
 	})
 }
 
@@ -150,9 +147,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	// Should have host arch, since none was explicitly specified.
-	hostArch := arch.HostArch()
-	bootstrapCons.Arch = &hostArch
 	c.Assert(env.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
 	c.Assert(env.args.ModelConstraints, gc.DeepEquals, modelCons)
 }

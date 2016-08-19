@@ -203,26 +203,23 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if args.BootstrapSeries != "" {
 		bootstrapSeries = &args.BootstrapSeries
 	}
-	// If no arch is specified as a constraint, we'll bootstrap
-	// on the same arch as the client used to bootstrap.
-	var bootstrapArch string
+
+	var bootstrapArchForImageSearch string
 	if args.BootstrapConstraints.Arch != nil {
-		bootstrapArch = *args.BootstrapConstraints.Arch
+		bootstrapArchForImageSearch = *args.BootstrapConstraints.Arch
 	} else if args.ModelConstraints.Arch != nil {
-		bootstrapArch = *args.ModelConstraints.Arch
+		bootstrapArchForImageSearch = *args.ModelConstraints.Arch
 	} else {
-		bootstrapArch = arch.HostArch()
-		// We no longer support controllers on i386.
-		// If we are bootstrapping from an i386 client,
-		// we'll look for amd64 tools.
-		if bootstrapArch == arch.I386 {
-			bootstrapArch = arch.AMD64
+		bootstrapArchForImageSearch = arch.HostArch()
+		// We no longer support i386.
+		if bootstrapArchForImageSearch == arch.I386 {
+			bootstrapArchForImageSearch = arch.AMD64
 		}
 	}
 
 	imageMetadata, err := bootstrapImageMetadata(environ,
 		bootstrapSeries,
-		bootstrapArch,
+		bootstrapArchForImageSearch,
 		args.BootstrapImage,
 		&customImageMetadata,
 	)
@@ -262,21 +259,31 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Trace(err)
 	}
 
-	if bootstrapConstraints.Arch == nil {
-		hostArch := arch.HostArch()
-		bootstrapConstraints.Arch = &hostArch
+	// The arch we use to find tools isn't the boostrapConstraints arch.
+	// We copy the constraints arch to a separate variable and
+	// update it from the host arch if not specified.
+	// (axw) This is still not quite right:
+	// For e.g. if there is a MAAS with only ARM64 machines,
+	// on an AMD64 client, we're going to look for only AMD64 tools,
+	// limiting what the provider can bootstrap anyway.
+	var bootstrapArch string
+	if bootstrapConstraints.Arch != nil {
+		bootstrapArch = *bootstrapConstraints.Arch
+	} else {
+		// If no arch is specified as a constraint, we'll bootstrap
+		// on the same arch as the client used to bootstrap.
+		bootstrapArch = arch.HostArch()
 		// We no longer support controllers on i386.
 		// If we are bootstrapping from an i386 client,
 		// we'll look for amd64 tools.
-		if *bootstrapConstraints.Arch == arch.I386 {
-			amd64 := arch.AMD64
-			bootstrapConstraints.Arch = &amd64
+		if bootstrapArch == arch.I386 {
+			bootstrapArch = arch.AMD64
 		}
 	}
 
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, bootstrapConstraints.Arch, bootstrapSeries)
+		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -288,7 +295,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err := validateUploadAllowed(environ, bootstrapConstraints.Arch, bootstrapSeries, constraintsValidator); err != nil {
+		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
 		var forceVersion version.Number
