@@ -332,9 +332,12 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
             #     (username, 'addmodel', '-c', bs1.client.env.controller.name),
             #     include_e=False)
 
+            second_controller_name = '{}_controllerb'.format(new_user.name)
             normal_user_client_2 = bs2.client.register_user(
-                new_user, new_user_home)
-            bs1.client.grant(new_user.name, 'addmodel')
+                new_user,
+                new_user_home,
+                controller_name=second_controller_name)
+            bs2.client.grant(new_user.name, 'addmodel')
 
             # Needed?
             # _set_user_password(bs1.client, 'admin', 'juju')
@@ -350,7 +353,7 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
             # normal_user_client.env.config['authorized-keys'] = rsa_pub
 
             # Step into this method.
-            normal_user_client_1.add_model(
+            user_new_model_client = normal_user_client_1.add_model(
                 normal_user_client_1.env.clone('model-a'))
 
             # Comment for now for time.
@@ -362,7 +365,7 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
             # This should fail.
             normal_user_client_1.controller_juju(
                 'migrate',
-                (normal_user_client_1.env.environment,
+                (user_new_model_client.env.environment,
                  normal_user_client_2.env.controller.name))
 
 
