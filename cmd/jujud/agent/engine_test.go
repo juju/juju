@@ -42,6 +42,7 @@ var (
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",
+		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
