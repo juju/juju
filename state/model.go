@@ -36,9 +36,9 @@ func modelKey(modelUUID string) string {
 type MigrationMode string
 
 const (
-	// MigrationModeActive is the default mode for a model and reflects
-	// a model that is active within its controller.
-	MigrationModeActive MigrationMode = ""
+	// MigrationModeNone is the default mode for a model and reflects
+	// that it isn't involved with a model migration.
+	MigrationModeNone MigrationMode = ""
 
 	// MigrationModeExporting reflects a model that is in the process of being
 	// exported from one controller to another.
@@ -201,7 +201,7 @@ func (m ModelArgs) Validate() error {
 		return errors.NotValidf("nil StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
-	case MigrationModeActive, MigrationModeImporting:
+	case MigrationModeNone, MigrationModeImporting:
 	default:
 		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
 	}
@@ -1033,7 +1033,7 @@ func assertModelActiveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeActive}),
+		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeNone}),
 	}
 }
 
@@ -1043,7 +1043,7 @@ func checkModelActive(st *State) error {
 		return errors.Errorf("model %q is no longer alive", model.Name())
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read model")
-	} else if mode := model.MigrationMode(); mode != MigrationModeActive {
+	} else if mode := model.MigrationMode(); mode != MigrationModeNone {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 	return nil

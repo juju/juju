@@ -507,7 +507,7 @@ func ResetMigrationMode(c *gc.C, st *State) {
 		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.M{
-			"$set": bson.M{"migration-mode": MigrationModeActive},
+			"$set": bson.M{"migration-mode": MigrationModeNone},
 		},
 	}}
 	err := st.runTransaction(ops)
