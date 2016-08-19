@@ -38,6 +38,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			},
 			Stream: params.Stream,
 			Series: []string{params.Series},
+			Arches: params.Architectures,
 		})
 	} else {
 		versNum, err := version.Parse(params.Version)
@@ -51,12 +52,9 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			},
 			Stream: params.Stream,
 			Series: []string{params.Series},
+			Arches: params.Architectures,
 		})
 	}
-	if len(params.Architectures) != 0 {
-		toolsConstraint.Arches = params.Architectures
-	}
-
 	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint)
 	if err != nil {
 		return nil, resolveInfo, err
