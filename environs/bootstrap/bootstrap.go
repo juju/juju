@@ -264,16 +264,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	if bootstrapConstraints.Arch == nil {
-		{
-			hostArch := arch.HostArch()
-			bootstrapConstraints.Arch = &hostArch
-			// We no longer support controllers on i386.
-			// If we are bootstrapping from an i386 client,
-			// we'll look for amd64 tools.
-			if *bootstrapConstraints.Arch == arch.I386 {
-				amd64 := arch.AMD64
-				bootstrapConstraints.Arch = &amd64
-			}
+		hostArch := arch.HostArch()
+		bootstrapConstraints.Arch = &hostArch
+		// We no longer support controllers on i386.
+		// If we are bootstrapping from an i386 client,
+		// we'll look for amd64 tools.
+		if *bootstrapConstraints.Arch == arch.I386 {
+			amd64 := arch.AMD64
+			bootstrapConstraints.Arch = &amd64
 		}
 	}
 
