@@ -13,7 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -49,7 +51,7 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
 	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
 
-	go runMachine(context, m, nil, died)
+	go runMachine(context, m, nil, died, clock.WallClock)
 	time.Sleep(coretesting.ShortWait)
 
 	killMachineLoop(c, m, context.dyingc, died)
@@ -85,6 +87,66 @@ func (s *machineSuite) TestShortPollIntervalWhenNotProvisioned(c *gc.C) {
 	s.PatchValue(&LongPoll, coretesting.LongWait)
 	count := countPolls(c, testAddrs, "", "pending", status.StatusPending)
 	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Millisecond)
+	s.PatchValue(&LongPoll, coretesting.LongWait)
+
+	polled := make(chan struct{}, 1)
+	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
+		select {
+		case polled <- struct{}{}:
+		default:
+		}
+		return instanceInfo{testAddrs, instance.InstanceStatus{Status: status.StatusUnknown, Message: "pending"}}, nil
+	}
+	context := &testMachineContext{
+		getInstanceInfo: getInstanceInfo,
+		dyingc:          make(chan struct{}),
+	}
+	m := &testMachine{
+		tag:        names.NewMachineTag("99"),
+		instanceId: instance.Id(""),
+		refresh:    func() error { return nil },
+		addresses:  testAddrs,
+		life:       params.Alive,
+		status:     "pending",
+	}
+	died := make(chan machine)
+
+	clock := gitjujutesting.NewClock(time.Time{})
+	changed := make(chan struct{})
+	go runMachine(context, m, changed, died, clock)
+
+	expectPoll := func() {
+		// worker should be waiting for ShortPoll
+		select {
+		case <-clock.Alarms():
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("expected time-based polling")
+		}
+		clock.Advance(ShortPoll)
+	}
+
+	expectPoll()
+	expectPoll()
+	select {
+	case <-polled:
+		c.Fatalf("unexpected instance poll")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	m.setInstanceId("inst-ance")
+	expectPoll()
+	select {
+	case <-polled:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("expected instance poll")
+	}
+
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killErr, gc.Equals, nil)
 }
 
 func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
@@ -138,7 +200,7 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 	}
 	died := make(chan machine)
 
-	go runMachine(context, m, nil, died)
+	go runMachine(context, m, nil, died, clock.WallClock)
 
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
@@ -164,7 +226,7 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	}
 	died := make(chan machine)
 	changed := make(chan struct{})
-	go runMachine(context, m, changed, died)
+	go runMachine(context, m, changed, died, clock.WallClock)
 	select {
 	case <-died:
 		c.Fatalf("machine died prematurely")
@@ -241,7 +303,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	mutate(m, expectErr)
 	died := make(chan machine)
 	changed := make(chan struct{}, 1)
-	go runMachine(context, m, changed, died)
+	go runMachine(context, m, changed, died, clock.WallClock)
 	changed <- struct{}{}
 	select {
 	case <-died:
@@ -328,6 +390,8 @@ func (m *testMachine) ProviderAddresses() ([]network.Address, error) {
 }
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.instanceId == "" {
 		err := &params.Error{
 			Code:    params.CodeNotProvisioned,
@@ -336,6 +400,12 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 		return "", err
 	}
 	return m.instanceId, m.instanceIdErr
+}
+
+func (m *testMachine) setInstanceId(id instance.Id) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.instanceId = id
 }
 
 // This is stubbed out for testing.
