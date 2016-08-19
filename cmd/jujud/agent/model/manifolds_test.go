@@ -42,6 +42,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"firewaller",
 		"instance-poller",
 		"is-responsible-flag",
+		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
