@@ -226,10 +226,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
 	}
-	if test.bootstrapConstraints.Arch == nil {
-		hostArch := arch.HostArch()
-		test.bootstrapConstraints.Arch = &hostArch
-	}
 	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
