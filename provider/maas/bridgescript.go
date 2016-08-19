@@ -27,6 +27,11 @@ import shutil
 import subprocess
 import sys
 
+# These options are to be removed from a sub-interface and applied to
+# the new bridged interface.
+
+BRIDGE_ONLY_OPTIONS = {'address', 'gateway', 'netmask', 'dns-nameservers', 'dns-search', 'dns-sortlist'}
+
 
 class SeekableIterator(object):
     """An iterator that supports relative seeking."""
@@ -81,72 +86,93 @@ class LogicalInterface(object):
         self.is_vlan = [x for x in self.options if x.startswith("vlan-raw-device")]
         self.is_active = self.method == "dhcp" or self.method == "static"
         self.is_bridged = [x for x in self.options if x.startswith("bridge_ports ")]
+        self.has_auto_stanza = None
+        self.parent = None
 
     def __str__(self):
         return self.name
 
+    @classmethod
+    def prune_options(cls, options, invalid_options):
+        result = []
+        for o in options:
+            words = o.split()
+            if words[0] not in invalid_options:
+                result.append(o)
+        return result
+
     # Returns an ordered set of stanzas to bridge this interface.
-    def bridge(self, prefix, bridge_name, add_auto_stanza):
+    def bridge(self, prefix, bridge_name):
         if bridge_name is None:
             bridge_name = prefix + self.name
         # Note: the testing order here is significant.
         if not self.is_active or self.is_bridged:
-            return self._bridge_unchanged(add_auto_stanza)
+            return self._bridge_unchanged()
         elif self.is_alias:
-            return self._bridge_alias(add_auto_stanza)
+            if self.parent and self.parent.iface and (not self.parent.iface.is_active or self.parent.iface.is_bridged):
+                # if we didn't change the parent interface
+                # then we don't change the aliases neither.
+                return self._bridge_unchanged()
+            else:
+                return self._bridge_alias(bridge_name)
         elif self.is_vlan:
-            return self._bridge_vlan(prefix, bridge_name, add_auto_stanza)
+            return self._bridge_vlan(bridge_name)
         elif self.is_bonded:
-            return self._bridge_bond(prefix, bridge_name, add_auto_stanza)
+            return self._bridge_bond(bridge_name)
         else:
-            return self._bridge_device(prefix, bridge_name)
+            return self._bridge_device(bridge_name)
 
-    def _bridge_device(self, prefix, bridge_name):
-        s1 = IfaceStanza(self.name, self.family, "manual", [])
-        s2 = AutoStanza(bridge_name)
+    def _bridge_device(self, bridge_name):
+        stanzas = []
+        if self.has_auto_stanza:
+            stanzas.append(AutoStanza(self.name))
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
+        stanzas.append(AutoStanza(bridge_name))
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        return [s1, s2, s3]
+        options = self.prune_options(options, ['mtu'])
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
+        return stanzas
 
-    def _bridge_vlan(self, prefix, bridge_name, add_auto_stanza):
+    def _bridge_vlan(self, bridge_name):
         stanzas = []
-        s1 = IfaceStanza(self.name, self.family, "manual", self.options)
-        stanzas.append(s1)
-        if add_auto_stanza:
+        if self.has_auto_stanza:
+            stanzas.append(AutoStanza(self.name))
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
+        stanzas.append(AutoStanza(bridge_name))
+        options = list(self.options)
+        options.append("bridge_ports {}".format(self.name))
+        options = self.prune_options(options, ['mtu', 'vlan_id', 'vlan-raw-device'])
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
+        return stanzas
+
+    def _bridge_alias(self, bridge_name):
+        stanzas = []
+        if self.has_auto_stanza:
             stanzas.append(AutoStanza(bridge_name))
-        options = [x for x in self.options if not x.startswith("vlan")]
-        options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.append(s3)
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, list(self.options)))
         return stanzas
 
-    def _bridge_alias(self, add_auto_stanza):
+    def _bridge_bond(self, bridge_name):
         stanzas = []
-        if add_auto_stanza:
+        if self.has_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
-        return stanzas
-
-    def _bridge_bond(self, prefix, bridge_name, add_auto_stanza):
-        stanzas = []
-        if add_auto_stanza:
-            stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, "manual", list(self.options))
-        s2 = AutoStanza(bridge_name)
+        options = self.prune_options(self.options, BRIDGE_ONLY_OPTIONS)
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", options))
+        stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("bond")]
+        options = self.prune_options(options, ['mtu'])
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.extend([s1, s2, s3])
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
-    def _bridge_unchanged(self, add_auto_stanza):
+    def _bridge_unchanged(self):
         stanzas = []
-        if add_auto_stanza:
+        if self.has_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
+        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
         return stanzas
 
 
@@ -187,6 +213,13 @@ class NetworkInterfaceParser(object):
             if self.is_stanza(line):
                 stanza = self._parse_stanza(line, line_iterator)
                 self._stanzas.append(stanza)
+        physical_interfaces = self._physical_interfaces()
+        for s in self._stanzas:
+            if not s.is_logical_interface:
+                continue
+            s.iface.has_auto_stanza = s.iface.name in physical_interfaces
+
+        self._connect_aliases()
 
     def _parse_stanza(self, stanza_line, iterable):
         stanza_options = []
@@ -203,7 +236,25 @@ class NetworkInterfaceParser(object):
     def stanzas(self):
         return [x for x in self._stanzas]
 
-    def physical_interfaces(self):
+    def _connect_aliases(self):
+        """Set a reference in the alias interfaces to its related interface"""
+        ifaces = {}
+        aliases = []
+        for stanza in self._stanzas:
+            if stanza.iface is None:
+                continue
+
+            if stanza.iface.is_alias:
+                aliases.append(stanza)
+            else:
+                ifaces[stanza.iface.name] = stanza
+
+        for alias in aliases:
+            parent_name = alias.iface.name.split(':')[0]
+            if parent_name in ifaces:
+                alias.iface.parent = ifaces[parent_name]
+
+    def _physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
 
     def __iter__(self):  # class iter
@@ -327,7 +378,6 @@ def main(args):
 
     stanzas = []
     config_parser = NetworkInterfaceParser(args.filename)
-    physical_interfaces = config_parser.physical_interfaces()
 
     # Bridging requires modifying 'auto' and 'iface' stanzas only.
     # Calling <iface>.bridge() will return a set of stanzas that cover
@@ -339,13 +389,12 @@ def main(args):
 
     for s in config_parser.stanzas():
         if s.is_logical_interface:
-            add_auto_stanza = s.iface.name in physical_interfaces
             if args.interface_to_bridge and args.interface_to_bridge != s.iface.name:
-                if add_auto_stanza:
+                if s.iface.has_auto_stanza:
                     stanzas.append(AutoStanza(s.iface.name))
                 stanzas.append(s)
             else:
-                stanzas.extend(s.iface.bridge(args.bridge_prefix, args.bridge_name, add_auto_stanza))
+                stanzas.extend(s.iface.bridge(args.bridge_prefix, args.bridge_name))
         elif not s.is_physical_interface:
             stanzas.append(s)
 
