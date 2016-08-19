@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -876,6 +878,28 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
+	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
+		"value": 42,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	pm = poolmanager.New(state.NewStateSettings(newSt), provider.CommonStorageProviders())
+	pools, err := pm.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pools, gc.HasLen, 1)
+
+	pool := pools[0]
+	c.Assert(pool.Name(), gc.Equals, "test-pool")
+	c.Assert(pool.Provider(), gc.Equals, provider.LoopProviderType)
+	c.Assert(pool.Attrs(), jc.DeepEquals, map[string]interface{}{
+		"value": 42,
+	})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

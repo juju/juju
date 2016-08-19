@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 )
 
@@ -1244,6 +1245,9 @@ func (i *importer) storage() error {
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
 	}
+	if err := i.storagePools(); err != nil {
+		return errors.Annotate(err, "storage pools")
+	}
 	return nil
 }
 
@@ -1485,4 +1489,20 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 			Info:   info,
 		},
 	}
+}
+
+func (i *importer) storagePools() error {
+	registry, err := i.st.storageProviderRegistry()
+	if err != nil {
+		return errors.Annotate(err, "getting provider registry")
+	}
+	pm := poolmanager.New(NewStateSettings(i.st), registry)
+
+	for _, pool := range i.model.StoragePools() {
+		_, err := pm.Create(pool.Name(), storage.ProviderType(pool.Provider()), pool.Attributes())
+		if err != nil {
+			return errors.Annotatef(err, "creating pool %q", pool.Name())
+		}
+	}
+	return nil
 }
