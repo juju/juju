@@ -120,11 +120,18 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 	newValues := convertToSlice(allowedValues)
 	writeUnique(newValues)
 
+	v.updateVocabularyFromMap(attributeName, unique)
+}
+
+func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
 	var merged []interface{}
-	for one, _ := range unique {
+	for one, _ := range valuesMap {
+		// TODO (anastasiamac) Because it's coming from the map, the order maybe affected
+		// and can be unreliable. Not sure how to fix it yet...
+		// How can we guarantee the order here?
 		merged = append(merged, one)
 	}
-	v.vocab[attributeName] = merged
+	v.RegisterVocabulary(attributeName, merged)
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.

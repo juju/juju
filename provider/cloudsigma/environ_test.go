@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/arch"
 )
 
 var _ environs.Environ = (*environ)(nil)
@@ -34,6 +33,9 @@ func (s *environSuite) TearDownSuite(c *gc.C) {
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
+		return nil, nil
+	})
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -41,17 +43,12 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBase(c *gc.C) {
-	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
-		return nil, nil
-	})
-
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
 	env, err := environs.New(environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: baseConfig,
 	})
 	c.Assert(err, gc.IsNil)
-	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 
 	cfg := env.Config()
 	c.Assert(cfg, gc.NotNil)
@@ -64,44 +61,28 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(hasRegion, gc.NotNil)
 
 	cloudSpec, err := hasRegion.Region()
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Check(cloudSpec.Region, gc.Not(gc.Equals), "")
 	c.Check(cloudSpec.Endpoint, gc.Not(gc.Equals), "")
 
-	validator, err := env.ConstraintsValidator()
-	c.Check(validator, gc.NotNil)
-	c.Check(err, gc.IsNil)
-
-	amd64, i386 := arch.AMD64, arch.I386
-	_, err = validator.Validate(constraints.Value{Arch: &amd64})
-	c.Check(err, gc.IsNil)
-	_, err = validator.Validate(constraints.Value{Arch: &i386})
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are: \\[amd64\\]")
-
 	c.Check(env.OpenPorts(nil), gc.IsNil)
 	c.Check(env.ClosePorts(nil), gc.IsNil)
-
 	ports, err := env.Ports()
+	c.Assert(err, gc.IsNil)
 	c.Check(ports, gc.IsNil)
-	c.Check(err, gc.IsNil)
 }
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
-	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
-		return nil, nil
-	})
-
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
 	env, err := environs.New(environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: baseConfig,
 	})
 	c.Assert(err, gc.IsNil)
-	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 
 	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	c.Check(validator, gc.NotNil)
-	c.Check(err, gc.IsNil)
 
 	unsupported, err := validator.Validate(constraints.MustParse(
 		"arch=amd64 tags=foo cpu-power=100 virt-type=kvm",

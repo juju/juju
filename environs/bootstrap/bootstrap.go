@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -180,6 +181,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
 
+	ctx.Infof("Bootstrapping model %q", cfg.Name())
+	_, supportsNetworking := environs.SupportsNetworking(environ)
+	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
+	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
+	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
+
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
@@ -191,36 +198,75 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.ModelConstraints); err != nil {
-		return err
+
+	var bootstrapSeries *string
+	if args.BootstrapSeries != "" {
+		bootstrapSeries = &args.BootstrapSeries
 	}
-	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
-		return err
+
+	var bootstrapArchForImageSearch string
+	if args.BootstrapConstraints.Arch != nil {
+		bootstrapArchForImageSearch = *args.BootstrapConstraints.Arch
+	} else if args.ModelConstraints.Arch != nil {
+		bootstrapArchForImageSearch = *args.ModelConstraints.Arch
+	} else {
+		bootstrapArchForImageSearch = arch.HostArch()
+		// We no longer support i386.
+		if bootstrapArchForImageSearch == arch.I386 {
+			bootstrapArchForImageSearch = arch.AMD64
+		}
+	}
+
+	imageMetadata, err := bootstrapImageMetadata(environ,
+		bootstrapSeries,
+		bootstrapArchForImageSearch,
+		args.BootstrapImage,
+		&customImageMetadata,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We want to determine a list of valid architectures for which to pick tools and images.
+	// This includes architectures from custom and other available image metadata.
+	architectures := set.NewStrings()
+	if len(customImageMetadata) > 0 {
+		for _, customMetadata := range customImageMetadata {
+			architectures.Add(customMetadata.Arch)
+		}
+	}
+	if len(imageMetadata) > 0 {
+		for _, iMetadata := range imageMetadata {
+			architectures.Add(iMetadata.Arch)
+		}
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
 		return err
 	}
+	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
+
 	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	_, supportsNetworking := environs.SupportsNetworking(environ)
-
-	var bootstrapSeries *string
-	if args.BootstrapSeries != "" {
-		bootstrapSeries = &args.BootstrapSeries
-	}
-	// If no arch is specified as a constraint, we'll bootstrap
-	// on the same arch as the client used to bootstrap.
+	// The arch we use to find tools isn't the boostrapConstraints arch.
+	// We copy the constraints arch to a separate variable and
+	// update it from the host arch if not specified.
+	// (axw) This is still not quite right:
+	// For e.g. if there is a MAAS with only ARM64 machines,
+	// on an AMD64 client, we're going to look for only AMD64 tools,
+	// limiting what the provider can bootstrap anyway.
 	var bootstrapArch string
 	if bootstrapConstraints.Arch != nil {
 		bootstrapArch = *bootstrapConstraints.Arch
 	} else {
+		// If no arch is specified as a constraint, we'll bootstrap
+		// on the same arch as the client used to bootstrap.
 		bootstrapArch = arch.HostArch()
 		// We no longer support controllers on i386.
 		// If we are bootstrapping from an i386 client,
@@ -229,11 +275,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			bootstrapArch = arch.AMD64
 		}
 	}
-
-	ctx.Infof("Bootstrapping model %q", cfg.Name())
-	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
-	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
-	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 
 	var availableTools coretools.List
 	if !args.BuildAgent {
@@ -249,7 +290,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries); err != nil {
+		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
 		var forceVersion version.Number
@@ -272,15 +313,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)
-	}
-
-	imageMetadata, err := bootstrapImageMetadata(
-		environ, availableTools,
-		args.BootstrapImage,
-		&customImageMetadata,
-	)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -306,7 +338,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
-		BootstrapConstraints: args.BootstrapConstraints,
+		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      args.BootstrapSeries,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
@@ -342,7 +374,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
-		args.BootstrapConstraints,
+		bootstrapConstraints,
 		args.ModelConstraints,
 		result.Series,
 		publicKey,
@@ -455,7 +487,8 @@ func userPublicSigningKey() (string, error) {
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
-	availableTools coretools.List,
+	bootstrapSeries *string,
+	bootstrapArch string,
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
 ) ([]*imagemetadata.ImageMetadata, error) {
@@ -479,15 +512,10 @@ func bootstrapImageMetadata(
 	}
 
 	if bootstrapImageId != "" {
-		arches := availableTools.Arches()
-		if len(arches) != 1 {
-			return nil, errors.NotValidf("multiple architectures with bootstrap image")
+		if bootstrapSeries == nil {
+			return nil, errors.NotValidf("no series specified with bootstrap image")
 		}
-		allSeries := availableTools.AllSeries()
-		if len(allSeries) != 1 {
-			return nil, errors.NotValidf("multiple series with bootstrap image")
-		}
-		seriesVersion, err := series.SeriesVersion(allSeries[0])
+		seriesVersion, err := series.SeriesVersion(*bootstrapSeries)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -496,7 +524,7 @@ func bootstrapImageMetadata(
 		// filter on those properties should allow for empty values.
 		meta := &imagemetadata.ImageMetadata{
 			Id:         bootstrapImageId,
-			Arch:       arches[0],
+			Arch:       bootstrapArch,
 			Version:    seriesVersion,
 			RegionName: region.Region,
 			Endpoint:   region.Endpoint,
@@ -513,10 +541,9 @@ func bootstrapImageMetadata(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// This constraint will search image metadata for all supported architectures and series.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Series:    availableTools.AllSeries(),
-		Arches:    availableTools.Arches(),
 		Stream:    environ.Config().ImageStream(),
 	})
 	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
@@ -638,15 +665,6 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	})
 	logger.Infof("custom image metadata added to search path")
 	return existingMetadata, nil
-}
-
-func validateConstraints(env environs.Environ, cons constraints.Value) error {
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unsupported, err := validator.Validate(cons)
-	return errors.Annotatef(err, "unsupported constraints: %v", unsupported)
 }
 
 // guiArchive returns information on the GUI archive that will be uploaded

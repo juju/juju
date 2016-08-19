@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,10 +15,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type ConstraintsSuite struct{}
 

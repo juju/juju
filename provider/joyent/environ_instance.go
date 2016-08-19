@@ -60,11 +60,6 @@ var unsupportedConstraints = []string{
 func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.getSupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err

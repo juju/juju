@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -61,12 +59,6 @@ type environ struct {
 	cloud environs.CloudSpec
 	ec2   *ec2.EC2
 	s3    *s3.S3
-
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
@@ -140,25 +132,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) getSupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
@@ -183,11 +156,6 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.getSupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {
 		instTypeNames[i] = itype.Name
@@ -323,10 +291,9 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Series:   config.PreferredSeries(e.ecfg()),
+		Region:   cloudSpec.Region,
+		Endpoint: cloudSpec.Endpoint,
 	}, nil
 }
 

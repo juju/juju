@@ -141,8 +141,7 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: []string{"amd64", "armhf"},
+		Region: region,
 	}, nil
 }
 

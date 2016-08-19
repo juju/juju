@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -138,8 +136,7 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: arch.AllSupportedArches,
+		Region: region,
 	}, nil
 }
 
@@ -158,12 +155,6 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 type Environ struct {
 	name  string
 	cloud environs.CloudSpec
-
-	// archMutex gates access to cachedSupportedArchitectures
-	archMutex sync.Mutex
-	// cachedSupportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	cachedSupportedArchitectures []string
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -376,13 +367,8 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.supportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
@@ -395,25 +381,6 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
-}
-
-func (e *Environ) supportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.cachedSupportedArchitectures != nil {
-		return e.cachedSupportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.cachedSupportedArchitectures, err
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
@@ -1407,10 +1374,9 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Series:   config.PreferredSeries(e.ecfg()),
+		Region:   cloudSpec.Region,
+		Endpoint: cloudSpec.Endpoint,
 	}, nil
 }
 
