@@ -1322,7 +1322,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 
 				// Check that config-changed didn't record any relations, because
 				// they shouldn't been available until after the start hook.
-				ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
+				ft.File{"charm/relations.out", "[]\n", 0644}.Check(c, ctx.path)
 			}},
 			startUniter{},
 			waitHooks{"config-changed"},
@@ -1332,7 +1332,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				ft.Dir{path, 0755}.Check(c, ctx.path)
 
 				// Check that config-changed did record the joined relations.
-				data := fmt.Sprintf("db:%d\n", ctx.relation.Id())
+				data := fmt.Sprintf("- db:%d\n", ctx.relation.Id())
 				ft.File{"charm/relations.out", data, 0644}.Check(c, ctx.path)
 			}},
 		),

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewDumpCommand returns a fully constructed dump-model command.
@@ -48,10 +49,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.

@@ -5,6 +5,7 @@ package listagreements
 
 import (
 	"encoding/json"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -95,6 +96,11 @@ func (c *listAgreementsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func formatJSON(value interface{}) ([]byte, error) {
-	return json.MarshalIndent(value, "", "    ")
+func formatJSON(writer io.Writer, value interface{}) error {
+	bytes, err := json.MarshalIndent(value, "", "    ")
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(bytes)
+	return err
 }

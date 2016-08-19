@@ -256,7 +256,7 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 
 	s.AssertRunSucceeds(c,
 		`no spaces to display\n`,
-		"", // empty stdout.
+		"\n", // empty stdout.
 	)
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")

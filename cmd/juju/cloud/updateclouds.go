@@ -79,7 +79,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		case http.StatusUnauthorized:
 			return errors.Unauthorizedf("unauthorised access to URL %q", c.publicCloudURL)
 		}
-		return fmt.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
+		return errors.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
 	}
 
 	cloudData, err := decodeCheckSignature(resp.Body, c.publicSigningKey)
@@ -122,7 +122,7 @@ func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
 	}
 	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse public key: %v", err)
+		return nil, errors.Errorf("failed to parse public key: %v", err)
 	}
 
 	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)

@@ -4,36 +4,28 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
-// formatFilesystemListTabular returns a tabular summary of filesystem instances.
-func formatFilesystemListTabular(value interface{}) ([]byte, error) {
+// formatFilesystemListTabular writes a tabular summary of filesystem instances.
+func formatFilesystemListTabular(writer io.Writer, value interface{}) error {
 	infos, ok := value.(map[string]FilesystemInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
+		return errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
-	return formatFilesystemListTabularTyped(infos), nil
+	formatFilesystemListTabularTyped(writer, infos)
+	return nil
 }
 
-func formatFilesystemListTabularTyped(infos map[string]FilesystemInfo) []byte {
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+func formatFilesystemListTabularTyped(writer io.Writer, infos map[string]FilesystemInfo) {
+	tw := output.TabWriter(writer)
 
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
@@ -85,7 +77,6 @@ func formatFilesystemListTabularTyped(infos map[string]FilesystemInfo) []byte {
 	}
 
 	tw.Flush()
-	return out.Bytes()
 }
 
 type filesystemAttachmentInfo struct {

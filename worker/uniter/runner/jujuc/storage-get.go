@@ -7,7 +7,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 // StorageGetCommand implements the storage-get command.
@@ -43,7 +47,11 @@ When no <key> is supplied, all keys values are printed.
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	if featureflag.Enabled(feature.SmartFormatter) {
+		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	} else {
+		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	}
 	f.Var(c.storageTagProxy, "s", "specify a storage instance by id")
 }
 

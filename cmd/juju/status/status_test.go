@@ -3330,19 +3330,19 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
-Running on subnets: 127.0.0.1/8, 10.0.0.1/8 
-Utilizing ports:                            
-     # MACHINES: (3)
-        started:  3 
-                
-        # UNITS: (4)
-         active:  3 
-          error:  1 
-                
- # APPLICATIONS:  (3)
-         logging  1/1 exposed
-           mysql  1/1 exposed
-       wordpress  1/1 exposed
+Running on subnets:  127.0.0.1/8, 10.0.0.1/8  
+ Utilizing ports:                             
+      # MACHINES:  (3)
+         started:   3 
+                 
+         # UNITS:  (4)
+          active:   3 
+           error:   1 
+                 
+  # APPLICATIONS:  (3)
+          logging  1/1  exposed
+            mysql  1/1  exposed
+        wordpress  1/1  exposed
 
 `[1:])
 }
@@ -3553,9 +3553,10 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 			},
 		},
 	}
-	out, err := FormatTabular(status)
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, `
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
@@ -3586,9 +3587,10 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 			},
 		},
 	}
-	out, err := FormatTabular(status)
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, status)
 	c.Assert(err, jc.ErrorIsNil)
-	sections, err := splitTableSections(out)
+	sections, err := splitTableSections(out.Bytes())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sections["RELATION"], gc.DeepEquals, []string{
 		"RELATION    PROVIDES  CONSUMES  TYPE",
@@ -3645,9 +3647,10 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 			},
 		},
 	}
-	out, err := FormatTabular(status)
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, `
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 

@@ -73,7 +73,7 @@ func (c *addCommand) Info() *cmd.Info {
 // Init implements Command.Init.
 func (c *addCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no username supplied")
+		return errors.Errorf("no username supplied")
 	}
 
 	c.User, args = args[0], args[1:]

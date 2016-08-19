@@ -4,8 +4,6 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -60,11 +58,11 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 func (c *removeUnitCommand) Init(args []string) error {
 	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
-		return fmt.Errorf("no units specified")
+		return errors.Errorf("no units specified")
 	}
 	for _, name := range c.UnitNames {
 		if !names.IsValidUnit(name) {
-			return fmt.Errorf("invalid unit name %q", name)
+			return errors.Errorf("invalid unit name %q", name)
 		}
 	}
 	return nil

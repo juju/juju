@@ -4,9 +4,8 @@
 package user
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var usageListUsersSummary = `
@@ -81,21 +81,12 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
 }
 
-func (c *listCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *listCommand) formatTabular(writer io.Writer, value interface{}) error {
 	users, valueConverted := value.([]UserInfo)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
+		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "NAME\tDISPLAY NAME\tDATE CREATED\tLAST CONNECTION\n")
 	for _, user := range users {
 		conn := user.LastConnection
@@ -105,5 +96,5 @@ func (c *listCommand) formatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", user.Username, user.DisplayName, user.DateCreated, conn)
 	}
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }

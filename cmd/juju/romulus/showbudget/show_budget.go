@@ -4,6 +4,8 @@
 package showbudget
 
 import (
+	"fmt"
+	"io"
 	"sort"
 
 	"github.com/gosuri/uitable"
@@ -120,10 +122,10 @@ func (c *showBudgetCommand) resolveModelNames(budget *wireformat.BudgetWithAlloc
 }
 
 // formatTabular returns a tabular view of available budgets.
-func formatTabular(value interface{}) ([]byte, error) {
+func formatTabular(writer io.Writer, value interface{}) error {
 	b, ok := value.(*wireformat.BudgetWithAllocations)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", b, value)
+		return errors.Errorf("expected value of type %T, got %T", b, value)
 	}
 
 	table := uitable.New()
@@ -158,7 +160,8 @@ func formatTabular(value interface{}) ([]byte, error) {
 	table.AddRow("TOTAL", "", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
 	table.AddRow("BUDGET", "", "", b.Limit, "")
 	table.AddRow("UNALLOCATED", "", "", b.Total.Unallocated, "")
-	return []byte(table.String()), nil
+	fmt.Fprint(writer, table)
+	return nil
 }
 
 var newAPIClient = newAPIClientImpl

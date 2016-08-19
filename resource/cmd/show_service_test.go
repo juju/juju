@@ -175,15 +175,15 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Service]
-RESOURCE SUPPLIED BY REVISION
-openjdk  charmstore  7
-website  upload      -
-rsc1234  charmstore  15
-website2 Bill User   2012-12-12T12:12
+RESOURCE  SUPPLIED BY  REVISION
+openjdk   charmstore   7
+website   upload       -
+rsc1234   charmstore   15
+website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
-RESOURCE REVISION
-openjdk  10
+RESOURCE  REVISION
+openjdk   10
 
 `[1:])
 
@@ -238,9 +238,9 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit]
-RESOURCE REVISION
-rsc1234  15
-website2 2012-12-12T12:12
+RESOURCE  REVISION
+rsc1234   15
+website2  2012-12-12T12:12
 
 `[1:])
 
@@ -402,13 +402,13 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Units]
-UNIT RESOURCE REVISION         EXPECTED
-5    alpha    10               15
-5    beta     2012-12-12T12:12 2012-12-12T12:12
-5    charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 2%)
-10   alpha    10               15 (fetching: 15%)
-10   beta     -                2012-12-12T12:12
-10   charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 9%)
+UNIT  RESOURCE  REVISION          EXPECTED
+5     alpha     10                15
+5     beta      2012-12-12T12:12  2012-12-12T12:12
+5     charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
+10    alpha     10                15 (fetching: 15%)
+10    beta      -                 2012-12-12T12:12
+10    charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 
 `[1:])
 
@@ -542,10 +542,10 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit]
-RESOURCE REVISION         EXPECTED
-alpha    10               15
-beta     -                2012-12-12T12:12
-charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 0%)
+RESOURCE  REVISION          EXPECTED
+alpha     10                15
+beta      -                 2012-12-12T12:12
+charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
 
 `[1:])
 

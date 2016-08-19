@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
@@ -141,6 +142,7 @@ var relationGetTests = []struct {
 }
 
 func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, t.unit)
@@ -151,10 +153,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-			expect := t.out
-			if expect != "" {
-				expect = expect + "\n"
-			}
+			expect := t.out + "\n"
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
@@ -222,8 +221,8 @@ Summary:
 get relation settings
 
 Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
+--format  (= yaml)
+    Specify output format (json|yaml)
 -o, --output (= "")
     Specify an output file
 -r, --relation  (= %s)
@@ -279,6 +278,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 }
 
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
+	s.SetFeatureFlags(feature.SmartFormatter)
 	hctx, _ := s.newHookContext(1, "m/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)

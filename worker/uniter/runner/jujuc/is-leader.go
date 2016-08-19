@@ -7,6 +7,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 // isLeaderCommand implements the is-leader command.
@@ -37,7 +41,11 @@ there is no such guarantee.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *isLeaderCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	if featureflag.Enabled(feature.SmartFormatter) {
+		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	} else {
+		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	}
 }
 
 // Run is part of the cmd.Command interface.

@@ -4,6 +4,8 @@
 package listbudgets
 
 import (
+	"fmt"
+	"io"
 	"sort"
 
 	"github.com/gosuri/uitable"
@@ -78,10 +80,10 @@ func (c *listBudgetsCommand) Run(ctx *cmd.Context) error {
 }
 
 // formatTabular returns a tabular view of available budgets.
-func formatTabular(value interface{}) ([]byte, error) {
+func formatTabular(writer io.Writer, value interface{}) error {
 	b, ok := value.(*wireformat.ListBudgetsResponse)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", b, value)
+		return errors.Errorf("expected value of type %T, got %T", b, value)
 	}
 	sort.Sort(b.Budgets)
 
@@ -99,7 +101,8 @@ func formatTabular(value interface{}) ([]byte, error) {
 	table.AddRow("TOTAL", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")
 	table.AddRow("Credit limit:", b.Credit, "", "", "")
-	return []byte(table.String()), nil
+	fmt.Fprint(writer, table)
+	return nil
 }
 
 var newAPIClient = newAPIClientImpl

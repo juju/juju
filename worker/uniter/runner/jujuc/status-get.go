@@ -7,7 +7,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/status"
 )
 
@@ -38,7 +41,11 @@ If the --include-data flag is passed, the associated data are printed also.
 }
 
 func (c *StatusGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	if featureflag.Enabled(feature.SmartFormatter) {
+		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	} else {
+		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	}
 	f.BoolVar(&c.includeData, "include-data", false, "print all status data")
 	f.BoolVar(&c.serviceWide, "application", false, "print status for all units of this application if this unit is the leader")
 }
