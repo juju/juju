@@ -147,7 +147,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Keys: &keys,
 	}
 
-	addressPrefixes := []string{"10.0.0.0/16"}
+	addressPrefixes := []string{"192.168.0.0/20"}
 	s.vnet = &network.VirtualNetwork{
 		ID:       to.StringPtr("juju-internal-network"),
 		Name:     to.StringPtr("juju-internal-network"),
@@ -175,7 +175,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID:   to.StringPtr("subnet-id"),
 		Name: to.StringPtr("juju-internal-subnet"),
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix:        to.StringPtr("10.0.0.0/16"),
+			AddressPrefix:        to.StringPtr("192.168.0.0/20"),
 			NetworkSecurityGroup: s.nsg,
 			ProvisioningState:    to.StringPtr("Succeeded"),
 		},
@@ -208,7 +208,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID:   to.StringPtr("ip-configuration-0-id"),
 		Name: to.StringPtr("ip-configuration-0"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			PrivateIPAddress:          to.StringPtr("10.0.0.4"),
+			PrivateIPAddress:          to.StringPtr("192.168.0.4"),
 			PrivateIPAllocationMethod: network.Static,
 			Subnet:            s.subnet,
 			ProvisioningState: to.StringPtr("Succeeded"),
@@ -232,7 +232,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID:   to.StringPtr("ip-configuration-1-id"),
 		Name: to.StringPtr("primary"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			PrivateIPAddress:          to.StringPtr("10.0.0.5"),
+			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
 			PrivateIPAllocationMethod: network.Static,
 			Subnet:            s.subnet,
 			PublicIPAddress:   s.publicIPAddress,
@@ -437,7 +437,6 @@ func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Sender
 	senders = append(senders,
 		s.makeSender(".*/availabilitySets/.*", s.jujuAvailabilitySet),
 		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine), // Create
-		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine), // Get
 	)
 	if s.vmExtension != nil {
 		senders = append(senders, s.makeSender(
@@ -639,13 +638,13 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 12+failures)
-	s.assertStartInstanceRequests(c, s.requests[:12])
+	c.Assert(s.requests, gc.HasLen, numExpectedStartInstanceRequests+failures)
+	s.assertStartInstanceRequests(c, s.requests[:numExpectedStartInstanceRequests])
 
 	// The final requests should all be identical.
-	for i := 12; i < 12+failures; i++ {
-		c.Assert(s.requests[i].Method, gc.Equals, "GET")
-		c.Assert(s.requests[i].URL.Path, gc.Equals, s.requests[11].URL.Path)
+	for i := numExpectedStartInstanceRequests; i < numExpectedStartInstanceRequests+failures; i++ {
+		c.Assert(s.requests[i].Method, gc.Equals, "PUT")
+		c.Assert(s.requests[i].URL.Path, gc.Equals, s.requests[numExpectedStartInstanceRequests-1].URL.Path)
 	}
 
 	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
@@ -683,7 +682,7 @@ func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
 	s.sender = senders
 
 	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": getting virtual machine: max duration exceeded: .*`)
+	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": creating virtual machine: max duration exceeded: .*`)
 
 	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
 		{"After", []interface{}{5 * time.Second}},  // t0 + 5s
@@ -718,6 +717,8 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	c.Assert(availabilitySetName, gc.Equals, "mysql")
 }
 
+const numExpectedStartInstanceRequests = 11
+
 func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Request) startInstanceRequests {
 	// The values defined here are the *request* values. They lack IDs,
 	// Names (in most places), and ProvisioningStates. The values defined
@@ -734,7 +735,7 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	newIPConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			PrivateIPAddress:          to.StringPtr("10.0.0.5"),
+			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
 			PrivateIPAllocationMethod: network.Static,
 			Subnet:          s.subnet,
 			PublicIPAddress: s.publicIPAddress,
@@ -752,6 +753,7 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 		Tags:     &s.envTags,
 	}
 	virtualMachine := &compute.VirtualMachine{
+		Name:     to.StringPtr("machine-0"),
 		Location: to.StringPtr("westus"),
 		Tags:     &s.vmTags,
 		Properties: &compute.VirtualMachineProperties{
@@ -798,7 +800,7 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	}
 
 	// Validate HTTP request bodies.
-	c.Assert(requests, gc.HasLen, 12)
+	c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
 	c.Assert(requests[1].Method, gc.Equals, "GET") // storage accounts
 	c.Assert(requests[2].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -814,7 +816,6 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	assertRequestBody(c, requests[9], jujuAvailabilitySet)
 	c.Assert(requests[10].Method, gc.Equals, "PUT") // create VM
 	assertCreateVirtualMachineRequestBody(c, requests[10], virtualMachine)
-	c.Assert(requests[11].Method, gc.Equals, "GET") // get VM
 
 	return startInstanceRequests{
 		vmSizes:          requests[0],
@@ -870,7 +871,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Series, gc.Equals, series.LatestLts())
 
-	c.Assert(len(s.requests), gc.Equals, 23)
+	c.Assert(len(s.requests), gc.Equals, 22)
 
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT")  // resource group
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")  // create vnet
@@ -959,14 +960,14 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	// Security group has rules for machine-0 but not machine-1, and
 	// has a rule that doesn't match either.
 	nsg := makeSecurityGroup(
-		makeSecurityRule("machine-0-80", "10.0.0.4", "80"),
-		makeSecurityRule("machine-0-1000-2000", "10.0.0.4", "1000-2000"),
-		makeSecurityRule("machine-42", "10.0.0.5", "*"),
+		makeSecurityRule("machine-0-80", "192.168.0.4", "80"),
+		makeSecurityRule("machine-0-1000-2000", "192.168.0.4", "1000-2000"),
+		makeSecurityRule("machine-42", "192.168.0.5", "*"),
 	)
 
 	// Create an IP configuration with a public IP reference. This will
 	// cause an update to the NIC to detach public IPs.
-	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
+	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Properties.PublicIPAddress = &network.PublicIPAddress{}
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 
@@ -1018,7 +1019,7 @@ func (s *environSuite) TestStopInstancesStorageAccountNoFullKey(c *gc.C) {
 func (s *environSuite) testStopInstancesStorageKeysError(c *gc.C, expect string) {
 	env := s.openEnviron(c)
 
-	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
+	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Properties.PublicIPAddress = &network.PublicIPAddress{}
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 	s.sender = azuretesting.Senders{

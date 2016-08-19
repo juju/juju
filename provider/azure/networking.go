@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/provider/azure/internal/iputils"
 )
@@ -24,12 +23,16 @@ const (
 	//
 	// Each resource group is given its own network, subnet and network
 	// security group to manage. Each resource group will have its own
-	// private 10.0.0.0/16 network.
+	// private 192.168.0.0/16 network.
 	internalNetworkName = "juju-internal-network"
 
 	// internalSubnetName is the name of the subnet that each machine's
 	// primary NIC is attached to.
 	internalSubnetName = "juju-internal-subnet"
+
+	// internalSubnetPrefix is the address prefix for the subnet that
+	// each machine's primary NIC is attached to.
+	internalSubnetPrefix = "192.168.0.0/20"
 
 	// internalSecurityGroupName is the name of the network security
 	// group that each machine's primary (internal network) NIC is
@@ -80,7 +83,7 @@ func createInternalVirtualNetwork(
 	location string,
 	tags map[string]string,
 ) (*network.VirtualNetwork, error) {
-	addressPrefixes := []string{"10.0.0.0/16"}
+	addressPrefixes := []string{internalSubnetPrefix}
 	virtualNetworkParams := network.VirtualNetwork{
 		Location: to.StringPtr(location),
 		Tags:     to.StringMapPtr(tags),
@@ -110,42 +113,13 @@ func createInternalVirtualNetwork(
 	return &vnet, nil
 }
 
-// createInternalSubnet creates an internal subnet for the specified resource group,
-// within the specified virtual network.
-//
-// NOTE(axw) this method expects an up-to-date VirtualNetwork, and expects that are
-// no concurrent subnet additions to the virtual network. At the moment we have only
-// three places where we modify subnets: at bootstrap, when a new environment is
-// created, and when an environment is destroyed.
-func createInternalSubnet(
+func createInternalNetworkSecurityGroup(
 	callAPI callAPIFunc,
 	client network.ManagementClient,
 	resourceGroup string,
-	vnet *network.VirtualNetwork,
 	location string,
 	tags map[string]string,
-) (*network.Subnet, error) {
-
-	nextAddressPrefix := (*vnet.Properties.AddressSpace.AddressPrefixes)[0]
-	if vnet.Properties.Subnets != nil {
-		if len(*vnet.Properties.Subnets) == len(*vnet.Properties.AddressSpace.AddressPrefixes) {
-			return nil, errors.Errorf(
-				"no available address prefixes in vnet %q",
-				to.String(vnet.Name),
-			)
-		}
-		addressPrefixesInUse := make(set.Strings)
-		for _, subnet := range *vnet.Properties.Subnets {
-			addressPrefixesInUse.Add(to.String(subnet.Properties.AddressPrefix))
-		}
-		for _, addressPrefix := range *vnet.Properties.AddressSpace.AddressPrefixes {
-			if !addressPrefixesInUse.Contains(addressPrefix) {
-				nextAddressPrefix = addressPrefix
-				break
-			}
-		}
-	}
-
+) (*network.SecurityGroup, error) {
 	// Create a network security group for the environment. There is only
 	// one NSG per environment (there's a limit of 100 per subscription),
 	// in which we manage rules for each exposed machine.
@@ -177,17 +151,35 @@ func createInternalSubnet(
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
 	}
+	return &nsg, nil
+}
 
+// createInternalSubnet creates an internal subnet for the specified resource group,
+// within the specified virtual network.
+//
+// NOTE(axw) this method expects an up-to-date VirtualNetwork, and expects that are
+// no concurrent subnet additions to the virtual network. At the moment we have only
+// three places where we modify subnets: at bootstrap, when a new environment is
+// created, and when an environment is destroyed.
+func createInternalNetworkSubnet(
+	callAPI callAPIFunc,
+	client network.ManagementClient,
+	resourceGroup string,
+	subnetName, addressPrefix string,
+	vnet *network.VirtualNetwork,
+	nsg *network.SecurityGroup,
+	location string,
+	tags map[string]string,
+) (*network.Subnet, error) {
 	// Now create a subnet with the next available address prefix, and
 	// associate the subnet with the NSG created above.
-	subnetName := internalSubnetName
 	subnetParams := network.Subnet{
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix:        to.StringPtr(nextAddressPrefix),
-			NetworkSecurityGroup: &nsg,
+			AddressPrefix:        to.StringPtr(addressPrefix),
+			NetworkSecurityGroup: nsg,
 		},
 	}
-	logger.Debugf("creating subnet %q (%s)", subnetName, nextAddressPrefix)
+	logger.Debugf("creating subnet %q (%s)", subnetName, addressPrefix)
 	subnetClient := network.SubnetsClient{client}
 	if err := callAPI(func() (autorest.Response, error) {
 		return subnetClient.CreateOrUpdate(
@@ -197,17 +189,17 @@ func createInternalSubnet(
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating subnet %q", subnetName)
 	}
-	return getInternalSubnet(callAPI, client, resourceGroup)
+	return getInternalNetworkSubnet(callAPI, client, resourceGroup, subnetName)
 }
 
-func getInternalSubnet(
+func getInternalNetworkSubnet(
 	callAPI callAPIFunc,
 	client network.ManagementClient,
 	resourceGroup string,
+	subnetName string,
 ) (*network.Subnet, error) {
 	subnetClient := network.SubnetsClient{client}
 	vnetName := internalNetworkName
-	subnetName := internalSubnetName
 	var subnet network.Subnet
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
