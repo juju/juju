@@ -302,7 +302,7 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 			Id:     mig.doc.ModelUUID,
 			Assert: txn.DocExists,
 			Update: bson.M{
-				"$set": bson.M{"migration-mode": MigrationModeActive},
+				"$set": bson.M{"migration-mode": MigrationModeNone},
 			},
 		})
 	}
@@ -675,7 +675,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if model.MigrationMode() == MigrationModeActive {
+		if model.MigrationMode() == MigrationModeNone {
 			return nil, errors.NotFoundf("migration")
 		}
 	}

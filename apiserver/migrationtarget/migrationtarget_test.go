@@ -136,7 +136,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	// The model should no longer exist.
 	model, err := s.State.GetModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {

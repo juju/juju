@@ -41,7 +41,7 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 	c.Assert(model.Name(), gc.Equals, "testenv")
 	c.Assert(model.Owner(), gc.Equals, s.Owner)
 	c.Assert(model.Life(), gc.Equals, state.Alive)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
 func (s *ModelSuite) TestModelDestroy(c *gc.C) {

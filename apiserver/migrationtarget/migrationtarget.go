@@ -109,5 +109,5 @@ func (api *API) Activate(args params.ModelArgs) error {
 		return errors.Trace(err)
 	}
 
-	return model.SetMigrationMode(state.MigrationModeActive)
+	return model.SetMigrationMode(state.MigrationModeNone)
 }

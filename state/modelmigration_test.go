@@ -59,7 +59,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 func (s *MigrationSuite) TestCreate(c *gc.C) {
 	model, err := s.State2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 
 	mig, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,7 +393,7 @@ func (s *MigrationSuite) TestABORTCleanup(c *gc.C) {
 	// Model should be set back to active.
 	model, err := s.State2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
 func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
