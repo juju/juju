@@ -308,89 +308,62 @@ def _register_user(client, register_token, controller, password):
 def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
     """To migrate a user must have controller admin privileges.
 
-    A Regular user (just read access to a model) cannot migrate a model
-    An Admin user (write access to a controller admin model) can migrate a
-    model
+    A non-superuser on a controller cannot migrate their models between
+    controllers.
 
     """
     with bs1.booted_context(upload_tools):
-        import ipdb; ipdb.set_trace()
         bs1.client.enable_feature('migration')
-
-        # Create a normal user.
-        new_user_home = os.path.join(temp_dir, 'userA')
-        os.makedirs(new_user_home)
-        new_user = User('model-creator', 'write', [])
-        normal_user_client = bs1.client.register_user(new_user, new_user_home)
-        bs1.client.juju(
-            'grant', (new_user.name, 'addmodel'), include_e=False)
-        # register_token = bs1.client.add_user(
-        #     'model-creator', permissions='write')
-        # # Set password and logout.
-
-        # Needed?
-        # _set_user_password(bs1.client, 'admin', 'juju')
-
-        # bs1.client.juju('logout', (), include_e=False)
-
-        # # Have this normie register and login
-        # _register_user(
-        #     bs1.client, register_token, 'normal_controller', 'juju')
-        # And create a model && deploy
-
-        # Workout the id pub rsa to pass in :
-        # --config authorized-keys="ssh-rsa
-        def _get_rsa_pub(home_dir):
-            full_path = os.path.join(home_dir, 'ssh', 'juju_id_rsa.pub')
-            with open(full_path, 'r') as f:
-                return f.read().replace('\n', '')
-
-        # Need to log user into the controller.
-        # >> Handled by .register_user
-        # normal_user_client = bs1.client.clone(bs1.client.env.clone())
-
-        # _log_user_in(normal_user_client, 'model-creator', 'model-creator_password')
-        rsa_pub = _get_rsa_pub(normal_user_client.env.juju_home)
-        normal_user_client.env.config['authorized-keys'] = rsa_pub
-        # Step into this method.
-        normal_user_client.add_model(normal_user_client.env.clone('new-model'))
-
-        # Comment for now for time.
-        # normal_user_client.juju('deploy', ('ubuntu'))
-        # normal_user_client.wait_for_started()
-
-        # Normie logs out, thanks normie.
-        # normal_user_client.controller_juju('logout', ())
-        normal_user_client.logout()
-
-        # Log back in admin/sys user.
-        # Needed?
-        # _log_user_in(bs1.client, 'admin', 'juju')
 
         # Bootstrap new env
         log.info('Booting second instance')
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(upload_tools):
-            log.info('Initiating migration process')
-            # Admin starts migration
-            # This should be the new-model client
-            # bs1.client.controller_juju(
-            #     'migrate',
-            #     (normal_user_client.env.environment,
-            #      'local.{}'.format(bs2.client.env.controller.name)))
+            # Create a normal user.
+            import ipdb; ipdb.set_trace()
+            new_user_home = os.path.join(temp_dir, 'example_user')
+            os.makedirs(new_user_home)
+            new_user = User('testuser', 'write', [])
+            normal_user_client_1 = bs1.client.register_user(
+                new_user, new_user_home)
+            bs1.client.grant(new_user.name, 'addmodel')
+            # bs1.client.juju(
+            #     'grant',
+            #     (username, 'addmodel', '-c', bs1.client.env.controller.name),
+            #     include_e=False)
 
-            # migration_target_client = bs2.client.clone(
-            #     bs2.client.env.clone(normal_user_client.env.environment))
+            normal_user_client_2 = bs2.client.register_user(
+                new_user, new_user_home)
+            bs1.client.grant(new_user.name, 'addmodel')
 
-            # bs1.client.env.environment will be different to
-            # normal_user_client.env.environment
-            migration_target_client = migrate_model_to_controller(bs1, bs2)
+            # Needed?
+            # _set_user_password(bs1.client, 'admin', 'juju')
 
-            wait_for_model(
-                migration_target_client, normal_user_client.env.environment)
+            # Workout the id pub rsa to pass in :
+            # --config authorized-keys="ssh-rsa
+            def _get_rsa_pub(home_dir):
+                full_path = os.path.join(home_dir, 'ssh', 'juju_id_rsa.pub')
+                with open(full_path, 'r') as f:
+                    return f.read().replace('\n', '')
 
-            migration_target_client.juju('status', ())
-            migration_target_client.wait_for_started()
+            # rsa_pub = _get_rsa_pub(normal_user_client.env.juju_home)
+            # normal_user_client.env.config['authorized-keys'] = rsa_pub
+
+            # Step into this method.
+            normal_user_client_1.add_model(
+                normal_user_client_1.env.clone('model-a'))
+
+            # Comment for now for time.
+            # normal_user_client.juju('deploy', ('ubuntu'))
+            # normal_user_client.wait_for_started()
+
+            log.info('Attempting migration process')
+
+            # This should fail.
+            normal_user_client_1.controller_juju(
+                'migrate',
+                (normal_user_client_1.env.environment,
+                 normal_user_client_2.env.controller.name))
 
 
 def main(argv=None):
