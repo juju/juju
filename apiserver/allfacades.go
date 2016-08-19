@@ -42,6 +42,7 @@ import (
 	_ "github.com/juju/juju/apiserver/machine"
 	_ "github.com/juju/juju/apiserver/machineactions"
 	_ "github.com/juju/juju/apiserver/machinemanager" // ModelUser Write
+	_ "github.com/juju/juju/apiserver/machineundertaker"
 	_ "github.com/juju/juju/apiserver/meterstatus"
 	_ "github.com/juju/juju/apiserver/metricsadder"
 	_ "github.com/juju/juju/apiserver/metricsdebug" // ModelUser Write
