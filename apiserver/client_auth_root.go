@@ -4,9 +4,6 @@
 package apiserver
 
 import (
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -37,17 +34,5 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	// The lookup of the name is done first to return a
 	// rpcreflect.CallNotImplementedError error if the
 	// user is looking for a method that we just don't have.
-	caller, err := r.Root.FindMethod(rootName, version, methodName)
-	if err != nil {
-		return nil, err
-	}
-	// ReadOnly User
-	if r.modelUser.Access == description.ReadAccess {
-		canCall := isCallReadOnly(rootName, methodName)
-		if !canCall {
-			return nil, errors.Trace(common.ErrPerm)
-		}
-	}
-
-	return caller, nil
+	return r.Root.FindMethod(rootName, version, methodName)
 }

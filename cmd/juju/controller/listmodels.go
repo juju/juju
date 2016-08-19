@@ -160,6 +160,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		model.ControllerName = c.ControllerName()
 		modelInfo = append(modelInfo, model)
 	}
 
@@ -264,18 +265,22 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	}
 
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "MODEL")
+	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
+	fmt.Fprint(tw, "\n")
+	fmt.Fprint(tw, "MODEL")
 	if c.listUUID {
-		fmt.Fprintf(tw, "\tMODEL UUID")
+		fmt.Fprint(tw, "\tUUID")
 	}
-	fmt.Fprintf(tw, "\tOWNER\tSTATUS\tLAST CONNECTION\n")
+	fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
 		name := ownerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
 			name += "*"
+			output.CurrentHighlight.Fprintf(tw, "%s", name)
+		} else {
+			fmt.Fprintf(tw, "%s", name)
 		}
-		fmt.Fprintf(tw, "%s", name)
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
@@ -283,7 +288,12 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if lastConnection == "" {
 			lastConnection = "never connected"
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, lastConnection)
+		userForAccess := loggedInUser
+		if c.user != "" {
+			userForAccess = names.NewUserTag(c.user)
+		}
+		access := model.Users[userForAccess.Canonical()].Access
+		fmt.Fprintf(tw, "\t%s\t%s\t%s\t%s\n", model.Owner, model.Status.Current, access, lastConnection)
 	}
 	tw.Flush()
 	return nil

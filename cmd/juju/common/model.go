@@ -17,6 +17,7 @@ type ModelInfo struct {
 	Name           string                   `json:"name" yaml:"name"`
 	UUID           string                   `json:"model-uuid" yaml:"model-uuid"`
 	ControllerUUID string                   `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName string                   `json:"controller-name" yaml:"controller-name"`
 	Owner          string                   `json:"owner" yaml:"owner"`
 	Cloud          string                   `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                   `json:"region,omitempty" yaml:"region,omitempty"`

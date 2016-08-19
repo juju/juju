@@ -77,6 +77,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
 						LastConnection: &last1,
+						Access:         params.ModelReadAccess,
 					}}
 				}
 			case "test-model2":
@@ -86,6 +87,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
 						LastConnection: &last2,
+						Access:         params.ModelWriteAccess,
 					}}
 				}
 			case "test-model3":
@@ -140,10 +142,12 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL                        OWNER            STATUS      LAST CONNECTION\n"+
-		"test-model1*                 admin@local      active      2015-03-20\n"+
-		"carlotta/test-model2         carlotta@local   active      2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying  never connected\n"+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"test-model1*                 admin@local      active      read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
 		"\n")
 }
 
@@ -152,10 +156,12 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "bob")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL                        OWNER            STATUS      LAST CONNECTION\n"+
-		"admin/test-model1*           admin@local      active      2015-03-20\n"+
-		"carlotta/test-model2         carlotta@local   active      2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying  never connected\n"+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"admin/test-model1*           admin@local      active      read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
 		"\n")
 }
 
@@ -164,10 +170,12 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL                        OWNER            STATUS      LAST CONNECTION\n"+
-		"admin/test-model1*           admin@local      active      2015-03-20\n"+
-		"carlotta/test-model2         carlotta@local   active      2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying  never connected\n"+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"admin/test-model1*           admin@local      active      read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
 		"\n")
 }
 
@@ -176,10 +184,12 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL                        OWNER            STATUS      LAST CONNECTION\n"+
-		"test-model1                  admin@local      active      2015-03-20\n"+
-		"carlotta/test-model2         carlotta@local   active      2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying  never connected\n"+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"test-model1                  admin@local      active      read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
 		"\n")
 }
 
@@ -188,10 +198,12 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL                        MODEL UUID        OWNER            STATUS      LAST CONNECTION\n"+
-		"test-model1*                 test-model1-UUID  admin@local      active      2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  carlotta@local   active      2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying  never connected\n"+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        UUID              OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"test-model1*                 test-model1-UUID  admin@local      active      read    2015-03-20\n"+
+		"carlotta/test-model2         test-model2-UUID  carlotta@local   active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying          never connected\n"+
 		"\n")
 }
 

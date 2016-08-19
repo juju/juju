@@ -124,6 +124,7 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		out.ControllerName = c.ControllerName()
 		output[out.Name] = out
 	}
 	return output, nil
