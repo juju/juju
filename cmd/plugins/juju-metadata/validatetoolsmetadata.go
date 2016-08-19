@@ -167,9 +167,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			if c.metadataDir == "" {
 				return err
 			}
-			params = &simplestreams.MetadataLookupParams{
-				Architectures: arch.AllSupportedArches,
-			}
+			params = &simplestreams.MetadataLookupParams{}
 		}
 	} else {
 		prov, err := environs.Provider(c.providerType)
@@ -184,6 +182,10 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if len(params.Architectures) == 0 {
+		params.Architectures = arch.AllSupportedArches
 	}
 
 	if c.series != "" {

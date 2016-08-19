@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/utils/arch"
 )
 
 type ValidateToolsMetadataSuite struct {
@@ -79,7 +80,7 @@ func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
 	tm := []*tools.ToolsMetadata{{
 		Version: version,
-		Arch:    "amd64",
+		Arch:    arch.HostArch(),
 		Release: series,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
