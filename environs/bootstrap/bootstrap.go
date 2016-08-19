@@ -245,12 +245,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-
-	// IFF there is any image metadata, then and only then do we update
-	// the vocabulary with the architectures from images metadata.
-	if len(architectures) != 0 {
-		constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
-	}
+	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 
 	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.ModelConstraints, args.BootstrapConstraints,
