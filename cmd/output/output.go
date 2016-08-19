@@ -5,8 +5,8 @@ package output
 
 import (
 	"io"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 )
 
@@ -18,7 +18,7 @@ var DefaultFormatters = map[string]cmd.Formatter{
 }
 
 // TabWriter returns a new tab writer with common layout definition.
-func TabWriter(writer io.Writer) *tabwriter.Writer {
+func TabWriter(writer io.Writer) *ansiterm.TabWriter {
 	const (
 		// To format things into columns.
 		minwidth = 0
@@ -27,5 +27,9 @@ func TabWriter(writer io.Writer) *tabwriter.Writer {
 		padchar  = ' '
 		flags    = 0
 	)
-	return tabwriter.NewWriter(writer, minwidth, tabwidth, padding, padchar, flags)
+	return ansiterm.NewTabWriter(writer, minwidth, tabwidth, padding, padchar, flags)
 }
+
+// CurrentHighlight is the color used to show the current
+// controller, user or model in tabular output.
+var CurrentHighlight = ansiterm.Foreground(ansiterm.Green)

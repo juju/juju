@@ -17,7 +17,7 @@ github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-0
 github.com/joyent/gocommon	git	ade826b8b54e81a779ccb29d358a45ba24b7809c	2016-03-20T19:31:33Z
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
-github.com/juju/ansiterm	git	e2a7a542a5eb387f493298469a8a3de37dcbc043	2016-08-17T02:52:43Z
+github.com/juju/ansiterm	git	f2548f919a28b707811b612420169a871a816b8c	2016-08-19T03:04:17Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	6791af0ab78efe88ff99c2a0095208b3b7a32055	2016-07-20T09:32:50Z
 github.com/juju/cmd	git	3764bbd1cd74c91a5fc019440bf812881f566481	2016-08-18T23:27:15Z
