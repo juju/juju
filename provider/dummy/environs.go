@@ -32,6 +32,7 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -902,6 +903,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
 	return validator, nil
 }
 

@@ -318,6 +318,12 @@ var bootstrapTests = []bootstrapTest{{
 	args:     []string{"--build-agent", "--constraints", "arch=ppc64el"},
 	err:      `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 }, {
+	info:     "--build-agent rejects non-supported arch",
+	version:  "1.3.3-saucy-mips64",
+	hostArch: "mips64",
+	args:     []string{"--build-agent"},
+	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+}, {
 	info:     "--build-agent always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
 	hostArch: "amd64",
