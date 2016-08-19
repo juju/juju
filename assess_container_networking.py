@@ -384,11 +384,17 @@ def assess_container_networking(client, types):
     # Reboot all hosts apart from machine 0 because we use machine 0 to jump
     # through for some hosts.
     log.info("Instrumenting reboot of all machines.")
-    for host in hosts[1:]:
-        ssh(client, host, 'sudo shutdown -r')
+    try:
+        for host in hosts[1:]:
+            ssh(client, host, 'sudo shutdown -r now')
 
-    # Finally reboot machine 0
-    ssh(client, hosts[0], 'sudo shutdown -r')
+            # Finally reboot machine 0
+        ssh(client, hosts[0], 'sudo shutdown -r now')
+    except subprocess.CalledProcessError as e:
+        logging.info(
+            "Error running shutdown:\nstdout: %s\nstderr: %s",
+            e.output, getattr(e, 'stderr', None))
+        raise
 
     # Wait for the state server to shut down. This prevents us from calling
     # wait_for_started before machine 0 has shut down, which can cause us
