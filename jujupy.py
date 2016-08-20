@@ -1828,30 +1828,16 @@ class EnvJujuClient:
                 return command_parts[-1]
         raise AssertionError('Juju register command not found in output')
 
-    def add_user(self, username, models=None, permissions='read'):
+    def add_user(self, username, models=None, permissions='login'):
         """Adds provided user and return register command arguments.
 
         :return: Registration token provided by the add-user command.
-
         """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
+        output = self.get_juju_output(
+            'add-user', username, '-c', self.env.controller.name,
+            include_e=False)
+        self.grant(username, permissions, models)
         return self._get_register_command(output)
-
-    # Future ACL feature.
-    # def add_user(self, username, models=None, permissions='login'):
-    #     """Adds provided user and return register command arguments.
-
-    #     :return: Registration token provided by the add-user command.
-    #     """
-    #     output = self.get_juju_output('add-user', include_e=False)
-    #     self.grant(username, permissions, models)
-    #     return self._get_register_command(output)
 
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
@@ -2012,6 +1998,21 @@ class EnvJujuClient2B9(EnvJujuClient):
         output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
+
+    def add_user(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with a model."""

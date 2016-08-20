@@ -70,6 +70,11 @@ class FakeControllerState:
         if name != self.controller_model.name:
             raise ControllerOperation(operation)
 
+    def add_user(self, username, permissions):
+        self.users.update(
+            {username: {'state': '', 'permission': permissions}})
+        self.shares.append(username)
+
     def bootstrap(self, model_name, config, separate_controller):
         default_model = self.add_model(model_name)
         default_model.name = model_name
@@ -624,13 +629,8 @@ class FakeBackend:
             if set(["--acl", "write"]).issubset(args):
                 permissions = 'write'
             username = args[0]
-            model = args[2]
-            info_string = \
-                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
-                .format(username, username, permissions, model)
-            self.controller_state.users.update(
-                {username: {'state': '', 'permission': permissions}})
-            self.controller_state.shares.append(username)
+            info_string = 'User "{}" added\n'.format(username)
+            self.controller_state.add_user(username, permissions)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
@@ -676,7 +676,26 @@ def get_user_register_token(username):
     return b64encode(sha512(username).digest())
 
 
-class FakeBackend2B7(FakeBackend):
+class FakeBackend2B9(FakeBackend):
+
+    def get_juju_output(self, command, args, used_feature_flags, juju_home,
+                        model=None, timeout=None, user_name=None,
+                        merge_stderr=False):
+        if command == 'add-user':
+            permissions = 'read'
+            if set(["--acl", "write"]).issubset(args):
+                permissions = 'write'
+            username = args[0]
+            model = args[2]
+            info_string = \
+                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
+                .format(username, username, permissions, model)
+            self.controller_state.add_user(username, permissions)
+            register_string = get_user_register_command_info(username)
+            return info_string + register_string
+
+
+class FakeBackend2B7(FakeBackend2B9):
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
