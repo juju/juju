@@ -155,7 +155,7 @@ def assert_admin_model(controller_client, client, permission, has_permission):
         string.ascii_letters + string.digits) for _ in xrange(4))
     new_user = permission + code
     log.info('Adding user {} for test'.format(new_user))
-    controller_client.add_user(new_user, permissions="read")
+    controller_client.add_user_perms(new_user, permissions="read")
     if has_permission:
         try:
             client.grant(new_user, permission="write")

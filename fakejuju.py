@@ -70,7 +70,7 @@ class FakeControllerState:
         if name != self.controller_model.name:
             raise ControllerOperation(operation)
 
-    def add_user(self, username, permissions):
+    def add_user_perms(self, username, permissions):
         self.users.update(
             {username: {'state': '', 'permission': permissions}})
         self.shares.append(username)
@@ -630,7 +630,7 @@ class FakeBackend:
                 permissions = 'write'
             username = args[0]
             info_string = 'User "{}" added\n'.format(username)
-            self.controller_state.add_user(username, permissions)
+            self.controller_state.add_user_perms(username, permissions)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
@@ -690,7 +690,7 @@ class FakeBackend2B9(FakeBackend):
             info_string = \
                 'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
                 .format(username, username, permissions, model)
-            self.controller_state.add_user(username, permissions)
+            self.controller_state.add_user_perms(username, permissions)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
 
