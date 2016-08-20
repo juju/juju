@@ -2740,7 +2740,6 @@ class TestEnvJujuClient(ClientTest):
     def test_add_user_perms(self):
         fake_client = fake_juju_client()
         username = 'fakeuser'
-        output = get_user_register_command_info(username)
 
         # Ensure add_user returns expected value.
         self.assertEqual(
