@@ -271,17 +271,37 @@ class FakeEnvironmentState:
         return ""
 
 
-class AutoloadCredentials:
+class FakeExpectChild:
 
     def __init__(self, backend, juju_home, extra_env):
         self.backend = backend
         self.juju_home = juju_home
         self.extra_env = extra_env
         self.last_expect = None
-        self.cloud = None
+        self.exitstatus = None
 
     def expect(self, line):
         self.last_expect = line
+
+    def sendline(self, line):
+        """Do-nothing implementation of sendline.
+
+        Subclassess will likely override this.
+        """
+
+    def close(self):
+        self.exitstatus = 0
+
+    def isalive(self):
+        return bool(self.exitstatus is not None)
+
+
+class AutoloadCredentials(FakeExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(AutoloadCredentials, self).__init__(backend, juju_home,
+                                                  extra_env)
+        self.cloud = None
 
     def sendline(self, line):
         if self.last_expect == (
@@ -661,6 +681,8 @@ class FakeBackend:
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
             return AutoloadCredentials(self, juju_home, extra_env)
+        else:
+            return FakeExpectChild(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass
