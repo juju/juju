@@ -13,6 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
@@ -31,6 +33,11 @@ var _ = gc.Suite(&ModelConfigSuite{})
 func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 	s.ControllerInheritedConfig = map[string]interface{}{
 		"apt-mirror": "http://cloud-mirror",
+	}
+	s.RegionConfig = cloud.RegionConfig{
+		"nether-region": cloud.Attrs{
+			"apt-mirror": "http://nether-region-mirror",
+		},
 	}
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
@@ -98,12 +105,55 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs)
+
+	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
+	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+}
+
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
+	attrs := map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+		"uuid":            testing.ModelTag.Id(),
+		"type":            "dummy",
+		"name":            "test",
+		"resource-tags":   map[string]string{"a": "b", "c": "d"},
+	}
+	rspec := &params.RegionSpec{Cloud: "dummy", Region: "dummy-region"}
+	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	expected["apt-mirror"] = "http://cloud-mirror"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
+	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+}
+
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
+	attrs := map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+		"uuid":            testing.ModelTag.Id(),
+		"type":            "dummy",
+		"name":            "test",
+		"resource-tags":   map[string]string{"a": "b", "c": "d"},
+	}
+	rspec := &params.RegionSpec{Cloud: "dummy", Region: "nether-region"}
+	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	expected["apt-mirror"] = "http://nether-region-mirror"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)

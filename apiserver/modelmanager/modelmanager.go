@@ -153,9 +153,12 @@ func (mm *ModelManagerAPI) newModelConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if joint, err = mm.state.ComposeNewModelConfig(joint); err != nil {
+
+	regionSpec := &params.RegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
+	if joint, err = mm.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	creator := modelmanager.ModelConfigCreator{
 		Provider: environs.Provider,
 		FindTools: func(n version.Number) (tools.List, error) {

@@ -83,3 +83,12 @@ type CloudSpecResult struct {
 type CloudSpecResults struct {
 	Results []CloudSpecResult `json:"results,omitempty"`
 }
+
+// RegionSpec contains the information needed to lookup specific region
+// configuration. This is for use in calling
+// state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize
+// it.
+type RegionSpec struct {
+	Cloud  string
+	Region string
+}

@@ -229,9 +229,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	modelOps, err := st.modelSetupOps(
 		args.ControllerModelArgs,
 		&lineage{
-			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29390 add
-			// regiond config here too.
 			ControllerConfig: args.ControllerInheritedConfig,
+			RegionConfig:     args.RegionInheritedConfig,
 		})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -365,11 +364,15 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
 					return inherited.ControllerConfig, nil
 				})},
-			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29392 need
-			// to add region config to modelConfigSources here too.
+			{
+				name: config.JujuRegionSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					// We return the values specific to this region for this model.
+					return attrValues(inherited.RegionConfig[args.CloudRegion]), nil
+				})},
 		}
 	} else {
-		configSources = modelConfigSources(st)
+		configSources = modelConfigSources(st, nil)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {

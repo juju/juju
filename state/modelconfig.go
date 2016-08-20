@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
@@ -49,7 +50,7 @@ func checkModelConfig(cfg *config.Config) error {
 // inheritedConfigAttributes returns the merged collection of inherited config
 // values used as model defaults when adding models or unsetting values.
 func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
-	configSources := modelConfigSources(st)
+	configSources := modelConfigSources(st, nil)
 	values := make(attrValues)
 	for _, src := range configSources {
 		cfg, err := src.sourceFunc()
@@ -76,7 +77,8 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 
 	// Read all of the current inherited config values so
 	// we can dynamically reflect the origin of the model config.
-	configSources := modelConfigSources(st)
+	// XXX aws#us-east-2: foo
+	configSources := modelConfigSources(st, nil)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -156,6 +158,7 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
+// XXX for model default.
 func (st *State) ModelConfigDefaultValues() (config.ConfigValues, error) {
 	return st.modelConfigValues(nil)
 }
@@ -281,11 +284,11 @@ type modelConfigSource struct {
 // sources, in hierarchical order. Starting from the first source,
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
-func modelConfigSources(st *State) []modelConfigSource {
+func modelConfigSources(st *State, regionSpec *params.RegionSpec) []modelConfigSource {
 	return []modelConfigSource{
 		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
-		{config.JujuControllerSource, st.regionInheritedConfig},
+		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
 
 }
@@ -307,27 +310,35 @@ func (st *State) controllerInheritedConfig() (attrValues, error) {
 
 // regionInheritedConfig returns the configuration attributes for the region in
 // the cloud where the model is targeted.
-func (st *State) regionInheritedConfig() (attrValues, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
+func (st *State) regionInheritedConfig(regionSpec *params.RegionSpec) func() (attrValues, error) {
+	var cloud, region string
+	if regionSpec == nil {
+		model, err := st.Model()
+		if err != nil {
+			return func() (attrValues, error) { return nil, errors.Trace(err) }
+		}
+
+		if model.CloudRegion() == "" {
+			// Some clouds have no region
+			return func() (attrValues, error) { return nil, errors.NotFoundf("cloud %s has no region", model.Cloud()) }
+		}
+
+		cloud = model.Cloud()
+		region = model.CloudRegion()
+	} else {
+		cloud = regionSpec.Cloud
+		region = regionSpec.Region
 	}
-	settings, err := readSettings(st,
-		globalSettingsC,
-		regionSettingsGlobalKey(
-			model.Cloud(),
-			model.CloudRegion()),
-	)
-	if err != nil {
-		// Some clouds have no region so we need to handle an empty region by
-		// returning and handling an error or returning nil.
-		// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29388 check for
-		// model.CloudRegion() == "" above and return a NotFound error there,
-		// saving searching for non-existent settings with a partially
-		// constructed key
-		return nil, errors.Trace(err)
+	return func() (attrValues, error) {
+		settings, err := readSettings(st,
+			globalSettingsC,
+			regionSettingsGlobalKey(cloud, region),
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return settings.Map(), nil
 	}
-	return settings.Map(), nil
 }
 
 // composeModelConfigAttributes returns a set of model config settings composed from known
@@ -361,7 +372,7 @@ func composeModelConfigAttributes(
 
 // ComposeNewModelConfig returns a complete map of config attributes suitable for
 // creating a new model, by combining user specified values with system defaults.
-func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
-	configSources := modelConfigSources(st)
+func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *params.RegionSpec) (map[string]interface{}, error) {
+	configSources := modelConfigSources(st, regionSpec)
 	return composeModelConfigAttributes(modelAttr, configSources...)
 }

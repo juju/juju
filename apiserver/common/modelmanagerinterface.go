@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
@@ -32,7 +33,7 @@ type ModelManagerBackend interface {
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
-	ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error)
+	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *params.RegionSpec) (map[string]interface{}, error)
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
