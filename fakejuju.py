@@ -676,26 +676,7 @@ def get_user_register_token(username):
     return b64encode(sha512(username).digest())
 
 
-class FakeBackend2B9(FakeBackend):
-
-    def get_juju_output(self, command, args, used_feature_flags, juju_home,
-                        model=None, timeout=None, user_name=None,
-                        merge_stderr=False):
-        if command == 'add-user':
-            permissions = 'read'
-            if set(["--acl", "write"]).issubset(args):
-                permissions = 'write'
-            username = args[0]
-            model = args[2]
-            info_string = \
-                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
-                .format(username, username, permissions, model)
-            self.controller_state.add_user_perms(username, permissions)
-            register_string = get_user_register_command_info(username)
-            return info_string + register_string
-
-
-class FakeBackend2B7(FakeBackend2B9):
+class FakeBackend2B7(FakeBackend):
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
