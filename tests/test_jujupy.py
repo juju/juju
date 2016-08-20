@@ -2740,43 +2740,53 @@ class TestEnvJujuClient(ClientTest):
     def test_add_user(self):
         fake_client = fake_juju_client()
         username = 'fakeuser'
-        model = 'foo'
-        permissions = 'write'
         output = get_user_register_command_info(username)
-
-        def _get_expected_args(model=None, permissions=None):
-            return [username, '-c', fake_client.env.controller.name]
 
         # Ensure add_user returns expected value.
         self.assertEqual(
             fake_client.add_user(username),
             get_user_register_token(username))
 
+    @staticmethod
+    def assert_add_user(model, permissions):
+        fake_client = fake_juju_client()
+        username = 'fakeuser'
+        output = get_user_register_command_info(username)
+        if permissions is None:
+            permissions = 'login'
+        expected_args = [username, '-c', fake_client.env.controller.name]
         with patch.object(fake_client, 'get_juju_output',
                           return_value=output) as get_output:
-            # Check using default model and permissions
-            fake_client.add_user(username)
-            expected_args = _get_expected_args()
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+            with patch.object(fake_client, 'juju') as mock_juju:
+                fake_client.add_user(username, model, permissions)
+                if model is None:
+                    model = fake_client.env.environment
+                get_output.assert_called_with(
+                    'add-user', *expected_args, include_e=False)
+                if permissions == 'login':
+                    mock_juju.assert_called_once_with(
+                        'grant', ('fakeuser', permissions),
+                        include_e=False)
+                else:
+                    mock_juju.assert_called_once_with(
+                        'grant', ('fakeuser', permissions, model),
+                        include_e=False)
 
-            # Check explicit model & default permissions
-            fake_client.add_user(username, model)
-            expected_args = _get_expected_args(model)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+    def test_assert_add_user_permissions(self):
+        model = 'foo'
+        permissions = 'write'
 
-            # Check explicit model & permissions
-            fake_client.add_user(username, model, permissions)
-            expected_args = _get_expected_args(model, permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+        # Check using default model and permissions
+        self.assert_add_user(None, None)
 
-            # Check default model & explicit permissions
-            fake_client.add_user(username, permissions=permissions)
-            expected_args = _get_expected_args(permissions=permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+        # Check explicit model & default permissions
+        self.assert_add_user(model, None)
+
+        # Check explicit model & permissions
+        self.assert_add_user(model, permissions)
+
+        # Check default model & explicit permissions
+        self.assert_add_user(None, permissions)
 
     def test_disable_user(self):
         env = JujuData('foo')

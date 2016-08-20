@@ -1944,7 +1944,7 @@ class EnvJujuClient:
             self.juju('grant', (user_name, permission, model),
                       include_e=False)
         else:
-            raise
+            raise ValueError('Unknown permission {}'.format(permission))
 
     def list_clouds(self, format='json'):
         """List all the available clouds."""
