@@ -862,6 +862,21 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
+	apps := model.Applications()
+	c.Assert(apps, gc.HasLen, 1)
+	constraints := apps[0].StorageConstraints()
+	c.Assert(constraints, gc.HasLen, 2)
+	cons, found := constraints["data"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(cons.Pool(), gc.Equals, "loop-pool")
+	c.Check(cons.Size(), gc.Equals, uint64(0x400))
+	c.Check(cons.Count(), gc.Equals, uint64(1))
+	cons, found = constraints["allecto"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(cons.Pool(), gc.Equals, "loop")
+	c.Check(cons.Size(), gc.Equals, uint64(0x400))
+	c.Check(cons.Count(), gc.Equals, uint64(0))
+
 	storages := model.Storages()
 	c.Assert(storages, gc.HasLen, 1)
 
