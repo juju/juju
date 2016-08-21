@@ -476,7 +476,13 @@ func (e *exporter) applications() error {
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
-		if err := e.addApplication(application, refcounts, applicationUnits, meterStatus, leader); err != nil {
+		if err := e.addApplication(addApplicationContext{
+			application: application,
+			refcounts:   refcounts,
+			units:       applicationUnits,
+			meterStatus: meterStatus,
+			leader:      leader,
+		}); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -496,21 +502,31 @@ func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addApplication(application *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+type addApplicationContext struct {
+	application *Application
+	refcounts   map[string]int
+	units       []*Unit
+	meterStatus map[string]*meterStatusDoc
+	leader      string
+}
+
+func (e *exporter) addApplication(ctx addApplicationContext) error {
+	application := ctx.application
+	appName := application.Name()
 	settingsKey := application.settingsKey()
-	leadershipKey := leadershipSettingsKey(application.Name())
+	leadershipKey := leadershipSettingsKey(appName)
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings for application %q", application.Name())
+		return errors.Errorf("missing settings for application %q", appName)
 	}
-	refCount, found := refcounts[settingsKey]
+	refCount, found := ctx.refcounts[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings refcount for application %q", application.Name())
+		return errors.Errorf("missing settings refcount for application %q", appName)
 	}
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
-		return errors.Errorf("missing leadership settings for application %q", application.Name())
+		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
 
 	args := description.ApplicationArgs{
@@ -525,7 +541,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		MinUnits:             application.doc.MinUnits,
 		Settings:             applicationSettingsDoc.Settings,
 		SettingsRefCount:     refCount,
-		Leader:               leader,
+		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 	}
@@ -534,7 +550,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
-		return errors.Annotatef(err, "status for application %s", application.Name())
+		return errors.Annotatef(err, "status for application %s", appName)
 	}
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
@@ -546,9 +562,9 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	}
 	exApplication.SetConstraints(constraintsArgs)
 
-	for _, unit := range units {
+	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
-		unitMeterStatus, found := meterStatus[agentKey]
+		unitMeterStatus, found := ctx.meterStatus[agentKey]
 		if !found {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
