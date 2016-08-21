@@ -48,9 +48,8 @@ type application struct {
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
-	Constraints_ *constraints `yaml:"constraints,omitempty"`
-
-	// Storage Constraints
+	Constraints_        *constraints                  `yaml:"constraints,omitempty"`
+	StorageConstraints_ map[string]*storageconstraint `yaml:"storage-constraints,omitempty"`
 }
 
 // ApplicationArgs is an argument struct used to add an application to the Model.
@@ -68,12 +67,13 @@ type ApplicationArgs struct {
 	SettingsRefCount     int
 	Leader               string
 	LeadershipSettings   map[string]interface{}
+	StorageConstraints   map[string]StorageConstraintArgs
 	MetricsCredentials   []byte
 }
 
 func newApplication(args ApplicationArgs) *application {
 	creds := base64.StdEncoding.EncodeToString(args.MetricsCredentials)
-	svc := &application{
+	app := &application{
 		Name_:                 args.Tag.Id(),
 		Series_:               args.Series,
 		Subordinate_:          args.Subordinate,
@@ -90,8 +90,14 @@ func newApplication(args ApplicationArgs) *application {
 		MetricsCredentials_:   creds,
 		StatusHistory_:        newStatusHistory(),
 	}
-	svc.setUnits(nil)
-	return svc
+	app.setUnits(nil)
+	if len(args.StorageConstraints) > 0 {
+		app.StorageConstraints_ = make(map[string]*storageconstraint)
+		for key, value := range args.StorageConstraints {
+			app.StorageConstraints_[key] = newStorageConstraint(value)
+		}
+	}
+	return app
 }
 
 // Tag implements Application.
@@ -165,8 +171,12 @@ func (s *application) LeadershipSettings() map[string]interface{} {
 }
 
 // StorageConstraints implements Application.
-func (s *application) StorageConstraints() map[string]StorageConstraint {
-	return nil
+func (a *application) StorageConstraints() map[string]StorageConstraint {
+	result := make(map[string]StorageConstraint)
+	for key, value := range a.StorageConstraints_ {
+		result[key] = value
+	}
+	return result
 }
 
 // MetricsCredentials implements Application.
@@ -318,17 +328,19 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"settings-refcount":   schema.Int(),
 		"leader":              schema.String(),
 		"leadership-settings": schema.StringMap(schema.Any()),
+		"storage-constraints": schema.StringMap(schema.StringMap(schema.Any())),
 		"metrics-creds":       schema.String(),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
-		"subordinate":   false,
-		"force-charm":   false,
-		"exposed":       false,
-		"min-units":     int64(0),
-		"leader":        "",
-		"metrics-creds": "",
+		"subordinate":         false,
+		"force-charm":         false,
+		"exposed":             false,
+		"min-units":           int64(0),
+		"leader":              "",
+		"metrics-creds":       "",
+		"storage-constraints": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -369,6 +381,14 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 			return nil, errors.Trace(err)
 		}
 		result.Constraints_ = constraints
+	}
+
+	if constraintsMap, ok := valid["storage-constraints"]; ok {
+		constraints, err := importStorageConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.StorageConstraints_ = constraints
 	}
 
 	encodedCreds := valid["metrics-creds"].(string)

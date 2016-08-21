@@ -62,8 +62,11 @@ func minimalApplicationMap() map[interface{}]interface{} {
 	}
 }
 
-func minimalApplication() *application {
-	s := newApplication(minimalApplicationArgs())
+func minimalApplication(args ...ApplicationArgs) *application {
+	if len(args) == 0 {
+		args = []ApplicationArgs{minimalApplicationArgs()}
+	}
+	s := newApplication(args[0])
 	s.SetStatus(minimalStatusArgs())
 	u := s.AddUnit(minimalUnitArgs())
 	u.SetAgentStatus(minimalStatusArgs())
@@ -203,6 +206,31 @@ func (s *ApplicationSerializationSuite) TestConstraints(c *gc.C) {
 
 	application := s.exportImport(c, initial)
 	c.Assert(application.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
+func (s *ApplicationSerializationSuite) TestStorageConstraints(c *gc.C) {
+	args := minimalApplicationArgs()
+	args.StorageConstraints = map[string]StorageConstraintArgs{
+		"first":  {Pool: "first", Size: 1234, Count: 1},
+		"second": {Pool: "second", Size: 4321, Count: 7},
+	}
+	initial := minimalApplication(args)
+
+	application := s.exportImport(c, initial)
+
+	constraints := application.StorageConstraints()
+	c.Assert(constraints, gc.HasLen, 2)
+	first, found := constraints["first"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(first.Pool(), gc.Equals, "first")
+	c.Check(first.Size(), gc.Equals, uint64(1234))
+	c.Check(first.Count(), gc.Equals, uint64(1))
+
+	second, found := constraints["second"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(second.Pool(), gc.Equals, "second")
+	c.Check(second.Size(), gc.Equals, uint64(4321))
+	c.Check(second.Count(), gc.Equals, uint64(7))
 }
 
 func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {

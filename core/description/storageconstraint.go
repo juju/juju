@@ -48,7 +48,7 @@ func (s *storageconstraint) Count() uint64 {
 	return s.Count_
 }
 
-func importStorageConstraintes(sourceMap map[string]interface{}) (map[string]*storageconstraint, error) {
+func importStorageConstraints(sourceMap map[string]interface{}) (map[string]*storageconstraint, error) {
 	result := make(map[string]*storageconstraint)
 	for key, value := range sourceMap {
 		source, ok := value.(map[string]interface{})
