@@ -164,6 +164,11 @@ func (s *application) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
 }
 
+// StorageConstraints implements Application.
+func (s *application) StorageConstraints() map[string]StorageConstraint {
+	return nil
+}
+
 // MetricsCredentials implements Application.
 func (s *application) MetricsCredentials() []byte {
 	// Here we are explicitly throwing away any decode error. We check that

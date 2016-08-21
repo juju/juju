@@ -170,9 +170,6 @@ type Machine interface {
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
 
-	// TODO:
-	// Storage
-
 	BlockDevices() []BlockDevice
 	AddBlockDevice(BlockDeviceArgs) BlockDevice
 
@@ -183,10 +180,7 @@ type Machine interface {
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// reboot doc
-	// block devices
 	// port docs
-	// machine filesystems
 }
 
 // OpenedPorts represents a collection of port ranges that are open on a
@@ -269,6 +263,7 @@ type Application interface {
 	LeadershipSettings() map[string]interface{}
 
 	MetricsCredentials() []byte
+	StorageConstraints() map[string]StorageConstraint
 
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
@@ -497,4 +492,16 @@ type StoragePool interface {
 	Name() string
 	Provider() string
 	Attributes() map[string]interface{}
+}
+
+// StorageConstraint repressents the user-specified constraints for
+// provisioning storage instances for an application unit.
+type StorageConstraint interface {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instances.
+	Pool() string
+	// Size is the required size of the storage instances, in MiB.
+	Size() uint64
+	// Count is the required number of storage instances.
+	Count() uint64
 }
