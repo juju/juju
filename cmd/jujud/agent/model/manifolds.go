@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
@@ -110,6 +111,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APIOpen:       apicaller.APIOpen,
 			NewConnection: apicaller.OnlyConnect,
+			Filter:        apiConnectFilter,
 		}),
 
 		// The spaces-imported gate will be unlocked when space
@@ -288,6 +290,16 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 		},
 		Output: engine.ValueWorkerOutput,
 	}
+}
+
+func apiConnectFilter(err error) error {
+	// If the model is no longer there, then convert to ErrRemoved so
+	// that the dependency engine for the model is stopped.
+	// See http://pad.lv/1614809
+	if params.IsCodeModelNotFound(err) {
+		return ErrRemoved
+	}
+	return err
 }
 
 var (
