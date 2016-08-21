@@ -253,58 +253,6 @@ def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
                 'Migrating to upgraded controller did not error.')
 
 
-def _set_user_password(client, user, password):
-    try:
-        command = client.expect(
-            'change-user-password', (user), include_e=False)
-        command.expect('password:')
-        command.sendline(password)
-        command.expect('type password again:')
-        command.sendline(password)
-        command.expect('Your password has been updated.')
-        command.expect(pexpect.EOF)
-        if command.isalive():
-            raise AssertionError(
-                'Registering user failed: pexpect session still alive')
-    except pexpect.TIMEOUT:
-            raise AssertionError(
-                'Registering user failed: pexpect session timed out')
-
-
-def _log_user_in(client, user, password):
-    # Create a contextmanger that handles all the shit re: using an expect.
-    try:
-        command = client.expect(
-            'login', (user, '-c', client.env.controller.name), include_e=False)
-        command.expect('password:')
-        command.sendline(password)
-        command.expect(pexpect.EOF)
-        if command.isalive():
-            raise AssertionError(
-                'Registering user failed: pexpect session still alive')
-    except pexpect.TIMEOUT:
-            raise AssertionError(
-                'Registering user failed: pexpect session timed out')
-
-
-def _register_user(client, register_token, controller, password):
-    try:
-        command = client.expect('register', (register_token), include_e=False)
-        command.expect('(?i)name .*: ')
-        command.sendline(controller)
-        command.expect('(?i)password')
-        command.sendline(password)
-        command.expect('(?i)password')
-        command.sendline(password)
-        command.expect(pexpect.EOF)
-        if command.isalive():
-            raise AssertionError(
-                'Registering user failed: pexpect session still alive')
-    except pexpect.TIMEOUT:
-            raise AssertionError(
-                'Registering user failed: pexpect session timed out')
-
-
 def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
     """To migrate a user must have controller admin privileges.
 
@@ -320,17 +268,12 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(upload_tools):
             # Create a normal user.
-            import ipdb; ipdb.set_trace()
             new_user_home = os.path.join(temp_dir, 'example_user')
             os.makedirs(new_user_home)
             new_user = User('testuser', 'write', [])
             normal_user_client_1 = bs1.client.register_user(
                 new_user, new_user_home)
             bs1.client.grant(new_user.name, 'addmodel')
-            # bs1.client.juju(
-            #     'grant',
-            #     (username, 'addmodel', '-c', bs1.client.env.controller.name),
-            #     include_e=False)
 
             second_controller_name = '{}_controllerb'.format(new_user.name)
             normal_user_client_2 = bs2.client.register_user(
@@ -339,20 +282,6 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
                 controller_name=second_controller_name)
             bs2.client.grant(new_user.name, 'addmodel')
 
-            # Needed?
-            # _set_user_password(bs1.client, 'admin', 'juju')
-
-            # Workout the id pub rsa to pass in :
-            # --config authorized-keys="ssh-rsa
-            def _get_rsa_pub(home_dir):
-                full_path = os.path.join(home_dir, 'ssh', 'juju_id_rsa.pub')
-                with open(full_path, 'r') as f:
-                    return f.read().replace('\n', '')
-
-            # rsa_pub = _get_rsa_pub(normal_user_client.env.juju_home)
-            # normal_user_client.env.config['authorized-keys'] = rsa_pub
-
-            # Step into this method.
             user_new_model_client = normal_user_client_1.add_model(
                 normal_user_client_1.env.clone('model-a'))
 
@@ -362,7 +291,7 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
 
             log.info('Attempting migration process')
 
-            # This should fail.
+            # This must fail.
             normal_user_client_1.controller_juju(
                 'migrate',
                 (user_new_model_client.env.environment,
