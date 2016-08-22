@@ -3,29 +3,30 @@
 #
 
 ifndef GOPATH
-$(warning You need to set up a GOPATH.  See the README file.)
+$(error You need to set up a GOPATH.  See the README file.)
 endif
 
+# Update this when our lowest supported version of go changes.
+# Currently, we need 1.6+.
+GOLANG_PKG := golang-1.[6-9]
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf).*/golang/'), golang)
-	GO_C := golang
-	INSTALL_FLAGS := 
-else
-	GO_C := gccgo-4.9  gccgo-go
-	INSTALL_FLAGS := -gccgoflags=-static-libgo
+
+ifneq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
+	$(error Unsupported CPU architecture.) 
 endif
 
 define DEPENDENCIES
   ca-certificates
+  bzip2
   bzr
   distro-info-data
   git-core
   mercurial
   juju-local
   zip
-  $(GO_C)
+  $(GOLANG_PKG)
 endef
 
 default: build
@@ -52,7 +53,7 @@ check: godeps
 	go test -test.timeout=1200s $(PROJECT)/...
 
 install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+	go install -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...
