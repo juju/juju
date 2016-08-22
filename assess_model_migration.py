@@ -28,10 +28,17 @@ log = logging.getLogger("assess_model_migration")
 
 
 def assess_model_migration(bs1, bs2, upload_tools):
-    # ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
-    with temp_dir() as temp:
-        ensure_migrating_with_user_permissions(
-            bs1, bs2, upload_tools, temp)
+    with bs1.booted_context(upload_tools):
+        bs1.client.enable_feature('migration')
+
+        bs2.client.env.juju_home = bs1.client.env.juju_home
+        with bs2.existing_booted_context(upload_tools):
+            ensure_able_to_migrate_model_between_controllers(
+                bs1, bs2, upload_tools)
+
+            with temp_dir() as temp:
+                ensure_migrating_with_user_permissions(
+                    bs1, bs2, upload_tools, temp)
 
 
 def parse_args(argv):
@@ -124,27 +131,21 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
     """
-    with source_environ.booted_context(upload_tools):
-        source_environ.client.enable_feature('migration')
+    bundle = 'mongodb'
+    application = 'mongodb'
 
-        bundle = 'mongodb'
-        application = 'mongodb'
+    log.info('Deploying charm')
+    source_environ.client.juju("deploy", (bundle))
+    source_environ.client.wait_for_started()
+    test_deployed_mongo_is_up(source_environ.client)
 
-        log.info('Deploying charm')
-        source_environ.client.juju("deploy", (bundle))
-        source_environ.client.wait_for_started()
-        test_deployed_mongo_is_up(source_environ.client)
+    log.info('Initiating migration process')
 
-        log.info('Booting second instance')
-        dest_environ.client.env.juju_home = source_environ.client.env.juju_home
-        with dest_environ.existing_booted_context(upload_tools):
-            log.info('Initiating migration process')
+    migration_target_client = migrate_model_to_controller(
+        source_environ, dest_environ)
 
-            migration_target_client = migrate_model_to_controller(
-                source_environ, dest_environ)
-
-            test_deployed_mongo_is_up(migration_target_client)
-            ensure_model_is_functional(migration_target_client, application)
+    test_deployed_mongo_is_up(migration_target_client)
+    ensure_model_is_functional(migration_target_client, application)
 
 
 def migrate_model_to_controller(source_environ, dest_environ):
@@ -204,51 +205,47 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
+def ensure_migrating_with_user_permissions(
+        source_bs, dest_bs, upload_tools, temp_dir):
     """Ensure migration fails when a user does not have the right permissions.
 
     A non-superuser on a controller cannot migrate their models between
     controllers.
 
     """
-    with bs1.booted_context(upload_tools):
-        bs1.client.enable_feature('migration')
+    # Create a user for both controllers that only has addmodel
+    # permissions not superuser.
+    new_user_home = os.path.join(temp_dir, 'example_user')
+    os.makedirs(new_user_home)
+    new_user = User('testuser', 'write', [])
+    normal_user_client_1 = source_bs.client.register_user(
+        new_user, new_user_home)
+    source_bs.client.grant(new_user.name, 'addmodel')
 
-        bs2.client.env.juju_home = bs1.client.env.juju_home
-        with bs2.existing_booted_context(upload_tools):
-            # Create a user for both controllers that only has addmodel
-            # permissions not superuser.
-            new_user_home = os.path.join(temp_dir, 'example_user')
-            os.makedirs(new_user_home)
-            new_user = User('testuser', 'write', [])
-            normal_user_client_1 = bs1.client.register_user(
-                new_user, new_user_home)
-            bs1.client.grant(new_user.name, 'addmodel')
+    second_controller_name = '{}_controllerb'.format(new_user.name)
+    normal_user_client_2 = dest_bs.client.register_user(
+        new_user,
+        new_user_home,
+        controller_name=second_controller_name)
+    dest_bs.client.grant(new_user.name, 'addmodel')
 
-            second_controller_name = '{}_controllerb'.format(new_user.name)
-            normal_user_client_2 = bs2.client.register_user(
-                new_user,
-                new_user_home,
-                controller_name=second_controller_name)
-            bs2.client.grant(new_user.name, 'addmodel')
+    user_new_model_client = normal_user_client_1.add_model(
+        normal_user_client_1.env.clone('model-a'))
 
-            user_new_model_client = normal_user_client_1.add_model(
-                normal_user_client_1.env.clone('model-a'))
+    user_new_model_client.juju('deploy', ('ubuntu'))
+    user_new_model_client.wait_for_started()
 
-            user_new_model_client.juju('deploy', ('ubuntu'))
-            user_new_model_client.wait_for_started()
+    log.info('Attempting migration process')
 
-            log.info('Attempting migration process')
-
-            try:
-                normal_user_client_1.controller_juju(
-                    'migrate',
-                    (user_new_model_client.env.environment,
-                     normal_user_client_2.env.controller.name))
-            except CalledProcessError:
-                log.info('SUCCESS: Migrate command failed as expected.')
-            else:
-                raise JujuAssertionError('Migration did not fail as expected.')
+    try:
+        normal_user_client_1.controller_juju(
+            'migrate',
+            (user_new_model_client.env.environment,
+             normal_user_client_2.env.controller.name))
+    except CalledProcessError:
+        log.info('SUCCESS: Migrate command failed as expected.')
+    else:
+        raise JujuAssertionError('Migration did not fail as expected.')
 
 
 def main(argv=None):
