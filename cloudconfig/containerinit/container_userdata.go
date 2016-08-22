@@ -73,15 +73,14 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
 	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
+	autoStarted := set.NewStrings(prepared.AutoStarted...)
 
 	var output bytes.Buffer
 	gatewayHandled := false
 	for _, name := range prepared.InterfaceNames {
 		output.WriteString("\n")
 		if name == "lo" {
-			output.WriteString("auto ")
-			autoStarted := strings.Join(prepared.AutoStarted, " ")
-			output.WriteString(autoStarted + "\n\n")
+			output.WriteString("auto lo\n")
 			output.WriteString("iface lo inet loopback\n")
 
 			dnsServers := strings.Join(prepared.DNSServers, " ")
@@ -96,6 +95,8 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 				output.WriteString(dnsSearchDomains + "\n")
 			}
 			continue
+		} else if autoStarted.Contains(name) {
+			output.WriteString("auto " + name + "\n")
 		}
 
 		address, hasAddress := prepared.NameToAddress[name]
