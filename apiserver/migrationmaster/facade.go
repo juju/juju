@@ -82,6 +82,14 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 		return empty, errors.Annotate(err, "retrieving phase")
 	}
 
+	var macJSON []byte
+	if target.Macaroon != nil {
+		macJSON, err = target.Macaroon.MarshalJSON()
+		if err != nil {
+			return empty, errors.Annotate(err, "marshalling macaroon")
+		}
+	}
+
 	return params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
@@ -91,6 +99,7 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 				CACert:        target.CACert,
 				AuthTag:       target.AuthTag.String(),
 				Password:      target.Password,
+				Macaroon:      string(macJSON),
 			},
 		},
 		MigrationId:      mig.Id(),

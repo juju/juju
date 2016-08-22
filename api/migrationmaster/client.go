@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -77,6 +78,14 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 		return empty, errors.Annotatef(err, "unable to parse auth tag")
 	}
 
+	var mac *macaroon.Macaroon
+	if target.Macaroon != "" {
+		mac = new(macaroon.Macaroon)
+		if err := mac.UnmarshalJSON([]byte(target.Macaroon)); err != nil {
+			return empty, errors.Annotatef(err, "unmarshalling macaroon")
+		}
+	}
+
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
@@ -88,6 +97,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 			CACert:        target.CACert,
 			AuthTag:       authTag,
 			Password:      target.Password,
+			Macaroon:      mac,
 		},
 	}, nil
 }
