@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	statetxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -104,16 +105,20 @@ const apiHostPortsKey = "apiHostPorts"
 
 type apiHostPortsDoc struct {
 	APIHostPorts [][]hostPort `bson:"apihostports"`
+	TxnRevno     int64        `bson:"txn-revno"`
 }
 
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
+	controllers, closer := st.getCollection(controllersC)
+	defer closer()
 	doc := apiHostPortsDoc{
 		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		existing, err := st.APIHostPorts()
+		var existingDoc apiHostPortsDoc
+		err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&existingDoc)
 		if err != nil {
 			return nil, err
 		}
@@ -121,13 +126,16 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 			C:  controllersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
-				"apihostports", fromNetworkHostsPorts(existing),
+				"txn-revno", existingDoc.TxnRevno,
 			}},
 		}
-		if !hostsPortsEqual(netHostsPorts, existing) {
+		hostPorts := networkHostsPorts(existingDoc.APIHostPorts)
+		if !hostsPortsEqual(netHostsPorts, hostPorts) {
 			op.Update = bson.D{{
 				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
 			}}
+		} else {
+			return nil, statetxn.ErrNoOperations
 		}
 		return []txn.Op{op}, nil
 	}
