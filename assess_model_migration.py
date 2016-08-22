@@ -135,31 +135,34 @@ def ensure_able_to_migrate_model_between_controllers(
     application = 'mongodb'
 
     log.info('Deploying charm')
-    source_environ.client.juju("deploy", (bundle))
-    source_environ.client.wait_for_started()
-    test_deployed_mongo_is_up(source_environ.client)
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = source_environ.client.add_model(
+        source_environ.client.env.clone('example-model'))
+    test_model.client.juju("deploy", (bundle))
+    test_model.client.wait_for_started()
+    test_deployed_mongo_is_up(test_model)
 
     log.info('Initiating migration process')
 
     migration_target_client = migrate_model_to_controller(
-        source_environ, dest_environ)
+        test_model, dest_environ.client)
 
     test_deployed_mongo_is_up(migration_target_client)
     ensure_model_is_functional(migration_target_client, application)
 
 
-def migrate_model_to_controller(source_environ, dest_environ):
-    source_environ.client.controller_juju(
+def migrate_model_to_controller(source_client, dest_client):
+    source_client.controller_juju(
         'migrate',
-        (source_environ.client.env.environment,
-         dest_environ.client.env.controller.name))
+        (source_client.env.environment,
+         dest_client.env.controller.name))
 
-    migration_target_client = dest_environ.client.clone(
-        dest_environ.client.env.clone(
-            source_environ.client.env.environment))
+    migration_target_client = dest_client.clone(
+        dest_client.env.clone(
+            source_client.env.environment))
 
     wait_for_model(
-        migration_target_client, source_environ.client.env.environment)
+        migration_target_client, source_client.env.environment)
 
     # For logging purposes
     migration_target_client.show_status()
