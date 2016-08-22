@@ -185,22 +185,25 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0], gc.DeepEquals, params.EntityMetrics{
+	c.Assert(result.Results[0], jc.DeepEquals, params.EntityMetrics{
 		Metrics: []params.MetricResult{
 			{
 				Key:   "pings",
 				Value: "5",
 				Time:  newTime,
+				Unit:  "metered/0",
 			},
 			{
 				Key:   "pings",
 				Value: "5",
 				Time:  newTime,
+				Unit:  "metered/0",
 			},
 			{
 				Key:   "pings",
 				Value: "10.5",
 				Time:  newTime,
+				Unit:  "metered/0",
 			},
 		},
 		Error: nil,
@@ -274,4 +277,33 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
 	c.Assert(metrics.Results[0].Metrics[1].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
 	c.Assert(metrics.Results[0].Metrics[1].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
 	c.Assert(metrics.Results[0].Metrics[1].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
+}
+
+func (s *metricsDebugSuite) TestGetModelNoMocks(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: meteredCharm,
+	})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+
+	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit0,
+	})
+	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit1,
+	})
+
+	args := params.Entities{Entities: []params.Entity{}}
+	metrics, err := s.metricsdebug.GetMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics.Results, gc.HasLen, 1)
+	c.Assert(metrics.Results[0].Metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
+	c.Assert(metrics.Results[0].Metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
+	c.Assert(metrics.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
+	c.Assert(metrics.Results[0].Metrics[0].Unit, gc.Equals, metricUnit0.Unit())
+	c.Assert(metrics.Results[0].Metrics[1].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
+	c.Assert(metrics.Results[0].Metrics[1].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
+	c.Assert(metrics.Results[0].Metrics[1].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
+	c.Assert(metrics.Results[0].Metrics[1].Unit, gc.Equals, metricUnit1.Unit())
 }

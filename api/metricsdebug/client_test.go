@@ -50,7 +50,7 @@ func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 			return nil
 		})
 	client := metricsdebug.NewClient(apiCaller)
-	metrics, err := client.GetMetrics([]string{"unit-wordpress/0"})
+	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(metrics, gc.HasLen, 1)
@@ -76,7 +76,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFails(c *gc.C) {
 			return nil
 		})
 	client := metricsdebug.NewClient(apiCaller)
-	metrics, err := client.GetMetrics([]string{"unit-wordpress/0"})
+	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(metrics, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
@@ -94,7 +94,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFacadeCallError(c *gc.C) {
 			return errors.New("an error")
 		})
 	client := metricsdebug.NewClient(apiCaller)
-	metrics, err := client.GetMetrics([]string{"unit-wordpress/0"})
+	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(metrics, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
@@ -109,9 +109,9 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
 			id, request string,
 			requestParam, response interface{},
 		) error {
-			c.Assert(request, gc.Equals, "GetMetricsForModel")
+			c.Assert(request, gc.Equals, "GetMetrics")
 			entities := requestParam.(params.Entities)
-			c.Assert(entities.Entities[0].Tag, gc.Equals, "model")
+			c.Assert(entities, gc.DeepEquals, params.Entities{Entities: []params.Entity{}})
 			result := response.(*params.MetricResults)
 			result.Results = []params.EntityMetrics{{
 				Metrics: []params.MetricResult{{
@@ -125,7 +125,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
 			return nil
 		})
 	client := metricsdebug.NewClient(apiCaller)
-	metrics, err := client.GetMetricsForModel("model")
+	metrics, err := client.GetMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(metrics, gc.HasLen, 1)
@@ -233,7 +233,7 @@ func (s *metricsdebugSuite) TestFeatureGetMetrics(c *gc.C) {
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit})
-	metrics, err := s.manager.GetMetrics([]string{"unit-metered/0"})
+	metrics, err := s.manager.GetMetrics("unit-metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 1)
 	assertSameMetric(c, metrics[0], metric)
@@ -254,17 +254,17 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics0, err := s.manager.GetMetrics([]string{"unit-metered/0"})
+	metrics0, err := s.manager.GetMetrics("unit-metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics0, gc.HasLen, 1)
 	assertSameMetric(c, metrics0[0], metricUnit0)
 
-	metrics1, err := s.manager.GetMetrics([]string{"unit-metered/1"})
+	metrics1, err := s.manager.GetMetrics("unit-metered/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics1, gc.HasLen, 1)
 	assertSameMetric(c, metrics1[0], metricUnit1)
 
-	metrics2, err := s.manager.GetMetrics([]string{"unit-metered/0", "unit-metered/1"})
+	metrics2, err := s.manager.GetMetrics("unit-metered/0", "unit-metered/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics2, gc.HasLen, 2)
 }
@@ -284,7 +284,7 @@ func (s *metricsdebugSuite) TestFeatureGetMetricsForModel(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics, err := s.manager.GetMetricsForModel(s.State.ModelTag().String())
+	metrics, err := s.manager.GetMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 2)
 	assertSameMetric(c, metrics[0], metricUnit0)
@@ -306,7 +306,7 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithService(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics, err := s.manager.GetMetrics([]string{"application-metered"})
+	metrics, err := s.manager.GetMetrics("application-metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 2)
 	assertSameMetric(c, metrics[0], metricUnit0)
