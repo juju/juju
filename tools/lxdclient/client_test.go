@@ -197,10 +197,11 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 }
 
 func (cs *ConnectSuite) TestVersionCheck(c *gc.C) {
-	c.Assert(isSupportedLxdVersion("2.0.0"), jc.IsTrue)
-	c.Assert(isSupportedLxdVersion("2.0.0.rc4"), jc.IsFalse)
-	c.Assert(isSupportedLxdVersion("0.19"), jc.IsFalse)
-	c.Assert(isSupportedLxdVersion("2.0.1"), jc.IsTrue)
+	c.Assert(isSupportedAPIVersion("1.0"), jc.IsTrue)
+	c.Assert(isSupportedAPIVersion("0.9"), jc.IsFalse)
+	c.Assert(isSupportedAPIVersion("1.1"), jc.IsTrue)
+	c.Assert(isSupportedAPIVersion("2.1"), jc.IsFalse)
+	c.Assert(isSupportedAPIVersion("a.b.c"), jc.IsFalse)
 }
 
 var testerr = errors.Errorf("boo!")
