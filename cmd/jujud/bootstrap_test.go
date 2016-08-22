@@ -744,6 +744,10 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 	// find all image metadata in state
 	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
+	// if there was no stream, it should have defaulted to "released"
+	if metadata.Stream == "" {
+		metadata.Stream = "released"
+	}
 	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		metadata.Source: []cloudimagemetadata.Metadata{metadata},
 	})

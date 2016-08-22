@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiserverimagemetadata "github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
@@ -497,19 +498,8 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, errors.Trace(err)
 	}
 
-	getStream := func(current string) string {
-		if current == "" {
-			if constraint.Stream != "" {
-				return constraint.Stream
-			}
-			return env.Config().ImageStream()
-		}
-		return current
-	}
-
-	toModel := func(m *imagemetadata.ImageMetadata, mStream string, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
-
-		return cloudimagemetadata.Metadata{
+	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+		result := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
 				Arch:            m.Arch,
@@ -517,11 +507,17 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				RootStorageType: m.Storage,
 				Source:          source,
 				Series:          mSeries,
-				Stream:          mStream,
+				Stream:          m.Stream,
+				Version:         m.Version,
 			},
 			priority,
 			m.Id,
 		}
+		if result.Stream == "" {
+			result.Stream = constraint.Stream
+		}
+		apiserverimagemetadata.SupplyWithDefaults(&result, env.Config(), constraint.Region)
+		return result
 	}
 
 	var metadataState []cloudimagemetadata.Metadata
@@ -539,8 +535,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
 				continue
 			}
-			mStream := getStream(m.Stream)
-			metadataState = append(metadataState, toModel(m, mStream, mSeries, info.Source, source.Priority()))
+			metadataState = append(metadataState, toModel(m, mSeries, info.Source, source.Priority()))
 		}
 	}
 	if len(metadataState) > 0 {

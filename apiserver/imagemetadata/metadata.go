@@ -212,24 +212,30 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, cfg *config
 		p.Priority,
 		p.ImageId,
 	}
+	SupplyWithDefaults(&result, cfg, cloudRegion)
+	return result, nil
+}
 
+// SupplyWithDefaults pre-populates cloud image metadata parameter with known defaults
+// for properties that have missing values.
+func SupplyWithDefaults(p *cloudimagemetadata.Metadata, cfg *config.Config, cloudRegion string) {
 	// Fill in any required default values.
 	if p.Stream == "" {
-		result.Stream = cfg.ImageStream()
+		p.Stream = cfg.ImageStream()
 	}
 	if p.Source == "" {
-		result.Source = "custom"
+		p.Source = "custom"
 	}
-	if result.Arch == "" {
-		result.Arch = "amd64"
+	if p.Arch == "" {
+		// TODO (anastasiamac 2016-08-23) is this correct? Should it not be host arch?
+		p.Arch = "amd64"
 	}
-	if result.Series == "" {
-		result.Series = config.PreferredSeries(cfg)
+	if p.Series == "" {
+		p.Series = config.PreferredSeries(cfg)
 	}
-	if result.Region == "" {
-		result.Region = cloudRegion
+	if p.Region == "" {
+		p.Region = cloudRegion
 	}
-	return result, nil
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and

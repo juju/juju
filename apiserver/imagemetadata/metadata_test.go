@@ -112,6 +112,8 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
 		c.Assert(m, gc.HasLen, saveCalls)
+		// Ensure empty stream is changed to release
+		c.Assert("released", gc.DeepEquals, m[0].Stream)
 		if saveCalls == 1 {
 			// don't err on first call
 			return nil

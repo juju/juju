@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	apiserverimagemetadata "github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -292,7 +293,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if len(args.CustomImageMetadata) > 0 {
-		if err := c.saveCustomImageMetadata(st, args.CustomImageMetadata); err != nil {
+		// TODO (anastasiamac) Is this right? this will mean that custom image metadtaa will be available
+		// only in controller region, i.e. if there is potential to have machines in other regions,
+		// they will not be able to get these image metadata.
+		if err := c.saveCustomImageMetadata(st, env, args.ControllerCloudRegion, args.CustomImageMetadata); err != nil {
 			return err
 		}
 	}
@@ -451,13 +455,13 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata stores the custom image metadata to the database,
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, imageMetadata []*imagemetadata.ImageMetadata) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ, cloudRegion string, imageMetadata []*imagemetadata.ImageMetadata) error {
 	logger.Debugf("saving custom image metadata")
-	return storeImageMetadataInState(st, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
+	return storeImageMetadataInState(st, env, cloudRegion, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
+func storeImageMetadataInState(st *state.State, env environs.Environ, cloudRegion string, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
@@ -471,6 +475,7 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
 				Source:          source,
+				Version:         one.Version,
 			},
 			priority,
 			one.Id,
@@ -480,6 +485,7 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
+		apiserverimagemetadata.SupplyWithDefaults(&m, env.Config(), cloudRegion)
 		metadataState[i] = m
 	}
 	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
