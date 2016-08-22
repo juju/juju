@@ -45,9 +45,12 @@ func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected one result, got %d", len(results.Results))
 	}
-	entities := results.Results[0].Entities
-	machines := make([]names.MachineTag, len(entities))
-	for i, entity := range entities {
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	machines := make([]names.MachineTag, len(result.Entities))
+	for i, entity := range result.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/machineundertaker"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -77,11 +78,27 @@ func (s *undertakerSuite) TestAllMachineRemovals_BadTag(c *gc.C) {
 	c.Assert(results, gc.IsNil)
 }
 
+func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *gc.C) {
+	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		*result.(*params.EntitiesResults) = params.EntitiesResults{
+			Results: []params.EntitiesResult{{
+				Error: common.ServerError(errors.New("everythingisterrible")),
+			}},
+		}
+		return nil
+	}
+	api := makeAPI(c, caller)
+	results, err := api.AllMachineRemovals()
+	c.Assert(err, gc.ErrorMatches, "everythingisterrible")
+	c.Assert(results, gc.IsNil)
+}
+
 func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *gc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = params.EntitiesResults{
-			Results: []params.Entities{{
+			Results: []params.EntitiesResult{{
 				Entities: []params.Entity{{Tag: "machine-1"}},
 			}, {
 				Entities: []params.Entity{{Tag: "machine-2"}},
@@ -359,16 +376,22 @@ func makeAPI(c *gc.C, caller testing.APICallerFunc) *machineundertaker.API {
 }
 
 func wrapEntities(tags ...string) *params.Entities {
+	return &params.Entities{Entities: makeEntitySlice(tags...)}
+}
+
+func makeEntitySlice(tags ...string) []params.Entity {
 	results := make([]params.Entity, len(tags))
 	for i := range tags {
 		results[i].Tag = tags[i]
 	}
-	return &params.Entities{Entities: results}
+	return results
 }
 
 func wrapEntitiesResults(tags ...string) *params.EntitiesResults {
 	return &params.EntitiesResults{
-		Results: []params.Entities{*wrapEntities(tags...)},
+		Results: []params.EntitiesResult{{
+			Entities: makeEntitySlice(tags...),
+		}},
 	}
 }
 
