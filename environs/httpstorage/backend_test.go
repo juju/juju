@@ -5,7 +5,6 @@ package httpstorage_test
 
 import (
 	"bytes"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -429,8 +428,10 @@ func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, da
 	b.AddCleanup(func(*gc.C) { listener.Close() })
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	cfg := utils.SecureTLSConfig()
+	cfg.RootCAs = caCerts
 	client = &http.Client{
-		Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
+		Transport: utils.NewHttpTLSTransport(cfg),
 	}
 	return client, url, dataDir
 }

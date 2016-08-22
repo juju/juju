@@ -185,13 +185,11 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) check that *srvRoot is a valid type for using
-	// as an RPC server.
-	tlsConfig := tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		MinVersion:   tls.VersionTLS10,
-	}
-	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
+
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{tlsCert}
+
+	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, *tlsConfig)
 	go srv.run(changeCertListener)
 	return srv, nil
 }

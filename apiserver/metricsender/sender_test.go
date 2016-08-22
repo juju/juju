@@ -55,9 +55,9 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 func (s *SenderSuite) startServer(c *gc.C, handler http.Handler) func() {
 	ts := httptest.NewUnstartedServer(handler)
 	certPool, cert := createCerts(c, "127.0.0.1")
-	ts.TLS = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
+	ts.TLS = utils.SecureTLSConfig()
+	ts.TLS.Certificates = []tls.Certificate{cert}
+
 	ts.StartTLS()
 	cleanup := metricsender.PatchHostAndCertPool(ts.URL, certPool)
 	return func() {

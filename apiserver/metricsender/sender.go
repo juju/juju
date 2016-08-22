@@ -5,7 +5,6 @@ package metricsender
 
 import (
 	"bytes"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"net/http"
@@ -33,7 +32,9 @@ func (s *HttpSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Respon
 		return nil, errors.Trace(err)
 	}
 	r := bytes.NewBuffer(b)
-	t := utils.NewHttpTLSTransport(&tls.Config{RootCAs: metricsCertsPool})
+	cfg := utils.SecureTLSConfig()
+	cfg.RootCAs = metricsCertsPool
+	t := utils.NewHttpTLSTransport(cfg)
 	client := &http.Client{Transport: t}
 	resp, err := client.Post(metricsHost, "application/json", r)
 	if err != nil {
