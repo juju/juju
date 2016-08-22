@@ -38,7 +38,8 @@ log = logging.getLogger("assess_user_grant_revoke")
 User = namedtuple('User', ['name', 'permissions', 'expect'])
 
 
-USER_LIST_CTRL = [{"user-name": "admin", "display-name": "admin"}]
+USER_LIST_CTRL = [{"access": "superuser", "user-name": "admin",
+                   "display-name": "admin"}]
 USER_LIST_CTRL_READ = copy.deepcopy(USER_LIST_CTRL)
 # Created user has no display name, bug 1606354
 USER_LIST_CTRL_READ.append({"user-name": "readuser", "display-name": ""})
