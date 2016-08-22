@@ -53,14 +53,14 @@ func newAPIFromState(st *state.State, res facade.Resources, auth facade.Authoriz
 
 // AllMachineRemovals returns tags for all of the machines that have
 // been marked for removal in the requested model.
-func (m *API) AllMachineRemovals(models params.Entities) (params.Entities, error) {
+func (m *API) AllMachineRemovals(models params.Entities) (params.EntitiesResults, error) {
 	err := m.checkModelAuthorization(models)
 	if err != nil {
-		return params.Entities{}, errors.Trace(err)
+		return params.EntitiesResults{}, errors.Trace(err)
 	}
 	machineIds, err := m.backend.AllMachineRemovals()
 	if err != nil {
-		return params.Entities{}, errors.Trace(err)
+		return params.EntitiesResults{}, errors.Trace(err)
 	}
 	var entities []params.Entity
 	for _, id := range machineIds {
@@ -68,7 +68,10 @@ func (m *API) AllMachineRemovals(models params.Entities) (params.Entities, error
 			Tag: names.NewMachineTag(id).String(),
 		})
 	}
-	return params.Entities{Entities: entities}, nil
+	results := params.EntitiesResults{
+		Results: []params.Entities{{Entities: entities}},
+	}
+	return results, nil
 }
 
 // GetMachineProviderInterfaceInfo returns the provider details for
@@ -125,20 +128,16 @@ func (m *API) CompleteMachineRemovals(machines params.Entities) error {
 
 // WatchMachineRemovals returns a watcher that will signal each time a
 // machine is marked for removal.
-func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResult {
+func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResults {
 	err := m.checkModelAuthorization(models)
 	if err != nil {
-		return params.NotifyWatchResult{Error: common.ServerError(err)}
+		return makeWatchResults("", err)
 	}
 	watch := m.backend.WatchMachineRemovals()
 	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: m.resources.Register(watch),
-		}
+		return makeWatchResults(m.resources.Register(watch), nil)
 	}
-	return params.NotifyWatchResult{
-		Error: common.ServerError(watcher.EnsureErr(watch)),
-	}
+	return makeWatchResults("", watcher.EnsureErr(watch))
 }
 
 func (m *API) checkModelAuthorization(entities params.Entities) error {
@@ -167,4 +166,13 @@ func collectMachineIDs(args params.Entities) ([]string, error) {
 		machineIDs[i] = tag.Id()
 	}
 	return machineIDs, nil
+}
+
+func makeWatchResults(id string, err error) params.NotifyWatchResults {
+	return params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			NotifyWatcherId: id,
+			Error:           common.ServerError(err),
+		}},
+	}
 }

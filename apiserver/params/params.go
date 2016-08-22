@@ -46,6 +46,12 @@ type Entities struct {
 	Entities []Entity `json:"entities"`
 }
 
+// EntitiesResults contains multiple Entitieses (where each Entities
+// is the result of a query).
+type EntitiesResults struct {
+	Results []Entities `json:"results"`
+}
+
 // EntityPasswords holds the parameters for making a SetPasswords call.
 type EntityPasswords struct {
 	Changes []EntityPassword `json:"changes"`
