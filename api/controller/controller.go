@@ -209,6 +209,7 @@ type MigrationSpec struct {
 	TargetCACert         string
 	TargetUser           string
 	TargetPassword       string
+	TargetMacaroon       string
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -229,8 +230,8 @@ func (s *MigrationSpec) Validate() error {
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
 	}
-	if s.TargetPassword == "" {
-		return errors.NotValidf("empty target password")
+	if s.TargetPassword == "" && s.TargetMacaroon == "" {
+		return errors.NotValidf("missing authentication secrets")
 	}
 	return nil
 }
@@ -254,6 +255,7 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
+				Macaroon:      spec.TargetMacaroon,
 			},
 		}},
 	}
