@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -80,7 +81,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 				// model name relative to that user.
 				if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
 					user := names.NewUserTag(userName)
-					modelName = ownerQualifiedModelName(unqualifiedModelName, owner, user)
+					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, owner, user)
 				}
 			}
 		}

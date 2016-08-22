@@ -175,7 +175,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		userForListing := names.NewUserTag(c.user)
 		unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
 		if err == nil {
-			modelSet.CurrentModel = ownerQualifiedModelName(
+			modelSet.CurrentModel = common.OwnerQualifiedModelName(
 				unqualifiedModelName, owner, userForListing,
 			)
 		}
@@ -274,7 +274,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
-		name := ownerQualifiedModelName(model.Name, owner, userForListing)
+		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
 			name += "*"
 			output.CurrentHighlight.Fprintf(tw, "%s", name)
@@ -297,20 +297,4 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	}
 	tw.Flush()
 	return nil
-}
-
-// ownerQualifiedModelName returns the model name qualified with the
-// model owner if the owner is not the same as the given canonical
-// user name. If the owner is a local user, we omit the domain.
-func ownerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Canonical() == user.Canonical() {
-		return modelName
-	}
-	var ownerName string
-	if owner.IsLocal() {
-		ownerName = owner.Name()
-	} else {
-		ownerName = owner.Canonical()
-	}
-	return fmt.Sprintf("%s/%s", ownerName, modelName)
 }

@@ -288,6 +288,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewLoginCommand())
 	r.Register(user.NewLogoutCommand())
 	r.Register(user.NewRemoveCommand())
+	r.Register(user.NewWhoAmICommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewRemoveCommand())
