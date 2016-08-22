@@ -463,6 +463,11 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	storageConstraints, err := e.readAllStorageConstraints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	meterStatus, err := e.readAllMeterStatus()
 	if err != nil {
 		return errors.Trace(err)
@@ -476,11 +481,50 @@ func (e *exporter) applications() error {
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
-		if err := e.addApplication(application, refcounts, applicationUnits, meterStatus, leader); err != nil {
+		if err := e.addApplication(addApplicationContext{
+			application:        application,
+			refcounts:          refcounts,
+			units:              applicationUnits,
+			storageConstraints: storageConstraints,
+			meterStatus:        meterStatus,
+			leader:             leader,
+		}); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+func (e *exporter) readAllStorageConstraints() (map[string]map[string]StorageConstraints, error) {
+	coll, closer := e.st.getCollection(storageConstraintsC)
+	defer closer()
+
+	result := make(map[string]map[string]StorageConstraints)
+	var doc storageConstraintsDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[e.st.localID(doc.DocID)] = doc.Constraints
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read storage constraints")
+	}
+	e.logger.Debugf("read %d storage constraint documents", count)
+	return result, nil
+}
+
+func (e *exporter) storageConstraints(constraints map[string]StorageConstraints) map[string]description.StorageConstraintArgs {
+	result := make(map[string]description.StorageConstraintArgs)
+	for key, value := range constraints {
+		result[key] = description.StorageConstraintArgs{
+			Pool:  value.Pool,
+			Size:  value.Size,
+			Count: value.Count,
+		}
+	}
+	return result
 }
 
 func (e *exporter) readApplicationLeaders() (map[string]string, error) {
@@ -496,21 +540,32 @@ func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addApplication(application *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+type addApplicationContext struct {
+	application        *Application
+	refcounts          map[string]int
+	units              []*Unit
+	storageConstraints map[string]map[string]StorageConstraints
+	meterStatus        map[string]*meterStatusDoc
+	leader             string
+}
+
+func (e *exporter) addApplication(ctx addApplicationContext) error {
+	application := ctx.application
+	appName := application.Name()
 	settingsKey := application.settingsKey()
-	leadershipKey := leadershipSettingsKey(application.Name())
+	leadershipKey := leadershipSettingsKey(appName)
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings for application %q", application.Name())
+		return errors.Errorf("missing settings for application %q", appName)
 	}
-	refCount, found := refcounts[settingsKey]
+	refCount, found := ctx.refcounts[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings refcount for application %q", application.Name())
+		return errors.Errorf("missing settings refcount for application %q", appName)
 	}
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
-		return errors.Errorf("missing leadership settings for application %q", application.Name())
+		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
 
 	args := description.ApplicationArgs{
@@ -525,16 +580,19 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		MinUnits:             application.doc.MinUnits,
 		Settings:             applicationSettingsDoc.Settings,
 		SettingsRefCount:     refCount,
-		Leader:               leader,
+		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 	}
+	globalKey := application.globalKey()
+	if constraints, found := ctx.storageConstraints[globalKey]; found {
+		args.StorageConstraints = e.storageConstraints(constraints)
+	}
 	exApplication := e.model.AddApplication(args)
 	// Find the current application status.
-	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
-		return errors.Annotatef(err, "status for application %s", application.Name())
+		return errors.Annotatef(err, "status for application %s", appName)
 	}
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
@@ -546,9 +604,9 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	}
 	exApplication.SetConstraints(constraintsArgs)
 
-	for _, unit := range units {
+	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
-		unitMeterStatus, found := meterStatus[agentKey]
+		unitMeterStatus, found := ctx.meterStatus[agentKey]
 		if !found {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}

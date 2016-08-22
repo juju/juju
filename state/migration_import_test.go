@@ -853,7 +853,7 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestStorage(c *gc.C) {
-	_, u, storageTag := s.makeUnitWithStorage(c)
+	app, u, storageTag := s.makeUnitWithStorage(c)
 	original, err := s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	originalCount := state.StorageAttachmentCount(original)
@@ -862,8 +862,18 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(originalAttachments, gc.HasLen, 1)
 	c.Assert(originalAttachments[0].Unit(), gc.Equals, u.UnitTag())
+	appName := app.Name()
 
 	_, newSt := s.importModel(c)
+
+	app, err = newSt.Application(appName)
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data":    {Pool: "loop-pool", Size: 0x400, Count: 1},
+		"allecto": {Pool: "loop", Size: 0x400},
+	})
 
 	instance, err := newSt.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

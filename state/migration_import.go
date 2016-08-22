@@ -626,10 +626,10 @@ func (i *importer) application(s description.Application) error {
 	// TODO: update never set malarky... maybe...
 
 	ops := addApplicationOps(i.st, addApplicationOpsArgs{
-		applicationDoc: sdoc,
-		statusDoc:      statusDoc,
-		constraints:    i.constraints(s.Constraints()),
-		// storage          TODO,
+		applicationDoc:     sdoc,
+		statusDoc:          statusDoc,
+		constraints:        i.constraints(s.Constraints()),
+		storage:            i.storageConstraints(s.StorageConstraints()),
 		settings:           s.Settings(),
 		settingsRefCount:   s.SettingsRefCount(),
 		leadershipSettings: s.LeadershipSettings(),
@@ -665,6 +665,21 @@ func (i *importer) application(s description.Application) error {
 	}
 
 	return nil
+}
+
+func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
+	if len(cons) == 0 {
+		return nil
+	}
+	result := make(map[string]StorageConstraints)
+	for key, value := range cons {
+		result[key] = StorageConstraints{
+			Pool:  value.Pool(),
+			Size:  value.Size(),
+			Count: value.Count(),
+		}
+	}
+	return result
 }
 
 func (i *importer) unit(s description.Application, u description.Unit) error {

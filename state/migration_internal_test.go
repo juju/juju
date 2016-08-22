@@ -60,10 +60,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// actions
 		actionsC,
 
+		// storage
 		filesystemsC,
 		filesystemAttachmentsC,
-		storageInstancesC,
 		storageAttachmentsC,
+		storageConstraintsC,
+		storageInstancesC,
 		volumesC,
 		volumeAttachmentsC,
 	)
@@ -163,9 +165,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		"payloads",
 		"resources",
 		endpointBindingsC,
-
-		// storage
-		storageConstraintsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -775,6 +774,17 @@ func (s *MigrationSuite) TestStorageAttachmentDocFields(c *gc.C) {
 		"StorageInstance",
 	)
 	s.AssertExportedFields(c, storageAttachmentDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"Constraints",
+	)
+	s.AssertExportedFields(c, storageConstraintsDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
