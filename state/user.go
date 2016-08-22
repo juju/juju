@@ -145,7 +145,6 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		}}
 		return ops, nil
 	}
-
 	return st.run(buildTxn)
 }
 

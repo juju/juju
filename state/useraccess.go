@@ -145,6 +145,13 @@ func newUserAccess(perm *permission, userDoc userAccessDoc, object names.Tag) de
 
 // UserAccess returns a new description.UserAccess for the passed subject and target.
 func (st *State) UserAccess(subject names.UserTag, target names.Tag) (description.UserAccess, error) {
+	if subject.IsLocal() {
+		_, err := st.User(subject)
+		if err != nil {
+			return description.UserAccess{}, errors.Trace(err)
+		}
+	}
+
 	var (
 		userDoc userAccessDoc
 		err     error
