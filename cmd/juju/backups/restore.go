@@ -58,7 +58,7 @@ type restoreCommand struct {
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
 	getRebootstrapParamsFunc func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
 	getArchiveFunc           func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
-	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
+	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error
 }
 
 // RestoreAPI is used to invoke various API calls.
@@ -346,7 +346,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName())
+	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName(), "default")
 }
 
 func (c *restoreCommand) newClient() (*backups.Client, error) {

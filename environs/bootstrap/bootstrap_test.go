@@ -484,7 +484,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.0.42 release installation\n")
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.0.42\n")
 
 	// The most recent GUI release info has been stored.
 	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
@@ -504,7 +504,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.2.0 installation from local archive\n")
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.2.0 from local archive\n")
 
 	// Check GUI URL and version.
 	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "file://"+path)

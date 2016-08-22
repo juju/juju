@@ -746,7 +746,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName)
+	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
 }
 
 // runInteractive queries the user about bootstrap config interactively at the

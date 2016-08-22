@@ -99,7 +99,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	expectedNumber.Build = 1235
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &expectedNumber))
 
-	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string, string) error {
 		return nil
 	})
 
@@ -911,10 +911,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 		"--auto-upgrade", "--agent-version=1.7.3",
 	)
 
-	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+	c.Check(coretesting.Stderr(ctx), gc.Equals, `
 Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Bootstrapping model %q
-`[1:], bootstrap.ControllerModelName))
+Looking for packaged Juju agent binaries
+Preparing local Juju agent binary
+`[1:])
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
 }
 
@@ -1305,7 +1306,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
 		seenControllerName = base.ControllerName()
 		return nil
 	})
