@@ -65,7 +65,8 @@ type environSuite struct {
 	storageAccountKeys            *storage.AccountListKeysResult
 	vnet                          *network.VirtualNetwork
 	nsg                           *network.SecurityGroup
-	subnet                        *network.Subnet
+	internalSubnet                *network.Subnet
+	controllerSubnet              *network.Subnet
 	ubuntuServerSKUs              []compute.VirtualMachineImageResource
 	publicIPAddress               *network.PublicIPAddress
 	oldNetworkInterfaces          *network.InterfaceListResult
@@ -147,7 +148,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Keys: &keys,
 	}
 
-	addressPrefixes := []string{"192.168.0.0/20"}
+	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
 	s.vnet = &network.VirtualNetwork{
 		ID:       to.StringPtr("juju-internal-network"),
 		Name:     to.StringPtr("juju-internal-network"),
@@ -171,13 +172,27 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.subnet = &network.Subnet{
-		ID:   to.StringPtr("subnet-id"),
+	s.internalSubnet = &network.Subnet{
+		ID:   to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet"),
 		Name: to.StringPtr("juju-internal-subnet"),
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix:        to.StringPtr("192.168.0.0/20"),
-			NetworkSecurityGroup: s.nsg,
-			ProvisioningState:    to.StringPtr("Succeeded"),
+			AddressPrefix: to.StringPtr("192.168.0.0/20"),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg"),
+			},
+			ProvisioningState: to.StringPtr("Succeeded"),
+		},
+	}
+
+	s.controllerSubnet = &network.Subnet{
+		ID:   to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-controller-subnet"),
+		Name: to.StringPtr("juju-controller-subnet"),
+		Properties: &network.SubnetPropertiesFormat{
+			AddressPrefix: to.StringPtr("192.168.16.0/20"),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg"),
+			},
+			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
 
@@ -191,7 +206,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.publicIPAddress = &network.PublicIPAddress{
-		ID:       to.StringPtr("public-ip-id"),
+		ID:       to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/publicIPAddresses/machine-0-public-ip"),
 		Name:     to.StringPtr("machine-0-public-ip"),
 		Location: to.StringPtr("westus"),
 		Tags:     &s.vmTags,
@@ -210,7 +225,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
 			PrivateIPAddress:          to.StringPtr("192.168.0.4"),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet:            s.subnet,
+			Subnet:            s.internalSubnet,
 			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}}
@@ -234,13 +249,13 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
 			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet:            s.subnet,
+			Subnet:            s.internalSubnet,
 			PublicIPAddress:   s.publicIPAddress,
 			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}}
 	s.newNetworkInterface = &network.Interface{
-		ID:       to.StringPtr("network-interface-1-id"),
+		ID:       to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkInterfaces/machine-0-primary"),
 		Name:     to.StringPtr("network-interface-1"),
 		Location: to.StringPtr("westus"),
 		Tags:     &s.vmTags,
@@ -395,48 +410,40 @@ func tokenRefreshSender() *azuretesting.MockSender {
 	return tokenRefreshSender
 }
 
-func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
+func (s *environSuite) initResourceGroupSenders(controller bool) azuretesting.Senders {
 	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
-	return azuretesting.Senders{
+	senders := azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group),
-		s.makeSender(".*/virtualNetworks/juju-internal-network", s.vnet),                                // Create
-		s.makeSender(".*/virtualNetworks/juju-internal-network", s.vnet),                                // Get
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", s.nsg),                               // Create
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", s.nsg),                               // Get
-		s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet", s.subnet), // Create
-		s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet", s.subnet), // Get
+		s.makeSender(".*/virtualNetworks/juju-internal-network", s.vnet),
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", s.nsg),
+		s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet", s.internalSubnet),
+	}
+	if controller {
+		senders = append(senders,
+			s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-controller-subnet", s.controllerSubnet),
+		)
+	}
+	senders = append(senders,
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
-	}
+	)
+	return senders
 }
 
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
 		s.storageAccountsSender(),
-		s.makeSender(".*/subnets/juju-internal-subnet", s.subnet),
 	}
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
 	senders = append(senders,
-		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress), // Create
-		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress), // Get
+		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
-		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface), // Create
-		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface), // Get
-	)
-	if controller {
-		senders = append(senders,
-			s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", &network.SecurityGroup{
-				Properties: &network.SecurityGroupPropertiesFormat{},
-			}),
-			s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", &network.SecurityGroup{}), // Get
-		)
-	}
-	senders = append(senders,
+		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface),
 		s.makeSender(".*/availabilitySets/.*", s.jujuAvailabilitySet),
-		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine), // Create
+		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine),
 	)
 	if s.vmExtension != nil {
 		senders = append(senders, s.makeSender(
@@ -717,7 +724,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	c.Assert(availabilitySetName, gc.Equals, "mysql")
 }
 
-const numExpectedStartInstanceRequests = 11
+const numExpectedStartInstanceRequests = 8
 
 func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Request) startInstanceRequests {
 	// The values defined here are the *request* values. They lack IDs,
@@ -735,10 +742,15 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	newIPConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet:          s.subnet,
-			PublicIPAddress: s.publicIPAddress,
+			Subnet: &network.Subnet{
+				ID: s.internalSubnet.ID,
+			},
+			PublicIPAddress: &network.PublicIPAddress{
+				ID: s.publicIPAddress.ID,
+			},
 		},
 	}}
 	newNetworkInterface := &network.Interface{
@@ -803,30 +815,26 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Req
 	c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
 	c.Assert(requests[1].Method, gc.Equals, "GET") // storage accounts
-	c.Assert(requests[2].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
-	c.Assert(requests[3].Method, gc.Equals, "GET") // skus
-	c.Assert(requests[4].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[4], publicIPAddress)
-	c.Assert(requests[5].Method, gc.Equals, "GET") // get public IP address
-	c.Assert(requests[6].Method, gc.Equals, "GET") // NICs
-	c.Assert(requests[7].Method, gc.Equals, "PUT") // create NIC
-	assertRequestBody(c, requests[7], newNetworkInterface)
-	c.Assert(requests[8].Method, gc.Equals, "GET") // get NIC
-	c.Assert(requests[9].Method, gc.Equals, "PUT") // create availability set
-	assertRequestBody(c, requests[9], jujuAvailabilitySet)
-	c.Assert(requests[10].Method, gc.Equals, "PUT") // create VM
-	assertCreateVirtualMachineRequestBody(c, requests[10], virtualMachine)
+	c.Assert(requests[2].Method, gc.Equals, "GET") // skus
+	c.Assert(requests[3].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[3], publicIPAddress)
+	c.Assert(requests[4].Method, gc.Equals, "GET") // list NICs (to choose private IP address)
+	c.Assert(requests[5].Method, gc.Equals, "PUT") // create NIC
+	assertRequestBody(c, requests[5], newNetworkInterface)
+	c.Assert(requests[6].Method, gc.Equals, "PUT") // create availability set
+	assertRequestBody(c, requests[6], jujuAvailabilitySet)
+	c.Assert(requests[7].Method, gc.Equals, "PUT") // create VM
+	assertCreateVirtualMachineRequestBody(c, requests[7], virtualMachine)
 
 	return startInstanceRequests{
 		vmSizes:          requests[0],
 		storageAccounts:  requests[1],
-		subnet:           requests[2],
-		skus:             requests[3],
-		publicIPAddress:  requests[4],
-		nics:             requests[6],
-		networkInterface: requests[7],
-		availabilitySet:  requests[9],
-		virtualMachine:   requests[10],
+		skus:             requests[2],
+		publicIPAddress:  requests[3],
+		nics:             requests[4],
+		networkInterface: requests[5],
+		availabilitySet:  requests[6],
+		virtualMachine:   requests[7],
 	}
 }
 
@@ -858,7 +866,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
-	s.sender = s.initResourceGroupSenders()
+	s.sender = s.initResourceGroupSenders(true)
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 	result, err := env.Bootstrap(
@@ -871,17 +879,15 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Series, gc.Equals, series.LatestLts())
 
-	c.Assert(len(s.requests), gc.Equals, 22)
+	c.Assert(len(s.requests), gc.Equals, 15)
 
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT")  // resource group
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")  // create vnet
-	c.Assert(s.requests[2].Method, gc.Equals, "GET")  // get vnet
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT")  // create network security group
-	c.Assert(s.requests[4].Method, gc.Equals, "GET")  // get network security group
-	c.Assert(s.requests[5].Method, gc.Equals, "PUT")  // create subnet
-	c.Assert(s.requests[6].Method, gc.Equals, "GET")  // get subnet
-	c.Assert(s.requests[7].Method, gc.Equals, "POST") // check storage account name
-	c.Assert(s.requests[8].Method, gc.Equals, "PUT")  // create storage account
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT")  // create network security group
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT")  // create subnet (internal)
+	c.Assert(s.requests[4].Method, gc.Equals, "PUT")  // create subnet (controller)
+	c.Assert(s.requests[5].Method, gc.Equals, "POST") // check storage account name
+	c.Assert(s.requests[6].Method, gc.Equals, "PUT")  // create storage account
 
 	s.group.Properties = nil
 	assertRequestBody(c, s.requests[0], &s.group)
@@ -904,8 +910,21 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 			Priority:                 to.Int32Ptr(100),
 			Direction:                network.Inbound,
 		},
+	}, {
+		Name: to.StringPtr("JujuAPIInbound"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("Allow API connections to controller machines"),
+			Protocol:                 network.TCP,
+			SourceAddressPrefix:      to.StringPtr("*"),
+			SourcePortRange:          to.StringPtr("*"),
+			DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
+			DestinationPortRange:     to.StringPtr("17777"),
+			Access:                   network.Allow,
+			Priority:                 to.Int32Ptr(101),
+			Direction:                network.Inbound,
+		},
 	}}
-	assertRequestBody(c, s.requests[3], &network.SecurityGroup{
+	assertRequestBody(c, s.requests[2], &network.SecurityGroup{
 		Location: to.StringPtr("westus"),
 		Tags:     s.nsg.Tags,
 		Properties: &network.SecurityGroupPropertiesFormat{
@@ -913,17 +932,21 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		},
 	})
 
-	s.subnet.ID = nil
-	s.subnet.Name = nil
-	s.subnet.Properties.ProvisioningState = nil
-	assertRequestBody(c, s.requests[5], s.subnet)
+	s.internalSubnet.ID = nil
+	s.internalSubnet.Name = nil
+	s.internalSubnet.Properties.ProvisioningState = nil
+	assertRequestBody(c, s.requests[3], s.internalSubnet)
+	s.controllerSubnet.ID = nil
+	s.controllerSubnet.Name = nil
+	s.controllerSubnet.Properties.ProvisioningState = nil
+	assertRequestBody(c, s.requests[4], s.controllerSubnet)
 
-	assertRequestBody(c, s.requests[7], &storage.AccountCheckNameAvailabilityParameters{
+	assertRequestBody(c, s.requests[5], &storage.AccountCheckNameAvailabilityParameters{
 		Name: to.StringPtr(fakeStorageAccount),
 		Type: to.StringPtr("Microsoft.Storage/storageAccounts"),
 	})
 
-	assertRequestBody(c, s.requests[8], &storage.AccountCreateParameters{
+	assertRequestBody(c, s.requests[6], &storage.AccountCreateParameters{
 		Location: to.StringPtr("westus"),
 		Tags:     s.storageAccount.Tags,
 		Sku: &storage.Sku{

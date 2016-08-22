@@ -153,14 +153,10 @@ func (inst *azureInstance) Addresses() ([]jujunetwork.Address, error) {
 	return addresses, nil
 }
 
-// internalNetworkAddress returns the instance's jujunetwork.Address for the
-// internal virtual network. This address is used to identify the machine in
+// primaryNetworkAddress returns the instance's primary jujunetwork.Address for
+// the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error) {
-	subscriptionId := inst.env.subscriptionId
-	resourceGroup := inst.env.resourceGroup
-	internalSubnetId := internalSubnetId(resourceGroup, subscriptionId)
-
+func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.Properties.IPConfigurations == nil {
 			continue
@@ -169,7 +165,7 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 			if ipConfiguration.Properties.Subnet == nil {
 				continue
 			}
-			if strings.ToLower(to.String(ipConfiguration.Properties.Subnet.ID)) != strings.ToLower(internalSubnetId) {
+			if !to.Bool(ipConfiguration.Properties.Primary) {
 				continue
 			}
 			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
@@ -189,7 +185,7 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortRange) error {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	internalNetworkAddress, err := inst.internalNetworkAddress()
+	primaryNetworkAddress, err := inst.primaryNetworkAddress()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -262,7 +258,7 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr(portRange),
 				SourceAddressPrefix:      to.StringPtr("*"),
-				DestinationAddressPrefix: to.StringPtr(internalNetworkAddress.Value),
+				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
 				Access:    network.Allow,
 				Priority:  to.Int32Ptr(priority),
 				Direction: network.Inbound,
