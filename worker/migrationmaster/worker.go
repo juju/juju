@@ -53,9 +53,9 @@ type Facade interface {
 	// active for the model associated with the API connection.
 	Watch() (watcher.NotifyWatcher, error)
 
-	// GetMigrationStatus returns the details and progress of the
-	// latest model migration.
-	GetMigrationStatus() (coremigration.MigrationStatus, error)
+	// MigrationStatus returns the details and progress of the latest
+	// model migration.
+	MigrationStatus() (coremigration.MigrationStatus, error)
 
 	// SetPhase updates the phase of the currently active model
 	// migration.
@@ -430,7 +430,7 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 		case <-watcher.Changes():
 		}
 
-		status, err := w.config.Facade.GetMigrationStatus()
+		status, err := w.config.Facade.MigrationStatus()
 		switch {
 		case params.IsCodeNotFound(err):
 			// There's never been a migration.

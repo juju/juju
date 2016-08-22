@@ -46,12 +46,12 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
-// GetMigrationStatus returns the details and progress of the latest
+// MigrationStatus returns the details and progress of the latest
 // model migration.
-func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
+func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
 	var status params.MasterMigrationStatus
-	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
+	err := c.caller.FacadeCall("MigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

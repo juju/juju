@@ -62,9 +62,9 @@ func (api *API) Watch() params.NotifyWatchResult {
 	}
 }
 
-// GetMigrationStatus returns the details and progress of the latest
+// MigrationStatus returns the details and progress of the latest
 // model migration.
-func (api *API) GetMigrationStatus() (params.MasterMigrationStatus, error) {
+func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 	empty := params.MasterMigrationStatus{}
 
 	mig, err := api.backend.LatestMigration()

@@ -60,7 +60,7 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
+func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
@@ -85,7 +85,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 
-	status, err := client.GetMigrationStatus()
+	status, err := client.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",

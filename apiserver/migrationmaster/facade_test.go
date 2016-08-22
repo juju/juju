@@ -86,10 +86,10 @@ func (s *Suite) TestWatch(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestGetMigrationStatus(c *gc.C) {
+func (s *Suite) TestMigrationStatus(c *gc.C) {
 	api := s.mustMakeAPI(c)
 
-	status, err := api.GetMigrationStatus()
+	status, err := api.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
