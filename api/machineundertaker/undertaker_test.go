@@ -17,8 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type undertakerSuite struct {
@@ -333,7 +332,8 @@ func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 	api := makeAPI(c, caller)
 	w, err := api.WatchMachineRemovals()
 	c.Assert(err, jc.ErrorIsNil)
-	waitForOneSignal(c, w)
+	watcherc := watchertest.NewNotifyWatcherC(c, w, nil)
+	watcherc.AssertOneChange()
 
 	// Trigger another notify.
 	select {
@@ -342,22 +342,14 @@ func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 		c.Fatalf("timed out sending notify")
 	}
 
-	waitForOneSignal(c, w)
-	workertest.CleanKill(c, w)
+	watcherc.AssertOneChange()
+	watcherc.AssertStops()
 
 	nextCount := 0
 	for i := range nextCountChan {
 		nextCount += i
 	}
 	c.Assert(nextCount, gc.Equals, 2)
-}
-
-func waitForOneSignal(c *gc.C, w watcher.NotifyWatcher) {
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("expected notify didn't happen")
-	case <-w.Changes():
-	}
 }
 
 func makeAPI(c *gc.C, caller testing.APICallerFunc) *machineundertaker.API {
