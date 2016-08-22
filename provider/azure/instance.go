@@ -42,6 +42,10 @@ func (inst *azureInstance) Status() instance.InstanceStatus {
 	// delivered when explicitly requested, and you can only request it
 	// when querying a single VM. This means the results of AllInstances
 	// or Instances would have the instance view missing.
+	//
+	// TODO(axw) if the provisioning state is "Failed", then
+	// we should query the operation status and report the error
+	// here.
 	return instance.InstanceStatus{
 		Status:  status.StatusEmpty,
 		Message: to.String(inst.Properties.ProvisioningState),
