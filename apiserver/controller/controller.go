@@ -13,6 +13,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -400,9 +401,19 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
+
 	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
+	}
+
+	var mac *macaroon.Macaroon
+	if targetInfo.Macaroon != "" {
+		mac = new(macaroon.Macaroon)
+		err := mac.UnmarshalJSON([]byte(targetInfo.Macaroon))
+		if err != nil {
+			return "", errors.Annotate(err, "invalid macaroon")
+		}
 	}
 
 	args := state.MigrationSpec{
@@ -413,6 +424,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 			CACert:        targetInfo.CACert,
 			AuthTag:       authTag,
 			Password:      targetInfo.Password,
+			Macaroon:      mac,
 		},
 	}
 	mig, err := hostedState.CreateMigration(args)

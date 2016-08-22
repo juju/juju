@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -303,7 +304,12 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 
-	// Kick off the migration.
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Kick off migrations
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
@@ -322,7 +328,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
-					Password:      "secret2",
+					Macaroon:      string(macJSON),
 				},
 			},
 		},
@@ -347,6 +353,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(targetInfo.ControllerTag.String(), gc.Equals, spec.TargetInfo.ControllerTag)
@@ -354,6 +361,13 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
+
+		var macJSONdb []byte
+		if targetInfo.Macaroon != nil {
+			macJSONdb, err = targetInfo.Macaroon.MarshalJSON()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroon)
 	}
 }
 
@@ -407,6 +421,32 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
+			{
+				ModelTag: st.ModelTag().String(),
+				TargetInfo: params.MigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert",
+					AuthTag:       names.NewUserTag("admin").String(),
+					Macaroon:      "BLAH",
+				},
+			},
+		},
+	}
+	out, err := s.controller.InitiateMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 1)
+	result := out.Results[0]
+	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
+	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
 }
 
 func randomModelTag() string {
