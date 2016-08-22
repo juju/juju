@@ -145,6 +145,7 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 		{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
+			Access:      "login",
 			CreatedBy:   s.AdminUserTag(c).Name(),
 			DateCreated: user.DateCreated(),
 		},
