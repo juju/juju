@@ -1258,6 +1258,7 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Check(results[0].Error, gc.IsNil)
 	c.Check(*results[1].Error, gc.Equals,
 		*common.ServerError(errors.NotFoundf("machine 100")))
+	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
 	c.Check(results[2].Error, gc.IsNil)
 	c.Check(*results[3].Error, gc.Equals,
 		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
