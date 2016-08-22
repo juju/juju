@@ -48,46 +48,44 @@ func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 
 func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
 	_, _, api := makeApi(c, uuid1)
-	result, err := api.AllMachineRemovals(makeEntities(tag1))
-	c.Assert(err, jc.ErrorIsNil)
+	result := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(result, gc.DeepEquals, params.EntitiesResults{
-		Results: []params.Entities{{}}, // So, one empty set of entities.
+		Results: []params.EntitiesResult{{}}, // So, one empty set of entities.
 	})
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
 	backend, _, api := makeApi(c, uuid1)
 	backend.SetErrors(errors.New("I don't want to set the world on fire"))
-	result, err := api.AllMachineRemovals(makeEntities(tag1))
-	c.Assert(err, gc.ErrorMatches, "I don't want to set the world on fire")
-	c.Assert(result, gc.DeepEquals, params.EntitiesResults{})
-}
-
-func (*undertakerSuite) TestAllMachineRemovalsRequiresOneTag(c *gc.C) {
-	_, _, api := makeApi(c, "")
-	_, err := api.AllMachineRemovals(params.Entities{})
-	c.Assert(err, gc.ErrorMatches, "one model tag is required")
+	result := api.AllMachineRemovals(makeEntities(tag1))
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "I don't want to set the world on fire")
+	c.Assert(result.Results[0].Entities, jc.DeepEquals, []params.Entity{})
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
 	_, _, api := makeApi(c, uuid1)
-	_, err := api.AllMachineRemovals(makeEntities(tag1, "machine-0"))
-	c.Assert(err, gc.ErrorMatches, `"machine-0" is not a valid model tag`)
+	results := api.AllMachineRemovals(makeEntities(tag1, "machine-0"))
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Entities, jc.DeepEquals, []params.Entity{})
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"machine-0" is not a valid model tag`)
+	c.Assert(results.Results[1].Entities, jc.DeepEquals, []params.Entity{})
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *gc.C) {
 	_, _, api := makeApi(c, uuid1)
-	_, err := api.AllMachineRemovals(makeEntities(tag2))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	results := api.AllMachineRemovals(makeEntities(tag2))
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(results.Results[0].Entities, gc.IsNil)
 }
 
 func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 	backend, _, api := makeApi(c, uuid1)
 	backend.removals = []string{"0", "2"}
 
-	result, err := api.AllMachineRemovals(makeEntities(tag1))
-
-	c.Assert(err, jc.ErrorIsNil)
+	result := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(result, gc.DeepEquals, makeEntitiesResults("machine-0", "machine-2"))
 }
 
@@ -236,16 +234,22 @@ func makeApi(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machi
 }
 
 func makeEntities(tags ...string) params.Entities {
+	return params.Entities{Entities: makeEntitySlice(tags...)}
+}
+
+func makeEntitySlice(tags ...string) []params.Entity {
 	entities := make([]params.Entity, len(tags))
 	for i := range tags {
 		entities[i] = params.Entity{Tag: tags[i]}
 	}
-	return params.Entities{Entities: entities}
+	return entities
 }
 
 func makeEntitiesResults(tags ...string) params.EntitiesResults {
 	return params.EntitiesResults{
-		Results: []params.Entities{makeEntities(tags...)},
+		Results: []params.EntitiesResult{{
+			Entities: makeEntitySlice(tags...),
+		}},
 	}
 }
 
