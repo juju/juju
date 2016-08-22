@@ -13,49 +13,49 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-// NewDumpCommand returns a fully constructed dump-model command.
-func NewDumpCommand() cmd.Command {
-	return modelcmd.WrapController(&dumpCommand{})
+// NewDumpDBCommand returns a fully constructed dump-model command.
+func NewDumpDBCommand() cmd.Command {
+	return modelcmd.WrapController(&dumpDBCommand{})
 }
 
-type dumpCommand struct {
+type dumpDBCommand struct {
 	modelcmd.ControllerCommandBase
 	out cmd.Output
-	api DumpModelAPI
+	api DumpDBAPI
 
 	model string
 }
 
-const dumpModelHelpDoc = `
-Calls export on the model's database representation and writes the
-resulting YAML to stdout.
+const dumpDBHelpDoc = `
+Iterates through all mongo collections that store model data and return
+all documents in those collections for the specified model.
 
 Examples:
 
-    juju dump-model
-    juju dump-model mymodel
+    juju dump-db
+    juju dump-db -m mymodel
 
 See also:
     models
 `
 
 // Info implements Command.
-func (c *dumpCommand) Info() *cmd.Info {
+func (c *dumpDBCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "dump-model",
+		Name:    "dump-db",
 		Args:    "[model-name]",
-		Purpose: "Displays the database agnostic representation of the model.",
-		Doc:     dumpModelHelpDoc,
+		Purpose: "Displays the mongo documents for of the model.",
+		Doc:     dumpDBHelpDoc,
 	}
 }
 
 // SetFlags implements Command.
-func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *dumpDBCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.
-func (c *dumpCommand) Init(args []string) (err error) {
+func (c *dumpDBCommand) Init(args []string) (err error) {
 	if len(args) == 1 {
 		c.model = args[0]
 		return nil
@@ -63,13 +63,13 @@ func (c *dumpCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-// DumpModelAPI specifies the used function calls of the ModelManager.
-type DumpModelAPI interface {
+// DumpDBAPI specifies the used function calls of the ModelManager.
+type DumpDBAPI interface {
 	Close() error
-	DumpModel(names.ModelTag) (map[string]interface{}, error)
+	DumpModelDB(names.ModelTag) (map[string]interface{}, error)
 }
 
-func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
+func (c *dumpDBCommand) getAPI() (DumpDBAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -77,7 +77,7 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 }
 
 // Run implements Command.
-func (c *dumpCommand) Run(ctx *cmd.Context) error {
+func (c *dumpDBCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	results, err := client.DumpModel(modelTag)
+	results, err := client.DumpModelDB(modelTag)
 	if err != nil {
 		return err
 	}

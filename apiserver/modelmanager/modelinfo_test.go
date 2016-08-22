@@ -396,6 +396,13 @@ func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, acce
 	return description.UserAccess{}, st.NextErr()
 }
 
+func (st *mockState) DumpAll() (map[string]interface{}, error) {
+	st.MethodCall(st, "DumpAll")
+	return map[string]interface{}{
+		"models": "lots of data",
+	}, st.NextErr()
+}
+
 type mockModel struct {
 	gitjujutesting.Stub
 	owner  names.UserTag

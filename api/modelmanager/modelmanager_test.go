@@ -152,3 +152,52 @@ func (s *dumpModelSuite) TestDumpModelError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(out, gc.IsNil)
 }
+
+func (s *dumpModelSuite) TestDumpModelDB(c *gc.C) {
+	expected := map[string]interface{}{
+		"models": []map[string]interface{}{{
+			"name": "admin",
+			"uuid": "some-uuid",
+		}},
+		"machines": []map[string]interface{}{{
+			"id":   "0",
+			"life": 0,
+		}},
+	}
+	results := params.MapResults{Results: []params.MapResult{{
+		Result: expected,
+	}}}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(request, gc.Equals, "DumpModelsDB")
+			in, ok := args.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(in, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
+			res, ok := result.(*params.MapResults)
+			c.Assert(ok, jc.IsTrue)
+			*res = results
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModelDB(testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *dumpModelSuite) TestDumpModelDBError(c *gc.C) {
+	results := params.MapResults{Results: []params.MapResult{{
+		Error: &params.Error{Message: "fake error"},
+	}}}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			res, ok := result.(*params.MapResults)
+			c.Assert(ok, jc.IsTrue)
+			*res = results
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModelDB(testing.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "fake error")
+	c.Assert(out, gc.IsNil)
+}
