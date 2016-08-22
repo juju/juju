@@ -99,25 +99,29 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 			err := errors.Errorf("invalid tag %v", arg.Tag)
 			results.Results[i].Error = common.ServerError(err)
 		}
-		metricCount := 0
-		for _, b := range batches {
-			metricCount += len(b.Metrics())
-		}
-		metrics := make([]params.MetricResult, metricCount)
-		ix := 0
-		for _, mb := range batches {
-			for _, m := range mb.Metrics() {
-				metrics[ix] = params.MetricResult{
-					Key:   m.Key,
-					Value: m.Value,
-					Time:  m.Time,
-				}
-				ix++
-			}
-			results.Results[i].Metrics = metrics
-		}
+		results.Results[i].Metrics = api.metricBatchesToMetricResult(batches)
 	}
 	return results, nil
+}
+
+func (api *MetricsDebugAPI) metricBatchesToMetricResult(batches []state.MetricBatch) []params.MetricResult {
+	metricCount := 0
+	for _, b := range batches {
+		metricCount += len(b.Metrics())
+	}
+	metrics := make([]params.MetricResult, metricCount)
+	ix := 0
+	for _, mb := range batches {
+		for _, m := range mb.Metrics() {
+			metrics[ix] = params.MetricResult{
+				Key:   m.Key,
+				Value: m.Value,
+				Time:  m.Time,
+			}
+			ix++
+		}
+	}
+	return metrics
 }
 
 // SetMeterStatus sets meter statuses for entities.
