@@ -1005,7 +1005,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	consB := constraints.MustParse("instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=m1.small"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=amd64 instance-type=m1.small"))
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
