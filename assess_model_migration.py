@@ -138,8 +138,8 @@ def ensure_able_to_migrate_model_between_controllers(
     # Don't move the default model so we can reuse it in later tests.
     test_model = source_environ.client.add_model(
         source_environ.client.env.clone('example-model'))
-    test_model.client.juju("deploy", (bundle))
-    test_model.client.wait_for_started()
+    test_model.juju("deploy", (bundle))
+    test_model.wait_for_started()
     test_deployed_mongo_is_up(test_model)
 
     log.info('Initiating migration process')
