@@ -263,11 +263,10 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
     with bs1.booted_context(upload_tools):
         bs1.client.enable_feature('migration')
 
-        # Bootstrap new env
-        log.info('Booting second instance')
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(upload_tools):
-            # Create a normal user.
+            # Create a user for both controllers that only has addmodel
+            # permissions not superuser.
             new_user_home = os.path.join(temp_dir, 'example_user')
             os.makedirs(new_user_home)
             new_user = User('testuser', 'write', [])
@@ -285,17 +284,20 @@ def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
             user_new_model_client = normal_user_client_1.add_model(
                 normal_user_client_1.env.clone('model-a'))
 
-            # Comment for now for time.
-            # normal_user_client.juju('deploy', ('ubuntu'))
-            # normal_user_client.wait_for_started()
+            user_new_model_client.juju('deploy', ('ubuntu'))
+            user_new_model_client.wait_for_started()
 
             log.info('Attempting migration process')
 
-            # This must fail.
-            normal_user_client_1.controller_juju(
-                'migrate',
-                (user_new_model_client.env.environment,
-                 normal_user_client_2.env.controller.name))
+            try:
+                normal_user_client_1.controller_juju(
+                    'migrate',
+                    (user_new_model_client.env.environment,
+                     normal_user_client_2.env.controller.name))
+            except CalledProcessError:
+                log.info('SUCCESS: Migrate command failed as expected.')
+            else:
+                raise JujuAssertionError('Migration did not fail as expected.')
 
 
 def main(argv=None):
