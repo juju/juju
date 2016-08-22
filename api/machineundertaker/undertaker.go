@@ -36,14 +36,18 @@ func NewAPI(caller base.APICaller) (*API, error) {
 // AllMachineRemovals returns all the machines that have been marked
 // ready to clean up.
 func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
-	var results params.Entities
+	var results params.EntitiesResults
 	args := wrapEntities(api.modelTag)
 	err := api.facade.FacadeCall("AllMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := make([]names.MachineTag, len(results.Entities))
-	for i, entity := range results.Entities {
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected one result, got %d", len(results.Results))
+	}
+	entities := results.Results[0].Entities
+	machines := make([]names.MachineTag, len(entities))
+	for i, entity := range entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -88,12 +92,16 @@ func (api *API) CompleteRemoval(machine names.MachineTag) error {
 // WatchMachineRemovals registers to be notified when a machine
 // removal is requested.
 func (api *API) WatchMachineRemovals() (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
+	var results params.NotifyWatchResults
 	args := wrapEntities(api.modelTag)
-	err := api.facade.FacadeCall("WatchMachineRemovals", &args, &result)
+	err := api.facade.FacadeCall("WatchMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
 	if err := result.Error; err != nil {
 		return nil, errors.Trace(result.Error)
 	}

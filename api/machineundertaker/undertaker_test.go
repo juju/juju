@@ -43,8 +43,8 @@ func (s *undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, gc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
-		c.Assert(result, gc.FitsTypeOf, &params.Entities{})
-		*result.(*params.Entities) = *wrapEntities("machine-23", "machine-42")
+		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		*result.(*params.EntitiesResults) = *wrapEntitiesResults("machine-23", "machine-42")
 		return nil
 	}
 	api := makeAPI(c, caller)
@@ -68,13 +68,43 @@ func (s *undertakerSuite) TestAllMachineRemovals_Error(c *gc.C) {
 
 func (s *undertakerSuite) TestAllMachineRemovals_BadTag(c *gc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.Entities{})
-		*result.(*params.Entities) = *wrapEntities("machine-23", "application-burp")
+		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		*result.(*params.EntitiesResults) = *wrapEntitiesResults("machine-23", "application-burp")
 		return nil
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals()
 	c.Assert(err, gc.ErrorMatches, `"application-burp" is not a valid machine tag`)
+	c.Assert(results, gc.IsNil)
+}
+
+func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *gc.C) {
+	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		*result.(*params.EntitiesResults) = params.EntitiesResults{
+			Results: []params.Entities{{
+				Entities: []params.Entity{{Tag: "machine-1"}},
+			}, {
+				Entities: []params.Entity{{Tag: "machine-2"}},
+			}},
+		}
+		return nil
+	}
+	api := makeAPI(c, caller)
+	results, err := api.AllMachineRemovals()
+	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
+	c.Assert(results, gc.IsNil)
+}
+
+func (s *undertakerSuite) TestAllMachineRemovals_TooFewResults(c *gc.C) {
+	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		*result.(*params.EntitiesResults) = params.EntitiesResults{}
+		return nil
+	}
+	api := makeAPI(c, caller)
+	results, err := api.AllMachineRemovals()
+	c.Assert(err, gc.ErrorMatches, "expected one result, got 0")
 	c.Assert(results, gc.IsNil)
 }
 
@@ -207,9 +237,11 @@ func (*undertakerSuite) TestWatchMachineRemovals_CallFailed(c *gc.C) {
 
 func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *gc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
-		*result.(*params.NotifyWatchResult) = params.NotifyWatchResult{
-			Error: &params.Error{Message: "blammo"},
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "blammo"},
+			}},
 		}
 		return nil
 	}
@@ -217,6 +249,24 @@ func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *gc.C) {
 	w, err := api.WatchMachineRemovals()
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "blammo")
+}
+
+func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *gc.C) {
+	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				NotifyWatcherId: "2",
+			}, {
+				NotifyWatcherId: "3",
+			}},
+		}
+		return nil
+	}
+	api := makeAPI(c, caller)
+	w, err := api.WatchMachineRemovals()
+	c.Check(w, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
 }
 
 func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
@@ -228,9 +278,11 @@ func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 	watcherCreate := func(id string, arg, result interface{}) error {
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, gc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
-		*result.(*params.NotifyWatchResult) = params.NotifyWatchResult{
-			NotifyWatcherId: "1001",
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				NotifyWatcherId: "1001",
+			}},
 		}
 		watcherCalls++
 		return nil
@@ -320,6 +372,12 @@ func wrapEntities(tags ...string) *params.Entities {
 		results[i].Tag = tags[i]
 	}
 	return &params.Entities{Entities: results}
+}
+
+func wrapEntitiesResults(tags ...string) *params.EntitiesResults {
+	return &params.EntitiesResults{
+		Results: []params.Entities{*wrapEntities(tags...)},
+	}
 }
 
 type fakeAPICaller struct {
