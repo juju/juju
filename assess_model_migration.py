@@ -10,12 +10,8 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 
-import pexpect
 from assess_user_grant_revoke import User
-from deploy_stack import (
-    BootstrapManager,
-    assess_upgrade,
-)
+from deploy_stack import BootstrapManager
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
@@ -33,7 +29,6 @@ log = logging.getLogger("assess_model_migration")
 
 def assess_model_migration(bs1, bs2, upload_tools):
     # ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
-    # ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
     with temp_dir() as temp:
         ensure_migrating_with_user_permissions(
             bs1, bs2, upload_tools, temp)
@@ -96,19 +91,6 @@ def wait_for_model(client, model_name, timeout=60):
         ))
 
 
-def _update_client_controller(client):
-    log.info('Updating clients ({}) controller'.format(
-        client.env.environment))
-
-    admin_client = client.get_controller_client()
-    admin_client.env.local = True
-    admin_client.upgrade_controller(force_version=False)
-    admin_client.wait_for_version(
-        admin_client.get_matching_agent_version(), 600)
-    # assess_upgrade(admin_client, admin_client.full_path)
-    # After upgrade, is there an exception perhaps?
-
-
 def test_deployed_mongo_is_up(client):
     """Ensure the mongo service is running as expected."""
     try:
@@ -166,8 +148,6 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
 def migrate_model_to_controller(source_environ, dest_environ):
-    # I think this should be changed so that source_environ is a client
-    # (JujuEnv)
     source_environ.client.controller_juju(
         'migrate',
         (source_environ.client.env.environment,
@@ -224,37 +204,8 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
-    """
-    Migration must not proceed if the target controller version is less than
-    the source controller.
-
-    """
-    with bs1.booted_context(upload_tools):
-        bs1.client.enable_feature('migration')
-
-        _update_client_controller(bs1.client)
-
-        log.info('Booting second instance')
-        bs2.client.env.juju_home = bs1.client.env.juju_home
-        with bs2.existing_booted_context(upload_tools):
-            log.info('Initiating migration process')
-            try:
-                bs1.client.controller_juju(
-                    'migrate',
-                    (bs1.client.env.environment,
-                     'local.{}'.format(bs2.client.env.controller.name)))
-            except CalledProcessError as e:
-                if 'expected error message' in e:
-                    return True
-            # If the migration didn't fail there is an issue and we need to
-            # fail
-            raise RuntimeError(
-                'Migrating to upgraded controller did not error.')
-
-
 def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools, temp_dir):
-    """To migrate a user must have controller admin privileges.
+    """Ensure migration fails when a user does not have the right permissions.
 
     A non-superuser on a controller cannot migrate their models between
     controllers.
