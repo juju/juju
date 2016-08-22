@@ -762,6 +762,77 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 	c.Check(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
 }
 
+func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
+	now := state.NowToTheSecond()
+	// Add 2 metric batches to a single unit.
+	m := state.Metric{"pings", "5", now}
+	m2 := state.Metric{"pings", "10", now}
+	_, err := s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics:  []state.Metric{m},
+			Unit:     s.unit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	newUnit, err := s.service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics:  []state.Metric{m2},
+			Unit:     newUnit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a new model and add a metric batch.
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st)
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	service := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := f.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
+	_, err = st.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: meteredCharm.URL().String(),
+			Metrics:  []state.Metric{m},
+			Unit:     unit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We expect 2 metric batches in our first model.
+	metricBatches, err := s.State.MetricBatchesForModel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatches, gc.HasLen, 2)
+
+	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
+	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[0].ModelUUID(), gc.Equals, s.State.ModelUUID())
+	c.Check(metricBatches[0].Sent(), jc.IsFalse)
+	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
+
+	c.Check(metricBatches[1].Unit(), gc.Equals, "metered/1")
+	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[1].ModelUUID(), gc.Equals, s.State.ModelUUID())
+	c.Check(metricBatches[1].Sent(), jc.IsFalse)
+	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)
+	c.Check(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
+
+	// And a single metric batch in the second model.
+	metricBatches, err = st.MetricBatchesForModel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+}
+
 func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 	newUnit, err := s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -807,6 +878,11 @@ func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 	metricBatches, err = s.State.MetricBatchesForApplication("metered")
 	c.Assert(err, jc.ErrorIsNil)
 	assertMetricBatchesTimeDescending(c, metricBatches)
+
+	metricBatches, err = s.State.MetricBatchesForModel()
+	c.Assert(err, jc.ErrorIsNil)
+	assertMetricBatchesTimeDescending(c, metricBatches)
+
 }
 
 func assertMetricBatchesTimeDescending(c *gc.C, batches []state.MetricBatch) {
