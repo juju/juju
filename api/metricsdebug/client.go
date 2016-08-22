@@ -22,8 +22,10 @@ type Client struct {
 
 // MetricsDebugClient defines the methods on the metricsdebug API end point.
 type MetricsDebugClient interface {
-	// GetMetrics will receive metrics collected by the given entity tag
-	GetMetrics(tag string) ([]params.MetricResult, error)
+	// GetMetrics will receive metrics collected by the given entity tags
+	GetMetrics(tags []string) ([]params.MetricResult, error)
+	// GetMetricsForModel will receive metrics collected in the given model.
+	GetMetricsForModel(model string) ([]params.MetricResult, error)
 }
 
 // MeterStatusClient defines methods on the metricsdebug API end point.
@@ -42,12 +44,32 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // GetMetrics will receive metrics collected by the given entity
-func (c *Client) GetMetrics(tag string) ([]params.MetricResult, error) {
-	p := params.Entities{Entities: []params.Entity{
-		{tag},
-	}}
+func (c *Client) GetMetrics(tags []string) ([]params.MetricResult, error) {
+	entities := make([]params.Entity, len(tags))
+	for i, tag := range tags {
+		entities[i] = params.Entity{Tag: tag}
+	}
+	p := params.Entities{Entities: entities}
 	results := new(params.MetricResults)
 	if err := c.facade.FacadeCall("GetMetrics", p, results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := results.OneError(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	metrics := []params.MetricResult{}
+	for _, r := range results.Results {
+		metrics = append(metrics, r.Metrics...)
+	}
+	return metrics, nil
+}
+
+func (c *Client) GetMetricsForModel(model string) ([]params.MetricResult, error) {
+	p := params.Entities{Entities: []params.Entity{
+		{Tag: model},
+	}}
+	results := new(params.MetricResults)
+	if err := c.facade.FacadeCall("GetMetricsForModel", p, results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := results.OneError(); err != nil {
