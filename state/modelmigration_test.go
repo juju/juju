@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -43,6 +44,9 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 
 	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
 
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
@@ -52,6 +56,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
+			Macaroon:      mac,
 		},
 	}
 }
@@ -147,9 +152,9 @@ func (s *MigrationSuite) TestSpecValidation(c *gc.C) {
 	}, {
 		"TargetInfo is validated",
 		func(spec *state.MigrationSpec) {
-			spec.TargetInfo.Password = ""
+			spec.TargetInfo.CACert = ""
 		},
-		"empty Password not valid",
+		"empty CACert not valid",
 	}}
 	for _, test := range tests {
 		c.Logf("---- %s -----------", test.label)

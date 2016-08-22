@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -142,7 +143,11 @@ type modelMigDoc struct {
 
 	// TargetPassword holds the password to use with TargetAuthTag
 	// when authenticating.
-	TargetPassword string `bson:"target-password"`
+	TargetPassword string `bson:"target-password,omitempty"`
+
+	// TargetMacaroon holds the macaroon to use with TargetAuthTag
+	// when authenticating.
+	TargetMacaroon string `bson:"target-macaroon,omitempty"`
 }
 
 // modelMigStatusDoc tracks the progress of a migration attempt for a
@@ -257,12 +262,22 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var mac *macaroon.Macaroon
+	if mig.doc.TargetMacaroon != "" {
+		mac = new(macaroon.Macaroon)
+		if err := mac.UnmarshalJSON([]byte(mig.doc.TargetMacaroon)); err != nil {
+			return nil, errors.Annotate(err, "unmarshalling macaroon")
+		}
+	}
+
 	return &migration.TargetInfo{
 		ControllerTag: names.NewModelTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
 		AuthTag:       authTag,
 		Password:      mig.doc.TargetPassword,
+		Macaroon:      mac,
 	}, nil
 }
 
@@ -582,6 +597,11 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.New("already in progress")
 		}
 
+		macaroonJSON, err := macaroonToJSON(spec.TargetInfo.Macaroon)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		seq, err := st.sequence("modelmigration")
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -597,6 +617,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetCACert:     spec.TargetInfo.CACert,
 			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
+			TargetMacaroon:   macaroonJSON,
 		}
 		statusDoc = modelMigStatusDoc{
 			Id:               id,
@@ -639,6 +660,17 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		statusDoc: statusDoc,
 		st:        st,
 	}, nil
+}
+
+func macaroonToJSON(m *macaroon.Macaroon) (string, error) {
+	if m == nil {
+		return "", nil
+	}
+	json, err := m.MarshalJSON()
+	if err != nil {
+		return "", errors.Annotate(err, "marshalling macaroon")
+	}
+	return string(json), nil
 }
 
 func checkTargetController(st *State, targetControllerTag names.ModelTag) error {
