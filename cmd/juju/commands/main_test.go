@@ -563,6 +563,7 @@ var commandNames = []string{
 	"upgrade-juju",
 	"users",
 	"version",
+	"whoami",
 }
 
 // devFeatures are feature flags that impact registration of commands.
