@@ -70,6 +70,11 @@ class FakeControllerState:
         if name != self.controller_model.name:
             raise ControllerOperation(operation)
 
+    def add_user_perms(self, username, permissions):
+        self.users.update(
+            {username: {'state': '', 'permission': permissions}})
+        self.shares.append(username)
+
     def bootstrap(self, model_name, config, separate_controller):
         default_model = self.add_model(model_name)
         default_model.name = model_name
@@ -266,17 +271,37 @@ class FakeEnvironmentState:
         return ""
 
 
-class AutoloadCredentials:
+class FakeExpectChild:
 
     def __init__(self, backend, juju_home, extra_env):
         self.backend = backend
         self.juju_home = juju_home
         self.extra_env = extra_env
         self.last_expect = None
-        self.cloud = None
+        self.exitstatus = None
 
     def expect(self, line):
         self.last_expect = line
+
+    def sendline(self, line):
+        """Do-nothing implementation of sendline.
+
+        Subclassess will likely override this.
+        """
+
+    def close(self):
+        self.exitstatus = 0
+
+    def isalive(self):
+        return bool(self.exitstatus is not None)
+
+
+class AutoloadCredentials(FakeExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(AutoloadCredentials, self).__init__(backend, juju_home,
+                                                  extra_env)
+        self.cloud = None
 
     def sendline(self, line):
         if self.last_expect == (
@@ -624,13 +649,8 @@ class FakeBackend:
             if set(["--acl", "write"]).issubset(args):
                 permissions = 'write'
             username = args[0]
-            model = args[2]
-            info_string = \
-                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
-                .format(username, username, permissions, model)
-            self.controller_state.users.update(
-                {username: {'state': '', 'permission': permissions}})
-            self.controller_state.shares.append(username)
+            info_string = 'User "{}" added\n'.format(username)
+            self.controller_state.add_user_perms(username, permissions)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
@@ -661,6 +681,8 @@ class FakeBackend:
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
             return AutoloadCredentials(self, juju_home, extra_env)
+        else:
+            return FakeExpectChild(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass

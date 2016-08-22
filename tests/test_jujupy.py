@@ -2737,50 +2737,60 @@ class TestEnvJujuClient(ClientTest):
                                                  username, 'write', model),
                                                 include_e=False)
 
-    def test_add_user(self):
+    def test_add_user_perms(self):
         fake_client = fake_juju_client()
         username = 'fakeuser'
-        model = 'foo'
-        permissions = 'write'
-        output = get_user_register_command_info(username)
-
-        def _get_expected_args(model=None, permissions=None):
-            return [
-                username,
-                '--models', model or fake_client.env.environment,
-                '--acl', permissions or 'read',
-                '-c', fake_client.env.controller.name]
 
         # Ensure add_user returns expected value.
         self.assertEqual(
-            fake_client.add_user(username),
+            fake_client.add_user_perms(username),
             get_user_register_token(username))
 
+    @staticmethod
+    def assert_add_user_perms(model, permissions):
+        fake_client = fake_juju_client()
+        username = 'fakeuser'
+        output = get_user_register_command_info(username)
+        if permissions is None:
+            permissions = 'login'
+        expected_args = [username, '-c', fake_client.env.controller.name]
         with patch.object(fake_client, 'get_juju_output',
                           return_value=output) as get_output:
-            # Check using default model and permissions
-            fake_client.add_user(username)
-            expected_args = _get_expected_args()
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+            with patch.object(fake_client, 'juju') as mock_juju:
+                fake_client.add_user_perms(username, model, permissions)
+                if model is None:
+                    model = fake_client.env.environment
+                get_output.assert_called_with(
+                    'add-user', *expected_args, include_e=False)
+                if permissions == 'login':
+                    mock_juju.assert_called_once_with(
+                        'grant',
+                        ('fakeuser', permissions,
+                         '-c', fake_client.env.controller.name),
+                        include_e=False)
+                else:
+                    mock_juju.assert_called_once_with(
+                        'grant',
+                        ('fakeuser', permissions,
+                         model,
+                         '-c', fake_client.env.controller.name),
+                        include_e=False)
 
-            # Check explicit model & default permissions
-            fake_client.add_user(username, model)
-            expected_args = _get_expected_args(model)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+    def test_assert_add_user_permissions(self):
+        model = 'foo'
+        permissions = 'write'
 
-            # Check explicit model & permissions
-            fake_client.add_user(username, model, permissions)
-            expected_args = _get_expected_args(model, permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+        # Check using default model and permissions
+        self.assert_add_user_perms(None, None)
 
-            # Check default model & explicit permissions
-            fake_client.add_user(username, permissions=permissions)
-            expected_args = _get_expected_args(permissions=permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
+        # Check explicit model & default permissions
+        self.assert_add_user_perms(model, None)
+
+        # Check explicit model & permissions
+        self.assert_add_user_perms(model, permissions)
+
+        # Check default model & explicit permissions
+        self.assert_add_user_perms(None, permissions)
 
     def test_disable_user(self):
         env = JujuData('foo')
@@ -2950,6 +2960,51 @@ class TestEnvJujuClient2B9(ClientTest):
             )
             m_get_juju_output.assert_called_once_with(
                 'show-model', '--format', 'yaml')
+
+    def test_add_user_perms(self):
+        fake_client = fake_juju_client(cls=EnvJujuClient2B9)
+        username = 'fakeuser'
+        model = 'foo'
+        permissions = 'write'
+        output = get_user_register_command_info(username)
+
+        def _get_expected_args(model=None, permissions=None):
+            return [
+                username,
+                '--models', model or fake_client.env.environment,
+                '--acl', permissions or 'read',
+                '-c', fake_client.env.controller.name]
+
+        # Ensure add_user_perms returns expected value.
+        self.assertEqual(
+            fake_client.add_user_perms(username),
+            get_user_register_token(username))
+
+        with patch.object(fake_client, 'get_juju_output',
+                          return_value=output) as get_output:
+            # Check using default model and permissions
+            fake_client.add_user_perms(username)
+            expected_args = _get_expected_args()
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check explicit model & default permissions
+            fake_client.add_user_perms(username, model)
+            expected_args = _get_expected_args(model)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check explicit model & permissions
+            fake_client.add_user_perms(username, model, permissions)
+            expected_args = _get_expected_args(model, permissions)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check default model & explicit permissions
+            fake_client.add_user_perms(username, permissions=permissions)
+            expected_args = _get_expected_args(permissions=permissions)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
 
 
 class TestEnvJujuClient2B7(ClientTest):
