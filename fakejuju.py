@@ -462,7 +462,8 @@ class FakeBackend:
         user_list = []
         for n in user_names:
             if n == 'admin':
-                append_dict = {'user-name': n, 'display-name': n}
+                append_dict = {'access': 'superuser', 'user-name': n,
+                               'display-name': n}
             else:
                 append_dict = {'user-name': n, 'display-name': ''}
             user_list.append(append_dict)
@@ -472,7 +473,8 @@ class FakeBackend:
         if user_name is None:
             raise Exception("No user specified")
         if user_name == 'admin':
-            user_status = {'user-name': user_name, 'display-name': user_name}
+            user_status = {'access': 'superuser', 'user-name': user_name,
+                           'display-name': user_name}
         else:
             user_status = {'user-name': user_name, 'display-name': ''}
         return user_status
