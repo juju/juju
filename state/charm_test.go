@@ -10,13 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -243,37 +241,6 @@ func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	schCopy, err = s.State.PrepareStoreCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch, jc.DeepEquals, schCopy)
-
-	// Finally, try poking around the state with a placeholder and
-	// bundlesha256 to make sure we do the right thing.
-	curl := info.ID.WithRevision(999)
-	first := txn.TestHook{
-		Before: func() {
-			err := s.State.AddStoreCharmPlaceholder(curl)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		After: func() {
-			err := s.charms.RemoveId(state.DocID(s.State, curl.String()))
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	second := txn.TestHook{
-		Before: func() {
-			err := s.State.AddStoreCharmPlaceholder(curl)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		After: func() {
-			err := s.charms.UpdateId(state.DocID(s.State, curl.String()), bson.D{{"$set", bson.D{
-				{"bundlesha256", "fake"}},
-			}})
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	defer state.SetTestHooks(c, s.State, first, second, first).Check()
-
-	_, err = s.State.PrepareStoreCharmUpload(curl)
-	cause := errors.Cause(err)
-	c.Assert(cause, gc.Equals, txn.ErrExcessiveContention)
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
