@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -86,14 +87,29 @@ func (c *listCommand) formatTabular(writer io.Writer, value interface{}) error {
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
+	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	if err != nil {
+		return err
+	}
+	loggedInUser := names.NewUserTag(accountDetails.User).Canonical()
+
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "NAME\tDISPLAY NAME\tDATE CREATED\tLAST CONNECTION\n")
+	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
+	fmt.Fprint(tw, "\n")
+	fmt.Fprint(tw, "NAME\tDISPLAY NAME\tACCESS\tDATE CREATED\tLAST CONNECTION\n")
 	for _, user := range users {
 		conn := user.LastConnection
 		if user.Disabled {
 			conn += " (disabled)"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", user.Username, user.DisplayName, user.DateCreated, conn)
+		userName := user.Username
+		if loggedInUser == names.NewUserTag(user.Username).Canonical() {
+			userName += "*"
+			output.CurrentHighlight.Fprintf(tw, "%s\t", userName)
+		} else {
+			fmt.Fprintf(tw, "%s\t", userName)
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", user.DisplayName, user.Access, user.DateCreated, conn)
 	}
 	tw.Flush()
 	return nil

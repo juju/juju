@@ -278,12 +278,9 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
-	ro, err := api.hasReadAccess()
+	isAdmin, err := api.hasControllerAdminAccess()
 	if err != nil {
 		return results, errors.Trace(err)
-	}
-	if !ro {
-		return results, common.ErrPerm
 	}
 
 	var infoForUser = func(user *state.User) params.UserInfoResult {
@@ -296,7 +293,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		} else {
 			lastLogin = &userLastLogin
 		}
-		return params.UserInfoResult{
+		result := params.UserInfoResult{
 			Result: &params.UserInfo{
 				Username:       user.Name(),
 				DisplayName:    user.DisplayName(),
@@ -306,6 +303,15 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 				Disabled:       user.IsDisabled(),
 			},
 		}
+		// Lookup the access the specified user has to the controller.
+		userAccess, err := api.state.UserAccess(user.Tag().(names.UserTag), api.state.ControllerTag())
+		if err == nil {
+			result.Result.Access = string(userAccess.Access)
+		} else if err != nil && !errors.IsNotFound(err) {
+			result.Result = nil
+			result.Error = common.ServerError(err)
+		}
+		return result
 	}
 
 	argCount := len(request.Entities)
@@ -315,20 +321,25 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 			return results, errors.Trace(err)
 		}
 		for _, user := range users {
+			if !isAdmin && !api.authorizer.AuthOwner(user.Tag()) {
+				continue
+			}
 			results.Results = append(results.Results, infoForUser(user))
 		}
 		return results, nil
 	}
 
 	// Create the results list to populate.
-	results.Results = make([]params.UserInfoResult, argCount)
-	for i, arg := range request.Entities {
+	for _, arg := range request.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results = append(results.Results, params.UserInfoResult{Error: common.ServerError(err)})
 			continue
 		}
-		results.Results[i] = infoForUser(user)
+		if !isAdmin && !api.authorizer.AuthOwner(user.Tag()) {
+			continue
+		}
+		results.Results = append(results.Results, infoForUser(user))
 	}
 
 	return results, nil

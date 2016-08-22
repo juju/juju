@@ -68,6 +68,7 @@ type infoCommand struct {
 type UserInfo struct {
 	Username       string `yaml:"user-name" json:"user-name"`
 	DisplayName    string `yaml:"display-name" json:"display-name"`
+	Access         string `yaml:"access" json:"access"`
 	DateCreated    string `yaml:"date-created" json:"date-created"`
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
 	Disabled       bool   `yaml:"disabled,omitempty" json:"disabled,omitempty"`
@@ -139,6 +140,7 @@ func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 		outInfo := UserInfo{
 			Username:       info.Username,
 			DisplayName:    info.DisplayName,
+			Access:         info.Access,
 			Disabled:       info.Disabled,
 			LastConnection: common.LastConnection(info.LastConnection, now, c.exactTime),
 		}
