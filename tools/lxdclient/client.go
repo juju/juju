@@ -151,16 +151,18 @@ var lxdNewClientFromInfo = lxd.NewClientFromInfo
 func isSupportedAPIVersion(version string) bool {
 	versionParts := strings.Split(version, ".")
 	if len(versionParts) < 2 {
+		logger.Warningf("LXD API version %q: expected format <major>.<minor>", version)
 		return false
 	}
 
 	major, err := strconv.Atoi(versionParts[0])
 	if err != nil {
+		logger.Warningf("LXD API version %q: unexpected major number: %v", version, err)
 		return false
 	}
 
-	// Allow API version 1.X+ only
-	if major != 1 {
+	if major < 1 {
+		logger.Warningf("LXD API version %q: expected major version 1 or later", version)
 		return false
 	}
 
@@ -226,7 +228,9 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		}
 
 		if !isSupportedAPIVersion(status.APIVersion) {
-			return nil, errors.Errorf("lxd API version %s, juju needs at least 1.0", status.APIVersion)
+			logger.Warningf("trying to use unsupported LXD API version %q", status.APIVersion)
+		} else {
+			logger.Infof("using LXD API version %q", status.APIVersion)
 		}
 	}
 
