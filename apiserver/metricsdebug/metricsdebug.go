@@ -29,7 +29,7 @@ type metricsDebug interface {
 	// MetricBatchesForApplication returns metric batches for the given application.
 	MetricBatchesForApplication(application string) ([]state.MetricBatch, error)
 
-	//MetricBatchesForModel returns all metrics batches in the model.
+	//MetricBatchesForModel returns metrics batches for all applications in the model.
 	MetricBatchesForModel() ([]state.MetricBatch, error)
 
 	// Unit returns the unit based on its name.

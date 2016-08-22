@@ -22,7 +22,7 @@ type Client struct {
 
 // MetricsDebugClient defines the methods on the metricsdebug API end point.
 type MetricsDebugClient interface {
-	// GetMetrics will receive metrics collected by the given entity tags
+	// GetMetrics will receive metrics collected by the given entity tags.
 	// The tags act as a filter over what is to be returned. If tags are
 	// supplied GetMetrics will return all the metrics recorded in the
 	// current model.
