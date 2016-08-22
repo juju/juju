@@ -1828,30 +1828,24 @@ class EnvJujuClient:
                 return command_parts[-1]
         raise AssertionError('Juju register command not found in output')
 
-    def add_user(self, username, models=None, permissions='read'):
+    def add_user(self, username):
         """Adds provided user and return register command arguments.
 
         :return: Registration token provided by the add-user command.
-
         """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
+        output = self.get_juju_output(
+            'add-user', username, '-c', self.env.controller.name,
+            include_e=False)
         return self._get_register_command(output)
 
-    # Future ACL feature.
-    # def add_user(self, username, models=None, permissions='login'):
-    #     """Adds provided user and return register command arguments.
+    def add_user_perms(self, username, models=None, permissions='login'):
+        """Adds provided user and return register command arguments.
 
-    #     :return: Registration token provided by the add-user command.
-    #     """
-    #     output = self.get_juju_output('add-user', include_e=False)
-    #     self.grant(username, permissions, models)
-    #     return self._get_register_command(output)
+        :return: Registration token provided by the add-user command.
+        """
+        output = self.add_user(username)
+        self.grant(username, permissions, models)
+        return output
 
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
@@ -1901,8 +1895,8 @@ class EnvJujuClient:
         controller_name = '{}_controller'.format(username)
 
         model = self.env.environment
-        token = self.add_user(username, models=model,
-                              permissions=user.permissions)
+        token = self.add_user_perms(username, models=model,
+                                    permissions=user.permissions)
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,
                                                      username)
@@ -1958,7 +1952,7 @@ class EnvJujuClient:
             self.juju('grant', (user_name, permission, model),
                       include_e=False)
         else:
-            raise
+            raise ValueError('Unknown permission {}'.format(permission))
 
     def list_clouds(self, format='json'):
         """List all the available clouds."""
@@ -2012,6 +2006,21 @@ class EnvJujuClient2B9(EnvJujuClient):
         output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
         output = yaml.safe_load(output_yaml)
         return output[name]['model-uuid']
+
+    def add_user_perms(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with a model."""

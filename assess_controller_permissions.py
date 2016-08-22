@@ -62,8 +62,8 @@ def assert_add_remove_user(user_client, permission):
         code = ''.join(random.choice(
             string.ascii_letters + string.digits) for _ in xrange(4))
         try:
-            user_client.add_user(permission + code,
-                                 permissions=controller_permission)
+            user_client.add_user_perms(permission + code,
+                                       permissions=controller_permission)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
                 'Controller could not add '
