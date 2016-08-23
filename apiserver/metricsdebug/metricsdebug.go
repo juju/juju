@@ -6,6 +6,9 @@
 package metricsdebug
 
 import (
+	"fmt"
+	"sort"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -80,7 +83,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 		}
 		return params.MetricResults{
 			Results: []params.EntityMetrics{{
-				Metrics: api.metricBatchesToMetricResult(batches),
+				Metrics: api.filterLastValuePerKeyPerUnit(batches),
 			}},
 		}, nil
 	}
@@ -110,30 +113,44 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 			err := errors.Errorf("invalid tag %v", arg.Tag)
 			results.Results[i].Error = common.ServerError(err)
 		}
-		results.Results[i].Metrics = api.metricBatchesToMetricResult(batches)
+		results.Results[i].Metrics = api.filterLastValuePerKeyPerUnit(batches)
 	}
 	return results, nil
 }
 
-func (api *MetricsDebugAPI) metricBatchesToMetricResult(batches []state.MetricBatch) []params.MetricResult {
-	metricCount := 0
-	for _, b := range batches {
-		metricCount += len(b.Metrics())
-	}
-	metrics := make([]params.MetricResult, metricCount)
-	ix := 0
+type byUnit []params.MetricResult
+
+func (t byUnit) Len() int      { return len(t) }
+func (t byUnit) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+func (t byUnit) Less(i, j int) bool {
+	return t[i].Unit < t[j].Unit
+}
+
+func (api *MetricsDebugAPI) filterLastValuePerKeyPerUnit(batches []state.MetricBatch) []params.MetricResult {
+	metrics := []params.MetricResult{}
 	for _, mb := range batches {
-		for _, m := range mb.Metrics() {
-			metrics[ix] = params.MetricResult{
+		for _, m := range mb.UniqueMetrics() {
+			metrics = append(metrics, params.MetricResult{
 				Key:   m.Key,
 				Value: m.Value,
 				Time:  m.Time,
 				Unit:  mb.Unit(),
-			}
-			ix++
+			})
 		}
 	}
-	return metrics
+	uniq := map[string]params.MetricResult{}
+	for _, m := range metrics {
+		// we want unique keys per unit
+		uniq[fmt.Sprintf("%s-%s", m.Key, m.Unit)] = m
+	}
+	results := make([]params.MetricResult, len(uniq))
+	i := 0
+	for _, m := range uniq {
+		results[i] = m
+		i++
+	}
+	sort.Sort(byUnit(results))
+	return results
 }
 
 // SetMeterStatus sets meter statuses for entities.

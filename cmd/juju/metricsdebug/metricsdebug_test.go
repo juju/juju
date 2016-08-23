@@ -54,7 +54,7 @@ func (s *DebugMetricsMockSuite) TestUnit(c *gc.C) {
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "GetMetrics", "unit-metered-0")
+	client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
 }
 
 func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
@@ -64,7 +64,7 @@ func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered")
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "GetMetrics", "application-metered")
+	client.CheckCall(c, 0, "GetMetrics", []string{"application-metered"})
 }
 
 func (s *DebugMetricsMockSuite) TestNotValidServiceOrUnit(c *gc.C) {
@@ -101,7 +101,6 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	expectedOutput := bytes.Buffer{}
 	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
 	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
-	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
 	fmt.Fprintf(tw, "%v\tpings\t10.5\n", outputTime)
 	tw.Flush()
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/1")
@@ -124,7 +123,7 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
 	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
 	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
 	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
-	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	fmt.Fprintf(tw, "%v\tpings\t10.5\n", outputTime)
 	tw.Flush()
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered", "-n", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,7 +144,6 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(
 	expectedOutput := bytes.Buffer{}
 	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
 	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
-	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
 	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
 	fmt.Fprintf(tw, "%v\tpings\t10.5\n", outputTime)
 	tw.Flush()
@@ -177,19 +175,10 @@ func (s *DebugMetricsCommandSuite) TestUnitJsonOutput(c *gc.C) {
     {
         "time": "%v",
         "key": "pings",
-        "value": "5"
-    },
-    {
-        "time": "%v",
-        "key": "pings",
-        "value": "5"
-    },
-    {
-        "time": "%v",
-        "key": "pings",
-        "value": "10.5"
+        "value": "10.5",
+        "unit": "metered/0"
     }
-]`, outputTime, outputTime, outputTime)
+]`, outputTime)
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/0", "--json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput)

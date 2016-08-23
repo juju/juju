@@ -868,17 +868,17 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
-	now := state.NowToTheSecond()
-	t1 := now.Add(time.Second)
+	t0 := state.NowToTheSecond()
+	t1 := t0.Add(time.Second)
 	batch, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
-			Created:  now,
+			Created:  t0,
 			CharmURL: s.meteredCharm.URL().String(),
 			Metrics: []state.Metric{{
 				Key:   "pings",
 				Value: "1",
-				Time:  now,
+				Time:  t0,
 			}, {
 				Key:   "pings",
 				Value: "2",
@@ -890,7 +890,7 @@ func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
 			}, {
 				Key:   "juju-units",
 				Value: "2",
-				Time:  now,
+				Time:  t0,
 			}},
 			Unit: s.unit.UnitTag(),
 		},
