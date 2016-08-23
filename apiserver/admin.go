@@ -223,12 +223,12 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	var allowFacade func(string) bool
 	if controllerOnlyLogin {
-		authedAPI = restrictRootEarly(authedAPI, controllerFacadesOnly)
+		authedAPI = restrictRoot(authedAPI, controllerFacadesOnly)
 		allowFacade = isControllerFacade
 		// Remove the ModelTag from the response as there is no model here.
 		loginResult.ModelTag = ""
 	} else {
-		authedAPI = restrictRootEarly(authedAPI, modelFacadesOnly)
+		authedAPI = restrictRoot(authedAPI, modelFacadesOnly)
 		allowFacade = isModelFacade
 	}
 
