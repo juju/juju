@@ -196,11 +196,29 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
 
-func (cs *ConnectSuite) TestVersionCheck(c *gc.C) {
-	c.Assert(isSupportedLxdVersion("2.0.0"), jc.IsTrue)
-	c.Assert(isSupportedLxdVersion("2.0.0.rc4"), jc.IsFalse)
-	c.Assert(isSupportedLxdVersion("0.19"), jc.IsFalse)
-	c.Assert(isSupportedLxdVersion("2.0.1"), jc.IsTrue)
+func (*ConnectSuite) CheckLogContains(c *gc.C, suffix string) {
+	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.tools.lxdclient "+suffix)
+}
+
+func (*ConnectSuite) CheckVersionSupported(c *gc.C, version string, supported bool) {
+	c.Check(isSupportedAPIVersion(version), gc.Equals, supported)
+}
+
+func (cs *ConnectSuite) TestBadVersionChecks(c *gc.C) {
+	cs.CheckVersionSupported(c, "foo", false)
+	cs.CheckLogContains(c, `LXD API version "foo": expected format <major>.<minor>`)
+
+	cs.CheckVersionSupported(c, "a.b", false)
+	cs.CheckLogContains(c, `LXD API version "a.b": unexpected major number: strconv.ParseInt: parsing "a": invalid syntax`)
+
+	cs.CheckVersionSupported(c, "0.9", false)
+	cs.CheckLogContains(c, `LXD API version "0.9": expected major version 1 or later`)
+}
+
+func (cs *ConnectSuite) TestGoodVersionChecks(c *gc.C) {
+	cs.CheckVersionSupported(c, "1.0", true)
+	cs.CheckVersionSupported(c, "2.0", true)
+	cs.CheckVersionSupported(c, "2.1", true)
 }
 
 var testerr = errors.Errorf("boo!")
