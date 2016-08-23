@@ -195,7 +195,7 @@ var userAnswer = func() (string, error) {
 	return bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
-func printTerms(ctx *cmd.Context, terms []wireformat.GetTermsResponse) error {
+func printTerms(ctx *cmd.Context, terms []wireformat.GetTermsResponse) (returnErr error) {
 	output := ""
 	for _, t := range terms {
 		output += fmt.Sprintf(`
@@ -204,17 +204,34 @@ func printTerms(ctx *cmd.Context, terms []wireformat.GetTermsResponse) error {
 ========
 `, t.Name, t.Revision, t.CreatedOn, t.Content)
 	}
+	defer func() {
+		if returnErr != nil {
+			_, err := fmt.Fprint(ctx.Stdout, output)
+			returnErr = errors.Annotate(err, "failed to print plan")
+		}
+	}()
+
 	buffer := bytes.NewReader([]byte(output))
-	less := exec.Command("less")
-	less.Args = []string{"less", "-P", "Press 'q' to quit after you've read the terms."}
-	less.Stdout = ctx.Stdout
-	less.Stdin = buffer
-	err := less.Run()
+	pager, err := pagerCmd()
 	if err != nil {
-		fmt.Fprintf(ctx.Stdout, output)
-		return errors.Annotate(err, "failed to print plan")
+		return err
 	}
-	return nil
+	pager.Stdout = ctx.Stdout
+	pager.Stdin = buffer
+	err = pager.Run()
+	return errors.Annotate(err, "failed to print plan")
+}
+
+func pagerCmd() (*exec.Cmd, error) {
+	if pager := os.Getenv("PAGER"); pager != "" {
+		if pagerPath, err := exec.LookPath(pager); err == nil {
+			return exec.Command(pagerPath), nil
+		}
+	}
+	if lessPath, err := exec.LookPath("less"); err == nil {
+		return exec.Command(lessPath, "-P", "Press 'q' to quit after you've read the terms."), nil
+	}
+	return nil, errors.NotFoundf("pager")
 }
 
 func userAgrees(input string) bool {

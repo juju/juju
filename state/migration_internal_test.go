@@ -41,9 +41,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 
-		// settings reference counts are only used for applications
-		settingsrefsC,
-
 		// relation
 		relationsC,
 		relationScopesC,
@@ -60,10 +57,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// actions
 		actionsC,
 
+		// storage
 		filesystemsC,
 		filesystemAttachmentsC,
-		storageInstancesC,
 		storageAttachmentsC,
+		storageConstraintsC,
+		storageInstancesC,
 		volumesC,
 		volumeAttachmentsC,
 	)
@@ -98,6 +97,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		metricsC,
 		// Backup and restore information is not migrated.
 		restoreInfoC,
+		// reference counts are implementation details that should be
+		// reconstructed on the other side.
+		refcountsC,
 		// upgradeInfoC is used to coordinate upgrades and schema migrations,
 		// and aren't needed for model migrations.
 		upgradeInfoC,
@@ -163,9 +165,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		"payloads",
 		"resources",
 		endpointBindingsC,
-
-		// storage
-		storageConstraintsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -344,17 +343,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"MetricCredentials",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-
-		"RefCount",
-	)
-	s.AssertExportedFields(c, settingsRefsDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
@@ -775,6 +763,17 @@ func (s *MigrationSuite) TestStorageAttachmentDocFields(c *gc.C) {
 		"StorageInstance",
 	)
 	s.AssertExportedFields(c, storageAttachmentDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"Constraints",
+	)
+	s.AssertExportedFields(c, storageConstraintsDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

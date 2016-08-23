@@ -11,6 +11,7 @@ import (
 type UserInfo struct {
 	Username       string     `json:"username"`
 	DisplayName    string     `json:"display-name"`
+	Access         string     `json:"access"`
 	CreatedBy      string     `json:"created-by"`
 	DateCreated    time.Time  `json:"date-created"`
 	LastConnection *time.Time `json:"last-connection,omitempty"`

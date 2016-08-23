@@ -111,10 +111,15 @@ type ModelCreateArgs struct {
 	// creation of the model.
 	Config map[string]interface{} `json:"config,omitempty"`
 
+	// CloudTag is the tag of the cloud to create the model in.
+	// If this is empty, the model will be created in the same
+	// cloud as the controller model.
+	CloudTag string `json:"cloud-tag,omitempty"`
+
 	// CloudRegion is the name of the cloud region to create the
 	// model in. If the cloud does not support regions, this must
-	// be empty. If this is empty, the model will be created in
-	// the same region as the controller model.
+	// be empty. If this is empty, and CloudTag is empty, the model
+	// will be created in the same region as the controller model.
 	CloudRegion string `json:"region,omitempty"`
 
 	// CloudCredentialTag is the tag of the cloud credential to use

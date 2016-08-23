@@ -195,8 +195,22 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
-	cloudName := controllerModel.Cloud()
-	cloud, err := mm.state.Cloud(cloudName)
+	var cloudTag names.CloudTag
+	cloudRegionName := args.CloudRegion
+	if args.CloudTag != "" {
+		var err error
+		cloudTag, err = names.ParseCloudTag(args.CloudTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+	} else {
+		cloudTag = names.NewCloudTag(controllerModel.Cloud())
+		if cloudRegionName == "" {
+			cloudRegionName = controllerModel.CloudRegion()
+		}
+	}
+
+	cloud, err := mm.state.Cloud(cloudTag.Id())
 	if err != nil {
 		return result, errors.Annotate(err, "getting cloud definition")
 	}
@@ -230,11 +244,6 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		}
 	}
 
-	cloudRegionName := args.CloudRegion
-	if cloudRegionName == "" {
-		cloudRegionName = controllerModel.CloudRegion()
-	}
-
 	var credential *jujucloud.Credential
 	if cloudCredentialTag != (names.CloudCredentialTag{}) {
 		credentialValue, err := mm.state.CloudCredential(cloudCredentialTag)
@@ -244,7 +253,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		credential = &credentialValue
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudName, cloudRegionName, credential)
+	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudTag.Id(), cloudRegionName, credential)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -278,7 +287,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
-		CloudName:       cloudName,
+		CloudName:       cloudTag.Id(),
 		CloudRegion:     cloudRegionName,
 		CloudCredential: cloudCredentialTag,
 		Config:          newConfig,

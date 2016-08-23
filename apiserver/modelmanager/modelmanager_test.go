@@ -119,6 +119,19 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
+func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
+	for _, v := range s.st.Calls() {
+		if v.Args == nil {
+			continue
+		}
+		if newModelArgs, ok := v.Args[0].(state.ModelArgs); ok {
+			return newModelArgs
+		}
+	}
+	c.Fatal("failed to find state.ModelArgs")
+	panic("unreachable")
+}
+
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
@@ -153,16 +166,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	var newModelArgs state.ModelArgs
-	for _, v := range s.st.Calls() {
-		if v.Args == nil {
-			continue
-		}
-		var ok bool
-		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
-			break
-		}
-	}
+	newModelArgs := s.getModelArgs(c)
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -193,6 +197,24 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	})
 }
 
+func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin@local",
+		Config: map[string]interface{}{
+			"bar": "baz",
+		},
+		CloudTag:           "cloud-some-cloud",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-some-cloud_admin@local_some-credential",
+	}
+	_, err := s.api.CreateModel(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModelArgs := s.getModelArgs(c)
+	c.Assert(newModelArgs.CloudName, gc.Equals, "some-cloud")
+}
+
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
@@ -201,17 +223,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var newModelArgs state.ModelArgs
-	for _, v := range s.st.Calls() {
-		if v.Args == nil {
-			continue
-		}
-		var ok bool
-		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
-			break
-		}
-	}
-
+	newModelArgs := s.getModelArgs(c)
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -232,17 +244,7 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var newModelArgs state.ModelArgs
-	for _, v := range s.st.Calls() {
-		if v.Args == nil {
-			continue
-		}
-		var ok bool
-		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
-			break
-		}
-	}
-
+	newModelArgs := s.getModelArgs(c)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.NewCloudCredentialTag(
 		"some-cloud/bob@local/some-credential",
 	))
@@ -256,16 +258,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var newModelArgs state.ModelArgs
-	for _, v := range s.st.Calls() {
-		if v.Args == nil {
-			continue
-		}
-		var ok bool
-		if newModelArgs, ok = v.Args[0].(state.ModelArgs); ok {
-			break
-		}
-	}
+	newModelArgs := s.getModelArgs(c)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.CloudCredentialTag{})
 }
 

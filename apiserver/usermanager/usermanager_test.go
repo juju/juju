@@ -375,12 +375,14 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			info: &params.UserInfo{
 				Username:    "foobar",
 				DisplayName: "Foo Bar",
+				Access:      "login",
 			},
 		}, {
 			user: userBar,
 			info: &params.UserInfo{
 				Username:    "barfoo",
 				DisplayName: "Bar Foo",
+				Access:      "login",
 				Disabled:    true,
 			},
 		}, {
@@ -428,6 +430,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 		info: &params.UserInfo{
 			Username:    "aardvark",
 			DisplayName: "Aard Vark",
+			Access:      "login",
 			Disabled:    true,
 		},
 	}, {
@@ -435,12 +438,14 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 		info: &params.UserInfo{
 			Username:    s.adminName,
 			DisplayName: admin.DisplayName(),
+			Access:      "superuser",
 		},
 	}, {
 		user: userFoo,
 		info: &params.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
+			Access:      "login",
 		},
 	}} {
 		r.info.CreatedBy = s.adminName
@@ -455,6 +460,32 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// Same results as before, but without the deactivated user
 	expected.Results = expected.Results[1:]
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userAardvark := s.Factory.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark"})
+
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag: userAardvark.Tag(),
+	}
+	usermanager, err := usermanager.NewUserManagerAPI(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.UserInfoRequest{}
+	results, err := usermanager.UserInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Non admin users can only see themselves.
+	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
+		Results: []params.UserInfoResult{{Result: &params.UserInfo{
+			Username:       "aardvark",
+			DisplayName:    "Aard Vark",
+			Access:         "login",
+			CreatedBy:      s.adminName,
+			DateCreated:    userAardvark.DateCreated(),
+			LastConnection: lastLoginPointer(c, userAardvark),
+		}}},
+	})
 }
 
 func lastLoginPointer(c *gc.C, user *state.User) *time.Time {

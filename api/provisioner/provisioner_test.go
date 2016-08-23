@@ -213,6 +213,27 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
+func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
+	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine, err := s.provisioner.Machine(machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.MarkForRemoval()
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.MarkForRemoval()
+	c.Assert(err, jc.ErrorIsNil)
+
+	removals, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removals, jc.SameContents, []string{"1"})
+}
+
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
 	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)

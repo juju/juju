@@ -264,15 +264,26 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
 
 	// Create an internal network for all VMs in the
 	// resource group to connect to.
-	vnetPtr, err := createInternalVirtualNetwork(
+	vnet, err := createInternalVirtualNetwork(
 		env.callAPI, networkClient, env.resourceGroup, location, tags,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating virtual network")
 	}
 
-	_, err = createInternalSubnet(
-		env.callAPI, networkClient, env.resourceGroup, vnetPtr, location, tags,
+	// Create an network security group which will be
+	// associated with all machines.
+	nsg, err := createInternalNetworkSecurityGroup(
+		env.callAPI, networkClient, env.resourceGroup, location, tags,
+	)
+	if err != nil {
+		return errors.Annotate(err, "creating security group")
+	}
+
+	_, err = createInternalNetworkSubnet(
+		env.callAPI, networkClient, env.resourceGroup,
+		internalSubnetName, internalSubnetPrefix,
+		vnet, nsg, location, tags,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating subnet")
@@ -425,7 +436,6 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 			constraints.Mem,
 			constraints.CpuCores,
 			constraints.Arch,
-			constraints.RootDisk,
 		},
 	)
 	return validator, nil
@@ -671,9 +681,10 @@ func createVirtualMachine(
 	}
 
 	logger.Debugf("- creating virtual machine")
-	vmArgs := compute.VirtualMachine{
+	vm := compute.VirtualMachine{
 		Location: to.StringPtr(location),
 		Tags:     to.StringMapPtr(vmTags),
+		Name:     to.StringPtr(vmName),
 		Properties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
 				VMSize: compute.VirtualMachineSizeTypes(
@@ -688,26 +699,27 @@ func createVirtualMachine(
 			},
 		},
 	}
+
+	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
+	// block waiting for them to be fully provisioned. This means we won't
+	// return an error from StartInstance if the VM fails provisioning;
+	// we will instead report the error via the instance's status.
+	vmClient.Client.ResponseInspector = asyncCreationRespondDecorator(
+		vmClient.Client.ResponseInspector,
+	)
 	if err := callAPI(func() (autorest.Response, error) {
-		return vmClient.CreateOrUpdate(resourceGroup, vmName, vmArgs, nil)
+		return vmClient.CreateOrUpdate(resourceGroup, vmName, vm, nil)
 	}); err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating virtual machine")
-	}
-
-	logger.Debugf("- getting virtual machine")
-	var vm compute.VirtualMachine
-	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		vm, err = vmClient.Get(resourceGroup, vmName, "")
-		return vm.Response, err
-	}); err != nil {
-		return compute.VirtualMachine{}, errors.Annotate(err, "getting virtual machine")
 	}
 
 	// On Windows and CentOS, we must add the CustomScript VM
 	// extension to run the CustomData script.
 	switch seriesOS {
 	case os.Windows, os.CentOS:
+		vmExtensionClient.Client.ResponseInspector = asyncCreationRespondDecorator(
+			vmExtensionClient.Client.ResponseInspector,
+		)
 		if err := createVMExtension(
 			callAPI, vmExtensionClient, seriesOS,
 			resourceGroup, vmName, location, vmTags,
@@ -1379,7 +1391,9 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 
 // getInternalSubnetLocked queries the internal subnet for the environment.
 func (env *azureEnviron) getInternalSubnetLocked() (*network.Subnet, error) {
-	return getInternalSubnet(env.callAPI, env.network, env.resourceGroup)
+	return getInternalNetworkSubnet(
+		env.callAPI, env.network, env.resourceGroup, internalSubnetName,
+	)
 }
 
 // getStorageClient queries the storage account key, and uses it to construct
