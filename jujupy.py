@@ -1889,10 +1889,11 @@ class EnvJujuClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
-    def register_user(self, user, juju_home):
+    def register_user(self, user, juju_home, controller_name=None):
         """Register `user` for the `client` return the cloned client used."""
         username = user.name
-        controller_name = '{}_controller'.format(username)
+        if controller_name is None:
+            controller_name = '{}_controller'.format(username)
 
         model = self.env.environment
         token = self.add_user_perms(username, models=model,
@@ -1902,10 +1903,9 @@ class EnvJujuClient:
                                                      username)
 
         try:
-            child = user_client.expect(
-                'register', (token), include_e=False)
+            child = user_client.expect('register', (token), include_e=False)
             child.expect('(?i)name')
-            child.sendline(username + '_controller')
+            child.sendline(controller_name)
             child.expect('(?i)password')
             child.sendline(username + '_password')
             child.expect('(?i)password')
@@ -1944,13 +1944,17 @@ class EnvJujuClient:
     def grant(self, user_name, permission, model=None):
         """Grant the user with model or controller permission."""
         if permission in self.controller_permissions:
-            self.juju('grant', (user_name, permission),
-                      include_e=False)
+            self.juju(
+                'grant',
+                (user_name, permission, '-c', self.env.controller.name),
+                include_e=False)
         elif permission in self.model_permissions:
             if model is None:
                 model = self.model_name
-            self.juju('grant', (user_name, permission, model),
-                      include_e=False)
+            self.juju(
+                'grant',
+                (user_name, permission, model, '-c', self.env.controller.name),
+                include_e=False)
         else:
             raise ValueError('Unknown permission {}'.format(permission))
 

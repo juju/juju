@@ -2764,11 +2764,16 @@ class TestEnvJujuClient(ClientTest):
                     'add-user', *expected_args, include_e=False)
                 if permissions == 'login':
                     mock_juju.assert_called_once_with(
-                        'grant', ('fakeuser', permissions),
+                        'grant',
+                        ('fakeuser', permissions,
+                         '-c', fake_client.env.controller.name),
                         include_e=False)
                 else:
                     mock_juju.assert_called_once_with(
-                        'grant', ('fakeuser', permissions, model),
+                        'grant',
+                        ('fakeuser', permissions,
+                         model,
+                         '-c', fake_client.env.controller.name),
                         include_e=False)
 
     def test_assert_add_user_permissions(self):

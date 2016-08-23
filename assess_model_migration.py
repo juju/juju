@@ -10,11 +10,14 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 
+from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
+from jujucharm import local_charm_path
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    temp_dir,
     until_timeout,
 )
 
@@ -26,7 +29,17 @@ log = logging.getLogger("assess_model_migration")
 
 
 def assess_model_migration(bs1, bs2, upload_tools):
-    ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
+    with bs1.booted_context(upload_tools):
+        bs1.client.enable_feature('migration')
+
+        bs2.client.env.juju_home = bs1.client.env.juju_home
+        with bs2.existing_booted_context(upload_tools):
+            ensure_able_to_migrate_model_between_controllers(
+                bs1, bs2, upload_tools)
+
+            with temp_dir() as temp:
+                ensure_migrating_with_user_permissions(
+                    bs1, bs2, upload_tools, temp)
 
 
 def parse_args(argv):
@@ -116,41 +129,39 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
     """
-    with source_environ.booted_context(upload_tools):
-        source_environ.client.enable_feature('migration')
+    bundle = 'mongodb'
+    application = 'mongodb'
 
-        bundle = 'mongodb'
-        application = 'mongodb'
+    log.info('Deploying charm')
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = source_environ.client.add_model(
+        source_environ.client.env.clone('example-model'))
+    test_model.juju("deploy", (bundle))
+    test_model.wait_for_started()
+    test_model.wait_for_workloads()
+    test_deployed_mongo_is_up(test_model)
 
-        log.info('Deploying charm')
-        source_environ.client.juju("deploy", (bundle))
-        source_environ.client.wait_for_started()
-        test_deployed_mongo_is_up(source_environ.client)
+    log.info('Initiating migration process')
 
-        log.info('Booting second instance')
-        dest_environ.client.env.juju_home = source_environ.client.env.juju_home
-        with dest_environ.existing_booted_context(upload_tools):
-            log.info('Initiating migration process')
+    migration_target_client = migrate_model_to_controller(
+        test_model, dest_environ.client)
 
-            migration_target_client = migrate_model_to_controller(
-                source_environ, dest_environ)
-
-            test_deployed_mongo_is_up(migration_target_client)
-            ensure_model_is_functional(migration_target_client, application)
+    test_deployed_mongo_is_up(migration_target_client)
+    ensure_model_is_functional(migration_target_client, application)
 
 
-def migrate_model_to_controller(source_environ, dest_environ):
-    source_environ.client.controller_juju(
+def migrate_model_to_controller(source_client, dest_client):
+    source_client.controller_juju(
         'migrate',
-        (source_environ.client.env.environment,
-         dest_environ.client.env.controller.name))
+        (source_client.env.environment,
+         dest_client.env.controller.name))
 
-    migration_target_client = dest_environ.client.clone(
-        dest_environ.client.env.clone(
-            source_environ.client.env.environment))
+    migration_target_client = dest_client.clone(
+        dest_client.env.clone(
+            source_client.env.environment))
 
     wait_for_model(
-        migration_target_client, source_environ.client.env.environment)
+        migration_target_client, source_client.env.environment)
 
     # For logging purposes
     migration_target_client.show_status()
@@ -194,6 +205,68 @@ def raise_if_shared_machines(unit_machines):
         raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
         raise JujuAssertionError('Appliction units reside on the same machine')
+
+
+def ensure_migrating_with_user_permissions(
+        source_bs, dest_bs, upload_tools, temp_dir):
+    """Ensure migration fails when a user does not have the right permissions.
+
+    A non-superuser on a controller cannot migrate their models between
+    controllers.
+
+    """
+    # Create a user for both controllers that only has addmodel
+    # permissions not superuser.
+    new_user_home = os.path.join(temp_dir, 'example_user')
+    os.makedirs(new_user_home)
+    new_user = User('testuser', 'write', [])
+    normal_user_client_1 = source_bs.client.register_user(
+        new_user, new_user_home)
+    source_bs.client.grant(new_user.name, 'addmodel')
+
+    second_controller_name = '{}_controllerb'.format(new_user.name)
+    normal_user_client_2 = dest_bs.client.register_user(
+        new_user,
+        new_user_home,
+        controller_name=second_controller_name)
+    dest_bs.client.grant(new_user.name, 'addmodel')
+
+    user_new_model_client = normal_user_client_1.add_model(
+        normal_user_client_1.env.clone('model-a'))
+
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=user_new_model_client.version)
+    user_new_model_client.deploy(charm_path)
+    user_new_model_client.wait_for_started()
+
+    log.info('Attempting migration process')
+
+    expect_migration_attempt_to_fail(
+        user_new_model_client,
+        normal_user_client_2)
+
+
+def expect_migration_attempt_to_fail(source_client, dest_client):
+    """Ensure that the migration attempt fails due to permissions.
+
+    As we're capturing the stderr output it after we're done with it so it
+    appears in test logs.
+
+    """
+    try:
+        args = ['-c', source_client.env.controller.name,
+                source_client.env.environment,
+                dest_client.env.controller.name]
+        log_output = source_client.get_juju_output(
+            'migrate', *args, merge_stderr=True, include_e=False)
+    except CalledProcessError as e:
+        print(e.output, file=sys.stderr)
+        if 'permission denied' not in e.output:
+            raise
+        log.info('SUCCESS: Migrate command failed as expected.')
+    else:
+        print(log_output, file=sys.stderr)
+        raise JujuAssertionError('Migration did not fail as expected.')
 
 
 def main(argv=None):

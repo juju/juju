@@ -5,9 +5,11 @@ import logging
 from mock import call, Mock, patch
 import os
 import StringIO
+from subprocess import CalledProcessError
 
 import assess_model_migration as amm
 from deploy_stack import BootstrapManager
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
@@ -52,9 +54,52 @@ class TestParseArgs(TestCase):
             "Test model migration feature", fake_stdout.getvalue())
 
 
+class TestExpectMigrationAttemptToFail(TestCase):
+    source_client = fake_juju_client()
+    dest_client = fake_juju_client()
+
+    def test_raises_when_no_failure_detected(self):
+        with patch.object(self.source_client, 'get_juju_output'):
+            with self.assertRaises(JujuAssertionError) as ex:
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+            self.assertEqual(
+                ex.exception.message, 'Migration did not fail as expected.')
+
+    def test_raises_when_incorrect_failure_detected(self):
+        with patch.object(self.source_client, 'get_juju_output',
+                          side_effect=CalledProcessError(-1, None, '')):
+            with self.assertRaises(CalledProcessError):
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+
+    def test_outputs_log_on_non_failure(self):
+        with patch.object(self.source_client, 'get_juju_output',
+                          return_value='foo'):
+            with self.assertRaises(JujuAssertionError):
+                with parse_error(self) as fake_stderr:
+                    amm.expect_migration_attempt_to_fail(
+                        self.source_client, self.dest_client)
+                    self.assertEqual(fake_stderr.getvalue(), 'foo\n')
+
+    def test_outputs_log_on_expected_failure(self):
+        side_effect = CalledProcessError(
+            '-1', None, 'ERROR: permission denied')
+        with patch.object(self.source_client, 'get_juju_output',
+                          side_effect=side_effect):
+            stderr = StringIO.StringIO()
+            with patch('sys.stderr', stderr) as fake_stderr:
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+        error = fake_stderr.getvalue()
+        self.assertIn('permission denied', error)
+
+
 class TestGetBootstrapManagers(TestCase):
     def test_returns_two_bs_managers(self):
-        ret_bs = [Mock(), Mock()]
+        ret_bs = [
+            Mock(client=fake_juju_client()),
+            Mock(client=fake_juju_client())]
         with temp_dir() as log_dir:
             args = argparse.Namespace(logs=log_dir)
             with patch.object(
@@ -64,9 +109,9 @@ class TestGetBootstrapManagers(TestCase):
                 self.assertEqual(bs2, ret_bs[1])
 
     def test_gives_second_manager_unique_env(self):
-        mock_bs1 = Mock()
-        mock_bs1.temp_env_name = 'testing-env-name'
-        ret_bs = [mock_bs1, Mock()]
+        ret_bs = [
+            Mock(client=fake_juju_client(), temp_env_name='testing-env-name'),
+            Mock(client=fake_juju_client())]
         with temp_dir() as log_dir:
             args = argparse.Namespace(logs=log_dir)
             with patch.object(BootstrapManager, 'from_args',
@@ -75,7 +120,9 @@ class TestGetBootstrapManagers(TestCase):
                 self.assertEqual(bs2.temp_env_name, 'testing-env-name-b')
 
     def test_creates_unique_log_dirs(self):
-        ret_bs = [Mock(), Mock()]
+        ret_bs = [
+            Mock(client=fake_juju_client()),
+            Mock(client=fake_juju_client())]
         args = argparse.Namespace(logs='/some/path')
         with patch.object(BootstrapManager, 'from_args', side_effect=ret_bs):
             with patch.object(amm, '_new_log_dir') as log_dir:
