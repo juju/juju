@@ -151,6 +151,7 @@ def ensure_able_to_migrate_model_between_controllers(
     migration_target_client = migrate_model_to_controller(
         test_model, dest_environ.client)
 
+    migration_target_client.wait_for_workloads()
     test_deployed_mongo_is_up(migration_target_client)
     ensure_model_is_functional(migration_target_client, application)
 
@@ -171,7 +172,6 @@ def migrate_model_to_controller(source_client, dest_client):
     # For logging purposes
     migration_target_client.show_status()
     migration_target_client.wait_for_started()
-    migration_target_client.wait_for_workloads()
 
     return migration_target_client
 
