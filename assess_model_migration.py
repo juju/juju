@@ -140,6 +140,7 @@ def ensure_able_to_migrate_model_between_controllers(
         source_environ.client.env.clone('example-model'))
     test_model.juju("deploy", (bundle))
     test_model.wait_for_started()
+    test_model.wait_for_workloads()
     test_deployed_mongo_is_up(test_model)
 
     log.info('Initiating migration process')
