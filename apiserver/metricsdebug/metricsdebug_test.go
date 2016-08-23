@@ -240,42 +240,6 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	)
 }
 
-func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEachBatch(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	newTime := time.Now().Round(time.Second)
-	nextTime := time.Now().Round(time.Second).Add(time.Second)
-	metricA := state.Metric{"pings", "5", nextTime}
-	metricB := state.Metric{"pings", "10.5", newTime}
-	metricC := state.Metric{"juju-units", "8", nextTime}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
-	args := params.Entities{}
-	result, err := s.metricsdebug.GetMetrics(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
-		Time:  nextTime,
-		Unit:  "metered/0",
-	}, {
-		Key:   "juju-units",
-		Value: "8",
-		Time:  nextTime,
-		Unit:  "metered/0",
-	}, {
-		Key:   "pings",
-		Value: "5",
-		Time:  nextTime,
-		Unit:  "metered/1",
-	}},
-	)
-}
-
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
