@@ -150,15 +150,34 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	image := "ubuntu-" + series
 	// TODO: support args.Constraints.Arch, we'll want to map from
 
-	var callback func(string)
-	if args.StatusCallback != nil {
-		callback = func(copyProgress string) {
-			args.StatusCallback(status.StatusAllocating, copyProgress, nil)
+	// Keep track of StatusCallback output so we may clean up later.
+	// This is implemented here, close to where the StatusCallback calls
+	// are made, instead of at a higher level in the package, so as not to
+	// assume that all providers will have the same need to be implemented
+	// in the same way.
+	longestMsg := 0
+	statusCallback := func(currentStatus status.Status, msg string) {
+		if args.StatusCallback != nil {
+			args.StatusCallback(currentStatus, msg, nil)
+		}
+		if len(msg) > longestMsg {
+			longestMsg = len(msg)
 		}
 	}
-	if err := env.raw.EnsureImageExists(series, imageSources, callback); err != nil {
+	cleanupCallback := func() {
+		if args.CleanupCallback != nil {
+			args.CleanupCallback(strings.Repeat(" ", longestMsg))
+		}
+	}
+	defer cleanupCallback()
+
+	imageCallback := func(copyProgress string) {
+		statusCallback(status.StatusAllocating, copyProgress)
+	}
+	if err := env.raw.EnsureImageExists(series, imageSources, imageCallback); err != nil {
 		return nil, errors.Trace(err)
 	}
+	cleanupCallback() // Clean out any long line of completed download status
 
 	metadata, err := getMetadata(args)
 	if err != nil {
@@ -192,16 +211,13 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	}
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
-	if args.StatusCallback != nil {
-		args.StatusCallback(status.StatusAllocating, "starting instance", nil)
-	}
+
+	statusCallback(status.StatusAllocating, "starting instance")
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if args.StatusCallback != nil {
-		args.StatusCallback(status.StatusRunning, "Container started", nil)
-	}
+	statusCallback(status.StatusRunning, "Container started")
 	return inst, nil
 }
 
