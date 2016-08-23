@@ -66,9 +66,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		case params.UpgradeInProgressError:
 			authedAPI = restrictRoot(authedAPI, upgradeMethodsOnly)
 		case AboutToRestoreError:
-			authedAPI = newAboutToRestoreRoot(authedAPI)
+			authedAPI = restrictRoot(authedAPI, aboutToRestoreMethodsOnly)
 		case RestoreInProgressError:
-			authedAPI = newRestoreInProgressRoot(authedAPI)
+			authedAPI = restrictAll(authedAPI, restoreInProgressError)
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:

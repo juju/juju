@@ -198,18 +198,11 @@ func SetAdminAPIVersions(srv *Server, versions ...int) {
 	srv.adminAPIFactories = factories
 }
 
-// TestingRestoreInProgressRoot returns a limited restoreInProgressRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
-	r := TestingAPIRoot(st)
-	return newRestoreInProgressRoot(r)
-}
-
-// TestingAboutToRestoreRoot returns a limited aboutToRestoreRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
-	r := TestingAPIRoot(st)
-	return newAboutToRestoreRoot(r)
+// TestingAboutToRestoreRoot returns a limited root which allows
+// methods as per when a restore is about to happen.
+func TestingAboutToRestoreRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 
 // Addr returns the address that the server is listening on.
