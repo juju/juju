@@ -214,7 +214,7 @@ def raise_if_shared_machines(unit_machines):
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
-        source_bs, dest_bs, upload_tools, temp_dir):
+        source_bs, dest_bs, upload_tools, tmp_dir):
     """Ensure migration fails when a user does not have the right permissions.
 
     A non-superuser on a controller cannot migrate their models between
@@ -222,7 +222,7 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
 
     """
     source_client, dest_client = create_user_on_controllers(
-        source_bs, dest_bs, 'failuser', 'addmodel')
+        source_bs, dest_bs, tmp_dir, 'failuser', 'addmodel')
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=source_client.version)
@@ -237,14 +237,14 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
 
 
 def ensure_migrating_with_superuser_user_permissions_succeeds(
-        source_bs, dest_bs, upload_tools, temp_dir):
+        source_bs, dest_bs, upload_tools, tmp_dir):
     """Ensure migration succeeds when a user has superuser permissions
 
     A user with superuser permissions is able to migrate between controllers.
 
     """
     source_client, dest_client = create_user_on_controllers(
-        source_bs, dest_bs, 'passuser', 'superuser')
+        source_bs, dest_bs, tmp_dir, 'passuser', 'superuser')
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=source_client.version)
@@ -256,10 +256,11 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
     migrate_model_to_controller(source_client, dest_client)
 
 
-def create_user_on_controllers(source_bs, dest_bs, username, permission):
+def create_user_on_controllers(
+        source_bs, dest_bs, tmp_dir, username, permission):
     # Create a user for both controllers that only has addmodel
     # permissions not superuser.
-    new_user_home = os.path.join(temp_dir, username)
+    new_user_home = os.path.join(tmp_dir, username)
     os.makedirs(new_user_home)
     new_user = User(username, 'write', [])
     normal_user_client_1 = source_bs.client.register_user(
