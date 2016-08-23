@@ -152,6 +152,8 @@ def ensure_able_to_migrate_model_between_controllers(
     test_deployed_mongo_is_up(migration_target_client)
     ensure_model_is_functional(migration_target_client, application)
 
+    migration_target_client.remove_service(application)
+
 
 def migrate_model_to_controller(source_client, dest_client):
     source_client.controller_juju(
