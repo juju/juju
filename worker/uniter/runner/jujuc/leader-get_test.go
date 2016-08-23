@@ -70,7 +70,7 @@ func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestSettingsFormatDefaultMissingKey(c *gc.C) {
-	s.testOutput(c, []string{"unknown"}, "\n")
+	s.testOutput(c, []string{"unknown"}, "")
 }
 
 func (s *leaderGetSuite) TestSettingsFormatDefaultKey(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *leaderGetSuite) TestSettingsFormatDefaultEmpty(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestSettingsFormatSmartMissingKey(c *gc.C) {
-	s.testOutput(c, []string{"--format", "smart", "unknown"}, "\n")
+	s.testOutput(c, []string{"--format", "smart", "unknown"}, "")
 }
 
 func (s *leaderGetSuite) TestSettingsFormatSmartKey(c *gc.C) {

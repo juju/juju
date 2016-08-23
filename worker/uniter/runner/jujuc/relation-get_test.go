@@ -153,7 +153,10 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-			expect := t.out + "\n"
+			expect := t.out
+			if len(expect) > 0 {
+				expect += "\n"
+			}
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
@@ -221,8 +224,8 @@ Summary:
 get relation settings
 
 Options:
---format  (= yaml)
-    Specify output format (json|yaml)
+--format  (= smart)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 -r, --relation  (= %s)

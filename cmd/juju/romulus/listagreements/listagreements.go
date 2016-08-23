@@ -101,6 +101,7 @@ func formatJSON(writer io.Writer, value interface{}) error {
 	if err != nil {
 		return err
 	}
+	bytes = append(bytes, '\n')
 	_, err = writer.Write(bytes)
 	return err
 }

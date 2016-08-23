@@ -31,7 +31,7 @@ var (
 var (
 	// Used in TestLeadership
 	leadershipScript = `
-If ($(is-leader) -ne "false") {exit -1}
+If ($(is-leader) -ne "False") {exit -1}
 `[1:]
 
 	// Different hook file contents. These are used in util_test

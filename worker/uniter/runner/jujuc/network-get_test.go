@@ -120,8 +120,8 @@ Summary:
 get network config
 
 Options:
---format  (= yaml)
-    Specify output format (json|yaml)
+--format  (= smart)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 --primary-address  (= false)

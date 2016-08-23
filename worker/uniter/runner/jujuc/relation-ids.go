@@ -10,10 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // RelationIdsCommand implements the relation-ids command.
@@ -54,11 +50,7 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 }
 
 func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *RelationIdsCommand) Init(args []string) error {

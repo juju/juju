@@ -8,10 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // ConfigGetCommand implements the config-get command.
@@ -42,11 +38,7 @@ reported as null. <key> and --all are mutually exclusive.
 }
 
 func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.All, "a", false, "print all keys")
 	f.BoolVar(&c.All, "all", false, "")
 }

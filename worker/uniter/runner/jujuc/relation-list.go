@@ -9,10 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // RelationListCommand implements the relation-list command.
@@ -50,11 +46,7 @@ func (c *RelationListCommand) Info() *cmd.Info {
 }
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(c.relationIdProxy, "r", "specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 }

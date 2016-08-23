@@ -6,10 +6,6 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // OpenedPortsCommand implements the opened-ports command.
@@ -34,11 +30,7 @@ func (c *OpenedPortsCommand) Info() *cmd.Info {
 }
 
 func (c *OpenedPortsCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *OpenedPortsCommand) Init(args []string) error {

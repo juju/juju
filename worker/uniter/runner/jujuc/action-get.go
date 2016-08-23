@@ -8,10 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // ActionGetCommand implements the action-get command.
@@ -47,11 +43,7 @@ map as needed.
 // SetFlags handles known option flags; in this case, [--output={json|yaml}]
 // and --help.
 func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 // Init makes sure there are no additional unknown arguments to action-get.

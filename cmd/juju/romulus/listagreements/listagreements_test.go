@@ -61,8 +61,7 @@ const (
 func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[]
-`)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "[]\n")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	s.client.setError("well, this is embarassing")
@@ -94,8 +93,7 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[]
-`)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "[]\n")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	s.client.setError("well, this is embarassing")

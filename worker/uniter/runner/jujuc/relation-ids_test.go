@@ -130,8 +130,8 @@ Summary:
 list all relation ids with the given relation name
 
 Options:
---format  (= yaml)
-    Specify output format (json|yaml)
+--format  (= smart)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 %s`[1:]
