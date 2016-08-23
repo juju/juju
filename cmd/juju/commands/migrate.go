@@ -110,6 +110,7 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 		TargetCACert:         controllerInfo.CACert,
 		TargetUser:           accountInfo.User,
 		TargetPassword:       accountInfo.Password,
+		TargetMacaroon:       accountInfo.Macaroon,
 	}, nil
 }
 

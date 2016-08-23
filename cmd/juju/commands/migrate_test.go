@@ -57,8 +57,11 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target@local",
+		User: "target@local",
+		// It's unlikely that both will actually be set for a single
+		// account but it's fine for the tests.
 		Password: "secret",
+		Macaroon: "macaroon",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -100,6 +103,7 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetCACert:         "cert",
 		TargetUser:           "target@local",
 		TargetPassword:       "secret",
+		TargetMacaroon:       "macaroon",
 	})
 }
 

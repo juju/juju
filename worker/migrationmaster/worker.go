@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationtarget"
@@ -53,9 +54,9 @@ type Facade interface {
 	// active for the model associated with the API connection.
 	Watch() (watcher.NotifyWatcher, error)
 
-	// GetMigrationStatus returns the details and progress of the
-	// latest model migration.
-	GetMigrationStatus() (coremigration.MigrationStatus, error)
+	// MigrationStatus returns the details and progress of the latest
+	// model migration.
+	MigrationStatus() (coremigration.MigrationStatus, error)
 
 	// SetPhase updates the phase of the currently active model
 	// migration.
@@ -182,6 +183,7 @@ func (w *Worker) run() error {
 	}
 
 	phase := status.Phase
+
 	for {
 		var err error
 		switch phase {
@@ -430,7 +432,7 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 		case <-watcher.Changes():
 		}
 
-		status, err := w.config.Facade.GetMigrationStatus()
+		status, err := w.config.Facade.MigrationStatus()
 		switch {
 		case params.IsCodeNotFound(err):
 			// There's never been a migration.
@@ -605,6 +607,10 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 		Password: targetInfo.Password,
 		ModelTag: names.NewModelTag(modelUUID),
 	}
+	if targetInfo.Macaroon != nil {
+		apiInfo.Macaroons = []macaroon.Slice{{targetInfo.Macaroon}}
+	}
+
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.

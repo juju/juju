@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -316,6 +317,37 @@ func (s *controllerSuite) TestInitiateMigrationError(c *gc.C) {
 	id, err := sysManager.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func (s *controllerSuite) TestInitiateMigrationWithMacaroon(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := controller.MigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetMacaroon:       string(macJSON),
+	}
+
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
+	_, err = sysManager.InitiateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check database.
+	mig, err := st.LatestMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	target, err := mig.TargetInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(target.Macaroon, jc.DeepEquals, mac)
 }
 
 func randomUUID() string {

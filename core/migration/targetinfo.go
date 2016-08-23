@@ -5,8 +5,10 @@ package migration
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/network"
 )
 
 // TargetInfo holds the details required to connect to a
@@ -34,6 +36,10 @@ type TargetInfo struct {
 
 	// Password holds the password to use with AuthTag.
 	Password string
+
+	// Macroon holds the macaroon to use with AuthTag. At least one of
+	// Password or Macaroon must be set.
+	Macaroon *macaroon.Macaroon
 }
 
 // Validate returns an error if the TargetInfo contains bad data. Nil
@@ -61,8 +67,8 @@ func (info *TargetInfo) Validate() error {
 		return errors.NotValidf("empty AuthTag")
 	}
 
-	if info.Password == "" {
-		return errors.NotValidf("empty Password")
+	if info.Password == "" && info.Macaroon == nil {
+		return errors.NotValidf("missing Password & Macaroon")
 	}
 
 	return nil

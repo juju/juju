@@ -14,6 +14,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -173,7 +174,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		// Wait for migration to start.
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 
 		// QUIESCE
@@ -238,7 +239,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.MinionReports", nil},
@@ -259,7 +260,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 
 	s.waitForStubCalls(c, []string{
 		"masterFacade.Watch",
-		"masterFacade.GetMigrationStatus",
+		"masterFacade.MigrationStatus",
 		"guard.Unlock",
 	})
 }
@@ -276,7 +277,7 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 	})
 }
 
@@ -300,7 +301,7 @@ func (s *Suite) TestStatusError(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 	})
 }
 
@@ -314,7 +315,7 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 
 	s.waitForStubCalls(c, []string{
 		"masterFacade.Watch",
-		"masterFacade.GetMigrationStatus",
+		"masterFacade.MigrationStatus",
 		"guard.Unlock",
 	})
 }
@@ -334,7 +335,7 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Unlock", nil},
 	})
 }
@@ -353,7 +354,7 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 	})
 }
@@ -395,7 +396,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.Export", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
@@ -419,7 +420,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.Export", nil},
 		apiOpenCallController,
@@ -442,7 +443,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.Export", nil},
 		apiOpenCallController,
@@ -484,7 +485,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.MinionReports", nil},
@@ -514,7 +515,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.MinionReports", nil},
@@ -550,7 +551,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
@@ -594,6 +595,46 @@ func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.ErrorMatches,
 		"unexpected migration id in minion reports, got blah, expected model-uuid:2")
+}
+
+func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
+	// Set up macaroon based auth to the target.
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	s.masterFacade.status.TargetInfo.Password = ""
+	s.masterFacade.status.TargetInfo.Macaroon = mac
+
+	// Use ABORT because it involves an API connection to the target
+	// and is convenient.
+	s.masterFacade.status.Phase = coremigration.ABORT
+	s.triggerMigration()
+
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		jujutesting.StubCall{
+			"apiOpen",
+			[]interface{}{
+				&api.Info{
+					Addrs:     []string{"1.2.3.4:5"},
+					CACert:    "cert",
+					Tag:       names.NewUserTag("admin"),
+					Macaroons: []macaroon.Slice{{mac}}, // <----
+				},
+				api.DialOpts{},
+			},
+		},
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
 func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
@@ -653,7 +694,7 @@ func (s *Suite) checkMinionWaitFailedAgent(c *gc.C, phase coremigration.Phase) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterFacade.Watch", nil},
-		{"masterFacade.GetMigrationStatus", nil},
+		{"masterFacade.MigrationStatus", nil},
 		{"guard.Lockdown", nil},
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.MinionReports", nil},
@@ -743,8 +784,8 @@ func (c *stubMasterFacade) Watch() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(c.watcherChanges), nil
 }
 
-func (c *stubMasterFacade) GetMigrationStatus() (coremigration.MigrationStatus, error) {
-	c.stub.AddCall("masterFacade.GetMigrationStatus")
+func (c *stubMasterFacade) MigrationStatus() (coremigration.MigrationStatus, error) {
+	c.stub.AddCall("masterFacade.MigrationStatus")
 	if c.statusErr != nil {
 		return coremigration.MigrationStatus{}, c.statusErr
 	}

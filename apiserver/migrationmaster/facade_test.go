@@ -14,6 +14,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/migrationmaster"
@@ -86,12 +87,15 @@ func (s *Suite) TestWatch(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestGetMigrationStatus(c *gc.C) {
-	api := s.mustMakeAPI(c)
+func (s *Suite) TestMigrationStatus(c *gc.C) {
+	var expectedMacaroon = `
+{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}`[1:]
 
-	status, err := api.GetMigrationStatus()
+	api := s.mustMakeAPI(c)
+	status, err := api.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
+
+	c.Check(status, gc.DeepEquals, params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
@@ -100,6 +104,7 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      "secret",
+				Macaroon:      expectedMacaroon,
 			},
 		},
 		MigrationId:      "id",
@@ -350,12 +355,17 @@ func (m *stubMigration) ModelUUID() string {
 }
 
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	if err != nil {
+		panic(err)
+	}
 	return &coremigration.TargetInfo{
 		ControllerTag: names.NewModelTag(controllerUUID),
 		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
+		Macaroon:      mac,
 	}, nil
 }
 

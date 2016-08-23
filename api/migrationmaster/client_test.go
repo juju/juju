@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -60,7 +61,12 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
+func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
@@ -75,6 +81,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
 					Password:      "secret",
+					Macaroon:      string(macJSON),
 				},
 			},
 			MigrationId:      "id",
@@ -85,7 +92,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 
-	status, err := client.GetMigrationStatus()
+	status, err := client.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
@@ -98,6 +105,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
+			Macaroon:      mac,
 		},
 	})
 }
