@@ -73,7 +73,7 @@ func (c *DebugMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type GetMetricsClient interface {
-	GetMetrics(tag string) ([]params.MetricResult, error)
+	GetMetrics(tag ...string) ([]params.MetricResult, error)
 	Close() error
 }
 
