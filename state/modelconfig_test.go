@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -126,7 +126,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	rspec := &params.RegionSpec{Cloud: "dummy", Region: "dummy-region"}
+	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "dummy-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
@@ -147,7 +147,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	rspec := &params.RegionSpec{Cloud: "dummy", Region: "nether-region"}
+	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "nether-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)

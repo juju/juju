@@ -154,7 +154,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 		return nil, errors.Trace(err)
 	}
 
-	regionSpec := &params.RegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
+	regionSpec := &environs.RegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
 	if joint, err = mm.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}

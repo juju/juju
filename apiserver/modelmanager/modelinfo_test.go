@@ -299,7 +299,7 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag(st.controllerModel.tag.Id())
 }
 
-func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *params.RegionSpec) (map[string]interface{}, error) {
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
 	for attrName, val := range modelAttr {

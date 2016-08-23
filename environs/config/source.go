@@ -16,7 +16,7 @@ const (
 	JujuControllerSource = "controller"
 
 	// JujuRegionSource is used to label model config attributes that come from
-	// those associated with the region where the model or controller is
+	// those associated with the region where the model is
 	// running.
 	JujuRegionSource = "region"
 

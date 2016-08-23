@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -454,5 +455,114 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 			cloud.Attrs(regionInheritedConfig.Map()),
 			jc.DeepEquals,
 			regionInheritedConfigIn[k])
+	}
+}
+
+func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	uuid := cfg.UUID()
+	controllerInheritedConfigIn := map[string]interface{}{
+		"no-proxy": "local",
+	}
+	// Phony region-config
+	regionInheritedConfigIn := cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"no-proxy": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"no-proxy": "b-value",
+		},
+	}
+	owner := names.NewLocalUserTag("initialize-admin")
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = uuid
+
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
+		ControllerModelArgs: state.ModelArgs{
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
+		},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:         "dummy",
+			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
+		},
+		ControllerInheritedConfig: controllerInheritedConfigIn,
+		MongoInfo:                 statetesting.NewMongoInfo(),
+		MongoDialOpts:             mongotest.DialOpts(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.NotNil)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.openState(c, modelTag)
+
+	var attrs map[string]interface{}
+	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "c-region"}
+	got, err := s.State.ComposeNewModelConfig(attrs, rspec)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(got["no-proxy"], gc.Equals, "local")
+}
+
+func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	uuid := cfg.UUID()
+
+	controllerInheritedConfigIn := map[string]interface{}{
+		"no-proxy": "local",
+	}
+	// Phony region-config
+	regionInheritedConfigIn := cloud.RegionConfig{
+		"a-region": cloud.Attrs{
+			"no-proxy": "a-value",
+		},
+		"b-region": cloud.Attrs{
+			"no-proxy": "b-value",
+		},
+	}
+	owner := names.NewLocalUserTag("initialize-admin")
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = uuid
+
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
+		ControllerModelArgs: state.ModelArgs{
+			CloudName:               "dummy",
+			Owner:                   owner,
+			Config:                  cfg,
+			StorageProviderRegistry: storage.StaticProviderRegistry{},
+		},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:         "dummy",
+			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
+		},
+		ControllerInheritedConfig: controllerInheritedConfigIn,
+		MongoInfo:                 statetesting.NewMongoInfo(),
+		MongoDialOpts:             mongotest.DialOpts(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.NotNil)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.openState(c, modelTag)
+
+	var attrs map[string]interface{}
+	for r := range regionInheritedConfigIn {
+		rspec := &environs.RegionSpec{Cloud: "dummy", Region: r}
+		got, err := s.State.ComposeNewModelConfig(attrs, rspec)
+		c.Check(err, jc.ErrorIsNil)
+		c.Assert(got["no-proxy"], gc.Equals, regionInheritedConfigIn[r]["no-proxy"])
 	}
 }
