@@ -182,21 +182,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
-	if len(args) == 0 {
-		switch c.flagset.NFlag() {
-		case 0:
-			// no args or flags, go interactive.
-			c.interactive = true
-			return nil
-		case 1:
-			if c.BuildAgent {
-				// juju bootstrap --build-agent is ok for interactive, too.
-				c.interactive = true
-				return nil
-			}
-			// some other flag was set, which means non-interactive.
-		}
-	}
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -252,9 +237,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.New("requested agent version major.minor mismatch")
 	}
 
-	// The user must specify two positional arguments: the controller name,
-	// and the cloud name (optionally with region specified).
-	if len(args) < 2 {
+	switch len(args) {
+	case 0:
+		// no args or flags, go interactive.
+		c.interactive = true
+		return nil
+	case 1:
+		// The user must specify both positional arguments: the controller name,
+		// and the cloud name (optionally with region specified).
 		return errors.New("controller name and cloud name are required")
 	}
 	c.controllerName = args[0]
