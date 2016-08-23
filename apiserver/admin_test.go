@@ -938,3 +938,41 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 	})
 	c.Assert(client, gc.Equals, nil)
 }
+
+var _ = gc.Suite(&migrationSuite{
+	baseLoginSuite{
+		setAdminAPI: func(srv *apiserver.Server) {
+			apiserver.SetAdminAPIVersions(srv, 3)
+		},
+	},
+})
+
+type migrationSuite struct {
+	baseLoginSuite
+}
+
+func (s *migrationSuite) TestImportingModel(c *gc.C) {
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "nonce",
+	})
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	// Users should be able to log in but RPC requests should fail.
+	info := s.APIInfo(c)
+	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
+	defer userConn.Close()
+	_, err = userConn.Client().Status(nil)
+	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
+
+	// Machines should be able to use the API.
+	machineConn := s.OpenAPIAsMachine(c, m.Tag(), password, "nonce")
+	defer machineConn.Close()
+	_, err = apimachiner.NewState(machineConn).Machine(m.MachineTag())
+	c.Check(err, jc.ErrorIsNil)
+}

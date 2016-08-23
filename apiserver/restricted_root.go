@@ -58,3 +58,10 @@ func (r *restrictedEarlyRoot) FindMethod(facadeName string, version int, methodN
 	}
 	return r.Root.FindMethod(facadeName, version, methodName)
 }
+
+// restrictAll blocks all API requests, returned a fixed error.
+func restrictAll(root rpc.Root, err error) *restrictedRoot {
+	return restrictRoot(root, func(string, string) error {
+		return err
+	})
+}

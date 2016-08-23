@@ -198,8 +198,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
-
 	}
+
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
@@ -207,15 +207,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
-	environ, err := a.root.state.Model()
+	model, err := a.root.state.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
+	if isUser && model.MigrationMode() == state.MigrationModeImporting {
+		authedAPI = restrictAll(authedAPI, errors.New("migration in progress, model is importing"))
+	}
+
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		ModelTag:      environ.Tag().String(),
-		ControllerTag: environ.ControllerTag().String(),
+		ModelTag:      model.Tag().String(),
+		ControllerTag: model.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
