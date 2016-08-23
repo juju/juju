@@ -115,9 +115,10 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
-            cli_package, goroot, gopath, '386', 'windows',
+            cli_package, goroot, gopath, 'amd64', 'windows',
             dry_run=False, verbose=verbose)
-        built_cli_path = os.path.join(gopath, 'bin', 'windows_386', 'juju.exe')
+        built_cli_path = os.path.join(
+            gopath, 'bin', 'windows_amd64', 'juju.exe')
         make_installer(
             built_cli_path, version, gopath, cwd,
             dry_run=dry_run, verbose=verbose)
