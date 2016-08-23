@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/machineundertaker"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -36,7 +37,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}
-			api, err := machineundertaker.NewAPI(apiCaller)
+			api, err := machineundertaker.NewAPI(apiCaller, watcher.NewNotifyWatcher)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
