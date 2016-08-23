@@ -251,7 +251,7 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
                 source_client.env.environment,
                 dest_client.env.controller.name]
         log_output = source_client.get_juju_output(
-            'migrate', args, merge_stderr=True, include_e=False)
+            'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:
         if 'permission denied' not in e.output:
             raise
