@@ -62,7 +62,7 @@ func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
 
-	c.Assert(err, gc.ErrorMatches, `facade "SomeFacade" not supported for controller API connection`)
+	c.Assert(err, gc.ErrorMatches, `unknown object type "SomeFacade"`)
 	c.Assert(caller, gc.IsNil)
 }
 

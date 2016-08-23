@@ -126,7 +126,7 @@ func TestingUpgradingRoot(st *state.State) rpc.Root {
 // from the root of the API path.
 func TestingRestrictedAPIHandler(st *state.State) rpc.Root {
 	r := TestingAPIRoot(st)
-	return newRestrictedRoot(r, "controller", isControllerFacade)
+	return restrictRoot(r, controllerFacadesOnly)
 }
 
 type preFacadeAdminAPI struct{}
