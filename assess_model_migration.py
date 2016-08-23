@@ -12,6 +12,7 @@ from time import sleep
 
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
+from jujucharm import local_charm_path
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
@@ -236,7 +237,9 @@ def ensure_migrating_with_user_permissions(
     user_new_model_client = normal_user_client_1.add_model(
         normal_user_client_1.env.clone('model-a'))
 
-    user_new_model_client.juju('deploy', ('ubuntu'))
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=user_new_model_client.version)
+    user_new_model_client.deploy(charm_path)
     user_new_model_client.wait_for_started()
 
     log.info('Attempting migration process')
