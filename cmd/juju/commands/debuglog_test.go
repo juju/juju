@@ -78,11 +78,8 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Replay:  true,
 			},
 		}, {
-			args: []string{"--no-tail"},
-			expected: api.DebugLogParams{
-				Backlog: 10,
-				NoTail:  true,
-			},
+			args:     []string{"--no-tail", "--tail"},
+			errMatch: `setting --tail and --no-tail not valid`,
 		}, {
 			args: []string{"--limit", "100"},
 			expected: api.DebugLogParams{
