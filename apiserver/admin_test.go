@@ -55,24 +55,10 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
 
-func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
-	return s.setupServerForModel(c, s.State.ModelTag())
-}
-
-func (s *baseLoginSuite) setupServerForModel(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
-	info, cleanup := s.setupServerForEnvironmentWithValidator(c, modelTag, nil)
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	return st, func() {
-		st.Close()
-		cleanup()
-	}
-}
-
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -100,7 +86,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	adminUser := s.AdminUserTag(c)
@@ -155,7 +141,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	st := s.openAPIWithoutLogin(c, info)
@@ -184,7 +170,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 }
 
 func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -444,7 +430,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	defer cleanup()
@@ -470,8 +456,8 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	}
 }
 
-func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
@@ -569,13 +555,17 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	checker(c, err, st)
 }
 
+func (s *baseLoginSuite) setupServer(c *gc.C) (*api.Info, func()) {
+	return s.setupServerWithValidator(c, nil)
+}
+
 func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.setupServerForEnvironmentWithValidator(c, env.ModelTag(), validator)
+	return s.setupServerForModelWithValidator(c, env.ModelTag(), validator)
 }
 
-func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTag names.ModelTag, validator apiserver.LoginValidator) (*api.Info, func()) {
+func (s *baseLoginSuite) setupServerForModelWithValidator(c *gc.C, modelTag names.ModelTag, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
@@ -616,7 +606,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connec
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
@@ -631,7 +621,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
@@ -647,7 +637,7 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	uuid, err := utils.NewUUID()
@@ -665,7 +655,7 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info.ModelTag = names.NewModelTag("rubbish")
@@ -681,7 +671,7 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -703,7 +693,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// Machine credentials are checked against environment specific
 	// machines, so this makes sure that the credential checking is
 	// using the correct state connection.
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -729,7 +719,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -757,7 +747,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -775,7 +765,7 @@ func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -802,7 +792,7 @@ func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc
 }
 
 func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
@@ -851,7 +841,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected nam
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	// Since the login and connection times truncate time to the second,
