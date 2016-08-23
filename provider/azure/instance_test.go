@@ -376,6 +376,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
 			PrivateIPAddress: to.StringPtr("10.0.0.4"),
 			Subnet: &network.Subnet{
 				ID: to.StringPtr(internalSubnetId),
@@ -446,6 +447,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
 			PrivateIPAddress: to.StringPtr("10.0.0.4"),
 			Subnet: &network.Subnet{
 				ID: to.StringPtr(internalSubnetId),
