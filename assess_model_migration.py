@@ -38,7 +38,9 @@ def assess_model_migration(bs1, bs2, upload_tools):
                 bs1, bs2, upload_tools)
 
             with temp_dir() as temp:
-                ensure_migrating_with_user_permissions(
+                ensure_migrating_with_insufficient_user_permissions_fails(
+                    bs1, bs2, upload_tools, temp)
+                ensure_migrating_with_superuser_user_permissions_succeeds(
                     bs1, bs2, upload_tools, temp)
 
 
@@ -169,6 +171,7 @@ def migrate_model_to_controller(source_client, dest_client):
     # For logging purposes
     migration_target_client.show_status()
     migration_target_client.wait_for_started()
+    migration_target_client.wait_for_workloads()
 
     return migration_target_client
 
@@ -210,7 +213,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_migrating_with_user_permissions(
+def ensure_migrating_with_insufficient_user_permissions_fails(
         source_bs, dest_bs, upload_tools, temp_dir):
     """Ensure migration fails when a user does not have the right permissions.
 
@@ -218,35 +221,62 @@ def ensure_migrating_with_user_permissions(
     controllers.
 
     """
-    # Create a user for both controllers that only has addmodel
-    # permissions not superuser.
-    new_user_home = os.path.join(temp_dir, 'example_user')
-    os.makedirs(new_user_home)
-    new_user = User('testuser', 'write', [])
-    normal_user_client_1 = source_bs.client.register_user(
-        new_user, new_user_home)
-    source_bs.client.grant(new_user.name, 'addmodel')
-
-    second_controller_name = '{}_controllerb'.format(new_user.name)
-    normal_user_client_2 = dest_bs.client.register_user(
-        new_user,
-        new_user_home,
-        controller_name=second_controller_name)
-    dest_bs.client.grant(new_user.name, 'addmodel')
-
-    user_new_model_client = normal_user_client_1.add_model(
-        normal_user_client_1.env.clone('model-a'))
+    source_client, dest_client = create_user_on_controllers(
+        source_bs, dest_bs, 'failuser', 'addmodel')
 
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_new_model_client.version)
-    user_new_model_client.deploy(charm_path)
-    user_new_model_client.wait_for_started()
+        charm='dummy-source', juju_ver=source_client.version)
+    source_client.deploy(charm_path)
+    source_client.wait_for_started()
 
     log.info('Attempting migration process')
 
     expect_migration_attempt_to_fail(
-        user_new_model_client,
-        normal_user_client_2)
+        source_client,
+        dest_client)
+
+
+def ensure_migrating_with_superuser_user_permissions_succeeds(
+        source_bs, dest_bs, upload_tools, temp_dir):
+    """Ensure migration succeeds when a user has superuser permissions
+
+    A user with superuser permissions is able to migrate between controllers.
+
+    """
+    source_client, dest_client = create_user_on_controllers(
+        source_bs, dest_bs, 'passuser', 'superuser')
+
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=source_client.version)
+    source_client.deploy(charm_path)
+    source_client.wait_for_started()
+
+    log.info('Attempting migration process')
+
+    migrate_model_to_controller(source_client, dest_client)
+
+
+def create_user_on_controllers(source_bs, dest_bs, username, permission):
+    # Create a user for both controllers that only has addmodel
+    # permissions not superuser.
+    new_user_home = os.path.join(temp_dir, username)
+    os.makedirs(new_user_home)
+    new_user = User(username, 'write', [])
+    normal_user_client_1 = source_bs.client.register_user(
+        new_user, new_user_home)
+    source_bs.client.grant(new_user.name, permission)
+
+    second_controller_name = '{}_controllerb'.format(new_user.name)
+    dest_client = dest_bs.client.register_user(
+        new_user,
+        new_user_home,
+        controller_name=second_controller_name)
+    dest_bs.client.grant(new_user.name, permission)
+
+    source_client = normal_user_client_1.add_model(
+        normal_user_client_1.env.clone('model-a'))
+
+    return source_client, dest_client
 
 
 def expect_migration_attempt_to_fail(source_client, dest_client):
