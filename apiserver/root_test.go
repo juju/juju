@@ -511,41 +511,41 @@ func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
 	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
 }
 
-type fakeEverybodyUserAccess struct {
-	user      description.UserAccess
-	everybody description.UserAccess
+type fakeEveryoneUserAccess struct {
+	user     description.UserAccess
+	everyone description.UserAccess
 }
 
-func (f *fakeEverybodyUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
-	if subject.Canonical() == apiserver.EverybodyTagName {
-		return f.everybody, nil
+func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+	if subject.Canonical() == apiserver.EveryoneTagName {
+		return f.everyone, nil
 	}
 	return f.user, nil
 }
 
-func (r *rootSuite) TestEverybodyAtExternal(c *gc.C) {
+func (r *rootSuite) TestEveryoneAtExternal(c *gc.C) {
 	testCases := []struct {
 		title            string
 		userGetterAccess description.Access
-		everybodyAccess  description.Access
+		everyoneAccess   description.Access
 		user             names.UserTag
 		target           names.Tag
 		access           description.Access
 		expected         bool
 	}{
 		{
-			title:            "user has lesser permissions than everybody",
+			title:            "user has lesser permissions than everyone",
 			userGetterAccess: description.LoginAccess,
-			everybodyAccess:  description.AddModelAccess,
+			everyoneAccess:   description.AddModelAccess,
 			user:             names.NewUserTag("validuser@external"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
 			access:           description.AddModelAccess,
 			expected:         true,
 		},
 		{
-			title:            "user has greater permissions than everybody",
+			title:            "user has greater permissions than everyone",
 			userGetterAccess: description.AddModelAccess,
-			everybodyAccess:  description.LoginAccess,
+			everyoneAccess:   description.LoginAccess,
 			user:             names.NewUserTag("validuser@external"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
 			access:           description.AddModelAccess,
@@ -554,7 +554,7 @@ func (r *rootSuite) TestEverybodyAtExternal(c *gc.C) {
 		{
 			title:            "everibody not considered if user is local",
 			userGetterAccess: description.LoginAccess,
-			everybodyAccess:  description.AddModelAccess,
+			everyoneAccess:   description.AddModelAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
 			access:           description.AddModelAccess,
@@ -563,15 +563,15 @@ func (r *rootSuite) TestEverybodyAtExternal(c *gc.C) {
 	}
 
 	for i, t := range testCases {
-		userGetter := &fakeEverybodyUserAccess{
+		userGetter := &fakeEveryoneUserAccess{
 			user: description.UserAccess{
 				Access: t.userGetterAccess,
 			},
-			everybody: description.UserAccess{
-				Access: t.everybodyAccess,
+			everyone: description.UserAccess{
+				Access: t.everyoneAccess,
 			},
 		}
-		c.Logf(`HasPermission "everybody" test n %d: %s`, i, t.title)
+		c.Logf(`HasPermission "everyone" test n %d: %s`, i, t.title)
 		hasPermission, err := apiserver.HasPermission(userGetter.call, t.user, t.access, t.target)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hasPermission, gc.Equals, t.expected)
