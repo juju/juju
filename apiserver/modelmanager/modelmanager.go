@@ -319,21 +319,6 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 		defer st.Close()
 	}
 
-	// Check model permissions if the user isn't a controller admin.
-	if !mm.isAdmin {
-		user, err := st.UserAccess(mm.apiUser, mm.state.ModelTag())
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrPerm)
-			}
-			// Something weird went on.
-			return nil, errors.Trace(err)
-		}
-		if user.Access != description.AdminAccess {
-			return nil, errors.Trace(common.ErrPerm)
-		}
-	}
-
 	bytes, err := migration.ExportModel(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -378,21 +363,6 @@ func (mm *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface
 			return nil, errors.Trace(err)
 		}
 		defer st.Close()
-	}
-
-	// Check model permissions if the user isn't a controller admin.
-	if !mm.isAdmin {
-		user, err := st.UserAccess(mm.apiUser, mm.state.ModelTag())
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrPerm)
-			}
-			// Something weird went on.
-			return nil, errors.Trace(err)
-		}
-		if user.Access != description.AdminAccess {
-			return nil, errors.Trace(common.ErrPerm)
-		}
 	}
 
 	return st.DumpAll()

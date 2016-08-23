@@ -54,12 +54,8 @@ func getAllModelDocs(st *State, collectionName string) ([]map[string]interface{}
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		// Make a copy of the doc to add to our map.
-		values := make(map[string]interface{})
-		for key, value := range doc {
-			values[key] = value
-		}
-		result = append(result, values)
+		result = append(result, doc)
+		doc = nil
 	}
 
 	if err := iter.Err(); err != nil {

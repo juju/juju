@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-// NewDumpDBCommand returns a fully constructed dump-model command.
+// NewDumpDBCommand returns a fully constructed dump-db command.
 func NewDumpDBCommand() cmd.Command {
 	return modelcmd.WrapController(&dumpDBCommand{})
 }
@@ -27,13 +27,12 @@ type dumpDBCommand struct {
 }
 
 const dumpDBHelpDoc = `
-Iterates through all mongo collections that store model data and return
-all documents in those collections for the specified model.
+dump-db returns all that is stored in the database for the specified model.
 
 Examples:
 
     juju dump-db
-    juju dump-db -m mymodel
+    juju dump-db mymodel
 
 See also:
     models
@@ -55,7 +54,7 @@ func (c *dumpDBCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.
-func (c *dumpDBCommand) Init(args []string) (err error) {
+func (c *dumpDBCommand) Init(args []string) error {
 	if len(args) == 1 {
 		c.model = args[0]
 		return nil

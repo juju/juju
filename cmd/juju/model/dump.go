@@ -55,7 +55,7 @@ func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.
-func (c *dumpCommand) Init(args []string) (err error) {
+func (c *dumpCommand) Init(args []string) error {
 	if len(args) == 1 {
 		c.model = args[0]
 		return nil

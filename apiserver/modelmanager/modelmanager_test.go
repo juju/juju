@@ -112,6 +112,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
+func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authoriser.Tag = user
+	modelmanager, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = modelmanager
+}
+
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
@@ -325,24 +332,20 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	c.Check(result.Error.Message, gc.Equals, `id not found`)
 }
 
-func (s *modelManagerSuite) TestDumpModelMissingUser(c *gc.C) {
-	authoriser := apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("other@local"),
-	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
 	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
-	results := api.DumpModels(models)
-
-	calls := s.st.Calls()
-	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ModelTag")
-
-	result := results.Results[0]
-	c.Assert(result.Result, gc.IsNil)
-	c.Assert(result.Error, gc.NotNil)
-	c.Check(result.Error.Message, gc.Equals, `permission denied`)
+	for _, user := range []names.UserTag{
+		names.NewUserTag("otheruser"),
+		names.NewUserTag("unknown"),
+	} {
+		s.setAPIUser(c, user)
+		results := s.api.DumpModels(models)
+		c.Assert(results.Results, gc.HasLen, 1)
+		result := results.Results[0]
+		c.Assert(result.Result, gc.IsNil)
+		c.Assert(result.Error, gc.NotNil)
+		c.Check(result.Error.Message, gc.Equals, `permission denied`)
+	}
 }
 
 func (s *modelManagerSuite) TestDumpModelsDB(c *gc.C) {
@@ -387,24 +390,20 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 	c.Check(result.Error.Message, gc.Equals, `id not found`)
 }
 
-func (s *modelManagerSuite) TestDumpModelsDBMissingUser(c *gc.C) {
-	authoriser := apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("other@local"),
-	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
-	results := api.DumpModelsDB(models)
-
-	calls := s.st.Calls()
-	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ModelTag")
-
-	result := results.Results[0]
-	c.Assert(result.Result, gc.IsNil)
-	c.Assert(result.Error, gc.NotNil)
-	c.Check(result.Error.Message, gc.Equals, `permission denied`)
+	for _, user := range []names.UserTag{
+		names.NewUserTag("otheruser"),
+		names.NewUserTag("unknown"),
+	} {
+		s.setAPIUser(c, user)
+		results := s.api.DumpModelsDB(models)
+		c.Assert(results.Results, gc.HasLen, 1)
+		result := results.Results[0]
+		c.Assert(result.Result, gc.IsNil)
+		c.Assert(result.Error, gc.NotNil)
+		c.Check(result.Error.Message, gc.Equals, `permission denied`)
+	}
 }
 
 // modelManagerStateSuite contains end-to-end tests.
