@@ -319,6 +319,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
+		r.Register(model.NewDumpDBCommand())
 	}
 
 	// Manage and control actions

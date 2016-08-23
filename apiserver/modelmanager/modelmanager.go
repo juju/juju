@@ -43,6 +43,7 @@ func init() {
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.Entities) params.MapResults
+	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
 }
@@ -327,21 +328,6 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 		defer st.Close()
 	}
 
-	// Check model permissions if the user isn't a controller admin.
-	if !mm.isAdmin {
-		user, err := st.UserAccess(mm.apiUser, mm.state.ModelTag())
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrPerm)
-			}
-			// Something weird went on.
-			return nil, errors.Trace(err)
-		}
-		if user.Access != description.AdminAccess {
-			return nil, errors.Trace(common.ErrPerm)
-		}
-	}
-
 	bytes, err := migration.ExportModel(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -362,6 +348,35 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 	return out.(map[string]interface{}), nil
 }
 
+func (mm *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{}, error) {
+	modelTag, err := names.ParseModelTag(args.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	isModelAdmin, err := mm.authorizer.HasPermission(description.AdminAccess, modelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isModelAdmin && !mm.isAdmin {
+		return nil, common.ErrPerm
+	}
+
+	st := mm.state
+	if st.ModelTag() != modelTag {
+		st, err = mm.state.ForModel(modelTag)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Trace(common.ErrBadId)
+			}
+			return nil, errors.Trace(err)
+		}
+		defer st.Close()
+	}
+
+	return st.DumpAll()
+}
+
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
@@ -371,6 +386,24 @@ func (mm *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
 	}
 	for i, entity := range args.Entities {
 		dumped, err := mm.dumpModel(entity)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = dumped
+	}
+	return results
+}
+
+// DumpModelsDB will gather all documents from all model collections
+// for the specified model. The map result contains a map of collection
+// names to lists of documents represented as maps.
+func (mm *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
+	results := params.MapResults{
+		Results: make([]params.MapResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		dumped, err := mm.dumpModelDB(entity)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

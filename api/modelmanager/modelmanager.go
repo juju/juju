@@ -132,6 +132,27 @@ func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error)
 	return result.Result, nil
 }
 
+// DumpModelDB returns all relevant mongo documents for the model.
+func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, error) {
+	var results params.MapResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: model.String()}},
+	}
+
+	err := c.facade.FacadeCall("DumpModelsDB", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
 // DestroyModel puts the specified model into a "dying" state, which will
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
