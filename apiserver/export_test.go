@@ -124,15 +124,15 @@ func TestingUpgradingRoot(st *state.State) rpc.Root {
 
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
-func TestingControllerOnlyRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingControllerOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
 	return restrictRoot(r, controllerFacadesOnly)
 }
 
 // TestingModelOnlyRoot returns a restricted srvRoot as if
 // logged in to a model.
-func TestingModelOnlyRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingModelOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
 	return restrictRoot(r, modelFacadesOnly)
 }
 

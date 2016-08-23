@@ -29,19 +29,8 @@ func controllerFacadesOnly(facadeName, _ string) error {
 	return nil
 }
 
-func modelFacadesOnly(facadeName, _ string) error {
-	if !isModelFacade(facadeName) {
-		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for model API connection", facadeName))
-	}
-	return nil
-}
-
 func isControllerFacade(facadeName string) bool {
 	// Note: the Pinger facade can be used in both model and controller
 	// connections.
 	return controllerFacadeNames.Contains(facadeName) || facadeName == "Pinger"
-}
-
-func isModelFacade(facadeName string) bool {
-	return !controllerFacadeNames.Contains(facadeName)
 }
