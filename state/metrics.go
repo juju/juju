@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +50,14 @@ type Metric struct {
 	Key   string    `bson:"key"`
 	Value string    `bson:"value"`
 	Time  time.Time `bson:"time"`
+}
+
+type byTime []Metric
+
+func (t byTime) Len() int      { return len(t) }
+func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+func (t byTime) Less(i, j int) bool {
+	return t[i].Time.Before(t[j].Time)
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -339,6 +348,24 @@ func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
 	copy(result, m.doc.Metrics)
 	return result
+}
+
+// UniqueMetrics returns only the last value for each
+// metric key in this batch.
+func (m *MetricBatch) UniqueMetrics() []Metric {
+	metrics := m.Metrics()
+	sort.Sort(byTime(metrics))
+	uniq := map[string]Metric{}
+	for _, m := range metrics {
+		uniq[m.Key] = m
+	}
+	results := make([]Metric, len(uniq))
+	i := 0
+	for _, m := range uniq {
+		results[i] = m
+		i++
+	}
+	return results
 }
 
 // SetSent marks the metric has having been sent at

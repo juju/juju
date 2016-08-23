@@ -867,6 +867,48 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 
+func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
+	now := state.NowToTheSecond()
+	t1 := now.Add(time.Second)
+	batch, err := s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics: []state.Metric{{
+				Key:   "pings",
+				Value: "1",
+				Time:  now,
+			}, {
+				Key:   "pings",
+				Value: "2",
+				Time:  t1,
+			}, {
+				Key:   "juju-units",
+				Value: "1",
+				Time:  t1,
+			}, {
+				Key:   "juju-units",
+				Value: "2",
+				Time:  now,
+			}},
+			Unit: s.unit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	metrics := batch.UniqueMetrics()
+	c.Assert(metrics, gc.HasLen, 2)
+	c.Assert(metrics, jc.SameContents, []state.Metric{{
+		Key:   "pings",
+		Value: "2",
+		Time:  t1,
+	}, {
+		Key:   "juju-units",
+		Value: "1",
+		Time:  t1,
+	}})
+}
+
 type modelData struct {
 	state        *state.State
 	application  *state.Application

@@ -32,7 +32,7 @@ type MockGetMetricsClient struct {
 	testing.Stub
 }
 
-func (m *MockGetMetricsClient) GetMetrics(tag string) ([]params.MetricResult, error) {
+func (m *MockGetMetricsClient) GetMetrics(tag ...string) ([]params.MetricResult, error) {
 	m.Stub.MethodCall(m, "GetMetrics", tag)
 	return nil, nil
 }
