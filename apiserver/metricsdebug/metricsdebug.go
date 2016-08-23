@@ -26,7 +26,7 @@ type metricsDebug interface {
 	// MetricBatchesForApplication returns metric batches for the given application.
 	MetricBatchesForApplication(application string) ([]state.MetricBatch, error)
 
-	//MetricBatchesForModel returns metrics batches for all applications in the model.
+	//MetricBatchesForModel returns all metrics batches in the model.
 	MetricBatchesForModel() ([]state.MetricBatch, error)
 
 	// Unit returns the unit based on its name.
@@ -76,11 +76,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 	if len(args.Entities) == 0 {
 		batches, err := api.state.MetricBatchesForModel()
 		if err != nil {
-			return params.MetricResults{
-				Results: []params.EntityMetrics{{
-					Error: common.ServerError(err),
-				}},
-			}, errors.Annotate(err, "failed to get metrics")
+			return results, errors.Annotate(err, "failed to get metrics")
 		}
 		return params.MetricResults{
 			Results: []params.EntityMetrics{{
