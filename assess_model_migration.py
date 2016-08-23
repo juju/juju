@@ -61,9 +61,6 @@ def get_bootstrap_managers(args):
     bs_1 = BootstrapManager.from_args(args)
     bs_2 = BootstrapManager.from_args(args)
 
-    # Need to be able to upgrade this controller.
-    bs_1.client.env.config['enable-os-upgrade'] = True
-
     # Give the second a separate/unique name.
     bs_2.temp_env_name = '{}-b'.format(bs_1.temp_env_name)
 
