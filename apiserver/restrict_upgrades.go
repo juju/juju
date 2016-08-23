@@ -16,8 +16,8 @@ func upgradeMethodsOnly(facadeName, methodName string) error {
 	return nil
 }
 
-func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
-	methods, ok := allowedMethodsDuringUpgrades[rootName]
+func IsMethodAllowedDuringUpgrade(facadeName, methodName string) bool {
+	methods, ok := allowedMethodsDuringUpgrades[facadeName]
 	if !ok {
 		return false
 	}

@@ -56,19 +56,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		return fail, errAlreadyLoggedIn
 	}
 
-	// authedAPI is the API root we'll use after getting logged in.
-	var authedAPI rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
+	// apiRoot is the API root exposed to the client after authentication.
+	var apiRoot rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
 		case params.UpgradeInProgressError:
-			authedAPI = restrictRoot(authedAPI, upgradeMethodsOnly)
+			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
 		case AboutToRestoreError:
-			authedAPI = restrictRoot(authedAPI, aboutToRestoreMethodsOnly)
+			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
 		case RestoreInProgressError:
-			authedAPI = restrictAll(authedAPI, restoreInProgressError)
+			apiRoot = restrictAll(apiRoot, restoreInProgressError)
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
@@ -209,7 +209,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	if isUser && model.MigrationMode() == state.MigrationModeImporting {
-		authedAPI = restrictAll(authedAPI, errors.New("migration in progress, model is importing"))
+		apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
 	}
 
 	loginResult := params.LoginResultV1{
@@ -223,12 +223,12 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	var allowFacade func(string) bool
 	if controllerOnlyLogin {
-		authedAPI = restrictRoot(authedAPI, controllerFacadesOnly)
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 		allowFacade = isControllerFacade
 		// Remove the ModelTag from the response as there is no model here.
 		loginResult.ModelTag = ""
 	} else {
-		authedAPI = restrictRoot(authedAPI, modelFacadesOnly)
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 		allowFacade = isModelFacade
 	}
 
@@ -244,10 +244,10 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	if !description.IsEmptyUserAccess(modelUser) ||
 		!description.IsEmptyUserAccess(controllerUser) ||
 		!description.IsEmptyUserAccess(everyoneGroupUser) {
-		authedAPI = newClientAuthRoot(authedAPI, modelUser, controllerUser)
+		apiRoot = newClientAuthRoot(apiRoot, modelUser, controllerUser)
 	}
 
-	a.root.rpcConn.ServeRoot(authedAPI, serverError)
+	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
 	return loginResult, nil
 }
