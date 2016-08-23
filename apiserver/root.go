@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -369,6 +370,49 @@ func (r *apiHandler) UserHasPermission(user names.UserTag, operation description
 
 type userAccessFunc func(names.UserTag, names.Tag) (description.UserAccess, error)
 
+// newControllerUserFromGroup returns a description.UserAccess that serves
+// as a stand-in for a user that has group access but no explicit user
+// access.
+func newControllerUserFromGroup(everybodyAccess description.UserAccess,
+	userTag names.UserTag) description.UserAccess {
+	everybodyAccess.UserTag = userTag
+	everybodyAccess.UserID = strings.ToLower(userTag.Canonical())
+	everybodyAccess.UserName = userTag.Canonical()
+	return everybodyAccess
+}
+
+// maybeUseGroupPermission returns a description.UserAccess updated
+// with the group permissions that apply to it if higher than
+// current.
+// If the passed UserAccess is empty (controller user lacks permissions)
+// but the group is not, a stand-in will be created to hold the group
+// permissions.
+func maybeUseGroupPermission(
+	userGetter userAccessFunc,
+	externalUser description.UserAccess,
+	controllerTag names.ControllerTag,
+	userTag names.UserTag,
+) (description.UserAccess, error) {
+
+	everybodyTag := names.NewUserTag(EverybodyTagName)
+	everybody, err := userGetter(everybodyTag, controllerTag)
+	if errors.IsNotFound(err) {
+		return externalUser, nil
+	}
+	if err != nil {
+		return description.UserAccess{}, errors.Trace(err)
+	}
+	if description.IsEmptyUserAccess(externalUser) &&
+		!description.IsEmptyUserAccess(everybody) {
+		externalUser = newControllerUserFromGroup(everybody, userTag)
+	}
+
+	if everybody.Access.EqualOrGreaterControllerAccessThan(externalUser.Access) {
+		externalUser.Access = everybody.Access
+	}
+	return externalUser, nil
+}
+
 func hasPermission(userGetter userAccessFunc, entity names.Tag,
 	operation description.Access, target names.Tag) (bool, error) {
 	validForKind := false
@@ -391,12 +435,32 @@ func hasPermission(userGetter userAccessFunc, entity names.Tag,
 	}
 
 	user, err := userGetter(userTag, target)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
+	}
+	// there is a special case for external users, a group called everybody@external
+	if target.Kind() == names.ControllerTagKind && !userTag.IsLocal() {
+		controllerTag, ok := target.(names.ControllerTag)
+		if !ok {
+			return false, errors.NotValidf("controller tag")
+		}
+
+		// TODO(perrito666) remove the following section about everybody group
+		// when groups are implemented, this accounts only for the lack of a local
+		// ControllerUser when logging in from an external user that has not been granted
+		// permissions on the controller but there are permissions for the special
+		// everybody group.
+		user, err = maybeUseGroupPermission(userGetter, user, controllerTag, userTag)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if description.IsEmptyUserAccess(user) {
+			return false, nil
+		}
+	}
 	// returning this kind of information would be too much information to reveal too.
 	if errors.IsNotFound(err) {
 		return false, nil
-	}
-	if err != nil {
-		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
 	modelPermission := user.Access.EqualOrGreaterModelAccessThan(operation) && target.Kind() == names.ModelTagKind
 	controllerPermission := user.Access.EqualOrGreaterControllerAccessThan(operation) && target.Kind() == names.ControllerTagKind
