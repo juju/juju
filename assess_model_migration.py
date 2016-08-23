@@ -250,6 +250,12 @@ def ensure_migrating_with_user_permissions(
 
 
 def expect_migration_attempt_to_fail(source_client, dest_client):
+    """Ensure that the migration attempt fails due to permissions.
+
+    As we're capturing the stderr output it after we're done with it so it
+    appears in test logs.
+
+    """
     try:
         args = ['-c', source_client.env.controller.name,
                 source_client.env.environment,
@@ -257,13 +263,13 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
         log_output = source_client.get_juju_output(
             'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:
+        print(e.output, file=sys.stderr)
         if 'permission denied' not in e.output:
             raise
         log.info('SUCCESS: Migrate command failed as expected.')
     else:
-        raise JujuAssertionError('Migration did not fail as expected.')
-    finally:
         print(log_output, file=sys.stderr)
+        raise JujuAssertionError('Migration did not fail as expected.')
 
 
 def main(argv=None):

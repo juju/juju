@@ -5,6 +5,7 @@ import logging
 from mock import call, Mock, patch
 import os
 import StringIO
+from subprocess import CalledProcessError
 
 import assess_model_migration as amm
 from deploy_stack import BootstrapManager
@@ -51,6 +52,47 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
         self.assertIn(
             "Test model migration feature", fake_stdout.getvalue())
+
+
+class TestExpectMigrationAttemptToFail(TestCase):
+    source_client = fake_juju_client()
+    dest_client = fake_juju_client()
+
+    def test_raises_when_no_failure_detected(self):
+        with patch.object(self.source_client, 'get_juju_output'):
+            with self.assertRaises(JujuAssertionError) as ex:
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+            self.assertEqual(
+                ex.exception.message, 'Migration did not fail as expected.')
+
+    def test_raises_when_incorrect_failure_detected(self):
+        with patch.object(self.source_client, 'get_juju_output',
+                          side_effect=CalledProcessError(-1, None, '')):
+            with self.assertRaises(CalledProcessError):
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+
+    def test_outputs_log_on_non_failure(self):
+        with patch.object(self.source_client, 'get_juju_output',
+                          return_value='foo'):
+            with self.assertRaises(JujuAssertionError):
+                with parse_error(self) as fake_stderr:
+                    amm.expect_migration_attempt_to_fail(
+                        self.source_client, self.dest_client)
+                    self.assertEqual(fake_stderr.getvalue(), 'foo\n')
+
+    def test_outputs_log_on_expected_failure(self):
+        side_effect = CalledProcessError(
+            '-1', None, 'ERROR: permission denied')
+        with patch.object(self.source_client, 'get_juju_output',
+                          side_effect=side_effect):
+            stderr = StringIO.StringIO()
+            with patch('sys.stderr', stderr) as fake_stderr:
+                amm.expect_migration_attempt_to_fail(
+                    self.source_client, self.dest_client)
+        error = fake_stderr.getvalue()
+        self.assertIn('permission denied', error)
 
 
 class TestGetBootstrapManagers(TestCase):
