@@ -82,7 +82,12 @@ def get_lp_bugs(lp, branch, tags):
         raise ValueError('tags must be a list of bug tags')
     bug_tags = tags
     bugs = {}
-    project = lp.projects['juju-core']
+    if branch.startswith('1.'):
+        # Historic Juju 1.x
+        project = lp.projects['juju-core']
+    else:
+        # Juju 2.x.
+        project = lp.projects['juju']
     if branch == 'master':
         # Lp implicitly assigns bugs to trunk, which is not a series query.
         target = project
