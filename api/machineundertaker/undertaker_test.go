@@ -4,8 +4,6 @@
 package machineundertaker_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/watcher"
 )
 
 type undertakerSuite struct {
@@ -28,10 +26,10 @@ type undertakerSuite struct {
 var _ = gc.Suite(&undertakerSuite{})
 
 func (s *undertakerSuite) TestRequiresModelConnection(c *gc.C) {
-	api, err := machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: false})
+	api, err := machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: false}, nil)
 	c.Assert(err, gc.ErrorMatches, "machine undertaker client requires a model API connection")
 	c.Assert(api, gc.IsNil)
-	api, err = machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: true})
+	api, err = machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 }
@@ -285,92 +283,34 @@ func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
 }
 
-func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
-	var watcherCalls int
-	notifyChan := make(chan struct{})
-	stopChan := make(chan struct{})
-	nextCountChan := make(chan int, 1000)
-
-	watcherCreate := func(id string, arg, result interface{}) error {
-		c.Check(id, gc.Equals, "")
-		c.Check(arg, gc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
+func (*undertakerSuite) TestWatchMachineRemovals_Success(c *gc.C) {
+	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
 		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
-				NotifyWatcherId: "1001",
+				NotifyWatcherId: "2",
 			}},
 		}
-		watcherCalls++
 		return nil
 	}
-
-	watcherNext := func(id string, arg, result interface{}) error {
-		c.Check(id, gc.Equals, "1001")
-		c.Check(arg, gc.IsNil)
-		select {
-		case <-time.After(coretesting.LongWait):
-			return errors.New("timed out trying to count next call")
-		case nextCountChan <- 1:
-		}
-
-		select {
-		case <-notifyChan:
-			return nil
-		case <-stopChan:
-			close(nextCountChan)
-			return &params.Error{Code: params.CodeStopped}
-		case <-time.After(coretesting.LongWait):
-			return errors.New("timed out waiting for notify")
-		}
+	expectWatcher := &struct{ watcher.NotifyWatcher }{}
+	newWatcher := func(wcaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
+		c.Check(wcaller, gc.NotNil) // not comparable
+		c.Check(result, gc.DeepEquals, params.NotifyWatchResult{
+			NotifyWatcherId: "2",
+		})
+		return expectWatcher
 	}
 
-	watcherStop := func(id string, arg, result interface{}) error {
-		c.Check(id, gc.Equals, "1001")
-		c.Check(arg, gc.IsNil)
-		close(stopChan)
-		return nil
-	}
-
-	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(version, gc.Equals, 0)
-		switch {
-		case facade == "MachineUndertaker" && request == "WatchMachineRemovals":
-			return watcherCreate(id, arg, result)
-		case facade == "NotifyWatcher" && request == "Next":
-			return watcherNext(id, arg, result)
-		case facade == "NotifyWatcher" && request == "Stop":
-			return watcherStop(id, arg, result)
-		default:
-			c.Fatalf("unknown request - facade %s, request %s", facade, request)
-			return nil
-		}
-	}
-
-	api := makeAPI(c, caller)
+	api, err := machineundertaker.NewAPI(testing.APICallerFunc(caller), newWatcher)
+	c.Check(err, jc.ErrorIsNil)
 	w, err := api.WatchMachineRemovals()
-	c.Assert(err, jc.ErrorIsNil)
-	watcherc := watchertest.NewNotifyWatcherC(c, w, nil)
-	watcherc.AssertOneChange()
-
-	// Trigger another notify.
-	select {
-	case notifyChan <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out sending notify")
-	}
-
-	watcherc.AssertOneChange()
-	watcherc.AssertStops()
-
-	nextCount := 0
-	for i := range nextCountChan {
-		nextCount += i
-	}
-	c.Assert(nextCount, gc.Equals, 2)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(w, gc.Equals, expectWatcher)
 }
 
 func makeAPI(c *gc.C, caller testing.APICallerFunc) *machineundertaker.API {
-	api, err := machineundertaker.NewAPI(caller)
+	api, err := machineundertaker.NewAPI(caller, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }

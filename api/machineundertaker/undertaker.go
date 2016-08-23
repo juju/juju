@@ -8,27 +8,31 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 )
 
+// NewWatcherFunc exists to let us test WatchMachineRemovals.
+type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
+
 // API provides access to the machine undertaker API facade.
 type API struct {
-	facade   base.FacadeCaller
-	modelTag names.ModelTag
+	facade     base.FacadeCaller
+	modelTag   names.ModelTag
+	newWatcher NewWatcherFunc
 }
 
 // NewAPI creates a new client-side machine undertaker facade.
-func NewAPI(caller base.APICaller) (*API, error) {
+func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc) (*API, error) {
 	modelTag, ok := caller.ModelTag()
 	if !ok {
 		return nil, errors.New("machine undertaker client requires a model API connection")
 	}
 	api := API{
-		facade:   base.NewFacadeCaller(caller, "MachineUndertaker"),
-		modelTag: modelTag,
+		facade:     base.NewFacadeCaller(caller, "MachineUndertaker"),
+		modelTag:   modelTag,
+		newWatcher: newWatcher,
 	}
 	return &api, nil
 }
@@ -108,7 +112,7 @@ func (api *API) WatchMachineRemovals() (watcher.NotifyWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	w := apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result)
+	w := api.newWatcher(api.facade.RawAPICaller(), result)
 	return w, nil
 }
 
