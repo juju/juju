@@ -134,6 +134,24 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
 	c.Assert(metrics[0].Time, gc.Equals, now)
 }
 
+func (s *metricsdebugSuiteMock) TestGetMetricsForModelFails(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			requestParam, response interface{},
+		) error {
+			called = true
+			return errors.New("an error")
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	metrics, err := client.GetMetrics()
+	c.Assert(called, jc.IsTrue)
+	c.Assert(metrics, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
 func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
