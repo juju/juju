@@ -120,7 +120,6 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	if c.key != "" {
 		if value, found := attrs[c.key]; found {
 			err := cmd.FormatYaml(ctx.Stdout, value.Value)
-			fmt.Fprintln(ctx.Stdout)
 			if err != nil {
 				return err
 			}

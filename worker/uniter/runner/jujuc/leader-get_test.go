@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -26,7 +25,6 @@ func (s *leaderGetSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.command, err = jujuc.NewLeaderGetCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.SetFeatureFlags(feature.SmartFormatter)
 }
 
 func (s *leaderGetSuite) TestInitError(c *gc.C) {
@@ -70,7 +68,7 @@ func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestSettingsFormatDefaultMissingKey(c *gc.C) {
-	s.testOutput(c, []string{"unknown"}, "\n")
+	s.testOutput(c, []string{"unknown"}, "")
 }
 
 func (s *leaderGetSuite) TestSettingsFormatDefaultKey(c *gc.C) {
@@ -86,7 +84,7 @@ func (s *leaderGetSuite) TestSettingsFormatDefaultEmpty(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestSettingsFormatSmartMissingKey(c *gc.C) {
-	s.testOutput(c, []string{"--format", "smart", "unknown"}, "\n")
+	s.testOutput(c, []string{"--format", "smart", "unknown"}, "")
 }
 
 func (s *leaderGetSuite) TestSettingsFormatSmartKey(c *gc.C) {

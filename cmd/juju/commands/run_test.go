@@ -264,7 +264,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, buff.String()+"\n")
+	c.Check(testing.Stdout(context), gc.Equals, buff.String())
 }
 
 func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
@@ -325,7 +325,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	context, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, buff.String()+"\n")
+	c.Check(testing.Stdout(context), gc.Equals, buff.String())
 	c.Check(testing.Stderr(context), gc.Equals, "")
 }
 
@@ -383,11 +383,11 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	}, {
 		message: "yaml output",
 		format:  "yaml",
-		stdout:  yamlFormatted.String() + "\n",
+		stdout:  yamlFormatted.String(),
 	}, {
 		message: "json output",
 		format:  "json",
-		stdout:  jsonFormatted.String() + "\n",
+		stdout:  jsonFormatted.String(),
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		args := []string{}

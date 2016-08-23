@@ -118,7 +118,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(ctx.Stdout, out.String())
+		fmt.Fprint(ctx.Stdout, out.String())
 		return nil
 	}
 

@@ -9,11 +9,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // RelationGetCommand implements the relation-get command.
@@ -64,11 +61,7 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.SmartFormatter) {
-		c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	} else {
-		c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	}
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(c.relationIdProxy, "r", "specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 }

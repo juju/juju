@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -52,7 +51,6 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 }
 
 func (s *ActionGetSuite) TestActionGet(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	var actionGetTestMaps = []map[string]interface{}{
 		{
 			"outfile": "foo.bz2",
@@ -109,15 +107,15 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	}{{
 		summary: "a simple empty map with nil key",
 		args:    []string{},
-		out:     "{}",
+		out:     "{}\n",
 	}, {
 		summary: "a simple empty map with nil key",
 		args:    []string{"--format", "yaml"},
-		out:     "{}",
+		out:     "{}\n",
 	}, {
 		summary: "a simple empty map with nil key",
 		args:    []string{"--format", "json"},
-		out:     "null",
+		out:     "null\n",
 	}, {
 		summary: "a nonexistent key",
 		args:    []string{"foo"},
@@ -127,7 +125,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	}, {
 		summary: "a nonexistent key",
 		args:    []string{"--format", "json", "foo"},
-		out:     "null",
+		out:     "null\n",
 	}, {
 		summary:      "a nonexistent inner key",
 		args:         []string{"outfile.type"},
@@ -140,7 +138,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		summary:      "a nonexistent inner key",
 		args:         []string{"--format", "json", "outfile.type"},
 		actionParams: actionGetTestMaps[1],
-		out:          "null",
+		out:          "null\n",
 	}, {
 		summary:      "a nonexistent inner key",
 		args:         []string{"outfile.type.1"},
@@ -153,7 +151,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		summary:      "a nonexistent inner key",
 		args:         []string{"--format", "json", "outfile.type.1"},
 		actionParams: actionGetTestMaps[1],
-		out:          "null",
+		out:          "null\n",
 	}, {
 		summary:      "a map with a non-string key",
 		args:         []string{"outfile.type"},
@@ -166,22 +164,22 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		summary:      "a map with a non-string key",
 		args:         []string{"--format", "json", "outfile.type"},
 		actionParams: actionGetTestMaps[3],
-		out:          "null",
+		out:          "null\n",
 	}, {
 		summary:      "a simple map of one value to one key",
 		args:         []string{},
 		actionParams: actionGetTestMaps[0],
-		out:          "outfile: foo.bz2",
+		out:          "outfile: foo.bz2\n",
 	}, {
 		summary:      "a simple map of one value to one key",
 		args:         []string{"--format", "yaml"},
 		actionParams: actionGetTestMaps[0],
-		out:          "outfile: foo.bz2",
+		out:          "outfile: foo.bz2\n",
 	}, {
 		summary:      "a simple map of one value to one key",
 		args:         []string{"--format", "json"},
 		actionParams: actionGetTestMaps[0],
-		out:          `{"outfile":"foo.bz2"}`,
+		out:          `{"outfile":"foo.bz2"}` + "\n",
 	}, {
 		summary:      "an entire map",
 		args:         []string{},
@@ -190,7 +188,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 			"  type:\n" +
 			"    \"1\": raw\n" +
 			"    \"2\": gzip\n" +
-			"    \"3\": bzip",
+			"    \"3\": bzip\n",
 	}, {
 		summary:      "an entire map",
 		args:         []string{"--format", "yaml"},
@@ -199,50 +197,50 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 			"  type:\n" +
 			"    \"1\": raw\n" +
 			"    \"2\": gzip\n" +
-			"    \"3\": bzip",
+			"    \"3\": bzip\n",
 	}, {
 		summary:      "an entire map",
 		args:         []string{"--format", "json"},
 		actionParams: actionGetTestMaps[2],
-		out:          `{"outfile":{"type":{"1":"raw","2":"gzip","3":"bzip"}}}`,
+		out:          `{"outfile":{"type":{"1":"raw","2":"gzip","3":"bzip"}}}` + "\n",
 	}, {
 		summary:      "an inner map value which is itself a map",
 		args:         []string{"outfile.type"},
 		actionParams: actionGetTestMaps[2],
 		out: "\"1\": raw\n" +
 			"\"2\": gzip\n" +
-			"\"3\": bzip",
+			"\"3\": bzip\n",
 	}, {
 		summary:      "an inner map value which is itself a map",
 		args:         []string{"--format", "yaml", "outfile.type"},
 		actionParams: actionGetTestMaps[2],
 		out: "\"1\": raw\n" +
 			"\"2\": gzip\n" +
-			"\"3\": bzip",
+			"\"3\": bzip\n",
 	}, {
 		summary:      "an inner map value which is itself a map",
 		args:         []string{"--format", "json", "outfile.type"},
 		actionParams: actionGetTestMaps[2],
-		out:          `{"1":"raw","2":"gzip","3":"bzip"}`,
+		out:          `{"1":"raw","2":"gzip","3":"bzip"}` + "\n",
 	}, {
 		summary:      "a map with an inner map keyed by interface{}",
 		args:         []string{"outfile.type"},
 		actionParams: actionGetTestMaps[4],
 		out: "\"1\": raw\n" +
 			"\"2\": gzip\n" +
-			"\"3\": bzip",
+			"\"3\": bzip\n",
 	}, {
 		summary:      "a map with an inner map keyed by interface{}",
 		args:         []string{"--format", "yaml", "outfile.type"},
 		actionParams: actionGetTestMaps[4],
 		out: "\"1\": raw\n" +
 			"\"2\": gzip\n" +
-			"\"3\": bzip",
+			"\"3\": bzip\n",
 	}, {
 		summary:      "a map with an inner map keyed by interface{}",
 		args:         []string{"--format", "json", "outfile.type"},
 		actionParams: actionGetTestMaps[4],
-		out:          `{"1":"raw","2":"gzip","3":"bzip"}`,
+		out:          `{"1":"raw","2":"gzip","3":"bzip"}` + "\n",
 	}, {
 		summary: "too many arguments",
 		args:    []string{"multiple", "keys"},
@@ -260,7 +258,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Check(bufferString(ctx.Stdout), gc.Equals, t.out+"\n")
+			c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
@@ -283,8 +281,8 @@ Summary:
 get action parameters
 
 Options:
---format  (= yaml)
-    Specify output format (json|yaml)
+--format  (= smart)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 

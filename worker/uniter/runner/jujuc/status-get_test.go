@@ -111,8 +111,8 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 		"Options:\n" +
 		"--application  (= false)\n" +
 		"    print status for all units of this application if this unit is the leader\n" +
-		"--format  (= yaml)\n" +
-		"    Specify output format (json|yaml)\n" +
+		"--format  (= smart)\n" +
+		"    Specify output format (json|smart|yaml)\n" +
 		"--include-data  (= false)\n" +
 		"    print all status data\n" +
 		"-o, --output (= \"\")\n" +
