@@ -146,11 +146,11 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(
             ('github.com/juju/juju/cmd/juju',
              '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
-             '386', 'windows'),
+             'amd64', 'windows'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            ('baz/bar_1.2.3/bin/windows_386/juju.exe',
+            ('baz/bar_1.2.3/bin/windows_amd64/juju.exe',
              '1.2.3', 'baz/bar_1.2.3', os.getcwd()),
             mi_mock.call_args[0])
 
