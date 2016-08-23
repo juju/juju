@@ -98,7 +98,10 @@ def get_lp_bug_tasks(script, milestone_name):
     """Return an iterators of Lp BugTasks,"""
     lp = Launchpad.login_with(
         script, service_root='https://api.launchpad.net', version='devel')
-    project = lp.projects['juju-core']
+    if milestone_name.startswith('1.'):
+        project = lp.projects['juju-core']
+    else:
+        project = lp.projects['juju']
     milestone = project.getMilestone(name=milestone_name)
     return milestone.searchTasks(status=['Fix Committed'])
 

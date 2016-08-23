@@ -1,5 +1,8 @@
 from datetime import datetime
-from mock import patch
+from mock import (
+    Mock,
+    patch,
+)
 import os
 from StringIO import StringIO
 from unittest import TestCase
@@ -7,6 +10,7 @@ from unittest import TestCase
 from make_release_notes import (
     DEVEL,
     get_bugs,
+    get_lp_bug_tasks,
     get_purpose,
     make_notes,
     make_resolved_text,
@@ -33,7 +37,40 @@ class FakeBugTask(object):
             self.bug = bug
 
 
+def make_fake_lp(project_name, milestone_name, bugs):
+    """Return a fake Lp lib object based on Mocks"""
+    milestone = Mock(spec=['searchTasks'], name=milestone_name)
+    milestone.searchTasks.return_value = bugs
+    project = Mock(spec=['getMilestone'])
+    project.getMilestone.return_value = milestone
+    lp = Mock(projects={project_name: project})
+    return lp
+
+
 class MakeReleaseNotes(TestCase):
+
+    def test_get_lp_bug_tasks_1(self):
+        bug = FakeBug(3, 'three', [])
+        task = FakeBugTask(bug)
+        lp = make_fake_lp('juju-core', '1.25.3', [task])
+        with patch('make_release_notes.Launchpad.login_with', return_value=lp):
+            tasks = get_lp_bug_tasks('my-script', '1.25.3')
+        lp.projects['juju-core'].getMilestone.assert_called_once_with(
+            name='1.25.3')
+        milestone = lp.projects['juju-core'].getMilestone('1.25.3')
+        milestone.searchTasks.assert_called_once_with(status=['Fix Committed'])
+        self.assertEqual([task], tasks)
+
+    def test_get_lp_bug_tasks_2(self):
+        bug = FakeBug(4, 'four', [])
+        task = FakeBugTask(bug)
+        lp = make_fake_lp('juju', '2.0.0', [task])
+        with patch('make_release_notes.Launchpad.login_with', return_value=lp):
+            tasks = get_lp_bug_tasks('my-script', '2.0.0')
+        lp.projects['juju'].getMilestone.assert_called_once_with(name='2.0.0')
+        milestone = lp.projects['juju'].getMilestone('2.0.0')
+        milestone.searchTasks.assert_called_once_with(status=['Fix Committed'])
+        self.assertEqual([task], tasks)
 
     def test_get_purpose(self):
         self.assertEqual(PROPOSED, get_purpose('1.20.0'))
