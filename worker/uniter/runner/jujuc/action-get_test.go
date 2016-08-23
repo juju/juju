@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -52,7 +51,6 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 }
 
 func (s *ActionGetSuite) TestActionGet(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	var actionGetTestMaps = []map[string]interface{}{
 		{
 			"outfile": "foo.bz2",

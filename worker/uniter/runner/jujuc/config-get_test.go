@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -41,7 +40,6 @@ var configGetKeyTests = []struct {
 }
 
 func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range configGetKeyTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")

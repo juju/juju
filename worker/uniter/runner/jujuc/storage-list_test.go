@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
@@ -50,7 +49,6 @@ func (s *storageListSuite) TestOutputFormatJSON(c *gc.C) {
 }
 
 func (s *storageListSuite) TestOutputFormatDefault(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	// The default output format is "smart", which is
 	// a newline-separated list of strings.
 	s.testOutputFormat(c,

@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -47,7 +46,6 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 }
 
 func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range []struct {
 		summary  string
 		args     []string

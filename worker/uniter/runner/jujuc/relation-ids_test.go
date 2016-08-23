@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -102,7 +101,6 @@ var relationIdsTests = []struct {
 }
 
 func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
-	s.SetFeatureFlags(feature.SmartFormatter)
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, "")
@@ -113,7 +111,10 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-			expect := t.out + "\n"
+			expect := t.out
+			if expect != "" {
+				expect += "\n"
+			}
 			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
