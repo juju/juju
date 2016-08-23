@@ -7,82 +7,12 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
-
-type funcSuite struct {
-	baseImageMetadataSuite
-
-	cfg      *config.Config
-	expected cloudimagemetadata.Metadata
-}
-
-var _ = gc.Suite(&funcSuite{})
-
-func (s *funcSuite) SetUpTest(c *gc.C) {
-	s.baseImageMetadataSuite.SetUpTest(c)
-
-	cfg, err := config.New(config.NoDefaults, mockConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	s.cfg = cfg
-	s.state = s.constructState(s.cfg, nil)
-
-	s.expected = cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
-			Stream: "released",
-			Source: "custom",
-			Series: series.LatestLts(),
-			Arch:   "amd64",
-			Region: "dummy_region",
-		},
-		0,
-		"",
-	}
-}
-
-func (s *funcSuite) TestParseMetadataNoSource(c *gc.C) {
-	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{}, s.cfg, "dummy_region")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, s.expected)
-}
-
-func (s *funcSuite) TestParseMetadataAnySource(c *gc.C) {
-	s.expected.Source = "any"
-	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Source: "any"}, s.cfg, "dummy_region")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, s.expected)
-}
-
-func (s *funcSuite) TestParseMetadataAnyStream(c *gc.C) {
-	stream := "happy stream"
-	s.expected.Stream = stream
-
-	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Stream: stream}, s.cfg, "dummy_region")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, s.expected)
-}
-
-func (s *funcSuite) TestParseMetadataDefaultStream(c *gc.C) {
-	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{}, s.cfg, "dummy_region")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, s.expected)
-}
-
-func (s *funcSuite) TestParseMetadataAnyRegion(c *gc.C) {
-	region := "region"
-	s.expected.Region = region
-
-	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Region: region}, s.cfg, "dummy_region")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, s.expected)
-}
 
 type funcMetadataSuite struct {
 	testing.BaseSuite

@@ -129,17 +129,9 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 	if err != nil {
 		return params.ErrorResults{}, errors.Annotatef(err, "getting model config")
 	}
-	model, err := api.metadata.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "getting model")
-	}
 	for i, one := range metadata.Metadata {
-		md, err := api.parseMetadataListFromParams(one, modelCfg, model.CloudRegion())
-		if err != nil {
-			all[i] = params.ErrorResult{Error: common.ServerError(err)}
-			continue
-		}
-		err = api.metadata.SaveMetadata(md)
+		md := api.parseMetadataListFromParams(one, modelCfg)
+		err := api.metadata.SaveMetadata(md)
 		all[i] = params.ErrorResult{Error: common.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
@@ -182,60 +174,32 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 	return result
 }
 
-func (api *API) parseMetadataListFromParams(
-	p params.CloudImageMetadataList, cfg *config.Config, cloudRegion string,
-) ([]cloudimagemetadata.Metadata, error) {
+func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Config) []cloudimagemetadata.Metadata {
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
-		result, err := api.parseMetadataFromParams(metadata, cfg, cloudRegion)
-		if err != nil {
-			return nil, errors.Trace(err)
+		results[i] = cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Stream:          metadata.Stream,
+				Region:          metadata.Region,
+				Version:         metadata.Version,
+				Series:          metadata.Series,
+				Arch:            metadata.Arch,
+				VirtType:        metadata.VirtType,
+				RootStorageType: metadata.RootStorageType,
+				RootStorageSize: metadata.RootStorageSize,
+				Source:          metadata.Source,
+			},
+			metadata.Priority,
+			metadata.ImageId,
 		}
-		results[i] = result
+		if results[i].Stream == "" {
+			results[i].Stream = cfg.ImageStream()
+		}
+		if results[i].Source == "" {
+			results[i].Source = "custom"
+		}
 	}
-	return results, nil
-}
-
-func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, cfg *config.Config, cloudRegion string) (cloudimagemetadata.Metadata, error) {
-	result := cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
-			Stream:          p.Stream,
-			Region:          p.Region,
-			Version:         p.Version,
-			Series:          p.Series,
-			Arch:            p.Arch,
-			VirtType:        p.VirtType,
-			RootStorageType: p.RootStorageType,
-			RootStorageSize: p.RootStorageSize,
-			Source:          p.Source,
-		},
-		p.Priority,
-		p.ImageId,
-	}
-	SupplyWithDefaults(&result, cfg, cloudRegion)
-	return result, nil
-}
-
-// SupplyWithDefaults pre-populates cloud image metadata parameter with known defaults
-// for properties that have missing values.
-func SupplyWithDefaults(p *cloudimagemetadata.Metadata, cfg *config.Config, cloudRegion string) {
-	// Fill in any required default values.
-	if p.Stream == "" {
-		p.Stream = cfg.ImageStream()
-	}
-	if p.Source == "" {
-		p.Source = "custom"
-	}
-	if p.Arch == "" {
-		// TODO (anastasiamac 2016-08-23) is this correct? Should it not be host arch?
-		p.Arch = "amd64"
-	}
-	if p.Series == "" {
-		p.Series = config.PreferredSeries(cfg)
-	}
-	if p.Region == "" {
-		p.Region = cloudRegion
-	}
+	return results
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and

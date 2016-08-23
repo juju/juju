@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	apiserverimagemetadata "github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
@@ -498,6 +497,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, errors.Trace(err)
 	}
 
+	cfg := env.Config()
 	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
@@ -516,7 +516,12 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		if result.Stream == "" {
 			result.Stream = constraint.Stream
 		}
-		apiserverimagemetadata.SupplyWithDefaults(&result, env.Config(), constraint.Region)
+		if result.Stream == "" {
+			result.Stream = cfg.ImageStream()
+		}
+		if result.Source == "" {
+			result.Source = "custom"
+		}
 		return result
 	}
 

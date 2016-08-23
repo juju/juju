@@ -269,13 +269,24 @@ func validateMetadata(m *imagesMetadataDoc) error {
 	if m.Series == "" {
 		return errors.NotValidf("missing series: metadata for image %v", m.ImageId)
 	}
-
 	v, err := series.SeriesVersion(m.Series)
 	if err != nil {
 		return err
 	}
-
 	m.Version = v
+
+	if m.Stream == "" {
+		return errors.NotValidf("missing stream: metadata for image %v", m.ImageId)
+	}
+	if m.Source == "" {
+		return errors.NotValidf("missing source: metadata for image %v", m.ImageId)
+	}
+	if m.Arch == "" {
+		return errors.NotValidf("missing architecture: metadata for image %v", m.ImageId)
+	}
+	if m.Region == "" {
+		return errors.NotValidf("missing region: metadata for image %v", m.ImageId)
+	}
 	return nil
 }
 
