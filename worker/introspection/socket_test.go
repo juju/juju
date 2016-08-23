@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"regexp"
 	"runtime"
 
@@ -61,7 +62,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 
 	s.IsolationSuite.SetUpTest(c)
 
-	s.name = "introspection-test"
+	s.name = fmt.Sprintf("introspection-test-%d", os.Getpid())
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName: s.name,
 	})
@@ -89,7 +90,7 @@ func (s *introspectionSuite) call(c *gc.C, url string) []byte {
 func (s *introspectionSuite) TestCmdLine(c *gc.C) {
 	buf := s.call(c, "/debug/pprof/cmdline")
 	c.Assert(buf, gc.NotNil)
-	matches(c, buf, ".*github.com/juju/juju/worker/introspection/_test/introspection.test")
+	matches(c, buf, ".*/introspection.test")
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
