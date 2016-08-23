@@ -24,9 +24,9 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// EverybodyTagName represents a special group that encompasses
+// EveryoneTagName represents a special group that encompasses
 // all external users.
-const EverybodyTagName = "everybody@external"
+const EveryoneTagName = "everyone@external"
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
@@ -154,7 +154,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser description.UserAccess
 	var controllerUser description.UserAccess
-	var everybodyGroupUser description.UserAccess
+	var everyoneGroupUser description.UserAccess
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
@@ -167,16 +167,16 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
 
-		// TODO(perrito666) remove the following section about everybody group
+		// TODO(perrito666) remove the following section about everyone group
 		// when groups are implemented, this accounts only for the lack of a local
 		// ControllerUser when logging in from an external user that has not been granted
 		// permissions on the controller but there are permissions for the special
-		// everybody group.
+		// everyone group.
 		if !userTag.IsLocal() {
-			everybodyTag := names.NewUserTag(EverybodyTagName)
-			everybodyGroupUser, err = state.ControllerAccess(a.root.state, everybodyTag)
+			everyoneTag := names.NewUserTag(EveryoneTagName)
+			everyoneGroupUser, err = state.ControllerAccess(a.root.state, everyoneTag)
 			if err != nil && !errors.IsNotFound(err) {
-				return fail, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+				return fail, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
 		}
 
@@ -187,7 +187,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 		if description.IsEmptyUserAccess(modelUser) &&
 			description.IsEmptyUserAccess(controllerUser) &&
-			description.IsEmptyUserAccess(everybodyGroupUser) {
+			description.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
 		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
@@ -238,7 +238,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	if !description.IsEmptyUserAccess(modelUser) ||
 		!description.IsEmptyUserAccess(controllerUser) ||
-		!description.IsEmptyUserAccess(everybodyGroupUser) {
+		!description.IsEmptyUserAccess(everyoneGroupUser) {
 		authedAPI = newClientAuthRoot(authedAPI, modelUser, controllerUser)
 	}
 
@@ -371,15 +371,15 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(perrito666) remove the following section about everybody group
+	// TODO(perrito666) remove the following section about everyone group
 	// when groups are implemented, this accounts only for the lack of a local
 	// ControllerUser when logging in from an external user that has not been granted
 	// permissions on the controller but there are permissions for the special
-	// everybody group.
+	// everyone group.
 	if !utag.IsLocal() {
 		controllerUser, err = maybeUseGroupPermission(f.st.UserAccess, controllerUser, f.st.ControllerTag(), utag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
 	}
 
