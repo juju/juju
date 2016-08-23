@@ -122,11 +122,24 @@ func TestingUpgradingRoot(st *state.State) rpc.Root {
 	return restrictRoot(r, upgradeMethodsOnly)
 }
 
-// TestingRestrictedAPIHandler returns a restricted srvRoot as if accessed
-// from the root of the API path.
-func TestingRestrictedAPIHandler(st *state.State) rpc.Root {
+// TestingControllerOnlyRoot returns a restricted srvRoot as if
+// logged in to the root of the API path.
+func TestingControllerOnlyRoot(st *state.State) rpc.Root {
 	r := TestingAPIRoot(st)
-	return restrictRoot(r, controllerFacadesOnly)
+	return restrictRootEarly(r, controllerFacadesOnly)
+}
+
+// TestingModelOnlyRoot returns a restricted srvRoot as if
+// logged in to a model.
+func TestingModelOnlyRoot(st *state.State) rpc.Root {
+	r := TestingAPIRoot(st)
+	return restrictRootEarly(r, modelFacadesOnly)
+}
+
+// TestingRestrictedRoot returns a restricted srvRoot.
+func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, check)
 }
 
 type preFacadeAdminAPI struct{}
