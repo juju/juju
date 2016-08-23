@@ -115,11 +115,11 @@ func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 	return h, hr
 }
 
-// TestingUpgradingRoot returns a limited srvRoot
-// in an upgrade scenario.
+// TestingUpgradingRoot returns a resricted srvRoot in an upgrade
+// scenario.
 func TestingUpgradingRoot(st *state.State) rpc.Root {
 	r := TestingAPIRoot(st)
-	return newUpgradingRoot(r)
+	return restrictRoot(r, upgradeMethodsOnly)
 }
 
 // TestingRestrictedAPIHandler returns a restricted srvRoot as if accessed

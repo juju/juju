@@ -60,15 +60,11 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var authedAPI rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
-	//
-	// TODO(mjs) - upgradingRoot, aboutToRestoreRoot and
-	// restoreInProgressRoot should all be reworked to use
-	// restrictRoot.
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
 		case params.UpgradeInProgressError:
-			authedAPI = newUpgradingRoot(authedAPI)
+			authedAPI = restrictRoot(authedAPI, upgradeMethodsOnly)
 		case AboutToRestoreError:
 			authedAPI = newAboutToRestoreRoot(authedAPI)
 		case RestoreInProgressError:
