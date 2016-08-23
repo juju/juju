@@ -10,6 +10,7 @@ from contextlib import (
 )
 from copy import deepcopy
 from cStringIO import StringIO
+from datetime import datetime
 import errno
 from itertools import chain
 import json
@@ -546,13 +547,18 @@ class Juju2Backend:
     Uses -m to specify models, uses JUJU_DATA to specify home directory.
     """
 
-    def __init__(self, full_path, version, feature_flags, debug):
+    def __init__(self, full_path, version, feature_flags, debug,
+                 deadline=None):
         self._version = version
         self._full_path = full_path
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
+        self.deadline = deadline
+
+    def _now(self):
+        return datetime.utcnow()
 
     def clone(self, full_path, version, debug, feature_flags):
         if version is None:
@@ -605,6 +611,12 @@ class Juju2Backend:
             e_arg = ('-m', model)
         else:
             e_arg = ()
+        if self.deadline is not None:
+            deadline_timeout = (self.deadline - self._now()).total_seconds()
+            if timeout is None:
+                timeout = deadline_timeout
+            else:
+                timeout = min(deadline_timeout, timeout)
         if timeout is None:
             prefix = ()
         else:

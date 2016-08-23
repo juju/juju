@@ -59,6 +59,7 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    get_timeout_prefix,
     IncompatibleConfigClass,
     jes_home_path,
     JESByDefault,
@@ -159,6 +160,31 @@ class TestJuju2Backend(TestCase):
         backend = Juju2Backend('/bin/path', '2.0', set(), False)
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
+
+    def test_full_args_no_deadline(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=None)
+        full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, None)
+        self.assertEqual(('path', '--show-log', 'cmd1', 'arg1', 'arg2'),
+                         full_args)
+        full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, 300)
+        self.assertEqual(get_timeout_prefix(300, backend._timeout_path) + (
+            'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+
+    def test_full_args_deadline(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=datetime(2015, 1, 2, 3, 4, 5))
+        now = backend.deadline - timedelta(seconds=200)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, None)
+            self.assertEqual(get_timeout_prefix(200, backend._timeout_path) + (
+                'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+            full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, 300)
+            self.assertEqual(get_timeout_prefix(200, backend._timeout_path) + (
+                'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+            full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, 100)
+            self.assertEqual(get_timeout_prefix(100, backend._timeout_path) + (
+                'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
