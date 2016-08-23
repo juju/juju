@@ -240,15 +240,26 @@ def ensure_migrating_with_user_permissions(
 
     log.info('Attempting migration process')
 
+    expect_migration_attempt_to_fail(
+        user_new_model_client,
+        normal_user_client_2)
+
+
+def expect_migration_attempt_to_fail(source_client, dest_client):
     try:
-        normal_user_client_1.controller_juju(
-            'migrate',
-            (user_new_model_client.env.environment,
-             normal_user_client_2.env.controller.name))
-    except CalledProcessError:
+        args = ['-c', source_client.env.controller.name,
+                source_client.env.environment,
+                dest_client.env.controller.name]
+        log_output = source_client.get_juju_output(
+            'migrate', args, merge_stderr=True, include_e=False)
+    except CalledProcessError as e:
+        if 'permission denied' not in e.output:
+            raise
         log.info('SUCCESS: Migrate command failed as expected.')
     else:
         raise JujuAssertionError('Migration did not fail as expected.')
+    finally:
+        print(log_output, file=sys.stderr)
 
 
 def main(argv=None):
