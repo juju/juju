@@ -82,6 +82,10 @@ class IncompatibleConfigClass(Exception):
     """Raised when a client is initialised with the wrong config class."""
 
 
+class DeadlineExceeded(Exception):
+    """Raised when a client operation takes too long."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -556,9 +560,35 @@ class Juju2Backend:
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
         self.deadline = deadline
+        self._ignore_deadline = False
 
     def _now(self):
         return datetime.utcnow()
+
+    @contextmanager
+    def _check_timeouts(self):
+        try:
+            yield
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 124:
+                raise
+            if self.deadline is None:
+                raise
+            if self._ignore_deadline:
+                raise
+            if self._now() <= self.deadline:
+                raise
+            raise DeadlineExceeded('Operation exceeded deadline.')
+
+    @contextmanager
+    def ignore_deadline(self):
+        """Ignore the client deadline.  For cleanup code."""
+        old_val = self._ignore_deadline
+        self._ignore_deadline = True
+        try:
+            yield
+        finally:
+            self._ignore_deadline = old_val
 
     def clone(self, full_path, version, debug, feature_flags):
         if version is None:
@@ -611,7 +641,7 @@ class Juju2Backend:
             e_arg = ('-m', model)
         else:
             e_arg = ()
-        if self.deadline is not None:
+        if self.deadline is not None  and not self._ignore_deadline:
             deadline_timeout = (self.deadline - self._now()).total_seconds()
             if timeout is None:
                 timeout = deadline_timeout

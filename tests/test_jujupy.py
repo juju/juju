@@ -40,6 +40,7 @@ from jujupy import (
     client_from_config,
     CONTROLLER,
     Controller,
+    DeadlineExceeded,
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient22,
@@ -184,6 +185,77 @@ class TestJuju2Backend(TestCase):
                 'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
             full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, 100)
             self.assertEqual(get_timeout_prefix(100, backend._timeout_path) + (
+                'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+
+    def test__check_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=datetime(2015, 1, 2, 3, 4, 5))
+        with patch('jujupy.Juju2Backend._now', return_value=backend.deadline):
+            with self.assertRaisesRegexp(subprocess.CalledProcessError,
+                                         'Command .*'):
+                with backend._check_timeouts():
+                    raise subprocess.CalledProcessError(124, [])
+        now = backend.deadline + timedelta(seconds=1)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with self.assertRaisesRegexp(DeadlineExceeded,
+                                         'Operation exceeded deadline.'):
+                with backend._check_timeouts():
+                    raise subprocess.CalledProcessError(124, [])
+
+    def test__check_timeouts_wrong_returncode(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=datetime(2015, 1, 2, 3, 4, 5))
+        now = backend.deadline + timedelta(seconds=1)
+        with patch('jujupy.Juju2Backend._now', return_value=now) as now_mock:
+            with self.assertRaisesRegexp(subprocess.CalledProcessError,
+                                         'Command .*'):
+                with backend._check_timeouts():
+                    raise subprocess.CalledProcessError(123, [])
+        self.assertEqual(0, now_mock.call_count)
+
+    def test__check_timeouts_no_deadline(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=None)
+        now = datetime(2015, 1, 2, 3, 4, 6)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with self.assertRaisesRegexp(subprocess.CalledProcessError,
+                                         'Command .*'):
+                with backend._check_timeouts():
+                    raise subprocess.CalledProcessError(124, [])
+
+    def test_ignore_deadline_check_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=datetime(2015, 1, 2, 3, 4, 5))
+        now = backend.deadline + timedelta(seconds=1)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with self.assertRaisesRegexp(subprocess.CalledProcessError,
+                                         'Command .*'):
+                with backend.ignore_deadline():
+                    with backend._check_timeouts():
+                        raise subprocess.CalledProcessError(124, [])
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with self.assertRaisesRegexp(DeadlineExceeded,
+                                         'Operation exceeded deadline.'):
+                with backend._check_timeouts():
+                    raise subprocess.CalledProcessError(124, [])
+
+    def test_ignore_deadline_full_args(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               deadline=datetime(2015, 1, 2, 3, 4, 5))
+        now = backend.deadline - timedelta(seconds=200)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with backend.ignore_deadline():
+                full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None,
+                                              None)
+                self.assertEqual(
+                    ('path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+                full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None,
+                                              300)
+                self.assertEqual(
+                    get_timeout_prefix(300, backend._timeout_path) + (
+                    'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
+            full_args = backend.full_args('cmd1', ('arg1', 'arg2'), None, None)
+            self.assertEqual(get_timeout_prefix(200, backend._timeout_path) + (
                 'path', '--show-log', 'cmd1', 'arg1', 'arg2'), full_args)
 
 
