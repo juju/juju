@@ -195,7 +195,7 @@ func (nsPayloads_) untrackOp(payloads mongo.Collection, docID string) (txn.Op, e
 		return txn.Op{}, errAlreadyRemoved
 	}
 	return txn.Op{
-		C:      payloads.Name(),
+		C:      payloadsC,
 		Id:     docID,
 		Assert: txn.DocExists,
 		Remove: true,
@@ -213,7 +213,7 @@ func (nsPayloads_) setStatusOp(payloads mongo.Collection, docID string, status s
 		return txn.Op{}, errAlreadyRemoved
 	}
 	return txn.Op{
-		C:      payloads.Name(),
+		C:      payloadsC,
 		Id:     docID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"state", status}}}},

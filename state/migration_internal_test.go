@@ -162,7 +162,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// service / unit
 		charmsC,
-		"payloads",
+		payloadsC,
 		"resources",
 		endpointBindingsC,
 
