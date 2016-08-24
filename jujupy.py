@@ -2175,7 +2175,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         return args
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, storage=None):
+               service=None, force=False, storage=None, constraints=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -2185,6 +2185,8 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args.extend([service])
         if storage is not None:
             args.extend(['--storage', storage])
+        if constraints is not None:
+            args.extend(['--constraints', constraints])
         return self.juju('deploy', tuple(args))
 
 

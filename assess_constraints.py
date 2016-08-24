@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""TODO: add rough description of what is assessed in this module."""
+"""This module tests the deployment with constraints."""
 
 from __future__ import print_function
 import os
@@ -28,7 +28,7 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_constraints")
 
-VIRT_TYPES = ['kvm', 'lxd']
+VIRT_TYPES = ['lxd']
 
 
 def deploy_constraint(client, charm, series, charm_repo,
@@ -44,7 +44,7 @@ def deploy_constraint(client, charm, series, charm_repo,
     constraints = " ".join(args)
     client.deploy(charm, series=series, repository=charm_repo,
                   constraints=constraints)
-    client.wait_for_started()
+    client.wait_for_workloads()
 
 
 def assess_virt_type(client, virt_type):
@@ -52,11 +52,11 @@ def assess_virt_type(client, virt_type):
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
     charm_name = 'virt-type-' + virt_type
-    charm_series = 'trusty'
+    charm_series = 'xenial'
     with temp_dir() as charm_dir:
         constraints_charm = Charm(charm_name,
                                   'Test charm for constraints',
-                                  series=['trusty'])
+                                  series=['xenial'])
         charm_root = constraints_charm.to_repo_dir(charm_dir)
         platform = 'ubuntu'
         charm = local_charm_path(charm=charm_name,
@@ -68,8 +68,10 @@ def assess_virt_type(client, virt_type):
                           charm_dir, virt_type=virt_type)
 
 
-def assess_constraints(client):
+def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints"""
+    if test_kvm:
+        VIRT_TYPES.append("kvm")
     for virt_type in VIRT_TYPES:
         assess_virt_type(client, virt_type)
     try:
@@ -78,6 +80,8 @@ def assess_constraints(client):
         log.info("Correctly rejected virt-type aws")
     else:
         raise JujuAssertionError("FAIL: Client deployed with virt-type aws")
+    if test_kvm:
+        VIRT_TYPES.remove("kvm")
 
 
 def parse_args(argv):
@@ -91,8 +95,9 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
+    test_kvm = '--with-virttype-kvm' in args
     with bs_manager.booted_context(args.upload_tools):
-        assess_constraints(bs_manager.client)
+        assess_constraints(bs_manager.client, test_kvm)
     return 0
 
 
