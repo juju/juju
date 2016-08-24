@@ -10,9 +10,9 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// SourcePrecheckBackend defines the interface to query Juju's state
+// PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
-type SourcePrecheckBackend interface {
+type PrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 	AgentVersion() (version.Number, error)
 	AllMachines() ([]PrecheckMachine, error)
@@ -28,7 +28,7 @@ type PrecheckMachine interface {
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
-func SourcePrecheck(backend SourcePrecheckBackend) error {
+func SourcePrecheck(backend PrecheckBackend) error {
 	cleanupNeeded, err := backend.NeedsCleanup()
 	if err != nil {
 		return errors.Annotate(err, "checking cleanups")
