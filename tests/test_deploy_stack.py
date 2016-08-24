@@ -4,6 +4,7 @@ from argparse import (
 from contextlib import contextmanager
 from datetime import (
     datetime,
+    timedelta,
 )
 import json
 import logging
@@ -1582,6 +1583,32 @@ class TestBootstrapManager(FakeHomeTestCase):
                                    region=None)
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
+
+    def test_runtime_context_teardown_ignores_soft_deadline(self):
+        env = JujuData('foo', {'type': 'nonlocal'})
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client = EnvJujuClient(env, None, None)
+        def do_check(*args, **kwargs):
+            with client.check_timeouts():
+                pass
+            return iter([])
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            bs_manager.known_hosts['0'] = 'example.org'
+            with patch.object(bs_manager.client, 'juju', side_effect=do_check,
+                              autospec=True):
+                with patch.object(bs_manager.client, 'iter_model_clients',
+                                  side_effect=do_check, autospec=True,
+                                  return_value=iter([])):
+                    with patch.object(bs_manager, 'tear_down', do_check):
+                        with patch.object(client._backend, '_now',
+                                          return_value=now):
+                            with bs_manager.runtime_context(['baz']):
+                                client._backend.soft_deadline = soft_deadline
 
 
 class TestBootContext(FakeHomeTestCase):

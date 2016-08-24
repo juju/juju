@@ -889,6 +889,12 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
+    def check_timeouts(self):
+        return self._backend._check_timeouts()
+
+    def ignore_soft_deadline(self):
+        return self._backend.ignore_soft_deadline()
+
     def enable_feature(self, flag):
         """Enable juju feature by setting the given flag.
 
