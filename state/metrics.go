@@ -241,6 +241,7 @@ func (st *State) CleanupOldMetrics() error {
 	metricsW := metrics.Writeable()
 	// TODO (mattyw) iter over this.
 	info, err := metricsW.RemoveAll(bson.M{
+		"model-uuid":  st.ModelUUID(),
 		"sent":        true,
 		"delete-time": bson.M{"$lte": now},
 	})
@@ -257,7 +258,8 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	err := c.Find(bson.M{
-		"sent": false,
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
 	}).Limit(batchSize).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -278,7 +280,8 @@ func (st *State) CountOfUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": false,
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
 	}).Count()
 }
 
@@ -289,7 +292,8 @@ func (st *State) CountOfSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": true,
+		"model-uuid": st.ModelUUID(),
+		"sent":       true,
 	}).Count()
 }
 

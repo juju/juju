@@ -45,7 +45,6 @@ type ModelManagerBackend interface {
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	ModelTag() names.ModelTag
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)

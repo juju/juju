@@ -6,6 +6,8 @@
 package metricsender
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/state"
 )
 
@@ -20,4 +22,5 @@ type MetricsSenderBackend interface {
 	CountOfUnsentMetrics() (int, error)
 	CountOfSentMetrics() (int, error)
 	Unit(name string) (*state.Unit, error)
+	ModelTag() names.ModelTag
 }

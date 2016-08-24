@@ -111,7 +111,7 @@ func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("metrics collection summary: sent:%d unsent:%d (%d sent metrics stored)", sent, unsent, sentStored)
+	logger.Infof("metrics collection summary for %s: sent:%d unsent:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, sentStored)
 
 	return nil
 }
