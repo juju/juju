@@ -15,7 +15,6 @@ import (
 
 var (
 	configSchema                 = environschema.Fields{}
-	configBaseDefaults           = schema.Defaults{}
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
 		fields, defaults, err := configSchema.ValidationSchema()
 		if err != nil {

@@ -27,7 +27,11 @@ var configSchema = environschema.Fields{
 	},
 }
 
-var configDefaults = schema.Defaults{}
+var configDefaults = schema.Defaults{
+	"use-floating-ip":      false,
+	"use-default-secgroup": false,
+	"network":              "",
+}
 
 var configFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
