@@ -95,13 +95,12 @@ func prepareRemote(client *Client, newCert *Cert) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	if newCert == nil {
-		return "", nil
-	}
-
-	// Make sure the LXD service will allow our certificate to connect
-	if err := client.AddCert(*newCert); err != nil {
-		return "", errors.Trace(err)
+	if newCert != nil {
+		// Make sure the LXD service will allow
+		// our certificate to authenticate.
+		if err := client.AddCert(*newCert); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	st, err := client.ServerStatus()

@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
+	lxdshared "github.com/lxc/lxd/shared"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
@@ -72,13 +74,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(tools) == 0 {
-		return errors.Errorf("No tools available for architecture %q", arch.HostArch())
-	}
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("tools: %#v", args.InstanceConfig.ToolsList())
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
 		return errors.Trace(err)
@@ -144,7 +142,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		return nil, errors.Trace(err)
 	}
 
-	series := args.Tools.OneSeries()
+	series := args.InstanceConfig.Series
 	// TODO(jam): We should get this information from EnsureImageExists, or
 	// something given to us from 'raw', not assume it ourselves.
 	image := "ubuntu-" + series
@@ -179,10 +177,40 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	metadata, err := getMetadata(args)
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if args.InstanceConfig.Controller != nil {
+		// For controller machines, generate a certificate pair and write
+		// them to the instance's disk in a well-defined location, along
+		// with the server's certificate.
+		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cert := lxdclient.NewCert(certPEM, keyPEM)
+		cert.Name = hostname
+		// TODO(axw) 2016-08-24 #1616346
+		// We need to remove this cert when removing
+		// the machine and/or destroying the controller.
+		if err := env.raw.AddCert(cert); err != nil {
+			return nil, errors.Annotatef(err, "adding certificate %q", cert.Name)
+		}
+		serverState, err := env.raw.ServerStatus()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting server status")
+		}
+		cloudcfg.AddRunTextFile(clientCertPath, string(certPEM), 0600)
+		cloudcfg.AddRunTextFile(clientKeyPath, string(keyPEM), 0600)
+		cloudcfg.AddRunTextFile(serverCertPath, serverState.Environment.Certificate, 0600)
+	}
+
+	metadata, err := getMetadata(cloudcfg, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	//tags := []string{
 	//	env.globalFirewallName(),
 	//	machineID,
@@ -223,9 +251,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
-func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
+func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
 	renderer := lxdRenderer{}
-	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil, renderer)
+	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, renderer)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
