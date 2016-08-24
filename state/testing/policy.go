@@ -5,6 +5,8 @@ package testing
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -14,11 +16,12 @@ import (
 )
 
 type MockPolicy struct {
-	GetPrechecker              func() (state.Prechecker, error)
-	GetConfigValidator         func() (config.Validator, error)
-	GetConstraintsValidator    func() (constraints.Validator, error)
-	GetInstanceDistributor     func() (instance.Distributor, error)
-	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
+	GetPrechecker                 func() (state.Prechecker, error)
+	GetConfigValidator            func() (config.Validator, error)
+	GetProviderConfigSchemaSource func() (config.ConfigSchemaSource, error)
+	GetConstraintsValidator       func() (constraints.Validator, error)
+	GetInstanceDistributor        func() (instance.Distributor, error)
+	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
 }
 
 func (p *MockPolicy) Prechecker() (state.Prechecker, error) {
@@ -54,4 +57,32 @@ func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error)
 		return p.GetStorageProviderRegistry()
 	}
 	return nil, errors.NotImplementedf("StorageProviderRegistry")
+}
+
+func (p *MockPolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	if p.GetProviderConfigSchemaSource != nil {
+		return p.GetProviderConfigSchemaSource()
+	}
+	return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
+}
+
+type MockConfigSchemaSource struct{}
+
+func (m *MockConfigSchemaSource) ConfigSchema() schema.Fields {
+	configSchema := environschema.Fields{
+		"providerAttr": {
+			Type: environschema.Tstring,
+		},
+	}
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}
+
+func (m *MockConfigSchemaSource) ConfigDefaults() schema.Defaults {
+	return schema.Defaults{
+		"providerAttr": "vulch",
+	}
 }

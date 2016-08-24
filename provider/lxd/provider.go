@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -87,4 +88,16 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 		}
 	}
 	return nil
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
 }

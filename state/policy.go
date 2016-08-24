@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
@@ -31,6 +29,10 @@ type NewPolicyFunc func(*State) Policy
 type Policy interface {
 	// Prechecker returns a Prechecker or an error.
 	Prechecker() (Prechecker, error)
+
+	// ProviderConfigSchemaSource returns a config.ConfigSchemaSource
+	// for the environ provider, or an error.
+	ProviderConfigSchemaSource() (config.ConfigSchemaSource, error)
 
 	// ConfigValidator returns a config.Validator or an error.
 	ConfigValidator() (config.Validator, error)
@@ -72,7 +74,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value, placeme
 		return err
 	}
 	if prechecker == nil {
-		return fmt.Errorf("policy returned nil prechecker without an error")
+		return errors.New("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(series, cons, placement)
 }
@@ -89,7 +91,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		} else if err != nil {
 			return nil, err
 		} else if validator == nil {
-			return nil, fmt.Errorf("policy returned nil constraints validator without an error")
+			return nil, errors.New("policy returned nil constraints validator without an error")
 		}
 	} else {
 		validator = constraints.NewValidator()
@@ -160,7 +162,7 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return nil, err
 	}
 	if configValidator == nil {
-		return nil, fmt.Errorf("policy returned nil configValidator without an error")
+		return nil, errors.New("policy returned nil configValidator without an error")
 	}
 	return configValidator.Validate(cfg, old)
 }
@@ -170,4 +172,11 @@ func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
 		return storage.StaticProviderRegistry{}, nil
 	}
 	return st.policy.StorageProviderRegistry()
+}
+
+func (st *State) environsProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	if st.policy == nil {
+		return nil, errors.NotImplementedf("config.ProviderConfigSchemaSource")
+	}
+	return st.policy.ProviderConfigSchemaSource()
 }
