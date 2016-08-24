@@ -168,8 +168,6 @@ def migrate_model_to_controller(source_client, dest_client):
     wait_for_model(
         migration_target_client, source_client.env.environment)
 
-    # For logging purposes
-    migration_target_client.show_status()
     migration_target_client.wait_for_started()
 
     return migration_target_client
