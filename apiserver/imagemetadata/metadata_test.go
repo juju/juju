@@ -116,7 +116,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 		// Once correct value is read from simplestreams, this needs to go.
 		// Bug# 1616295
 		// Ensure empty stream is changed to release
-		c.Assert("released", gc.DeepEquals, m[0].Stream)
+		c.Assert(m[0].Stream, gc.DeepEquals, "released")
 		if saveCalls == 1 {
 			// don't err on first call
 			return nil
