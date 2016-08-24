@@ -192,11 +192,11 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 			metadata.Priority,
 			metadata.ImageId,
 		}
+		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
+		// Once correct value is read from simplestreams, this needs to go.
+		// Bug# 1616295
 		if results[i].Stream == "" {
 			results[i].Stream = cfg.ImageStream()
-		}
-		if results[i].Source == "" {
-			results[i].Source = "custom"
 		}
 	}
 	return results

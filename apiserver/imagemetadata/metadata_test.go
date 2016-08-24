@@ -112,6 +112,9 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
 		c.Assert(m, gc.HasLen, saveCalls)
+		// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
+		// Once correct value is read from simplestreams, this needs to go.
+		// Bug# 1616295
 		// Ensure empty stream is changed to release
 		c.Assert("released", gc.DeepEquals, m[0].Stream)
 		if saveCalls == 1 {

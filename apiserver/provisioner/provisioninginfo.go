@@ -513,14 +513,14 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			priority,
 			m.Id,
 		}
+		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
+		// Once correct value is read from simplestreams, this needs to go.
+		// Bug# 1616295
 		if result.Stream == "" {
 			result.Stream = constraint.Stream
 		}
 		if result.Stream == "" {
 			result.Stream = cfg.ImageStream()
-		}
-		if result.Source == "" {
-			result.Source = "custom"
 		}
 		return result
 	}
