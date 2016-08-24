@@ -191,6 +191,11 @@ func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
 	return st.queryMetricBatches(bson.M{"unit": unit})
 }
 
+// MetricBatchesForModel returns metric batches for all the units in the model.
+func (st *State) MetricBatchesForModel() ([]MetricBatch, error) {
+	return st.queryMetricBatches(bson.M{"model-uuid": st.ModelUUID()})
+}
+
 // MetricBatchesForApplication returns metric batches for the given application.
 func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
 	svc, err := st.Application(application)
