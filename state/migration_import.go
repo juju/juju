@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -608,7 +609,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 }
 
 func (i *importer) application(s description.Application) error {
-	// Import this application, then soon, its units.
+	// Import this application, then its units.
 	i.logger.Debugf("importing application %s", s.Name())
 
 	// 1. construct an applicationDoc
@@ -761,6 +762,32 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
+	}
+	if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {
+	up, err := i.st.UnitPayloads(unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, p := range payloads {
+		if err := up.Track(payload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: p.Name(),
+				Type: p.Type(),
+			},
+			ID:     p.RawID(),
+			Status: p.State(),
+			Labels: p.Labels(),
+		}); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil

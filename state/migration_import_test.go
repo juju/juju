@@ -12,11 +12,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
@@ -910,6 +912,49 @@ func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
 	c.Assert(pool.Attrs(), jc.DeepEquals, map[string]interface{}{
 		"value": 42,
 	})
+}
+
+func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
+	originalUnit := s.Factory.MakeUnit(c, nil)
+	unitID := originalUnit.UnitTag().Id()
+	up, err := s.State.UnitPayloads(originalUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	original := payload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "something",
+			Type: "special",
+		},
+		ID:     "42",
+		Status: "running",
+		Labels: []string{"foo", "bar"},
+	}
+	err = up.Track(original)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	unit, err := newSt.Unit(unitID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	up, err = newSt.UnitPayloads(unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := up.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Payload, gc.NotNil)
+
+	payload := result[0].Payload
+
+	machineID, err := unit.AssignedMachineId()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(payload.Name, gc.Equals, original.Name)
+	c.Check(payload.Type, gc.Equals, original.Type)
+	c.Check(payload.ID, gc.Equals, original.ID)
+	c.Check(payload.Status, gc.Equals, original.Status)
+	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
+	c.Check(payload.Unit, gc.Equals, unitID)
+	c.Check(payload.Machine, gc.Equals, machineID)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

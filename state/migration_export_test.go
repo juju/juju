@@ -10,11 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -910,4 +912,40 @@ func (s *MigrationExportSuite) TestStoragePools(c *gc.C) {
 	c.Assert(pool.Attributes(), jc.DeepEquals, map[string]interface{}{
 		"value": 42,
 	})
+}
+
+func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	up, err := s.State.UnitPayloads(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	original := payload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "something",
+			Type: "special",
+		},
+		ID:     "42",
+		Status: "running",
+		Labels: []string{"foo", "bar"},
+	}
+	err = up.Track(original)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+
+	units := applications[0].Units()
+	c.Assert(units, gc.HasLen, 1)
+
+	payloads := units[0].Payloads()
+	c.Assert(payloads, gc.HasLen, 1)
+
+	payload := payloads[0]
+	c.Check(payload.Name(), gc.Equals, original.Name)
+	c.Check(payload.Type(), gc.Equals, original.Type)
+	c.Check(payload.RawID(), gc.Equals, original.ID)
+	c.Check(payload.State(), gc.Equals, original.Status)
+	c.Check(payload.Labels(), jc.DeepEquals, original.Labels)
 }

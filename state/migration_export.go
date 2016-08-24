@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -473,6 +474,11 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	payloads, err := e.readAllPayloads()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
@@ -482,6 +488,7 @@ func (e *exporter) applications() error {
 			storageConstraints: storageConstraints,
 			meterStatus:        meterStatus,
 			leader:             leader,
+			payloads:           payloads,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -534,12 +541,25 @@ func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	return result, nil
 }
 
+func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, error) {
+	result := make(map[string][]payload.FullPayloadInfo)
+	all, err := ModelPayloads{db: e.st.database}.ListAll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, payload := range all {
+		result[payload.Unit] = append(result[payload.Unit], payload)
+	}
+	return result, nil
+}
+
 type addApplicationContext struct {
 	application        *Application
 	units              []*Unit
 	storageConstraints map[string]map[string]StorageConstraints
 	meterStatus        map[string]*meterStatusDoc
 	leader             string
+	payloads           map[string][]payload.FullPayloadInfo
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
@@ -620,6 +640,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
+
+		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
+			return errors.Trace(err)
+		}
+
 		// workload uses globalKey, agent uses globalAgentKey,
 		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
@@ -660,6 +685,25 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		exUnit.SetConstraints(constraintsArgs)
 	}
 
+	return nil
+}
+
+func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
+	unitID := exUnit.Tag().Id()
+	machineID := exUnit.Machine().Id()
+	for _, payload := range payloads {
+		if payload.Machine != machineID {
+			return errors.NotValidf("payload for unit %q reports wrong machine %q (should be %q)", unitID, payload.Machine, machineID)
+		}
+		args := description.PayloadArgs{
+			Name:   payload.Name,
+			Type:   payload.Type,
+			RawID:  payload.ID,
+			State:  payload.Status,
+			Labels: payload.Labels,
+		}
+		exUnit.AddPayload(args)
+	}
 	return nil
 }
 
