@@ -948,5 +948,4 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.RawID(), gc.Equals, original.ID)
 	c.Check(payload.State(), gc.Equals, original.Status)
 	c.Check(payload.Labels(), jc.DeepEquals, original.Labels)
-
 }
