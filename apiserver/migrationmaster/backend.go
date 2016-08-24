@@ -11,9 +11,9 @@ import (
 // Backend defines the state functionality required by the
 // migrationmaster facade.
 type Backend interface {
-	migration.StateExporter
-
 	WatchForMigration() state.NotifyWatcher
 	LatestMigration() (state.ModelMigration, error)
 	RemoveExportingModelDocs() error
+
+	migration.StateExporter
 }
