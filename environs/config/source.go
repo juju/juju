@@ -63,3 +63,25 @@ type ConfigSchemaSource interface {
 	// provider specific config attributes.
 	ConfigDefaults() schema.Defaults
 }
+
+// DefaultConfigValues is a map of configuration values to a list of possible
+// values.
+type DefaultValues map[string]DefaultSetting
+
+// DefaultSetting represents all the default values at each level for a given
+// setting.
+type DefaultSetting struct {
+	// Default and Controller represent the values as set at those levels.
+	Default, Controller interface{}
+	// Regions is a slice of Region representing the values as set in each
+	// region.
+	Regions []Region
+}
+
+// Region holds the region information for each region in DefaultSetting.
+type Region struct {
+	// Name represents the region name for this specific setting.
+	Name string
+	// Value is the value of the setting this represents in the named region.
+	Value interface{}
+}

@@ -22,6 +22,26 @@ type ModelConfigResults struct {
 	Config map[string]ConfigValue `json:"config"`
 }
 
+// ModelDefaultResults contains the result of client API calls to get the
+// model default values.
+type ModelDefaultResults struct {
+	Config map[string]ConfigSetting `json:"config"`
+}
+
+// ConfigSetting Holds the settings for a given ModelDefaultResults config
+// attribute.
+type ConfigSetting struct {
+	Default    interface{}     `json:"default"`
+	Controller interface{}     `json:"regions"`
+	Regions    []RegionSetting `json:"regions"`
+}
+
+// RegionSetting contains the settings for regions in a ConfigSetting.
+type RegionSetting struct {
+	Name  string      `json:"name"`
+	Value interface{} `json:"value"`
+}
+
 // ModelSet contains the arguments for ModelSet client API
 // call.
 type ModelSet struct {

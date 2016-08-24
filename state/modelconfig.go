@@ -166,9 +166,51 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-// TODO(ro) Use this for model defaults.
-func (st *State) ModelConfigDefaultValues() (config.ConfigValues, error) {
-	return st.modelConfigValues(nil)
+func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudName := model.Cloud()
+	cloud, err := st.Cloud(cloudName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(config.DefaultValues)
+	// Juju defaults
+	for k, v := range config.ConfigDefaults() {
+		result[k] = config.DefaultSetting{Default: v}
+	}
+	// Controller config
+	ciCfg, err := st.controllerInheritedConfig()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+
+	}
+	for k, v := range ciCfg {
+		ds := result[k]
+		ds.Controller = v
+		result[k] = ds
+	}
+	// Region config
+	for _, region := range cloud.Regions {
+		rspec := &environs.RegionSpec{Cloud: cloudName, Region: region.Name}
+		riCfg, err := st.regionInheritedConfig(rspec)()
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		for k, v := range riCfg {
+			regCfg := config.Region{Name: region.Name, Value: v}
+			ds := result[k]
+			ds.Regions = append(ds.Regions, regCfg)
+			result[k] = ds
+		}
+	}
+	return result, nil
 }
 
 // checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.

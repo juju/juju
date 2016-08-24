@@ -42,9 +42,9 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
 		},
-		cfgDefaults: config.ConfigValues{
-			"attr":  {Value: "val", Source: "controller"},
-			"attr2": {Value: "val2", Source: "controller"},
+		cfgDefaults: config.DefaultValues{
+			"attr":  {Controller: "val"},
+			"attr2": {Controller: "val2"},
 		},
 	}
 	var err error
@@ -160,9 +160,9 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	result, err := s.api.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := map[string]params.ConfigValue{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
+	expectedValues := map[string]params.ConfigSetting{
+		"attr":  {Controller: "val"},
+		"attr2": {Controller: "val2"},
 	}
 	c.Assert(result.Config, jc.DeepEquals, expectedValues)
 }
@@ -177,11 +177,11 @@ func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
 	result, err := s.api.SetModelDefaults(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
-		"attr3": {Value: "val3", Source: "controller"},
-		"attr4": {Value: "val4", Source: "controller"},
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.DefaultValues{
+		"attr":  {Controller: "val"},
+		"attr2": {Controller: "val2"},
+		"attr3": {Controller: "val3"},
+		"attr4": {Controller: "val4"},
 	})
 }
 
@@ -199,8 +199,8 @@ func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
 	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr2": {Value: "val2", Source: "controller"},
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.DefaultValues{
+		"attr2": {Controller: "val2"},
 	})
 }
 
@@ -227,7 +227,7 @@ func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 
 type mockBackend struct {
 	cfg         config.ConfigValues
-	cfgDefaults config.ConfigValues
+	cfgDefaults config.DefaultValues
 	old         *config.Config
 	b           state.BlockType
 	msg         string
@@ -237,7 +237,7 @@ func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
 }
 
-func (m *mockBackend) ModelConfigDefaultValues() (config.ConfigValues, error) {
+func (m *mockBackend) ModelConfigDefaultValues() (config.DefaultValues, error) {
 	return m.cfgDefaults, nil
 }
 
@@ -259,7 +259,7 @@ func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []
 
 func (m *mockBackend) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
 	for k, v := range update {
-		m.cfgDefaults[k] = config.ConfigValue{v, "controller"}
+		m.cfgDefaults[k] = config.DefaultSetting{Controller: v}
 	}
 	for _, n := range remove {
 		delete(m.cfgDefaults, n)
