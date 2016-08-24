@@ -77,8 +77,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 func (s *providerSuite) TestSecretAttrs(c *gc.C) {
 	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(obtainedAttrs, gc.DeepEquals, map[string]string{"client-key": ""})
+	c.Assert(obtainedAttrs, gc.HasLen, 0)
 }
 
 type ProviderFunctionalSuite struct {
@@ -116,8 +115,32 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 
 func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
 	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, nil)
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:       "lxd",
+			Name:       "remotehost",
+			Credential: &cred,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigNonEmptyEndpoint(c *gc.C) {
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:     "lxd",
+			Name:     "remotehost",
+			Endpoint: "1.2.3.4",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: non-empty endpoint "1.2.3.4" not valid`)
 }
