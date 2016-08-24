@@ -784,8 +784,6 @@ class BootstrapManager:
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
-        if sys.platform == 'win32':
-            return True
         return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):
