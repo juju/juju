@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type upgradingRootSuite struct {
+type restrictUpgradesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&upgradingRootSuite{})
+var _ = gc.Suite(&restrictUpgradesSuite{})
 
-func (r *upgradingRootSuite) TestAllowedMethods(c *gc.C) {
+func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 	checkAllowed := func(facade, method string) {
 		caller, err := root.FindMethod(facade, 1, method)
@@ -33,23 +33,9 @@ func (r *upgradingRootSuite) TestAllowedMethods(c *gc.C) {
 	checkAllowed("Pinger", "Ping")
 }
 
-func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
+func (r *restrictUpgradesSuite) TestFindDisallowedMethod(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 	caller, err := root.FindMethod("Client", 1, "ModelSet")
 	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
-	c.Assert(caller, gc.IsNil)
-}
-
-func (r *upgradingRootSuite) TestFindNonExistentMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot(nil)
-	caller, err := root.FindMethod("Foo", 0, "Bar")
-	c.Assert(err, gc.ErrorMatches, "unknown object type \"Foo\"")
-	c.Assert(caller, gc.IsNil)
-}
-
-func (r *upgradingRootSuite) TestFindMethodNonExistentVersion(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot(nil)
-	caller, err := root.FindMethod("Client", 99999999, "FullStatus")
-	c.Assert(err, gc.ErrorMatches, "unknown version \\(99999999\\) of interface \"Client\"")
 	c.Assert(caller, gc.IsNil)
 }

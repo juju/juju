@@ -30,7 +30,7 @@ var _ = gc.Suite(&loginV3Suite{
 })
 
 func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)
@@ -44,7 +44,7 @@ func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)
@@ -62,7 +62,7 @@ func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	password := "shhh..."
@@ -87,7 +87,7 @@ func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)
