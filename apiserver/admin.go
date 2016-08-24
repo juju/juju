@@ -214,36 +214,34 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		ModelTag:      model.Tag().String(),
 		ControllerTag: model.ControllerTag().String(),
-		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
 	}
 
-	var allowFacade func(string) bool
 	if controllerOnlyLogin {
+		loginResult.Facades = filterFacades(isControllerFacade)
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
-		allowFacade = isControllerFacade
-		// Remove the ModelTag from the response as there is no model here.
-		loginResult.ModelTag = ""
 	} else {
+		loginResult.ModelTag = model.Tag().String()
+		loginResult.Facades = filterFacades(isModelFacade)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
-		allowFacade = isModelFacade
 	}
-
-	// Strip out the facades that are not supported from the result.
-	facades := make([]params.FacadeVersions, 0, len(loginResult.Facades))
-	for _, facade := range loginResult.Facades {
-		if allowFacade(facade.Name) {
-			facades = append(facades, facade)
-		}
-	}
-	loginResult.Facades = facades
 
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
 	return loginResult, nil
+}
+
+func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
+	allFacades := DescribeFacades()
+	out := make([]params.FacadeVersions, 0, len(allFacades))
+	for _, facade := range allFacades {
+		if allowFacade(facade.Name) {
+			out = append(out, facade)
+		}
+	}
+	return out
 }
 
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
