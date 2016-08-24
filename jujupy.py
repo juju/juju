@@ -82,8 +82,8 @@ class IncompatibleConfigClass(Exception):
     """Raised when a client is initialised with the wrong config class."""
 
 
-class DeadlineExceeded(Exception):
-    """Raised when a client operation takes too long."""
+class SoftDeadlineExceeded(Exception):
+    """Raised when an overall client operation takes too long."""
 
 
 def get_timeout_path():
@@ -552,43 +552,38 @@ class Juju2Backend:
     """
 
     def __init__(self, full_path, version, feature_flags, debug,
-                 deadline=None):
+                 soft_deadline=None):
         self._version = version
         self._full_path = full_path
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
-        self.deadline = deadline
-        self._ignore_deadline = False
+        self.soft_deadline = soft_deadline
+        self._ignore_soft_deadline = False
 
     def _now(self):
         return datetime.utcnow()
 
     @contextmanager
     def _check_timeouts(self):
-        try:
-            yield
-        except subprocess.CalledProcessError as e:
-            if e.returncode != 124:
-                raise
-            if self.deadline is None:
-                raise
-            if self._ignore_deadline:
-                raise
-            if self._now() <= self.deadline:
-                raise
-            raise DeadlineExceeded('Operation exceeded deadline.')
+        # If an exception occurred, we don't want to replace it with
+        # SoftDeadlineExceeded.
+        yield
+        if self.soft_deadline is None or self._ignore_soft_deadline:
+            return
+        if self._now() > self.soft_deadline:
+            raise SoftDeadlineExceeded('Operation exceeded deadline.')
 
     @contextmanager
-    def ignore_deadline(self):
+    def ignore_soft_deadline(self):
         """Ignore the client deadline.  For cleanup code."""
-        old_val = self._ignore_deadline
-        self._ignore_deadline = True
+        old_val = self._ignore_soft_deadline
+        self._ignore_soft_deadline = True
         try:
             yield
         finally:
-            self._ignore_deadline = old_val
+            self._ignore_soft_deadline = old_val
 
     def clone(self, full_path, version, debug, feature_flags):
         if version is None:
@@ -641,12 +636,6 @@ class Juju2Backend:
             e_arg = ('-m', model)
         else:
             e_arg = ()
-        if self.deadline is not None  and not self._ignore_deadline:
-            deadline_timeout = (self.deadline - self._now()).total_seconds()
-            if timeout is None:
-                timeout = deadline_timeout
-            else:
-                timeout = min(deadline_timeout, timeout)
         if timeout is None:
             prefix = ()
         else:
