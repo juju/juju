@@ -68,38 +68,6 @@ func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
 	)
 }
 
-func (s *DeploySuite) testNotifyDeployerError(
-	c *gc.C, newDeploy newDeploy, expectNotifyRevert bool,
-) {
-	callbacks := &DeployCallbacks{}
-	deployer := &MockDeployer{}
-	expectCall := &MockNoArgs{err: errors.New("snh")}
-	if expectNotifyRevert {
-		deployer.MockNotifyRevert = expectCall
-	} else {
-		deployer.MockNotifyResolved = expectCall
-	}
-	factory := operation.NewFactory(operation.FactoryParams{
-		Callbacks: callbacks,
-		Deployer:  deployer,
-	})
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err := op.Prepare(operation.State{})
-	c.Check(newState, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "snh")
-	c.Check(expectCall.called, jc.IsTrue)
-}
-
-func (s *DeploySuite) TestNotifyDeployerError_RevertUpgrade(c *gc.C) {
-	s.testNotifyDeployerError(c, (operation.Factory).NewRevertUpgrade, true)
-}
-
-func (s *DeploySuite) TestNotifyDeployerError_ResolvedUpgrade(c *gc.C) {
-	s.testNotifyDeployerError(c, (operation.Factory).NewResolvedUpgrade, false)
-}
-
 func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
 		MockGetArchiveInfo: &MockGetArchiveInfo{err: errors.New("pew")},
