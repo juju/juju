@@ -62,9 +62,13 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 	charmsClient := charms.NewClient(state)
 	metered, err := charmsClient.IsMetered(deployInfo.CharmID.URL.String())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !metered {
+		return nil
+	}
+	info := deployInfo.CharmInfo
+	if info.Metrics != nil && !info.Metrics.PlanRequired() {
 		return nil
 	}
 
