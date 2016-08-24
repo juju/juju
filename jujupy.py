@@ -669,7 +669,8 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            rval = call_func(args)
+            with self._check_timeouts():
+                rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -697,7 +698,8 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            proc = subprocess.Popen(full_args)
+            with self._check_timeouts():
+                proc = subprocess.Popen(full_args)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
@@ -715,7 +717,8 @@ class Juju2Backend:
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
                 stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
-            sub_output, sub_error = proc.communicate()
+            with self._check_timeouts():
+                sub_output, sub_error = proc.communicate()
             log.debug(sub_output)
             if proc.returncode != 0:
                 log.debug(sub_error)
