@@ -79,6 +79,9 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, cre
 // state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize
 // it.
 type RegionSpec struct {
-	Cloud  string
+	// Cloud is the name of the cloud.
+	Cloud string
+
+	// Region is the name of the cloud region.
 	Region string
 }

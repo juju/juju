@@ -50,7 +50,11 @@ func checkModelConfig(cfg *config.Config) error {
 // inheritedConfigAttributes returns the merged collection of inherited config
 // values used as model defaults when adding models or unsetting values.
 func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
-	configSources := modelConfigSources(st, nil)
+	rspec, err := st.regionSpec()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configSources := modelConfigSources(st, rspec)
 	values := make(attrValues)
 	for _, src := range configSources {
 		cfg, err := src.sourceFunc()
@@ -77,7 +81,11 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 
 	// Read all of the current inherited config values so
 	// we can dynamically reflect the origin of the model config.
-	configSources := modelConfigSources(st, nil)
+	rspec, err := st.regionSpec()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configSources := modelConfigSources(st, rspec)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -284,12 +292,19 @@ type modelConfigSource struct {
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State, regionSpec *environs.RegionSpec) []modelConfigSource {
-	return []modelConfigSource{
+	sources := []modelConfigSource{
 		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
-		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
+	if regionSpec == nil {
+		// There's no region, so return.
+		return sources
+	}
+	// Otherwise append regionInheritedConfig.
+	sources = append(sources, modelConfigSource{
+		config.JujuRegionSource, st.regionInheritedConfig(regionSpec)})
 
+	return sources
 }
 
 const (
@@ -312,11 +327,10 @@ func (st *State) controllerInheritedConfig() (attrValues, error) {
 func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (attrValues, error) {
 	if regionSpec == nil {
 		return func() (attrValues, error) {
-			return nil, errors.NotFoundf(
+			return nil, errors.New(
 				"no environs.RegionSpec provided")
 		}
 	}
-
 	return func() (attrValues, error) {
 		settings, err := readSettings(st,
 			globalSettingsC,
@@ -327,6 +341,25 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 		}
 		return settings.Map(), nil
 	}
+}
+
+// regionSpec returns a suitable environs.RegionSpec for use in
+// regionInheritedConfig.
+func (st *State) regionSpec() (*environs.RegionSpec, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if model.CloudRegion() == "" {
+		// If there is not a region we cannot make a valid region spec.
+		return nil, errors.NotFoundf("cloud %s has no region", model.Cloud())
+	}
+	rspec := &environs.RegionSpec{
+		Cloud:  model.Cloud(),
+		Region: model.CloudRegion(),
+	}
+	return rspec, nil
 }
 
 // composeModelConfigAttributes returns a set of model config settings composed from known

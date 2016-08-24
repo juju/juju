@@ -98,7 +98,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			Owner:                   owner,
 			Config:                  cfg,
 			CloudName:               "dummy",
-			CloudRegion:             "some-region",
+			CloudRegion:             "dummy-region",
 			CloudCredential:         userPassCredentialTag,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
@@ -108,7 +108,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			AuthTypes: []cloud.AuthType{
 				cloud.EmptyAuthType, cloud.UserPassAuthType,
 			},
-			Regions: []cloud.Region{{Name: "some-region"}},
+			Regions: []cloud.Region{{Name: "dummy-region"}},
 		},
 		CloudCredentials: cloudCredentialsIn,
 		MongoInfo:        statetesting.NewMongoInfo(),
@@ -136,7 +136,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Tag(), gc.Equals, modelTag)
-	c.Assert(model.CloudRegion(), gc.Equals, "some-region")
+	c.Assert(model.CloudRegion(), gc.Equals, "dummy-region")
 	// Check that the owner has been created.
 	c.Assert(model.Owner(), gc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
@@ -332,6 +332,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
+			CloudRegion:             "dummy-region",
 			Owner:                   owner,
 			Config:                  bad,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
@@ -340,6 +341,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions:   []cloud.Region{{Name: "dummy-region"}},
 		},
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
