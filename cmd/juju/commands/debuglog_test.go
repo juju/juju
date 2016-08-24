@@ -125,7 +125,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 
 func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	// test timezone is 6 hours east of UTC
-	s.PatchValue(&time.Local, time.FixedZone("test", 6*60*60))
+	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: []api.LogMessage{
 			{
@@ -141,7 +141,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	checkOutput := func(args ...string) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
-		ctx, err := testing.RunCommand(c, newDebugLogCommand(), args...)
+		ctx, err := testing.RunCommand(c, newDebugLogCommandTZ(tz), args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(testing.Stdout(ctx), gc.Equals, expected)
 
