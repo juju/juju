@@ -178,8 +178,10 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	pkgs := cfg.Packages()
 	for _, pkg := range pkgs {
-		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
 		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.InstallCmd(pkg))
+	}
+	if len(cmds) > 0 {
+		cmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgs, ", ")))}, cmds...)
 	}
 	return cmds, nil
 }

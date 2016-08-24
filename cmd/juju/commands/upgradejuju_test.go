@@ -565,11 +565,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1.3-quantal-amd64
-best version:
-    2.1.3
-upgrade to this version by running
+			expectedCmdOutput: `upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
 `,
 		},
@@ -579,15 +575,7 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1-dev1-quantal-amd64
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
-    2.1.3-quantal-amd64
-    2.2.3-quantal-amd64
-best version:
-    2.1.3
-upgrade to this version by running
+			expectedCmdOutput: `upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
 `,
 		},
@@ -597,13 +585,7 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "1.2.3-myawesomeseries-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
-    2.1.3-quantal-amd64
-best version:
-    2.1.3
-upgrade to this version by running
+			expectedCmdOutput: `upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
 `,
 		},
@@ -664,11 +646,6 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 }
 
 func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
-	toolsList49Only := `available tools:
-    4.9.0-trusty-amd64
-best version:
-    4.9.0
-`
 	tests := []struct {
 		about             string
 		cmdArgs           []string
@@ -682,30 +659,24 @@ best version:
 		expectedErr       string
 		upgradeMap        map[int]version.Number
 	}{{
-		about:             "upgrade previous major to latest previous major",
-		tools:             []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
-		currentVersion:    "5.0.0-trusty-amd64",
-		agentVersion:      "4.8.5",
-		expectedVersion:   "4.9.0",
-		expectedCmdOutput: toolsList49Only,
-		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.0\).*started upgrade to 4.9.0.*`,
+		about:           "upgrade previous major to latest previous major",
+		tools:           []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
+		currentVersion:  "5.0.0-trusty-amd64",
+		agentVersion:    "4.8.5",
+		expectedVersion: "4.9.0",
 	}, {
-		about:             "upgrade previous major to latest previous major --dry-run still warns",
-		tools:             []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
-		currentVersion:    "5.0.1-trusty-amd64",
-		agentVersion:      "4.8.5",
-		expectedVersion:   "4.9.0",
-		expectedCmdOutput: toolsList49Only,
-		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.1\).*started upgrade to 4.9.0.*`,
+		about:           "upgrade previous major to latest previous major --dry-run still warns",
+		tools:           []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
+		currentVersion:  "5.0.1-trusty-amd64",
+		agentVersion:    "4.8.5",
+		expectedVersion: "4.9.0",
 	}, {
-		about:             "upgrade previous major to latest previous major with --version",
-		cmdArgs:           []string{"--version=4.9.0"},
-		tools:             []string{"5.0.2-trusty-amd64", "4.9.0-trusty-amd64", "4.8.0-trusty-amd64"},
-		currentVersion:    "5.0.2-trusty-amd64",
-		agentVersion:      "4.7.5",
-		expectedVersion:   "4.9.0",
-		expectedCmdOutput: toolsList49Only,
-		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.2\).*started upgrade to 4.9.0.*`,
+		about:           "upgrade previous major to latest previous major with --version",
+		cmdArgs:         []string{"--version=4.9.0"},
+		tools:           []string{"5.0.2-trusty-amd64", "4.9.0-trusty-amd64", "4.8.0-trusty-amd64"},
+		currentVersion:  "5.0.2-trusty-amd64",
+		agentVersion:    "4.7.5",
+		expectedVersion: "4.9.0",
 	}, {
 		about:             "can upgrade lower major version to current major version at minimum level",
 		cmdArgs:           []string{"--version=6.0.5"},

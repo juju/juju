@@ -181,7 +181,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
 
-	ctx.Infof("Bootstrapping model %q", cfg.Name())
 	_, supportsNetworking := environs.SupportsNetworking(environ)
 	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
@@ -217,6 +216,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		}
 	}
 
+	ctx.Verbosef("Loading image metadata")
 	imageMetadata, err := bootstrapImageMetadata(environ,
 		bootstrapSeries,
 		bootstrapArchForImageSearch,
@@ -278,6 +278,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	var availableTools coretools.List
 	if !args.BuildAgent {
+		ctx.Infof("Looking for packaged Juju agent binaries")
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
@@ -293,6 +294,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
+		ctx.Infof("Preparing local Juju agent binary")
 		var forceVersion version.Number
 		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
 		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
@@ -367,7 +369,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	ctx.Infof("Installing Juju agent on bootstrap instance")
+	logger.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
 		return err
@@ -394,7 +396,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
 		return err
 	}
-	ctx.Infof("Bootstrap agent installed")
+	ctx.Infof("Bootstrap agent now started")
 	return nil
 }
 
@@ -687,7 +689,7 @@ func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.G
 			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
 			return nil
 		}
-		logProgress(fmt.Sprintf("Preparing for Juju GUI %s installation from local archive", vers))
+		logProgress(fmt.Sprintf("Fetching Juju GUI %s from local archive", vers))
 		return &coretools.GUIArchive{
 			Version: vers,
 			URL:     "file://" + filepath.ToSlash(path),
@@ -712,7 +714,7 @@ func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.G
 		return nil
 	}
 	// Metadata info are returned in descending version order.
-	logProgress(fmt.Sprintf("Preparing for Juju GUI %s release installation", allMeta[0].Version))
+	logProgress(fmt.Sprintf("Fetching Juju GUI %s", allMeta[0].Version))
 	return &coretools.GUIArchive{
 		Version: allMeta[0].Version,
 		URL:     allMeta[0].FullPath,
