@@ -74,12 +74,6 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
 }
 
-func (s *providerSuite) TestSecretAttrs(c *gc.C) {
-	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedAttrs, gc.HasLen, 0)
-}
-
 type ProviderFunctionalSuite struct {
 	lxd.BaseSuite
 

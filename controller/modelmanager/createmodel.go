@@ -176,7 +176,6 @@ func RestrictedProviderFields(provider environs.EnvironProvider) ([]string, erro
 	var fields []string
 	// For now, all models in a controller must be of the same type.
 	fields = append(fields, config.TypeKey)
-	fields = append(fields, provider.RestrictedConfigAttributes()...)
 	return fields, nil
 }
 

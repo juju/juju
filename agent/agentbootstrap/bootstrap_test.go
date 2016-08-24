@@ -302,13 +302,12 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Make sure that the hosted model Environ's Create method is called.
 	envProvider.CheckCallNames(c,
-		"RestrictedConfigAttributes",
 		"PrepareConfig",
 		"Validate",
 		"Open",
 		"Create",
 	)
-	envProvider.CheckCall(c, 3, "Open", environs.OpenParams{
+	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
@@ -316,7 +315,7 @@ LXC_BRIDGE="ignored"`[1:])
 		},
 		Config: hostedCfg,
 	})
-	envProvider.CheckCall(c, 4, "Create", environs.CreateParams{
+	envProvider.CheckCall(c, 3, "Create", environs.CreateParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 	})
 }
@@ -458,11 +457,6 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 type fakeProvider struct {
 	environs.EnvironProvider
 	gitjujutesting.Stub
-}
-
-func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.MethodCall(p, "RestrictedConfigAttributes")
-	return []string{}
 }
 
 func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

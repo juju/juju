@@ -81,13 +81,6 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	return env, nil
 }
 
-// RestrictedConfigAttributes are provider specific attributes stored in
-// the config that really cannot or should not be changed across
-// environments running inside a single juju server.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // PrepareConfig is defined by EnvironProvider.
 func (environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
@@ -122,13 +115,6 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 	}
 
 	return newEcfg.Config, nil
-}
-
-// SecretAttrs filters the supplied configuration returning only values
-// which are considered sensitive. All of the values of these secret
-// attributes need to be strings.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

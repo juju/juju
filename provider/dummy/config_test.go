@@ -26,31 +26,6 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 }
 
-func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
-	attrs := dummy.SampleConfig().Delete("secret")
-	ctx := envtesting.BootstrapContext(c)
-	env, err := bootstrap.Prepare(
-		ctx, jujuclienttesting.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			ModelConfig:      attrs,
-			ControllerName:   attrs["name"].(string),
-			Cloud:            dummy.SampleCloudSpec(),
-			AdminSecret:      AdminSecret,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	defer env.Destroy()
-	expected := map[string]string{
-		"secret": "pork",
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	actual, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.DeepEquals, expected)
-}
-
 var firewallModeTests = []struct {
 	configFirewallMode string
 	firewallMode       string

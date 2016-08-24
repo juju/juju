@@ -173,12 +173,6 @@ func InitializeState(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO(axw) we shouldn't be adding credentials to model config.
-	if args.ControllerCloudCredential != nil {
-		for k, v := range args.ControllerCloudCredential.Attributes() {
-			attrs[k] = v
-		}
-	}
 	controllerUUID := args.ControllerConfig.ControllerUUID()
 	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
 	hostedModelConfig, err := creator.NewModelConfig(

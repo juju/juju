@@ -45,6 +45,7 @@ var (
 
 type manualEnviron struct {
 	host     string
+	user     string
 	cfgmutex sync.Mutex
 	cfg      *environConfig
 }
@@ -82,7 +83,7 @@ func (e *manualEnviron) Config() *config.Config {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.envConfig()); err != nil {
+	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, e.envConfig()); err != nil {
 		return err
 	}
 	return nil
