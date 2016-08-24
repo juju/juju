@@ -12,31 +12,31 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type PrecheckSuite struct {
+type SourcePrecheckSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&PrecheckSuite{})
+var _ = gc.Suite(&SourcePrecheckSuite{})
 
-func (*PrecheckSuite) TestPrecheckCleanups(c *gc.C) {
+func (*SourcePrecheckSuite) TestCleanups(c *gc.C) {
 	backend := &fakePrecheckBackend{}
-	err := migration.Precheck(backend)
+	err := migration.SourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*PrecheckSuite) TestPrecheckCleanupsError(c *gc.C) {
+func (*SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 	backend := &fakePrecheckBackend{
 		cleanupError: errors.New("boom"),
 	}
-	err := migration.Precheck(backend)
-	c.Assert(err, gc.ErrorMatches, "precheck cleanups: boom")
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "checking cleanups: boom")
 }
 
-func (*PrecheckSuite) TestPrecheckCleanupsNeeded(c *gc.C) {
+func (*SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
 	backend := &fakePrecheckBackend{
 		cleanupNeeded: true,
 	}
-	err := migration.Precheck(backend)
+	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "precheck failed: cleanup needed")
 }
 
@@ -45,6 +45,6 @@ type fakePrecheckBackend struct {
 	cleanupError  error
 }
 
-func (f *fakePrecheckBackend) NeedsCleanup() (bool, error) {
-	return f.cleanupNeeded, f.cleanupError
+func (b *fakePrecheckBackend) NeedsCleanup() (bool, error) {
+	return b.cleanupNeeded, b.cleanupError
 }

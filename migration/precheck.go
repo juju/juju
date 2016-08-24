@@ -7,18 +7,17 @@ import (
 	"github.com/juju/errors"
 )
 
-// PrecheckBackend is implemented by *state.State but defined as an interface
-// for easier testing.
-type PrecheckBackend interface {
+// SourcePrecheckBackend defines the things required to
+type SourcePrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 }
 
-// Precheck checks the database state to make sure that the preconditions
-// for model migration are met.
-func Precheck(backend PrecheckBackend) error {
+// SourcePrecheck checks the state of the source controller to make
+// sure that the preconditions for model migration are met.
+func SourcePrecheck(backend SourcePrecheckBackend) error {
 	cleanupNeeded, err := backend.NeedsCleanup()
 	if err != nil {
-		return errors.Annotate(err, "precheck cleanups")
+		return errors.Annotate(err, "checking cleanups")
 	}
 	if cleanupNeeded {
 		return errors.New("precheck failed: cleanup needed")
