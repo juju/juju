@@ -5,11 +5,9 @@ package application
 
 import (
 	"archive/zip"
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -18,7 +16,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
@@ -41,8 +39,8 @@ var planURL = "https://api.jujucharms.com/omnibus/v2"
 
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
-	AddCharm(*charm.URL, csclientparams.Channel) error
-	AddCharmWithAuthorization(*charm.URL, csclientparams.Channel, *macaroon.Macaroon) error
+	AddCharm(*charm.URL, params.Channel) error
+	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon) error
 }
 
 // DeployAPI represents the methods of the API the deploy
@@ -55,6 +53,7 @@ type DeployAPI interface {
 
 	ModelUUID() (string, bool)
 	CharmInfo(string) (*apicharms.CharmInfo, error)
+	Deploy(application.DeployArgs) error
 
 	// IsMetered(charmURL string) (bool, error)
 	// SetMetricCredentials(service string, credentials []byte) error
@@ -77,14 +76,34 @@ type charmsClient struct {
 	*apicharms.Client
 }
 
+type applicationClient struct {
+	*application.Client
+}
+
 type deployAPIAdapter struct {
 	api.Connection
 	*apiClient
 	*charmsClient
+	*applicationClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
 	return a.apiClient.Client
+}
+
+func (a *deployAPIAdapter) ModelUUID() (string, bool) {
+	return a.apiClient.ModelUUID()
+}
+
+func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
+	for i, p := range args.Placement {
+		if p.Scope == "model-uuid" {
+			p.Scope = a.applicationClient.ModelUUID()
+		}
+		args.Placement[i] = p
+	}
+
+	return errors.Trace(a.applicationClient.Deploy(args))
 }
 
 type NewAPIRootFn func() (DeployAPI, error)
@@ -98,9 +117,10 @@ func NewDeployCommand() cmd.Command {
 			return nil, errors.Trace(err)
 		}
 		return &deployAPIAdapter{
-			Connection:   apiRoot,
-			apiClient:    &apiClient{Client: apiRoot.Client()},
-			charmsClient: &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			Connection:        apiRoot,
+			apiClient:         &apiClient{Client: apiRoot.Client()},
+			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			applicationClient: &applicationClient{application.NewClient(apiRoot)},
 		}, nil
 	}
 	return cmd
@@ -134,7 +154,7 @@ type DeployCommand struct {
 
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be deployed.
-	Channel csclientparams.Channel
+	Channel params.Channel
 
 	// Series is the series of the charm to deploy.
 	Series string
@@ -372,7 +392,7 @@ func (c *DeployCommand) deployBundle(
 	ident string,
 	filePath string,
 	data *charm.BundleData,
-	channel csclientparams.Channel,
+	channel params.Channel,
 	apiRoot DeployAPI,
 	resolver *charmURLResolver,
 	bundleStorage map[string]map[string]storage.Constraints,
@@ -471,7 +491,7 @@ func (c *DeployCommand) deployCharm(
 		return errors.Trace(err)
 	}
 
-	params := application.DeployArgs{
+	return errors.Trace(apiRoot.Deploy(application.DeployArgs{
 		CharmID:          id,
 		Cons:             c.Constraints,
 		ApplicationName:  serviceName,
@@ -482,8 +502,7 @@ func (c *DeployCommand) deployCharm(
 		Storage:          c.Storage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
-	}
-	return errors.Trace(deployApp(apiRoot, params))
+	}))
 }
 
 func handleResources(
@@ -562,6 +581,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		apiRoot,
 		c.maybeReadLocalBundle,
 		c.maybeReadLocalCharm,
+		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundle,
 		c.charmStoreCharm, // This always returns a deployer
 	)
@@ -615,12 +635,31 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
-var ambigouousPathErrorMessage = "" +
-	"The {{.Entity}} \"{{.Name}}\" is ambiguous.\n" +
-	"To deploy a local {{.Entity}}, run `juju deploy ./{{.Name}}`.\n" +
-	"To deploy a {{.Entity}} from the store, run `juju deploy cs:{{.Name}}`."
+func (c *DeployCommand) maybePredeployedLocalCharm(base.APICallCloser) (deployFn, error) {
+	// If the charm's schema is local, we should definitively attempt
+	// to deploy a charm that's already deployed in the
+	// environment.
+	userCharmURL, err := charm.ParseURL(c.CharmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if userCharmURL.Schema != "local" {
+		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
+		return nil, nil
+	}
 
-var ambigouousPathErrorTemplate = template.Must(template.New("").Parse(ambigouousPathErrorMessage))
+	return func(ctx *cmd.Context, api DeployAPI) error {
+		formattedCharmURL := userCharmURL.String()
+		ctx.Infof("Located charm %q.", formattedCharmURL)
+		ctx.Infof("Deploying charm %q.", formattedCharmURL)
+		return errors.Trace(c.deployCharm(
+			charmstore.CharmID{URL: userCharmURL},
+			(*macaroon.Macaroon)(nil),
+			userCharmURL.Series,
+			ctx,
+			api,
+		))
+	}, nil
+}
 
 func (c *DeployCommand) maybeReadLocalBundle(base.APICallCloser) (deployFn, error) {
 	bundleFile := c.CharmOrBundle
@@ -634,12 +673,12 @@ func (c *DeployCommand) maybeReadLocalBundle(base.APICallCloser) (deployFn, erro
 		// We may have been given a local bundle archive or exploded directory.
 		bundle, url, pathErr := charmrepo.NewBundleAtPath(bundleFile)
 		if charmrepo.IsInvalidPathError(pathErr) {
-			var buf bytes.Buffer
-			err = ambigouousPathErrorTemplate.Execute(&buf, map[string]string{
-				"Entity": "charm or bundle",
-				"Name":   c.CharmOrBundle,
-			})
-			return nil, errors.New(buf.String())
+			return nil, errors.Errorf(""+
+				"The charm or bundle %q is ambiguous.\n"+
+				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+				"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
+				c.CharmOrBundle,
+			)
 		}
 		if pathErr != nil {
 			// If the bundle files existed but we couldn't read them,
@@ -730,7 +769,7 @@ func (c *DeployCommand) maybeReadLocalCharm(base.APICallCloser) (deployFn, error
 		}
 
 		var csMac *macaroon.Macaroon // local charms don't need one.
-		ctx.Infof("Deploying charm %v:%v/%v", curl.Schema, curl.Series, curl.Name)
+		ctx.Infof("Deploying charm %q.", curl.String())
 		return errors.Trace(c.deployCharm(
 			id,
 			csMac,
@@ -844,8 +883,10 @@ func (c *DeployCommand) charmStoreCharm(base.APICallCloser) (deployFn, error) {
 			}
 			return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
 		}
-		ctx.Infof("Located charm %q.", curl)
-		ctx.Infof("Deploying charm %q.", curl)
+
+		formattedCharmURL := curl.String()
+		ctx.Infof("Located charm %q.", formattedCharmURL)
+		ctx.Infof("Deploying charm %q.", formattedCharmURL)
 		id := charmstore.CharmID{
 			URL:     curl,
 			Channel: channel,
@@ -879,16 +920,4 @@ func flagWithMinus(name string) string {
 		return "--" + name
 	}
 	return "-" + name
-}
-
-func deployApp(apiRoot DeployAPI, args application.DeployArgs) error {
-	serviceClient := application.NewClient(apiRoot)
-	for i, p := range args.Placement {
-		if p.Scope == "model-uuid" {
-			p.Scope = serviceClient.ModelUUID()
-		}
-		args.Placement[i] = p
-	}
-
-	return errors.Trace(serviceClient.Deploy(args))
 }
