@@ -292,9 +292,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if len(args.CustomImageMetadata) > 0 {
-		// TODO (anastasiamac) Is this right? this will mean that custom image metadtaa will be available
-		// only in controller region, i.e. if there is potential to have machines in other regions,
-		// they will not be able to get these image metadata.
 		if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
 			return err
 		}
