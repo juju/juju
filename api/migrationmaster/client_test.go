@@ -158,6 +158,20 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *ClientSuite) TestPrechecks(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.Prechecks()
+	c.Check(err, gc.ErrorMatches, "blam")
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.Prechecks", []interface{}{"", nil}},
+	})
+}
+
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
