@@ -153,7 +153,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser description.UserAccess
-	var controllerUser description.UserAccess
 	var everyoneGroupUser description.UserAccess
 	// Send back user info if user
 	if isUser {
@@ -162,10 +161,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			LastConnection: lastConnection,
 		}
 		userTag := entity.Tag().(names.UserTag)
-		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
-		if err != nil && !errors.IsNotFound(err) {
-			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
-		}
 
 		// TODO(perrito666) remove the following section about everyone group
 		// when groups are implemented, this accounts only for the lack of a local
@@ -183,6 +178,11 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		modelUser, err = a.root.state.UserAccess(userTag, a.root.state.ModelTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
+		}
+
+		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
 
 		if description.IsEmptyUserAccess(modelUser) &&
@@ -240,12 +240,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 	}
 	loginResult.Facades = facades
-
-	if !description.IsEmptyUserAccess(modelUser) ||
-		!description.IsEmptyUserAccess(controllerUser) ||
-		!description.IsEmptyUserAccess(everyoneGroupUser) {
-		apiRoot = newClientAuthRoot(apiRoot, modelUser, controllerUser)
-	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
