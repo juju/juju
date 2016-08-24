@@ -691,12 +691,14 @@ class BootstrapManager:
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
-                if self.bootstrap_host is not None and _can_run_ssh():
-                    remote = remote_from_address(self.bootstrap_host,
-                                                 series=self.series)
-                    copy_remote_logs(remote, self.log_dir)
-                    archive_logs(self.log_dir)
-                self.tear_down()
+                with self.client.ignore_soft_deadline():
+                    with self.tear_down_client.ignore_soft_deadline():
+                        if self.bootstrap_host is not None and _can_run_ssh():
+                            remote = remote_from_address(self.bootstrap_host,
+                                                         series=self.series)
+                            copy_remote_logs(remote, self.log_dir)
+                            archive_logs(self.log_dir)
+                        self.tear_down()
                 raise
 
     @contextmanager

@@ -1380,6 +1380,36 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    def test_bootstrap_context_ignore_soft_deadline(self):
+        env = JujuData('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, None)
+        tear_down_client = EnvJujuClient(env, None, None)
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client.env.juju_home = use_context(self, temp_dir())
+        initial_home = client.env.juju_home
+        bs_manager = BootstrapManager(
+            'foobar', client, tear_down_client, None, [], None, None, None,
+            None, client.env.juju_home, False, permanent=True,
+            jes_enabled=True)
+
+        ije_cxt = patch.object(client, 'is_jes_enabled')
+        def do_check(*args, **kwargs):
+            with client.check_timeouts():
+                with tear_down_client.check_timeouts():
+                    pass
+
+        with patch.object(bs_manager.tear_down_client, 'juju',
+                          side_effect=do_check, autospec=True):
+            with patch.object(client._backend, '_now', return_value=now):
+                fake_exception = Exception()
+                with self.assertRaises(LoggedException) as exc:
+                    with bs_manager.bootstrap_context([]):
+                        client._backend.soft_deadline = soft_deadline
+                        tear_down_client._backend.soft_deadline = soft_deadline
+                        raise fake_exception
+                self.assertIs(fake_exception, exc.exception.exception)
+
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
         client.env.juju_home = 'foobar'
