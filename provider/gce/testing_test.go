@@ -31,6 +31,11 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
+// Ensure GCE provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*environProvider)(nil)
+)
+
 // These values are fake GCE auth credentials for use in tests.
 const (
 	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"

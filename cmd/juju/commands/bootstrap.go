@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
@@ -372,14 +373,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	provider, err := environs.Provider(cloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
 	// the provider supports.
 	if len(cloud.AuthTypes) == 0 {
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		for authType := range provider.CredentialSchemas() {
 			cloud.AuthTypes = append(cloud.AuthTypes, authType)
 		}
@@ -452,7 +453,31 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The provider may define some custom attributes specific
+	// to the provider. These will be added to the model config.
+	providerAttrs := make(map[string]interface{})
+	if ps, ok := provider.(config.ConfigSchemaSource); ok {
+		for attr := range ps.ConfigSchema() {
+			if v, ok := userConfigAttrs[attr]; ok {
+				providerAttrs[attr] = v
+			}
+		}
+		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
+		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
+			return errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
+		} else {
+			providerAttrs = coercedAttrs.(map[string]interface{})
+		}
+	}
+	logger.Debugf("provider attrs: %v", providerAttrs)
 	for k, v := range userConfigAttrs {
+		modelConfigAttrs[k] = v
+	}
+	// Provider specific attributes are either already specified in model
+	// config (but may have been coerced), or were not present. Either way,
+	// copy them in.
+	for k, v := range providerAttrs {
 		modelConfigAttrs[k] = v
 	}
 	bootstrapConfigAttrs := make(map[string]interface{})

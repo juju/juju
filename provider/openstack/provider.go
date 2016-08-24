@@ -49,7 +49,10 @@ type EnvironProvider struct {
 	FirewallerFactory FirewallerFactory
 }
 
-var _ environs.EnvironProvider = (*EnvironProvider)(nil)
+var (
+	_ environs.EnvironProvider = (*EnvironProvider)(nil)
+	_ environs.ProviderSchema  = (*EnvironProvider)(nil)
+)
 
 var providerInstance *EnvironProvider = &EnvironProvider{
 	OpenstackCredentials{},

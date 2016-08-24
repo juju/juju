@@ -27,6 +27,8 @@ var configSchema = environschema.Fields{
 	},
 }
 
+var configDefaults = schema.Defaults{}
+
 var configFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
 	if err != nil {
@@ -67,6 +69,18 @@ func (EnvironProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p EnvironProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p EnvironProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
 }
 
 func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {

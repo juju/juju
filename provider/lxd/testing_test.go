@@ -29,6 +29,11 @@ import (
 	"github.com/juju/version"
 )
 
+// Ensure LXD provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*environProvider)(nil)
+)
+
 // These values are stub LXD client credentials for use in tests.
 const (
 	PublicKey = `-----BEGIN CERTIFICATE-----

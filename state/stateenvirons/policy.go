@@ -40,16 +40,19 @@ func (p environStatePolicy) Prechecker() (state.Prechecker, error) {
 
 // ConfigValidator implements state.Policy.
 func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
-	model, err := p.st.Model()
+	return environProvider(p.st)
+}
+
+// ProviderConfigSchemaSource implements state.Policy.
+func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	provider, err := environProvider(p.st)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
+		return nil, errors.Trace(err)
 	}
-	cloud, err := p.st.Cloud(model.Cloud())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud")
+	if cs, ok := provider.(config.ConfigSchemaSource); ok {
+		return cs, nil
 	}
-	// EnvironProvider implements state.ConfigValidator.
-	return environs.Provider(cloud.Type)
+	return nil, errors.NotImplementedf("config.ConfigSource")
 }
 
 // ConstraintsValidator implements state.Policy.
@@ -86,4 +89,17 @@ func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry,
 // the provided Environ with the common storage providers.
 func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
 	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
+}
+
+func environProvider(st *state.State) (environs.EnvironProvider, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	cloud, err := st.Cloud(model.Cloud())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cloud")
+	}
+	// EnvironProvider implements state.ConfigValidator.
+	return environs.Provider(cloud.Type)
 }

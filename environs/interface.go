@@ -19,6 +19,8 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
+	// TODO(wallyworld) - embed config.ConfigSchemaSource and make all providers implement it
+
 	// RestrictedConfigAttributes are provider specific attributes stored in
 	// the config that really cannot or should not be changed across
 	// environments running inside a single juju server.
