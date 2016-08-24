@@ -28,7 +28,6 @@ type cloudImageMetadataSuite struct {
 var _ = gc.Suite(&cloudImageMetadataSuite{})
 
 const (
-	envName        = "test-model"
 	collectionName = "test-collection"
 )
 
@@ -38,7 +37,7 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	db := s.MgoSuite.Session.DB("juju")
 
 	s.access = NewTestMongo(db)
-	s.storage = cloudimagemetadata.NewStorage(envName, collectionName, s.access)
+	s.storage = cloudimagemetadata.NewStorage(collectionName, s.access)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
