@@ -17,13 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -195,30 +192,4 @@ func (s *ExportSuite) TestExportModel(c *gc.C) {
 	// The bytes must be a valid model.
 	_, err = description.Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type InternalSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&InternalSuite{})
-
-type stateGetter struct {
-	cfg *config.Config
-}
-
-func (e *stateGetter) Model() (*state.Model, error) {
-	return &state.Model{}, nil
-}
-
-func (s *stateGetter) ModelConfig() (*config.Config, error) {
-	return s.cfg, nil
-}
-
-func (s *stateGetter) ControllerConfig() (controller.Config, error) {
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: testing.ModelTag.Id(),
-		controller.CACertKey:         testing.CACert,
-		controller.ApiPort:           4321,
-	}, nil
 }
