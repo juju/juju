@@ -51,16 +51,6 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if d.revert {
-		if err := d.deployer.NotifyRevert(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if d.resolved {
-		if err := d.deployer.NotifyResolved(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	info, err := d.callbacks.GetArchiveInfo(d.charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
