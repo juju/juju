@@ -183,10 +183,10 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
 
 		// PRECHECK
-		// Nothing yet.
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 
 		//IMPORT
-		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
 		apiOpenCallController,
 		importCall,
@@ -371,16 +371,28 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	s.checkMinionWaitFailedAgent(c, coremigration.QUIESCE)
 }
 
-func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *gc.C) {
-	s.checkMinionWaitWatchError(c, coremigration.VALIDATION)
-}
+func (s *Suite) TestPRECHECKFailure(c *gc.C) {
+	s.masterFacade.status.Phase = coremigration.PRECHECK
+	s.masterFacade.precheckErr = errors.New("boom")
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
 
-func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
-	s.checkMinionWaitGetError(c, coremigration.VALIDATION)
-}
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
 
-func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
-	s.checkMinionWaitFailedAgent(c, coremigration.VALIDATION)
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
 func (s *Suite) TestExportFailure(c *gc.C) {
@@ -455,6 +467,18 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		connCloseCall,
 		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
+}
+
+func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *gc.C) {
+	s.checkMinionWaitWatchError(c, coremigration.VALIDATION)
+}
+
+func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
+	s.checkMinionWaitGetError(c, coremigration.VALIDATION)
+}
+
+func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
+	s.checkMinionWaitFailedAgent(c, coremigration.VALIDATION)
 }
 
 func (s *Suite) TestSUCCESSMinionWaitWatchError(c *gc.C) {
@@ -768,7 +792,8 @@ type stubMasterFacade struct {
 	status         coremigration.MigrationStatus
 	statusErr      error
 
-	exportErr error
+	precheckErr error
+	exportErr   error
 
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
@@ -812,6 +837,11 @@ func (c *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) 
 	r := c.minionReports[0]
 	c.minionReports = c.minionReports[1:]
 	return r, nil
+}
+
+func (c *stubMasterFacade) Prechecks() error {
+	c.stub.AddCall("masterFacade.Prechecks")
+	return c.precheckErr
 }
 
 func (c *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
