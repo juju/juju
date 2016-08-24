@@ -134,7 +134,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 	c.Assert(container.Remove(), gc.IsNil)
 	c.Assert(host.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, host)
+	s.waitForRemovalMark(c, host)
 }
 
 func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
@@ -365,27 +365,11 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
-	current_os, err := series.GetOSFromSeries(series.HostSeries())
-	if err != nil {
-		return nil, err
+	cont = []ContainerInstance{
+		{instance.KVM, [][]string{
+			{"uvtool-libvirt"},
+			{"uvtool"},
+		}},
 	}
-
-	switch current_os {
-	case jujuos.CentOS:
-		cont = []ContainerInstance{
-			{instance.KVM, [][]string{
-				{"uvtool-libvirt"},
-				{"uvtool"},
-			}},
-		}
-	default:
-		cont = []ContainerInstance{
-			{instance.KVM, [][]string{
-				{"uvtool-libvirt"},
-				{"uvtool"},
-			}},
-		}
-	}
-
 	return cont, nil
 }
