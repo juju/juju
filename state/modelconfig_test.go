@@ -38,6 +38,9 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 		"nether-region": cloud.Attrs{
 			"apt-mirror": "http://nether-region-mirror",
 		},
+		"dummy-region": cloud.Attrs{
+			"whimsy-key": "whimsy-value",
+		},
 	}
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
@@ -137,6 +140,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
+	expected["providerAttr"] = "vulch"
+	expected["whimsy-key"] = "whimsy-value"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -158,6 +163,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://nether-region-mirror"
+	expected["providerAttr"] = "vulch"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -174,17 +180,19 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 		"apt-mirror":    "http://different-mirror", // controller
 		"arbitrary-key": "shazam!",
 		"providerAttr":  "beef", // provider
+		"whimsy-key":    "eggs", // region
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr"}, nil)
+	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
 	c.Assert(allAttrs["providerAttr"], gc.Equals, "vulch")
+	c.Assert(allAttrs["whimsy-key"], gc.Equals, "whimsy-value")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }

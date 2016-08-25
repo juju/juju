@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -372,7 +373,8 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 				})},
 		}
 	} else {
-		configSources = modelConfigSources(st, nil)
+		rspec := &environs.RegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {

@@ -356,6 +356,11 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 				"no environs.RegionSpec provided")
 		}
 	}
+	if regionSpec.Region == "" {
+		return func() (attrValues, error) {
+			return nil, errors.NotFoundf("region")
+		}
+	}
 	return func() (attrValues, error) {
 		settings, err := readSettings(st,
 			globalSettingsC,
@@ -374,11 +379,6 @@ func (st *State) regionSpec() (*environs.RegionSpec, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if model.CloudRegion() == "" {
-		// If there is not a region we cannot make a valid region spec.
-		return nil, errors.NotFoundf("cloud %s has no region", model.Cloud())
 	}
 	rspec := &environs.RegionSpec{
 		Cloud:  model.Cloud(),
