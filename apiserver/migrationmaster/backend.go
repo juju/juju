@@ -6,6 +6,7 @@ package migrationmaster
 import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/version"
 )
 
 // Backend defines the state functionality required by the
@@ -13,6 +14,9 @@ import (
 type Backend interface {
 	WatchForMigration() state.NotifyWatcher
 	LatestMigration() (state.ModelMigration, error)
+	ModelUUID() string
+	ModelName() (string, error)
+	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 
 	migration.StateExporter

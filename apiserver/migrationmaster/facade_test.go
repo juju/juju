@@ -114,6 +114,15 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 	})
 }
 
+func (s *Suite) TestModelInfo(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	model, err := api.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.UUID, gc.Equals, "model-uuid")
+	c.Assert(model.Name, gc.Equals, "model-name")
+	c.Assert(model.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+}
+
 func (s *Suite) TestSetPhase(c *gc.C) {
 	api := s.mustMakeAPI(c)
 
@@ -319,6 +328,18 @@ func (b *stubBackend) LatestMigration() (state.ModelMigration, error) {
 		return nil, b.getErr
 	}
 	return b.migration, nil
+}
+
+func (b *stubBackend) ModelUUID() string {
+	return "model-uuid"
+}
+
+func (b *stubBackend) ModelName() (string, error) {
+	return "model-name", nil
+}
+
+func (b *stubBackend) AgentVersion() (version.Number, error) {
+	return version.MustParse("1.2.3"), nil
 }
 
 func (b *stubBackend) RemoveExportingModelDocs() error {

@@ -94,6 +94,14 @@ type MasterMigrationStatus struct {
 	PhaseChangedTime time.Time     `json:"phase-changed-time"`
 }
 
+// MigrationModelInfo is used to report basic model information to the
+// migrationmaster worker.
+type MigrationModelInfo struct {
+	UUID         string         `json:"uuid"`
+	Name         string         `json:"name"`
+	AgentVersion version.Number `json:"agent-version"`
+}
+
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
 	MigrationId string `json:"migration-id"`
