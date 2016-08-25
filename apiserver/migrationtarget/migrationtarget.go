@@ -57,6 +57,15 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 	return nil
 }
 
+// Prechecks ensure that the target controller is ready to accept a
+// model migration.
+func (api *API) Prechecks(args params.TargetPrechecksArgs) error {
+	return migration.TargetPrecheck(
+		migration.PrecheckShim(api.state),
+		args.ModelVersion,
+	)
+}
+
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(serialized params.SerializedModel) error {
