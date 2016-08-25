@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -25,15 +26,17 @@ func init() {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend    Backend
-	authorizer facade.Authorizer
-	resources  facade.Resources
+	backend         Backend
+	precheckBackend migration.PrecheckBackend
+	authorizer      facade.Authorizer
+	resources       facade.Resources
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
 	backend Backend,
+	precheckBackend migration.PrecheckBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -41,9 +44,10 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		resources:  resources,
+		backend:         backend,
+		precheckBackend: precheckBackend,
+		authorizer:      authorizer,
+		resources:       resources,
 	}, nil
 }
 
@@ -124,6 +128,12 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 
 	err = mig.SetPhase(phase)
 	return errors.Annotate(err, "failed to set phase")
+}
+
+// Prechecks performs pre-migration checks on the model and
+// (source) controller.
+func (api *API) Prechecks() error {
+	return migration.SourcePrecheck(api.precheckBackend)
 }
 
 // SetStatusMessage sets a human readable status message containing

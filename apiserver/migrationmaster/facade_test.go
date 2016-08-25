@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -169,6 +170,12 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
 }
 
+func (s *Suite) TestPrechecks(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.Prechecks()
+	c.Assert(err, gc.ErrorMatches, "checking cleanups: boom")
+}
+
 func (s *Suite) TestExport(c *gc.C) {
 	s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
@@ -281,11 +288,12 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, new(failingPrecheckBackend),
+		s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	api, err := s.makeAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -400,4 +408,12 @@ var controllerUUID string
 func init() {
 	modelUUID = utils.MustNewUUID().String()
 	controllerUUID = utils.MustNewUUID().String()
+}
+
+type failingPrecheckBackend struct {
+	migration.PrecheckBackend
+}
+
+func (b *failingPrecheckBackend) NeedsCleanup() (bool, error) {
+	return false, errors.New("boom")
 }

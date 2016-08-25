@@ -66,6 +66,10 @@ type Facade interface {
 	// progress of a migration.
 	SetStatusMessage(string) error
 
+	// Prechecks performs pre-migration checks on the model and
+	// (source) controller.
+	Prechecks() error
+
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
@@ -281,8 +285,13 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 }
 
 func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
-	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("performing prechecks")
+	w.setInfoStatus("performing prechecks")
+	err := w.config.Facade.Prechecks()
+	if err != nil {
+		w.setErrorStatus("prechecks failed, %v", err)
+		return coremigration.ABORT, nil
+	}
+	// TODO(mjs) - perform prechecks on target controller
 	return coremigration.IMPORT, nil
 }
 
