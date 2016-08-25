@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -134,9 +135,10 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 			return nil, errors.Trace(err)
 		}
 		return &deployAPIAdapter{
-			Connection:   apiRoot,
-			apiClient:    &apiClient{Client: apiRoot.Client()},
-			charmsClient: &charmsClient{Client: charms.NewClient(apiRoot)},
+			Connection:        apiRoot,
+			apiClient:         &apiClient{Client: apiRoot.Client()},
+			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
+			applicationClient: &applicationClient{application.NewClient(apiRoot)},
 		}, nil
 	}
 
