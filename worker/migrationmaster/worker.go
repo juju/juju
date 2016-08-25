@@ -256,6 +256,10 @@ func (w *Worker) setInfoStatus(s string, a ...interface{}) {
 	w.setStatusAndLog(w.logger.Infof, s, a...)
 }
 
+func (w *Worker) setWarningStatus(s string, a ...interface{}) {
+	w.setStatusAndLog(w.logger.Warningf, s, a...)
+}
+
 func (w *Worker) setErrorStatus(s string, a ...interface{}) {
 	w.setStatusAndLog(w.logger.Errorf, s, a...)
 }
@@ -428,7 +432,7 @@ func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) 
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.
-		w.setErrorStatus("failed to remove model from target controller, %v", err)
+		w.setWarningStatus("failed to remove model from target controller, %v", err)
 	}
 	return coremigration.ABORTDONE, nil
 }
