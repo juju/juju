@@ -5,9 +5,11 @@ package application
 
 import (
 	"archive/zip"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -613,6 +615,13 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
+var ambigouousPathErrorMessage = "" +
+	"The {{.Entity}} \"{{.Name}}\" is ambiguous.\n" +
+	"To deploy a local {{.Entity}}, run `juju deploy ./{{.Name}}`.\n" +
+	"To deploy a {{.Entity}} from the store, run `juju deploy cs:{{.Name}}`."
+
+var ambigouousPathErrorTemplate = template.Must(template.New("").Parse(ambigouousPathErrorMessage))
+
 func (c *DeployCommand) maybeReadLocalBundle(base.APICallCloser) (deployFn, error) {
 	bundleFile := c.CharmOrBundle
 	var (
@@ -624,6 +633,14 @@ func (c *DeployCommand) maybeReadLocalBundle(base.APICallCloser) (deployFn, erro
 	if err != nil {
 		// We may have been given a local bundle archive or exploded directory.
 		bundle, url, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+		if charmrepo.IsInvalidPathError(pathErr) {
+			var buf bytes.Buffer
+			err = ambigouousPathErrorTemplate.Execute(&buf, map[string]string{
+				"Entity": "charm or bundle",
+				"Name":   c.CharmOrBundle,
+			})
+			return nil, errors.New(buf.String())
+		}
 		if pathErr != nil {
 			// If the bundle files existed but we couldn't read them,
 			// then return that error rather than trying to interpret
