@@ -23,7 +23,7 @@ import (
 // Initialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, newPolicy state.NewPolicyFunc) *state.State {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.State {
 	if cfg == nil {
 		cfg = testing.ModelConfig(c)
 	}
@@ -53,7 +53,14 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 					IdentityEndpoint: "dummy-identity-endpoint",
 					StorageEndpoint:  "dummy-storage-endpoint",
 				},
+				cloud.Region{
+					Name:             "nether-region",
+					Endpoint:         "nether-endpoint",
+					IdentityEndpoint: "nether-identity-endpoint",
+					StorageEndpoint:  "nether-storage-endpoint",
+				},
 			},
+			RegionConfig: regionConfig,
 		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
@@ -106,5 +113,5 @@ func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
 	cfg := testing.ModelConfig(c)
 	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
-	return Initialize(c, owner, cfg, nil, newPolicy)
+	return Initialize(c, owner, cfg, nil, nil, newPolicy)
 }

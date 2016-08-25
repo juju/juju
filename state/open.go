@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -229,9 +230,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	modelOps, err := st.modelSetupOps(
 		args.ControllerModelArgs,
 		&lineage{
-			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29390 add
-			// regiond config here too.
 			ControllerConfig: args.ControllerInheritedConfig,
+			RegionConfig:     args.RegionInheritedConfig,
 		})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -365,11 +365,16 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
 					return inherited.ControllerConfig, nil
 				})},
-			// TODO(ro): http://reviews.vapour.ws/r/5454/#comment29392 need
-			// to add region config to modelConfigSources here too.
+			{
+				name: config.JujuRegionSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					// We return the values specific to this region for this model.
+					return attrValues(inherited.RegionConfig[args.CloudRegion]), nil
+				})},
 		}
 	} else {
-		configSources = modelConfigSources(st)
+		rspec := &environs.RegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -27,6 +28,7 @@ type StateSuite struct {
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
 	ControllerInheritedConfig map[string]interface{}
+	RegionConfig              cloud.RegionConfig
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -44,7 +46,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.NewPolicy)
+	s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }
