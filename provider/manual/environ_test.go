@@ -79,10 +79,22 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
-		c.Assert(stdin, jc.DeepEquals, `
+		c.Assert(stdin, gc.Equals, `
 set -x
 touch '/var/lib/juju/uninstall-agent'
-pkill -6 jujud && exit
+# If jujud is running, we then wait for a while for it to stop.
+if pkill -6 jujud; then
+   for i in `+"`seq 1 30`"+`; do
+	 if pgrep jujud > /dev/null ; then
+	   sleep 1
+	 else
+	   echo "jujud stopped"
+	   break
+	 fi
+   done
+fi
+# If jujud didn't stop nicely, we kill it hard here.
+pkill -9 jujud
 stop juju-db
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system/juju*
