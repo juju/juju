@@ -625,7 +625,7 @@ func (i *importer) application(s description.Application) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops := addApplicationOps(i.st, addApplicationOpsArgs{
+	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
 		applicationDoc:     sdoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(s.Constraints()),
@@ -633,6 +633,9 @@ func (i *importer) application(s description.Application) error {
 		settings:           s.Settings(),
 		leadershipSettings: s.LeadershipSettings(),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -713,7 +716,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		StatusInfo: workloadVersion,
 	}
 
-	ops := addUnitOps(i.st, addUnitOpsArgs{
+	ops, err := addUnitOps(i.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  workloadStatusDoc,
@@ -723,6 +726,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 			Info: u.MeterStatusInfo(),
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the unit is a principal, add it to its machine.
 	if u.Principal().Id() == "" {

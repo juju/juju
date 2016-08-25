@@ -66,6 +66,8 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	}
 	defer st.Close()
 	// TODO(mjs) - post import checks
+	// NOTE(fwereade) - checks here would be sensible, but we will
+	// also need to check after the binaries are imported too.
 	return err
 }
 
@@ -109,5 +111,6 @@ func (api *API) Activate(args params.ModelArgs) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(fwereade) - need to validate binaries here.
 	return model.SetMigrationMode(state.MigrationModeNone)
 }

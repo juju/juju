@@ -1090,18 +1090,21 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// The addServiceOps does not include the environment alive assertion,
 	// so we add it here.
-	ops := append(
-		[]txn.Op{
-			assertModelActiveOp(st.ModelUUID()),
-			endpointBindingsOp,
-		},
-		addApplicationOps(st, addApplicationOpsArgs{
-			applicationDoc: svcDoc,
-			statusDoc:      statusDoc,
-			constraints:    args.Constraints,
-			storage:        args.Storage,
-			settings:       map[string]interface{}(args.Settings),
-		})...)
+	ops := []txn.Op{
+		assertModelActiveOp(st.ModelUUID()),
+		endpointBindingsOp,
+	}
+	addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+		applicationDoc: svcDoc,
+		statusDoc:      statusDoc,
+		constraints:    args.Constraints,
+		storage:        args.Storage,
+		settings:       map[string]interface{}(args.Settings),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, addOps...)
 
 	// Collect peer relation addition operations.
 	//
