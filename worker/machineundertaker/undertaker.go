@@ -25,17 +25,21 @@ type Facade interface {
 	CompleteRemoval(names.MachineTag) error
 }
 
+type AddressReleaser interface {
+	ReleaseContainerAddresses([]network.ProviderInterfaceInfo) error
+}
+
 // MachineUndertaker is responsible for doing any provider-level
 // cleanup needed and then removing the machine.
 type Undertaker struct {
-	api           Facade
-	envNetworking environs.Networking
+	API      Facade
+	Releaser AddressReleaser
 }
 
 func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-		Handler: &Undertaker{api: api, envNetworking: envNetworking},
+		Handler: &Undertaker{API: api, Releaser: envNetworking},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,26 +49,24 @@ func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 
 func (u *Undertaker) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("setting up machine undertaker")
-	return u.api.WatchMachineRemovals()
+	return u.API.WatchMachineRemovals()
 }
 
 func (u *Undertaker) Handle(<-chan struct{}) error {
-	removals, err := u.api.AllMachineRemovals()
+	removals, err := u.API.AllMachineRemovals()
 	if err != nil {
-		// Should this be a fatal error instead?
-		logger.Errorf("couldn't get machine removals, %s", err)
-		return nil
+		return errors.Trace(err)
 	}
 	logger.Debugf("handling removals: %v", removals)
 	// TODO(babbageclunk): shuffle the removals so if there's a
-	// problem with one others can still get past.
+	// problem with one others can still get past?
 	for _, machine := range removals {
-		err := u.maybeReleaseAddresses(machine)
+		err := u.MaybeReleaseAddresses(machine)
 		if err != nil {
 			logger.Errorf("couldn't release addresses for %s: %s", machine, err)
 			continue
 		}
-		err = u.api.CompleteRemoval(machine)
+		err = u.API.CompleteRemoval(machine)
 		if err != nil {
 			logger.Errorf("couldn't complete removal for %s: %s", machine, err)
 		} else {
@@ -74,8 +76,8 @@ func (u *Undertaker) Handle(<-chan struct{}) error {
 	return nil
 }
 
-func (u *Undertaker) maybeReleaseAddresses(machine names.MachineTag) error {
-	if u.envNetworking == nil {
+func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
+	if u.Releaser == nil {
 		// This environ doesn't support releasing addresses.
 		return nil
 	}
@@ -83,7 +85,7 @@ func (u *Undertaker) maybeReleaseAddresses(machine names.MachineTag) error {
 		// Only containers need their addresses releasing.
 		return nil
 	}
-	interfaceInfos, err := u.api.GetProviderInterfaceInfo(machine)
+	interfaceInfos, err := u.API.GetProviderInterfaceInfo(machine)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -91,7 +93,7 @@ func (u *Undertaker) maybeReleaseAddresses(machine names.MachineTag) error {
 		logger.Debugf("%s has no addresses to release", machine)
 		return nil
 	}
-	err = u.envNetworking.ReleaseContainerAddresses(interfaceInfos)
+	err = u.Releaser.ReleaseContainerAddresses(interfaceInfos)
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.

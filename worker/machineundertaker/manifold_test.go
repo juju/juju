@@ -93,10 +93,6 @@ func (c *fakeAPICaller) ModelTag() (names.ModelTag, bool) {
 	return names.ModelTag{}, false
 }
 
-type fakeEnviron struct {
-	environs.Environ
-}
-
 type fakeWorker struct {
 	worker.Worker
 	name string
