@@ -20,7 +20,7 @@ type ClientSuite struct {
 
 var _ = gc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) getClientAndStub(c *gc.C) (migrationtarget.Client, *jujutesting.Stub) {
+func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
