@@ -6,6 +6,7 @@ package migrationtarget_test
 import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -28,6 +29,21 @@ func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujut
 	})
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
+}
+
+func (s *ClientSuite) TestPrechecks(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+
+	vers := version.MustParse("1.2.3")
+	err := client.Prechecks(vers)
+
+	expectedArg := params.TargetPrechecksArgs{
+		ModelVersion: vers,
+	}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationTarget.Prechecks", []interface{}{"", expectedArg}},
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {

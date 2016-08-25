@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/version"
 )
 
 // NewClient returns a new Client based on an existing API connection.
@@ -20,6 +21,13 @@ func NewClient(caller base.APICaller) *Client {
 // controller during a migration.
 type Client struct {
 	caller base.FacadeCaller
+}
+
+func (c *Client) Prechecks(modelVersion version.Number) error {
+	args := params.TargetPrechecksArgs{
+		ModelVersion: modelVersion,
+	}
+	return c.caller.FacadeCall("Prechecks", args, nil)
 }
 
 // Import takes a serialized model and imports it into the target
