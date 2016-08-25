@@ -386,10 +386,17 @@ def assess_container_networking(client, types):
     log.info("Instrumenting reboot of all machines.")
     try:
         for host in hosts[1:]:
-            ssh(client, host, 'sudo shutdown -r now')
+            log.info("Shutdown host: {}".format(host))
+            client.get_controller_client().get_juju_output(
+                'run', '--format', 'json', '--machine', host,
+                'sudo shutdown -r now')
+            #ssh(client, host, 'sudo shutdown -r now')
 
             # Finally reboot machine 0
-        ssh(client, hosts[0], 'sudo shutdown -r now')
+        log.info("Shutdown machine: {}".format(hosts[0]))
+        client.get_controller_client().get_juju_output(
+            'run', '--format', 'json', '--machine', hosts[0],
+            'sudo shutdown -r now')
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
