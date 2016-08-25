@@ -158,6 +158,30 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *ClientSuite) TestModelInfo(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
+			UUID:         "uuid",
+			Name:         "name",
+			AgentVersion: version.MustParse("1.2.3"),
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	model, err := client.ModelInfo()
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.ModelInfo", []interface{}{"", nil}},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(model, jc.DeepEquals, migration.ModelInfo{
+		UUID:         "uuid",
+		Name:         "name",
+		AgentVersion: version.MustParse("1.2.3"),
+	})
+}
+
 func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
