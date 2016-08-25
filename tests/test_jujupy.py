@@ -59,7 +59,6 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
-    get_timeout_prefix,
     IncompatibleConfigClass,
     jes_home_path,
     JESByDefault,

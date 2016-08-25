@@ -1387,13 +1387,11 @@ class TestBootstrapManager(FakeHomeTestCase):
         soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
         now = soft_deadline + timedelta(seconds=1)
         client.env.juju_home = use_context(self, temp_dir())
-        initial_home = client.env.juju_home
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client, None, [], None, None, None,
             None, client.env.juju_home, False, permanent=True,
             jes_enabled=True)
 
-        ije_cxt = patch.object(client, 'is_jes_enabled')
         def do_check(*args, **kwargs):
             with client.check_timeouts():
                 with tear_down_client.check_timeouts():
@@ -1619,10 +1617,12 @@ class TestBootstrapManager(FakeHomeTestCase):
         soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
         now = soft_deadline + timedelta(seconds=1)
         client = EnvJujuClient(env, None, None)
+
         def do_check(*args, **kwargs):
             with client.check_timeouts():
                 pass
             return iter([])
+
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
                 'foobar', client, client,
