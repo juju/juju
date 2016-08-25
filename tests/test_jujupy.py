@@ -1516,6 +1516,13 @@ class TestEnvJujuClient(ClientTest):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
+    def test__wait_for_status_suppresses_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        client._wait_for_status(None, None)
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client._backend.soft_deadline = soft_deadline
+
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(JujuData('local'), None, None)
