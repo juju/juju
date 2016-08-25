@@ -630,21 +630,10 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 
-	canModify, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
+	canModifyController, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, m.state.ModelTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	canModify = canModify || canModifyModel
-
-	if !canModify {
-		return result, errors.Trace(common.ErrPerm)
-	}
-
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
@@ -657,12 +646,23 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 			continue
 		}
 
-		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, modelTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		canModify := canModifyController || canModifyModel
+
+		if !canModify {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
@@ -740,9 +740,9 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: descriptionAccess})
+		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: descriptionAccess})
 		if errors.IsAlreadyExists(err) {
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = txn.ErrExcessiveContention
@@ -766,11 +766,11 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		switch descriptionAccess {
 		case description.ReadAccess:
 			// Revoking read access removes all access.
-			err := st.RemoveUserAccess(targetUserTag, st.ModelTag())
+			err := st.RemoveUserAccess(targetUserTag, modelTag)
 			return errors.Annotate(err, "could not revoke model access")
 		case description.WriteAccess:
 			// Revoking write access sets read-only.
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
@@ -778,7 +778,7 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			return errors.Annotate(err, "could not set model access to read-only")
 		case description.AdminAccess:
 			// Revoking admin access sets read-write.
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}

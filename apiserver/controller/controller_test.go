@@ -79,11 +79,12 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(state.UserAccessSpec{
-		User:        admin.UserTag(),
-		CreatedBy:   remoteUserTag,
-		DisplayName: "Foo Bar",
-		Access:      description.ReadAccess})
+	st.AddModelUser(st.ModelUUID(),
+		state.UserAccessSpec{
+			User:        admin.UserTag(),
+			CreatedBy:   remoteUserTag,
+			DisplayName: "Foo Bar",
+			Access:      description.ReadAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()

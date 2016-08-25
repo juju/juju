@@ -474,7 +474,7 @@ func (st *State) getTxnLogCollection() *mgo.Collection {
 // with various collections in a single session, so don't want to call
 // getCollection multiple times.
 func (st *State) newDB() (Database, func()) {
-	return st.database.CopySession()
+	return st.database.Copy()
 }
 
 // Ping probes the state's database connection to ensure

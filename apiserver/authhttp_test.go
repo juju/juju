@@ -235,10 +235,11 @@ func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
 	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddModelUser(state.UserAccessSpec{
-		User:      user.UserTag(),
-		CreatedBy: s.userTag,
-		Access:    description.ReadAccess})
+	_, err := envState.AddModelUser(envState.ModelUUID(),
+		state.UserAccessSpec{
+			User:      user.UserTag(),
+			CreatedBy: s.userTag,
+			Access:    description.ReadAccess})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"

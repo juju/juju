@@ -183,15 +183,6 @@ func allCollections() collectionSchema {
 			indexes: bakerystorage.MongoIndexes(),
 		},
 
-		// -----------------
-
-		// Local collections
-		// =================
-
-		// This collection holds users related to a model and will be usde as one
-		// of the intersection axis of permissionsC
-		modelUsersC: {},
-
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
 		// given operation.
@@ -204,6 +195,15 @@ func allCollections() collectionSchema {
 		modelUserLastConnectionC: {
 			rawAccess: true,
 		},
+
+		// -----------------
+
+		// Local collections
+		// =================
+
+		// This collection holds users related to a model and will be used as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
