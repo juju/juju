@@ -1251,6 +1251,22 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
 
+    def test_deploy_storage(self):
+        env = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb', storage='rootfs,1G')
+        mock_juju.assert_called_with(
+            'deploy', ('mondogb', '--storage', 'rootfs,1G'))
+
+    def test_deploy_constraints(self):
+        env = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb', constraints='virt-type=kvm')
+        mock_juju.assert_called_with(
+            'deploy', ('mondogb', '--constraints', 'virt-type=kvm'))
+
     def test_attach(self):
         env = EnvJujuClient(JujuData('foo', {'type': 'local'}), None, None)
         with patch.object(env, 'juju') as mock_juju:
@@ -2846,11 +2862,16 @@ class TestEnvJujuClient(ClientTest):
                     'add-user', *expected_args, include_e=False)
                 if permissions == 'login':
                     mock_juju.assert_called_once_with(
-                        'grant', ('fakeuser', permissions),
+                        'grant',
+                        ('fakeuser', permissions,
+                         '-c', fake_client.env.controller.name),
                         include_e=False)
                 else:
                     mock_juju.assert_called_once_with(
-                        'grant', ('fakeuser', permissions, model),
+                        'grant',
+                        ('fakeuser', permissions,
+                         model,
+                         '-c', fake_client.env.controller.name),
                         include_e=False)
 
     def test_assert_add_user_permissions(self):
