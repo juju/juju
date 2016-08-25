@@ -174,6 +174,6 @@ type MinionReports struct {
 // TargetPrechecksArgs details regarding pre-migration checks to
 // MigrationTarget.Prechecks.
 type TargetPrechecksArgs struct {
-	// ModelVersion is the version of the model to be migrated
-	ModelVersion version.Number `json:"model-version"`
+	// AgentVersion is the tools version of the model to be migrated.
+	AgentVersion version.Number `json:"agent-version"`
 }

@@ -25,7 +25,7 @@ type Client struct {
 
 func (c *Client) Prechecks(modelVersion version.Number) error {
 	args := params.TargetPrechecksArgs{
-		ModelVersion: modelVersion,
+		AgentVersion: modelVersion,
 	}
 	return c.caller.FacadeCall("Prechecks", args, nil)
 }

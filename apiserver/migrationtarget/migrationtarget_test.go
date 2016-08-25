@@ -84,7 +84,7 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 func (s *Suite) TestPrechecks(c *gc.C) {
 	api := s.mustNewAPI(c)
 	args := params.TargetPrechecksArgs{
-		ModelVersion: s.controllerVersion(c),
+		AgentVersion: s.controllerVersion(c),
 	}
 	err := api.Prechecks(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 
 	api := s.mustNewAPI(c)
 	args := params.TargetPrechecksArgs{
-		ModelVersion: modelVersion,
+		AgentVersion: modelVersion,
 	}
 	err := api.Prechecks(args)
 	c.Assert(err, gc.NotNil)

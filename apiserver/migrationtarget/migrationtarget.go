@@ -62,7 +62,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 func (api *API) Prechecks(args params.TargetPrechecksArgs) error {
 	return migration.TargetPrecheck(
 		migration.PrecheckShim(api.state),
-		args.ModelVersion,
+		args.AgentVersion,
 	)
 }
 

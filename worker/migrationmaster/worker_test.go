@@ -187,7 +187,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
 		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
-			ModelVersion: version.MustParse("1.2.4"),
+			AgentVersion: version.MustParse("1.2.4"),
 		}}},
 		connCloseCall,
 		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
@@ -445,7 +445,7 @@ func (s *Suite) TestPRECHECKTargetFail(c *gc.C) {
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
 		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
-			ModelVersion: version.MustParse("1.2.4"),
+			AgentVersion: version.MustParse("1.2.4"),
 		}}},
 		connCloseCall,
 		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},

@@ -38,7 +38,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	err := client.Prechecks(vers)
 
 	expectedArg := params.TargetPrechecksArgs{
-		ModelVersion: vers,
+		AgentVersion: vers,
 	}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationTarget.Prechecks", []interface{}{"", expectedArg}},
