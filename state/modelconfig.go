@@ -179,7 +179,11 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 
 	result := make(config.DefaultValues)
 	// Juju defaults
-	for k, v := range config.ConfigDefaults() {
+	defaultAttrs, err := st.defaultInheritedConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k, v := range defaultAttrs {
 		result[k] = config.DefaultSetting{Default: v}
 	}
 	// Controller config
@@ -189,9 +193,12 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 
 	}
 	for k, v := range ciCfg {
-		ds := result[k]
-		ds.Controller = v
-		result[k] = ds
+		if ds, ok := result[k]; ok {
+			ds.Controller = v
+			result[k] = ds
+		} else {
+			result[k] = config.DefaultSetting{Controller: v}
+		}
 	}
 	// Region config
 	for _, region := range cloud.Regions {
@@ -205,9 +212,12 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 		}
 		for k, v := range riCfg {
 			regCfg := config.Region{Name: region.Name, Value: v}
-			ds := result[k]
-			ds.Regions = append(ds.Regions, regCfg)
-			result[k] = ds
+			if ds, ok := result[k]; ok {
+				ds.Regions = append(result[k].Regions, regCfg)
+				result[k] = ds
+			} else {
+				result[k] = config.DefaultSetting{Regions: []config.Region{regCfg}}
+			}
 		}
 	}
 	return result, nil

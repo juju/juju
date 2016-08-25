@@ -38,8 +38,8 @@ type ConfigSetting struct {
 
 // RegionSetting contains the settings for regions in a ConfigSetting.
 type RegionSetting struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	RegionName string      `json:"region-name"`
+	Value      interface{} `json:"value"`
 }
 
 // ModelSet contains the arguments for ModelSet client API

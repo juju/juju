@@ -139,8 +139,8 @@ func (c *ModelConfigAPI) ModelDefaults() (params.ModelDefaultResults, error) {
 		for _, v := range val.Regions {
 			settings.Regions = append(
 				settings.Regions, params.RegionSetting{
-					Name:  v.Name,
-					Value: v.Value})
+					RegionName: v.Name,
+					Value:      v.Value})
 		}
 		result.Config[attr] = settings
 	}

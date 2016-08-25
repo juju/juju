@@ -126,6 +126,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttr"] = "vulch"
 	expected["whimsy-key"] = "whimsy-value"
+	expected["image-stream"] = "dummy-image-stream"
+	expected["no-proxy"] = "dummy-proxy"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
