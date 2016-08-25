@@ -112,13 +112,17 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
 
-	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, nil)
+	cfgAttrs, err := s.State.ComposeNewModelConfig(
+		attrs, &environs.RegionSpec{
+			Cloud:  "dummy",
+			Region: "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttr"] = "vulch"
+	expected["whimsy-key"] = "whimsy-value"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)

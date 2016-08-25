@@ -293,19 +293,11 @@ type modelConfigSource struct {
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State, regionSpec *environs.RegionSpec) []modelConfigSource {
-	sources := []modelConfigSource{
+	return []modelConfigSource{
 		{config.JujuDefaultSource, st.defaultInheritedConfig},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
+		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
-	if regionSpec == nil {
-		// There's no region, so return.
-		return sources
-	}
-	// Otherwise append regionInheritedConfig.
-	sources = append(sources, modelConfigSource{
-		config.JujuRegionSource, st.regionInheritedConfig(regionSpec)})
-
-	return sources
 }
 
 const (
@@ -357,6 +349,8 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 		}
 	}
 	if regionSpec.Region == "" {
+		// It is expected that not all clouds have regions. So return not found
+		// if there is not a region here.
 		return func() (attrValues, error) {
 			return nil, errors.NotFoundf("region")
 		}
