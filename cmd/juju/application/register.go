@@ -68,7 +68,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		return nil
 	}
 	info := deployInfo.CharmInfo
-	if info.Metrics != nil && !info.Metrics.PlanRequired() {
+	if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
 		return nil
 	}
 

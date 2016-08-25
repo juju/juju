@@ -1,4 +1,5 @@
-plan: required
+plan:
+  required: true
 metrics:
   pings:
     type: gauge

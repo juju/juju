@@ -1096,6 +1096,137 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	}})
 }
 
+func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+			c.Assert(serviceName, gc.DeepEquals, "dummy")
+			c.Assert(data, gc.DeepEquals, []byte{})
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
+
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{}}}
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), ch, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/dummy-1")
+	s.AssertService(c, "dummy", curl, 1, 0)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *DeployCharmStoreSuite) TestAddMetricCredentialsNotNeededForOptionalPlan(c *gc.C) {
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	metricsYAML := `
+plan:
+  required: false
+metrics:
+  pings:
+    type: gauge
+    description: ping pongs
+`
+	meteredMetaYAML := `
+name: metered
+description: metered charm
+summary: summary
+`
+
+	url, _ := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL(url.String())
+	svc, err := s.State.Application("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, curl)
+	c.Assert(called, jc.IsFalse)
+	stub.CheckNoCalls(c)
+}
+
+func (s *DeployCharmStoreSuite) TestAddMetricCredentialsCalledWhenPlanSpecifiedWhenOptional(c *gc.C) {
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+			c.Assert(serviceName, gc.DeepEquals, "metered")
+			var b []byte
+			err := json.Unmarshal(data, &b)
+			c.Assert(err, gc.IsNil)
+			c.Assert(string(b), gc.Equals, "hello registration")
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	metricsYAML := `
+plan:
+  required: false
+metrics:
+  pings:
+    type: gauge
+    description: ping pongs
+`
+	meteredMetaYAML := `
+name: metered
+description: metered charm
+summary: summary
+`
+
+	url, _ := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL(url.String())
+	svc, err := s.State.Application("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, curl)
+	c.Assert(called, jc.IsTrue)
+	stub.CheckCalls(c, []jujutesting.StubCall{{
+		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:~user/quantal/metered-0",
+			ApplicationName: "metered",
+			PlanURL:         "someplan",
+			Budget:          "personal",
+			Limit:           "0",
+		}},
+	}})
+}
+
 // FAILING
 func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
 	_, err := s.State.AddSpace("db", "", nil, false)
