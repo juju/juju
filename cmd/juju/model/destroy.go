@@ -25,8 +25,8 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 func NewDestroyCommand() cmd.Command {
 	return modelcmd.Wrap(
 		&destroyCommand{},
-		modelcmd.ModelSkipDefault,
-		modelcmd.ModelSkipFlags,
+		modelcmd.WrapSkipDefaultModel,
+		modelcmd.WrapSkipModelFlags,
 	)
 }
 

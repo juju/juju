@@ -113,7 +113,7 @@ const defaultHostedModelName = "default"
 func newBootstrapCommand() cmd.Command {
 	return modelcmd.Wrap(
 		&bootstrapCommand{},
-		modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault,
+		modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel,
 	)
 }
 

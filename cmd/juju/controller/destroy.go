@@ -36,8 +36,8 @@ func NewDestroyCommand() cmd.Command {
 	// controller environment anyway.
 	return modelcmd.WrapController(
 		&destroyCommand{},
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 	)
 }
 

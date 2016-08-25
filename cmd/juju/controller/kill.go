@@ -51,8 +51,8 @@ func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.
 	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
 	return modelcmd.WrapController(
 		kill,
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 		modelcmd.ControllerAPIOpener(openStrategy),
 	)
 }

@@ -51,7 +51,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 
 func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testControllerCommand)
-	wrapped := modelcmd.WrapController(cmd, modelcmd.ControllerSkipFlags)
+	wrapped := modelcmd.WrapController(cmd, modelcmd.WrapControllerSkipControllerFlags)
 	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
 }

@@ -21,7 +21,7 @@ import (
 const showModelCommandDoc = `Show information about the current or specified model`
 
 func NewShowCommand() cmd.Command {
-	return modelcmd.Wrap(&showModelCommand{}, modelcmd.ModelSkipFlags)
+	return modelcmd.Wrap(&showModelCommand{}, modelcmd.WrapSkipModelFlags)
 }
 
 // showModelCommand shows all the users with access to the current model.
