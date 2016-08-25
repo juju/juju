@@ -26,13 +26,6 @@ type environProvider struct {
 
 var providerInstance environProvider
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p environProvider) RestrictedConfigAttributes() []string {
-	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
-	// See bug http://pad.lv/1580417 for more information.
-	return []string{"vpc-id-force"}
-}
-
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
@@ -127,11 +120,6 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		Region:   region,
 		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return make(map[string]string), nil
 }
 
 const badAccessKey = `

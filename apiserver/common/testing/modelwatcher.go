@@ -9,15 +9,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-)
-
-const (
-	HasSecrets = true
-	NoSecrets  = false
 )
 
 type ModelWatcher interface {
@@ -29,46 +22,32 @@ type ModelWatcherTest struct {
 	modelWatcher ModelWatcher
 	st           *state.State
 	resources    *common.Resources
-	hasSecrets   bool
 }
 
 func NewModelWatcherTest(
 	modelWatcher ModelWatcher,
 	st *state.State,
 	resources *common.Resources,
-	hasSecrets bool) *ModelWatcherTest {
-	return &ModelWatcherTest{modelWatcher, st, resources, hasSecrets}
+) *ModelWatcherTest {
+	return &ModelWatcherTest{modelWatcher, st, resources}
 }
 
 // AssertModelConfig provides a method to test the config from the
 // envWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
-func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher, hasSecrets bool) {
+func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher) {
 	envConfig, err := s.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 
 	result, err := envWatcher.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	configAttributes := envConfig.AllAttrs()
-	// If the implementor doesn't provide secrets, we need to replace the config
-	// values in our environment to compare against with the secrets replaced.
-	if !hasSecrets {
-		env, err := newEnviron(s.st)
-		c.Assert(err, jc.ErrorIsNil)
-		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
-		c.Assert(err, jc.ErrorIsNil)
-		for key := range secretAttrs {
-			configAttributes[key] = "not available"
-		}
-	}
-
 	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(configAttributes))
 }
 
 func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
-	s.AssertModelConfig(c, s.modelWatcher, s.hasSecrets)
+	s.AssertModelConfig(c, s.modelWatcher)
 }
 
 func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {

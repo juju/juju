@@ -101,7 +101,7 @@ var _ = gc.Suite(&withoutControllerSuite{})
 
 func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources)
 }
 
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
@@ -608,7 +608,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertModelConfig(c, aProvisioner, commontesting.NoSecrets)
+	s.AssertModelConfig(c, aProvisioner)
 }
 
 func (s *withoutControllerSuite) TestStatus(c *gc.C) {

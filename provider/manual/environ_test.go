@@ -9,10 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -120,12 +122,34 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	s.PatchValue(&manual.DetectSeriesAndHardwareCharacteristics,
+		func(string) (instance.HardwareCharacteristics, string, error) {
+			amd64 := "amd64"
+			return instance.HardwareCharacteristics{
+				Arch: &amd64,
+			}, "", nil
+		},
+	)
+
 	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
+}
+
+func (s *environSuite) TestConstraintsValidatorInsideController(c *gc.C) {
+	// Patch os.Args so it appears that we're running in "jujud", and then
+	// patch the host arch so it looks like we're running arm64.
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+
+	validator, err := s.env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=arm64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type controllerInstancesSuite struct {

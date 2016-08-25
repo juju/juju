@@ -141,14 +141,6 @@ func (mm *ModelManagerAPI) newModelConfig(
 	}
 	joint[config.NameKey] = args.Name
 
-	// Copy credential attributes across to model config.
-	// TODO(axw) credentials should not be going into model config.
-	if cloudSpec.Credential != nil {
-		for key, value := range cloudSpec.Credential.Attributes() {
-			joint[key] = value
-		}
-	}
-
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)

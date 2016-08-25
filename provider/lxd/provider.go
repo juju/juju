@@ -40,22 +40,12 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 	return args.Config, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // Validate implements environs.EnvironProvider.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if _, err := newValidConfig(cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}
 	return cfg, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }
 
 // DetectRegions implements environs.CloudRegionDetector.

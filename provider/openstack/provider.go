@@ -91,11 +91,6 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	return e, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p EnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // DetectRegions implements environs.CloudRegionDetector.
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
@@ -141,10 +136,6 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region: region,
 	}, nil
-}
-
-func (p EnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return make(map[string]string), nil
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {

@@ -43,11 +43,6 @@ func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, err
 var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
@@ -79,11 +74,6 @@ func verifyCredentials(env *maasEnviron) error {
 Please ensure the credentials are correct.`)
 	}
 	return nil
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.

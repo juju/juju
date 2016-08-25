@@ -578,11 +578,6 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p *environProvider) RestrictedConfigAttributes() []string {
-	return nil
-}
-
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	ecfg, err := p.newConfig(args.Config)
@@ -634,16 +629,6 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	envState.bootstrapConfig = cfg
 	p.state[controllerUUID] = envState
 	return cfg, nil
-}
-
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := dummy.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"secret": ecfg.secret(),
-	}, nil
 }
 
 // Override for testing - the data directory with which the state api server is initialised.

@@ -89,11 +89,6 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 	return cfg.Apply(defaults)
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // Validate implements environs.EnvironProvider.Validate.
 func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := newConfig(cfg, old)
@@ -101,9 +96,4 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 		return nil, errors.Annotate(err, "invalid config")
 	}
 	return newCfg.config, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }

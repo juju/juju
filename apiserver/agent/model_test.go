@@ -48,5 +48,6 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
-		s.api, s.State, s.resources, commontesting.NoSecrets)
+		s.api, s.State, s.resources,
+	)
 }
