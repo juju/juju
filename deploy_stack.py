@@ -713,6 +713,12 @@ class BootstrapManager:
 
     @contextmanager
     def handle_bootstrap_exceptions(self):
+        """If an exception is raised during bootstrap, handle it.
+
+        Log the exception, re-raise as a LoggedException.
+        Copy logs for the bootstrap host
+        Tear down.  (self.keep_env is ignored.)
+        """
         try:
             try:
                 yield
