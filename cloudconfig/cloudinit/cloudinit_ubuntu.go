@@ -198,6 +198,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	var pkgsWithTargetRelease []string
 	pkgs := cfg.Packages()
+	var pkgNames []string = make([]string, len(pkgs))
 	for i, _ := range pkgs {
 		pack := pkgs[i]
 		if pack == "--target-release" || len(pkgsWithTargetRelease) > 0 {
@@ -223,12 +224,13 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			pkgsWithTargetRelease = []string{}
 		}
 
-		cmds = append(cmds, LogProgressCmd("Installing package: %s", packageName))
+		pkgNames[i] = packageName
 		cmd := looper + cfg.paccmder.InstallCmd(installArgs...)
 		cmds = append(cmds, cmd)
 	}
 
 	if len(cmds) > 0 {
+		cmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgNames, ", ")))}, cmds...)
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
 		// from prompting, always taking default values instead.
 		cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)

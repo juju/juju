@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -293,7 +294,7 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State, regionSpec *environs.RegionSpec) []modelConfigSource {
 	sources := []modelConfigSource{
-		{config.JujuDefaultSource, func() (attrValues, error) { return config.ConfigDefaults(), nil }},
+		{config.JujuDefaultSource, st.defaultInheritedConfig},
 		{config.JujuControllerSource, st.controllerInheritedConfig},
 	}
 	if regionSpec == nil {
@@ -311,6 +312,30 @@ const (
 	// controllerInheritedSettingsGlobalKey is the key for default settings shared across models.
 	controllerInheritedSettingsGlobalKey = "controller"
 )
+
+// defaultInheritedConfig returns config values which are defined
+// as defaults in either Juju or the state's environ provider.
+func (st *State) defaultInheritedConfig() (attrValues, error) {
+	var defaults = make(map[string]interface{})
+	for k, v := range config.ConfigDefaults() {
+		defaults[k] = v
+	}
+	providerDefaults, err := st.environsProviderConfigSchemaSource()
+	if errors.IsNotImplemented(err) {
+		return defaults, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	fields := schema.FieldMap(providerDefaults.ConfigSchema(), providerDefaults.ConfigDefaults())
+	if coercedAttrs, err := fields.Coerce(defaults, nil); err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		for k, v := range coercedAttrs.(map[string]interface{}) {
+			defaults[k] = v
+		}
+	}
+	return defaults, nil
+}
 
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.

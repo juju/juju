@@ -509,6 +509,20 @@ func (p *environProvider) Schema() environschema.Fields {
 	return fields
 }
 
+var _ config.ConfigSchemaSource = (*environProvider)(nil)
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }

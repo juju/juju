@@ -115,18 +115,31 @@ func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 	return h, hr
 }
 
-// TestingUpgradingRoot returns a limited srvRoot
-// in an upgrade scenario.
+// TestingUpgradingRoot returns a resricted srvRoot in an upgrade
+// scenario.
 func TestingUpgradingRoot(st *state.State) rpc.Root {
 	r := TestingAPIRoot(st)
-	return newUpgradingRoot(r)
+	return restrictRoot(r, upgradeMethodsOnly)
 }
 
-// TestingRestrictedAPIHandler returns a restricted srvRoot as if accessed
-// from the root of the API path.
-func TestingRestrictedAPIHandler(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
-	return newRestrictedRoot(r, "controller", isControllerFacade)
+// TestingControllerOnlyRoot returns a restricted srvRoot as if
+// logged in to the root of the API path.
+func TestingControllerOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, controllerFacadesOnly)
+}
+
+// TestingModelOnlyRoot returns a restricted srvRoot as if
+// logged in to a model.
+func TestingModelOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, modelFacadesOnly)
+}
+
+// TestingRestrictedRoot returns a restricted srvRoot.
+func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, check)
 }
 
 type preFacadeAdminAPI struct{}
@@ -185,18 +198,11 @@ func SetAdminAPIVersions(srv *Server, versions ...int) {
 	srv.adminAPIFactories = factories
 }
 
-// TestingRestoreInProgressRoot returns a limited restoreInProgressRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
-	r := TestingAPIRoot(st)
-	return newRestoreInProgressRoot(r)
-}
-
-// TestingAboutToRestoreRoot returns a limited aboutToRestoreRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
-	r := TestingAPIRoot(st)
-	return newAboutToRestoreRoot(r)
+// TestingAboutToRestoreRoot returns a limited root which allows
+// methods as per when a restore is about to happen.
+func TestingAboutToRestoreRoot() rpc.Root {
+	r := TestingAPIRoot(nil)
+	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 
 // Addr returns the address that the server is listening on.

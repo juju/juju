@@ -373,7 +373,9 @@ func allCollections() collectionSchema {
 		},
 
 		// This collection holds information about cloud image metadata.
-		cloudimagemetadataC: {},
+		cloudimagemetadataC: {
+			global: true,
+		},
 
 		// ----------------------
 

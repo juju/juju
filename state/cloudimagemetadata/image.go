@@ -19,7 +19,6 @@ import (
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	modelUUID  string
 	collection string
 	store      DataStore
 }
@@ -28,8 +27,8 @@ var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided data store.
-func NewStorage(modelUUID, collectionName string, store DataStore) Storage {
-	return &storage{modelUUID, collectionName, store}
+func NewStorage(collectionName string, store DataStore) Storage {
+	return &storage{collectionName, store}
 }
 
 var emptyMetadata = Metadata{}
@@ -161,9 +160,6 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
-	// ModelUUID is the model identifier.
-	ModelUUID string `bson:"model-uuid"`
-
 	// Id contains unique key for cloud image metadata.
 	// This is an amalgamation of all deterministic metadata attributes to ensure
 	// that there can be a public and custom image for the same attributes set.
@@ -232,7 +228,6 @@ func (m imagesMetadataDoc) metadata() Metadata {
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	r := imagesMetadataDoc{
-		ModelUUID:       s.modelUUID,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
@@ -269,13 +264,24 @@ func validateMetadata(m *imagesMetadataDoc) error {
 	if m.Series == "" {
 		return errors.NotValidf("missing series: metadata for image %v", m.ImageId)
 	}
-
 	v, err := series.SeriesVersion(m.Series)
 	if err != nil {
 		return err
 	}
-
 	m.Version = v
+
+	if m.Stream == "" {
+		return errors.NotValidf("missing stream: metadata for image %v", m.ImageId)
+	}
+	if m.Source == "" {
+		return errors.NotValidf("missing source: metadata for image %v", m.ImageId)
+	}
+	if m.Arch == "" {
+		return errors.NotValidf("missing architecture: metadata for image %v", m.ImageId)
+	}
+	if m.Region == "" {
+		return errors.NotValidf("missing region: metadata for image %v", m.ImageId)
+	}
 	return nil
 }
 

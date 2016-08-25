@@ -81,7 +81,7 @@ func NewRestoreCommandForTest(
 		newAPIClientFunc: func() (RestoreAPI, error) {
 			return api, nil
 		},
-		waitForAgentFunc: func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error {
+		waitForAgentFunc: func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error {
 			return nil
 		},
 	}

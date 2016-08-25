@@ -1098,16 +1098,16 @@ func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
 
 func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
-		SystemId:   "device1",
-		MACAddress: "mac1",
+		SystemId:     "device1",
+		MACAddresses: []string{"mac1"},
 	})
 	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
-		SystemId:   "device2",
-		MACAddress: "mac2",
+		SystemId:     "device2",
+		MACAddresses: []string{"mac2"},
 	})
 	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
-		SystemId:   "device3",
-		MACAddress: "mac3",
+		SystemId:     "device3",
+		MACAddresses: []string{"mac3"},
 	})
 
 	env := s.makeEnviron()
@@ -1123,4 +1123,28 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 		systemIds = append(systemIds, systemId)
 	}
 	c.Assert(systemIds, gc.DeepEquals, []string{"device2"})
+}
+
+func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
+	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
+		SystemId:     "device1",
+		MACAddresses: []string{"mac1", "mac2"},
+	})
+	s.testMAASObject.TestServer.AddDevice(&gomaasapi.TestDevice{
+		SystemId:     "device3",
+		MACAddresses: []string{"mac3"},
+	})
+
+	env := s.makeEnviron()
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
+		{MACAddress: "mac1"},
+		{MACAddress: "mac2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var systemIds []string
+	for systemId, _ := range s.testMAASObject.TestServer.Devices() {
+		systemIds = append(systemIds, systemId)
+	}
+	c.Assert(systemIds, gc.DeepEquals, []string{"device3"})
 }

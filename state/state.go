@@ -368,7 +368,6 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 
 	logger.Infof("creating cloud image metadata storage")
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
-		st.ModelUUID(),
 		cloudimagemetadataC,
 		&environMongo{st},
 	)

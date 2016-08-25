@@ -287,8 +287,6 @@ type Unit interface {
 	MeterStatusCode() string
 	MeterStatusInfo() string
 
-	// TODO: storage
-
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
 
@@ -308,6 +306,9 @@ type Unit interface {
 
 	AgentStatusHistory() []Status
 	SetAgentStatusHistory([]StatusArgs)
+
+	AddPayload(PayloadArgs) Payload
+	Payloads() []Payload
 
 	Validate() error
 }

@@ -35,11 +35,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		machinesC,
 		openedPortsC,
 
-		// service / unit
+		// application / unit
 		leasesC,
 		applicationsC,
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
+		payloadsC,
 
 		// relation
 		relationsC,
@@ -162,7 +163,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// service / unit
 		charmsC,
-		"payloads",
 		"resources",
 		endpointBindingsC,
 
@@ -774,6 +774,21 @@ func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
 		"Constraints",
 	)
 	s.AssertExportedFields(c, storageConstraintsDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
+	definedThroughContainment := set.NewStrings(
+		"UnitID",
+		"MachineID",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"Type",
+		"RawID",
+		"State",
+		"Labels",
+	)
+	s.AssertExportedFields(c, payloadDoc{}, migrated.Union(definedThroughContainment))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

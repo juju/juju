@@ -124,6 +124,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 			VirtType:        "",
 			RootStorageType: "",
 			Source:          "test",
+			Stream:          "released",
 		},
 		10,
 		"-999",

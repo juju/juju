@@ -114,3 +114,7 @@ func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
 	return provider.CommonStorageProviders(), nil
 }
+
+func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	return nil, errors.NotImplementedf("ConfigSchemaSource")
+}

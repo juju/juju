@@ -46,6 +46,9 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+	s.policy.GetProviderConfigSchemaSource = func() (config.ConfigSchemaSource, error) {
+		return &statetesting.MockConfigSchemaSource{}, nil
+	}
 }
 
 func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
@@ -112,6 +115,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
+	expected["providerAttr"] = "vulch"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -167,18 +171,20 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror",
+		"apt-mirror":    "http://different-mirror", // controller
 		"arbitrary-key": "shazam!",
+		"providerAttr":  "beef", // provider
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key"}, nil)
+	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
+	c.Assert(allAttrs["providerAttr"], gc.Equals, "vulch")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }
@@ -209,20 +215,23 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror",
+		"apt-mirror":    "http://different-mirror", // controller
 		"arbitrary-key": "shazam!",
+		"providerAttr":  "beef", // provider
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"apt-mirror": "http://another-mirror",
+		"apt-mirror":   "http://another-mirror",
+		"providerAttr": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
+	c.Assert(allAttrs["providerAttr"], gc.Equals, "pork")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }

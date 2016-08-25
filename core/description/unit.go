@@ -31,10 +31,6 @@ type unit struct {
 	Principal_    string   `yaml:"principal,omitempty"`
 	Subordinates_ []string `yaml:"subordinates,omitempty"`
 
-	// TODO:
-	//  storage constraints
-	//  storage attachment count
-
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
 
@@ -44,6 +40,8 @@ type unit struct {
 	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
+
+	Payloads_ payloads `yaml:"payloads"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Application in the Model.
@@ -66,7 +64,7 @@ func newUnit(args UnitArgs) *unit {
 	for _, s := range args.Subordinates {
 		subordinates = append(subordinates, s.Id())
 	}
-	return &unit{
+	u := &unit{
 		Name_:                   args.Tag.Id(),
 		Machine_:                args.Machine.Id(),
 		PasswordHash_:           args.PasswordHash,
@@ -79,6 +77,8 @@ func newUnit(args UnitArgs) *unit {
 		WorkloadVersionHistory_: newStatusHistory(),
 		AgentStatusHistory_:     newStatusHistory(),
 	}
+	u.setPayloads(nil)
+	return u
 }
 
 // Tag implements Unit.
@@ -218,6 +218,29 @@ func (u *unit) SetConstraints(args ConstraintsArgs) {
 	u.Constraints_ = newConstraints(args)
 }
 
+// AddPayload implements Unit.
+func (u *unit) AddPayload(args PayloadArgs) Payload {
+	payload := newPayload(args)
+	u.Payloads_.Payloads_ = append(u.Payloads_.Payloads_, payload)
+	return payload
+}
+
+// Payloads implements Unit.
+func (u *unit) Payloads() []Payload {
+	var result []Payload
+	for _, payload := range u.Payloads_.Payloads_ {
+		result = append(result, payload)
+	}
+	return result
+}
+
+func (u *unit) setPayloads(payloadList []*payload) {
+	u.Payloads_ = payloads{
+		Version:   1,
+		Payloads_: payloadList,
+	}
+}
+
 // Validate impelements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
@@ -294,6 +317,8 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 
 		"meter-status-code": schema.String(),
 		"meter-status-info": schema.String(),
+
+		"payloads": schema.StringMap(schema.Any()),
 	}
 	defaults := schema.Defaults{
 		"principal":         "",
@@ -369,6 +394,13 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		return nil, errors.Trace(err)
 	}
 	result.WorkloadStatus_ = workloadStatus
+
+	payloadMap := valid["payloads"].(map[string]interface{})
+	payloads, err := importPayloads(payloadMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "payloads")
+	}
+	result.setPayloads(payloads)
 
 	return result, nil
 }

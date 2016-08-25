@@ -24,9 +24,9 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// EverybodyTagName represents a special group that encompasses
+// EveryoneTagName represents a special group that encompasses
 // all external users.
-const EverybodyTagName = "everybody@external"
+const EveryoneTagName = "everyone@external"
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
@@ -56,19 +56,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		return fail, errAlreadyLoggedIn
 	}
 
-	// authedAPI is the API root we'll use after getting logged in.
-	var authedAPI rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
+	// apiRoot is the API root exposed to the client after authentication.
+	var apiRoot rpc.Root = newAPIRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
 		case params.UpgradeInProgressError:
-			authedAPI = newUpgradingRoot(authedAPI)
+			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
 		case AboutToRestoreError:
-			authedAPI = newAboutToRestoreRoot(authedAPI)
+			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
 		case RestoreInProgressError:
-			authedAPI = newRestoreInProgressRoot(authedAPI)
+			apiRoot = restrictAll(apiRoot, restoreInProgressError)
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
@@ -153,8 +153,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser description.UserAccess
-	var controllerUser description.UserAccess
-	var everybodyGroupUser description.UserAccess
+	var everyoneGroupUser description.UserAccess
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
@@ -162,21 +161,17 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			LastConnection: lastConnection,
 		}
 		userTag := entity.Tag().(names.UserTag)
-		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
-		if err != nil && !errors.IsNotFound(err) {
-			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
-		}
 
-		// TODO(perrito666) remove the following section about everybody group
+		// TODO(perrito666) remove the following section about everyone group
 		// when groups are implemented, this accounts only for the lack of a local
 		// ControllerUser when logging in from an external user that has not been granted
 		// permissions on the controller but there are permissions for the special
-		// everybody group.
+		// everyone group.
 		if !userTag.IsLocal() {
-			everybodyTag := names.NewUserTag(EverybodyTagName)
-			everybodyGroupUser, err = state.ControllerAccess(a.root.state, everybodyTag)
+			everyoneTag := names.NewUserTag(EveryoneTagName)
+			everyoneGroupUser, err = state.ControllerAccess(a.root.state, everyoneTag)
 			if err != nil && !errors.IsNotFound(err) {
-				return fail, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+				return fail, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
 		}
 
@@ -185,17 +180,22 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
 		}
 
+		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
+		}
+
 		if description.IsEmptyUserAccess(modelUser) &&
 			description.IsEmptyUserAccess(controllerUser) &&
-			description.IsEmptyUserAccess(everybodyGroupUser) {
+			description.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
 		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
 		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
-
 	}
+
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
@@ -203,48 +203,45 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
-	environ, err := a.root.state.Model()
+	model, err := a.root.state.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
+	if isUser && model.MigrationMode() == state.MigrationModeImporting {
+		apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+	}
+
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		ModelTag:      environ.Tag().String(),
-		ControllerTag: environ.ControllerTag().String(),
-		Facades:       DescribeFacades(),
+		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
 	}
 
-	connType := "model"
-	allowFacade := isModelFacade
 	if controllerOnlyLogin {
-		connType = "controller"
-		allowFacade = isControllerFacade
-		// Remove the ModelTag from the response as there is no
-		// model here.
-		loginResult.ModelTag = ""
-	}
-	authedAPI = newRestrictedRoot(authedAPI, connType, allowFacade)
-	// Strip out the facades that are not supported from the result.
-	facades := make([]params.FacadeVersions, 0, len(loginResult.Facades))
-	for _, facade := range loginResult.Facades {
-		if allowFacade(facade.Name) {
-			facades = append(facades, facade)
-		}
-	}
-	loginResult.Facades = facades
-
-	if !description.IsEmptyUserAccess(modelUser) ||
-		!description.IsEmptyUserAccess(controllerUser) ||
-		!description.IsEmptyUserAccess(everybodyGroupUser) {
-		authedAPI = newClientAuthRoot(authedAPI, modelUser, controllerUser)
+		loginResult.Facades = filterFacades(isControllerFacade)
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+	} else {
+		loginResult.ModelTag = model.Tag().String()
+		loginResult.Facades = filterFacades(isModelFacade)
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 	}
 
-	a.root.rpcConn.ServeRoot(authedAPI, serverError)
+	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
 	return loginResult, nil
+}
+
+func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
+	allFacades := DescribeFacades()
+	out := make([]params.FacadeVersions, 0, len(allFacades))
+	for _, facade := range allFacades {
+		if allowFacade(facade.Name) {
+			out = append(out, facade)
+		}
+	}
+	return out
 }
 
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
@@ -371,15 +368,15 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(perrito666) remove the following section about everybody group
+	// TODO(perrito666) remove the following section about everyone group
 	// when groups are implemented, this accounts only for the lack of a local
 	// ControllerUser when logging in from an external user that has not been granted
 	// permissions on the controller but there are permissions for the special
-	// everybody group.
+	// everyone group.
 	if !utag.IsLocal() {
 		controllerUser, err = maybeUseGroupPermission(f.st.UserAccess, controllerUser, f.st.ControllerTag(), utag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for everybody group")
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
 	}
 
