@@ -513,7 +513,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			return params.ModelInfo{}, err
+			return params.ModelInfo{}, errors.Trace(err)
 		}
 		return m.getModelInfo(tag)
 	}
@@ -534,7 +534,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, common.ErrPerm
 	} else if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	defer st.Close()
 
@@ -542,24 +542,24 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, common.ErrPerm
 	} else if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 
 	cfg, err := model.Config()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	users, err := model.Users()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	status, err := model.Status()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 
 	owner := model.Owner()

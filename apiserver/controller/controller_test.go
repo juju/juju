@@ -531,7 +531,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerRevoke(c, user, string(description.AddModelAccess))
-	expectedErr := `could not look up controller access for user: controller user "foobar@local" not found`
+	expectedErr := `could not look up controller access for user: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 

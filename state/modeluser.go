@@ -143,17 +143,20 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 	return ops
 }
 
-// removeModelUser removes a user from the database.
-func (st *State) removeModelUser(user names.UserTag) error {
-	ops := []txn.Op{
-		removePermissionOp(modelKey(st.ModelUUID()), userGlobalKey(userAccessID(user))),
+func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
+}
 
+// removeModelUser removes a user from the database.
+func (st *State) removeModelUser(user names.UserTag) error {
+	ops := removeModelUserOps(st.ModelUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))

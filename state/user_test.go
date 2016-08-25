@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -224,6 +225,39 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	// Check again to verify the user cannot be retrieved.
 	u, err = s.State.User(user.UserTag())
 	c.Check(err, jc.Satisfies, errors.IsUserNotFound)
+}
+
+func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
+
+	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), description.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), description.SuperuserAccess)
+
+	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uam.Access, gc.Equals, description.AdminAccess)
+
+	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uac.Access, gc.Equals, description.SuperuserAccess)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(u, jc.DeepEquals, user)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	uam, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
+
+	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
 }
 
 func (s *UserSuite) TestDisable(c *gc.C) {

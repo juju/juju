@@ -70,10 +70,9 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 	return ops
 }
 
-// RemoveControllerUser removes a user from the database.
-func (st *State) removeControllerUser(user names.UserTag) error {
-	ops := []txn.Op{
-		removePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey(userAccessID(user))),
+func removeControllerUserOps(controllerUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
@@ -81,6 +80,11 @@ func (st *State) removeControllerUser(user names.UserTag) error {
 			Remove: true,
 		}}
 
+}
+
+// RemoveControllerUser removes a user from the database.
+func (st *State) removeControllerUser(user names.UserTag) error {
+	ops := removeControllerUserOps(st.ControllerUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("controller user %q does not exist", user.Canonical()))
