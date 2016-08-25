@@ -10,6 +10,45 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+/*
+# TODO - remaining prechecks
+
+## Source model
+
+- model machines have errors
+- machines that are dying or dead
+- pending reboots
+- machine or unit is being provisioned
+- application is being provisioned?
+- units that are dying or dead
+- model is being imported as part of another migration
+
+## Source controller
+
+- controller is upgrading
+  * all machine versions must match agent version
+
+- source controller has upgrade info doc (IsUpgrading)
+- controller machines have errors
+- controller machines that are dying or dead
+- pending reboots
+
+## Target controller
+
+- target controller tools are less than source model tools
+
+- target controller is upgrading
+  * all machine versions must match agent version
+
+- source controller has upgrade info doc (IsUpgrading)
+
+- target controller machines have errors
+- target controller already has a model with the same owner:name
+- target controller already has a model with the same UUID
+  - what about if left over from previous failed attempt?
+
+*/
+
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
