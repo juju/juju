@@ -678,28 +678,10 @@ class BootstrapManager:
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
-            try:
-                try:
-                    if not torn_down:
-                        self.tear_down(try_jes=True)
-                    yield
-                # If an exception is raised that indicates an error, log it
-                # before tearing down so that the error is closely tied to
-                # the failed operation.
-                except Exception as e:
-                    raise self._log_and_wrap_exception(e)
-            except:
-                # If run from a windows machine may not have ssh to get
-                # logs
-                with self.client.ignore_soft_deadline():
-                    with self.tear_down_client.ignore_soft_deadline():
-                        if self.bootstrap_host is not None and _can_run_ssh():
-                            remote = remote_from_address(self.bootstrap_host,
-                                                         series=self.series)
-                            copy_remote_logs(remote, self.log_dir)
-                            archive_logs(self.log_dir)
-                        self.tear_down()
-                raise
+            with self.handle_bootstrap_exceptions():
+                if not torn_down:
+                    self.tear_down(try_jes=True)
+                yield
 
     @contextmanager
     def existing_bootstrap_context(self, machines, omit_config=None):
@@ -726,6 +708,11 @@ class BootstrapManager:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
 
+        with self.handle_bootstrap_exceptions():
+            yield
+
+    @contextmanager
+    def handle_bootstrap_exceptions(self):
         try:
             try:
                 yield
@@ -737,12 +724,14 @@ class BootstrapManager:
         except:
             # If run from a windows machine may not have ssh to get
             # logs
-            if self.bootstrap_host is not None and _can_run_ssh():
-                remote = remote_from_address(self.bootstrap_host,
-                                             series=self.series)
-                copy_remote_logs(remote, self.log_dir)
-                archive_logs(self.log_dir)
-            self.tear_down()
+            with self.client.ignore_soft_deadline():
+                with self.tear_down_client.ignore_soft_deadline():
+                    if self.bootstrap_host is not None and _can_run_ssh():
+                        remote = remote_from_address(self.bootstrap_host,
+                                                     series=self.series)
+                        copy_remote_logs(remote, self.log_dir)
+                        archive_logs(self.log_dir)
+                    self.tear_down()
             raise
 
     @contextmanager
