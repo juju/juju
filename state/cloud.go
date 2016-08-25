@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -94,6 +95,23 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		StorageEndpoint:  d.StorageEndpoint,
 		Regions:          regions,
 	}
+}
+
+// Clouds returns the definitions for all clouds in the controller.
+func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	coll, cleanup := st.getCollection(cloudsC)
+	defer cleanup()
+
+	var doc cloudDoc
+	clouds := make(map[names.CloudTag]cloud.Cloud)
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "getting clouds")
+	}
+	return clouds, nil
 }
 
 // Cloud returns the controller's cloud definition.

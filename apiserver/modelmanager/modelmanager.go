@@ -8,6 +8,8 @@
 package modelmanager
 
 import (
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -197,13 +199,30 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		}
 	} else {
 		cloudTag = names.NewCloudTag(controllerModel.Cloud())
-		if cloudRegionName == "" {
-			cloudRegionName = controllerModel.CloudRegion()
-		}
+	}
+	if cloudRegionName == "" && cloudTag.Id() == controllerModel.Cloud() {
+		cloudRegionName = controllerModel.CloudRegion()
 	}
 
 	cloud, err := mm.state.Cloud(cloudTag.Id())
 	if err != nil {
+		if errors.IsNotFound(err) && args.CloudTag != "" {
+			// A cloud was specified, and it was not found.
+			// Annotate the error with the supported clouds.
+			clouds, err := mm.state.Clouds()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			cloudNames := make([]string, 0, len(clouds))
+			for tag := range clouds {
+				cloudNames = append(cloudNames, tag.Id())
+			}
+			sort.Strings(cloudNames)
+			return result, errors.NewNotFound(err, fmt.Sprintf(
+				"cloud %q not found, expected one of %q",
+				cloudTag.Id(), cloudNames,
+			))
+		}
 		return result, errors.Annotate(err, "getting cloud definition")
 	}
 

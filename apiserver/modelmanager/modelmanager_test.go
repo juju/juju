@@ -59,15 +59,20 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	dummyCloud := cloud.Cloud{
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions: []cloud.Region{
+			{Name: "some-region"},
+			{Name: "qux"},
+		},
+	}
+
 	s.st = mockState{
-		uuid: coretesting.ModelTag.Id(),
-		cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-			Regions: []cloud.Region{
-				{Name: "some-region"},
-				{Name: "qux"},
-			},
+		uuid:  coretesting.ModelTag.Id(),
+		cloud: dummyCloud,
+		clouds: map[names.CloudTag]cloud.Cloud{
+			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
 		controllerModel: &mockModel{
 			owner: names.NewUserTag("admin@local"),
@@ -213,6 +218,17 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 
 	newModelArgs := s.getModelArgs(c)
 	c.Assert(newModelArgs.CloudName, gc.Equals, "some-cloud")
+}
+
+func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
+	s.st.SetErrors(nil, errors.NotFoundf("cloud"))
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin@local",
+		CloudTag: "cloud-some-unknown-cloud",
+	}
+	_, err := s.api.CreateModel(args)
+	c.Assert(err, gc.ErrorMatches, `cloud "some-unknown-cloud" not found, expected one of \["some-cloud"\]`)
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {

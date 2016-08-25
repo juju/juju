@@ -103,6 +103,7 @@ type AgentEntity interface {
 // about clouds and credentials.
 type CloudAccessor interface {
 	Cloud(cloud string) (cloud.Cloud, error)
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 }
 

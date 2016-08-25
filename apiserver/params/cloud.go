@@ -32,6 +32,12 @@ type CloudResults struct {
 	Results []CloudResult `json:"results,omitempty"`
 }
 
+// CloudsResult contains a set of Clouds.
+type CloudsResult struct {
+	// Clouds is a map of clouds, keyed by cloud tag.
+	Clouds map[string]Cloud `json:"clouds,omitempty"`
+}
+
 // CloudCredential contains a cloud credential.
 type CloudCredential struct {
 	AuthType   string            `json:"auth-type"`
