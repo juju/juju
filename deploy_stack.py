@@ -779,12 +779,13 @@ class BootstrapManager:
                     m_client.show_status()
         finally:
             with self.client.ignore_soft_deadline():
-                try:
-                    self.dump_all_logs()
-                except KeyboardInterrupt:
-                    pass
-                if not self.keep_env:
-                    self.tear_down(self.jes_enabled)
+                with self.tear_down_client.ignore_soft_deadline():
+                    try:
+                        self.dump_all_logs()
+                    except KeyboardInterrupt:
+                        pass
+                    if not self.keep_env:
+                        self.tear_down(self.jes_enabled)
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):

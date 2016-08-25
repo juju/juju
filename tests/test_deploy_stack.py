@@ -1617,28 +1617,35 @@ class TestBootstrapManager(FakeHomeTestCase):
         soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
         now = soft_deadline + timedelta(seconds=1)
         client = EnvJujuClient(env, None, None)
+        tear_down_client = EnvJujuClient(env, None, None)
 
-        def do_check(*args, **kwargs):
+        def do_check_client(*args, **kwargs):
             with client.check_timeouts():
-                pass
-            return iter([])
+                return iter([])
+
+        def do_check_teardown_client(*args, **kwargs):
+            with tear_down_client.check_timeouts():
+                return iter([])
 
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
-                'foobar', client, client,
+                'foobar', client, tear_down_client,
                 None, [], None, None, None, None, log_dir, False,
                 True, True)
             bs_manager.known_hosts['0'] = 'example.org'
-            with patch.object(bs_manager.client, 'juju', side_effect=do_check,
-                              autospec=True):
+            with patch.object(bs_manager.client, 'juju',
+                              side_effect=do_check_client, autospec=True):
                 with patch.object(bs_manager.client, 'iter_model_clients',
-                                  side_effect=do_check, autospec=True,
-                                  return_value=iter([])):
-                    with patch.object(bs_manager, 'tear_down', do_check):
+                                  side_effect=do_check_client, autospec=True,
+                                  ):
+                    with patch.object(bs_manager, 'tear_down',
+                                      do_check_teardown_client):
                         with patch.object(client._backend, '_now',
                                           return_value=now):
                             with bs_manager.runtime_context(['baz']):
                                 client._backend.soft_deadline = soft_deadline
+                                td_backend = tear_down_client._backend
+                                td_backend.soft_deadline = soft_deadline
 
 
 class TestBootContext(FakeHomeTestCase):
