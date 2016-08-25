@@ -23,15 +23,13 @@ import (
 )
 
 var (
-	NewPingTimeout               = newPingTimeout
-	MaxClientPingInterval        = &maxClientPingInterval
-	MongoPingInterval            = &mongoPingInterval
-	NewBackups                   = &newBackups
-	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
-	BZMimeType                   = bzMimeType
-	JSMimeType                   = jsMimeType
-	SpritePath                   = spritePath
-	HasPermission                = hasPermission
+	NewPingTimeout        = newPingTimeout
+	MaxClientPingInterval = &maxClientPingInterval
+	MongoPingInterval     = &mongoPingInterval
+	NewBackups            = &newBackups
+	BZMimeType            = bzMimeType
+	JSMimeType            = jsMimeType
+	SpritePath            = spritePath
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {

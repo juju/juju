@@ -15,9 +15,11 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -346,6 +348,10 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+	err := controller.ChangeControllerAccess(
+		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
+		params.GrantControllerAccess, description.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
@@ -356,7 +362,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			}, {
 				Tag: names.NewLocalUserTag("ellie").String(),
 			}, {
-				Tag: names.NewUserTag("not@remote").String(),
+				Tag: names.NewUserTag("fred@external").String(),
 			}, {
 				Tag: "not-a-tag",
 			},
@@ -391,9 +397,9 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 				Code:    params.CodeUnauthorized,
 			},
 		}, {
-			err: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+			info: &params.UserInfo{
+				Username: "fred@external",
+				Access:   "addmodel",
 			},
 		}, {
 			err: &params.Error{
@@ -402,9 +408,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		},
 	} {
 		if r.info != nil {
-			r.info.DateCreated = r.user.DateCreated()
-			r.info.LastConnection = lastLoginPointer(c, r.user)
-			r.info.CreatedBy = s.adminName
+			if names.NewUserTag(r.info.Username).IsLocal() {
+				r.info.DateCreated = r.user.DateCreated()
+				r.info.LastConnection = lastLoginPointer(c, r.user)
+				r.info.CreatedBy = s.adminName
+			}
 		}
 		expected.Results = append(expected.Results, params.UserInfoResult{Result: r.info, Error: r.err})
 	}
@@ -472,18 +480,56 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	usermanager, err := usermanager.NewUserManagerAPI(s.State, s.resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.UserInfoRequest{}
+	args := params.UserInfoRequest{Entities: []params.Entity{
+		{Tag: userAardvark.Tag().String()},
+		{Tag: names.NewUserTag("foobar").String()},
+	}}
 	results, err := usermanager.UserInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Non admin users can only see themselves.
 	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: &params.UserInfo{
+					Username:       "aardvark",
+					DisplayName:    "Aard Vark",
+					Access:         "login",
+					CreatedBy:      s.adminName,
+					DateCreated:    userAardvark.DateCreated(),
+					LastConnection: lastLoginPointer(c, userAardvark),
+				},
+			}, {
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    params.CodeUnauthorized,
+				},
+			},
+		},
+	})
+}
+
+func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
+	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag("everyone@external"),
+		Access:    description.AddModelAccess,
+		CreatedBy: s.AdminUserTag(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag("aardvark@external"),
+		Access:    description.LoginAccess,
+		CreatedBy: s.AdminUserTag(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.UserInfoRequest{Entities: []params.Entity{{Tag: names.NewUserTag("aardvark@external").String()}}}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Non admin users can only see themselves.
+	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
 		Results: []params.UserInfoResult{{Result: &params.UserInfo{
-			Username:       "aardvark",
-			DisplayName:    "Aard Vark",
-			Access:         "login",
-			CreatedBy:      s.adminName,
-			DateCreated:    userAardvark.DateCreated(),
-			LastConnection: lastLoginPointer(c, userAardvark),
+			Username: "aardvark@external",
+			Access:   "addmodel",
 		}}},
 	})
 }
