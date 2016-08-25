@@ -4,7 +4,6 @@ package application
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 
@@ -354,7 +353,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 }
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
-	s.stub.SetErrors(nil, fmt.Errorf("could not authorize"))
+	s.stub.SetErrors(nil, errors.Errorf("could not authorize"))
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: charmstore.CharmID{

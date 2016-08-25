@@ -36,9 +36,9 @@ func modelKey(modelUUID string) string {
 type MigrationMode string
 
 const (
-	// MigrationModeActive is the default mode for a model and reflects
-	// a model that is active within its controller.
-	MigrationModeActive MigrationMode = ""
+	// MigrationModeNone is the default mode for a model and reflects
+	// that it isn't involved with a model migration.
+	MigrationModeNone MigrationMode = ""
 
 	// MigrationModeExporting reflects a model that is in the process of being
 	// exported from one controller to another.
@@ -75,7 +75,7 @@ type modelDoc struct {
 	// deployed. This will be empty for clouds that do not support regions.
 	CloudRegion string `bson:"cloud-region,omitempty"`
 
-	// CloudCredential is the name of the cloud credential that is used
+	// CloudCredential is the ID of the cloud credential that is used
 	// for managing cloud resources for this model. This will be empty
 	// for clouds that do not require credentials.
 	CloudCredential string `bson:"cloud-credential,omitempty"`
@@ -164,10 +164,10 @@ type ModelArgs struct {
 	// deployed. This will be empty for clouds that do not support regions.
 	CloudRegion string
 
-	// CloudCredential is the name of the cloud credential that will be
-	// used for managing cloud resources for this model. This will be empty
-	// for clouds that do not require credentials.
-	CloudCredential string
+	// CloudCredential is the tag of the cloud credential that will be
+	// used for managing cloud resources for this model. This will be
+	// empty for clouds that do not require credentials.
+	CloudCredential names.CloudCredentialTag
 
 	// Config is the model config.
 	Config *config.Config
@@ -191,8 +191,8 @@ func (m ModelArgs) Validate() error {
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
-	if m.CloudName == "" {
-		return errors.NotValidf("empty Cloud Name")
+	if !names.IsValidCloud(m.CloudName) {
+		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
@@ -201,7 +201,7 @@ func (m ModelArgs) Validate() error {
 		return errors.NotValidf("nil StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
-	case MigrationModeActive, MigrationModeImporting:
+	case MigrationModeNone, MigrationModeImporting:
 	default:
 		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
 	}
@@ -251,7 +251,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	assertCloudCredentialOp, err := validateCloudCredential(
-		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential, owner,
+		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -357,21 +357,35 @@ func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (t
 // validateCloudCredential validates the given cloud credential
 // name against the provided cloud definition and credentials,
 // and returns a txn.Op to include in a transaction to assert the
-// same.
+// same. A user is supplied, for which access to the credential
+// will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
 	cloudName string,
-	cloudCredentials map[string]jujucloud.Credential,
-	cloudCredentialName string,
-	cloudCredentialOwner names.UserTag,
+	cloudCredentials map[names.CloudCredentialTag]jujucloud.Credential,
+	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
-	if cloudCredentialName != "" {
-		if _, ok := cloudCredentials[cloudCredentialName]; !ok {
-			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredentialName)
+	if cloudCredential != (names.CloudCredentialTag{}) {
+		if cloudCredential.Cloud().Id() != cloudName {
+			return txn.Op{}, errors.NotValidf("credential %q", cloudCredential.Id())
 		}
+		var found bool
+		for tag := range cloudCredentials {
+			if tag.Canonical() == cloudCredential.Canonical() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredential.Id())
+		}
+		// NOTE(axw) if we add ACLs for credentials,
+		// we'll need to check access here. The map
+		// we check above contains only the credentials
+		// that the model owner has access to.
 		return txn.Op{
 			C:      cloudCredentialsC,
-			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudName, cloudCredentialName),
+			Id:     cloudCredentialDocID(cloudCredential),
 			Assert: txn.DocExists,
 		}, nil
 	}
@@ -437,10 +451,13 @@ func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
 }
 
-// CloudCredential returns the name of the cloud credential used for managing the
-// model's cloud resources.
-func (m *Model) CloudCredential() string {
-	return m.doc.CloudCredential
+// CloudCredential returns the tag of the cloud credential used for managing the
+// model's cloud resources, and a boolean indicating whether a credential is set.
+func (m *Model) CloudCredential() (names.CloudCredentialTag, bool) {
+	if names.IsValidCloudCredential(m.doc.CloudCredential) {
+		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
+	}
+	return names.CloudCredentialTag{}, false
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -893,7 +910,8 @@ func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 // an model document with the given name and UUID.
 func createModelOp(
 	owner names.UserTag,
-	name, uuid, server, cloudName, cloudRegion, cloudCredential string,
+	name, uuid, server, cloudName, cloudRegion string,
+	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
 ) txn.Op {
 	doc := &modelDoc{
@@ -905,7 +923,7 @@ func createModelOp(
 		MigrationMode:   migrationMode,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
-		CloudCredential: cloudCredential,
+		CloudCredential: cloudCredential.Canonical(),
 	}
 	return txn.Op{
 		C:      modelsC,
@@ -1015,7 +1033,7 @@ func assertModelActiveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeActive}),
+		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeNone}),
 	}
 }
 
@@ -1025,7 +1043,7 @@ func checkModelActive(st *State) error {
 		return errors.Errorf("model %q is no longer alive", model.Name())
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read model")
-	} else if mode := model.MigrationMode(); mode != MigrationModeActive {
+	} else if mode := model.MigrationMode(); mode != MigrationModeNone {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 	return nil

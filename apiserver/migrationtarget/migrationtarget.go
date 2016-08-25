@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
@@ -47,9 +48,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 		return errors.Trace(common.ErrPerm)
 	}
 
-	// Type assertion is fine because AuthClient is true.
-	apiUser := authorizer.GetAuthTag().(names.UserTag)
-	if isAdmin, err := st.IsControllerAdmin(apiUser); err != nil {
+	if isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag()); err != nil {
 		return errors.Trace(err)
 	} else if !isAdmin {
 		// The entire facade is only accessible to controller administrators.
@@ -110,5 +109,5 @@ func (api *API) Activate(args params.ModelArgs) error {
 		return errors.Trace(err)
 	}
 
-	return model.SetMigrationMode(state.MigrationModeActive)
+	return model.SetMigrationMode(state.MigrationModeNone)
 }

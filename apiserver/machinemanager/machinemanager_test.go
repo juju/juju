@@ -135,6 +135,10 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	return &mockBlock{}, false, nil
 }
 
+func (st *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+}
+
 func (st *mockState) ModelConfig() (*config.Config, error) {
 	panic("not implemented")
 }

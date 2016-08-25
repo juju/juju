@@ -70,7 +70,6 @@ type Uniter struct {
 	lastReportedStatus  status.Status
 	lastReportedMessage string
 
-	deployer             *deployerProxy
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
 	newOperationExecutor NewExecutorFunc
@@ -277,7 +276,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		uniterResolver := NewUniterResolver(ResolverConfig{
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
-			FixDeployer:         u.deployer.Fix,
 			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
@@ -431,7 +429,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
-	u.deployer = &deployerProxy{deployer}
 	contextFactory, err := context.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
 	)
@@ -445,7 +442,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	u.operationFactory = operation.NewFactory(operation.FactoryParams{
-		Deployer:       u.deployer,
+		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
 		Abort:          u.catacomb.Dying(),

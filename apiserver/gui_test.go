@@ -496,6 +496,7 @@ var config = {
     // This is just an example and does not reflect the real Juju GUI config.
     base: '{{.base}}',
     host: '{{.host}}',
+    controllerSocket: '{{.controllerSocket}}',
     socket: '{{.socket}}',
     staticURL: '{{.staticURL}}',
     uuid: '{{.uuid}}',
@@ -513,6 +514,7 @@ var config = {
     // This is just an example and does not reflect the real Juju GUI config.
     base: '/gui/%[1]s/',
     host: '%[2]s',
+    controllerSocket: '/api',
     socket: '/model/$uuid/api',
     staticURL: '/gui/%[1]s/%[3]s',
     uuid: '%[1]s',

@@ -27,5 +27,6 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	c.Assert(agentAPI, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
-		agentAPI, s.BackingState, apitesting.NoSecrets)
+		agentAPI, s.BackingState,
+	)
 }

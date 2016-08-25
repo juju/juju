@@ -187,6 +187,15 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRootWithPrefix(c *gc.C) 
 	})
 }
 
+func (s *LoopUtilSuite) TestDetachLoopDevicesListEmptyInodeOK(c *gc.C) {
+	commands := &mockRunCommand{c: c}
+	defer commands.assertDrained()
+	commands.expect("losetup", "-a").respond("/dev/loop0: []: (/var/lib/lxc-btrfs.img)", nil)
+	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
+	err := m.DetachLoopDevices("", "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockFileInfo struct {
 	os.FileInfo
 	inode uint64

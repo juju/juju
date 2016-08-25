@@ -119,7 +119,7 @@ type rootSuite struct {
 var _ = gc.Suite(&rootSuite{})
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	root := apiserver.TestingApiRoot(nil)
+	root := apiserver.TestingAPIRoot(nil)
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
@@ -127,7 +127,7 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	myGoodFacade := func(
 		*state.State, facade.Resources, facade.Authorizer,
@@ -144,7 +144,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	defer common.Facades.Discard("my-testing-facade", 1)
 	defer common.Facades.Discard("my-testing-facade", 2)
@@ -207,7 +207,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 }
 
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	defer common.Facades.Discard("my-counting-facade", 1)
 	var count int64
@@ -243,7 +243,7 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
@@ -275,7 +275,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	newIdCounter := func(context facade.Context) (facade.Facade, error) {
@@ -326,7 +326,7 @@ func (*secondImpl) OneMethod() stringVar {
 }
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-interface-facade", 0)
 	defer common.Facades.Discard("my-interface-facade", 1)
 	common.RegisterStandardFacade("my-interface-facade", 0, func(
@@ -388,7 +388,7 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 
 	entity := &stubStateEntity{tag}
 
-	apiHandler := apiserver.ApiHandlerWithEntity(entity)
+	apiHandler := apiserver.APIHandlerWithEntity(entity)
 	authorized := apiHandler.AuthOwner(tag)
 
 	c.Check(authorized, jc.IsTrue)
@@ -421,7 +421,7 @@ func (r *rootSuite) TestNoUserTagLacksPermission(c *gc.C) {
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	hasPermission, err := apiserver.HasPermission((&fakeUserAccess{}).call, nonUser, description.ReadAccess, target)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "obtaining permission for subject kind \"model\" not valid")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (r *rootSuite) TestHasPermission(c *gc.C) {
@@ -503,10 +503,78 @@ func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
 		err:  errors.NotFoundf("a user"),
 	}
 	hasPermission, err := apiserver.HasPermission(userGetter.call, user, description.ReadAccess, target)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "while obtaining model user: a user not found")
 	c.Assert(userGetter.subjects, gc.HasLen, 1)
 	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
 	c.Assert(userGetter.objects, gc.HasLen, 1)
 	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
+}
+
+type fakeEveryoneUserAccess struct {
+	user     description.UserAccess
+	everyone description.UserAccess
+}
+
+func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+	if subject.Canonical() == apiserver.EveryoneTagName {
+		return f.everyone, nil
+	}
+	return f.user, nil
+}
+
+func (r *rootSuite) TestEveryoneAtExternal(c *gc.C) {
+	testCases := []struct {
+		title            string
+		userGetterAccess description.Access
+		everyoneAccess   description.Access
+		user             names.UserTag
+		target           names.Tag
+		access           description.Access
+		expected         bool
+	}{
+		{
+			title:            "user has lesser permissions than everyone",
+			userGetterAccess: description.LoginAccess,
+			everyoneAccess:   description.AddModelAccess,
+			user:             names.NewUserTag("validuser@external"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         true,
+		},
+		{
+			title:            "user has greater permissions than everyone",
+			userGetterAccess: description.AddModelAccess,
+			everyoneAccess:   description.LoginAccess,
+			user:             names.NewUserTag("validuser@external"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         true,
+		},
+		{
+			title:            "everibody not considered if user is local",
+			userGetterAccess: description.LoginAccess,
+			everyoneAccess:   description.AddModelAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
+			access:           description.AddModelAccess,
+			expected:         false,
+		},
+	}
+
+	for i, t := range testCases {
+		userGetter := &fakeEveryoneUserAccess{
+			user: description.UserAccess{
+				Access: t.userGetterAccess,
+			},
+			everyone: description.UserAccess{
+				Access: t.everyoneAccess,
+			},
+		}
+		c.Logf(`HasPermission "everyone" test n %d: %s`, i, t.title)
+		hasPermission, err := apiserver.HasPermission(userGetter.call, t.user, t.access, t.target)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(hasPermission, gc.Equals, t.expected)
+	}
+
 }

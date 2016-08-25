@@ -6,7 +6,6 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -126,8 +125,6 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-	s.FakeCommon.Arches = []string{arch.AMD64}
-
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -135,10 +132,6 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unsupported, gc.HasLen, 0)
-
-	arm64 := arch.ARM64
-	_, err = validator.Validate(constraints.Value{Arch: &arm64})
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are: \\[amd64\\]")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
@@ -152,8 +145,6 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	s.FakeCommon.Arches = []string{arch.AMD64}
-
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -162,18 +153,6 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
-}
-
-func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
-	s.FakeCommon.Arches = []string{arch.AMD64}
-
-	validator, err := s.Env.ConstraintsValidator()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cons := constraints.MustParse("arch=ppc64el")
-	_, err = validator.Validate(cons)
-
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *gc.C) {
@@ -197,8 +176,6 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
-	s.FakeCommon.Arches = []string{arch.AMD64}
-
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 

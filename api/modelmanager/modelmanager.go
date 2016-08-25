@@ -37,18 +37,24 @@ func (c *Client) Close() error {
 // CreateModel creates a new model using the model config,
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(
-	name, owner, cloudRegion, cloudCredential string, config map[string]interface{},
+	name, owner, cloudRegion string,
+	cloudCredential names.CloudCredentialTag,
+	config map[string]interface{},
 ) (params.ModelInfo, error) {
 	var result params.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
+	var cloudCredentialTag string
+	if cloudCredential != (names.CloudCredentialTag{}) {
+		cloudCredentialTag = cloudCredential.String()
+	}
 	createArgs := params.ModelCreateArgs{
-		Name:            name,
-		OwnerTag:        names.NewUserTag(owner).String(),
-		Config:          config,
-		CloudRegion:     cloudRegion,
-		CloudCredential: cloudCredential,
+		Name:               name,
+		OwnerTag:           names.NewUserTag(owner).String(),
+		Config:             config,
+		CloudRegion:        cloudRegion,
+		CloudCredentialTag: cloudCredentialTag,
 	}
 	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
 	if err != nil {
@@ -113,6 +119,27 @@ func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error)
 	}
 
 	err := c.facade.FacadeCall("DumpModels", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
+// DumpModelDB returns all relevant mongo documents for the model.
+func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, error) {
+	var results params.MapResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: model.String()}},
+	}
+
+	err := c.facade.FacadeCall("DumpModelsDB", entities, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

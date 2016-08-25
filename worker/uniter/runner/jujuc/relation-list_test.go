@@ -121,16 +121,16 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		c.Logf(bufferString(ctx.Stderr))
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
 			if expect != "" {
-				expect = expect + "\n"
+				expect += "\n"
 			}
-			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
+			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
-			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
-			c.Assert(bufferString(ctx.Stderr), gc.Matches, expect)
+			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
 }

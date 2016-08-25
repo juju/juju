@@ -39,6 +39,10 @@ func minimalUnitMap() map[interface{}]interface{} {
 		"workload-version-history": emptyStatusHistoryMap(),
 		"password-hash":            "secure-hash",
 		"tools":                    minimalAgentToolsMap(),
+		"payloads": map[interface{}]interface{}{
+			"version":  1,
+			"payloads": []interface{}{},
+		},
 	}
 }
 
@@ -193,4 +197,20 @@ func (s *UnitSerializationSuite) TestWorkloadStatusHistory(c *gc.C) {
 		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
 		c.Check(point.Updated(), gc.Equals, args[i].Updated)
 	}
+}
+
+func (s *UnitSerializationSuite) TestPayloads(c *gc.C) {
+	initial := minimalUnit()
+	expected := initial.AddPayload(allPayloadArgs())
+	c.Check(expected.Name(), gc.Equals, "bob")
+	c.Check(expected.Type(), gc.Equals, "docker")
+	c.Check(expected.RawID(), gc.Equals, "d06f00d")
+	c.Check(expected.State(), gc.Equals, "running")
+	c.Check(expected.Labels(), jc.DeepEquals, []string{"auto", "foo"})
+
+	unit := s.exportImport(c, initial)
+
+	payloads := unit.Payloads()
+	c.Assert(payloads, gc.HasLen, 1)
+	c.Assert(payloads[0], jc.DeepEquals, expected)
 }

@@ -4,9 +4,8 @@
 package model
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var usageListSharesSummary = `
@@ -93,32 +93,23 @@ func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *usersCommand) formatTabular(writer io.Writer, value interface{}) error {
 	users, ok := value.(map[string]common.ModelUserInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
+		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
-	var out bytes.Buffer
-	if err := formatTabularUserInfo(users, &out); err != nil {
-		return nil, errors.Trace(err)
+	if err := formatTabularUserInfo(users, writer); err != nil {
+		return errors.Trace(err)
 	}
-	return out.Bytes(), nil
+	return nil
 }
 
-func formatTabularUserInfo(users map[string]common.ModelUserInfo, out *bytes.Buffer) error {
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
+func formatTabularUserInfo(users map[string]common.ModelUserInfo, writer io.Writer) error {
 	names := set.NewStrings()
 	for name := range users {
 		names.Add(name)
 	}
-	tw := tabwriter.NewWriter(out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "NAME\tACCESS\tLAST CONNECTION\n")
 	for _, name := range names.SortedValues() {
 		user := users[name]

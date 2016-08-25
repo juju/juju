@@ -105,7 +105,7 @@ func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, erro
 func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "-n", "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 1)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)

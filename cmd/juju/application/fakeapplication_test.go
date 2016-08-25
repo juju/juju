@@ -90,7 +90,7 @@ func (f *fakeServiceAPI) Unset(application string, options []string) error {
 	// Verify all options before unsetting any of them.
 	for _, name := range options {
 		if _, ok := f.values[name]; !ok {
-			return fmt.Errorf("unknown option %q", name)
+			return errors.Errorf("unknown option %q", name)
 		}
 	}
 

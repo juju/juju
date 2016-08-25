@@ -2293,7 +2293,6 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		s.uniter,
 		s.State,
 		s.resources,
-		commontesting.NoSecrets,
 	)
 }
 

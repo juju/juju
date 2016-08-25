@@ -10,12 +10,8 @@ import (
 )
 
 var (
-	configFields = schema.Fields{
-		"bootstrap-user": schema.String(),
-	}
-	configDefaults = schema.Defaults{
-		"bootstrap-user": "",
-	}
+	configFields   = schema.Fields{}
+	configDefaults = schema.Defaults{}
 )
 
 type environConfig struct {
@@ -25,8 +21,4 @@ type environConfig struct {
 
 func newModelConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	return &environConfig{Config: config, attrs: attrs}
-}
-
-func (c *environConfig) bootstrapUser() string {
-	return c.attrs["bootstrap-user"].(string)
 }

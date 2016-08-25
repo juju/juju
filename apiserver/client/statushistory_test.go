@@ -28,7 +28,7 @@ type statusHistoryTestSuite struct {
 
 func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{}
-	tag := names.NewUserTag("user")
+	tag := names.NewUserTag("admin")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
 	s.api, err = client.NewClient(
@@ -226,6 +226,10 @@ type mockState struct {
 
 func (m *mockState) ModelUUID() string {
 	return "uuid"
+}
+
+func (m *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func (m *mockState) Unit(name string) (client.Unit, error) {

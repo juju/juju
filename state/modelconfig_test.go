@@ -13,7 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -32,12 +34,23 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 	s.ControllerInheritedConfig = map[string]interface{}{
 		"apt-mirror": "http://cloud-mirror",
 	}
+	s.RegionConfig = cloud.RegionConfig{
+		"nether-region": cloud.Attrs{
+			"apt-mirror": "http://nether-region-mirror",
+		},
+		"dummy-region": cloud.Attrs{
+			"whimsy-key": "whimsy-value",
+		},
+	}
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
+	}
+	s.policy.GetProviderConfigSchemaSource = func() (config.ConfigSchemaSource, error) {
+		return &statetesting.MockConfigSchemaSource{}, nil
 	}
 }
 
@@ -98,12 +111,63 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs)
+
+	cfgAttrs, err := s.State.ComposeNewModelConfig(
+		attrs, &environs.RegionSpec{
+			Cloud:  "dummy",
+			Region: "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
+	expected["providerAttr"] = "vulch"
+	expected["whimsy-key"] = "whimsy-value"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
+	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+}
+
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
+	attrs := map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+		"uuid":            testing.ModelTag.Id(),
+		"type":            "dummy",
+		"name":            "test",
+		"resource-tags":   map[string]string{"a": "b", "c": "d"},
+	}
+	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "dummy-region"}
+	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	expected["apt-mirror"] = "http://cloud-mirror"
+	expected["providerAttr"] = "vulch"
+	expected["whimsy-key"] = "whimsy-value"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
+	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+}
+
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
+	attrs := map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"arbitrary-key":   "shazam!",
+		"uuid":            testing.ModelTag.Id(),
+		"type":            "dummy",
+		"name":            "test",
+		"resource-tags":   map[string]string{"a": "b", "c": "d"},
+	}
+	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "nether-region"}
+	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	expected["apt-mirror"] = "http://nether-region-mirror"
+	expected["providerAttr"] = "vulch"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -117,18 +181,22 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror",
+		"apt-mirror":    "http://different-mirror", // controller
 		"arbitrary-key": "shazam!",
+		"providerAttr":  "beef", // provider
+		"whimsy-key":    "eggs", // region
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key"}, nil)
+	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
+	c.Assert(allAttrs["providerAttr"], gc.Equals, "vulch")
+	c.Assert(allAttrs["whimsy-key"], gc.Equals, "whimsy-value")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }
@@ -159,20 +227,23 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror",
+		"apt-mirror":    "http://different-mirror", // controller
 		"arbitrary-key": "shazam!",
+		"providerAttr":  "beef", // provider
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"apt-mirror": "http://another-mirror",
+		"apt-mirror":   "http://another-mirror",
+		"providerAttr": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
+	c.Assert(allAttrs["providerAttr"], gc.Equals, "pork")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }
@@ -236,7 +307,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	})
 	owner := names.NewUserTag("test@remote")
 	_, st, err := s.State.NewModel(state.ModelArgs{
-		Config: cfg, Owner: owner, CloudName: "dummy",
+		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "dummy-region",
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -26,15 +26,28 @@ type CloudAPISuite struct {
 
 func (s *CloudAPISuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = apicloud.NewClient(s.APIState)
+	s.client = apicloud.NewClient(s.OpenControllerAPI(c))
+}
+
+func (s *CloudAPISuite) TearDownTest(c *gc.C) {
+	s.client.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 	result, err := s.client.Cloud(names.NewCloudTag("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
-		Type:             "dummy",
-		AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions: []cloud.Region{
+			cloud.Region{
+				Name:             "dummy-region",
+				Endpoint:         "dummy-endpoint",
+				IdentityEndpoint: "dummy-identity-endpoint",
+				StorageEndpoint:  "dummy-storage-endpoint",
+			},
+		},
 		Endpoint:         "dummy-endpoint",
 		IdentityEndpoint: "dummy-identity-endpoint",
 		StorageEndpoint:  "dummy-storage-endpoint",

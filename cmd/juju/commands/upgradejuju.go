@@ -306,10 +306,15 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		if err := context.uploadTools(c.BuildAgent); err != nil {
 			// If we've explicitly asked to build an agent binary, or the upload failed
 			// because changes were blocked, we'll return an error.
-			// Otherwise, we'll try and find a pre-packaged upgraded binary to use below.
 			if err2 := block.ProcessBlockedError(err, block.BlockChange); c.BuildAgent || err2 == cmd.ErrSilent {
 				return err2
 			}
+		} else if err == nil {
+			builtMsg := ""
+			if c.BuildAgent {
+				builtMsg = " (built from source)"
+			}
+			fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
 		}
 	}
 	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
@@ -318,13 +323,13 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	ctx.Infof("available tools:\n%s", formatTools(context.tools))
-	ctx.Infof("best version:\n    %s", context.chosen)
+	ctx.Verbosef("available tools:\n%s", formatTools(context.tools))
+	ctx.Verbosef("best version:\n    %s", context.chosen)
 	if warnCompat {
-		logger.Infof("version %s incompatible with this client (%s)", context.chosen, jujuversion.Current)
+		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
-		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
+		fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
 		if c.ResetPrevious {
 			if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
@@ -349,7 +354,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		logger.Infof("started upgrade to %s", context.chosen)
+		fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", context.chosen)
 	}
 	return nil
 }

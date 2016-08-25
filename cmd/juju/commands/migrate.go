@@ -25,7 +25,7 @@ type migrateCommand struct {
 }
 
 type migrateAPI interface {
-	InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error)
+	InitiateMigration(spec controller.MigrationSpec) (string, error)
 }
 
 const migrateDoc = `
@@ -84,7 +84,7 @@ func (c *migrateCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, error) {
+func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	store := c.ClientStore()
 
 	modelUUIDs, err := c.ModelUUIDs([]string{c.model})
@@ -103,13 +103,14 @@ func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, err
 		return nil, err
 	}
 
-	return &controller.ModelMigrationSpec{
+	return &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
 		TargetAddrs:          controllerInfo.APIEndpoints,
 		TargetCACert:         controllerInfo.CACert,
 		TargetUser:           accountInfo.User,
 		TargetPassword:       accountInfo.Password,
+		TargetMacaroon:       accountInfo.Macaroon,
 	}, nil
 }
 
@@ -123,7 +124,7 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	id, err := api.InitiateModelMigration(*spec)
+	id, err := api.InitiateMigration(*spec)
 	if err != nil {
 		return err
 	}

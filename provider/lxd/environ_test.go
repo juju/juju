@@ -48,17 +48,8 @@ func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 
 func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
+
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCallNames(c, "asNonLocal")
-}
-
-func (s *environSuite) TestSetConfigMissing(c *gc.C) {
-	lxd.UnsetEnvConfig(s.Env)
-
-	err := s.Env.SetConfig(s.Config)
-
-	c.Check(err, gc.ErrorMatches, "cannot set config on uninitialized env")
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {

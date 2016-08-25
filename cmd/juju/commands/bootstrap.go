@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
@@ -48,7 +49,7 @@ Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
-We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west-1’
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.
 
@@ -182,21 +183,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
-	if len(args) == 0 {
-		switch c.flagset.NFlag() {
-		case 0:
-			// no args or flags, go interactive.
-			c.interactive = true
-			return nil
-		case 1:
-			if c.BuildAgent {
-				// juju bootstrap --build-agent is ok for interactive, too.
-				c.interactive = true
-				return nil
-			}
-			// some other flag was set, which means non-interactive.
-		}
-	}
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -252,9 +238,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.New("requested agent version major.minor mismatch")
 	}
 
-	// The user must specify two positional arguments: the controller name,
-	// and the cloud name (optionally with region specified).
-	if len(args) < 2 {
+	switch len(args) {
+	case 0:
+		// no args or flags, go interactive.
+		c.interactive = true
+		return nil
+	case 1:
+		// The user must specify both positional arguments: the controller name,
+		// and the cloud name (optionally with region specified).
 		return errors.New("controller name and cloud name are required")
 	}
 	c.controllerName = args[0]
@@ -382,14 +373,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	provider, err := environs.Provider(cloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
 	// the provider supports.
 	if len(cloud.AuthTypes) == 0 {
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		for authType := range provider.CredentialSchemas() {
 			cloud.AuthTypes = append(cloud.AuthTypes, authType)
 		}
@@ -462,7 +453,31 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The provider may define some custom attributes specific
+	// to the provider. These will be added to the model config.
+	providerAttrs := make(map[string]interface{})
+	if ps, ok := provider.(config.ConfigSchemaSource); ok {
+		for attr := range ps.ConfigSchema() {
+			if v, ok := userConfigAttrs[attr]; ok {
+				providerAttrs[attr] = v
+			}
+		}
+		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
+		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
+			return errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
+		} else {
+			providerAttrs = coercedAttrs.(map[string]interface{})
+		}
+	}
+	logger.Debugf("provider attrs: %v", providerAttrs)
 	for k, v := range userConfigAttrs {
+		modelConfigAttrs[k] = v
+	}
+	// Provider specific attributes are either already specified in model
+	// config (but may have been coerced), or were not present. Either way,
+	// copy them in.
+	for k, v := range providerAttrs {
 		modelConfigAttrs[k] = v
 	}
 	bootstrapConfigAttrs := make(map[string]interface{})
@@ -603,10 +618,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Infof(`
-bootstrap failed but --keep-broken was specified so model is not being destroyed.
-When you are finished diagnosing the problem, remember to run juju destroy-model --force
-to clean up the model.`[1:])
+				ctx.Infof(`
+bootstrap failed but --keep-broken was specified so resources are not being destroyed.
+When you have finished diagnosing the problem, remember to clean up the failed controller.
+See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
@@ -731,7 +746,7 @@ to clean up the model.`[1:])
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName)
+	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
 }
 
 // runInteractive queries the user about bootstrap config interactively at the

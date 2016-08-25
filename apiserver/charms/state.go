@@ -5,6 +5,7 @@ package charms
 
 import (
 	"gopkg.in/juju/charm.v6-unstable"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 )
@@ -12,6 +13,7 @@ import (
 type charmsAccess interface {
 	Charm(curl *charm.URL) (*state.Charm, error)
 	AllCharms() ([]*state.Charm, error)
+	ModelTag() names.ModelTag
 }
 
 type stateShim struct {
@@ -24,4 +26,8 @@ func (s stateShim) Charm(curl *charm.URL) (*state.Charm, error) {
 
 func (s stateShim) AllCharms() ([]*state.Charm, error) {
 	return s.state.AllCharms()
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.state.ModelTag()
 }

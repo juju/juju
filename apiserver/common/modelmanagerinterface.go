@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -32,7 +33,7 @@ type ModelManagerBackend interface {
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
-	ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error)
+	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
@@ -49,6 +50,7 @@ type ModelManagerBackend interface {
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)
+	DumpAll() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -62,7 +64,7 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	Cloud() string
-	CloudCredential() string
+	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]description.UserAccess, error)
 	Destroy() error

@@ -24,7 +24,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, apitesting.NoSecrets)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {

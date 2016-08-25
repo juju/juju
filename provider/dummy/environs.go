@@ -16,10 +16,6 @@
 //
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
-//
-// To avoid enumerating all possible series and architectures,
-// any series or architecture with the prefix "unknown" is
-// treated as bad when starting a new instance.
 package dummy
 
 import (
@@ -83,6 +79,7 @@ func SampleCloudSpec() environs.CloudSpec {
 		Name:             "dummy",
 		Endpoint:         "dummy-endpoint",
 		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
 		StorageEndpoint:  "dummy-storage-endpoint",
 		Credential:       &cred,
 	}
@@ -512,6 +509,20 @@ func (p *environProvider) Schema() environschema.Fields {
 	return fields
 }
 
+var _ config.ConfigSchemaSource = (*environProvider)(nil)
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
@@ -567,11 +578,6 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p *environProvider) RestrictedConfigAttributes() []string {
-	return nil
-}
-
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	ecfg, err := p.newConfig(args.Config)
@@ -623,16 +629,6 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	envState.bootstrapConfig = cfg
 	p.state[controllerUUID] = envState
 	return cfg, nil
-}
-
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := dummy.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"secret": ecfg.secret(),
-	}, nil
 }
 
 // Override for testing - the data directory with which the state api server is initialised.
@@ -724,10 +720,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 
-			cloudCredentials := make(map[string]cloud.Credential)
-			if icfg.Bootstrap.ControllerCloudCredential != nil {
-				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
-					*icfg.Bootstrap.ControllerCloudCredential
+			adminUser := names.NewUserTag("admin@local")
+			var cloudCredentialTag names.CloudCredentialTag
+			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+					"%s/%s/%s",
+					icfg.Bootstrap.ControllerCloudName,
+					adminUser.Canonical(),
+					icfg.Bootstrap.ControllerCloudCredentialName,
+				))
+			}
+
+			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
 			info := stateInfo()
@@ -738,12 +744,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					Owner:                   names.NewUserTag("admin@local"),
+					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
 					CloudName:               icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
-					CloudCredential:         icfg.Bootstrap.ControllerCloudCredentialName,
+					CloudCredential:         cloudCredentialTag,
 					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
@@ -896,9 +902,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-	validator.RegisterVocabulary(constraints.Arch, []string{
-		arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64,
-	})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
 	return validator, nil
 }
 

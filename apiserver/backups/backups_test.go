@@ -35,7 +35,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.resources.RegisterNamed("dataDir", common.StringResource("/var/lib/juju"))
-	tag := names.NewLocalUserTag("spam")
+	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
 	s.api, err = backupsAPI.NewAPI(&stateShim{s.State}, s.resources, s.authorizer)

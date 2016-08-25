@@ -151,11 +151,11 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 	fields := schema.Fields{
 		"architecture":  schema.String(),
 		"container":     schema.String(),
-		"cpu-cores":     schema.Uint(),
-		"cpu-power":     schema.Uint(),
+		"cpu-cores":     schema.ForceUint(),
+		"cpu-power":     schema.ForceUint(),
 		"instance-type": schema.String(),
-		"memory":        schema.Uint(),
-		"root-disk":     schema.Uint(),
+		"memory":        schema.ForceUint(),
+		"root-disk":     schema.ForceUint(),
 
 		"spaces": schema.List(schema.String()),
 		"tags":   schema.List(schema.String()),

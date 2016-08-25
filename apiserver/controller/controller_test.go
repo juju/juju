@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -57,16 +58,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
-	}
-	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
 	}
 	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
@@ -305,7 +296,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}})
 }
 
-func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
@@ -313,12 +304,17 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 
-	// Kick off the migration.
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Kick off migrations
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
 			{
 				ModelTag: st1.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
@@ -327,17 +323,17 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 				},
 			}, {
 				ModelTag: st2.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
-					Password:      "secret2",
+					Macaroon:      string(macJSON),
 				},
 			},
 		},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
@@ -352,11 +348,12 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
-		mig, err := st.LatestModelMigration()
+		mig, err := st.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(targetInfo.ControllerTag.String(), gc.Equals, spec.TargetInfo.ControllerTag)
@@ -364,22 +361,29 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
+
+		var macJSONdb []byte
+		if targetInfo.Macaroon != nil {
+			macJSONdb, err = targetInfo.Macaroon.MarshalJSON()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroon)
 	}
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationValidationError(c *gc.C) {
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	// Kick off the migration with missing details.
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
 			ModelTag: st.ModelTag().String(),
 			// TargetInfo missing
 		}},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
@@ -388,15 +392,15 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
 			{
 				ModelTag: st.ModelTag().String(),
-				TargetInfo: params.ModelMigrationTargetInfo{
+				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
@@ -408,7 +412,7 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateModelMigration(args)
+	out, err := s.controller.InitiateMigration(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
@@ -417,6 +421,32 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
+			{
+				ModelTag: st.ModelTag().String(),
+				TargetInfo: params.MigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert",
+					AuthTag:       names.NewUserTag("admin").String(),
+					Macaroon:      "BLAH",
+				},
+			},
+		},
+	}
+	out, err := s.controller.InitiateMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 1)
+	result := out.Results[0]
+	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
+	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
 }
 
 func randomModelTag() string {
@@ -621,4 +651,63 @@ func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+}
+
+func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	user2 := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+
+	err := s.controllerGrant(c, user.UserTag(), string(description.SuperuserAccess))
+	c.Assert(err, gc.IsNil)
+	err = s.controllerGrant(c, user2.UserTag(), string(description.AddModelAccess))
+	c.Assert(err, gc.IsNil)
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: user2.Tag().String()}},
+	}
+	results, err := s.controller.GetControllerAccess(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.UserAccessResult{{
+		Result: &params.UserAccess{
+			Access:  "superuser",
+			UserTag: user.Tag().String(),
+		}}, {
+		Result: &params.UserAccess{
+			Access:  "addmodel",
+			UserTag: user2.Tag().String(),
+		}}})
+}
+
+func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
+	// Set up the user making the call.
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	anAuthoriser := apiservertesting.FakeAuthorizer{
+		Tag: user.Tag(),
+	}
+	endpoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ModifyControllerAccessRequest{
+		Changes: []params.ModifyControllerAccess{{
+			UserTag: user.Tag().String(),
+			Action:  params.GrantControllerAccess,
+			Access:  "superuser",
+		}}}
+	result, err := s.controller.ModifyControllerAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+
+	// We ask for permissions for a different user as well as ourselves.
+	differentUser := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: differentUser.Tag().String()}},
+	}
+	results, err := endpoint.GetControllerAccess(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(*results.Results[0].Result, jc.DeepEquals, params.UserAccess{
+		Access:  "superuser",
+		UserTag: user.Tag().String(),
+	})
+	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
+		Message: "permission denied", Code: "unauthorized access",
+	})
 }

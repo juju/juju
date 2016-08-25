@@ -79,9 +79,6 @@ type maasEnviron struct {
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -266,20 +263,11 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
 	fetchArchitectures := env.allArchitecturesWithFallback
 	if env.usingMAAS2() {
 		fetchArchitectures = env.allArchitectures2
 	}
-	architectures, err := fetchArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env.supportedArchitectures = architectures
-	return env.supportedArchitectures, nil
+	return fetchArchitectures()
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -2254,6 +2242,12 @@ func (env *maasEnviron) releaseContainerAddresses1(macAddresses []string) error 
 		deviceIds[i] = id
 	}
 
+	// If one device matched on multiple MAC addresses (like for
+	// multi-nic containers) it will be in the slice multiple
+	// times. Skip devices we've seen already.
+	deviceIdSet := set.NewStrings(deviceIds...)
+	deviceIds = deviceIdSet.SortedValues()
+
 	for _, id := range deviceIds {
 		err := devicesAPI.GetSubObject(id).Delete()
 		if err != nil {
@@ -2268,7 +2262,16 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// If one device matched on multiple MAC addresses (like for
+	// multi-nic containers) it will be in the slice multiple
+	// times. Skip devices we've seen already.
+	seen := set.NewStrings()
 	for _, device := range devices {
+		if seen.Contains(device.SystemID()) {
+			continue
+		}
+		seen.Add(device.SystemID())
+
 		err = device.Delete()
 		if err != nil {
 			return errors.Annotatef(err, "deleting device %s", device.SystemID())

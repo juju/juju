@@ -62,7 +62,6 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.resolverConfig = uniter.ResolverConfig{
 		ClearResolved:       func() error { return s.clearResolved() },
 		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
-		FixDeployer:         func() error { return nil },
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,

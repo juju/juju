@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -23,60 +24,28 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
-	// TODO(ericsnow) do something similar to correctLocalhostURLs()
-	// (in provider/local/environprovider.go)?
-
-	env, err := newEnviron(args.Config, newRawProvider)
+	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
 	return env, errors.Trace(err)
 }
 
 // PrepareConfig implements environs.EnvironProvider.
 func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	return args.Config, nil
-}
-
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		"remote-url",
-		"client-cert",
-		"client-key",
-		"server-cert",
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
+	return args.Config, nil
 }
 
 // Validate implements environs.EnvironProvider.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if old == nil {
-		ecfg, err := newValidConfig(cfg, configDefaults)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid config")
-		}
-		return ecfg.Config, nil
-	}
-
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(old, nil)
-	if err != nil {
+	if _, err := newValidConfig(cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}
-
-	if err := ecfg.update(cfg); err != nil {
-		return nil, errors.Annotate(err, "invalid config change")
-	}
-
-	return ecfg.Config, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ecfg.secret(), nil
+	return cfg, nil
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -94,4 +63,31 @@ func (environProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if spec.Endpoint != "" {
+		return errors.NotValidf("non-empty endpoint %q", spec.Endpoint)
+	}
+	if spec.Credential != nil {
+		if authType := spec.Credential.AuthType(); authType != cloud.EmptyAuthType {
+			return errors.NotSupportedf("%q auth-type", authType)
+		}
+	}
+	return nil
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
 }

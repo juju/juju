@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/juju/cmd"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -219,15 +219,15 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		logger.Errorf(destroyControllerBlockedMsg)
 		if api != nil {
 			models, err := api.ListBlockedModels()
-			var bytes []byte
+			out := &bytes.Buffer{}
 			if err == nil {
-				bytes, err = formatTabularBlockedModels(models)
+				err = formatTabularBlockedModels(out, models)
 			}
 			if err != nil {
 				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
 			}
-			ctx.Infof(string(bytes))
+			ctx.Infof(out.String())
 		}
 		return cmd.ErrSilent
 	}
@@ -259,28 +259,19 @@ to be cleaned up.
 
 `
 
-func formatTabularBlockedModels(value interface{}) ([]byte, error) {
+func formatTabularBlockedModels(writer io.Writer, value interface{}) error {
 	models, ok := value.([]params.ModelBlockInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", models, value)
+		return errors.Errorf("expected value of type %T, got %T", models, value)
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "NAME\tMODEL UUID\tOWNER\tBLOCKS\n")
 	for _, model := range models {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", model.Name, model.UUID, model.OwnerTag, blocksToStr(model.Blocks))
 	}
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }
 
 func blocksToStr(blocks []string) string {

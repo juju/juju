@@ -5,6 +5,7 @@ package network
 
 import (
 	"bufio"
+	"net"
 	"os"
 	"strings"
 
@@ -160,4 +161,19 @@ func parseResolvStanza(line, stanza string) ([]string, error) {
 	}
 
 	return parsedValues, nil
+}
+
+var netListen = net.Listen
+
+// SupportsIPv6 reports whether the platform supports IPv6 networking
+// functionality.
+//
+// Source: https://github.com/golang/net/blob/master/internal/nettest/stack.go
+func SupportsIPv6() bool {
+	ln, err := netListen("tcp6", "[::1]:0")
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
 }

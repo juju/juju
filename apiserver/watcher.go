@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -68,7 +69,14 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !auth.AuthClient() {
+	// HasPermission should not be replaced by auth.AuthClient() even if, at first sight, they seem
+	// equivalent because this allows us to remove login permission for a user
+	// (a permission that is given by default).
+	isAuthorized, err := auth.HasPermission(description.LoginAccess, context.State().ControllerTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isAuthorized {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
@@ -403,7 +411,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 // migrationBackend defines State functionality required by the
 // migration watchers.
 type migrationBackend interface {
-	LatestModelMigration() (state.ModelMigration, error)
+	LatestMigration() (state.ModelMigration, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	ControllerConfig() (controller.Config, error)
 }
@@ -450,7 +458,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return empty, err
 	}
 
-	mig, err := w.st.LatestModelMigration()
+	mig, err := w.st.LatestMigration()
 	if errors.IsNotFound(err) {
 		return params.MigrationStatus{
 			Phase: migration.NONE.String(),

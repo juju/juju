@@ -9,5 +9,5 @@ import "github.com/juju/juju/state"
 // MigrationMinion facade.
 type Backend interface {
 	WatchMigrationStatus() state.NotifyWatcher
-	ModelMigration(string) (state.ModelMigration, error)
+	Migration(string) (state.ModelMigration, error)
 }

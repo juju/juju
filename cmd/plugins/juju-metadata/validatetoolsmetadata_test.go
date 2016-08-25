@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -79,7 +80,7 @@ func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
 	tm := []*tools.ToolsMetadata{{
 		Version: version,
-		Arch:    "amd64",
+		Arch:    arch.HostArch(),
 		Release: series,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)

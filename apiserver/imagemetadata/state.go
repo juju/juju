@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	names "gopkg.in/juju/names.v2"
 )
 
 type metadataAcess interface {
@@ -15,6 +16,7 @@ type metadataAcess interface {
 	DeleteMetadata(imageId string) error
 	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
+	ControllerTag() names.ControllerTag
 }
 
 type Model interface {

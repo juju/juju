@@ -42,7 +42,6 @@ var statusGetTests = []struct {
 }{
 	{[]string{"--format", "json", "--include-data"}, formatJson, statusAttributes},
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
-	{[]string{}, -1, "error\n"},
 }
 
 func setFakeStatus(ctx *Context) {

@@ -46,11 +46,6 @@ var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-// RestrictedConfigAttributes is part of the EnvironProvider interface.
-func (joyentProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // PrepareConfig is part of the EnvironProvider interface.
 func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
@@ -126,10 +121,6 @@ func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 	return cfg.Apply(newEcfg.attrs)
 }
 
-func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
 func GetProviderInstance() environs.EnvironProvider {
 	return providerInstance
 }
@@ -141,8 +132,7 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: []string{"amd64", "armhf"},
+		Region: region,
 	}, nil
 }
 

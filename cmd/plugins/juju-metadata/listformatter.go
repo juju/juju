@@ -4,35 +4,26 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
-func formatMetadataListTabular(value interface{}) ([]byte, error) {
+func formatMetadataListTabular(writer io.Writer, value interface{}) error {
 	metadata, ok := value.([]MetadataInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", metadata, value)
+		return errors.Errorf("expected value of type %T, got %T", metadata, value)
 	}
-	return formatMetadataTabular(metadata)
+	formatMetadataTabular(writer, metadata)
+	return nil
 }
 
-// formatMetadataTabular returns a tabular summary of cloud image metadata.
-func formatMetadataTabular(metadata []MetadataInfo) ([]byte, error) {
-	var out bytes.Buffer
-
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+// formatMetadataTabular writes a tabular summary of cloud image metadata.
+func formatMetadataTabular(writer io.Writer, metadata []MetadataInfo) {
+	tw := output.TabWriter(writer)
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
@@ -42,6 +33,4 @@ func formatMetadataTabular(metadata []MetadataInfo) ([]byte, error) {
 		print(m.Source, m.Series, m.Arch, m.Region, m.ImageId, m.Stream, m.VirtType, m.RootStorageType)
 	}
 	tw.Flush()
-
-	return out.Bytes(), nil
 }

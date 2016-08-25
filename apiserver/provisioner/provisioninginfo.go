@@ -34,7 +34,7 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 	}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
@@ -54,7 +54,7 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	cons, err := m.Constraints()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	volumes, err := p.machineVolumeParams(m)
@@ -110,18 +110,18 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeParams, error) {
 	volumeAttachments, err := m.VolumeAttachments()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
 	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	controllerCfg, err := p.st.ControllerConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
@@ -290,7 +290,7 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 		}
 		service, err := unit.Application()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if processedServicesSet.Contains(service.Name()) {
 			// Already processed, skip it.
@@ -298,7 +298,7 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 		}
 		bindings, err := service.EndpointBindings()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		processedServicesSet.Add(service.Name())
 
@@ -363,7 +363,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	// Look for image metadata in state.
 	data, err := p.findImageMetadata(imageConstraint, env)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	sort.Sort(metadataList(data))
 	logger.Debugf("available image metadata for provisioning: %v", data)
@@ -494,22 +494,12 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
-	getStream := func(current string) string {
-		if current == "" {
-			if constraint.Stream != "" {
-				return constraint.Stream
-			}
-			return env.Config().ImageStream()
-		}
-		return current
-	}
-
-	toModel := func(m *imagemetadata.ImageMetadata, mStream string, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
-
-		return cloudimagemetadata.Metadata{
+	cfg := env.Config()
+	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+		result := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
 				Arch:            m.Arch,
@@ -517,11 +507,22 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				RootStorageType: m.Storage,
 				Source:          source,
 				Series:          mSeries,
-				Stream:          mStream,
+				Stream:          m.Stream,
+				Version:         m.Version,
 			},
 			priority,
 			m.Id,
 		}
+		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
+		// Once correct value is read from simplestreams, this needs to go.
+		// Bug# 1616295
+		if result.Stream == "" {
+			result.Stream = constraint.Stream
+		}
+		if result.Stream == "" {
+			result.Stream = cfg.ImageStream()
+		}
+		return result
 	}
 
 	var metadataState []cloudimagemetadata.Metadata
@@ -539,8 +540,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
 				continue
 			}
-			mStream := getStream(m.Stream)
-			metadataState = append(metadataState, toModel(m, mStream, mSeries, info.Source, source.Priority()))
+			metadataState = append(metadataState, toModel(m, mSeries, info.Source, source.Priority()))
 		}
 	}
 	if len(metadataState) > 0 {

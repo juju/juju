@@ -158,7 +158,7 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) LatestModelMigration() (state.ModelMigration, error) {
+func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	if b.noMigration {
 		return nil, errors.NotFoundf("migration")
 	}

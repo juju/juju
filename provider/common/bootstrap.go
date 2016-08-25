@@ -55,8 +55,8 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	return bsResult, nil
 }
 
-// BootstrapInstance creates a new instance with the series and architecture
-// of its choice, constrained to those of the available tools, and
+// BootstrapInstance creates a new instance with the series of its choice,
+// constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial Juju controller.
@@ -133,18 +133,35 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	maybeSetBridge(instanceConfig)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	// Print instance status reports status changes during provisioning.
+	// Note the carriage returns, meaning subsequent prints are to the same
+	// line of stderr, not a new line.
 	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
-		fmt.Fprintf(ctx.GetStderr(), "%s      \r", info)
+		// The data arg is not expected to be used in this case, but
+		// print it, rather than ignore it, if we get something.
+		dataString := ""
+		if len(data) > 0 {
+			dataString = fmt.Sprintf(" %v", data)
+		}
+		fmt.Fprintf(ctx.GetStderr(), "%s%s\r", info, dataString)
+		return nil
+	}
+	// Likely used after the final instanceStatus call to white-out the
+	// current stderr line before the next use, removing any residual status
+	// reporting output.
+	statusCleanup := func(info string) error {
+		fmt.Fprintf(ctx.GetStderr(), "%s\r", info)
 		return nil
 	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		ControllerUUID: args.ControllerConfig.ControllerUUID(),
-		Constraints:    args.BootstrapConstraints,
-		Tools:          availableTools,
-		InstanceConfig: instanceConfig,
-		Placement:      args.Placement,
-		ImageMetadata:  imageMetadata,
-		StatusCallback: instanceStatus,
+		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
+		Constraints:     args.BootstrapConstraints,
+		Tools:           availableTools,
+		InstanceConfig:  instanceConfig,
+		Placement:       args.Placement,
+		ImageMetadata:   imageMetadata,
+		StatusCallback:  instanceStatus,
+		CleanupCallback: statusCleanup,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")

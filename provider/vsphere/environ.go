@@ -26,9 +26,6 @@ type environ struct {
 	cloud  environs.CloudSpec
 	client *client
 
-	archLock               sync.Mutex // archLock protects access to the following fields.
-	supportedArchitectures []string
-
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
 

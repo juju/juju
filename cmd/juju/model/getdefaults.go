@@ -6,9 +6,9 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -116,23 +117,14 @@ func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, attrs)
 }
 
-// formatConfigTabular returns a tabular summary of default config information.
-func formatDefaultConfigTabular(value interface{}) ([]byte, error) {
+// formatConfigTabular writes a tabular summary of default config information.
+func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	configValues, ok := value.(config.ConfigValues)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", configValues, value)
+		return errors.Errorf("expected value of type %T, got %T", configValues, value)
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	p := func(values ...string) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
@@ -146,20 +138,22 @@ func formatDefaultConfigTabular(value interface{}) ([]byte, error) {
 
 	for _, name := range valueNames {
 		info := configValues[name]
-		val, err := cmd.FormatSmart(info.Value)
+		out := &bytes.Buffer{}
+		err := cmd.FormatYaml(out, info.Value)
 		if err != nil {
-			return nil, errors.Annotatef(err, "formatting value for %q", name)
+			return errors.Annotatef(err, "formatting value for %q", name)
 		}
 		d := "-"
 		c := "-"
+		valString := strings.TrimSuffix(out.String(), "\n")
 		if info.Source == "default" {
-			d = string(val)
+			d = valString
 		} else {
-			c = string(val)
+			c = valString
 		}
 		p(name, d, c)
 	}
 
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }

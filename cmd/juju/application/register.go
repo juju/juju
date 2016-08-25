@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 )
 
@@ -88,7 +89,8 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		deployInfo.ApplicationName,
 		r.budget,
 		r.limit,
-		bakeryClient)
+		bakeryClient,
+	)
 	if err != nil {
 		if deployInfo.CharmID.URL.Schema == "cs" {
 			logger.Infof("failed to obtain plan authorization: %v", err)
@@ -107,14 +109,8 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpb
 	if r.credentials == nil {
 		return nil
 	}
-	api, cerr := getMetricCredentialsAPI(state)
-	if cerr != nil {
-		logger.Infof("failed to get the metrics credentials setter: %v", cerr)
-		return cerr
-	}
-	defer api.Close()
-
-	err := api.SetMetricCredentials(deployInfo.ApplicationName, r.credentials)
+	appClient := application.NewClient(state)
+	err := appClient.SetMetricCredentials(deployInfo.ApplicationName, r.credentials)
 	if err != nil {
 		logger.Warningf("failed to set metric credentials: %v", err)
 		return errors.Trace(err)

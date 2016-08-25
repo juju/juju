@@ -427,14 +427,21 @@ func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "",
-		Cert: nil,
+		Name:     "my-remote",
+		Host:     "",
+		Cert:     nil,
+		Protocol: lxdclient.LXDProtocol,
 	}
 	nonlocal, err := remote.UsingTCP("lo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkValidRemote(c, &nonlocal)
+	withCert, err := nonlocal.WithDefaults()
+	withoutCert := withCert
+	withoutCert.Cert = nil
+	c.Check(withoutCert, jc.DeepEquals, nonlocal)
+
+	checkValidRemote(c, &withCert)
+
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
 		Name:     "my-remote",
 		Host:     nonlocal.Host,

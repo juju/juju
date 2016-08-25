@@ -103,3 +103,9 @@ func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Co
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }
+
+// NewWhoAmICommandForTest returns a whoAMI command with a mock store.
+func NewWhoAmICommandForTest(store jujuclient.ClientStore) cmd.Command {
+	c := &whoAmICommand{store: store}
+	return c
+}

@@ -4,9 +4,8 @@
 package machine
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
@@ -67,11 +66,11 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no machines specified")
+		return errors.Errorf("no machines specified")
 	}
 	for _, id := range args {
 		if !names.IsValidMachine(id) {
-			return fmt.Errorf("invalid machine id %q", id)
+			return errors.Errorf("invalid machine id %q", id)
 		}
 	}
 	c.MachineIds = args

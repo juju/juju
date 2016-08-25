@@ -70,17 +70,14 @@ type SetModelAgentVersion struct {
 
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
-	// The json names for the fields below are as per the older
-	// field names for backward compatibility. New fields are
-	// camel-cased for consistency within this type only.
-	Name            string `json:"name"`
-	UUID            string `json:"uuid"`
-	ControllerUUID  string `json:"controller-uuid"`
-	ProviderType    string `json:"provider-type"`
-	DefaultSeries   string `json:"default-series"`
-	Cloud           string `json:"cloud"`
-	CloudRegion     string `json:"cloud-region,omitempty"`
-	CloudCredential string `json:"cloud-credential,omitempty"`
+	Name               string `json:"name"`
+	UUID               string `json:"uuid"`
+	ControllerUUID     string `json:"controller-uuid"`
+	ProviderType       string `json:"provider-type"`
+	DefaultSeries      string `json:"default-series"`
+	Cloud              string `json:"cloud"`
+	CloudRegion        string `json:"cloud-region,omitempty"`
+	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"owner-tag"`

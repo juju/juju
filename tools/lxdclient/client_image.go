@@ -98,17 +98,6 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 	// at private methods so we can't easily tweak it.
 	name := i.ImageNameForSeries(series)
 
-	// TODO(jam) Add a flag to not trust local aliases, which would allow
-	// non-state machines to only trust the alias that is set on the state
-	// machines.
-	// if IgnoreLocalAliases {}
-	target := i.raw.GetAlias(name)
-	if target != "" {
-		// GetAlias returns "" if the alias is not found, else it
-		// returns the Target of the alias (the hash)
-		return nil
-	}
-
 	var lastErr error
 	for _, remote := range sources {
 		source, err := i.connectToSource(remote)
@@ -144,7 +133,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			context: fmt.Sprintf("copying image for %s from %s: %%s", name, source.URL()),
 			forward: forwarder.Forward,
 		}
-		err = source.CopyImage(target, i.raw, []string{name}, adapter.copyProgress)
+		err = source.CopyImage(series, i.raw, []string{name}, adapter.copyProgress)
 		return errors.Annotatef(err, "unable to get LXD image for %s", name)
 	}
 	return lastErr

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -23,6 +24,7 @@ type ControllerSet struct {
 type ControllerItem struct {
 	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
+	Access         string   `yaml:"access,omitempty" json:"access,omitempty"`
 	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
 	ControllerUUID string   `yaml:"uuid" json:"uuid"`
 	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
@@ -79,7 +81,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 				// model name relative to that user.
 				if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
 					user := names.NewUserTag(userName)
-					modelName = ownerQualifiedModelName(unqualifiedModelName, owner, user)
+					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, owner, user)
 				}
 			}
 		}

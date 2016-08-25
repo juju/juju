@@ -44,6 +44,9 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err error) {
+	if err := a.checkCanWrite(); err != nil {
+		return results, err
+	}
 	if err := a.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
@@ -68,6 +71,10 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
 func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.ActionResults, err error) {
+	if err := a.checkCanWrite(); err != nil {
+		return results, err
+	}
+
 	if err := a.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}

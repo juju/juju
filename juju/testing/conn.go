@@ -361,12 +361,21 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudName:        cloudSpec.Name,
+		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
 			Type:             cloudSpec.Type,
 			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
 			Endpoint:         cloudSpec.Endpoint,
 			IdentityEndpoint: cloudSpec.IdentityEndpoint,
 			StorageEndpoint:  cloudSpec.StorageEndpoint,
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:             "dummy-region",
+					Endpoint:         "dummy-endpoint",
+					IdentityEndpoint: "dummy-identity-endpoint",
+					StorageEndpoint:  "dummy-storage-endpoint",
+				},
+			},
 		},
 		CloudCredential:     cloudSpec.Credential,
 		CloudCredentialName: "cred",
@@ -477,33 +486,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	} else if err != nil {
 		return nil, err
 	}
-	if err := updateSecrets(environ, st); err != nil {
-		st.Close()
-		return nil, fmt.Errorf("unable to push secrets: %v", err)
-	}
 	return st, nil
-}
-
-func updateSecrets(env environs.Environ, st *state.State) error {
-	secrets, err := env.Provider().SecretAttrs(env.Config())
-	if err != nil {
-		return err
-	}
-	cfg, err := st.ModelConfig()
-	if err != nil {
-		return err
-	}
-	secretAttrs := make(map[string]interface{})
-	attrs := cfg.AllAttrs()
-	for k, v := range secrets {
-		if _, exists := attrs[k]; exists {
-			// Environment already has secrets. Won't send again.
-			return nil
-		} else {
-			secretAttrs[k] = v
-		}
-	}
-	return st.UpdateModelConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a

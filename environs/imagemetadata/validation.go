@@ -21,9 +21,6 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 	if params.Endpoint == "" {
 		return nil, nil, fmt.Errorf("required parameter endpoint not specified")
 	}
-	if len(params.Architectures) == 0 {
-		return nil, nil, fmt.Errorf("required parameter arches not specified")
-	}
 	if len(params.Sources) == 0 {
 		return nil, nil, fmt.Errorf("required parameter sources not specified")
 	}

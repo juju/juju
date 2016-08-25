@@ -1289,7 +1289,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	s.PatchValue(&modelManifolds, instrumented)
 
 	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
-	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+	_, err := st.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: targetControllerTag,

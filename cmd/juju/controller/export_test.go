@@ -23,9 +23,10 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listCon
 
 // NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
 // as specified.
-func NewShowControllerCommandForTest(testStore jujuclient.ClientStore) *showControllerCommand {
+func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api controllerAccessAPI) *showControllerCommand {
 	return &showControllerCommand{
 		store: testStore,
+		api:   api,
 	}
 }
 

@@ -211,8 +211,6 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	// ...and we want to verify that if we "fix the errors" and redeploy the
 	// same charm...
 	failDeploy = false
-	err = s.deployer.NotifyResolved()
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -247,11 +245,6 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
-
-	// Notify the Deployer that it'll be expected to revert the changes from
-	// the last attempt.
-	err = s.deployer.NotifyRevert()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a charm upgrade that creates a bunch of different files, without
 	// error, and deploy it; check user files are preserved, and nothing from

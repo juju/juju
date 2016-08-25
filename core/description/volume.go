@@ -180,6 +180,9 @@ func (v *volume) Validate() error {
 	if v.Status_ == nil {
 		return errors.NotValidf("volume %q missing status", v.ID_)
 	}
+	if _, err := v.Binding(); err != nil {
+		return errors.Wrap(err, errors.NotValidf("volume %q binding", v.ID_))
+	}
 	return nil
 }
 
