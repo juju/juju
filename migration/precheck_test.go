@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+var backendVersion = version.MustParse("1.2.3")
+
 type precheckBaseSuite struct {
 	testing.BaseSuite
 }
@@ -89,7 +91,7 @@ func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestMachineVersionsMatch(c *gc.C) {
-	s.checkMachineVersionsDontMatch(c, sourcePrecheck)
+	s.checkMachineVersionsMatch(c, sourcePrecheck)
 }
 
 func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
@@ -103,7 +105,14 @@ type TargetPrecheckSuite struct {
 var _ = gc.Suite(&TargetPrecheckSuite{})
 
 func targetPrecheck(backend migration.PrecheckBackend) error {
-	return migration.TargetPrecheck(backend)
+	return migration.TargetPrecheck(backend, backendVersion)
+}
+
+func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
+	backend := &fakeBackend{}
+	err := migration.TargetPrecheck(backend, version.MustParse("1.2.4"))
+	c.Assert(err.Error(), gc.Equals,
+		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
@@ -111,7 +120,7 @@ func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestMachineVersionsMatch(c *gc.C) {
-	s.checkMachineVersionsDontMatch(c, targetPrecheck)
+	s.checkMachineVersionsMatch(c, targetPrecheck)
 }
 
 func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
@@ -133,7 +142,7 @@ func (b *fakeBackend) NeedsCleanup() (bool, error) {
 }
 
 func (b *fakeBackend) AgentVersion() (version.Number, error) {
-	return version.MustParse("1.2.3"), b.agentVersionErr
+	return backendVersion, b.agentVersionErr
 }
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
