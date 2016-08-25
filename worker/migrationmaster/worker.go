@@ -70,6 +70,9 @@ type Facade interface {
 	// (source) controller.
 	Prechecks() error
 
+	// ModelInfo return basic information about the model to migrated.
+	ModelInfo() (coremigration.ModelInfo, error)
+
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
@@ -194,7 +197,7 @@ func (w *Worker) run() error {
 		case coremigration.QUIESCE:
 			phase, err = w.doQUIESCE(status)
 		case coremigration.PRECHECK:
-			phase, err = w.doPRECHECK()
+			phase, err = w.doPRECHECK(status)
 		case coremigration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo, status.ModelUUID)
 		case coremigration.VALIDATION:
@@ -284,15 +287,35 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 	return coremigration.PRECHECK, nil
 }
 
-func (w *Worker) doPRECHECK() (coremigration.Phase, error) {
-	w.setInfoStatus("performing prechecks")
-	err := w.config.Facade.Prechecks()
+func (w *Worker) doPRECHECK(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	err := w.prechecks(status)
 	if err != nil {
-		w.setErrorStatus("prechecks failed, %v", err)
+		w.setErrorStatus(err.Error())
 		return coremigration.ABORT, nil
 	}
-	// TODO(mjs) - perform prechecks on target controller
 	return coremigration.IMPORT, nil
+}
+
+func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
+	w.setInfoStatus("performing source prechecks")
+	err := w.config.Facade.Prechecks()
+	if err != nil {
+		return errors.Annotate(err, "source prechecks failed")
+	}
+
+	w.setInfoStatus("performing target prechecks")
+	model, err := w.config.Facade.ModelInfo()
+	if err != nil {
+		return errors.Annotate(err, "failed to obtain model info during prechecks")
+	}
+	conn, err := w.openAPIConn(status.TargetInfo)
+	if err != nil {
+		return errors.Annotate(err, "failed to connect to target controller during prechecks")
+	}
+	defer conn.Close()
+	targetClient := migrationtarget.NewClient(conn)
+	err = targetClient.Prechecks(model.AgentVersion)
+	return errors.Annotate(err, "target prechecks failed")
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
