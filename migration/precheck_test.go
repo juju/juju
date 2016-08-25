@@ -14,9 +14,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// Ensure PrecheckShim matches the required interface.
-var _ migration.PrecheckBackend = new(migration.PrecheckShim)
-
 type SourcePrecheckSuite struct {
 	testing.BaseSuite
 }
