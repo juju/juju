@@ -167,7 +167,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 var newAPIClient = newAPIClientImpl
 
 func newAPIClientImpl(c *showBudgetCommand) (APIClient, error) {
-	root, err := c.NewAPIRoot()
+	root, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
