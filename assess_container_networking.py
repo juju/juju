@@ -386,7 +386,9 @@ def assess_container_networking(client, types):
     try:
         for host in hosts:
             log.info("Restarting hosted machine: {}".format(host))
-            client.juju('run', '--machine', host, 'sudo shutdown -r now')
+            client.juju(
+                'run', ('--machine', host, 'sudo', 'shutdown', '-r', 'now')
+            client.juju('show-action-status', ('--name' 'juju-run'))
             # ssh(client, host, 'sudo shutdown -r now')
 
         log.info("Restarting controller machine 0")
@@ -394,7 +396,9 @@ def assess_container_networking(client, types):
         controller_status = controller_client.get_status()
         uptime = ssh(client, host, 'uptime -p')
         log.info('uptime -p: {}'.format(uptime))
-        controller_client.juju('run', '--machine', '0', 'sudo shutdown -r now')
+        controller_client.juju(
+            'run', ('--machine', '0', 'sudo', 'shutdown', '-r', 'now'))
+        controller_client.juju('show-action-status', ('--name' 'juju-run'))
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
