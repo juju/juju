@@ -389,16 +389,13 @@ def assess_container_networking(client, types):
             client.juju(
                 'run', ('--machine', host, 'sudo shutdown -r now'))
             client.juju('show-action-status', ('--name', 'juju-run'))
-            # ssh(client, host, 'sudo shutdown -r now')
 
         log.info("Restarting controller machine 0")
         controller_client = client.get_controller_client()
         controller_status = controller_client.get_status()
-        uptime = ssh(client, host, 'uptime -p')
+        uptime = ssh(controller_client, '0', 'uptime -p')
         log.info('uptime -p: {}'.format(uptime))
-        controller_client.juju(
-            'run', ('--machine', '0', 'sudo shutdown -r now'))
-        controller_client.juju('show-action-status', ('--name', 'juju-run'))
+        ssh(controller_client, '0', 'sudo shutdown -r now')
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
@@ -409,12 +406,12 @@ def assess_container_networking(client, types):
     # wait_for_started before controller has shut down, which can cause us
     # to think that we have finished rebooting before we actually have.
     hostname = controller_status.status['machines']['0']['dns-name']
-    uptime = ssh(client, host, 'uptime -p')
+    uptime = ssh(controller_client, '0', 'uptime -p')
     log.info('uptime -p: {}'.format(uptime))
     try:
         wait_for_port(hostname, 22, closed=True, timeout=300)
     except:
-        uptime = ssh(client, host, 'uptime -p')
+        uptime = ssh(controller_client, '0', 'uptime -p')
         log.info('uptime -p: {}'.format(uptime))
         log.info("FAIL")
         return
