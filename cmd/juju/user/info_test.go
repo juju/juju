@@ -58,6 +58,10 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
 		info.Access = "login"
+	case "fred@external":
+		info.Username = "fred@external"
+		info.DisplayName = "Fred External"
+		info.Access = "addmodel"
 	default:
 		return nil, common.ErrPerm
 	}
@@ -68,7 +72,6 @@ func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
 access: addmodel
 date-created: 1981-02-27
 last-connection: 2014-01-01
@@ -79,7 +82,6 @@ func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
 access: addmodel
 date-created: 1981-02-27 16:10:05 +0000 UTC
 last-connection: 2014-01-01 00:00:00 +0000 UTC
@@ -97,6 +99,15 @@ last-connection: 2014-01-01
 `)
 }
 
+func (s *UserInfoCommandSuite) TestUserInfoExternalUser(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: fred@external
+display-name: Fred External
+access: addmodel
+`)
+}
+
 func (s *UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
 	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "barfoo")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -106,7 +117,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"current-user","display-name":"","access":"addmodel","date-created":"1981-02-27","last-connection":"2014-01-01"}
+{"user-name":"current-user","access":"addmodel","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
@@ -122,7 +133,6 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
 access: addmodel
 date-created: 1981-02-27
 last-connection: 2014-01-01

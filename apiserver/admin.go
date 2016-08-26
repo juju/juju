@@ -24,10 +24,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// EveryoneTagName represents a special group that encompasses
-// all external users.
-const EveryoneTagName = "everyone@external"
-
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
@@ -168,7 +164,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// permissions on the controller but there are permissions for the special
 		// everyone group.
 		if !userTag.IsLocal() {
-			everyoneTag := names.NewUserTag(EveryoneTagName)
+			everyoneTag := names.NewUserTag(common.EveryoneTagName)
 			everyoneGroupUser, err = state.ControllerAccess(a.root.state, everyoneTag)
 			if err != nil && !errors.IsNotFound(err) {
 				return fail, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
@@ -358,33 +354,11 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
+
+	modelUser, controllerUser, err := common.UserAccess(f.st, utag)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	controllerUser, err := state.ControllerAccess(f.st, utag)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(perrito666) remove the following section about everyone group
-	// when groups are implemented, this accounts only for the lack of a local
-	// ControllerUser when logging in from an external user that has not been granted
-	// permissions on the controller but there are permissions for the special
-	// everyone group.
-	if !utag.IsLocal() {
-		controllerUser, err = maybeUseGroupPermission(f.st.UserAccess, controllerUser, f.st.ControllerTag(), utag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-		}
-	}
-
-	if description.IsEmptyUserAccess(modelUser) &&
-		description.IsEmptyUserAccess(controllerUser) {
-		return nil, errors.NotFoundf("model or controller user")
-	}
-
 	u := &modelUserEntity{
 		st:             f.st,
 		modelUser:      modelUser,

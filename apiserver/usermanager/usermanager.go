@@ -283,6 +283,17 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		return results, errors.Trace(err)
 	}
 
+	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
+		// Lookup the access the specified user has to the controller.
+		_, controllerUserAccess, err := common.UserAccess(api.state, userTag)
+		if err == nil {
+			result.Result.Access = string(controllerUserAccess.Access)
+		} else if err != nil && !errors.IsNotFound(err) {
+			result.Result = nil
+			result.Error = common.ServerError(err)
+		}
+	}
+
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		var lastLogin *time.Time
 		userLastLogin, err := user.LastLogin()
@@ -303,14 +314,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 				Disabled:       user.IsDisabled(),
 			},
 		}
-		// Lookup the access the specified user has to the controller.
-		userAccess, err := api.state.UserAccess(user.Tag().(names.UserTag), api.state.ControllerTag())
-		if err == nil {
-			result.Result.Access = string(userAccess.Access)
-		} else if err != nil && !errors.IsNotFound(err) {
-			result.Result = nil
-			result.Error = common.ServerError(err)
-		}
+		accessForUser(user.UserTag(), &result)
 		return result
 	}
 
@@ -331,12 +335,29 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 
 	// Create the results list to populate.
 	for _, arg := range request.Entities {
-		user, err := api.getUser(arg.Tag)
+		userTag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: common.ServerError(err)})
 			continue
 		}
-		if !isAdmin && !api.authorizer.AuthOwner(user.Tag()) {
+		if !isAdmin && !api.authorizer.AuthOwner(userTag) {
+			results.Results = append(results.Results, params.UserInfoResult{Error: common.ServerError(common.ErrPerm)})
+			continue
+		}
+		if !userTag.IsLocal() {
+			// TODO(wallyworld) record login information about external users.
+			result := params.UserInfoResult{
+				Result: &params.UserInfo{
+					Username: userTag.Id(),
+				},
+			}
+			accessForUser(userTag, &result)
+			results.Results = append(results.Results, result)
+			continue
+		}
+		user, err := api.getUser(arg.Tag)
+		if err != nil {
+			results.Results = append(results.Results, params.UserInfoResult{Error: common.ServerError(err)})
 			continue
 		}
 		results.Results = append(results.Results, infoForUser(user))
