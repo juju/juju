@@ -23,9 +23,9 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 			"special": "special value",
 			"running": true,
 		},
-		defaults: config.ConfigValues{
-			"attr":  {Value: "foo", Source: "default"},
-			"attr2": {Value: "bar", Source: "controller"},
+		defaults: config.DefaultValues{
+			"attr":  {Default: "foo"},
+			"attr2": {Controller: "bar"},
 		},
 	}
 }
@@ -33,7 +33,7 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 type fakeEnvAPI struct {
 	values        map[string]interface{}
 	cloud, region string
-	defaults      config.ConfigValues
+	defaults      config.DefaultValues
 	err           error
 	keys          []string
 }
@@ -54,7 +54,7 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 	return result, nil
 }
 
-func (f *fakeEnvAPI) ModelDefaults() (config.ConfigValues, error) {
+func (f *fakeEnvAPI) ModelDefaults() (config.DefaultValues, error) {
 	return f.defaults, nil
 }
 
@@ -65,7 +65,7 @@ func (f *fakeEnvAPI) SetModelDefaults(cloud, region string, cfg map[string]inter
 	f.cloud = cloud
 	f.region = region
 	for name, val := range cfg {
-		f.defaults[name] = config.ConfigValue{Value: val, Source: "controller"}
+		f.defaults[name] = config.DefaultSetting{Controller: val}
 	}
 	return nil
 }

@@ -52,7 +52,7 @@ func (s *getDefaultsSuite) TestSingleValueJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, `{"attr":{"Value":"foo","Source":"default"}}`)
+	c.Assert(output, gc.Equals, `{"attr":{"Default":"foo","Controller":null,"Regions":null}}`)
 }
 
 func (s *getDefaultsSuite) TestAllValuesYAML(c *gc.C) {
@@ -62,11 +62,13 @@ func (s *getDefaultsSuite) TestAllValuesYAML(c *gc.C) {
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
 		"attr:\n" +
-		"  value: foo\n" +
-		"  source: default\n" +
+		"  default: foo\n" +
+		"  controller: null\n" +
+		"  regions: []\n" +
 		"attr2:\n" +
-		"  value: bar\n" +
-		"  source: controller"
+		"  default: null\n" +
+		"  controller: bar\n" +
+		"  regions: []"
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -75,7 +77,7 @@ func (s *getDefaultsSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"attr":{"Value":"foo","Source":"default"},"attr2":{"Value":"bar","Source":"controller"}}`
+	expected := `{"attr":{"Default":"foo","Controller":null,"Regions":null},"attr2":{"Default":null,"Controller":"bar","Regions":null}}`
 	c.Assert(output, gc.Equals, expected)
 }
 

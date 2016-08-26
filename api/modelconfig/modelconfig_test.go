@@ -139,10 +139,10 @@ func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ModelDefaults")
 			c.Check(a, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResults{})
-			results := result.(*params.ModelConfigResults)
-			results.Config = map[string]params.ConfigValue{
-				"foo": {"bar", "model"},
+			c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultResults{})
+			results := result.(*params.ModelDefaultResults)
+			results.Config = map[string]params.ConfigSetting{
+				"foo": {"bar", "model", nil},
 			}
 			return nil
 		},
@@ -150,8 +150,8 @@ func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	client := modelconfig.NewClient(apiCaller)
 	result, err := client.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, config.ConfigValues{
-		"foo": {"bar", "model"},
+	c.Assert(result, jc.DeepEquals, config.DefaultValues{
+		"foo": {"bar", "model", nil},
 	})
 }
 
