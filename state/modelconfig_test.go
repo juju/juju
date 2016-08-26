@@ -267,6 +267,12 @@ func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
 		"apt-mirror": "http://cloud-mirror",
 		"http-proxy": "http://proxy",
 	}
+	s.RegionConfig = cloud.RegionConfig{
+		"dummy-region": cloud.Attrs{
+			"apt-mirror": "http://dummy-mirror",
+			"no-proxy":   "dummy-proxy",
+		},
+	}
 	s.ConnSuite.SetUpTest(c)
 
 	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
@@ -315,7 +321,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	})
 	owner := names.NewUserTag("test@remote")
 	_, st, err := s.State.NewModel(state.ModelArgs{
-		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "dummy-region",
+		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "nether-region",
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,9 +391,9 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
-	expectedValues := make(config.DefaultValues)
+	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
-		expectedValues[attr] = config.DefaultSetting{
+		expectedValues[attr] = config.AttributeDefaultValues{
 			Default: val,
 		}
 	}
@@ -397,7 +403,17 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 
 	ds = expectedValues["apt-mirror"]
 	ds.Controller = "http://mirror"
+	ds.Regions = []config.RegionDefaultValue{{
+		Name:  "dummy-region",
+		Value: "http://dummy-mirror",
+	}}
 	expectedValues["apt-mirror"] = ds
+
+	ds = expectedValues["no-proxy"]
+	ds.Regions = []config.RegionDefaultValue{{
+		Name:  "dummy-region",
+		Value: "dummy-proxy"}}
+	expectedValues["no-proxy"] = ds
 
 	sources, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,68 +442,26 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 
 	cfg, err := anotherState.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := make(config.DefaultValues)
+	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
-		expectedValues[attr] = config.DefaultSetting{
+		expectedValues[attr] = config.AttributeDefaultValues{
 			Default: val,
 		}
 	}
 	delete(expectedValues, "http-mirror")
 	delete(expectedValues, "https-mirror")
-	expectedValues["apt-mirror"] = config.DefaultSetting{
+	expectedValues["apt-mirror"] = config.AttributeDefaultValues{
 		Controller: "http://different-mirror",
 		Default:    "",
-	}
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "http://dummy-mirror",
+		}}}
+	expectedValues["no-proxy"] = config.AttributeDefaultValues{
+		Default: "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-proxy",
+		}}}
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
-}
-
-type ModelDefaultsSuite struct {
-	ConnSuite
-}
-
-var _ = gc.Suite(&ModelDefaultsSuite{})
-
-func (s *ModelDefaultsSuite) SetUpTest(c *gc.C) {
-	s.ControllerInheritedConfig = map[string]interface{}{
-		"apt-mirror": "http://cloud-mirror",
-	}
-	s.RegionConfig = cloud.RegionConfig{
-		"dummy-region": cloud.Attrs{
-			"no-proxy":     "dummy-proxy",
-			"image-stream": "dummy-image-stream",
-		},
-	}
-	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
-		validator := constraints.NewValidator()
-		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-		validator.RegisterUnsupported([]string{constraints.CpuPower})
-		return validator, nil
-	}
-}
-
-func (s *ModelDefaultsSuite) TestModelDefaults(c *gc.C) {
-	want := make(config.DefaultValues)
-	for attr, val := range config.ConfigDefaults() {
-		want[attr] = config.DefaultSetting{
-			Default: val,
-		}
-	}
-	ds := want["image-stream"]
-	ds.Regions = append(ds.Regions, config.Region{
-		Name: "dummy-region", Value: "dummy-image-stream"})
-	want["image-stream"] = ds
-
-	ds = want["apt-mirror"]
-	ds.Controller = "http://cloud-mirror"
-	want["apt-mirror"] = ds
-
-	ds = want["no-proxy"]
-	ds.Regions = append(ds.Regions, config.Region{
-		Name: "dummy-region", Value: "dummy-proxy"})
-	want["no-proxy"] = ds
-
-	got, err := s.State.ModelConfigDefaultValues()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, want)
 }

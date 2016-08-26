@@ -166,7 +166,7 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
+func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,14 +177,14 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 		return nil, errors.Trace(err)
 	}
 
-	result := make(config.DefaultValues)
+	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
 	defaultAttrs, err := st.defaultInheritedConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for k, v := range defaultAttrs {
-		result[k] = config.DefaultSetting{Default: v}
+		result[k] = config.AttributeDefaultValues{Default: v}
 	}
 	// Controller config
 	ciCfg, err := st.controllerInheritedConfig()
@@ -197,7 +197,7 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 			ds.Controller = v
 			result[k] = ds
 		} else {
-			result[k] = config.DefaultSetting{Controller: v}
+			result[k] = config.AttributeDefaultValues{Controller: v}
 		}
 	}
 	// Region config
@@ -211,12 +211,12 @@ func (st *State) ModelConfigDefaultValues() (config.DefaultValues, error) {
 			return nil, errors.Trace(err)
 		}
 		for k, v := range riCfg {
-			regCfg := config.Region{Name: region.Name, Value: v}
+			regCfg := config.RegionDefaultValue{Name: region.Name, Value: v}
 			if ds, ok := result[k]; ok {
 				ds.Regions = append(result[k].Regions, regCfg)
 				result[k] = ds
 			} else {
-				result[k] = config.DefaultSetting{Regions: []config.Region{regCfg}}
+				result[k] = config.AttributeDefaultValues{Regions: []config.RegionDefaultValue{regCfg}}
 			}
 		}
 	}
