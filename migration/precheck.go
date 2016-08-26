@@ -15,7 +15,7 @@ import (
 
 ## Source model
 
-- model machines have errors
+- machines have errors
 - machines that are dying or dead
 - pending reboots
 - machine or unit is being provisioned
@@ -25,17 +25,16 @@ import (
 
 ## Source controller
 
-- source controller has upgrade info doc (IsUpgrading)
-- controller machines have errors
-- controller machines that are dying or dead
-- machine or unit is being provisioned
+- machines have errors
+- machines that are dying or dead
+- machine or unit is being provisioned?
 - application is being provisioned?
 - pending reboots
 
 ## Target controller
 
-- target controller has upgrade info doc (IsUpgrading)
-- target controller machines have errors
+- machines have errors
+- machines that are dying or dead
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
@@ -48,6 +47,7 @@ type PrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 	AgentVersion() (version.Number, error)
 	AllMachines() ([]PrecheckMachine, error)
+	IsUpgrading() (bool, error)
 	ControllerBackend() (PrecheckBackend, error)
 }
 
@@ -62,13 +62,14 @@ type PrecheckMachine interface {
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
+	// Check the model.
 	if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
 		return errors.Annotate(err, "checking cleanups")
 	} else if cleanupNeeded {
 		return errors.New("cleanup needed")
 	}
 
-	if err := checkSourceMachines(backend); err != nil {
+	if err := checkMachines(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -77,19 +78,8 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkSourceMachines(controllerBackend); err != nil {
-		return errors.Annotate(err, "source controller")
-	}
-	return nil
-}
-
-func checkSourceMachines(backend PrecheckBackend) error {
-	modelVersion, err := backend.AgentVersion()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model version")
-	}
-	if err := checkMachines(backend, modelVersion); err != nil {
-		return errors.Trace(err)
+	if err := checkController(controllerBackend); err != nil {
+		return errors.Annotate(err, "controller")
 	}
 	return nil
 }
@@ -108,11 +98,27 @@ func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error 
 			modelVersion, controllerVersion)
 	}
 
-	err = checkMachines(backend, controllerVersion)
+	err = checkController(backend)
 	return errors.Trace(err)
 }
 
-func checkMachines(backend PrecheckBackend, modelVersion version.Number) error {
+func checkController(backend PrecheckBackend) error {
+	if upgrading, err := backend.IsUpgrading(); err != nil {
+		return errors.Annotate(err, "checking for upgrades")
+	} else if upgrading {
+		return errors.New("upgrade in progress")
+	}
+
+	err := checkMachines(backend)
+	return errors.Trace(err)
+}
+
+func checkMachines(backend PrecheckBackend) error {
+	modelVersion, err := backend.AgentVersion()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model version")
+	}
+
 	machines, err := backend.AllMachines()
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
