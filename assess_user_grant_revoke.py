@@ -42,14 +42,14 @@ USER_LIST_CTRL = [{"access": "superuser", "user-name": "admin",
                    "display-name": "admin"}]
 USER_LIST_CTRL_READ = copy.deepcopy(USER_LIST_CTRL)
 # Created user has no display name, bug 1606354
-USER_LIST_CTRL_READ.append({"user-name": "readuser", "display-name": ""})
+USER_LIST_CTRL_READ.append({"access": "login", "user-name": "readuser", "display-name": ""})
 USER_LIST_CTRL_WRITE = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
-USER_LIST_CTRL_WRITE.append({"user-name": "writeuser",
+USER_LIST_CTRL_WRITE.append({"access": "login", "user-name": "writeuser",
                              "display-name": ""})
 USER_LIST_CTRL_ADMIN = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
-USER_LIST_CTRL_ADMIN.append({"user-name": "adminuser", "display-name": ""})
+USER_LIST_CTRL_ADMIN.append({"access":"superuser", "user-name": "adminuser", "display-name": ""})
 SHARE_LIST_CTRL = {"admin@local": {"display-name": "admin",
                                    "access": "admin"}}
 SHARE_LIST_CTRL_READ = copy.deepcopy(SHARE_LIST_CTRL)
@@ -232,7 +232,7 @@ def assert_disable_enable(controller_client, user):
     log.info('Disabled {}'.format(user.name))
     user_list = list_users(controller_client)
     log.info('Checking list-users {}'.format(user.name))
-    assert_equal(user_list, USER_LIST_CTRL_READ)
+    assert_equal(user_list, USER_LIST_CTRL)
     log.info('Checking enable {}'.format(user.name))
     controller_client.enable_user(user.name)
     log.info('Enabled {}'.format(user.name))
@@ -318,6 +318,7 @@ def assert_admin_user(controller_client, user):
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
+        controller_client.grant(user_name=user.name, permission="superuser")
         user_client.env.user_name = user.name
         log.info('Checking list-users {}'.format(user.name))
         user_list = list_users(controller_client)
@@ -334,7 +335,7 @@ def assess_user_grant_revoke(controller_client):
     """Test multi-users functionality"""
     log.info('STARTING grant/revoke permissions')
     controller_client.env.user_name = 'admin'
-    log.info("Creating Users: readuser, writeuserm, adminuser")
+    log.info("Creating Users: readuser, writeuser, adminuser")
     read_user = User('readuser', 'read',
                      [True, False, False, False, False, False])
     write_user = User('writeuser', 'write',
