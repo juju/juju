@@ -467,7 +467,6 @@ class FakeBackend:
                       self.controller_state.users.keys()]
         user_list = []
         for n in user_names:
-
             if n == 'admin':
                 append_dict = {'access': 'superuser', 'user-name': n,
                                'display-name': n}
