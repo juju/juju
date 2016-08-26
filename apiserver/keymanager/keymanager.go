@@ -27,6 +27,9 @@ func init() {
 	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
 }
 
+// The comment values used by juju internal ssh keys.
+var internalKeyComments = []string{"juju-client-key", "juju-system-key"}
+
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
@@ -124,20 +127,25 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 }
 
 func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
+	internalComments := set.NewStrings(internalKeyComments...)
 	for _, key := range keys {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			keyInfo = append(keyInfo, fmt.Sprintf("Invalid key: %v", key))
+			continue
+		}
+		// Only including user added keys not internal ones.
+		if internalComments.Contains(comment) {
+			continue
+		}
+		if mode == ssh.FullKeys {
+			keyInfo = append(keyInfo, key)
 		} else {
-			if mode == ssh.FullKeys {
-				keyInfo = append(keyInfo, key)
-			} else {
-				shortKey := fingerprint
-				if comment != "" {
-					shortKey += fmt.Sprintf(" (%s)", comment)
-				}
-				keyInfo = append(keyInfo, shortKey)
+			shortKey := fingerprint
+			if comment != "" {
+				shortKey += fmt.Sprintf(" (%s)", comment)
 			}
+			keyInfo = append(keyInfo, shortKey)
 		}
 	}
 	return keyInfo
@@ -371,6 +379,8 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	// We keep all existing invalid keys.
 	keysToWrite := invalidKeys
 
+	internalComments := set.NewStrings(internalKeyComments...)
+
 	// Find the keys corresponding to the specified key fingerprints or comments.
 	for i, keyId := range arg.Keys {
 		// assume keyId may be a fingerprint
@@ -382,6 +392,10 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		}
 		if !ok {
 			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
+		}
+		if internalComments.Contains(keyId) {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
+			continue
 		}
 		// We found the key to delete so remove it from those we wish to keep.
 		delete(sshKeys, fingerprint)
