@@ -57,6 +57,48 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestClouds(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result_ interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Cloud")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Clouds")
+			c.Check(a, gc.IsNil)
+			c.Assert(result_, gc.FitsTypeOf, &params.CloudsResult{})
+			result := result_.(*params.CloudsResult)
+			result.Clouds = map[string]params.Cloud{
+				"cloud-foo": {
+					Type: "bar",
+				},
+				"cloud-baz": {
+					Type:      "qux",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+			}
+			return nil
+		},
+	)
+
+	client := cloudapi.NewClient(apiCaller)
+	clouds, err := client.Clouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, jc.DeepEquals, map[names.CloudTag]cloud.Cloud{
+		names.NewCloudTag("foo"): {
+			Type: "bar",
+		},
+		names.NewCloudTag("baz"): {
+			Type:      "qux",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+		},
+	})
+}
+
 func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,

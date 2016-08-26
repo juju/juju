@@ -68,6 +68,19 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestClouds(c *gc.C) {
+	result, err := s.api.Clouds()
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Clouds")
+	c.Assert(result.Clouds, jc.DeepEquals, map[string]params.Cloud{
+		"cloud-my-cloud": {
+			Type:      "dummy",
+			AuthTypes: []string{"empty", "userpass"},
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+		},
+	})
+}
+
 func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	result, err := s.api.DefaultCloud()
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,6 +213,13 @@ func (st *mockBackend) ModelTag() names.ModelTag {
 func (st *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
+}
+
+func (st *mockBackend) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	st.MethodCall(st, "Clouds")
+	return map[names.CloudTag]cloud.Cloud{
+		names.NewCloudTag("my-cloud"): st.cloud,
+	}, st.NextErr()
 }
 
 func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[names.CloudCredentialTag]cloud.Credential, error) {

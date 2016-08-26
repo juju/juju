@@ -37,13 +37,20 @@ func (c *Client) Close() error {
 // CreateModel creates a new model using the model config,
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(
-	name, owner, cloudRegion string,
+	name, owner, cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
 ) (params.ModelInfo, error) {
 	var result params.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
+	}
+	var cloudTag string
+	if cloud != "" {
+		if !names.IsValidCloud(cloud) {
+			return result, errors.Errorf("invalid cloud name %q", cloud)
+		}
+		cloudTag = names.NewCloudTag(cloud).String()
 	}
 	var cloudCredentialTag string
 	if cloudCredential != (names.CloudCredentialTag{}) {
@@ -53,6 +60,7 @@ func (c *Client) CreateModel(
 		Name:               name,
 		OwnerTag:           names.NewUserTag(owner).String(),
 		Config:             config,
+		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
 	}

@@ -236,6 +236,7 @@ type mockState struct {
 
 	uuid            string
 	cloud           cloud.Cloud
+	clouds          map[names.CloudTag]cloud.Cloud
 	model           *mockModel
 	controllerModel *mockModel
 	users           []description.UserAccess
@@ -344,6 +345,11 @@ func (st *mockState) ModelTag() names.ModelTag {
 func (st *mockState) AllModels() ([]common.Model, error) {
 	st.MethodCall(st, "AllModels")
 	return []common.Model{st.model}, st.NextErr()
+}
+
+func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	st.MethodCall(st, "Clouds")
+	return st.clouds, st.NextErr()
 }
 
 func (st *mockState) Cloud(name string) (cloud.Cloud, error) {

@@ -66,8 +66,23 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 	}, nil
 }
 
+// Clouds returns the definitions of all clouds supported by the controller.
+func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
+	var result params.CloudsResult
+	clouds, err := api.backend.Clouds()
+	if err != nil {
+		return result, err
+	}
+	result.Clouds = make(map[string]params.Cloud)
+	for tag, cloud := range clouds {
+		paramsCloud := cloudToParams(cloud)
+		result.Clouds[tag.String()] = paramsCloud
+	}
+	return result, nil
+}
+
 // Cloud returns the cloud definitions for the specified clouds.
-func (mm *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
+func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
@@ -76,31 +91,12 @@ func (mm *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		if err != nil {
 			return nil, err
 		}
-		cloud, err := mm.backend.Cloud(tag.Id())
+		cloud, err := api.backend.Cloud(tag.Id())
 		if err != nil {
 			return nil, err
 		}
-		authTypes := make([]string, len(cloud.AuthTypes))
-		for i, authType := range cloud.AuthTypes {
-			authTypes[i] = string(authType)
-		}
-		regions := make([]params.CloudRegion, len(cloud.Regions))
-		for i, region := range cloud.Regions {
-			regions[i] = params.CloudRegion{
-				Name:             region.Name,
-				Endpoint:         region.Endpoint,
-				IdentityEndpoint: region.IdentityEndpoint,
-				StorageEndpoint:  region.StorageEndpoint,
-			}
-		}
-		return &params.Cloud{
-			Type:             cloud.Type,
-			AuthTypes:        authTypes,
-			Endpoint:         cloud.Endpoint,
-			IdentityEndpoint: cloud.IdentityEndpoint,
-			StorageEndpoint:  cloud.StorageEndpoint,
-			Regions:          regions,
-		}, nil
+		paramsCloud := cloudToParams(cloud)
+		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
 		cloud, err := one(arg)
@@ -113,10 +109,34 @@ func (mm *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	return results, nil
 }
 
+func cloudToParams(cloud cloud.Cloud) params.Cloud {
+	authTypes := make([]string, len(cloud.AuthTypes))
+	for i, authType := range cloud.AuthTypes {
+		authTypes[i] = string(authType)
+	}
+	regions := make([]params.CloudRegion, len(cloud.Regions))
+	for i, region := range cloud.Regions {
+		regions[i] = params.CloudRegion{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+		}
+	}
+	return params.Cloud{
+		Type:             cloud.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Regions:          regions,
+	}
+}
+
 // DefaultCloud returns the tag of the cloud that models will be
 // created in by default.
-func (mm *CloudAPI) DefaultCloud() (params.StringResult, error) {
-	controllerModel, err := mm.backend.ControllerModel()
+func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
+	controllerModel, err := api.backend.ControllerModel()
 	if err != nil {
 		return params.StringResult{}, err
 	}
@@ -127,11 +147,11 @@ func (mm *CloudAPI) DefaultCloud() (params.StringResult, error) {
 }
 
 // Credentials returns the cloud credentials for a set of users.
-func (mm *CloudAPI) Credentials(args params.UserClouds) (params.StringsResults, error) {
+func (api *CloudAPI) Credentials(args params.UserClouds) (params.StringsResults, error) {
 	results := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.UserClouds)),
 	}
-	authFunc, err := mm.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
 		return results, err
 	}
@@ -150,7 +170,7 @@ func (mm *CloudAPI) Credentials(args params.UserClouds) (params.StringsResults, 
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		cloudCredentials, err := mm.backend.CloudCredentials(userTag, cloudTag.Id())
+		cloudCredentials, err := api.backend.CloudCredentials(userTag, cloudTag.Id())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -165,11 +185,11 @@ func (mm *CloudAPI) Credentials(args params.UserClouds) (params.StringsResults, 
 }
 
 // UpdateCredentials updates a set of cloud credentials.
-func (mm *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (params.ErrorResults, error) {
+func (api *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
-	authFunc, err := mm.getCredentialsAuthFunc()
+	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
 		return results, err
 	}
@@ -189,7 +209,7 @@ func (mm *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (param
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
-		if err := mm.backend.UpdateCloudCredential(tag, in); err != nil {
+		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

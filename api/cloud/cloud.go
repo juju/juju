@@ -26,6 +26,23 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Clouds returns the details of all clouds supported by the controller.
+func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+	var result params.CloudsResult
+	if err := c.facade.FacadeCall("Clouds", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	clouds := make(map[names.CloudTag]jujucloud.Cloud)
+	for tagString, cloud := range result.Clouds {
+		tag, err := names.ParseCloudTag(tagString)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		clouds[tag] = cloudFromParams(cloud)
+	}
+	return clouds, nil
+}
+
 // Cloud returns the details of the cloud with the given tag.
 func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	var results params.CloudResults
@@ -39,13 +56,16 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	result := results.Results[0].Cloud
-	authTypes := make([]jujucloud.AuthType, len(result.AuthTypes))
-	for i, authType := range result.AuthTypes {
+	return cloudFromParams(*results.Results[0].Cloud), nil
+}
+
+func cloudFromParams(p params.Cloud) jujucloud.Cloud {
+	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
+	for i, authType := range p.AuthTypes {
 		authTypes[i] = jujucloud.AuthType(authType)
 	}
-	regions := make([]jujucloud.Region, len(result.Regions))
-	for i, region := range result.Regions {
+	regions := make([]jujucloud.Region, len(p.Regions))
+	for i, region := range p.Regions {
 		regions[i] = jujucloud.Region{
 			Name:             region.Name,
 			Endpoint:         region.Endpoint,
@@ -54,13 +74,13 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 		}
 	}
 	return jujucloud.Cloud{
-		Type:             result.Type,
+		Type:             p.Type,
 		AuthTypes:        authTypes,
-		Endpoint:         result.Endpoint,
-		IdentityEndpoint: result.IdentityEndpoint,
-		StorageEndpoint:  result.StorageEndpoint,
+		Endpoint:         p.Endpoint,
+		IdentityEndpoint: p.IdentityEndpoint,
+		StorageEndpoint:  p.StorageEndpoint,
 		Regions:          regions,
-	}, nil
+	}
 }
 
 // DefaultCloud returns the tag of the cloud that models will be

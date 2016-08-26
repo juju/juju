@@ -34,16 +34,28 @@ func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	defer modelManager.Close()
-	_, err := modelManager.CreateModel("mymodel", "not a user", "", names.CloudCredentialTag{}, nil)
+	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
+	s.testCreateModel(c, "dummy", "dummy-region")
+}
+
+func (s *modelmanagerSuite) TestCreateModelCloudDefaultRegion(c *gc.C) {
+	s.testCreateModel(c, "dummy", "")
+}
+
+func (s *modelmanagerSuite) TestCreateModelDefaultCloudAndRegion(c *gc.C) {
+	s.testCreateModel(c, "", "")
+}
+
+func (s *modelmanagerSuite) testCreateModel(c *gc.C, cloud, region string) {
 	modelManager := s.OpenAPI(c)
 	defer modelManager.Close()
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newModel, err := modelManager.CreateModel("new-model", owner, "", names.CloudCredentialTag{}, map[string]interface{}{
+	newModel, err := modelManager.CreateModel("new-model", owner, cloud, region, names.CloudCredentialTag{}, map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller
 		"controller": false,
