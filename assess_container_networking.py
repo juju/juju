@@ -387,7 +387,7 @@ def assess_container_networking(client, types):
         for host in hosts:
             log.info("Restarting hosted machine: {}".format(host))
             client.juju(
-                'run', ('--machine', host, 'sudo', 'shutdown', '-r', 'now')
+                'run', ('--machine', host, 'sudo', 'shutdown', '-r', 'now'))
             client.juju('show-action-status', ('--name' 'juju-run'))
             # ssh(client, host, 'sudo shutdown -r now')
 
