@@ -622,6 +622,18 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 
 	var modelUsers []description.UserAccess
 	for _, doc := range userDocs {
+		// check if the User belonging to this model user has
+		// been deleted, in this case we should not return it.
+		userTag := names.NewUserTag(doc.UserName)
+		if userTag.IsLocal() {
+			_, err := m.st.User(userTag)
+			if errors.IsUserNotFound(err) {
+				continue
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		mu, err := NewModelUserAccess(m.st, doc)
 		if err != nil {
 			return nil, errors.Trace(err)
