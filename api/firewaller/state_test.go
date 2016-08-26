@@ -22,7 +22,7 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState, true)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState)
 }
 
 func (s *stateSuite) TearDownTest(c *gc.C) {

@@ -35,7 +35,7 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 			result := make([]params.ErrorResult, len(storages))
 			for i, one := range storages {
 				if strings.HasPrefix(one.StorageName, "err") {
-					result[i].Error = common.ServerError(fmt.Errorf("test failure"))
+					result[i].Error = common.ServerError(errors.Errorf("test failure"))
 				}
 			}
 			return result, nil
@@ -149,10 +149,10 @@ failed to add "storage42": storage "storage42" not found
 		result := make([]params.ErrorResult, len(storages))
 		for i, one := range storages {
 			if one.StorageName == "storage2" {
-				result[i].Error = common.ServerError(fmt.Errorf(`storage pool "barf" not found`))
+				result[i].Error = common.ServerError(errors.Errorf(`storage pool "barf" not found`))
 			}
 			if one.StorageName == "storage42" {
-				result[i].Error = common.ServerError(fmt.Errorf(`storage "storage42" not found`))
+				result[i].Error = common.ServerError(errors.Errorf(`storage "storage42" not found`))
 			}
 		}
 		return result, nil
@@ -175,7 +175,7 @@ failed to add "storage42": storage "storage42" not found
 		result := make([]params.ErrorResult, len(storages))
 		for i, one := range storages {
 			if one.StorageName == "storage42" || one.StorageName == "storage2" {
-				result[i].Error = common.ServerError(fmt.Errorf(`storage "%v" not found`, one.StorageName))
+				result[i].Error = common.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
 			}
 		}
 		return result, nil
@@ -199,7 +199,7 @@ storage "storage0" not found
 			if one.StorageName == "storage42" || one.StorageName == "storage2" {
 				result[i].Error = common.ServerError(errors.New(unitErr))
 			} else {
-				result[i].Error = common.ServerError(fmt.Errorf(`storage "%v" not found`, one.StorageName))
+				result[i].Error = common.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
 			}
 		}
 		return result, nil

@@ -4,19 +4,19 @@
 package status
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 )
 
-// FormatOneline returns a brief list of units and their subordinates.
+// FormatOneline writes a brief list of units and their subordinates.
 // Subordinates will be indented 2 spaces and listed under their
 // superiors. This format works with version 2 of the CLI.
-func FormatOneline(value interface{}) ([]byte, error) {
-	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
+func FormatOneline(writer io.Writer, value interface{}) error {
+	return formatOneline(writer, value, func(out io.Writer, format, uName string, u unitStatus, level int) {
 		status := fmt.Sprintf(
 			"agent:%s, workload:%s",
 			u.JujuStatusInfo.Current,
@@ -30,14 +30,13 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	})
 }
 
-type onelinePrintf func(out *bytes.Buffer, format, uName string, u unitStatus, level int)
+type onelinePrintf func(out io.Writer, format, uName string, u unitStatus, level int)
 
-func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
+func formatOneline(writer io.Writer, value interface{}, printf onelinePrintf) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
 
 	pprint := func(uName string, u unitStatus, level int) {
 		var fmtPorts string
@@ -45,7 +44,7 @@ func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
 			fmtPorts = fmt.Sprintf(" %s", strings.Join(u.OpenedPorts, ", "))
 		}
 		format := indent("\n", level*2, "- %s: %s (%v)"+fmtPorts)
-		printf(&out, format, uName, u, level)
+		printf(writer, format, uName, u, level)
 	}
 
 	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
@@ -57,5 +56,5 @@ func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
 		}
 	}
 
-	return out.Bytes(), nil
+	return nil
 }

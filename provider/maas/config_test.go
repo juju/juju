@@ -13,6 +13,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// Ensure MAAS provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*maasEnvironProvider)(nil)
+)
+
 type configSuite struct {
 	testing.BaseSuite
 }

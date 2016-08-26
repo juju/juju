@@ -115,7 +115,11 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, model.UUID())
-	c.Assert(info.ControllerUUID, gc.Equals, model.ControllerUUID())
+	c.Assert(info.OwnerTag, gc.Equals, model.Owner().String())
+	c.Assert(info.Life, gc.Equals, params.Alive)
+	// The controller UUID is not returned by the ModelInfo endpoint on the
+	// Client facade.
+	c.Assert(info.ControllerUUID, gc.Equals, "")
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {

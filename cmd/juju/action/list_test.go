@@ -57,8 +57,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:        []string{validServiceId},
 		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
+		should:      "schema with tabular output",
+		args:        []string{"--format=tabular", "--schema", validServiceId},
+		expectedErr: "full schema not compatible with tabular output",
+	}, {
 		should:               "init properly with valid application name and --schema",
-		args:                 []string{"--schema", validServiceId},
+		args:                 []string{"--format=yaml", "--schema", validServiceId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
@@ -71,6 +75,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
+				c.Check(err, jc.ErrorIsNil)
 				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
@@ -110,7 +115,7 @@ snapshot        Take a snapshot of the database.
 		withCharmActions: someCharmActions,
 	}, {
 		should:           "get full schema results properly",
-		withArgs:         []string{"--schema", validServiceId},
+		withArgs:         []string{"--format=yaml", "--schema", validServiceId},
 		expectFullSchema: true,
 		withCharmActions: someCharmActions,
 	}, {

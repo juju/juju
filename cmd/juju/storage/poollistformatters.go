@@ -4,37 +4,29 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
 // formatPoolListTabular returns a tabular summary of pool instances or
 // errors out if parameter is not a map of PoolInfo.
-func formatPoolListTabular(value interface{}) ([]byte, error) {
+func formatPoolListTabular(writer io.Writer, value interface{}) error {
 	pools, ok := value.(map[string]PoolInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", pools, value)
+		return errors.Errorf("expected value of type %T, got %T", pools, value)
 	}
-	return formatPoolsTabular(pools)
+	formatPoolsTabular(writer, pools)
+	return nil
 }
 
 // formatPoolsTabular returns a tabular summary of pool instances.
-func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+func formatPoolsTabular(writer io.Writer, pools map[string]PoolInfo) {
+	tw := output.TabWriter(writer)
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
@@ -61,6 +53,4 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 		print(name, pool.Provider, strings.Join(attrs, " "))
 	}
 	tw.Flush()
-
-	return out.Bytes(), nil
 }

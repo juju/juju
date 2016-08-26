@@ -108,19 +108,6 @@ func (d *manifestDeployer) Deploy() (err error) {
 	return d.finishDeploy()
 }
 
-func (d *manifestDeployer) NotifyResolved() error {
-	// Maybe it is resolved, maybe not. We'll find out soon enough, but we
-	// don't need to take any action now; if it's not, we'll just ErrConflict
-	// out of Deploy again.
-	return nil
-}
-
-func (d *manifestDeployer) NotifyRevert() error {
-	// The Deploy implementation always effectively reverts when required
-	// anyway, so we need take no action right now.
-	return nil
-}
-
 // startDeploy persists the fact that we've started deploying the staged bundle.
 func (d *manifestDeployer) startDeploy() error {
 	logger.Debugf("preparing to deploy charm %q", d.staged.url)

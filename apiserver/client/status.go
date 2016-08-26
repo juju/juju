@@ -103,6 +103,7 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
+
 	results := params.StatusHistoryResults{}
 	// TODO(perrito666) the contents of the loop could be split into
 	// a oneHistory method for clarity.
@@ -112,6 +113,15 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			Date:  request.Filter.Date,
 			Delta: request.Filter.Delta,
 		}
+		if err := c.checkCanRead(); err != nil {
+			history := params.StatusHistoryResult{
+				Error: common.ServerError(err),
+			}
+			results.Results = append(results.Results, history)
+			continue
+
+		}
+
 		if err := filter.Validate(); err != nil {
 			history := params.StatusHistoryResult{
 				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
@@ -154,6 +164,10 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.FullStatus{}, err
+	}
+
 	var noStatus params.FullStatus
 	var context statusContext
 	var err error
@@ -307,7 +321,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 }
 
 func (c *Client) getMigrationStatus() (string, error) {
-	mig, err := c.api.stateAccessor.LatestModelMigration()
+	mig, err := c.api.stateAccessor.LatestMigration()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", nil

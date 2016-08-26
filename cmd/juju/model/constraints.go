@@ -4,6 +4,9 @@
 package model
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
@@ -100,8 +103,9 @@ func (c *modelGetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	return c.NewAPIClient()
 }
 
-func formatConstraints(value interface{}) ([]byte, error) {
-	return []byte(value.(constraints.Value).String()), nil
+func formatConstraints(writer io.Writer, value interface{}) error {
+	fmt.Fprint(writer, value.(constraints.Value).String())
+	return nil
 }
 
 func (c *modelGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {

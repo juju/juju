@@ -2399,10 +2399,10 @@ func (w *blockDevicesWatcher) loop() error {
 	}
 }
 
-// WatchForModelMigration returns a notify watcher which reports when
+// WatchForMigration returns a notify watcher which reports when
 // a migration is in progress for the model associated with the
 // State.
-func (st *State) WatchForModelMigration() NotifyWatcher {
+func (st *State) WatchForMigration() NotifyWatcher {
 	return newMigrationActiveWatcher(st)
 }
 

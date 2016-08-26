@@ -3,6 +3,10 @@
 
 package config
 
+import (
+	"github.com/juju/schema"
+)
+
 // These constants define named sources of model config attributes.
 // After a call to UpdateModelConfig, any attributes added/removed
 // will have a source of JujuModelConfigSource.
@@ -14,6 +18,11 @@ const (
 	// JujuControllerSource is used to label model config attributes that
 	// come from those associated with the controller.
 	JujuControllerSource = "controller"
+
+	// JujuRegionSource is used to label model config attributes that come from
+	// those associated with the region where the model is
+	// running.
+	JujuRegionSource = "region"
 
 	// JujuModelConfigSource is used to label model config attributes that
 	// have been explicitly set by the user.
@@ -41,4 +50,16 @@ func (c ConfigValues) AllAttrs() map[string]interface{} {
 		result[attr] = val
 	}
 	return result
+}
+
+// ConfigSchemaSource instances provide information on config attributes
+// and the default attribute values.
+type ConfigSchemaSource interface {
+	// ConfigSchema returns extra config attributes specific
+	// to this provider only.
+	ConfigSchema() schema.Fields
+
+	// ConfigDefaults returns the default values for the
+	// provider specific config attributes.
+	ConfigDefaults() schema.Defaults
 }

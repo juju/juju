@@ -168,6 +168,20 @@ func (m *Machine) Remove() error {
 	return result.OneError()
 }
 
+// MarkForRemoval indicates that the machine is ready to have any
+// provider-level resources cleaned up and be removed.
+func (m *Machine) MarkForRemoval() error {
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("MarkMachinesForRemoval", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // Series returns the operating system series running on the machine.
 //
 // NOTE: Unlike state.Machine.Series(), this method returns an error

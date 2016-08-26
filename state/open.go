@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -122,7 +123,7 @@ type InitializeParams struct {
 
 	// CloudCredentials contains the credentials for the owner of
 	// the controller model to store in the controller.
-	CloudCredentials map[string]cloud.Credential
+	CloudCredentials map[names.CloudCredentialTag]cloud.Credential
 
 	// ControllerConfig contains config attributes for
 	// the controller.
@@ -154,7 +155,7 @@ func (p InitializeParams) Validate() error {
 	if err := p.ControllerModelArgs.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if p.ControllerModelArgs.MigrationMode != MigrationModeActive {
+	if p.ControllerModelArgs.MigrationMode != MigrationModeNone {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
@@ -185,7 +186,6 @@ func (p InitializeParams) Validate() error {
 		p.CloudName,
 		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
-		p.ControllerModelArgs.Owner,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
 	}
@@ -227,7 +227,12 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
+	modelOps, err := st.modelSetupOps(
+		args.ControllerModelArgs,
+		&lineage{
+			ControllerConfig: args.ControllerInheritedConfig,
+			RegionConfig:     args.RegionInheritedConfig,
+		})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,13 +282,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
 	}
 
-	for credName, cred := range args.CloudCredentials {
-		ops = append(ops, createCloudCredentialOp(
-			args.ControllerModelArgs.Owner,
-			args.CloudName,
-			credName,
-			cred,
-		))
+	for tag, cred := range args.CloudCredentials {
+		ops = append(ops, createCloudCredentialOp(tag, cred))
 	}
 	ops = append(ops, modelOps...)
 
@@ -296,10 +296,19 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	return st, nil
 }
 
+// lineage is a composite of inheritable properties for the extent of
+// passing them into modelSetupOps.
+type lineage struct {
+	ControllerConfig map[string]interface{}
+	RegionConfig     cloud.RegionConfig
+}
+
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(controllerInheritedConfig); err != nil {
-		return nil, errors.Trace(err)
+func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+	if inherited != nil {
+		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
@@ -344,7 +353,7 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(controllerInheritedConfig) > 0 {
+	if inherited != nil {
 		configSources = []modelConfigSource{
 			{
 				name: config.JujuDefaultSource,
@@ -354,10 +363,18 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 			{
 				name: config.JujuControllerSource,
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					return controllerInheritedConfig, nil
-				})}}
+					return inherited.ControllerConfig, nil
+				})},
+			{
+				name: config.JujuRegionSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					// We return the values specific to this region for this model.
+					return attrValues(inherited.RegionConfig[args.CloudRegion]), nil
+				})},
+		}
 	} else {
-		configSources = modelConfigSources(st)
+		rspec := &environs.RegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {

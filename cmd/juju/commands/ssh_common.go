@@ -5,7 +5,6 @@ package commands
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -231,11 +230,11 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
 	if err != nil {
-		return fmt.Errorf("failed to get proxy address: %v", err)
+		return errors.Errorf("failed to get proxy address: %v", err)
 	}
 	juju, err := getJujuExecutable()
 	if err != nil {
-		return fmt.Errorf("failed to get juju executable path: %v", err)
+		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the

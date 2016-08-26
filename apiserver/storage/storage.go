@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -48,11 +49,35 @@ func NewAPI(
 		authorizer:  authorizer,
 	}, nil
 }
+func (api *API) checkCanRead() error {
+	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.storage.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (api *API) checkCanWrite() error {
+	canWrite, err := api.authorizer.HasPermission(description.WriteAccess, api.storage.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
 
 // StorageDetails retrieves and returns detailed information about desired
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (api *API) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.StorageDetailsResults{}, errors.Trace(err)
+	}
 	results := make([]params.StorageDetailsResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
@@ -77,6 +102,9 @@ func (api *API) StorageDetails(entities params.Entities) (params.StorageDetailsR
 
 // ListStorageDetails returns storage matching a filter.
 func (api *API) ListStorageDetails(filters params.StorageFilters) (params.StorageDetailsListResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.StorageDetailsListResults{}, errors.Trace(err)
+	}
 	results := params.StorageDetailsListResults{
 		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
 	}
@@ -204,6 +232,10 @@ func storageAttachmentInfo(st storageAccess, a state.StorageAttachment) (_ names
 func (a *API) ListPools(
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.StoragePoolsResults{}, errors.Trace(err)
+	}
+
 	results := params.StoragePoolsResults{
 		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
 	}
@@ -220,11 +252,11 @@ func (a *API) ListPools(
 
 func (a *API) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
 	if err := a.validatePoolListFilter(filter); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	pools, err := a.poolManager.List()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	providers := a.registry.StorageProviderTypes()
 	matches := buildFilter(filter)
@@ -333,6 +365,9 @@ func (a *API) CreatePool(p params.StoragePool) error {
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
 func (a *API) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.VolumeDetailsListResults{}, errors.Trace(err)
+	}
 	results := params.VolumeDetailsListResults{
 		Results: make([]params.VolumeDetailsListResult, len(filters.Filters)),
 	}
@@ -480,6 +515,10 @@ func (a *API) ListFilesystems(filters params.FilesystemFilters) (params.Filesyst
 	results := params.FilesystemDetailsListResults{
 		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
 	}
+	if err := a.checkCanRead(); err != nil {
+		return results, errors.Trace(err)
+	}
+
 	for i, filter := range filters.Filters {
 		filesystems, filesystemAttachments, err := filterFilesystems(a.storage, filter)
 		if err != nil {
@@ -627,6 +666,10 @@ func createFilesystemDetails(
 // instances from being processed.
 // A "CHANGE" block can block this operation.
 func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {

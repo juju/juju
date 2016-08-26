@@ -53,14 +53,24 @@ func newAPIFromState(st *state.State, res facade.Resources, auth facade.Authoriz
 
 // AllMachineRemovals returns tags for all of the machines that have
 // been marked for removal in the requested model.
-func (m *API) AllMachineRemovals(models params.Entities) (params.Entities, error) {
-	err := m.checkModelAuthorization(models)
+func (m *API) AllMachineRemovals(models params.Entities) params.EntitiesResults {
+	results := make([]params.EntitiesResult, len(models.Entities))
+	for i, entity := range models.Entities {
+		entities, err := m.allRemovalsForTag(entity.Tag)
+		results[i].Entities = entities
+		results[i].Error = common.ServerError(err)
+	}
+	return params.EntitiesResults{Results: results}
+}
+
+func (m *API) allRemovalsForTag(tag string) ([]params.Entity, error) {
+	err := m.checkModelAuthorization(tag)
 	if err != nil {
-		return params.Entities{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	machineIds, err := m.backend.AllMachineRemovals()
 	if err != nil {
-		return params.Entities{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	var entities []params.Entity
 	for _, id := range machineIds {
@@ -68,7 +78,7 @@ func (m *API) AllMachineRemovals(models params.Entities) (params.Entities, error
 			Tag: names.NewMachineTag(id).String(),
 		})
 	}
-	return params.Entities{Entities: entities}, nil
+	return entities, nil
 }
 
 // GetMachineProviderInterfaceInfo returns the provider details for
@@ -125,34 +135,36 @@ func (m *API) CompleteMachineRemovals(machines params.Entities) error {
 
 // WatchMachineRemovals returns a watcher that will signal each time a
 // machine is marked for removal.
-func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResult {
-	err := m.checkModelAuthorization(models)
+func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResults {
+	results := make([]params.NotifyWatchResult, len(models.Entities))
+	for i, entity := range models.Entities {
+		id, err := m.watchRemovalsForTag(entity.Tag)
+		results[i].NotifyWatcherId = id
+		results[i].Error = common.ServerError(err)
+	}
+	return params.NotifyWatchResults{Results: results}
+}
+
+func (m *API) watchRemovalsForTag(tag string) (string, error) {
+	err := m.checkModelAuthorization(tag)
 	if err != nil {
-		return params.NotifyWatchResult{Error: common.ServerError(err)}
+		return "", errors.Trace(err)
 	}
 	watch := m.backend.WatchMachineRemovals()
 	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: m.resources.Register(watch),
-		}
-	}
-	return params.NotifyWatchResult{
-		Error: common.ServerError(watcher.EnsureErr(watch)),
+		return m.resources.Register(watch), nil
+	} else {
+		return "", watcher.EnsureErr(watch)
 	}
 }
 
-func (m *API) checkModelAuthorization(entities params.Entities) error {
-	if len(entities.Entities) == 0 {
-		return errors.New("one model tag is required")
+func (m *API) checkModelAuthorization(tag string) error {
+	modelTag, err := names.ParseModelTag(tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	for _, entity := range entities.Entities {
-		modelTag, err := names.ParseModelTag(entity.Tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !m.canManageModel(modelTag.Id()) {
-			return errors.Trace(common.ErrPerm)
-		}
+	if !m.canManageModel(modelTag.Id()) {
+		return errors.Trace(common.ErrPerm)
 	}
 	return nil
 }

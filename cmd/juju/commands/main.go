@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
@@ -61,7 +61,7 @@ juju provides easy, intelligent application orchestration on top of cloud
 infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
 Azure, or your local machine.
 
-https://juju.ubuntu.com/
+https://jujucharms.com/
 `
 
 const juju1xCmdName = "juju-1"
@@ -288,6 +288,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewLoginCommand())
 	r.Register(user.NewLogoutCommand())
 	r.Register(user.NewRemoveCommand())
+	r.Register(user.NewWhoAmICommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewRemoveCommand())
@@ -318,6 +319,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
+		r.Register(model.NewDumpDBCommand())
 	}
 
 	// Manage and control actions

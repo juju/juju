@@ -4,19 +4,18 @@
 package status
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"regexp"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -76,7 +75,7 @@ func (r *relationFormatter) get(k string) *statusRelation {
 	return r.relations[k]
 }
 
-func printHelper(tw *tabwriter.Writer) func(...interface{}) {
+func printHelper(tw io.Writer) func(...interface{}) {
 	return func(values ...interface{}) {
 		for i, v := range values {
 			if i != len(values)-1 {
@@ -89,26 +88,20 @@ func printHelper(tw *tabwriter.Writer) func(...interface{}) {
 	}
 }
 
-func getTabWriter(out io.Writer) *tabwriter.Writer {
-	padding := 2
-	return tabwriter.NewWriter(out, 0, 1, padding, ' ', 0)
-}
-
-// FormatTabular returns a tabular summary of machines, applications, and
+// FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
-func FormatTabular(value interface{}) ([]byte, error) {
+func FormatTabular(writer io.Writer, value interface{}) error {
 	const maxVersionWidth = 7
 	const ellipsis = "..."
 	const truncatedWidth = maxVersionWidth - len(ellipsis)
 
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
 	// To format things into columns.
-	tw := getTabWriter(&out)
+	tw := output.TabWriter(writer)
 	p := printHelper(tw)
 	outputHeaders := func(values ...interface{}) {
 		p()
@@ -239,7 +232,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	p()
 	printMachines(tw, fs.Machines)
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }
 
 func getModelMessage(model modelStatus) string {
@@ -254,7 +247,7 @@ func getModelMessage(model modelStatus) string {
 	}
 }
 
-func printMachines(tw *tabwriter.Writer, machines map[string]machineStatus) {
+func printMachines(tw io.Writer, machines map[string]machineStatus) {
 	p := printHelper(tw)
 	p("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
@@ -278,20 +271,17 @@ func printMachine(p func(...interface{}), m machineStatus, prefix string) {
 	}
 }
 
-// FormatMachineTabular returns a tabular summary of machine
-func FormatMachineTabular(value interface{}) ([]byte, error) {
+// FormatMachineTabular writes a tabular summary of machine
+func FormatMachineTabular(writer io.Writer, value interface{}) error {
 	fs, valueConverted := value.(formattedMachineStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
-	// To format things into columns.
-	tw := getTabWriter(&out)
-
+	tw := output.TabWriter(writer)
 	printMachines(tw, fs.Machines)
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }
 
 // agentDoing returns what hook or action, if any,

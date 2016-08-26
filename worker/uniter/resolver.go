@@ -18,7 +18,6 @@ import (
 type ResolverConfig struct {
 	ClearResolved       func() error
 	ReportHookError     func(hook.Info) error
-	FixDeployer         func() error
 	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
@@ -64,12 +63,6 @@ func (s *uniterResolver) NextOp(
 		// unit's charm URL. We need to restart the resolver
 		// loop so that we start watching the correct events.
 		return nil, resolver.ErrRestart
-	}
-
-	if localState.Kind == operation.Continue {
-		if err := s.config.FixDeployer(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	if s.retryHookTimerStarted && (localState.Kind != operation.RunHook || localState.Step != operation.Pending) {

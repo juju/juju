@@ -22,7 +22,7 @@ type UserAccess struct {
 	UserTag names.UserTag
 	// Object is the tag for the object of this access grant.
 	Object names.Tag
-	// Access represents the level of access subjec has over object.
+	// Access represents the level of access subject has over object.
 	Access Access
 	// CreatedBy is the tag of the user that granted the access.
 	CreatedBy names.UserTag
@@ -37,6 +37,5 @@ type UserAccess struct {
 // IsEmptyUserAccess returns true if the passed UserAccess instance
 // is empty.
 func IsEmptyUserAccess(a UserAccess) bool {
-	empty := UserAccess{}
-	return a == empty
+	return a == UserAccess{}
 }

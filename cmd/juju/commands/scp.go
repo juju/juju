@@ -4,7 +4,6 @@
 package commands
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -93,7 +92,7 @@ func (c *scpCommand) Info() *cmd.Info {
 
 func (c *scpCommand) Init(args []string) error {
 	if len(args) < 2 {
-		return fmt.Errorf("at least two arguments required")
+		return errors.Errorf("at least two arguments required")
 	}
 	c.Args = args
 	return nil

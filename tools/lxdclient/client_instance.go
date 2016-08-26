@@ -26,7 +26,7 @@ type Devices map[string]Device
 type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
-	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices shared.Devices, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -65,8 +65,17 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
+	lxdDevices := make(shared.Devices, len(spec.Devices))
+	for name, device := range spec.Devices {
+		lxdDevice := make(shared.Device, len(device))
+		for key, value := range device {
+			lxdDevice[key] = value
+		}
+		lxdDevices[name] = lxdDevice
+	}
+
 	config := spec.config()
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, lxdDevices, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -78,23 +87,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
-	}
-
-	for name, device := range spec.Devices {
-		deviceType, ok := device["type"]
-		if !ok {
-			continue
-		}
-		props := deviceProperties(device)
-		logger.Infof("adding device=%s, type=%s with properties=%q to container %s",
-			name, deviceType, props, spec.Name)
-		resp, err := client.raw.ContainerDeviceAdd(spec.Name, name, deviceType, props)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	return nil

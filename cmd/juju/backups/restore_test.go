@@ -272,7 +272,7 @@ func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 		sort.Sort(args.Cloud.AuthTypes)
 		c.Assert(args.Cloud, jc.DeepEquals, cloud.Cloud{
 			Type:      "lxd",
-			AuthTypes: []cloud.AuthType{"certificate", "empty"},
+			AuthTypes: []cloud.AuthType{"empty"},
 			Regions:   []cloud.Region{{Name: "localhost"}},
 		})
 		return nil

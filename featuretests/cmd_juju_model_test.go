@@ -12,9 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -132,6 +134,39 @@ func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
 	output := testing.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
 	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
+}
+
+func (s *cmdModelSuite) TestDumpModel(c *gc.C) {
+	s.SetFeatureFlags(feature.DeveloperMode)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageModel},
+	})
+	ctx := s.run(c, "dump-model")
+	output := testing.Stdout(ctx)
+	// The output is yaml formatted output that is a model description.
+	model, err := description.Deserialize([]byte(output))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Config()["name"], gc.Equals, "controller")
+}
+
+func (s *cmdModelSuite) TestDumpModelDB(c *gc.C) {
+	s.SetFeatureFlags(feature.DeveloperMode)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageModel},
+	})
+	ctx := s.run(c, "dump-db")
+	output := testing.Stdout(ctx)
+	// The output is map of collection names to documents.
+	// Defaults to yaml output.
+	var valueMap map[string]interface{}
+	err := yaml.Unmarshal([]byte(output), &valueMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%#v", valueMap)
+	model := valueMap["models"]
+	// yaml unmarshals maps with interface keys.
+	modelMap, ok := model.(map[interface{}]interface{})
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(modelMap["name"], gc.Equals, "controller")
 }
 
 func (s *cmdModelSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {

@@ -24,7 +24,7 @@ var (
 	//
 	// TODO(katco): 2016-08-09: lp:1611427
 	checkProvisionedStrategy = utils.AttemptStrategy{
-		Total: 1 * time.Minute,
+		Total: 10 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 

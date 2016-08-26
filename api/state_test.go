@@ -12,6 +12,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -102,8 +103,10 @@ func (s *stateSuite) TestModelTag(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// Use s.APIState, because we can't get at UserManager without logging in.
-	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	// Use a different API connection, because we can't get at UserManager without logging in.
+	loggedInAPI := s.OpenControllerAPI(c)
+	defer loggedInAPI.Close()
+	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,10 +118,15 @@ func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
 	c.Assert(s.APIState.ReadOnly(), jc.IsFalse)
 
 	// Check with an user in read-only mode.
+	manager := usermanager.NewClient(s.OpenControllerAPI(c))
+	defer manager.Close()
+	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
+	c.Assert(err, jc.ErrorIsNil)
+	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mmanager.Close()
 	modeltag, ok := s.APIState.ModelTag()
 	c.Assert(ok, jc.IsTrue)
-	manager := usermanager.NewClient(s.APIState)
-	usertag, _, err := manager.AddUser("ro", "ro", "ro-password", "read", modeltag.Id())
+	err = mmanager.GrantModel(usertag.Canonical(), "read", modeltag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenAPIAs(c, usertag, "ro-password")
 	c.Assert(conn.ReadOnly(), jc.IsTrue)
@@ -136,8 +144,10 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// Use s.APIState, because we can't get at UserManager without logging in.
-	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	// Use a different API connection, because we can't get at UserManager without logging in.
+	loggedInAPI := s.OpenControllerAPI(c)
+	defer loggedInAPI.Close()
+	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")

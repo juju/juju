@@ -82,9 +82,9 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE REVISION
-website  2
-music    1
+RESOURCE  REVISION
+website   2
+music     1
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -116,7 +116,7 @@ func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE REVISION
+RESOURCE  REVISION
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -136,9 +136,9 @@ func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
 
 	formats := map[string]string{
 		"tabular": `
-RESOURCE REVISION
-website  1
-music    1
+RESOURCE  REVISION
+website   1
+music     1
 
 `[1:],
 		"yaml": `

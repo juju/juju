@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var helpSummary = `
@@ -67,6 +68,7 @@ type infoCommand struct {
 type UserInfo struct {
 	Username       string `yaml:"user-name" json:"user-name"`
 	DisplayName    string `yaml:"display-name" json:"display-name"`
+	Access         string `yaml:"access" json:"access"`
 	DateCreated    string `yaml:"date-created" json:"date-created"`
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
 	Disabled       bool   `yaml:"disabled,omitempty" json:"disabled,omitempty"`
@@ -85,7 +87,7 @@ func (c *infoCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.infoCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.Init.
@@ -138,6 +140,7 @@ func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 		outInfo := UserInfo{
 			Username:       info.Username,
 			DisplayName:    info.DisplayName,
+			Access:         info.Access,
 			Disabled:       info.Disabled,
 			LastConnection: common.LastConnection(info.LastConnection, now, c.exactTime),
 		}

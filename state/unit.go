@@ -448,7 +448,7 @@ func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
 	} else if u.doc.MachineId == "" {
-		unitLogger.Errorf("unit %v unassigned", u)
+		unitLogger.Tracef("unit %v unassigned", u)
 		return nil, nil
 	}
 
@@ -753,7 +753,7 @@ func (u *Unit) machine() (*Machine, error) {
 func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
@@ -763,7 +763,7 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 func (u *Unit) PrivateAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
@@ -2299,20 +2299,35 @@ type addUnitOpsArgs struct {
 func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 	name := args.unitDoc.Name
 	agentGlobalKey := unitAgentGlobalKey(name)
+
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
-	return []txn.Op{
+	prereqOps := []txn.Op{
 		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
 		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
 		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
-		{
-			C:      unitsC,
-			Id:     name,
-			Assert: txn.DocMissing,
-			Insert: args.unitDoc,
-		},
 	}
+
+	// Freshly-created units will not have a charm URL set; migrated
+	// ones will, and they need to maintain their refcounts. If we
+	// relax the restrictions on migrating apps mid-upgrade, this
+	// will need to be more sophisticated, because it might need to
+	// create the settings doc; and will likely have to look in the
+	// DB to find out which.
+	if curl := args.unitDoc.CharmURL; curl != nil {
+		appName := args.unitDoc.Application
+		settingsKey := applicationSettingsKey(appName, curl)
+		incRefSettingsOp := nsRefcounts.JustIncRefOp(refcountsC, settingsKey)
+		prereqOps = append(prereqOps, incRefSettingsOp)
+	}
+
+	return append(prereqOps, txn.Op{
+		C:      unitsC,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: args.unitDoc,
+	})
 }
 
 // HistoryGetter allows getting the status history based on some identifying key.

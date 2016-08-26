@@ -3,4 +3,7 @@
 
 package network
 
-var NetLookupIP = &netLookupIP
+var (
+	NetLookupIP = &netLookupIP
+	NetListen   = &netListen
+)

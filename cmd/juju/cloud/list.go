@@ -4,11 +4,10 @@
 package cloud
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")
@@ -154,23 +154,14 @@ func listCloudDetails() (*cloudList, error) {
 	return details, nil
 }
 
-// formatCloudsTabular returns a tabular summary of cloud information.
-func formatCloudsTabular(value interface{}) ([]byte, error) {
+// formatCloudsTabular writes a tabular summary of cloud information.
+func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	clouds, ok := value.(*cloudList)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", clouds, value)
+		return errors.Errorf("expected value of type %T, got %T", clouds, value)
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	p := func(values ...string) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
@@ -216,5 +207,5 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 	printClouds(clouds.personal)
 
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }

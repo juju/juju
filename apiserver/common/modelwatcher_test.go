@@ -99,26 +99,6 @@ func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*environWatcherSuite) TestModelConfigMaskedSecrets(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: false,
-	}
-	testingEnvConfig := testingEnvConfig(c)
-	e := common.NewModelWatcher(
-		&fakeModelAccessor{modelConfig: testingEnvConfig},
-		nil,
-		authorizer,
-	)
-	result, err := e.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	// Make sure the secret attribute is masked.
-	c.Check(result.Config["secret"], gc.Equals, "not available")
-	// And only that is masked.
-	result.Config["secret"] = "pork"
-	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
-}
-
 func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(testing.Context(c)),

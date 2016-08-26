@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bytes"
 	"time"
 
 	"github.com/juju/testing"
@@ -20,16 +21,21 @@ type CharmTabularSuite struct {
 	testing.IsolationSuite
 }
 
+func (s *CharmTabularSuite) formatTabular(c *gc.C, value interface{}) string {
+	out := &bytes.Buffer{}
+	err := FormatCharmTabular(out, value)
+	c.Assert(err, jc.ErrorIsNil)
+	return out.String()
+}
+
 func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
 	formatted := []FormattedCharmResource{FormatCharmResource(res)}
 
-	data, err := FormatCharmTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION
-spam     1
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
+RESOURCE  REVISION
+spam      1
 `[1:])
 }
 
@@ -37,12 +43,10 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 	res := charmRes(c, "spam", "", "", "")
 	formatted := []FormattedCharmResource{FormatCharmResource(res)}
 
-	data, err := FormatCharmTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION
-spam     1
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
+RESOURCE  REVISION
+spam      1
 `[1:])
 }
 
@@ -51,12 +55,10 @@ func (s *CharmTabularSuite) TestFormatCharmTabularUpload(c *gc.C) {
 	res.Origin = charmresource.OriginUpload
 	formatted := []FormattedCharmResource{FormatCharmResource(res)}
 
-	data, err := FormatCharmTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION
-spam     1
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
+RESOURCE  REVISION
+spam      1
 `[1:])
 }
 
@@ -70,23 +72,20 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 	}
 	formatted[1].Revision = 2
 
-	data, err := FormatCharmTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
-RESOURCE     REVISION
-spam         1
-eggs         2
-somethingbig 1
-song         1
-avatar       1
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
+RESOURCE      REVISION
+spam          1
+eggs          2
+somethingbig  1
+song          1
+avatar        1
 `[1:])
 }
 
 func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	_, err := FormatCharmTabular(bogus)
-
+	err := FormatCharmTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
@@ -94,6 +93,13 @@ var _ = gc.Suite(&SvcTabularSuite{})
 
 type SvcTabularSuite struct {
 	testing.IsolationSuite
+}
+
+func (s *SvcTabularSuite) formatTabular(c *gc.C, value interface{}) string {
+	out := &bytes.Buffer{}
+	err := FormatSvcTabular(out, value)
+	c.Assert(err, jc.ErrorIsNil)
+	return out.String()
 }
 
 func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
@@ -114,13 +120,11 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Resources: []FormattedSvcResource{FormatSvcResource(res)},
 	}
 
-	data, err := FormatSvcTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
 [Service]
-RESOURCE SUPPLIED BY REVISION
-openjdk  charmstore  7
+RESOURCE  SUPPLIED BY  REVISION
+openjdk   charmstore   7
 `[1:])
 }
 
@@ -142,13 +146,11 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 		FormattedUnitResource(FormatSvcResource(res)),
 	}
 
-	data, err := FormatSvcTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, `
+	data := s.formatTabular(c, formatted)
+	c.Check(data, gc.Equals, `
 [Unit]
-RESOURCE REVISION
-openjdk  7
+RESOURCE  REVISION
+openjdk   7
 `[1:])
 }
 
@@ -246,37 +248,29 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := FormatSvcTabular(formatted)
-	c.Assert(err, jc.ErrorIsNil)
-
+	data := s.formatTabular(c, formatted)
 	// Notes: sorted by name, then by revision, newest first.
-	c.Check(string(data), gc.Equals, `
+	c.Check(data, gc.Equals, `
 [Service]
-RESOURCE SUPPLIED BY REVISION
-openjdk  charmstore  7
-website  upload      -
-openjdk2 charmstore  8
-website2 Bill User   2012-12-12T12:12
+RESOURCE  SUPPLIED BY  REVISION
+openjdk   charmstore   7
+website   upload       -
+openjdk2  charmstore   8
+website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
-RESOURCE REVISION
-openjdk  10
+RESOURCE  REVISION
+openjdk   10
 `[1:])
 }
 
 func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	_, err := FormatSvcTabular(bogus)
+	err := FormatSvcTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
 }
 
-var _ = gc.Suite(&DetailsTabularSuite{})
-
-type DetailsTabularSuite struct {
-	testing.IsolationSuite
-}
-
-func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
 	updates := []FormattedCharmResource{FormatCharmResource(res)}
 
@@ -302,22 +296,20 @@ func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 		Updates: updates,
 	}
 
-	output, err := FormatSvcTabular(data)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(string(output), gc.Equals, `
+	output := s.formatTabular(c, data)
+	c.Assert(output, gc.Equals, `
 [Units]
-UNIT RESOURCE REVISION EXPECTED
-5    config   combRev2 combRev3
-10   data     combRev1 combRev1 (fetching: 17%)
+UNIT  RESOURCE  REVISION  EXPECTED
+5     config    combRev2  combRev3
+10    data      combRev1  combRev1 (fetching: 17%)
 
 [Updates Available]
-RESOURCE REVISION
-spam     1
+RESOURCE  REVISION
+spam      1
 `[1:])
 }
 
-func (s *DetailsTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 	data := FormattedUnitDetails{
 		{
 			UnitID:      "svc/10",
@@ -337,14 +329,12 @@ func (s *DetailsTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 		},
 	}
 
-	output, err := FormatSvcTabular(data)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(string(output), gc.Equals, `
+	output := s.formatTabular(c, data)
+	c.Assert(output, gc.Equals, `
 [Unit]
-RESOURCE REVISION EXPECTED
-config   combRev2 combRev3 (fetching: 91%)
-data     combRev1 combRev1
+RESOURCE  REVISION  EXPECTED
+config    combRev2  combRev3 (fetching: 91%)
+data      combRev1  combRev1
 `[1:])
 }
 

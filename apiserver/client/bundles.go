@@ -19,6 +19,10 @@ import (
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
 func (c *Client) GetBundleChanges(args params.GetBundleChangesParams) (params.GetBundleChangesResults, error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.GetBundleChangesResults{}, err
+	}
+
 	var results params.GetBundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {

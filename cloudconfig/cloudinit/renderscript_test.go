@@ -36,10 +36,6 @@ type testProvider struct {
 	environs.EnvironProvider
 }
 
-func (p *testProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
 func init() {
 	environs.RegisterProvider("sshinit_test", &testProvider{})
 }

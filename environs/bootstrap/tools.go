@@ -25,7 +25,7 @@ var (
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string) error {
+func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string, validator constraints.Validator) error {
 	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := arch.HostArch()
@@ -44,12 +44,6 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string)
 		}
 	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return errors.Annotate(err,
-			"no packaged agent available and cannot determine model's supported architectures",
-		)
-	}
 	if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
 		return errors.Errorf(
 			"model %q of type %s does not support instances running on %q",

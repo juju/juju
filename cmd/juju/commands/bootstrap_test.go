@@ -99,7 +99,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	expectedNumber.Build = 1235
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &expectedNumber))
 
-	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string, string) error {
 		return nil
 	})
 
@@ -261,6 +261,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"type":            "dummy",
 		"default-series":  "raring",
 		"authorized-keys": "public auth key\n",
+		// Dummy provider defaults
+		"broken":     "",
+		"secret":     "pork",
+		"controller": false,
 	}
 	for k, v := range config.ConfigDefaults() {
 		if _, ok := expected[k]; !ok {
@@ -907,10 +911,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 		"--auto-upgrade", "--agent-version=1.7.3",
 	)
 
-	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+	c.Check(coretesting.Stderr(ctx), gc.Equals, `
 Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Bootstrapping model %q
-`[1:], bootstrap.ControllerModelName))
+Looking for packaged Juju agent binaries
+Preparing local Juju agent binary
+`[1:])
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
 }
 
@@ -951,7 +956,8 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(),
+	ctx := coretesting.Context(c)
+	opc, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(),
 		"--keep-broken",
 		"devcontroller", "dummy-cloud/region-1",
 		"--config", "broken=Bootstrap Destroy",
@@ -980,6 +986,8 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 			break
 		}
 	}
+	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	c.Assert(stderr, gc.Matches, `.*See .*juju kill\-controller.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {
@@ -1154,7 +1162,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 		c, s.newBootstrapCommand(), "ctrl", "dummy",
 		"--config", configFile,
 	)
-	c.Assert(err, gc.ErrorMatches, `controller: expected bool, got string.*`)
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got string.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
@@ -1207,9 +1215,9 @@ func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
 		"--auto-upgrade",
 		// Configuration specified on the command line overrides
 		// anything specified in files, no matter what the order.
-		"--config", "controller=false",
+		"--config", "controller=not-a-bool",
 	)
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got .*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
@@ -1298,7 +1306,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
 		seenControllerName = base.ControllerName()
 		return nil
 	})

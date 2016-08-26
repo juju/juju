@@ -282,7 +282,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, "ControllerTag", "ControllerTag", environConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -392,12 +392,13 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 	priority := s.setupMetadata(c, anotherDS, cloudSpec, m1)
 	m1.Source = anotherDS
 	m1.Priority = priority
+	m1.Stream = "released"
 
 	s.expected = append(s.expected, m1)
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, environConfig, "Model", saveMetadata, environConfig, "Model", saveMetadata)
+	s.assertCalls(c, "ControllerTag", "ControllerTag", environConfig, saveMetadata, "ControllerTag", environConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 

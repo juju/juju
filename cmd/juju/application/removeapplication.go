@@ -59,10 +59,10 @@ func (c *removeServiceCommand) Info() *cmd.Info {
 
 func (c *removeServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no application specified")
+		return errors.Errorf("no application specified")
 	}
 	if !names.IsValidApplication(args[0]) {
-		return fmt.Errorf("invalid application name %q", args[0])
+		return errors.Errorf("invalid application name %q", args[0])
 	}
 	c.ApplicationName, args = args[0], args[1:]
 	return cmd.CheckEmpty(args)

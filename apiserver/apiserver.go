@@ -48,7 +48,7 @@ type Server struct {
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	adminApiFactories map[int]adminApiFactory
+	adminAPIFactories map[int]adminAPIFactory
 	modelUUID         string
 	authCtxt          *authContext
 	lastConnectionID  uint64
@@ -228,8 +228,8 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		logDir:      cfg.LogDir,
 		limiter:     utils.NewLimiter(loginRateLimit),
 		validator:   cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			3: newAdminApiV3,
+		adminAPIFactories: map[int]adminAPIFactory{
+			3: newAdminAPIV3,
 		},
 	}
 	srv.authCtxt, err = newAuthContext(s)
@@ -513,11 +513,11 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	if err != nil {
 		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
-		adminApis := make(map[int]interface{})
-		for apiVersion, factory := range srv.adminApiFactories {
-			adminApis[apiVersion] = factory(srv, h, apiObserver)
+		adminAPIs := make(map[int]interface{})
+		for apiVersion, factory := range srv.adminAPIFactories {
+			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
 	conn.Start()
 	select {
@@ -542,7 +542,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newApiHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID)
 }
 
 func (srv *Server) mongoPinger() error {

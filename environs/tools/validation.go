@@ -23,9 +23,6 @@ type ToolsMetadataLookupParams struct {
 // ValidateToolsMetadata attempts to load tools metadata for the specified cloud attributes and returns
 // any tools versions found, or an error if the metadata could not be loaded.
 func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simplestreams.ResolveInfo, error) {
-	if len(params.Architectures) == 0 {
-		return nil, nil, fmt.Errorf("required parameter arches not specified")
-	}
 	if len(params.Sources) == 0 {
 		return nil, nil, fmt.Errorf("required parameter sources not specified")
 	}

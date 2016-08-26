@@ -31,6 +31,11 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
+// Ensure GCE provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*environProvider)(nil)
+)
+
 // These values are fake GCE auth credentials for use in tests.
 const (
 	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
@@ -303,7 +308,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newConnection, func(google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
-	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
 	s.PatchValue(&availabilityZoneAllocations, s.FakeCommon.AvailabilityZoneAllocations)
@@ -355,19 +359,10 @@ func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
 type fakeCommon struct {
 	fake
 
-	Arches      []string
 	Arch        string
 	Series      string
 	BSFinalizer environs.BootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
-}
-
-func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
-	fc.addCall("SupportedArchitectures", FakeCallArgs{
-		"switch": env,
-		"cons":   cons,
-	})
-	return fc.Arches, fc.err()
 }
 
 func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {

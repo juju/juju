@@ -196,7 +196,7 @@ func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	})
 	owner := names.NewUserTag("test@remote")
 	env, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", Config: cfg, Owner: owner,
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

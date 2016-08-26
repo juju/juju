@@ -27,7 +27,7 @@ var _ = gc.Suite(&cloudSuite{})
 func (s *cloudSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("bruce@local"),
+		Tag: names.NewUserTag("admin@local"),
 	}
 	s.backend = mockBackend{
 		cloud: cloud.Cloud{
@@ -35,9 +35,9 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
-		creds: map[string]cloud.Credential{
-			"one": cloud.NewEmptyCredential(),
-			"two": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		creds: map[names.CloudCredentialTag]cloud.Credential{
+			names.NewCloudCredentialTag("meep/bruce@local/one"): cloud.NewEmptyCredential(),
+			names.NewCloudCredentialTag("meep/bruce@local/two"): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "admin",
 				"password": "adm1n",
 			}),
@@ -78,6 +78,7 @@ func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredentials(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("bruce@local")
 	results, err := s.api.Credentials(params.UserClouds{[]params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
@@ -89,7 +90,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdmin", "CloudCredentials")
+	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials")
 	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce"), "meep")
 
 	c.Assert(results.Results, gc.HasLen, 3)
@@ -100,17 +101,9 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 		Message: "permission denied", Code: params.CodeUnauthorized,
 	})
 	c.Assert(results.Results[2].Error, gc.IsNil)
-	c.Assert(results.Results[2].Credentials, jc.DeepEquals, map[string]params.CloudCredential{
-		"one": {
-			AuthType: "empty",
-		},
-		"two": {
-			AuthType: "userpass",
-			Attributes: map[string]string{
-				"username": "admin",
-				"password": "adm1n",
-			},
-		},
+	c.Assert(results.Results[2].Result, jc.SameContents, []string{
+		"cloudcred-meep_bruce@local_one",
+		"cloudcred-meep_bruce@local_two",
 	})
 }
 
@@ -121,41 +114,30 @@ func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
 		CloudTag: "cloud-meep",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdmin", "CloudCredentials")
+	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can access others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
-	results, err := s.api.UpdateCredentials(params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-		UserTag:  "machine-0",
-		CloudTag: "cloud-meep",
+	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{[]params.UpdateCloudCredential{{
+		Tag: "machine-0",
 	}, {
-		UserTag:  "user-admin",
-		CloudTag: "cloud-meep",
+		Tag: "cloudcred-meep_admin_whatever",
 	}, {
-		UserTag:  "user-bruce",
-		CloudTag: "cloud-meep",
-		Credentials: map[string]params.CloudCredential{
-			"three": {
-				AuthType:   "oauth1",
-				Attributes: map[string]string{"token": "foo:bar:baz"},
-			},
-			"four": {
-				AuthType: "access-key",
-				Attributes: map[string]string{
-					"access-key": "foo",
-					"secret-key": "bar",
-				},
-			},
+		Tag: "cloudcred-meep_bruce_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdmin", "UpdateCloudCredentials")
+	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
-		Message: `"machine-0" is not a valid user tag`,
+		Message: `"machine-0" is not a valid cloudcred tag`,
 	})
 	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
 		Message: "permission denied", Code: params.CodeUnauthorized,
@@ -163,36 +145,26 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.IsNil)
 
 	s.backend.CheckCall(
-		c, 1, "UpdateCloudCredentials",
-		names.NewUserTag("bruce"),
-		"meep",
-		map[string]cloud.Credential{
-			"three": cloud.NewCredential(
-				cloud.OAuth1AuthType,
-				map[string]string{"token": "foo:bar:baz"},
-			),
-			"four": cloud.NewCredential(
-				cloud.AccessKeyAuthType,
-				map[string]string{"access-key": "foo", "secret-key": "bar"},
-			),
-		},
+		c, 1, "UpdateCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+		cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{"token": "foo:bar:baz"},
+		),
 	)
 }
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin@local")
-	results, err := s.api.UpdateCredentials(params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-		UserTag:  "user-julia",
-		CloudTag: "cloud-meep",
-		Credentials: map[string]params.CloudCredential{
-			"three": {
-				AuthType:   "oauth1",
-				Attributes: map[string]string{"token": "foo:bar:baz"},
-			},
+	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{[]params.UpdateCloudCredential{{
+		Tag: "cloudcred-meep_julia_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "IsControllerAdmin", "UpdateCloudCredentials")
+	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can update others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -201,7 +173,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
-	creds map[string]cloud.Credential
+	creds map[names.CloudCredentialTag]cloud.Credential
 }
 
 func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
@@ -211,7 +183,18 @@ func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
 
 func (st *mockBackend) ControllerModel() (cloudfacade.Model, error) {
 	st.MethodCall(st, "ControllerModel")
-	return &mockModel{"some-cloud", "some-region", "some-credential"}, st.NextErr()
+	credentialTag := names.NewCloudCredentialTag("some-cloud/admin@local/some-credential")
+	return &mockModel{"some-cloud", "some-region", credentialTag}, st.NextErr()
+}
+
+func (st *mockBackend) ControllerTag() names.ControllerTag {
+	st.MethodCall(st, "ControllerTag")
+	return names.NewControllerTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+}
+
+func (st *mockBackend) ModelTag() names.ModelTag {
+	st.MethodCall(st, "ModelTag")
+	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func (st *mockBackend) Cloud(name string) (cloud.Cloud, error) {
@@ -219,13 +202,13 @@ func (st *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[names.CloudCredentialTag]cloud.Credential, error) {
 	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
 }
 
-func (st *mockBackend) UpdateCloudCredentials(user names.UserTag, cloudName string, creds map[string]cloud.Credential) error {
-	st.MethodCall(st, "UpdateCloudCredentials", user, cloudName, creds)
+func (st *mockBackend) UpdateCloudCredential(tag names.CloudCredentialTag, cred cloud.Credential) error {
+	st.MethodCall(st, "UpdateCloudCredential", tag, cred)
 	return st.NextErr()
 }
 
@@ -235,9 +218,9 @@ func (st *mockBackend) Close() error {
 }
 
 type mockModel struct {
-	cloud           string
-	cloudRegion     string
-	cloudCredential string
+	cloud              string
+	cloudRegion        string
+	cloudCredentialTag names.CloudCredentialTag
 }
 
 func (m *mockModel) Cloud() string {
@@ -248,6 +231,6 @@ func (m *mockModel) CloudRegion() string {
 	return m.cloudRegion
 }
 
-func (m *mockModel) CloudCredential() string {
-	return m.cloudCredential
+func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+	return m.cloudCredentialTag, true
 }

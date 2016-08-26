@@ -80,10 +80,10 @@ func (c *Client) DefaultCloud() (names.CloudTag, error) {
 	return cloudTag, nil
 }
 
-// Credentials returns the cloud credentials for the user and cloud with
-// the given tags.
-func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) (map[string]jujucloud.Credential, error) {
-	var results params.CloudCredentialsResults
+// Credentials returns the tags for cloud credentials available to a user for
+// use with a specific cloud.
+func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
+	var results params.StringsResults
 	args := params.UserClouds{[]params.UserCloud{
 		{UserTag: user.String(), CloudTag: cloud.String()},
 	}}
@@ -96,33 +96,29 @@ func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) (map[stri
 	if results.Results[0].Error != nil {
 		return nil, results.Results[0].Error
 	}
-	credentials := make(map[string]jujucloud.Credential)
-	for name, credential := range results.Results[0].Credentials {
-		credentials[name] = jujucloud.NewCredential(
-			jujucloud.AuthType(credential.AuthType),
-			credential.Attributes,
-		)
+	tags := make([]names.CloudCredentialTag, len(results.Results[0].Result))
+	for i, s := range results.Results[0].Result {
+		tag, err := names.ParseCloudCredentialTag(s)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		tags[i] = tag
 	}
-	return credentials, nil
+	return tags, nil
 }
 
-// UpdateCredentials updates the cloud credentials for the user and cloud with
-// the given tags. Exiting credentials that are not named in the map will be
-// untouched.
-func (c *Client) UpdateCredentials(user names.UserTag, cloud names.CloudTag, credentials map[string]jujucloud.Credential) error {
+// UpdateCredential updates a cloud credentials.
+func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
 	var results params.ErrorResults
-	paramsCredentials := make(map[string]params.CloudCredential)
-	for name, credential := range credentials {
-		paramsCredentials[name] = params.CloudCredential{
-			AuthType:   string(credential.AuthType()),
-			Attributes: credential.Attributes(),
-		}
+	args := params.UpdateCloudCredentials{
+		Credentials: []params.UpdateCloudCredential{{
+			Tag: tag.String(),
+			Credential: params.CloudCredential{
+				AuthType:   string(credential.AuthType()),
+				Attributes: credential.Attributes(),
+			},
+		}},
 	}
-	args := params.UsersCloudCredentials{[]params.UserCloudCredentials{{
-		UserTag:     user.String(),
-		CloudTag:    cloud.String(),
-		Credentials: paramsCredentials,
-	}}}
 	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}

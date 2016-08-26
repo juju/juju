@@ -47,6 +47,18 @@ func (maasEnvironProvider) Schema() environschema.Fields {
 	return fields
 }
 
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p maasEnvironProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p maasEnvironProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
 	err := config.Validate(cfg, oldCfg)

@@ -27,6 +27,12 @@ var configSchema = environschema.Fields{
 	},
 }
 
+var configDefaults = schema.Defaults{
+	"use-floating-ip":      false,
+	"use-default-secgroup": false,
+	"network":              "",
+}
+
 var configFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
 	if err != nil {
@@ -69,6 +75,18 @@ func (EnvironProvider) Schema() environschema.Fields {
 	return fields
 }
 
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p EnvironProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p EnvironProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
@@ -88,7 +106,7 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
-				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
+				"for your chosen series and architecture. If this is a private Openstack deployment without\n"+
 				"existing image metadata, please run 'juju-metadata help' to see how suitable image"+
 				"metadata can be generated.",
 			"default-image-id", defaultImageId)

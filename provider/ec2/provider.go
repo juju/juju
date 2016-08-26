@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -26,13 +25,6 @@ type environProvider struct {
 }
 
 var providerInstance environProvider
-
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p environProvider) RestrictedConfigAttributes() []string {
-	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
-	// See bug http://pad.lv/1580417 for more information.
-	return []string{"vpc-id-force"}
-}
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
@@ -125,15 +117,9 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return make(map[string]string), nil
 }
 
 const badAccessKey = `

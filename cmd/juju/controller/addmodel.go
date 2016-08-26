@@ -61,6 +61,11 @@ Model names can be duplicated across controllers but must be unique for
 any given controller. Model names may only contain lowercase letters,
 digits and hyphens, and may not start with a hyphen.
 
+Credential names are specified either in the form "credential-name", or
+"credential-owner/credential-name". There is currently no way to acquire
+access to another user's credentials, so the only valid value for
+credential-owner is your own user name.
+
 Examples:
 
     juju add-model mymodel
@@ -103,14 +108,18 @@ func (c *addModelCommand) Init(args []string) error {
 }
 
 type AddModelAPI interface {
-	CreateModel(name, owner, cloudRegion, cloudCredential string, config map[string]interface{}) (params.ModelInfo, error)
+	CreateModel(
+		name, owner, cloudRegion string,
+		cloudCredential names.CloudCredentialTag,
+		config map[string]interface{},
+	) (params.ModelInfo, error)
 }
 
 type CloudAPI interface {
 	DefaultCloud() (names.CloudTag, error)
 	Cloud(names.CloudTag) (cloud.Cloud, error)
-	Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error)
-	UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error
+	Credentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
+	UpdateCredential(names.CloudCredentialTag, cloud.Credential) error
 }
 
 func (c *addModelCommand) newApiRoot() (api.Connection, error) {
@@ -154,43 +163,18 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	// If the user has specified a credential, then we will upload it if
 	// it doesn't already exist in the controller, and it exists locally.
+	var credentialTag names.CloudCredentialTag
 	if c.CredentialName != "" {
+		var err error
 		cloudClient := c.newCloudAPI(api)
-		modelOwnerTag := names.NewUserTag(modelOwner)
-
-		cloudTag, err := cloudClient.DefaultCloud()
+		credentialTag, err = c.maybeUploadCredential(ctx, cloudClient, modelOwner)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		credentials, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if _, ok := credentials[c.CredentialName]; !ok {
-			cloudDetails, err := cloudClient.Cloud(cloudTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			credential, _, _, err := modelcmd.GetCredentials(
-				store, c.CloudRegion, c.CredentialName,
-				cloudTag.Id(), cloudDetails.Type,
-			)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			ctx.Infof("uploading credential '%s' to controller%s", c.CredentialName, forUserSuffix)
-			credentials = map[string]cloud.Credential{c.CredentialName: *credential}
-			if err := cloudClient.UpdateCredentials(modelOwnerTag, cloudTag, credentials); err != nil {
-				return errors.Trace(err)
-			}
-		} else {
-			ctx.Infof("using credential '%s' cached in controller", c.CredentialName)
 		}
 	}
 
 	addModelClient := c.newAddModelAPI(api)
-	model, err := addModelClient.CreateModel(c.Name, modelOwner, c.CloudRegion, c.CredentialName, attrs)
+	model, err := addModelClient.CreateModel(c.Name, modelOwner, c.CloudRegion, credentialTag, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -214,9 +198,17 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		messageFormat += " on %s/%s"
 		messageArgs = append(messageArgs, controllerDetails.Cloud, model.CloudRegion)
 	}
-	if model.CloudCredential != "" {
+	if model.CloudCredentialTag != "" {
+		tag, err := names.ParseCloudCredentialTag(model.CloudCredentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		credentialName := tag.Name()
+		if tag.Owner().Canonical() != modelOwner {
+			credentialName = fmt.Sprintf("%s/%s", tag.Owner().Canonical(), credentialName)
+		}
 		messageFormat += " with credential '%s'"
-		messageArgs = append(messageArgs, model.CloudCredential)
+		messageArgs = append(messageArgs, credentialName)
 	}
 
 	messageFormat += forUserSuffix
@@ -235,6 +227,69 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
 	}
 
 	return nil
+}
+
+func (c *addModelCommand) maybeUploadCredential(
+	ctx *cmd.Context,
+	cloudClient CloudAPI,
+	modelOwner string,
+) (names.CloudCredentialTag, error) {
+
+	cloudTag, err := cloudClient.DefaultCloud()
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	modelOwnerTag := names.NewUserTag(modelOwner)
+	credentialTag, err := common.ResolveCloudCredentialTag(
+		modelOwnerTag, cloudTag, c.CredentialName,
+	)
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+
+	// Check if the credential is already in the controller.
+	//
+	// TODO(axw) consider implementing a call that can check
+	// that the credential exists without fetching all of the
+	// names.
+	credentialTags, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	credentialId := credentialTag.Canonical()
+	for _, tag := range credentialTags {
+		if tag.Canonical() != credentialId {
+			continue
+		}
+		ctx.Infof("using credential '%s' cached in controller", c.CredentialName)
+		return credentialTag, nil
+	}
+
+	if credentialTag.Owner().Canonical() != modelOwner {
+		// Another user's credential was specified, so
+		// we cannot automatically upload.
+		return names.CloudCredentialTag{}, errors.NotFoundf(
+			"credential '%s'", c.CredentialName,
+		)
+	}
+
+	// Upload the credential from the client, if it exists locally.
+	cloudDetails, err := cloudClient.Cloud(cloudTag)
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	credential, _, _, err := modelcmd.GetCredentials(
+		c.ClientStore(), c.CloudRegion, credentialTag.Name(),
+		cloudTag.Id(), cloudDetails.Type,
+	)
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	ctx.Infof("uploading credential '%s' to controller", credentialTag.Id())
+	if err := cloudClient.UpdateCredential(credentialTag, *credential); err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	return credentialTag, nil
 }
 
 func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interface{}, error) {
@@ -256,4 +311,12 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 		}
 	}
 	return attrs, nil
+}
+
+func canonicalCredentialIds(tags []names.CloudCredentialTag) []string {
+	ids := make([]string, len(tags))
+	for i, tag := range tags {
+		ids[i] = tag.Canonical()
+	}
+	return ids
 }

@@ -39,10 +39,16 @@ func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", ctx.GetStdin(), ctx.GetStdout())
 }
 
+func (s *providerSuite) TestPrepareForBootstrapUserHost(c *gc.C) {
+	ctx, err := s.testPrepareForBootstrap(c, "user@host", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "InitUbuntuUser", "host", "user", "", ctx.GetStdin(), ctx.GetStdout())
+}
+
 func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {
 	_, err := s.testPrepareForBootstrap(c, "", "region")
 	c.Assert(err, gc.ErrorMatches,
-		`missing address of host to bootstrap: please specify "juju bootstrap manual/<host>"`)
+		`missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
 }
 
 func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string) (environs.BootstrapContext, error) {

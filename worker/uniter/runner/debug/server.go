@@ -99,7 +99,7 @@ This is a Juju debug-hooks tmux session. Remember:
 3. CTRL+a is tmux prefix.
 
 More help and info is available in the online documentation:
-https://juju.ubuntu.com/docs/authors-hook-debug.html
+https://jujucharms.com/docs/authors-hook-debug.html
 
 END
 

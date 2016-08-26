@@ -47,7 +47,7 @@ func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
 	lines := strings.Split(output, "\n")
 	expectedLines := strings.Split(strings.TrimSpace(`
 added charm cs:trusty/starsay-42
-application starsay deployed (charm cs:trusty/starsay-42 with the series "trusty" defined by the bundle)
+application starsay deployed (charm cs:trusty/starsay-42)
 added resource install-resource
 added resource store-resource
 added resource upload-resource

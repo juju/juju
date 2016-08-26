@@ -1673,8 +1673,8 @@ func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
-	dev1 := newFakeDeviceWithMAC("eleven")
-	dev2 := newFakeDeviceWithMAC("will")
+	dev1 := newFakeDevice("a", "eleven")
+	dev2 := newFakeDevice("b", "will")
 	controller := newFakeController()
 	controller.devices = []gomaasapi.Device{dev1, dev2}
 
@@ -1695,6 +1695,26 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
 	dev2.CheckCallNames(c, "Delete")
 }
 
+func (suite *maas2EnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
+	dev1 := newFakeDevice("a", "eleven")
+	controller := newFakeController()
+	controller.devices = []gomaasapi.Device{dev1, dev1}
+
+	env := suite.makeEnviron(c, controller)
+	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
+		{MACAddress: "will"},
+		{MACAddress: "eleven"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	c.Assert(ok, jc.IsTrue)
+	expected := gomaasapi.DevicesArgs{MACAddresses: []string{"will", "eleven"}}
+	c.Assert(args, gc.DeepEquals, expected)
+
+	dev1.CheckCallNames(c, "Delete")
+}
+
 func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
 	env := suite.makeEnviron(c, controller)
@@ -1703,7 +1723,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices
 }
 
 func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice(c *gc.C) {
-	dev1 := newFakeDeviceWithMAC("eleven")
+	dev1 := newFakeDevice("a", "eleven")
 	dev1.systemID = "hopper"
 	dev1.SetErrors(errors.New("don't delete me"))
 	controller := newFakeController()
@@ -1721,9 +1741,10 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 	dev1.CheckCallNames(c, "Delete")
 }
 
-func newFakeDeviceWithMAC(macAddress string) *fakeDevice {
+func newFakeDevice(systemID, macAddress string) *fakeDevice {
 	return &fakeDevice{
-		Stub: &testing.Stub{},
+		Stub:     &testing.Stub{},
+		systemID: systemID,
 		interface_: &fakeInterface{
 			Stub:       &testing.Stub{},
 			macAddress: macAddress,

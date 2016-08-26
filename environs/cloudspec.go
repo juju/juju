@@ -73,3 +73,15 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, cre
 	}
 	return cloudSpec, nil
 }
+
+// RegionSpec contains the information needed to lookup specific region
+// configuration. This is for use in calling
+// state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize
+// it.
+type RegionSpec struct {
+	// Cloud is the name of the cloud.
+	Cloud string
+
+	// Region is the name of the cloud region.
+	Region string
+}

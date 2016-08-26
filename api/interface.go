@@ -42,7 +42,8 @@ type Info struct {
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
-	// trying to connect to.
+	// trying to connect to. If this is empty, a controller-only
+	// login will be made.
 	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
@@ -148,7 +149,7 @@ func DefaultDialOpts() DialOpts {
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 
 // Connection exists purely to make api-opening funcs mockable. It's just a
-// dumb copy of all the methods on api.Connection; we can and should be extracting
+// dumb copy of all the methods on api.state; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
 
 // Connection represents a connection to a Juju API server.

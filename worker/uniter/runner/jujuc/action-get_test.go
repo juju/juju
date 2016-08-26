@@ -179,7 +179,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		summary:      "a simple map of one value to one key",
 		args:         []string{"--format", "json"},
 		actionParams: actionGetTestMaps[0],
-		out:          "{\"outfile\":\"foo.bz2\"}\n",
+		out:          `{"outfile":"foo.bz2"}` + "\n",
 	}, {
 		summary:      "an entire map",
 		args:         []string{},
@@ -257,10 +257,11 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
-		c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
 		if code == 0 {
+			c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		} else {
+			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 			expect := fmt.Sprintf(`(\n)*error: %s\n`, t.errMsg)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}

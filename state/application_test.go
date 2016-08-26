@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -946,7 +945,7 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 
 func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
 	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
@@ -1032,6 +1031,57 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
+}
+
+func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
+	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
+	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	appName := "mywp"
+
+	app := s.AddTestingService(c, appName, oldCh)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// just before setting the unit charm url, switch the service
+	// away from the original charm, causing the attempt to fail
+	// (because the settings have gone away; it's the unit's job to
+	// fail out and handle the new charm when it comes back up
+	// again).
+	dropSettings := func() {
+		cfg := state.SetCharmConfig{Charm: newCh}
+		err = app.SetCharm(cfg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
+
+	err = unit.SetCharmURL(oldCh.URL())
+	c.Check(err, gc.ErrorMatches, "refcount does not exist")
+}
+
+func (s *ServiceSuite) TestSettingsRefRemoveRace(c *gc.C) {
+	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
+	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	appName := "mywp"
+
+	app := s.AddTestingService(c, appName, oldCh)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// just before updating the app charm url, set that charm url on
+	// a unit to block the removal.
+	grabReference := func() {
+		err := unit.SetCharmURL(oldCh.URL())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, grabReference).Check()
+
+	cfg := state.SetCharmConfig{Charm: newCh}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check refs to both settings exist
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertSettingsRef(c, s.State, appName, newCh, 1)
 }
 
 const mysqlBaseMeta = `

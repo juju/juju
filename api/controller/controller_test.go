@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -192,6 +194,7 @@ func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	// Connect to the API server we've just started.
 	apiInfo := s.APIInfo(c)
 	apiInfo.Addrs = []string{lis.Addr().String()}
+	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	sysManager := controller.NewClient(apiState)
 	defer sysManager.Close()
@@ -260,14 +263,24 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}})
 }
 
-func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+	controller := s.OpenAPI(c)
+	defer controller.Close()
+	err := controller.GrantController("fred@external", "addmodel")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := controller.GetControllerAccess("fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, description.Access("addmodel"))
+}
+
+func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	_, err := st.LatestModelMigration()
+	_, err := st.LatestMigration()
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
-	spec := controller.ModelMigrationSpec{
+	spec := controller.MigrationSpec{
 		ModelUUID:            st.ModelUUID(),
 		TargetControllerUUID: randomUUID(),
 		TargetAddrs:          []string{"1.2.3.4:5"},
@@ -278,19 +291,19 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	id, err := sysManager.InitiateModelMigration(spec)
+	id, err := sysManager.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedId := st.ModelUUID() + ":0"
 	c.Check(id, gc.Equals, expectedId)
 
 	// Check database.
-	mig, err := st.LatestModelMigration()
+	mig, err := st.LatestMigration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig.Id(), gc.Equals, expectedId)
 }
 
-func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
-	spec := controller.ModelMigrationSpec{
+func (s *controllerSuite) TestInitiateMigrationError(c *gc.C) {
+	spec := controller.MigrationSpec{
 		ModelUUID:            randomUUID(), // Model doesn't exist.
 		TargetControllerUUID: randomUUID(),
 		TargetAddrs:          []string{"1.2.3.4:5"},
@@ -301,9 +314,40 @@ func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	id, err := sysManager.InitiateModelMigration(spec)
+	id, err := sysManager.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func (s *controllerSuite) TestInitiateMigrationWithMacaroon(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := controller.MigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetMacaroon:       string(macJSON),
+	}
+
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
+	_, err = sysManager.InitiateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check database.
+	mig, err := st.LatestMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	target, err := mig.TargetInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(target.Macaroon, jc.DeepEquals, mac)
 }
 
 func randomUUID() string {

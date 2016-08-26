@@ -320,7 +320,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	assertChange("", migration.NONE)
 
 	// Now create a migration, should trigger watcher.
-	spec := state.ModelMigrationSpec{
+	spec := state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("someone"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
@@ -330,7 +330,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 			Password:      "sekret",
 		},
 	}
-	mig, err := hostedState.CreateModelMigration(spec)
+	mig, err := hostedState.CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig.Id(), migration.QUIESCE)
 
@@ -341,7 +341,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	assertChange(mig.Id(), migration.ABORTDONE)
 
 	// Start a new migration, this should also trigger.
-	mig2, err := hostedState.CreateModelMigration(spec)
+	mig2, err := hostedState.CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig2.Id(), migration.QUIESCE)
 }

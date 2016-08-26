@@ -11,6 +11,7 @@ import (
 type UserInfo struct {
 	Username       string     `json:"username"`
 	DisplayName    string     `json:"display-name"`
+	Access         string     `json:"access"`
 	CreatedBy      string     `json:"created-by"`
 	DateCreated    time.Time  `json:"date-created"`
 	LastConnection *time.Time `json:"last-connection,omitempty"`
@@ -42,9 +43,8 @@ type AddUsers struct {
 
 // AddUser stores the parameters to add one user.
 type AddUser struct {
-	Username        string   `json:"username"`
-	DisplayName     string   `json:"display-name"`
-	SharedModelTags []string `json:"shared-model-tags"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display-name"`
 
 	// Password is optional. If it is empty, then
 	// a secret key will be generated for the user
@@ -52,9 +52,6 @@ type AddUser struct {
 	// be possible to login with a password until
 	// registration with the secret key is completed.
 	Password string `json:"password,omitempty"`
-
-	// ModelAccess is the permission that the user will have to access the models.
-	ModelAccess UserAccessPermission `json:"model-access-permission,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.

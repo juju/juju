@@ -210,7 +210,7 @@ func (env *azureEnviron) Create(args environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.initResourceGroup(args.ControllerUUID))
+	return errors.Trace(env.initResourceGroup(args.ControllerUUID, nil))
 }
 
 // Bootstrap is part of the Environ interface.
@@ -219,7 +219,8 @@ func (env *azureEnviron) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
-	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID()); err != nil {
+	apiPort := args.ControllerConfig.APIPort()
+	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID(), &apiPort); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
 	result, err := common.Bootstrap(ctx, env, args)
@@ -236,7 +237,7 @@ func (env *azureEnviron) Bootstrap(
 // initResourceGroup creates and initialises a resource group for this
 // environment. The resource group will have a storage account, and
 // internal network and subnet.
-func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
+func (env *azureEnviron) initResourceGroup(controllerUUID string, apiPort *int) error {
 	location := env.location
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 	networkClient := env.network
@@ -264,18 +265,45 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
 
 	// Create an internal network for all VMs in the
 	// resource group to connect to.
-	vnetPtr, err := createInternalVirtualNetwork(
-		env.callAPI, networkClient, env.resourceGroup, location, tags,
-	)
-	if err != nil {
+	if _, err := createInternalVirtualNetwork(
+		env.callAPI, networkClient,
+		env.subscriptionId, env.resourceGroup,
+		location, tags,
+	); err != nil {
 		return errors.Annotate(err, "creating virtual network")
 	}
 
-	_, err = createInternalSubnet(
-		env.callAPI, networkClient, env.resourceGroup, vnetPtr, location, tags,
-	)
-	if err != nil {
+	// Create an network security group which will be
+	// associated with all machines.
+	if _, err := createInternalNetworkSecurityGroup(
+		env.callAPI, networkClient,
+		env.subscriptionId, env.resourceGroup,
+		location, tags, apiPort,
+	); err != nil {
+		return errors.Annotate(err, "creating security group")
+	}
+
+	// Create a subnet to which all machines will be attached.
+	if _, err := createInternalNetworkSubnet(
+		env.callAPI, networkClient,
+		env.subscriptionId, env.resourceGroup,
+		internalSubnetName, internalSubnetPrefix,
+		location, tags,
+	); err != nil {
 		return errors.Annotate(err, "creating subnet")
+	}
+
+	if apiPort != nil {
+		// apiPort is non-nil only for the controller model. Create
+		// a subnet to which controller machines will be attached.
+		if _, err := createInternalNetworkSubnet(
+			env.callAPI, networkClient,
+			env.subscriptionId, env.resourceGroup,
+			controllerSubnetName, controllerSubnetPrefix,
+			location, tags,
+		); err != nil {
+			return errors.Annotate(err, "creating subnet")
+		}
 	}
 
 	// Create a storage account for the resource group.
@@ -425,7 +453,6 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 			constraints.Mem,
 			constraints.CpuCores,
 			constraints.Arch,
-			constraints.RootDisk,
 		},
 	)
 	return validator, nil
@@ -489,11 +516,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		env.mu.Unlock()
 		return nil, errors.Annotate(err, "getting storage account")
-	}
-	internalNetworkSubnet, err := env.getInternalSubnetLocked()
-	if err != nil {
-		env.mu.Unlock()
-		return nil, errors.Trace(err)
 	}
 	env.mu.Unlock()
 
@@ -573,21 +595,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// machine with this.
 	vmTags[jujuMachineNameTag] = vmName
 
-	// If the machine will run a controller, then we need to open the
-	// API port for it.
-	var apiPortPtr *int
-	if args.InstanceConfig.Controller != nil {
-		apiPort := args.InstanceConfig.Controller.Config.APIPort()
-		apiPortPtr = &apiPort
-	}
-
 	vm, err := createVirtualMachine(
-		env.resourceGroup, location, vmName,
-		vmTags, envTags,
+		env.subscriptionId, env.resourceGroup,
+		location, vmName, vmTags, envTags,
 		instanceSpec, args.InstanceConfig,
 		args.DistributionGroup,
 		env.Instances,
-		apiPortPtr, internalNetworkSubnet,
 		storageAccount,
 		networkClient, vmClient,
 		availabilitySetClient, vmExtensionClient,
@@ -623,14 +636,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 // All resources created are tagged with the specified "vmTags", so if
 // this function fails then all resources can be deleted by tag.
 func createVirtualMachine(
-	resourceGroup, location, vmName string,
+	subscriptionId, resourceGroup, location, vmName string,
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
 	instanceConfig *instancecfg.InstanceConfig,
 	distributionGroupFunc func() ([]instance.Id, error),
 	instancesFunc func([]instance.Id) ([]instance.Instance, error),
-	apiPort *int,
-	internalNetworkSubnet *network.Subnet,
 	storageAccount *storage.Account,
 	networkClient network.ManagementClient,
 	vmClient compute.VirtualMachinesClient,
@@ -653,8 +664,12 @@ func createVirtualMachine(
 
 	networkProfile, err := newNetworkProfile(
 		callAPI, networkClient,
-		vmName, apiPort, internalNetworkSubnet,
-		resourceGroup, location, vmTags,
+		vmName,
+		instanceConfig.Controller != nil,
+		subscriptionId,
+		resourceGroup,
+		location,
+		vmTags,
 	)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating network profile")
@@ -671,9 +686,10 @@ func createVirtualMachine(
 	}
 
 	logger.Debugf("- creating virtual machine")
-	vmArgs := compute.VirtualMachine{
+	vm := compute.VirtualMachine{
 		Location: to.StringPtr(location),
 		Tags:     to.StringMapPtr(vmTags),
+		Name:     to.StringPtr(vmName),
 		Properties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
 				VMSize: compute.VirtualMachineSizeTypes(
@@ -688,26 +704,27 @@ func createVirtualMachine(
 			},
 		},
 	}
+
+	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
+	// block waiting for them to be fully provisioned. This means we won't
+	// return an error from StartInstance if the VM fails provisioning;
+	// we will instead report the error via the instance's status.
+	vmClient.Client.ResponseInspector = asyncCreationRespondDecorator(
+		vmClient.Client.ResponseInspector,
+	)
 	if err := callAPI(func() (autorest.Response, error) {
-		return vmClient.CreateOrUpdate(resourceGroup, vmName, vmArgs, nil)
+		return vmClient.CreateOrUpdate(resourceGroup, vmName, vm, nil)
 	}); err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating virtual machine")
-	}
-
-	logger.Debugf("- getting virtual machine")
-	var vm compute.VirtualMachine
-	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		vm, err = vmClient.Get(resourceGroup, vmName, "")
-		return vm.Response, err
-	}); err != nil {
-		return compute.VirtualMachine{}, errors.Annotate(err, "getting virtual machine")
 	}
 
 	// On Windows and CentOS, we must add the CustomScript VM
 	// extension to run the CustomData script.
 	switch seriesOS {
 	case os.Windows, os.CentOS:
+		vmExtensionClient.Client.ResponseInspector = asyncCreationRespondDecorator(
+			vmExtensionClient.Client.ResponseInspector,
+		)
 		if err := createVMExtension(
 			callAPI, vmExtensionClient, seriesOS,
 			resourceGroup, vmName, location, vmTags,
@@ -1375,11 +1392,6 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	}
 	env.instanceTypes = instanceTypes
 	return instanceTypes, nil
-}
-
-// getInternalSubnetLocked queries the internal subnet for the environment.
-func (env *azureEnviron) getInternalSubnetLocked() (*network.Subnet, error) {
-	return getInternalSubnet(env.callAPI, env.network, env.resourceGroup)
 }
 
 // getStorageClient queries the storage account key, and uses it to construct

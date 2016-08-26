@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -247,7 +248,7 @@ one of them:
 				continue
 			}
 			owner := names.NewUserTag(model.Owner)
-			modelName := ownerQualifiedModelName(model.Name, owner, user)
+			modelName := common.OwnerQualifiedModelName(model.Name, owner, user)
 			otherModelNames.Add(modelName)
 		}
 		for _, modelName := range ownerModelNames.SortedValues() {

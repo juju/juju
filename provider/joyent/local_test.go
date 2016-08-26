@@ -80,7 +80,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = GetFakeConfig().Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
-	s.LiveTests.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
@@ -131,8 +131,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv.setupServer(c)
 	s.AddCleanup(s.cSrv.destroyServer)
-
-	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.Tests.SetUpTest(c)
 
 	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
@@ -388,10 +387,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=ppc64el")
-	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
-	cons = constraints.MustParse("instance-type=foo")
+	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

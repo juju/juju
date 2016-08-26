@@ -14,6 +14,7 @@ type FakeAuthorizer struct {
 	Tag            names.Tag
 	EnvironManager bool
 	ModelUUID      string
+	AdminTag       names.UserTag
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -47,10 +48,16 @@ func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 	return fa.Tag
 }
 
+// HasPermission returns true if the logged in user is admin or has a name equal to
+// the pre-set admin tag.
 func (fa FakeAuthorizer) HasPermission(operation description.Access, target names.Tag) (bool, error) {
 	if fa.Tag.Kind() == names.UserTagKind {
 		ut := fa.Tag.(names.UserTag)
 		if ut.Name() == "admin" {
+			return true, nil
+		}
+		emptyTag := names.UserTag{}
+		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return true, nil
 		}
 		return false, nil
@@ -62,4 +69,21 @@ func (fa FakeAuthorizer) HasPermission(operation description.Access, target name
 // connected to.
 func (fa FakeAuthorizer) ConnectedModel() string {
 	return fa.ModelUUID
+}
+
+// HasPermission returns true if the passed user is admin or has a name equal to
+// the pre-set admin tag.
+func (fa FakeAuthorizer) UserHasPermission(user names.UserTag, operation description.Access, target names.Tag) (bool, error) {
+	if user.Name() == "admin" {
+		return true, nil
+	}
+	emptyTag := names.UserTag{}
+	if fa.AdminTag != emptyTag && user == fa.AdminTag {
+		return true, nil
+	}
+	ut := fa.Tag.(names.UserTag)
+	if ut == user {
+		return true, nil
+	}
+	return false, nil
 }

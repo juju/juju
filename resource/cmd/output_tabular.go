@@ -4,27 +4,26 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
 // FormatCharmTabular returns a tabular summary of charm resources.
-func FormatCharmTabular(value interface{}) ([]byte, error) {
+func FormatCharmTabular(writer io.Writer, value interface{}) error {
 	resources, valueConverted := value.([]FormattedCharmResource)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", resources, value)
+		return errors.Errorf("expected value of type %T, got %T", resources, value)
 	}
 
 	// TODO(ericsnow) sort the rows first?
 
-	var out bytes.Buffer
-
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 
 	// Write the header.
 	// We do not print a section label.
@@ -40,32 +39,34 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }
 
 // FormatSvcTabular returns a tabular summary of resources.
-func FormatSvcTabular(value interface{}) ([]byte, error) {
+func FormatSvcTabular(writer io.Writer, value interface{}) error {
 	switch resources := value.(type) {
 	case FormattedServiceInfo:
-		return formatServiceTabular(resources), nil
+		formatServiceTabular(writer, resources)
+		return nil
 	case []FormattedUnitResource:
-		return formatUnitTabular(resources), nil
+		formatUnitTabular(writer, resources)
+		return nil
 	case FormattedServiceDetails:
-		return formatServiceDetailTabular(resources), nil
+		formatServiceDetailTabular(writer, resources)
+		return nil
 	case FormattedUnitDetails:
-		return formatUnitDetailTabular(resources), nil
+		formatUnitDetailTabular(writer, resources)
+		return nil
 	default:
-		return nil, errors.Errorf("unexpected type for data: %T", resources)
+		return errors.Errorf("unexpected type for data: %T", resources)
 	}
 }
 
-func formatServiceTabular(info FormattedServiceInfo) []byte {
+func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 	// TODO(ericsnow) sort the rows first?
 
-	var out bytes.Buffer
-
-	fmt.Fprintln(&out, "[Service]")
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	fmt.Fprintln(writer, "[Service]")
+	tw := output.TabWriter(writer)
 	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION")
 
 	// Print each info to its own row.
@@ -83,12 +84,10 @@ func formatServiceTabular(info FormattedServiceInfo) []byte {
 	// with the below fmt.Fprintlns.
 	tw.Flush()
 
-	writeUpdates(info.Updates, &out, tw)
-
-	return out.Bytes()
+	writeUpdates(info.Updates, writer, tw)
 }
 
-func writeUpdates(updates []FormattedCharmResource, out *bytes.Buffer, tw *tabwriter.Writer) {
+func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *ansiterm.TabWriter) {
 	if len(updates) > 0 {
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "[Updates Available]")
@@ -104,15 +103,13 @@ func writeUpdates(updates []FormattedCharmResource, out *bytes.Buffer, tw *tabwr
 	tw.Flush()
 }
 
-func formatUnitTabular(resources []FormattedUnitResource) []byte {
+func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
 	// TODO(ericsnow) sort the rows first?
 
-	var out bytes.Buffer
-
-	fmt.Fprintln(&out, "[Unit]")
+	fmt.Fprintln(writer, "[Unit]")
 
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 
 	// Write the header.
 	// We do not print a section label.
@@ -127,20 +124,17 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 		)
 	}
 	tw.Flush()
-
-	return out.Bytes()
 }
 
-func formatServiceDetailTabular(resources FormattedServiceDetails) []byte {
+func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDetails) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
-	var out bytes.Buffer
-	fmt.Fprintln(&out, "[Units]")
+	fmt.Fprintln(writer, "[Units]")
 
 	sort.Sort(byUnitID(resources.Resources))
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 
 	// Write the header.
 	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
@@ -155,21 +149,18 @@ func formatServiceDetailTabular(resources FormattedServiceDetails) []byte {
 	}
 	tw.Flush()
 
-	writeUpdates(resources.Updates, &out, tw)
-
-	return out.Bytes()
+	writeUpdates(resources.Updates, writer, tw)
 }
 
-func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
+func formatUnitDetailTabular(writer io.Writer, resources FormattedUnitDetails) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
-	var out bytes.Buffer
-	fmt.Fprintln(&out, "[Unit]")
+	fmt.Fprintln(writer, "[Unit]")
 
 	sort.Sort(byUnitID(resources))
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 
 	// Write the header.
 	fmt.Fprintln(tw, "RESOURCE\tREVISION\tEXPECTED")
@@ -182,7 +173,6 @@ func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
 		)
 	}
 	tw.Flush()
-	return out.Bytes()
 }
 
 type byUnitID []FormattedDetailResource

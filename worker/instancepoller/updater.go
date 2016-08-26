@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -137,7 +138,8 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			}
 			c = make(chan struct{})
 			p.machines[tag] = c
-			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
+			// TODO(fwereade): 2016-03-17 lp:1558657
+			go runMachine(p.context.newMachineContext(), m, c, p.machineDead, clock.WallClock)
 		} else {
 			select {
 			case <-p.context.dying():
@@ -151,7 +153,7 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 
 // runMachine processes the address and status publishing for a given machine.
 // We assume that the machine is alive when this is first called.
-func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine) {
+func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine, clock clock.Clock) {
 	defer func() {
 		// We can't just send on the died channel because the
 		// central loop might be trying to write to us on the
@@ -164,53 +166,63 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 			}
 		}
 	}()
-	if err := machineLoop(context, m, changed); err != nil {
+	if err := machineLoop(context, m, changed, clock); err != nil {
 		context.kill(err)
 	}
 }
 
-func machineLoop(context machineContext, m machine, changed <-chan struct{}) error {
+func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{}, clock clock.Clock) error {
 	// Use a short poll interval when initially waiting for
 	// a machine's address and machine agent to start, and a long one when it already
 	// has an address and the machine agent is started.
 	pollInterval := ShortPoll
-	pollInstance := true
+	pollInstance := func() error {
+		instInfo, err := pollInstanceInfo(context, m)
+		if err != nil {
+			return err
+		}
+
+		machineStatus := status.StatusPending
+		if err == nil {
+			if statusInfo, err := m.Status(); err != nil {
+				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+			} else {
+				// TODO(perrito666) add status validation.
+				machineStatus = status.Status(statusInfo.Status)
+			}
+		}
+
+		// the extra condition below (checking allocating/pending) is here to improve user experience
+		// without it the instance status will say "pending" for +10 minutes after the agent comes up to "started"
+		if instInfo.status.Status != status.StatusAllocating && instInfo.status.Status != status.StatusPending {
+			if len(instInfo.addresses) > 0 && machineStatus == status.StatusStarted {
+				// We've got at least one address and a status and instance is started, so poll infrequently.
+				pollInterval = LongPoll
+			} else if pollInterval < LongPoll {
+				// We have no addresses or not started - poll increasingly rarely
+				// until we do.
+				pollInterval = time.Duration(float64(pollInterval) * ShortPollBackoff)
+			}
+		}
+		return nil
+	}
+
+	shouldPollInstance := true
 	for {
-		if pollInstance {
-			instInfo, err := pollInstanceInfo(context, m)
-			if err != nil && !params.IsCodeNotProvisioned(err) {
-				return err
-			}
-			machineStatus := status.StatusPending
-			if err == nil {
-				if statusInfo, err := m.Status(); err != nil {
-					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
-				} else {
-					// TODO(perrito666) add status validation.
-					machineStatus = status.Status(statusInfo.Status)
+		if shouldPollInstance {
+			if err := pollInstance(); err != nil {
+				if !params.IsCodeNotProvisioned(err) {
+					return errors.Trace(err)
 				}
 			}
-			// the extra condition below (checking allocating/pending) is here to improve user experience
-			// without it the instance status will say "pending" for +10 minutes after the agent comes up to "started"
-			if instInfo.status.Status != status.StatusAllocating && instInfo.status.Status != status.StatusPending {
-				if len(instInfo.addresses) > 0 && machineStatus == status.StatusStarted {
-					// We've got at least one address and a status and instance is started, so poll infrequently.
-					pollInterval = LongPoll
-				} else if pollInterval < LongPoll {
-					// We have no addresses or not started - poll increasingly rarely
-					// until we do.
-					pollInterval = time.Duration(float64(pollInterval) * ShortPollBackoff)
-				}
-			}
-			pollInstance = false
+			shouldPollInstance = false
 		}
 		select {
 		case <-context.dying():
 			return context.errDying()
-		case <-time.After(pollInterval):
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			pollInstance = true
-		case <-changed:
+		case <-clock.After(pollInterval):
+			shouldPollInstance = true
+		case <-lifeChanged:
 			if err := m.Refresh(); err != nil {
 				return err
 			}

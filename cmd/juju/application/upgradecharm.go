@@ -4,7 +4,6 @@
 package application
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,8 +18,8 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
@@ -136,22 +135,22 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		if !names.IsValidApplication(args[0]) {
-			return fmt.Errorf("invalid application name %q", args[0])
+			return errors.Errorf("invalid application name %q", args[0])
 		}
 		c.ApplicationName = args[0]
 	case 0:
-		return fmt.Errorf("no application specified")
+		return errors.Errorf("no application specified")
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
 	if c.SwitchURL != "" && c.Revision != -1 {
-		return fmt.Errorf("--switch and --revision are mutually exclusive")
+		return errors.Errorf("--switch and --revision are mutually exclusive")
 	}
 	if c.CharmPath != "" && c.Revision != -1 {
-		return fmt.Errorf("--path and --revision are mutually exclusive")
+		return errors.Errorf("--path and --revision are mutually exclusive")
 	}
 	if c.SwitchURL != "" && c.CharmPath != "" {
-		return fmt.Errorf("--switch and --path are mutually exclusive")
+		return errors.Errorf("--switch and --path are mutually exclusive")
 	}
 	return nil
 }
@@ -175,11 +174,11 @@ func (c *upgradeCharmCommand) newModelConfigAPIClient() (*modelconfig.Client, er
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
-	client, err := c.NewAPIClient()
+	apiRoot, err := c.NewAPIRoot()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer client.Close()
+	defer apiRoot.Close()
 
 	serviceClient, err := c.newServiceAPIClient()
 	if err != nil {
@@ -222,7 +221,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	resolver := newCharmURLResolver(conf, csClient)
-	chID, csMac, err := c.addCharm(oldURL, newRef, client, resolver)
+	chID, csMac, err := c.addCharm(oldURL, newRef, apiRoot.Client(), resolver)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -232,7 +231,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Added charm %q to the model.", chID.URL)
 
-	ids, err := c.upgradeResources(client, chID, csMac)
+	ids, err := c.upgradeResources(apiRoot, chID, csMac)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -251,8 +250,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // upgradeResources pushes metadata up to the server for each resource defined
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
-func (c *upgradeCharmCommand) upgradeResources(client *api.Client, chID charmstore.CharmID, csMac *macaroon.Macaroon) (map[string]string, error) {
-	filtered, err := getUpgradeResources(c, c.ApplicationName, chID.URL, client, c.Resources)
+func (c *upgradeCharmCommand) upgradeResources(apiRoot base.APICallCloser, chID charmstore.CharmID, csMac *macaroon.Macaroon) (map[string]string, error) {
+	filtered, err := getUpgradeResources(apiRoot, c.ApplicationName, chID.URL, c.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -262,17 +261,18 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, chID charmsto
 
 	// Note: the validity of user-supplied resources to be uploaded will be
 	// checked further down the stack.
-	return handleResources(c, c.Resources, c.ApplicationName, chID, csMac, filtered)
+	return handleResources(apiRoot, c.Resources, c.ApplicationName, chID, csMac, filtered)
 }
 
 // TODO(ericsnow) Move these helpers into handleResources()?
 
-func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *api.Client, cliResources map[string]string) (map[string]charmresource.Meta, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	charmsClient := charms.NewClient(root)
+func getUpgradeResources(
+	apiRoot base.APICallCloser,
+	serviceID string,
+	cURL *charm.URL,
+	cliResources map[string]string,
+) (map[string]charmresource.Meta, error) {
+	charmsClient := charms.NewClient(apiRoot)
 	meta, err := getMetaResources(cURL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -281,7 +281,7 @@ func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *ap
 		return nil, nil
 	}
 
-	current, err := getResources(serviceID, c.NewAPIRoot)
+	current, err := getResources(serviceID, apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -298,8 +298,8 @@ func getMetaResources(cURL *charm.URL, client *charms.Client) (map[string]charmr
 	return charmInfo.Meta.Resources, nil
 }
 
-func getResources(serviceID string, newAPIRoot func() (api.Connection, error)) (map[string]resource.Resource, error) {
-	resclient, err := resourceadapters.NewAPIClient(newAPIRoot)
+func getResources(serviceID string, apiRoot base.APICallCloser) (map[string]resource.Resource, error) {
+	resclient, err := resourceadapters.NewAPIClient(apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -353,7 +353,7 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 func (c *upgradeCharmCommand) addCharm(
 	oldURL *charm.URL,
 	charmRef string,
-	client *api.Client,
+	charmAdder CharmAdder,
 	resolver *charmURLResolver,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
@@ -362,9 +362,9 @@ func (c *upgradeCharmCommand) addCharm(
 	if err == nil {
 		_, newName := filepath.Split(charmRef)
 		if newName != oldURL.Name {
-			return id, nil, fmt.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
+			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
-		addedURL, err := client.AddLocalCharm(newURL, ch)
+		addedURL, err := charmAdder.AddLocalCharm(newURL, ch)
 		id.URL = addedURL
 		return id, nil, err
 	}
@@ -402,15 +402,15 @@ func (c *upgradeCharmCommand) addCharm(
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
 		if refURL.Revision != -1 {
-			return id, nil, fmt.Errorf("already running specified charm %q", newURL)
+			return id, nil, errors.Errorf("already running specified charm %q", newURL)
 		}
 		// No point in trying to upgrade a charm store charm when
 		// we just determined that's the latest revision
 		// available.
-		return id, nil, fmt.Errorf("already running latest charm %q", newURL)
+		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(client, newURL, channel, store.Client())
+	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, store.Client())
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

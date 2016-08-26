@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationtarget"
@@ -53,9 +54,9 @@ type Facade interface {
 	// active for the model associated with the API connection.
 	Watch() (watcher.NotifyWatcher, error)
 
-	// GetMigrationStatus returns the details and progress of the
-	// latest model migration.
-	GetMigrationStatus() (coremigration.MigrationStatus, error)
+	// MigrationStatus returns the details and progress of the latest
+	// model migration.
+	MigrationStatus() (coremigration.MigrationStatus, error)
 
 	// SetPhase updates the phase of the currently active model
 	// migration.
@@ -77,9 +78,9 @@ type Facade interface {
 	// minion has made a report for the current migration phase.
 	WatchMinionReports() (watcher.NotifyWatcher, error)
 
-	// GetMinionReports returns details of the reports made by migration
+	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
-	GetMinionReports() (coremigration.MinionReports, error)
+	MinionReports() (coremigration.MinionReports, error)
 }
 
 // Config defines the operation of a Worker.
@@ -182,6 +183,7 @@ func (w *Worker) run() error {
 	}
 
 	phase := status.Phase
+
 	for {
 		var err error
 		switch phase {
@@ -192,7 +194,7 @@ func (w *Worker) run() error {
 		case coremigration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo, status.ModelUUID)
 		case coremigration.VALIDATION:
-			phase, err = w.doVALIDATION(status.TargetInfo, status.ModelUUID)
+			phase, err = w.doVALIDATION(status)
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(status)
 		case coremigration.LOGTRANSFER:
@@ -330,11 +332,19 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	return errors.Annotate(err, "failed migration binaries")
 }
 
-func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	// TODO(mjs) - Wait for all agents to report back.
+func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	// Wait for agents to complete their validation checks.
+	ok, err := w.waitForMinions(status, failFast, "validating")
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	if !ok {
+		return coremigration.ABORT, nil
+	}
 
-	// Once all agents have validated, activate the model.
-	err := w.activateModel(targetInfo, modelUUID)
+	// Once all agents have validated, activate the model in the
+	// target controller.
+	err = w.activateModel(status.TargetInfo, status.ModelUUID)
 	if err != nil {
 		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil
@@ -422,7 +432,7 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 		case <-watcher.Changes():
 		}
 
-		status, err := w.config.Facade.GetMigrationStatus()
+		status, err := w.config.Facade.MigrationStatus()
 		switch {
 		case params.IsCodeNotFound(err):
 			// There's never been a migration.
@@ -485,7 +495,7 @@ func (w *Worker) waitForMinions(
 
 		case <-watch.Changes():
 			var err error
-			reports, err = w.config.Facade.GetMinionReports()
+			reports, err = w.config.Facade.MinionReports()
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -503,11 +513,11 @@ func (w *Worker) waitForMinions(
 			if reports.UnknownCount == 0 {
 				msg := formatMinionWaitDone(reports, infoPrefix)
 				if failures > 0 {
-					w.logger.Infof(msg)
+					w.logger.Errorf(msg)
 					w.setErrorStatus("%s, some agents reported failure", infoPrefix)
 					return false, nil
 				}
-				w.logger.Errorf(msg)
+				w.logger.Infof(msg)
 				w.setInfoStatus("%s, all agents reported success", infoPrefix)
 				return true, nil
 			}
@@ -597,6 +607,10 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 		Password: targetInfo.Password,
 		ModelTag: names.NewModelTag(modelUUID),
 	}
+	if targetInfo.Macaroon != nil {
+		apiInfo.Macaroons = []macaroon.Slice{{targetInfo.Macaroon}}
+	}
+
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
