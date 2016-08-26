@@ -190,8 +190,8 @@ class TestContainerNetworking(TestCase):
         jcnet.find_network(self.client, machine, addr)
         self.assertItemsEqual(self.juju_mock.commands,
                               [('ssh', (
-                               '--proxy', machine,
-                               'ip route show to match ' + addr))])
+                                  '--proxy', machine,
+                                  'ip route show to match ' + addr))])
 
     def test_clean_environment(self):
         self.juju_mock.add_machine('1')
@@ -364,9 +364,9 @@ class TestMain(FakeHomeTestCase):
         client.env = env
         with patch("assess_container_networking.configure_logging",
                    autospec=True) as mock_cl:
-                with patch("deploy_stack.client_from_config",
-                           return_value=client) as mock_c:
-                    yield
+            with patch("deploy_stack.client_from_config",
+                       return_value=client) as mock_c:
+                yield
         mock_cl.assert_called_once_with(log_level)
         mock_c.assert_called_once_with('an-env', argv[1], debug=debug)
 
@@ -393,7 +393,6 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.DEBUG):
                     ret = jcnet.main(argv)
-        client.enable_feature.assert_called_once_with('address-allocation')
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
@@ -417,7 +416,6 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 0)
@@ -444,7 +442,6 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual(
@@ -474,7 +471,6 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual(
             "INFO Could not clean existing env: Timeout\n",
@@ -496,7 +492,6 @@ class TestMain(FakeHomeTestCase):
             self.assertEqual(
                 str(exc_ctx.exception),
                 "no lxd support on juju 1.25.5")
-        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.bootstrap.call_count, 0)
         self.assertEqual("", self.log_stream.getvalue())
 
@@ -510,7 +505,6 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.DEBUG):
                     ret = jcnet.main(argv)
-        client.enable_feature.assert_called_once_with('address-allocation')
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
