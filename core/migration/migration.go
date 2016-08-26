@@ -45,3 +45,10 @@ type SerializedModel struct {
 	// source controller.
 	Tools map[version.Binary]string // version -> tools URI
 }
+
+// ModelInfo is used to report basic details about a model.
+type ModelInfo struct {
+	UUID         string
+	Name         string
+	AgentVersion version.Number
+}

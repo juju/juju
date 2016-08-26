@@ -15,20 +15,15 @@ func PrecheckShim(st *state.State) PrecheckBackend {
 	return &precheckShim{st}
 }
 
-// precheckShim is untested, but is small and simple enough to be
-// verified by inspection.
+// precheckShim is untested, but is simple enough to be verified by
+// inspection.
 type precheckShim struct {
-	st *state.State
-}
-
-// NeedsCleanup implements PrecheckBackend.
-func (s *precheckShim) NeedsCleanup() (bool, error) {
-	return s.st.NeedsCleanup()
+	*state.State
 }
 
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.st.ModelConfig()
+	cfg, err := s.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -41,7 +36,7 @@ func (s *precheckShim) AgentVersion() (version.Number, error) {
 
 // AllMachines implements PrecheckBackend.
 func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
-	machines, err := s.st.AllMachines()
+	machines, err := s.State.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

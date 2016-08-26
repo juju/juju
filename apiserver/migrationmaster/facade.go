@@ -112,6 +112,28 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 	}, nil
 }
 
+// ModelInfo returns essential information about the model to be
+// migrated.
+func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
+	empty := params.MigrationModelInfo{}
+
+	name, err := api.backend.ModelName()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model name")
+	}
+
+	vers, err := api.backend.AgentVersion()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving agent version")
+	}
+
+	return params.MigrationModelInfo{
+		UUID:         api.backend.ModelUUID(),
+		Name:         name,
+		AgentVersion: vers,
+	}, nil
+}
+
 // SetPhase sets the phase of the active model migration. The provided
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.

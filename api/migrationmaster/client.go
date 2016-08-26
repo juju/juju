@@ -119,6 +119,20 @@ func (c *Client) SetStatusMessage(message string) error {
 	return c.caller.FacadeCall("SetStatusMessage", args, nil)
 }
 
+// ModelInfo return basic information about the model to migrated.
+func (c *Client) ModelInfo() (migration.ModelInfo, error) {
+	var info params.MigrationModelInfo
+	err := c.caller.FacadeCall("ModelInfo", nil, &info)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
+	return migration.ModelInfo{
+		UUID:         info.UUID,
+		Name:         info.Name,
+		AgentVersion: info.AgentVersion,
+	}, nil
+}
+
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
 func (c *Client) Prechecks() error {

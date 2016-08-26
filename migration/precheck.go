@@ -27,7 +27,6 @@ import (
 
 - controller is upgrading
   * all machine versions must match agent version
-
 - source controller has upgrade info doc (IsUpgrading)
 - controller machines have errors
 - controller machines that are dying or dead
@@ -36,16 +35,11 @@ import (
 ## Target controller
 
 - target controller tools are less than source model tools
-
-- target controller is upgrading
-  * all machine versions must match agent version
-
-- source controller has upgrade info doc (IsUpgrading)
-
 - target controller machines have errors
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
-  - what about if left over from previous failed attempt?
+  - what about if left over from previous failed attempt? check model migration status
+- source controller has upgrade info doc (IsUpgrading)
 
 */
 
@@ -81,6 +75,29 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Annotate(err, "retrieving model version")
 	}
 
+	err = checkMachines(backend, modelVersion)
+	return errors.Trace(err)
+}
+
+// TargetPrecheck checks the state of the target controller to make
+// sure that the preconditions for model migration are met. The
+// backend provided must be for the target controller.
+func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error {
+	controllerVersion, err := backend.AgentVersion()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model version")
+	}
+
+	if controllerVersion.Compare(modelVersion) < 0 {
+		return errors.Errorf("model has higher version than target controller (%s > %s)",
+			modelVersion, controllerVersion)
+	}
+
+	err = checkMachines(backend, controllerVersion)
+	return errors.Trace(err)
+}
+
+func checkMachines(backend PrecheckBackend, modelVersion version.Number) error {
 	machines, err := backend.AllMachines()
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
@@ -96,6 +113,5 @@ func SourcePrecheck(backend PrecheckBackend) error {
 				machine.Id(), machineVersion, modelVersion)
 		}
 	}
-
 	return nil
 }

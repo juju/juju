@@ -14,11 +14,55 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-type SourcePrecheckSuite struct {
+var backendVersion = version.MustParse("1.2.3")
+
+type precheckBaseSuite struct {
 	testing.BaseSuite
 }
 
+var _ = gc.Suite(&precheckBaseSuite{})
+
+type precheckRunner func(migration.PrecheckBackend) error
+
+func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRunner) {
+	backend := &fakeBackend{
+		agentVersionErr: errors.New("boom"),
+	}
+	err := runPrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
+}
+
+func (*precheckBaseSuite) checkMachineVersionsMatch(c *gc.C, runPrecheck precheckRunner) {
+	backend := &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
+			&machine{"1", version.MustParseBinary("1.2.3-xenial-amd64")},
+		},
+	}
+	err := runPrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner) {
+	backend := &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
+			&machine{"1", version.MustParseBinary("1.3.1-xenial-amd64")},
+		},
+	}
+	err := runPrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, `machine 1 tools don't match model \(1.3.1 != 1.2.3\)`)
+}
+
+type SourcePrecheckSuite struct {
+	precheckBaseSuite
+}
+
 var _ = gc.Suite(&SourcePrecheckSuite{})
+
+func sourcePrecheck(backend migration.PrecheckBackend) error {
+	return migration.SourcePrecheck(backend)
+}
 
 func (*SourcePrecheckSuite) TestCleanups(c *gc.C) {
 	backend := &fakeBackend{}
@@ -42,34 +86,45 @@ func (*SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cleanup needed")
 }
 
-func (*SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
-	backend := &fakeBackend{
-		agentVersionErr: errors.New("boom"),
-	}
-	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
+func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
+	s.checkAgentVersionError(c, sourcePrecheck)
 }
 
-func (*SourcePrecheckSuite) TestMachineVersionsMatch(c *gc.C) {
-	backend := &fakeBackend{
-		machines: []migration.PrecheckMachine{
-			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
-			&machine{"1", version.MustParseBinary("1.2.3-xenial-amd64")},
-		},
-	}
-	err := migration.SourcePrecheck(backend)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *SourcePrecheckSuite) TestMachineVersionsMatch(c *gc.C) {
+	s.checkMachineVersionsMatch(c, sourcePrecheck)
 }
 
-func (*SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
-	backend := &fakeBackend{
-		machines: []migration.PrecheckMachine{
-			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
-			&machine{"1", version.MustParseBinary("1.3.1-xenial-amd64")},
-		},
-	}
-	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, `machine 1 tools don't match model \(1.3.1 != 1.2.3\)`)
+func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
+	s.checkMachineVersionsDontMatch(c, sourcePrecheck)
+}
+
+type TargetPrecheckSuite struct {
+	precheckBaseSuite
+}
+
+var _ = gc.Suite(&TargetPrecheckSuite{})
+
+func targetPrecheck(backend migration.PrecheckBackend) error {
+	return migration.TargetPrecheck(backend, backendVersion)
+}
+
+func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
+	backend := &fakeBackend{}
+	err := migration.TargetPrecheck(backend, version.MustParse("1.2.4"))
+	c.Assert(err.Error(), gc.Equals,
+		`model has higher version than target controller (1.2.4 > 1.2.3)`)
+}
+
+func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
+	s.checkAgentVersionError(c, targetPrecheck)
+}
+
+func (s *TargetPrecheckSuite) TestMachineVersionsMatch(c *gc.C) {
+	s.checkMachineVersionsMatch(c, targetPrecheck)
+}
+
+func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
+	s.checkMachineVersionsDontMatch(c, targetPrecheck)
 }
 
 type fakeBackend struct {
@@ -87,7 +142,7 @@ func (b *fakeBackend) NeedsCleanup() (bool, error) {
 }
 
 func (b *fakeBackend) AgentVersion() (version.Number, error) {
-	return version.MustParse("1.2.3"), b.agentVersionErr
+	return backendVersion, b.agentVersionErr
 }
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {

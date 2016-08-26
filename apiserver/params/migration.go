@@ -3,7 +3,11 @@
 
 package params
 
-import "time"
+import (
+	"time"
+
+	"github.com/juju/version"
+)
 
 // InitiateMigrationArgs holds the details required to start one or
 // more model migrations.
@@ -90,6 +94,14 @@ type MasterMigrationStatus struct {
 	PhaseChangedTime time.Time     `json:"phase-changed-time"`
 }
 
+// MigrationModelInfo is used to report basic model information to the
+// migrationmaster worker.
+type MigrationModelInfo struct {
+	UUID         string         `json:"uuid"`
+	Name         string         `json:"name"`
+	AgentVersion version.Number `json:"agent-version"`
+}
+
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
 	MigrationId string `json:"migration-id"`
@@ -157,4 +169,11 @@ type MinionReports struct {
 	// Failed contains the tags of all agents which have reported a
 	// failed to complete a given migration phase.
 	Failed []string `json:"failed"`
+}
+
+// TargetPrechecksArgs details regarding pre-migration checks to
+// MigrationTarget.Prechecks.
+type TargetPrechecksArgs struct {
+	// AgentVersion is the tools version of the model to be migrated.
+	AgentVersion version.Number `json:"agent-version"`
 }
