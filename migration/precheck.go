@@ -25,21 +25,20 @@ import (
 
 ## Source controller
 
-- controller is upgrading
-  * all machine versions must match agent version
 - source controller has upgrade info doc (IsUpgrading)
 - controller machines have errors
 - controller machines that are dying or dead
+- machine or unit is being provisioned
+- application is being provisioned?
 - pending reboots
 
 ## Target controller
 
-- target controller tools are less than source model tools
+- target controller has upgrade info doc (IsUpgrading)
 - target controller machines have errors
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
-- source controller has upgrade info doc (IsUpgrading)
 
 */
 
@@ -49,6 +48,7 @@ type PrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 	AgentVersion() (version.Number, error)
 	AllMachines() ([]PrecheckMachine, error)
+	ControllerBackend() (PrecheckBackend, error)
 }
 
 // PrecheckMachine describes state interface for a machine needed by
@@ -62,21 +62,36 @@ type PrecheckMachine interface {
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
-	cleanupNeeded, err := backend.NeedsCleanup()
-	if err != nil {
+	if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
 		return errors.Annotate(err, "checking cleanups")
-	}
-	if cleanupNeeded {
+	} else if cleanupNeeded {
 		return errors.New("cleanup needed")
 	}
 
+	if err := checkSourceMachines(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Now check the source controller.
+	controllerBackend, err := backend.ControllerBackend()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkSourceMachines(controllerBackend); err != nil {
+		return errors.Annotate(err, "source controller")
+	}
+	return nil
+}
+
+func checkSourceMachines(backend PrecheckBackend) error {
 	modelVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
-
-	err = checkMachines(backend, modelVersion)
-	return errors.Trace(err)
+	if err := checkMachines(backend, modelVersion); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // TargetPrecheck checks the state of the target controller to make
