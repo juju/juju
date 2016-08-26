@@ -100,6 +100,58 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFacadeCallError(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
+	var called bool
+	now := time.Now()
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			requestParam, response interface{},
+		) error {
+			c.Assert(request, gc.Equals, "GetMetrics")
+			entities := requestParam.(params.Entities)
+			c.Assert(entities, gc.DeepEquals, params.Entities{Entities: []params.Entity{}})
+			result := response.(*params.MetricResults)
+			result.Results = []params.EntityMetrics{{
+				Metrics: []params.MetricResult{{
+					Key:   "pings",
+					Value: "5",
+					Time:  now,
+				}},
+				Error: nil,
+			}}
+			called = true
+			return nil
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	metrics, err := client.GetMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Key, gc.Equals, "pings")
+	c.Assert(metrics[0].Value, gc.Equals, "5")
+	c.Assert(metrics[0].Time, gc.Equals, now)
+}
+
+func (s *metricsdebugSuiteMock) TestGetMetricsForModelFails(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			requestParam, response interface{},
+		) error {
+			called = true
+			return errors.New("an error")
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	metrics, err := client.GetMetrics()
+	c.Assert(called, jc.IsTrue)
+	c.Assert(metrics, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
 func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
@@ -229,6 +281,32 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics1, gc.HasLen, 1)
 	assertSameMetric(c, metrics1[0], metricUnit1)
+
+	metrics2, err := s.manager.GetMetrics("unit-metered/0", "unit-metered/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics2, gc.HasLen, 2)
+}
+
+func (s *metricsdebugSuite) TestFeatureGetMetricsForModel(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: meteredCharm,
+	})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+
+	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit0,
+	})
+	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit1,
+	})
+
+	metrics, err := s.manager.GetMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 2)
+	assertSameMetric(c, metrics[0], metricUnit0)
+	assertSameMetric(c, metrics[1], metricUnit1)
 }
 
 func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithService(c *gc.C) {

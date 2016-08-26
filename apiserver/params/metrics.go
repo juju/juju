@@ -30,9 +30,10 @@ type EntityMetrics struct {
 	Error   *Error         `json:"error,omitempty"`
 }
 
-// MetricResults contains a single metric.
+// MetricResult contains a single metric.
 type MetricResult struct {
-	Time  time.Time `json:"time"`
 	Key   string    `json:"key"`
 	Value string    `json:"value"`
+	Time  time.Time `json:"time"`
+	Unit  string    `json:"unit"`
 }
