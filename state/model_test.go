@@ -712,6 +712,26 @@ func (s *ModelSuite) TestMisMatchedEnvs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot lookup model users outside the current model")
 }
 
+func (s *ModelSuite) TestListUsersIgnoredDeletedUsers(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedUsers := addModelUsers(c, s.State)
+
+	obtainedUsers, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
+
+	lastUser := obtainedUsers[len(obtainedUsers)-1]
+	err = s.State.RemoveUser(lastUser.UserTag)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedAfterDeletion := obtainedUsers[:len(obtainedUsers)-1]
+
+	obtainedUsers, err = model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedAfterDeletion)
+}
+
 func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
