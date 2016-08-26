@@ -70,6 +70,12 @@ class FakeControllerState:
         if name != self.controller_model.name:
             raise ControllerOperation(operation)
 
+    def grant(self, username, permission):
+        model_permissions = ['read', 'write', 'admin']
+        if permission in model_permissions:
+            permission = 'login'
+        self.users[username]['access'] = permission
+
     def add_user_perms(self, username, permissions):
         self.users.update(
             {username: {'state': '', 'permission': permissions}})
@@ -461,11 +467,14 @@ class FakeBackend:
                       self.controller_state.users.keys()]
         user_list = []
         for n in user_names:
+
             if n == 'admin':
                 append_dict = {'access': 'superuser', 'user-name': n,
                                'display-name': n}
             else:
-                append_dict = {'user-name': n, 'display-name': ''}
+                access = self.controller_state.users[n]['access']
+                append_dict = {
+                    'access': access, 'user-name': n, 'display-name': ''}
             user_list.append(append_dict)
         return user_list
 
@@ -602,6 +611,10 @@ class FakeBackend:
                         per = ''
                     else:
                         per = 'read'
+            if command == 'grant':
+                username = args[0]
+                permission = args[1]
+                self.controller_state.grant(username, permission)
             if command == 'remove-user':
                 username = args[0]
                 self.controller_state.users.pop(username)
