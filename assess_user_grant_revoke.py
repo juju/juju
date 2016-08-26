@@ -42,14 +42,16 @@ USER_LIST_CTRL = [{"access": "superuser", "user-name": "admin",
                    "display-name": "admin"}]
 USER_LIST_CTRL_READ = copy.deepcopy(USER_LIST_CTRL)
 # Created user has no display name, bug 1606354
-USER_LIST_CTRL_READ.append({"access": "login", "user-name": "readuser", "display-name": ""})
+USER_LIST_CTRL_READ.append(
+    {"access": "login", "user-name": "readuser", "display-name": ""})
 USER_LIST_CTRL_WRITE = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
 USER_LIST_CTRL_WRITE.append({"access": "login", "user-name": "writeuser",
                              "display-name": ""})
 USER_LIST_CTRL_ADMIN = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
-USER_LIST_CTRL_ADMIN.append({"access":"superuser", "user-name": "adminuser", "display-name": ""})
+USER_LIST_CTRL_ADMIN.append(
+    {"access": "superuser", "user-name": "adminuser", "display-name": ""})
 SHARE_LIST_CTRL = {"admin@local": {"display-name": "admin",
                                    "access": "admin"}}
 SHARE_LIST_CTRL_READ = copy.deepcopy(SHARE_LIST_CTRL)
