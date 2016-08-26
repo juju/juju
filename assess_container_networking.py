@@ -367,8 +367,20 @@ def _assess_container_networking(client, types, hosts, containers):
         _assessment_iteration(client, test_containers)
 
 
+def get_uptime(client, host):
+    uptime_pattern = re.compile(r'.*(\d+)')
+    uptime_output = ssh(client, host, 'uptime -p')
+    log.info('uptime -p: {}'.format(uptime_output))
+    match = uptime_pattern(uptime_output)
+    if match:
+        return int(match.group(1))
+    else:
+        return 0
+
+
 def assess_container_networking(client, types):
     """Runs _assess_address_allocation, reboots hosts, repeat.
+
     :param client: Juju client
     :param types: Container types to test
     :return: None
@@ -393,8 +405,8 @@ def assess_container_networking(client, types):
         log.info("Restarting controller machine 0")
         controller_client = client.get_controller_client()
         controller_status = controller_client.get_status()
-        uptime = ssh(controller_client, '0', 'uptime -p')
-        log.info('uptime -p: {}'.format(uptime))
+        controller_host = controller_status.status['machines']['0']['dns-name']
+        first_uptime = get_uptime(controller_client, '0')
         ssh(controller_client, '0', 'sudo shutdown -r now')
     except subprocess.CalledProcessError as e:
         logging.info(
@@ -402,19 +414,12 @@ def assess_container_networking(client, types):
             e.output, getattr(e, 'stderr', None))
         raise
 
-    # Wait for the controller to shut down. This prevents us from calling
-    # wait_for_started before controller has shut down, which can cause us
-    # to think that we have finished rebooting before we actually have.
-    hostname = controller_status.status['machines']['0']['dns-name']
-    uptime = ssh(controller_client, '0', 'uptime -p')
-    log.info('uptime -p: {}'.format(uptime))
-    try:
-        wait_for_port(hostname, 22, closed=True, timeout=300)
-    except:
-        uptime = ssh(controller_client, '0', 'uptime -p')
-        log.info('uptime -p: {}'.format(uptime))
-        log.info("FAIL")
-        return
+    # Wait for the controller to shut down if it has not yet restarted.
+    # This ensure the call to wait_for_started happens after each host
+    # has restarted.
+    second_uptime = get_uptime(controller_client, '0')
+    if second_uptime > first_uptime:
+        wait_for_port(controller_host, 22, closed=True, timeout=300)
     client.wait_for_started()
 
     # Once Juju is up it can take a little while before ssh responds.
