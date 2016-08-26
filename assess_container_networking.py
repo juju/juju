@@ -381,34 +381,39 @@ def assess_container_networking(client, types):
 
     _assess_container_networking(client, types, hosts, containers)
 
-    # Reboot all hosts apart from machine 0 because we use machine 0 to jump
-    # through for some hosts.
+    # Reboot all hosted modelled machines then the controller.
     log.info("Instrumenting reboot of all machines.")
     try:
-        for host in hosts[1:]:
-            log.info("Shutdown host: {}".format(host))
-            client.get_controller_client().get_juju_output(
-                'run', '--format', 'json', '--machine', host,
-                'sudo shutdown -r now')
-            #ssh(client, host, 'sudo shutdown -r now')
+        for host in hosts:
+            log.info("Restarting hosted machine: {}".format(host))
+            client.juju('run', '--machine', host, 'sudo shutdown -r now')
+            # ssh(client, host, 'sudo shutdown -r now')
 
-            # Finally reboot machine 0
-        log.info("Shutdown machine: {}".format(hosts[0]))
-        client.get_controller_client().get_juju_output(
-            'run', '--format', 'json', '--machine', hosts[0],
-            'sudo shutdown -r now')
+        log.info("Restarting controller machine 0")
+        controller_client = client.get_controller_client()
+        controller_status = controller_client.get_status()
+        uptime = ssh(client, host, 'uptime -p')
+        log.info('uptime -p: {}'.format(uptime))
+        controller_client.juju('run', '--machine', '0', 'sudo shutdown -r now')
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
             e.output, getattr(e, 'stderr', None))
         raise
 
-    # Wait for the state server to shut down. This prevents us from calling
-    # wait_for_started before machine 0 has shut down, which can cause us
+    # Wait for the controller to shut down. This prevents us from calling
+    # wait_for_started before controller has shut down, which can cause us
     # to think that we have finished rebooting before we actually have.
-    hostname = status['machines'][hosts[0]]['dns-name']
-    wait_for_port(hostname, 22, closed=True, timeout=600)
-
+    hostname = controller_status.status['machines']['0']['dns-name']
+    uptime = ssh(client, host, 'uptime -p')
+    log.info('uptime -p: {}'.format(uptime))
+    try:
+        wait_for_port(hostname, 22, closed=True, timeout=300)
+    except:
+        uptime = ssh(client, host, 'uptime -p')
+        log.info('uptime -p: {}'.format(uptime))
+        log.info("FAIL")
+        return
     client.wait_for_started()
 
     # Once Juju is up it can take a little while before ssh responds.
@@ -476,7 +481,6 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.enable_feature('address-allocation')
     machine_types = _get_container_types(client, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
         assess_container_networking(bs_manager.client, machine_types)
