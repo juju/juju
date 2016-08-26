@@ -50,6 +50,7 @@ type JujuCommandBase struct {
 	apiContext  *APIContext
 	modelApi    ModelAPI
 	apiOpenFunc api.OpenFunc
+	authOpts    AuthOpts
 }
 
 // closeContext closes the command's API context
@@ -60,6 +61,11 @@ func (c *JujuCommandBase) closeContext() {
 			logger.Errorf("%v", err)
 		}
 	}
+}
+
+// SetFlags implements cmd.Command.SetFlags.
+func (c *JujuCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.authOpts.SetFlags(f)
 }
 
 // SetModelApi sets the api used to access model information.
@@ -228,12 +234,24 @@ func (c *JujuCommandBase) initAPIContext() error {
 	if c.apiContext != nil {
 		return nil
 	}
-	apiContext, err := NewAPIContext(c.cmdContext)
+	apiContext, err := NewAPIContext(c.cmdContext, &c.authOpts)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.apiContext = apiContext
 	return nil
+}
+
+// APIContext returns the API context used by the command.
+// It should only be called while the Run method is being called.
+//
+// The returned APIContext should not be closed (it will be
+// closed when the Run method completes).
+func (c *JujuCommandBase) APIContext() (*APIContext, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext, nil
 }
 
 func (c *JujuCommandBase) setCmdContext(ctx *cmd.Context) {

@@ -109,6 +109,7 @@ func formatConstraints(writer io.Writer, value interface{}) error {
 }
 
 func (c *modelGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,

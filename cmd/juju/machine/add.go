@@ -119,6 +119,7 @@ func (c *addCommand) Info() *cmd.Info {
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "The charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Additional machine constraints")

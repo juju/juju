@@ -33,6 +33,7 @@ If --name <name> is provided the search will be done by name rather than by ID.
 
 // Set up the output.
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.name, "name", "", "Action name")
 }

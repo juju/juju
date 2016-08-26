@@ -144,8 +144,6 @@ type bootstrapCommand struct {
 	Region              string
 	noGUI               bool
 	interactive         bool
-
-	flagset *gnuflag.FlagSet
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -158,9 +156,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	// we need to store this so that later we can easily check how many flags
-	// have been set (for interactive mode).
-	c.flagset = f
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set model constraints")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")

@@ -61,6 +61,7 @@ func (c *removeCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 }
 

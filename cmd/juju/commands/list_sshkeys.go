@@ -57,6 +57,7 @@ func (c *listKeysCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.SSHKeysBase.SetFlags(f)
 	f.BoolVar(&c.showFullKey, "full", false, "Show full key instead of just the fingerprint")
 }
 

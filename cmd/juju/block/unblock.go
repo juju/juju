@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -144,11 +143,6 @@ func (c *unblockCommand) Init(args []string) error {
 	}
 
 	return c.assignValidOperation("unblock", args)
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
 }
 
 // Run unblocks previously blocked commands.

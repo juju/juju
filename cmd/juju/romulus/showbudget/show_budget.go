@@ -67,6 +67,7 @@ func (c *showBudgetCommand) Init(args []string) error {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
 		"json":    cmd.FormatJson,

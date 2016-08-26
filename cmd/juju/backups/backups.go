@@ -55,6 +55,7 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}

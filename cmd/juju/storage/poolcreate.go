@@ -6,7 +6,6 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -91,11 +90,6 @@ func (c *poolCreateCommand) Info() *cmd.Info {
 		Purpose: "Create or define a storage pool.",
 		Doc:     poolCreateCommandDoc,
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *poolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.StorageCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.

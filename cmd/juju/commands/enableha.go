@@ -144,6 +144,7 @@ func (c *enableHACommand) Info() *cmd.Info {
 }
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "Additional machine constraints")

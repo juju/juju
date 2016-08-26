@@ -202,9 +202,10 @@ func wrapControllerSkipDefaultController(w *sysCommandWrapper) {
 	w.useDefaultController = false
 }
 
-// ControllerAPIOpener instructs the underlying controller command to use a
-// different APIOpener strategy.
-func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
+// WrapControllerAPIOpener specifies that the given APIOpener
+// should should be used to open the API connection when
+// NewAPIRoot or NewControllerAPIRoot are called.
+func WrapControllerAPIOpener(opener APIOpener) WrapControllerOption {
 	return func(w *sysCommandWrapper) {
 		w.ControllerCommand.SetAPIOpener(opener)
 	}

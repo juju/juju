@@ -99,6 +99,7 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite existing credential information")
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
 }

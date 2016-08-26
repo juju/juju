@@ -97,6 +97,7 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
 	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")

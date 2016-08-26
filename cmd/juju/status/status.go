@@ -92,6 +92,7 @@ func (c *statusCommand) Info() *cmd.Info {
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 
 	defaultFormat := "tabular"

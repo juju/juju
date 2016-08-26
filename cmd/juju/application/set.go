@@ -77,6 +77,7 @@ func (c *setCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted application config")
 	f.BoolVar(&c.SetDefault, "to-default", false, "set application option values to default")
 }

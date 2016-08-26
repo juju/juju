@@ -61,6 +61,7 @@ func (c *showModelCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *showModelCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
