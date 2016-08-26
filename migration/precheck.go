@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -16,25 +18,27 @@ import (
 ## Source model
 
 - machines have errors
-- machines that are dying or dead
-- pending reboots
-- machine or unit is being provisioned
+  * Status() must be StatusStarted
+- machine being provisioned
+  * InstanceStatus() must be StatusRunning
+
+- unit is being provisioned
 - application is being provisioned?
+- model is dying/dead
+- pending reboots
 - units that are dying or dead
 - model is being imported as part of another migration
 
 ## Source controller
 
-- machines have errors
-- machines that are dying or dead
-- machine or unit is being provisioned?
-- application is being provisioned?
+- machines have errors, or are being provisioned (as above)
+- controller model is dying/dead
 - pending reboots
 
 ## Target controller
 
-- machines have errors
-- machines that are dying or dead
+- machines have errors, or are being provisioned (as above)
+- controller model is dying/dead
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
@@ -56,6 +60,9 @@ type PrecheckBackend interface {
 type PrecheckMachine interface {
 	Id() string
 	AgentTools() (*tools.Tools, error)
+	Life() state.Life
+	Status() (status.StatusInfo, error)
+	InstanceStatus() (status.StatusInfo, error)
 }
 
 // SourcePrecheck checks the state of the source controller to make
@@ -73,7 +80,7 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Trace(err)
 	}
 
-	// Now check the source controller.
+	// Check the source controller.
 	controllerBackend, err := backend.ControllerBackend()
 	if err != nil {
 		return errors.Trace(err)
@@ -124,6 +131,10 @@ func checkMachines(backend PrecheckBackend) error {
 		return errors.Annotate(err, "retrieving machines")
 	}
 	for _, machine := range machines {
+		if machine.Life() != state.Alive {
+			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
+		}
+
 		tools, err := machine.AgentTools()
 		if err != nil {
 			return errors.Annotatef(err, "retrieving tools for machine %s", machine.Id())

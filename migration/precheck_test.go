@@ -10,11 +10,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
-var backendVersion = version.MustParse("1.2.3")
+var backendVersionBinary = version.MustParseBinary("1.2.3-trusty-amd64")
+var backendVersion = backendVersionBinary.Number
 
 type SourcePrecheckSuite struct {
 	precheckBaseSuite
@@ -77,6 +80,12 @@ func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, sourcePrecheck)
 }
 
+func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
+	backend := newBackendWithDyingMachine()
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
+}
+
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: &fakeBackend{
@@ -94,6 +103,14 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine . tools don't match model.+")
+}
+
+func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: newBackendWithDyingMachine(),
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is dying")
 }
 
 type TargetPrecheckSuite struct {
@@ -142,6 +159,12 @@ func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, targetPrecheck)
 }
 
+func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
+	backend := newBackendWithDyingMachine()
+	err := migration.TargetPrecheck(backend, backendVersion)
+	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
+}
+
 type precheckRunner func(migration.PrecheckBackend) error
 
 type precheckBaseSuite struct {
@@ -164,8 +187,8 @@ func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck pre
 func newHappyBackend() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
-			&machine{"1", version.MustParseBinary("1.2.3-xenial-amd64")},
+			&fakeMachine{id: "0"},
+			&fakeMachine{id: "1"},
 		},
 	}
 }
@@ -173,8 +196,17 @@ func newHappyBackend() *fakeBackend {
 func newBackendWithMismatchingTools() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&machine{"0", version.MustParseBinary("1.2.3-trusty-amd64")},
-			&machine{"1", version.MustParseBinary("1.3.1-xenial-amd64")},
+			&fakeMachine{id: "0"},
+			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-xenial-amd64")},
+		},
+	}
+}
+
+func newBackendWithDyingMachine() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0", life: state.Dying},
+			&fakeMachine{id: "1"},
 		},
 	}
 }
@@ -217,17 +249,38 @@ func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	return b.controllerBackend, nil
 }
 
-type machine struct {
-	id      string
-	version version.Binary
+type fakeMachine struct {
+	id             string
+	version        version.Binary
+	life           state.Life
+	status         status.Status
+	instanceStatus status.Status
 }
 
-func (m *machine) Id() string {
+func (m *fakeMachine) Id() string {
 	return m.id
 }
 
-func (m *machine) AgentTools() (*tools.Tools, error) {
+func (m *fakeMachine) Life() state.Life {
+	return m.life
+}
+
+func (m *fakeMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: m.status}, nil
+}
+
+func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: m.instanceStatus}, nil
+}
+
+func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
+	// Avoid having to specify the version when it's supposed to match
+	// the model config.
+	v := m.version
+	if v.Compare(version.Zero) == 0 {
+		v = backendVersionBinary
+	}
 	return &tools.Tools{
-		Version: m.version,
+		Version: v,
 	}, nil
 }
