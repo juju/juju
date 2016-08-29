@@ -196,8 +196,6 @@ func (w *Worker) run() error {
 		switch phase {
 		case coremigration.QUIESCE:
 			phase, err = w.doQUIESCE(status)
-		case coremigration.PRECHECK:
-			phase, err = w.doPRECHECK(status)
 		case coremigration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo, status.ModelUUID)
 		case coremigration.VALIDATION:
@@ -281,6 +279,12 @@ func (w *Worker) setStatus(message string) error {
 }
 
 func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	err := w.prechecks(status)
+	if err != nil {
+		w.setErrorStatus(err.Error())
+		return coremigration.ABORT, nil
+	}
+
 	ok, err := w.waitForMinions(status, failFast, "quiescing")
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
@@ -288,15 +292,7 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 	if !ok {
 		return coremigration.ABORT, nil
 	}
-	return coremigration.PRECHECK, nil
-}
 
-func (w *Worker) doPRECHECK(status coremigration.MigrationStatus) (coremigration.Phase, error) {
-	err := w.prechecks(status)
-	if err != nil {
-		w.setErrorStatus(err.Error())
-		return coremigration.ABORT, nil
-	}
 	return coremigration.IMPORT, nil
 }
 

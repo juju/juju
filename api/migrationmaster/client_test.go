@@ -85,7 +85,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 				},
 			},
 			MigrationId:      "id",
-			Phase:            "PRECHECK",
+			Phase:            "IMPORT",
 			PhaseChangedTime: timestamp,
 		}
 		return nil
@@ -97,7 +97,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
 		ModelUUID:        modelUUID,
-		Phase:            migration.PRECHECK,
+		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(controllerUUID),
@@ -298,7 +298,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			MigrationId:  "id",
-			Phase:        "PRECHECK",
+			Phase:        "IMPORT",
 			SuccessCount: 4,
 			UnknownCount: 3,
 			UnknownSample: []string{
@@ -322,7 +322,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:         "id",
-		Phase:               migration.PRECHECK,
+		Phase:               migration.IMPORT,
 		SuccessCount:        4,
 		UnknownCount:        3,
 		SomeUnknownMachines: []string{"3", "4"},
@@ -358,7 +358,7 @@ func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:         "PRECHECK",
+			Phase:         "IMPORT",
 			UnknownSample: []string{"carl"},
 		}
 		return nil
@@ -372,7 +372,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:  "PRECHECK",
+			Phase:  "IMPORT",
 			Failed: []string{"dave"},
 		}
 		return nil

@@ -266,7 +266,6 @@ func (s *MigrationSuite) TestLatestMigrationPreviousMigration(c *gc.C) {
 	// migrated. Don't actually remove model documents to simulate it
 	// having been migrated back to the controller.
 	phases := []migration.Phase{
-		migration.PRECHECK,
 		migration.IMPORT,
 		migration.VALIDATION,
 		migration.SUCCESS,
@@ -317,13 +316,13 @@ func (s *MigrationSuite) TestRefresh(c *gc.C) {
 	mig2, err := s.State2.LatestMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig1.SetPhase(migration.PRECHECK)
+	err = mig1.SetPhase(migration.IMPORT)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertPhase(c, mig2, migration.QUIESCE)
 	err = mig2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig2, migration.PRECHECK)
+	assertPhase(c, mig2, migration.IMPORT)
 }
 
 func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
@@ -337,7 +336,6 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	phases := []migration.Phase{
-		migration.PRECHECK,
 		migration.IMPORT,
 		migration.VALIDATION,
 		migration.SUCCESS,
@@ -407,7 +405,6 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 
 	// Advance the migration to REAPFAILED.
 	phases := []migration.Phase{
-		migration.PRECHECK,
 		migration.IMPORT,
 		migration.VALIDATION,
 		migration.SUCCESS,
@@ -444,18 +441,18 @@ func (s *MigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State2, func() {
 		mig, err := s.State2.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.IMPORT), jc.ErrorIsNil)
 	}).Check()
 
-	err = mig.SetPhase(migration.PRECHECK)
+	err = mig.SetPhase(migration.IMPORT)
 	c.Assert(err, gc.ErrorMatches, "phase already changed")
 	assertPhase(c, mig, migration.QUIESCE)
 
 	// After a refresh it the phase change should be ok.
 	c.Assert(mig.Refresh(), jc.ErrorIsNil)
-	err = mig.SetPhase(migration.PRECHECK)
+	err = mig.SetPhase(migration.IMPORT)
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig, migration.PRECHECK)
+	assertPhase(c, mig, migration.IMPORT)
 }
 
 func (s *MigrationSuite) TestStatusMessage(c *gc.C) {
@@ -562,7 +559,7 @@ func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change phase.
-	c.Assert(mig2.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
+	c.Assert(mig2.SetPhase(migration.IMPORT), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// End it.
@@ -676,7 +673,7 @@ func (s *MigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
 	c.Check(reports.Succeeded, gc.HasLen, 0)
 
 	// Advance the migration
-	c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.IMPORT), jc.ErrorIsNil)
 
 	// Submit minion report for the old phase.
 	tag := names.NewMachineTag("42")
