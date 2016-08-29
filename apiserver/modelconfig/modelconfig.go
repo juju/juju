@@ -120,8 +120,8 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // ModelDefaults returns the default config values used when creating a new model.
-func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
+func (c *ModelConfigAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+	result := params.ModelDefaultsResult{}
 	if err := c.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -130,12 +130,19 @@ func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.Config = make(map[string]params.ConfigValue)
+	result.Config = make(map[string]params.ModelDefaults)
 	for attr, val := range values {
-		result.Config[attr] = params.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
+		settings := params.ModelDefaults{
+			Controller: val.Controller,
+			Default:    val.Default,
 		}
+		for _, v := range val.Regions {
+			settings.Regions = append(
+				settings.Regions, params.RegionDefaults{
+					RegionName: v.Name,
+					Value:      v.Value})
+		}
+		result.Config[attr] = settings
 	}
 	return result, nil
 }

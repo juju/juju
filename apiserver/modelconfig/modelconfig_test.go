@@ -42,9 +42,19 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
 		},
-		cfgDefaults: config.ConfigValues{
-			"attr":  {Value: "val", Source: "controller"},
-			"attr2": {Value: "val2", Source: "controller"},
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{config.RegionDefaultValue{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{config.RegionDefaultValue{
+					Name:  "left",
+					Value: "spam"}}},
 		},
 	}
 	var err error
@@ -160,9 +170,19 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	result, err := s.api.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := map[string]params.ConfigValue{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
+	expectedValues := map[string]params.ModelDefaults{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []params.RegionDefaults{{
+				RegionName: "dummy",
+				Value:      "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []params.RegionDefaults{{
+				RegionName: "left",
+				Value:      "spam"}}},
 	}
 	c.Assert(result.Config, jc.DeepEquals, expectedValues)
 }
@@ -177,11 +197,21 @@ func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
 	result, err := s.api.SetModelDefaults(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
-		"attr3": {Value: "val3", Source: "controller"},
-		"attr4": {Value: "val4", Source: "controller"},
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "dummy",
+				Value: "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+		"attr3": {Controller: "val3"},
+		"attr4": {Controller: "val4"},
 	})
 }
 
@@ -199,8 +229,13 @@ func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
 	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr2": {Value: "val2", Source: "controller"},
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
 	})
 }
 
@@ -227,7 +262,7 @@ func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 
 type mockBackend struct {
 	cfg         config.ConfigValues
-	cfgDefaults config.ConfigValues
+	cfgDefaults config.ModelDefaultAttributes
 	old         *config.Config
 	b           state.BlockType
 	msg         string
@@ -237,7 +272,7 @@ func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
 }
 
-func (m *mockBackend) ModelConfigDefaultValues() (config.ConfigValues, error) {
+func (m *mockBackend) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	return m.cfgDefaults, nil
 }
 
@@ -259,7 +294,7 @@ func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []
 
 func (m *mockBackend) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
 	for k, v := range update {
-		m.cfgDefaults[k] = config.ConfigValue{v, "controller"}
+		m.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
 	}
 	for _, n := range remove {
 		delete(m.cfgDefaults, n)

@@ -37,9 +37,12 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 	s.RegionConfig = cloud.RegionConfig{
 		"nether-region": cloud.Attrs{
 			"apt-mirror": "http://nether-region-mirror",
+			"no-proxy":   "nether-proxy",
 		},
 		"dummy-region": cloud.Attrs{
-			"whimsy-key": "whimsy-value",
+			"no-proxy":     "dummy-proxy",
+			"image-stream": "dummy-image-stream",
+			"whimsy-key":   "whimsy-value",
 		},
 	}
 	s.ConnSuite.SetUpTest(c)
@@ -123,6 +126,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttr"] = "vulch"
 	expected["whimsy-key"] = "whimsy-value"
+	expected["image-stream"] = "dummy-image-stream"
+	expected["no-proxy"] = "dummy-proxy"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -146,6 +151,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttr"] = "vulch"
 	expected["whimsy-key"] = "whimsy-value"
+	expected["no-proxy"] = "dummy-proxy"
+	expected["image-stream"] = "dummy-image-stream"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -166,6 +173,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
+	expected["no-proxy"] = "nether-proxy"
 	expected["apt-mirror"] = "http://nether-region-mirror"
 	expected["providerAttr"] = "vulch"
 	// config.New() adds logging-config so remove it.
@@ -259,6 +267,12 @@ func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
 		"apt-mirror": "http://cloud-mirror",
 		"http-proxy": "http://proxy",
 	}
+	s.RegionConfig = cloud.RegionConfig{
+		"dummy-region": cloud.Attrs{
+			"apt-mirror": "http://dummy-mirror",
+			"no-proxy":   "dummy-proxy",
+		},
+	}
 	s.ConnSuite.SetUpTest(c)
 
 	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
@@ -307,7 +321,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	})
 	owner := names.NewUserTag("test@remote")
 	_, st, err := s.State.NewModel(state.ModelArgs{
-		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "dummy-region",
+		Config: cfg, Owner: owner, CloudName: "dummy", CloudRegion: "nether-region",
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,22 +391,30 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
-	expectedValues := make(config.ConfigValues)
+	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
-		source := "default"
-		expectedValues[attr] = config.ConfigValue{
-			Value:  val,
-			Source: source,
+		expectedValues[attr] = config.AttributeDefaultValues{
+			Default: val,
 		}
 	}
-	expectedValues["http-proxy"] = config.ConfigValue{
-		Value:  "http://proxy",
-		Source: "controller",
-	}
-	expectedValues["apt-mirror"] = config.ConfigValue{
-		Value:  "http://mirror",
-		Source: "controller",
-	}
+	ds := expectedValues["http-proxy"]
+	ds.Controller = "http://proxy"
+	expectedValues["http-proxy"] = ds
+
+	ds = expectedValues["apt-mirror"]
+	ds.Controller = "http://mirror"
+	ds.Regions = []config.RegionDefaultValue{{
+		Name:  "dummy-region",
+		Value: "http://dummy-mirror",
+	}}
+	expectedValues["apt-mirror"] = ds
+
+	ds = expectedValues["no-proxy"]
+	ds.Regions = []config.RegionDefaultValue{{
+		Name:  "dummy-region",
+		Value: "dummy-proxy"}}
+	expectedValues["no-proxy"] = ds
+
 	sources, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
@@ -420,18 +442,26 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 
 	cfg, err := anotherState.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := make(config.ConfigValues)
+	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
-		expectedValues[attr] = config.ConfigValue{
-			Value:  val,
-			Source: "default",
+		expectedValues[attr] = config.AttributeDefaultValues{
+			Default: val,
 		}
 	}
 	delete(expectedValues, "http-mirror")
 	delete(expectedValues, "https-mirror")
-	expectedValues["apt-mirror"] = config.ConfigValue{
-		Value:  "http://different-mirror",
-		Source: "controller",
-	}
+	expectedValues["apt-mirror"] = config.AttributeDefaultValues{
+		Controller: "http://different-mirror",
+		Default:    "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "http://dummy-mirror",
+		}}}
+	expectedValues["no-proxy"] = config.AttributeDefaultValues{
+		Default: "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-proxy",
+		}}}
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
