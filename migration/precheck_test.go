@@ -86,6 +86,12 @@ func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
+func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
+	backend := newBackendWithDownMachine()
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "machine 0 is down")
+}
+
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: &fakeBackend{
@@ -111,6 +117,14 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is dying")
+}
+
+func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: newBackendWithDownMachine(),
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is down")
 }
 
 type TargetPrecheckSuite struct {
@@ -165,6 +179,12 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
+func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
+	backend := newBackendWithDownMachine()
+	err := migration.TargetPrecheck(backend, backendVersion)
+	c.Assert(err, gc.ErrorMatches, "machine 0 is down")
+}
+
 type precheckRunner func(migration.PrecheckBackend) error
 
 type precheckBaseSuite struct {
@@ -206,6 +226,15 @@ func newBackendWithDyingMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0", life: state.Dying},
+			&fakeMachine{id: "1"},
+		},
+	}
+}
+
+func newBackendWithDownMachine() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0", status: status.StatusDown},
 			&fakeMachine{id: "1"},
 		},
 	}
@@ -266,7 +295,12 @@ func (m *fakeMachine) Life() state.Life {
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: m.status}, nil
+	s := m.status
+	if s == "" {
+		// Avoid the need to specify this everywhere.
+		s = status.StatusStarted
+	}
+	return status.StatusInfo{Status: s}, nil
 }
 
 func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
