@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// ModelConfig
+
 type fakeEnvSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeEnvAPI
@@ -23,9 +25,10 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 			"special": "special value",
 			"running": true,
 		},
-		defaults: config.DefaultValues{
-			"attr":  {Default: "foo"},
-			"attr2": {Controller: "bar"},
+		defaults: config.ConfigValues{
+			"attr":  {Value: "foo", Source: "default"},
+			"attr2": {Value: "bar", Source: "controller"},
+			"attr3": {Value: "baz", Source: "region"},
 		},
 	}
 }
@@ -33,7 +36,7 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 type fakeEnvAPI struct {
 	values        map[string]interface{}
 	cloud, region string
-	defaults      config.DefaultValues
+	defaults      config.ConfigValues
 	err           error
 	keys          []string
 }
@@ -54,23 +57,73 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 	return result, nil
 }
 
-func (f *fakeEnvAPI) ModelDefaults() (config.DefaultValues, error) {
+// ModelDefaults
+
+type fakeModelDefaultEnvSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
+	fake *fakeModelDefaultsAPI
+}
+
+func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.fake = &fakeModelDefaultsAPI{
+		values: map[string]interface{}{
+			"name":    "test-model",
+			"special": "special value",
+			"running": true,
+		},
+		defaults: config.ModelDefaultAttributes{
+			"attr": {Default: "foo"},
+			"attr2": {
+				Controller: "bar",
+				Regions: []config.RegionDefaultValue{{
+					"dummy-region",
+					"dummy-value"}}},
+		},
+	}
+}
+
+type fakeModelDefaultsAPI struct {
+	values        map[string]interface{}
+	cloud, region string
+	defaults      config.ModelDefaultAttributes
+	err           error
+	keys          []string
+}
+
+func (f *fakeModelDefaultsAPI) Close() error {
+	return nil
+}
+
+func (f *fakeModelDefaultsAPI) ModelGet() (map[string]interface{}, error) {
+	return f.values, nil
+}
+
+func (f *fakeModelDefaultsAPI) ModelGetWithMetadata() (config.ModelDefaultAttributes, error) {
+	result := make(config.ModelDefaultAttributes)
+	for name, val := range f.values {
+		result[name] = config.AttributeDefaultValues{Default: val}
+	}
+	return result, nil
+}
+
+func (f *fakeModelDefaultsAPI) ModelDefaults() (config.ModelDefaultAttributes, error) {
 	return f.defaults, nil
 }
 
-func (f *fakeEnvAPI) SetModelDefaults(cloud, region string, cfg map[string]interface{}) error {
+func (f *fakeModelDefaultsAPI) SetModelDefaults(cloud, region string, cfg map[string]interface{}) error {
 	if f.err != nil {
 		return f.err
 	}
 	f.cloud = cloud
 	f.region = region
 	for name, val := range cfg {
-		f.defaults[name] = config.DefaultSetting{Controller: val}
+		f.defaults[name] = config.AttributeDefaultValues{Controller: val}
 	}
 	return nil
 }
 
-func (f *fakeEnvAPI) UnsetModelDefaults(cloud, region string, keys ...string) error {
+func (f *fakeModelDefaultsAPI) UnsetModelDefaults(cloud, region string, keys ...string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -82,12 +135,12 @@ func (f *fakeEnvAPI) UnsetModelDefaults(cloud, region string, keys ...string) er
 	return nil
 }
 
-func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
+func (f *fakeModelDefaultsAPI) ModelSet(config map[string]interface{}) error {
 	f.values = config
 	return f.err
 }
 
-func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
+func (f *fakeModelDefaultsAPI) ModelUnset(keys ...string) error {
 	f.keys = keys
 	return f.err
 }

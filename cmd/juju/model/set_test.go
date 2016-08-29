@@ -14,7 +14,7 @@ import (
 )
 
 type SetSuite struct {
-	fakeEnvSuite
+	fakeModelDefaultEnvSuite
 }
 
 var _ = gc.Suite(&SetSuite{})

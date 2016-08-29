@@ -14,7 +14,7 @@ import (
 )
 
 type UnsetSuite struct {
-	fakeEnvSuite
+	fakeModelDefaultEnvSuite
 }
 
 var _ = gc.Suite(&UnsetSuite{})
