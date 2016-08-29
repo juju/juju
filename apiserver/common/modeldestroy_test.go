@@ -81,7 +81,7 @@ type testMetricSender struct {
 	jtesting.Stub
 }
 
-func (t *testMetricSender) SendMetrics(st metricsender.MetricsSenderBackend) error {
+func (t *testMetricSender) SendMetrics(st metricsender.ModelBackend) error {
 	t.AddCall("SendMetrics")
 	return nil
 }

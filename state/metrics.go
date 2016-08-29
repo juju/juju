@@ -257,10 +257,12 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	var docs []metricBatchDoc
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	err := c.Find(bson.M{
+
+	q := bson.M{
 		"model-uuid": st.ModelUUID(),
 		"sent":       false,
-	}).Limit(batchSize).All(&docs)
+	}
+	err := c.Find(q).Limit(batchSize).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

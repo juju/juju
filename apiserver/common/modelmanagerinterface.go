@@ -39,6 +39,9 @@ type ModelManagerBackend interface {
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
+	Unit(name string) (*state.Unit, error)
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
 	AllModels() ([]Model, error)
 	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)

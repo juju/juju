@@ -145,8 +145,12 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 				continue
 			}
 		}
-
-		err = metricsender.SendMetrics(modelState, sender, maxBatchesPerSend)
+		txVendorMetrics, err := transmitVendorMetrics(modelState)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = metricsender.SendMetrics(modelState, sender, maxBatchesPerSend, txVendorMetrics)
 		if err != nil {
 			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)
@@ -155,4 +159,12 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		}
 	}
 	return result, nil
+}
+
+func transmitVendorMetrics(st *state.State) (bool, error) {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
+	}
+	return cfg.TransmitVendorMetrics(), nil
 }
