@@ -4,6 +4,7 @@
 package metricsmanager_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -172,7 +173,9 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedError := params.ErrorResult{Error: apiservertesting.PrefixedError("failed to send metrics: ", "an error")}
+	expectedError := params.ErrorResult{Error: apiservertesting.PrefixedError(
+		fmt.Sprintf("failed to send metrics for %s: ", s.State.ModelTag()),
+		"an error")}
 	c.Assert(result.Results[0], jc.DeepEquals, expectedError)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
