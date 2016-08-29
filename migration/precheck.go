@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
@@ -17,28 +19,23 @@ import (
 
 ## Source model
 
-- machine being provisioned
-  * InstanceStatus() must be StatusRunning
-
-- model is dying/dead
 - unit is being provisioned
+- unit is dying/dead
+- model is dying/dead
 - application is being provisioned?
   * check unit count? possibly can't have unit count > 0 without a unit existing - check this
   * unit count of 0 is ok
 
 - pending reboots
-- units that are dying or dead
 - model is being imported as part of another migration
 
 ## Source controller
 
-- machines are being provisioned (as above)
 - controller model is dying/dead
 - pending reboots
 
 ## Target controller
 
-- machines are being provisioned (as above)
 - controller model is dying/dead
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
@@ -136,10 +133,16 @@ func checkMachines(backend PrecheckBackend) error {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
 		}
 
+		if statusInfo, err := machine.InstanceStatus(); err != nil {
+			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
+		} else if statusInfo.Status != status.StatusRunning {
+			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
+		}
+
 		if statusInfo, err := machine.Status(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
 		} else if statusInfo.Status != status.StatusStarted {
-			return errors.Errorf("machine %s is %s", machine.Id(), statusInfo.Status)
+			return newStatusError("machine %s not started", machine.Id(), statusInfo.Status)
 		}
 
 		tools, err := machine.AgentTools()
@@ -153,4 +156,12 @@ func checkMachines(backend PrecheckBackend) error {
 		}
 	}
 	return nil
+}
+
+func newStatusError(format, id string, s status.Status) error {
+	msg := fmt.Sprintf(format, id)
+	if s != status.StatusEmpty {
+		msg += fmt.Sprintf(" (%s)", s)
+	}
+	return errors.New(msg)
 }

@@ -89,7 +89,12 @@ func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is down")
+	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+}
+
+func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
+	err := migration.SourcePrecheck(newBackendWithProvisioningMachine())
+	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
@@ -124,7 +129,15 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 		controllerBackend: newBackendWithDownMachine(),
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is down")
+	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not started (down)")
+}
+
+func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: newBackendWithProvisioningMachine(),
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not running (allocating)")
 }
 
 type TargetPrecheckSuite struct {
@@ -182,7 +195,13 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.TargetPrecheck(backend, backendVersion)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is down")
+	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+}
+
+func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
+	backend := newBackendWithProvisioningMachine()
+	err := migration.TargetPrecheck(backend, backendVersion)
+	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
 type precheckRunner func(migration.PrecheckBackend) error
@@ -201,7 +220,7 @@ func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRu
 
 func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner) {
 	err := runPrecheck(newBackendWithMismatchingTools())
-	c.Assert(err, gc.ErrorMatches, `machine 1 tools don't match model \(1.3.1 != 1.2.3\)`)
+	c.Assert(err.Error(), gc.Equals, "machine 1 tools don't match model (1.3.1 != 1.2.3)")
 }
 
 func newHappyBackend() *fakeBackend {
@@ -235,6 +254,15 @@ func newBackendWithDownMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0", status: status.StatusDown},
+			&fakeMachine{id: "1"},
+		},
+	}
+}
+
+func newBackendWithProvisioningMachine() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0", instanceStatus: status.StatusProvisioning},
 			&fakeMachine{id: "1"},
 		},
 	}
@@ -304,7 +332,12 @@ func (m *fakeMachine) Status() (status.StatusInfo, error) {
 }
 
 func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: m.instanceStatus}, nil
+	s := m.instanceStatus
+	if s == "" {
+		// Avoid the need to specify this everywhere.
+		s = status.StatusRunning
+	}
+	return status.StatusInfo{Status: s}, nil
 }
 
 func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
