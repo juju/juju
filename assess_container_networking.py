@@ -24,7 +24,7 @@ from jujupy import (
     KVM_MACHINE,
     LXC_MACHINE,
     LXD_MACHINE,
-    )
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -95,8 +95,8 @@ def ssh(client, machine, cmd):
             # If the connection to the host failed, try again in a couple of
             # seconds. This is usually due to heavy load.
             if(attempt < attempts - 1 and
-               re.search('ssh_exchange_identification: '
-                         'Connection closed by remote host', e.stderr)):
+                re.search('ssh_exchange_identification: '
+                          'Connection closed by remote host', e.stderr)):
                 time.sleep(back_off)
                 back_off *= 2
             else:
@@ -349,26 +349,38 @@ def _assess_container_networking(client, types, hosts, containers):
         test_containers = [
             containers[container_type][hosts[0]][0],
             containers[container_type][hosts[1]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
 
     if KVM_MACHINE in types and LXC_MACHINE in types:
         test_containers = [
             containers[LXC_MACHINE][hosts[0]][0],
             containers[KVM_MACHINE][hosts[0]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
 
         # Test with an LXC and a KVM on different machines
         test_containers = [
             containers[LXC_MACHINE][hosts[0]][0],
             containers[KVM_MACHINE][hosts[1]][0],
-            ]
+        ]
         _assessment_iteration(client, test_containers)
+
+
+def get_uptime(client, host):
+    uptime_pattern = re.compile(r'.*(\d+)')
+    uptime_output = ssh(client, host, 'uptime -p')
+    log.info('uptime -p: {}'.format(uptime_output))
+    match = uptime_pattern.match(uptime_output)
+    if match:
+        return int(match.group(1))
+    else:
+        return 0
 
 
 def assess_container_networking(client, types):
     """Runs _assess_address_allocation, reboots hosts, repeat.
+
     :param client: Juju client
     :param types: Container types to test
     :return: None
@@ -381,27 +393,33 @@ def assess_container_networking(client, types):
 
     _assess_container_networking(client, types, hosts, containers)
 
-    # Reboot all hosts apart from machine 0 because we use machine 0 to jump
-    # through for some hosts.
+    # Reboot all hosted modelled machines then the controller.
     log.info("Instrumenting reboot of all machines.")
     try:
-        for host in hosts[1:]:
-            ssh(client, host, 'sudo shutdown -r now')
+        for host in hosts:
+            log.info("Restarting hosted machine: {}".format(host))
+            client.juju(
+                'run', ('--machine', host, 'sudo shutdown -r now'))
+        client.juju('show-action-status', ('--name', 'juju-run'))
 
-            # Finally reboot machine 0
-        ssh(client, hosts[0], 'sudo shutdown -r now')
+        log.info("Restarting controller machine 0")
+        controller_client = client.get_controller_client()
+        controller_status = controller_client.get_status()
+        controller_host = controller_status.status['machines']['0']['dns-name']
+        first_uptime = get_uptime(controller_client, '0')
+        ssh(controller_client, '0', 'sudo shutdown -r now')
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
             e.output, getattr(e, 'stderr', None))
         raise
 
-    # Wait for the state server to shut down. This prevents us from calling
-    # wait_for_started before machine 0 has shut down, which can cause us
-    # to think that we have finished rebooting before we actually have.
-    hostname = status['machines'][hosts[0]]['dns-name']
-    wait_for_port(hostname, 22, closed=True, timeout=600)
-
+    # Wait for the controller to shut down if it has not yet restarted.
+    # This ensure the call to wait_for_started happens after each host
+    # has restarted.
+    second_uptime = get_uptime(controller_client, '0')
+    if second_uptime > first_uptime:
+        wait_for_port(controller_host, 22, closed=True, timeout=300)
     client.wait_for_started()
 
     # Once Juju is up it can take a little while before ssh responds.
@@ -469,7 +487,6 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.enable_feature('address-allocation')
     machine_types = _get_container_types(client, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
         assess_container_networking(bs_manager.client, machine_types)
