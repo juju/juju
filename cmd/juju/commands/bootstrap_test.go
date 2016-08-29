@@ -913,8 +913,8 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, `
 Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Looking for packaged Juju agent binaries
-Preparing local Juju agent binary
+Looking for packaged Juju agent version 1.7.3 for amd64
+No packaged binary found, preparing local Juju agent binary
 `[1:])
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
 }

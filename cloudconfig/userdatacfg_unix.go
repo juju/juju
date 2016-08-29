@@ -345,7 +345,7 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 			curlCommand += " --insecure"
 		}
 		curlCommand += " -o $bin/tools.tar.gz"
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching agent: %s.tar.gz", tools.Version))
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju agent version %s for %s", tools.Version.Number, tools.Version.Arch))
 		logger.Infof("Fetching agent: %s <%s>", curlCommand, urls)
 		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}

@@ -278,7 +278,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		ctx.Infof("Looking for packaged Juju agent binaries")
+		ctx.Infof("Looking for packaged Juju agent version %s for %s", args.AgentVersion, bootstrapArch)
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
@@ -294,7 +294,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
-		ctx.Infof("Preparing local Juju agent binary")
+		if args.BuildAgent {
+			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+		} else {
+			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
+		}
 		var forceVersion version.Number
 		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
 		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
@@ -335,9 +339,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	ctx.Infof("Starting new instance for initial controller")
+	ctx.Verbosef("Starting new instance for initial controller")
 
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		CloudName:            args.CloudName,
+		CloudRegion:          args.CloudRegion,
 		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: bootstrapConstraints,
