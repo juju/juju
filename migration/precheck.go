@@ -24,8 +24,10 @@ import (
 - model is dying/dead
 - application is being provisioned?
   * check unit count? possibly can't have unit count > 0 without a unit existing - check this
-  * unit count of 0 is ok
-
+  * unit count of 0 is ok if service was deployed and then all units for it were removed.
+  * from Will: I have a suspicion that GUI-deployed apps (and maybe
+    others?) will have minunits of 1, meaning that a unit count of 0
+    is not necessarily stable.
 - pending reboots
 - model is being imported as part of another migration
 
@@ -68,14 +70,14 @@ type PrecheckMachine interface {
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
 	// Check the model.
+	if err := checkMachines(backend); err != nil {
+		return errors.Trace(err)
+	}
+
 	if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
 		return errors.Annotate(err, "checking cleanups")
 	} else if cleanupNeeded {
 		return errors.New("cleanup needed")
-	}
-
-	if err := checkMachines(backend); err != nil {
-		return errors.Trace(err)
 	}
 
 	// Check the source controller.
