@@ -378,6 +378,10 @@ class FakeBackend:
             return True
         return bool(feature in self.feature_flags)
 
+    @contextmanager
+    def ignore_soft_deadline(self):
+        yield
+
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]

@@ -10,6 +10,7 @@ from contextlib import (
 )
 from copy import deepcopy
 from cStringIO import StringIO
+from datetime import datetime
 import errno
 from itertools import chain
 import json
@@ -79,6 +80,10 @@ log = logging.getLogger("jujupy")
 
 class IncompatibleConfigClass(Exception):
     """Raised when a client is initialised with the wrong config class."""
+
+
+class SoftDeadlineExceeded(Exception):
+    """Raised when an overall client operation takes too long."""
 
 
 def get_timeout_path():
@@ -546,13 +551,39 @@ class Juju2Backend:
     Uses -m to specify models, uses JUJU_DATA to specify home directory.
     """
 
-    def __init__(self, full_path, version, feature_flags, debug):
+    def __init__(self, full_path, version, feature_flags, debug,
+                 soft_deadline=None):
         self._version = version
         self._full_path = full_path
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
+        self.soft_deadline = soft_deadline
+        self._ignore_soft_deadline = False
+
+    def _now(self):
+        return datetime.utcnow()
+
+    @contextmanager
+    def _check_timeouts(self):
+        # If an exception occurred, we don't want to replace it with
+        # SoftDeadlineExceeded.
+        yield
+        if self.soft_deadline is None or self._ignore_soft_deadline:
+            return
+        if self._now() > self.soft_deadline:
+            raise SoftDeadlineExceeded('Operation exceeded deadline.')
+
+    @contextmanager
+    def ignore_soft_deadline(self):
+        """Ignore the client deadline.  For cleanup code."""
+        old_val = self._ignore_soft_deadline
+        self._ignore_soft_deadline = True
+        try:
+            yield
+        finally:
+            self._ignore_soft_deadline = old_val
 
     def clone(self, full_path, version, debug, feature_flags):
         if version is None:
@@ -638,7 +669,8 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            rval = call_func(args)
+            with self._check_timeouts():
+                rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -666,7 +698,8 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            proc = subprocess.Popen(full_args)
+            with self._check_timeouts():
+                proc = subprocess.Popen(full_args)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
@@ -684,7 +717,8 @@ class Juju2Backend:
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
                 stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
-            sub_output, sub_error = proc.communicate()
+            with self._check_timeouts():
+                sub_output, sub_error = proc.communicate()
             log.debug(sub_output)
             if proc.returncode != 0:
                 log.debug(sub_error)
@@ -854,6 +888,12 @@ class EnvJujuClient:
         if juju_path is None:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
+
+    def check_timeouts(self):
+        return self._backend._check_timeouts()
+
+    def ignore_soft_deadline(self):
+        return self._backend.ignore_soft_deadline()
 
     def enable_feature(self, flag):
         """Enable juju feature by setting the given flag.

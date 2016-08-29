@@ -73,6 +73,7 @@ from jujupy import (
     parse_new_state_server_from_error,
     SimpleEnvironment,
     ServiceStatus,
+    SoftDeadlineExceeded,
     Status,
     SYSTEM,
     tear_down,
@@ -155,10 +156,91 @@ class TestTempYamlFile(TestCase):
 
 class TestJuju2Backend(TestCase):
 
+    test_environ = {'PATH': 'foo:bar'}
+
     def test_juju2_backend(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), False)
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
+
+    def test__check_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
+        with patch('jujupy.Juju2Backend._now',
+                   return_value=backend.soft_deadline):
+            with backend._check_timeouts():
+                pass
+        now = backend.soft_deadline + timedelta(seconds=1)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with self.assertRaisesRegexp(SoftDeadlineExceeded,
+                                         'Operation exceeded deadline.'):
+                with backend._check_timeouts():
+                    pass
+
+    def test__check_timeouts_no_deadline(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=None)
+        now = datetime(2015, 1, 2, 3, 4, 6)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with backend._check_timeouts():
+                pass
+
+    def test_ignore_soft_deadline_check_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
+        now = backend.soft_deadline + timedelta(seconds=1)
+        with patch('jujupy.Juju2Backend._now', return_value=now):
+            with backend.ignore_soft_deadline():
+                with backend._check_timeouts():
+                    pass
+            with self.assertRaisesRegexp(SoftDeadlineExceeded,
+                                         'Operation exceeded deadline.'):
+                with backend._check_timeouts():
+                    pass
+
+    def test_juju_checks_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
+        with patch('subprocess.check_call'):
+            with patch('jujupy.Juju2Backend._now',
+                       return_value=backend.soft_deadline):
+                backend.juju('cmd', ('args',), [], 'home')
+            now = backend.soft_deadline + timedelta(seconds=1)
+            with patch('jujupy.Juju2Backend._now', return_value=now):
+                with self.assertRaisesRegexp(SoftDeadlineExceeded,
+                                             'Operation exceeded deadline.'):
+                    backend.juju('cmd', ('args',), [], 'home')
+
+    def test_juju_async_checks_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
+        with patch('subprocess.Popen') as mock_popen:
+            mock_popen.return_value.wait.return_value = 0
+            with patch('jujupy.Juju2Backend._now',
+                       return_value=backend.soft_deadline):
+                with backend.juju_async('cmd', ('args',), [], 'home'):
+                    pass
+            now = backend.soft_deadline + timedelta(seconds=1)
+            with patch('jujupy.Juju2Backend._now', return_value=now):
+                with self.assertRaisesRegexp(SoftDeadlineExceeded,
+                                             'Operation exceeded deadline.'):
+                    with backend.juju_async('cmd', ('args',), [], 'home'):
+                        pass
+
+    def test_get_juju_output_checks_timeouts(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
+        with patch('subprocess.Popen') as mock_popen:
+            mock_popen.return_value.returncode = 0
+            mock_popen.return_value.communicate.return_value = ('', '')
+            with patch('jujupy.Juju2Backend._now',
+                       return_value=backend.soft_deadline):
+                backend.get_juju_output('cmd', ('args',), [], 'home')
+            now = backend.soft_deadline + timedelta(seconds=1)
+            with patch('jujupy.Juju2Backend._now', return_value=now):
+                with self.assertRaisesRegexp(SoftDeadlineExceeded,
+                                             'Operation exceeded deadline.'):
+                    backend.get_juju_output('cmd', ('args',), [], 'home')
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):

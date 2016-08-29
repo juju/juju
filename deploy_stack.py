@@ -691,12 +691,14 @@ class BootstrapManager:
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
-                if self.bootstrap_host is not None and _can_run_ssh():
-                    remote = remote_from_address(self.bootstrap_host,
-                                                 series=self.series)
-                    copy_remote_logs(remote, self.log_dir)
-                    archive_logs(self.log_dir)
-                self.tear_down()
+                with self.client.ignore_soft_deadline():
+                    with self.tear_down_client.ignore_soft_deadline():
+                        if self.bootstrap_host is not None and _can_run_ssh():
+                            remote = remote_from_address(self.bootstrap_host,
+                                                         series=self.series)
+                            copy_remote_logs(remote, self.log_dir)
+                            archive_logs(self.log_dir)
+                        self.tear_down()
                 raise
 
     @contextmanager
@@ -770,22 +772,23 @@ class BootstrapManager:
             safe_print_status(self.client)
             raise
         else:
-            self.client.list_controllers()
-            self.client.list_models()
-            for m_client in self.client.iter_model_clients():
-                m_client.show_status()
+            with self.client.ignore_soft_deadline():
+                self.client.list_controllers()
+                self.client.list_models()
+                for m_client in self.client.iter_model_clients():
+                    m_client.show_status()
         finally:
-            try:
-                self.dump_all_logs()
-            except KeyboardInterrupt:
-                pass
-            if not self.keep_env:
-                self.tear_down(self.jes_enabled)
+            with self.client.ignore_soft_deadline():
+                with self.tear_down_client.ignore_soft_deadline():
+                    try:
+                        self.dump_all_logs()
+                    except KeyboardInterrupt:
+                        pass
+                    if not self.keep_env:
+                        self.tear_down(self.jes_enabled)
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
-        if sys.platform == 'win32':
-            return True
         return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):
