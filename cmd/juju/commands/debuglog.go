@@ -106,7 +106,11 @@ func (c *debugLogCommand) Info() *cmd.Info {
 }
 
 func newDebugLogCommand() cmd.Command {
-	return modelcmd.Wrap(&debugLogCommand{})
+	return newDebugLogCommandTZ(time.Local)
+}
+
+func newDebugLogCommandTZ(tz *time.Location) cmd.Command {
+	return modelcmd.Wrap(&debugLogCommand{tz: tz})
 }
 
 type debugLogCommand struct {
@@ -168,8 +172,6 @@ func (c *debugLogCommand) Init(args []string) error {
 	}
 	if c.utc {
 		c.tz = time.UTC
-	} else {
-		c.tz = time.Local
 	}
 	if c.date {
 		c.format = "2006-01-02 15:04:05"
