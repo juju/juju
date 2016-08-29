@@ -47,6 +47,24 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	return out, nil
 }
 
+// AllUnits implements PrecheckBackend.
+func (s *precheckShim) AllUnits() (out []PrecheckUnit, _ error) {
+	apps, err := s.State.AllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, app := range apps {
+		units, err := app.AllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, unit := range units {
+			out = append(out, unit)
+		}
+	}
+	return
+}
+
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	model, err := s.State.ControllerModel()

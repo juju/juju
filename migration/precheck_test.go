@@ -97,6 +97,39 @@ func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
+func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
+	backend := &fakeBackend{
+		units: []migration.PrecheckUnit{
+			&fakeUnit{name: "foo/0"},
+			&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-trusty-ppc64")},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit bar/1 tools don't match model (1.2.4 != 1.2.3)")
+}
+
+func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
+	backend := &fakeBackend{
+		units: []migration.PrecheckUnit{
+			&fakeUnit{name: "foo/0", life: state.Dead},
+			&fakeUnit{name: "bar/1"},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
+}
+
+func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
+	backend := &fakeBackend{
+		units: []migration.PrecheckUnit{
+			&fakeUnit{name: "bar/1"},
+			&fakeUnit{name: "foo/0", status: status.StatusFailed},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
+}
+
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: &fakeBackend{
@@ -229,6 +262,11 @@ func newHappyBackend() *fakeBackend {
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1"},
 		},
+		units: []migration.PrecheckUnit{
+			&fakeUnit{name: "foo/0"},
+			&fakeUnit{name: "foo/1"},
+			&fakeUnit{name: "bar/1"},
+		},
 	}
 }
 
@@ -280,6 +318,9 @@ type fakeBackend struct {
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
 
+	units       []migration.PrecheckUnit
+	allUnitsErr error
+
 	controllerBackend *fakeBackend
 }
 
@@ -297,6 +338,10 @@ func (b *fakeBackend) IsUpgrading() (bool, error) {
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
+}
+
+func (b *fakeBackend) AllUnits() ([]migration.PrecheckUnit, error) {
+	return b.units, b.allUnitsErr
 }
 
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
@@ -350,4 +395,40 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	return &tools.Tools{
 		Version: v,
 	}, nil
+}
+
+type fakeUnit struct {
+	name    string
+	version version.Binary
+	life    state.Life
+	status  status.Status
+}
+
+func (u *fakeUnit) Name() string {
+	return u.name
+}
+
+func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
+	// Avoid having to specify the version when it's supposed to match
+	// the model config.
+	v := u.version
+	if v.Compare(version.Zero) == 0 {
+		v = backendVersionBinary
+	}
+	return &tools.Tools{
+		Version: v,
+	}, nil
+}
+
+func (u *fakeUnit) Life() state.Life {
+	return u.life
+}
+
+func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
+	s := u.status
+	if s == "" {
+		// Avoid the need to specify this everywhere.
+		s = status.StatusIdle
+	}
+	return status.StatusInfo{Status: s}, nil
 }

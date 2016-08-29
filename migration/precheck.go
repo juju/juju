@@ -19,15 +19,13 @@ import (
 
 ## Source model
 
-- unit is being provisioned
-- unit is dying/dead
-- model is dying/dead
 - application is being provisioned?
   * check unit count? possibly can't have unit count > 0 without a unit existing - check this
   * unit count of 0 is ok if service was deployed and then all units for it were removed.
   * from Will: I have a suspicion that GUI-deployed apps (and maybe
     others?) will have minunits of 1, meaning that a unit count of 0
     is not necessarily stable.
+- model is dying/dead
 - pending reboots
 - model is being imported as part of another migration
 
@@ -48,10 +46,11 @@ import (
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
-	NeedsCleanup() (bool, error)
 	AgentVersion() (version.Number, error)
-	AllMachines() ([]PrecheckMachine, error)
+	NeedsCleanup() (bool, error)
 	IsUpgrading() (bool, error)
+	AllMachines() ([]PrecheckMachine, error)
+	AllUnits() ([]PrecheckUnit, error)
 	ControllerBackend() (PrecheckBackend, error)
 }
 
@@ -65,12 +64,25 @@ type PrecheckMachine interface {
 	InstanceStatus() (status.StatusInfo, error)
 }
 
+// PrecheckUnit describes state interface for a unit needed by
+// migration prechecks.
+type PrecheckUnit interface {
+	Name() string
+	AgentTools() (*tools.Tools, error)
+	Life() state.Life
+	AgentStatus() (status.StatusInfo, error)
+}
+
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
 	// Check the model.
 	if err := checkMachines(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkUnits(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -155,6 +167,40 @@ func checkMachines(backend PrecheckBackend) error {
 		if machineVersion != modelVersion {
 			return errors.Errorf("machine %s tools don't match model (%s != %s)",
 				machine.Id(), machineVersion, modelVersion)
+		}
+	}
+	return nil
+}
+
+func checkUnits(backend PrecheckBackend) error {
+	modelVersion, err := backend.AgentVersion()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model version")
+	}
+
+	units, err := backend.AllUnits()
+	if err != nil {
+		return errors.Annotate(err, "retrieving units")
+	}
+	for _, unit := range units {
+		if unit.Life() != state.Alive {
+			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
+		}
+
+		if statusInfo, err := unit.AgentStatus(); err != nil {
+			return errors.Annotatef(err, "retrieving unit %s status", unit.Name())
+		} else if statusInfo.Status != status.StatusIdle {
+			return newStatusError("unit %s not idle", unit.Name(), statusInfo.Status)
+		}
+
+		tools, err := unit.AgentTools()
+		if err != nil {
+			return errors.Annotatef(err, "retrieving tools for unit %s", unit.Name())
+		}
+		unitVersion := tools.Version.Number
+		if unitVersion != modelVersion {
+			return errors.Errorf("unit %s tools don't match model (%s != %s)",
+				unit.Name(), unitVersion, modelVersion)
 		}
 	}
 	return nil
