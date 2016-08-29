@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
@@ -143,7 +145,7 @@ func (cfg *ubuntuCloudConfig) AddCloudArchiveCloudTools() {
 // for adding all packages configured in this CloudConfig.
 func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	if !cfg.SystemUpdate() && len(cfg.PackageSources()) > 0 {
-		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
+		return nil, errors.New("update sources were specified, but OS updates have been disabled.")
 	}
 
 	var cmds []string
@@ -184,7 +186,6 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	cmds = append(cmds, config.PackageManagerLoopFunction)
-
 	looper := "package_manager_loop "
 
 	if cfg.SystemUpdate() {
@@ -196,9 +197,10 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, looper+cfg.paccmder.UpgradeCmd())
 	}
 
+	var pkgCmds []string
+	var pkgNames []string
 	var pkgsWithTargetRelease []string
 	pkgs := cfg.Packages()
-	var pkgNames []string = make([]string, len(pkgs))
 	for i, _ := range pkgs {
 		pack := pkgs[i]
 		if pack == "--target-release" || len(pkgsWithTargetRelease) > 0 {
@@ -212,7 +214,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 				continue
 			}
 		}
-		packageName := pack
+		pkgNames = append(pkgNames, pack)
 		installArgs := []string{pack}
 
 		if len(pkgsWithTargetRelease) == 3 {
@@ -220,17 +222,16 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			// install command args from the accumulated
 			// pkgsWithTargetRelease slice and reset it.
 			installArgs = append([]string{}, pkgsWithTargetRelease...)
-			packageName = strings.Join(installArgs, " ")
 			pkgsWithTargetRelease = []string{}
 		}
 
-		pkgNames[i] = packageName
 		cmd := looper + cfg.paccmder.InstallCmd(installArgs...)
-		cmds = append(cmds, cmd)
+		pkgCmds = append(pkgCmds, cmd)
 	}
 
-	if len(cmds) > 0 {
-		cmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgNames, ", ")))}, cmds...)
+	if len(pkgCmds) > 0 {
+		pkgCmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgNames, ", ")))}, pkgCmds...)
+		cmds = append(cmds, pkgCmds...)
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
 		// from prompting, always taking default values instead.
 		cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)

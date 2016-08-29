@@ -132,7 +132,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
-	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	cloudRegion := args.CloudName
+	if args.CloudRegion != "" {
+		cloudRegion += "/" + args.CloudRegion
+	}
+	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
@@ -143,7 +147,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		if len(data) > 0 {
 			dataString = fmt.Sprintf(" %v", data)
 		}
-		fmt.Fprintf(ctx.GetStderr(), "%s%s\r", info, dataString)
+		fmt.Fprintf(ctx.GetStderr(), " - %s%s\r", info, dataString)
 		return nil
 	}
 	// Likely used after the final instanceStatus call to white-out the
@@ -166,7 +170,13 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
-	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
+	// We need some padding below to overwrite any previous messages. We'll use a width of 40.
+	msg := fmt.Sprintf(" - %s", result.Instance.Id())
+	if len(msg) < 40 {
+		padding := make([]string, 40-len(msg))
+		msg += strings.Join(padding, " ")
+	}
+	fmt.Fprintln(ctx.GetStderr(), msg)
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()

@@ -240,12 +240,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 
-	statusCallback(status.StatusAllocating, "starting instance")
+	statusCallback(status.StatusAllocating, "preparing image")
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.StatusRunning, "Container started")
+	statusCallback(status.StatusRunning, "container started")
 	return inst, nil
 }
 
