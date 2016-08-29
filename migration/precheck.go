@@ -19,12 +19,8 @@ import (
 
 ## Source model
 
-- application is being provisioned?
-  * check unit count? possibly can't have unit count > 0 without a unit existing - check this
-  * unit count of 0 is ok if service was deployed and then all units for it were removed.
-  * from Will: I have a suspicion that GUI-deployed apps (and maybe
-    others?) will have minunits of 1, meaning that a unit count of 0
-    is not necessarily stable.
+- application life
+- application minunits vs units
 - model is dying/dead
 - pending reboots
 - model is being imported as part of another migration
@@ -50,7 +46,7 @@ type PrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 	IsUpgrading() (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
-	AllUnits() ([]PrecheckUnit, error)
+	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
 }
 
@@ -62,6 +58,14 @@ type PrecheckMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	InstanceStatus() (status.StatusInfo, error)
+}
+
+// PrecheckApplication describes state interface for an application
+// needed by migration prechecks.
+type PrecheckApplication interface {
+	Name() string
+	Life() state.Life
+	AllUnits() ([]PrecheckUnit, error)
 }
 
 // PrecheckUnit describes state interface for a unit needed by
@@ -82,7 +86,7 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Trace(err)
 	}
 
-	if err := checkUnits(backend); err != nil {
+	if err := checkAppsAndUnits(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -172,15 +176,28 @@ func checkMachines(backend PrecheckBackend) error {
 	return nil
 }
 
-func checkUnits(backend PrecheckBackend) error {
+func checkAppsAndUnits(backend PrecheckBackend) error {
 	modelVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
-
-	units, err := backend.AllUnits()
+	apps, err := backend.AllApplications()
 	if err != nil {
-		return errors.Annotate(err, "retrieving units")
+		return errors.Annotate(err, "retrieving applications")
+	}
+	for _, app := range apps {
+		err := checkUnits(app, modelVersion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
+	units, err := app.AllUnits()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving units for %s", app.Name())
 	}
 	for _, unit := range units {
 		if unit.Life() != state.Alive {

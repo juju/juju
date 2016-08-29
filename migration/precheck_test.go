@@ -99,9 +99,18 @@ func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 	backend := &fakeBackend{
-		units: []migration.PrecheckUnit{
-			&fakeUnit{name: "foo/0"},
-			&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-trusty-ppc64")},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:  "foo",
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+			&fakeApp{
+				name: "bar",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "bar/0"},
+					&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-trusty-ppc64")},
+				},
+			},
 		},
 	}
 	err := migration.SourcePrecheck(backend)
@@ -110,9 +119,13 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 	backend := &fakeBackend{
-		units: []migration.PrecheckUnit{
-			&fakeUnit{name: "foo/0", life: state.Dead},
-			&fakeUnit{name: "bar/1"},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", life: state.Dead},
+				},
+			},
 		},
 	}
 	err := migration.SourcePrecheck(backend)
@@ -121,9 +134,13 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	backend := &fakeBackend{
-		units: []migration.PrecheckUnit{
-			&fakeUnit{name: "bar/1"},
-			&fakeUnit{name: "foo/0", status: status.StatusFailed},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", status: status.StatusFailed},
+				},
+			},
 		},
 	}
 	err := migration.SourcePrecheck(backend)
@@ -262,10 +279,18 @@ func newHappyBackend() *fakeBackend {
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1"},
 		},
-		units: []migration.PrecheckUnit{
-			&fakeUnit{name: "foo/0"},
-			&fakeUnit{name: "foo/1"},
-			&fakeUnit{name: "bar/1"},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:  "foo",
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+			&fakeApp{
+				name: "bar",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "bar/0"},
+					&fakeUnit{name: "bar/1"},
+				},
+			},
 		},
 	}
 }
@@ -318,8 +343,8 @@ type fakeBackend struct {
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
 
-	units       []migration.PrecheckUnit
-	allUnitsErr error
+	apps       []migration.PrecheckApplication
+	allAppsErr error
 
 	controllerBackend *fakeBackend
 }
@@ -340,8 +365,9 @@ func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
 }
 
-func (b *fakeBackend) AllUnits() ([]migration.PrecheckUnit, error) {
-	return b.units, b.allUnitsErr
+func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
+	return b.apps, b.allAppsErr
+
 }
 
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
@@ -395,6 +421,24 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	return &tools.Tools{
 		Version: v,
 	}, nil
+}
+
+type fakeApp struct {
+	name  string
+	life  state.Life
+	units []migration.PrecheckUnit
+}
+
+func (a *fakeApp) Name() string {
+	return a.name
+}
+
+func (a *fakeApp) Life() state.Life {
+	return a.life
+}
+
+func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
+	return a.units, nil
 }
 
 type fakeUnit struct {
