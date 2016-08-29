@@ -1518,10 +1518,22 @@ class TestEnvJujuClient(ClientTest):
 
     def test__wait_for_status_suppresses_deadline(self):
         client = EnvJujuClient(JujuData('local'), None, None)
-        client._wait_for_status(None, None)
         soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
         now = soft_deadline + timedelta(seconds=1)
         client._backend.soft_deadline = soft_deadline
+
+        def check():
+            with client.check_timeouts():
+                pass
+
+        def translate(x):
+            return None
+
+        with patch.object(client, 'get_status', autospec=True,
+                          side_effect=check) as gs_mock:
+            with patch.object(client._backend, '_now', return_value=now,
+                              autospec=True):
+                client._wait_for_status(Mock(), translate)
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')

@@ -1450,20 +1450,21 @@ class EnvJujuClient:
         """
         status = None
         try:
-            for _ in chain([None], until_timeout(timeout, start=start)):
-                try:
-                    status = self.get_status()
-                except CannotConnectEnv:
-                    log.info('Suppressing "Unable to connect to environment"')
-                    continue
-                states = translate(status)
-                if states is None:
-                    break
-                reporter.update(states)
-            else:
-                if status is not None:
-                    log.error(status.status_text)
-                raise exc_type(self.env.environment, status)
+            with self.ignore_soft_deadline():
+                for _ in chain([None], until_timeout(timeout, start=start)):
+                    try:
+                        status = self.get_status()
+                    except CannotConnectEnv:
+                        log.info('Suppressing "Unable to connect to environment"')
+                        continue
+                    states = translate(status)
+                    if states is None:
+                        break
+                    reporter.update(states)
+                else:
+                    if status is not None:
+                        log.error(status.status_text)
+                    raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
         return status
