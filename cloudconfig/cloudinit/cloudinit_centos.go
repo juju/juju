@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
@@ -211,6 +213,9 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 		"cloud-utils",
 		"nmap-ncat",
 		"tmux",
+	}
+	if featureflag.Enabled(feature.DeveloperMode) {
+		packages = append(packages, "socat")
 	}
 
 	// The required packages need to come from the correct repo.

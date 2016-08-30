@@ -78,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -397,6 +398,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+	if err := introspection.WriteProfileFunctions(); err != nil {
+		// This isn't fatal, just annoying.
+		logger.Errorf("failed to write profile funcs: %v", err)
+	}
 
 	// Before doing anything else, we need to make sure the certificate generated for
 	// use by mongo to validate controller connections is correct. This needs to be done
@@ -472,6 +477,13 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
+		}
+		if err := startIntrospection(introspectionConfig{
+			Agent:      a,
+			Engine:     engine,
+			WorkerFunc: introspection.NewWorker,
+		}); err != nil {
+			return nil, errors.Trace(err)
 		}
 		return engine, nil
 	}
