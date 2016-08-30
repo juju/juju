@@ -79,8 +79,8 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 			"identity-endpoint",
 			"storage-endpoint",
 			&params.CloudCredential{
-				"auth-type",
-				map[string]string{"k": "v"},
+				AuthType:   "auth-type",
+				Attributes: map[string]string{"k": "v"},
 			},
 		},
 	}, {

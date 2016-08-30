@@ -18,6 +18,7 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
+	RemoveCloudCredential(names.CloudCredentialTag) error
 
 	IsControllerAdmin(names.UserTag) (bool, error)
 

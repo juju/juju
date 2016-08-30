@@ -7,7 +7,6 @@ package cloud
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,10 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.cloud")
 
 func init() {
 	common.RegisterStandardFacade("Cloud", 1, newFacade)
@@ -33,7 +31,7 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
-func newFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
+func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
 }
 
@@ -146,8 +144,8 @@ func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
 	}, nil
 }
 
-// Credentials returns the cloud credentials for a set of users.
-func (api *CloudAPI) Credentials(args params.UserClouds) (params.StringsResults, error) {
+// UserCredentials returns the cloud credentials for a set of users.
+func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResults, error) {
 	results := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.UserClouds)),
 	}
@@ -212,6 +210,112 @@ func (api *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (para
 		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
+		}
+	}
+	return results, nil
+}
+
+// RevokeCredentials revokes a set of cloud credentials.
+func (api *CloudAPI) RevokeCredentials(args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	authFunc, err := api.getCredentialsAuthFunc()
+	if err != nil {
+		return results, err
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseCloudCredentialTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
+		// to change this auth check.
+		if !authFunc(tag.Owner()) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// Credential returns the specified cloud credential for each tag, minus secrets.
+func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialResults, error) {
+	results := params.CloudCredentialResults{
+		Results: make([]params.CloudCredentialResult, len(args.Entities)),
+	}
+	authFunc, err := api.getCredentialsAuthFunc()
+	if err != nil {
+		return results, err
+	}
+
+	for i, arg := range args.Entities {
+		credentialTag, err := names.ParseCloudCredentialTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !authFunc(credentialTag.Owner()) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		// Helper to look up and cache credential schemas for clouds.
+		schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
+		credentialSchemas := func() (map[cloud.AuthType]cloud.CredentialSchema, error) {
+			cloudName := credentialTag.Cloud().Id()
+			if s, ok := schemaCache[cloudName]; ok {
+				return s, nil
+			}
+			cloud, err := api.backend.Cloud(cloudName)
+			if err != nil {
+				return nil, err
+			}
+			provider, err := environs.Provider(cloud.Type)
+			if err != nil {
+				return nil, err
+			}
+			schema := provider.CredentialSchemas()
+			schemaCache[cloudName] = schema
+			return schema, nil
+		}
+		cloudCredentials, err := api.backend.CloudCredentials(credentialTag.Owner(), credentialTag.Cloud().Id())
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		cred, ok := cloudCredentials[credentialTag]
+		if !ok {
+			results.Results[i].Error = common.ServerError(errors.NotFoundf("credential %q", credentialTag.Name()))
+			continue
+		}
+
+		schemas, err := credentialSchemas()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		attrs := cred.Attributes()
+		var redacted []string
+		// Mask out the secrets.
+		if s, ok := schemas[cred.AuthType()]; ok {
+			for _, attr := range s {
+				if attr.Hidden {
+					delete(attrs, attr.Name)
+					redacted = append(redacted, attr.Name)
+				}
+			}
+		}
+		results.Results[i].Result = &params.CloudCredential{
+			AuthType:   string(cred.AuthType()),
+			Attributes: attrs,
+			Redacted:   redacted,
 		}
 	}
 	return results, nil

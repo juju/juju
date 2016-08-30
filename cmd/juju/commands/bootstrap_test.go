@@ -1108,7 +1108,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "bruce", Endpoint: "endpoint"}},
 	})
 }
@@ -1129,7 +1129,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 	})
 }
 
