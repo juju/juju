@@ -44,6 +44,14 @@ func (*SourcePrecheckSuite) TestDyingModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
+func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
+	backend := &fakeBackend{
+		migrationMode: state.MigrationModeImporting,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "model is being imported as part of another migration")
+}
+
 func (*SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 	backend := &fakeBackend{
 		cleanupErr: errors.New("boom"),
@@ -416,7 +424,8 @@ func newBackendWithProvisioningMachine() *fakeBackend {
 type fakeBackend struct {
 	agentVersionErr error
 
-	modelLife state.Life
+	modelLife     state.Life
+	migrationMode state.MigrationMode
 
 	cleanupNeeded bool
 	cleanupErr    error
@@ -435,6 +444,10 @@ type fakeBackend struct {
 
 func (b *fakeBackend) ModelLife() (state.Life, error) {
 	return b.modelLife, nil
+}
+
+func (b *fakeBackend) MigrationMode() (state.MigrationMode, error) {
+	return b.migrationMode, nil
 }
 
 func (b *fakeBackend) NeedsCleanup() (bool, error) {

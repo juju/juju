@@ -17,10 +17,6 @@ import (
 /*
 # TODO - remaining prechecks
 
-## Source model
-
-- model is being imported as part of another migration
-
 ## Target controller
 
 - target controller already has a model with the same owner:name
@@ -34,6 +30,7 @@ import (
 type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
 	ModelLife() (state.Life, error)
+	MigrationMode() (state.MigrationMode, error)
 	NeedsCleanup() (bool, error)
 	IsUpgrading() (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
@@ -76,6 +73,10 @@ type PrecheckUnit interface {
 func SourcePrecheck(backend PrecheckBackend) error {
 	// Check the model.
 	if err := checkModelLife(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkMigrationMode(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -142,6 +143,15 @@ func checkModelLife(backend PrecheckBackend) error {
 		return errors.Annotate(err, "retrieving model life")
 	} else if life != state.Alive {
 		return errors.Errorf("model is %s", life)
+	}
+	return nil
+}
+
+func checkMigrationMode(backend PrecheckBackend) error {
+	if mode, err := backend.MigrationMode(); err != nil {
+		return errors.Annotate(err, "retrieving model life")
+	} else if mode == state.MigrationModeImporting {
+		return errors.New("model is being imported as part of another migration")
 	}
 	return nil
 }

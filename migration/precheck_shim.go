@@ -30,6 +30,15 @@ func (s *precheckShim) ModelLife() (state.Life, error) {
 	return model.Life(), nil
 }
 
+// MigrationStatus implements PrecheckBackend.
+func (s *precheckShim) MigrationMode() (state.MigrationMode, error) {
+	model, err := s.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return model.MigrationMode(), nil
+}
+
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
 	cfg, err := s.ModelConfig()
