@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -354,6 +355,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		for authType := range schemas {
 			authTypes = append(authTypes, authType)
 		}
+		// Since we are iterating over a map, lets sort the authTypes so
+		// they are always in a consistent order.
+		sort.Sort(jujucloud.AuthTypes(authTypes))
 		cloud = &jujucloud.Cloud{
 			Type:      c.Cloud,
 			AuthTypes: authTypes,
