@@ -75,19 +75,26 @@ func (c *Client) ModelUnset(keys ...string) error {
 	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
-// ModelDefaults returns the default config values used when creating a new model.
-func (c *Client) ModelDefaults() (config.ConfigValues, error) {
-	result := params.ModelConfigResults{}
+// ModelDefaults returns the default values for various sources used when
+// creating a new model.
+func (c *Client) ModelDefaults() (config.ModelDefaultAttributes, error) {
+	result := params.ModelDefaultsResult{}
 	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	values := make(config.ConfigValues)
+	values := make(config.ModelDefaultAttributes)
 	for name, val := range result.Config {
-		values[name] = config.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
+		setting := config.AttributeDefaultValues{
+			Default:    val.Default,
+			Controller: val.Controller,
 		}
+		for _, region := range val.Regions {
+			setting.Regions = append(setting.Regions, config.RegionDefaultValue{
+				Name:  region.RegionName,
+				Value: region.Value})
+		}
+		values[name] = setting
 	}
 	return values, nil
 }

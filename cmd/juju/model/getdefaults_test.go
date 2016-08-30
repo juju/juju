@@ -15,7 +15,7 @@ import (
 )
 
 type getDefaultsSuite struct {
-	fakeEnvSuite
+	fakeModelDefaultEnvSuite
 }
 
 var _ = gc.Suite(&getDefaultsSuite{})
@@ -52,7 +52,7 @@ func (s *getDefaultsSuite) TestSingleValueJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, `{"attr":{"Value":"foo","Source":"default"}}`)
+	c.Assert(output, gc.Equals, `{"attr":{"default":"foo"}}`)
 }
 
 func (s *getDefaultsSuite) TestAllValuesYAML(c *gc.C) {
@@ -62,11 +62,12 @@ func (s *getDefaultsSuite) TestAllValuesYAML(c *gc.C) {
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
 		"attr:\n" +
-		"  value: foo\n" +
-		"  source: default\n" +
+		"  default: foo\n" +
 		"attr2:\n" +
-		"  value: bar\n" +
-		"  source: controller"
+		"  controller: bar\n" +
+		"  regions:\n" +
+		"  - name: dummy-region\n" +
+		"    value: dummy-value"
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -75,7 +76,7 @@ func (s *getDefaultsSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"attr":{"Value":"foo","Source":"default"},"attr2":{"Value":"bar","Source":"controller"}}`
+	expected := `{"attr":{"default":"foo"},"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"}]}}`
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -85,8 +86,9 @@ func (s *getDefaultsSuite) TestAllValuesTabular(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"ATTRIBUTE  DEFAULT  CONTROLLER\n" +
-		"attr       foo      -\n" +
-		"attr2      -        bar"
+		"ATTRIBUTE       DEFAULT      CONTROLLER\n" +
+		"attr            foo          -\n" +
+		"attr2           -            bar\n" +
+		"  dummy-region  dummy-value  -"
 	c.Assert(output, gc.Equals, expected)
 }

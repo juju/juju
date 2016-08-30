@@ -31,9 +31,9 @@ type ModelDefaultsResult struct {
 // ModelDefaults holds the settings for a given ModelDefaultsResult config
 // attribute.
 type ModelDefaults struct {
-	Default    interface{}      `json:"default"`
-	Controller interface{}      `json:"controller"`
-	Regions    []RegionDefaults `json:"regions"`
+	Default    interface{}      `json:"default,omitempty"`
+	Controller interface{}      `json:"controller,omitempty"`
+	Regions    []RegionDefaults `json:"regions,omitempty"`
 }
 
 // RegionDefaults contains the settings for regions in a ModelDefaults.

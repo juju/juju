@@ -15,7 +15,7 @@ import (
 )
 
 type UnsetDefaultsSuite struct {
-	fakeEnvSuite
+	fakeModelDefaultEnvSuite
 }
 
 var _ = gc.Suite(&UnsetDefaultsSuite{})
@@ -46,8 +46,11 @@ func (s *UnsetDefaultsSuite) TestInitUnknownValue(c *gc.C) {
 func (s *UnsetDefaultsSuite) TestUnset(c *gc.C) {
 	_, err := s.run(c, "attr", "unknown")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.defaults, jc.DeepEquals, config.ConfigValues{
-		"attr2": {Value: "bar", Source: "controller"},
+	c.Assert(s.fake.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}}},
 	})
 }
 
