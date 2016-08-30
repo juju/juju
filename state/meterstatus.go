@@ -155,15 +155,11 @@ func (u *Unit) GetMeterStatus() (MeterStatus, error) {
 		return mmStatus, nil
 	}
 
-	status, err := u.getMeterStatusDoc()
+	unitMeterStatus, err := u.unitMeterStatus()
 	if err != nil {
-		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
+		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
 	}
-
-	code := MeterStatusFromString(status.Code)
-
-	unitMeterStatus := MeterStatus{code, status.Info}
-	return combineMeterStatus(mmStatus, unitMeterStatus), nil
+	return combineMeterStatus(mmStatus, *unitMeterStatus), nil
 }
 
 func combineMeterStatus(a, b MeterStatus) MeterStatus {
@@ -182,4 +178,27 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 		return nil, errors.Trace(err)
 	}
 	return &status, nil
+}
+
+func (u *Unit) unitMeterStatus() (*MeterStatus, error) {
+	status, err := u.getMeterStatusDoc()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
+	}
+
+	cfg, err := u.st.ModelConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to get model config for %s", u.st.ModelTag())
+	}
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to get application")
+	}
+	if len(app.MetricCredentials()) == 0 && !cfg.TransmitVendorMetrics() {
+		return &MeterStatus{MeterRed, "transmit-vendor-metrics turned off"}, nil
+	}
+
+	code := MeterStatusFromString(status.Code)
+
+	return &MeterStatus{code, status.Info}, nil
 }
