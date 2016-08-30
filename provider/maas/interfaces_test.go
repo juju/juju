@@ -440,18 +440,54 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestSortInterfacesByTypeThenName(c *gc.C) {
+var (
+	vlan50  = maasVLAN{VID: 50}
+	vlan100 = maasVLAN{VID: 100}
+	vlan200 = maasVLAN{VID: 200}
+)
+
+func (s *interfacesSuite) TestSortInterfacesByTypeThenNameNoBonds(c *gc.C) {
+	input := []maasInterface{
+		{Name: "eth1", Type: "physical"},
+		{Name: "eth0", Type: "physical"},
+		{Name: "eth3", Type: "physical"},
+		{Name: "eth2", Type: "physical"},
+		{Name: "eth0.50", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan50},
+		{Name: "eth2.100", Type: "vlan", Parents: []string{"eth2"}, VLAN: vlan100},
+		{Name: "eth1.200", Type: "vlan", Parents: []string{"eth1"}, VLAN: vlan200},
+		{Name: "eth0.100", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan100},
+	}
+	expected := []maasInterface{
+		{Name: "eth0", Type: "physical"},
+		{Name: "eth1", Type: "physical"},
+		{Name: "eth2", Type: "physical"},
+		{Name: "eth3", Type: "physical"},
+		{Name: "eth0.50", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan50},
+		{Name: "eth0.100", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan100},
+		{Name: "eth1.200", Type: "vlan", Parents: []string{"eth1"}, VLAN: vlan200},
+		{Name: "eth2.100", Type: "vlan", Parents: []string{"eth2"}, VLAN: vlan100},
+	}
+	inputCopy := input
+	ordered := &byTypeThenName{interfaces: input}
+	sort.Sort(ordered)
+
+	c.Check(ordered.interfaces, jc.DeepEquals, expected)
+	// Input shouldn't be modified.
+	c.Check(input, jc.DeepEquals, inputCopy)
+}
+
+func (s *interfacesSuite) TestSortInterfacesByTypeThenNameWithBonds(c *gc.C) {
 	input := []maasInterface{
 		{Name: "eth1", Type: "physical"},
 		{Name: "eth0", Type: "physical"},
 		{Name: "eth3", Type: "physical"},
 		{Name: "eth2", Type: "physical"},
 		{Name: "bond0", Type: "bond"},
-		{Name: "bond0.50", Type: "vlan"},
-		{Name: "bond0.100", Type: "vlan"},
+		{Name: "bond0.50", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan50},
+		{Name: "bond0.100", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan100},
 		{Name: "bond1", Type: "bond"},
-		{Name: "bond1.200", Type: "vlan"},
-		{Name: "bond1.100", Type: "vlan"},
+		{Name: "bond1.200", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan200},
+		{Name: "bond1.100", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan100},
 	}
 	expected := []maasInterface{
 		{Name: "bond0", Type: "bond"},
@@ -460,10 +496,10 @@ func (s *interfacesSuite) TestSortInterfacesByTypeThenName(c *gc.C) {
 		{Name: "eth1", Type: "physical"},
 		{Name: "eth2", Type: "physical"},
 		{Name: "eth3", Type: "physical"},
-		{Name: "bond0.100", Type: "vlan"},
-		{Name: "bond0.50", Type: "vlan"},
-		{Name: "bond1.100", Type: "vlan"},
-		{Name: "bond1.200", Type: "vlan"},
+		{Name: "bond0.50", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan50},
+		{Name: "bond0.100", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan100},
+		{Name: "bond1.100", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan100},
+		{Name: "bond1.200", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan200},
 	}
 	inputCopy := input
 	ordered := &byTypeThenName{interfaces: input}
@@ -571,8 +607,12 @@ func (s *interfacesSuite) TestMAASObjectPXEMACAddressAndHostname(c *gc.C) {
 }
 
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
+	// Expect to see hostname on top, followed by the first address of the PXE
+	// interface.
 	nodeJSON := fmt.Sprintf(`{
         "system_id": "foo",
+        "hostname": "foo.bar.maas",
+        "pxe_mac": {"mac_address": "52:54:00:70:9b:fe"},
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
@@ -581,6 +621,26 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
 
 	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "foo.bar.maas"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains:  nil,
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -623,6 +683,27 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
+		CIDR:                "10.50.19.0/24",
+		ProviderId:          "150",
+		ProviderSubnetId:    "5",
+		AvailabilityZones:   nil,
+		VLANTag:             50,
+		ProviderVLANId:      "5004",
+		ProviderAddressId:   "517",
+		InterfaceName:       "eth0.50",
+		ParentInterfaceName: "eth0",
+		InterfaceType:       "802.1q",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		DNSServers:          nil,
+		DNSSearchDomains:    nil,
+		MTU:                 1500,
+		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+	}, {
+		DeviceIndex:         2,
+		MACAddress:          "52:54:00:70:9b:fe",
 		CIDR:                "10.100.19.0/24",
 		ProviderId:          "151",
 		ProviderSubnetId:    "6",
@@ -642,7 +723,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
 	}, {
-		DeviceIndex:         2,
+		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
 		CIDR:                "10.250.19.0/24",
 		ProviderId:          "152",
@@ -663,27 +744,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
-	}, {
-		DeviceIndex:         3,
-		MACAddress:          "52:54:00:70:9b:fe",
-		CIDR:                "10.50.19.0/24",
-		ProviderId:          "150",
-		ProviderSubnetId:    "5",
-		AvailabilityZones:   nil,
-		VLANTag:             50,
-		ProviderVLANId:      "5004",
-		ProviderAddressId:   "517",
-		InterfaceName:       "eth0.50",
-		ParentInterfaceName: "eth0",
-		InterfaceType:       "802.1q",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
-		DNSServers:          nil,
-		DNSSearchDomains:    nil,
-		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
 	}}
 
 	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
