@@ -5,6 +5,9 @@ package status
 
 import (
 	"encoding/json"
+	"fmt"
+
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
@@ -116,6 +119,39 @@ type unitStatus struct {
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+}
+
+func (s *formattedStatus) applicationScale(name string) string {
+	// The current unit count are units that are either in Idle or Executing status.
+	// In other words, units that are active and available.
+	currentUnitCount := 0
+	desiredUnitCount := 0
+
+	app := s.Applications[name]
+	match := func(u unitStatus) {
+		desiredUnitCount += 1
+		switch u.JujuStatusInfo.Current {
+		case status.StatusExecuting, status.StatusIdle:
+			currentUnitCount += 1
+		}
+	}
+	// If the app is subordinate to other units, then this is a subordinate charm.
+	if len(app.SubordinateTo) > 0 {
+		for _, a := range s.Applications {
+			for _, u := range a.Units {
+				for sub, subStatus := range u.Subordinates {
+					if subAppName, _ := names.UnitApplication(sub); subAppName == name {
+						match(subStatus)
+					}
+				}
+			}
+		}
+	} else {
+		for _, u := range app.Units {
+			match(u)
+		}
+	}
+	return fmt.Sprintf("%d/%d", currentUnitCount, desiredUnitCount)
 }
 
 type statusInfoContents struct {

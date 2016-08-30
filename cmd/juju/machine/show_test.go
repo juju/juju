@@ -72,10 +72,10 @@ func (s *MachineShowCommandSuite) TestShowTabularMachine(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineShowCommand(), "--format", "tabular", "0", "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MACHINE    STATE    DNS       INS-ID               SERIES  AZ\n"+
-		"0          started  10.0.0.1  juju-badd06-0        trusty  us-east-1\n"+
-		"1          started  10.0.0.2  juju-badd06-1        trusty  \n"+
-		"  1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  trusty  \n"+
+		"MACHINE  STATE    DNS       INS-ID               SERIES  AZ\n"+
+		"0        started  10.0.0.1  juju-badd06-0        trusty  us-east-1\n"+
+		"1        started  10.0.0.2  juju-badd06-1        trusty  \n"+
+		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  trusty  \n"+
 		"\n")
 }
 
