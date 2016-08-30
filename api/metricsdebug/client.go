@@ -22,8 +22,11 @@ type Client struct {
 
 // MetricsDebugClient defines the methods on the metricsdebug API end point.
 type MetricsDebugClient interface {
-	// GetMetrics will receive metrics collected by the given entity tag
-	GetMetrics(tag string) ([]params.MetricResult, error)
+	// GetMetrics will receive metrics collected by the given entity tags
+	// The tags act as a filter over what is to be returned. If no tags are
+	// supplied GetMetrics will return all the metrics recorded in the
+	// current model.
+	GetMetrics(tags ...string) ([]params.MetricResult, error)
 }
 
 // MeterStatusClient defines methods on the metricsdebug API end point.
@@ -42,10 +45,12 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // GetMetrics will receive metrics collected by the given entity
-func (c *Client) GetMetrics(tag string) ([]params.MetricResult, error) {
-	p := params.Entities{Entities: []params.Entity{
-		{tag},
-	}}
+func (c *Client) GetMetrics(tags ...string) ([]params.MetricResult, error) {
+	entities := make([]params.Entity, len(tags))
+	for i, tag := range tags {
+		entities[i] = params.Entity{Tag: tag}
+	}
+	p := params.Entities{Entities: entities}
 	results := new(params.MetricResults)
 	if err := c.facade.FacadeCall("GetMetrics", p, results); err != nil {
 		return nil, errors.Trace(err)
