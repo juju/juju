@@ -1284,7 +1284,7 @@ var statusTests = []testCase{
 								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
-									"message": "agent is lost, sorry! See 'juju status-history dummy-application/0'",
+									"message": "Agent lost, see 'juju status-history dummy-application/0'",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -3194,10 +3194,10 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-MODEL   CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+MODEL   CONTROLLER  CLOUD/REGION        VERSION  NOTES
 hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
 
-APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
 
 UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 
@@ -3215,10 +3215,10 @@ MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-MODEL   CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+MODEL   CONTROLLER  CLOUD/REGION        VERSION  NOTES
 hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
 
-APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
 
 UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 
@@ -3490,13 +3490,13 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION        VERSION  MESSAGE
+MODEL       CONTROLLER  CLOUD/REGION        VERSION  NOTES
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
-APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
-logging    a bi...               true     jujucharms  logging    1    ubuntu
-mysql      5.7.13   maintenance  true     jujucharms  mysql      1    ubuntu
-wordpress  4.5.3    active       true     jujucharms  wordpress  3    ubuntu
+APP        VERSION  STATUS       SCALE  CHARM      STORE       REV  OS      NOTES
+logging    a bi...               2/2    logging    jujucharms  1    ubuntu  exposed
+mysql      5.7.13   maintenance  1/1    mysql      jujucharms  1    ubuntu  exposed
+wordpress  4.5.3    active       1/1    wordpress  jujucharms  3    ubuntu  exposed
 
 RELATION           PROVIDES   CONSUMES   TYPE
 juju-info          logging    mysql      regular
@@ -3554,14 +3554,14 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, `
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo                   false                   0    
+APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+foo                   2/2                  0        
 
 UNIT   WORKLOAD     AGENT      MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -3588,7 +3588,7 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	sections, err := splitTableSections(out.Bytes())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3648,14 +3648,14 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, `
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo                   false                   0    
+APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+foo                   0/2                  0        
 
 UNIT   WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0                                                   
