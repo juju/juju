@@ -38,6 +38,7 @@ func NewShowCloudCommand() cmd.Command {
 }
 
 func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	// We only support yaml for display purposes.
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

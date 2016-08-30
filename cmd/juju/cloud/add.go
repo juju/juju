@@ -64,6 +64,7 @@ func (c *addCloudCommand) Info() *cmd.Info {
 }
 
 func (c *addCloudCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
 }
 

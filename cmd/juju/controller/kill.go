@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -51,9 +50,9 @@ func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.
 	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
 	return modelcmd.WrapController(
 		kill,
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
-		modelcmd.ControllerAPIOpener(openStrategy),
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
+		modelcmd.WrapControllerAPIOpener(openStrategy),
 	)
 }
 
@@ -70,12 +69,6 @@ func (c *killCommand) Info() *cmd.Info {
 		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 // Init implements Command.Init.

@@ -79,6 +79,7 @@ func (c *syncToolsCommand) Info() *cmd.Info {
 }
 
 func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "Copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")

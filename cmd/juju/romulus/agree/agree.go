@@ -69,6 +69,7 @@ type agreeCommand struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
 	c.out.AddFlags(f, "json", output.DefaultFormatters)
 }

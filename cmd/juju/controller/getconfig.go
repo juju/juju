@@ -52,6 +52,7 @@ func (c *getConfigCommand) Info() *cmd.Info {
 }
 
 func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

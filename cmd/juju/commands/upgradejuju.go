@@ -60,7 +60,7 @@ Examples:
 See also: 
     sync-tools`
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapEnvOption) cmd.Command {
+func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
@@ -93,6 +93,7 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 }
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")

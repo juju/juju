@@ -100,8 +100,8 @@ func NewDestroyCommandForTest(
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
 		cmd,
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 	)
 }
 

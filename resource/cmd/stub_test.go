@@ -6,7 +6,6 @@ package cmd
 import (
 	"io"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
@@ -19,15 +18,6 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) {
-	s.stub.AddCall("Connect", ctx)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s, nil
-}
-
 func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charms)
 	if err := s.stub.NextErr(); err != nil {
@@ -35,15 +25,6 @@ func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmre
 	}
 
 	return s.ReturnListResources, nil
-}
-
-func (s *stubCharmStore) Close() error {
-	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
 
 type stubAPIClient struct {

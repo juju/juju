@@ -68,6 +68,7 @@ func (c *upgradeGUICommand) Info() *cmd.Info {
 
 // SetFlags implements the cmd.Command interface.
 func (c *upgradeGUICommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.list, "list", false, "List available Juju GUI release versions without upgrading")
 }
 

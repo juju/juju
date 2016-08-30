@@ -33,6 +33,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 }
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Retry, "r", false, "Re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }

@@ -71,6 +71,7 @@ func (c *getDefaultsCommand) Info() *cmd.Info {
 }
 
 func (c *getDefaultsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

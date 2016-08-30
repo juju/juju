@@ -7,6 +7,13 @@ import (
 	"github.com/juju/cmd"
 )
 
+var registeredSubCommands []cmd.Command
+
+// RegisterSubCommand registers the given command as a "juju charm" subcommand.
+func RegisterSubCommand(c cmd.Command) {
+	registeredSubCommands = append(registeredSubCommands, c)
+}
+
 var charmDoc = `
 "juju charm" is the the juju CLI equivalent of the "charm" command used
 by charm authors, though only applicable functionality is mirrored.
@@ -31,14 +38,12 @@ func NewSuperCommand() *Command {
 			},
 		),
 	}
-	spec := newCharmstoreSpec()
 
 	// Sub-commands may be registered directly here, like so:
-	//charmCmd.Register(newXXXCommand(spec))
+	//charmCmd.Register(newXXXCommand())
 
 	// ...or externally via RegisterSubCommand().
-	for _, newSubCommand := range registeredSubCommands {
-		command := newSubCommand(spec)
+	for _, command := range registeredSubCommands {
 		charmCmd.Register(command)
 	}
 

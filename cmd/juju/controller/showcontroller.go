@@ -31,6 +31,17 @@ Examples:
 See also: 
     controllers`[1:]
 
+type showControllerCommand struct {
+	modelcmd.JujuCommandBase
+
+	out   cmd.Output
+	store jujuclient.ClientStore
+	api   controllerAccessAPI
+
+	controllerNames []string
+	showPasswords   bool
+}
+
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
 	cmd := &showControllerCommand{
@@ -236,15 +247,4 @@ func (c *showControllerCommand) convertModelsForShow(controllerName string, cont
 		controller.Errors = append(controller.Errors, err.Error())
 		return
 	}
-}
-
-type showControllerCommand struct {
-	modelcmd.JujuCommandBase
-
-	out   cmd.Output
-	store jujuclient.ClientStore
-	api   controllerAccessAPI
-
-	controllerNames []string
-	showPasswords   bool
 }
