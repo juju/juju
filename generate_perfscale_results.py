@@ -219,8 +219,6 @@ def generate_reports(controller_log, results_dir, deployments):
     """Generate reports and graphs from run results."""
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
-    # Don't forget to remove the swap details.
-    swap_image = generate_swap_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
     mongo_image = generate_mongo_graph_image(results_dir)
 
@@ -230,7 +228,6 @@ def generate_reports(controller_log, results_dir, deployments):
     details = dict(
         cpu_graph=cpu_image,
         memory_graph=memory_image,
-        swap_graph=swap_image,
         network_graph=network_image,
         mongo_graph=mongo_image,
         deployments=deployments,
@@ -345,14 +342,6 @@ def create_memory_report_graph(rrd_dir, output_dir):
         rrd_dir, output_dir, 'memory', _rrd_memory_graph)
 
 
-def generate_swap_graph_image(results_dir):
-    return generate_graph_image(results_dir, 'swap', create_swap_report_graph)
-
-
-def create_swap_report_graph(rrd_dir, output_dir):
-    return create_report_graph(rrd_dir, output_dir, 'swap', _rrd_swap_graph)
-
-
 def generate_network_graph_image(results_dir):
     return generate_graph_image(
         results_dir, 'interface-eth0', create_network_report_graph)
@@ -453,31 +442,6 @@ def _rrd_network_graph(start, end, rrd_path, output_file):
             'CDEF:tx_stk=tx_nnl',
             'LINE2:rx_stk#bff7bf: RX',
             'LINE2:tx_stk#ffb000: TX')
-
-
-def _rrd_swap_graph(start, end, rrd_path, output_file):
-    with EnvironmentVariable('TZ', 'UTC'):
-        rrdtool.graph(
-            output_file,
-            '--start', str(start),
-            '--end', str(end),
-            '--full-size-mode',  # test
-            '-w', GraphDefaults.width,
-            '-h', GraphDefaults.height,
-            '-n', GraphDefaults.font,
-            '-v', 'Swap',
-            '--alt-autoscale-max',  # test
-            '-t', 'Swap space usage',
-            'DEF:free_avg={}/swap-free.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:free_nnl=free_avg,UN,0,free_avg,IF',
-            'DEF:used_avg={}/swap-used.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:used_nnl=used_avg,UN,0,used_avg,IF',
-            'CDEF:free_stk=free_nnl',
-            'CDEF:used_stk=used_nnl',
-            'AREA:free_stk#ffffff',
-            'LINE1:free_stk#ffffff: free',
-            'AREA:used_stk#ffebbf',
-            'LINE1:used_stk#ffb000: used')
 
 
 def _rrd_memory_graph(start, end, rrd_path, output_file):
