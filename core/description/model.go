@@ -127,7 +127,7 @@ type model struct {
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
 
-	CloudImageMetadatas_ cloudimagemetadata `yaml:"cloudimagemetadata"`
+	CloudImageMetadatas_ cloudimagemetadatas `yaml:"cloudimagemetadatas"`
 
 	Actions_ actions `yaml:"actions"`
 
@@ -436,7 +436,7 @@ func (m *model) AddCloudImageMetadata(args CloudImageMetadataArgs) CloudImageMet
 }
 
 func (m *model) setCloudImageMetadatas(cloudimagemetadataList []*cloudimagemetadata) {
-	m.CloudImageMetadatas_ = cloudimagemetadata{
+	m.CloudImageMetadatas_ = cloudimagemetadatas{
 		Version:              1,
 		CloudImageMetadatas_: cloudimagemetadataList,
 	}

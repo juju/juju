@@ -10,7 +10,7 @@ import (
 	"github.com/juju/schema"
 )
 
-type cloudimagemetadata struct {
+type cloudimagemetadatas struct {
 	Version              int                   `yaml:"version"`
 	CloudImageMetadatas_ []*cloudimagemetadata `yaml:"cloudimagemetadata"`
 }
