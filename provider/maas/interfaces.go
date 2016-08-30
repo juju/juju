@@ -84,6 +84,10 @@ type maasSubnet struct {
 	ResourceURI string   `json:"resource_uri"`
 }
 
+func (m maasInterface) GoString() string {
+	return fmt.Sprintf(`"%s(%s)"`, m.Name, m.Type)
+}
+
 func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	var interfaces []maasInterface
 	if err := json.Unmarshal(jsonBytes, &interfaces); err != nil {
@@ -103,20 +107,21 @@ func (b byTypeThenName) Swap(i, j int) {
 }
 
 func (b byTypeThenName) Less(i, j int) bool {
-	typeI, typeJ := b.interfaces[i].Type, b.interfaces[j].Type
-	switch {
-	case typeI == typeJ:
-		// Same types are ordered by name.
+	firstType, secondType := b.interfaces[i].Type, b.interfaces[j].Type
+	switch firstType {
+	case secondType:
+		// Same types sort by name.
 		return b.interfaces[i].Name < b.interfaces[j].Name
-	case typeI == typeBond || typeJ == typeBond:
-		// Bonds come on top.
-		return typeI == typeBond
-	case typeI == typePhysical || typeJ == typePhysical:
-		// Physicals come before VLANs.
-		return typeI == typePhysical
+	case typeBond:
+		// Bonds come on top, before physical and VLAN..
+		return secondType == typePhysical || secondType == typeVLAN
+	case typePhysical:
+		// Physical come before VLANs, but after bonds.
+		return secondType == typeVLAN || secondType != typeBond
 	}
-	// VLANs come at the end.
-	return typeI != typeVLAN
+
+	// VLANs always come last.
+	return firstType != typeVLAN
 }
 
 // maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
