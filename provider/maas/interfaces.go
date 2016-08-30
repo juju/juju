@@ -6,10 +6,12 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -90,23 +92,51 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	return interfaces, nil
 }
 
+type byTypeThenName struct {
+	// Embedded so we sort a copy of the original.
+	interfaces []maasInterface
+}
+
+func (b byTypeThenName) Len() int { return len(b.interfaces) }
+func (b byTypeThenName) Swap(i, j int) {
+	b.interfaces[i], b.interfaces[j] = b.interfaces[j], b.interfaces[i]
+}
+
+func (b byTypeThenName) Less(i, j int) bool {
+	typeI, typeJ := b.interfaces[i].Type, b.interfaces[j].Type
+	switch {
+	case typeI == typeJ:
+		// Same types are ordered by name.
+		return b.interfaces[i].Name < b.interfaces[j].Name
+	case typeI == typeBond || typeJ == typeBond:
+		// Bonds come on top.
+		return typeI == typeBond
+	case typeI == typePhysical || typeJ == typePhysical:
+		// Physicals come before VLANs.
+		return typeI == typePhysical
+	}
+	// VLANs come at the end.
+	return typeI != typeVLAN
+}
+
 // maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
-// new (1.9+) MAAS API, parsing the node details JSON embedded into the given
+// MAAS 1.9 API, parsing the node details JSON embedded into the given
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
-// "interface_set" node details field.
+// "interface_set" node details field. If the "pxe_mac"."mac_address" is also
+// present, it will be used to determine the boot interface addresses and put
+// them at the head of the results, as "most preferred" addresses. Finally, when
+// the "hostname" is present, it will be put at index 0.
 func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
-		// This means we're using an older MAAS API.
 		return nil, errors.NotSupportedf("interface_set")
 	}
 
-	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
-	// JSON bytes directly, rather than having to do call MarshalJSON just so
-	// the result can be unmarshaled from it.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311323
+	pxeMACAddress, hostname, err := maasObjectPXEMACAddressAndHostname(maasObject)
+	if err != nil {
+		logger.Warningf("missing pxe_mac.mac_address and/or hostname: %v", err)
+	}
 
 	rawBytes, err := interfaceSet.MarshalJSON()
 	if err != nil {
@@ -118,27 +148,39 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]network.InterfaceInfo, 0, len(interfaces))
-	for i, iface := range interfaces {
+	// In order to correctly match parent-to-child relationships, sort the list
+	// by type (bond, physical, vlan) then name, so parents appear before their
+	// children. Using embedded slice to preserve the original interfaces order.
+	ordered := &byTypeThenName{interfaces: interfaces}
+	sort.Sort(ordered)
 
-		// The below works for all types except bonds and their members.
-		parentName := strings.Join(iface.Parents, "")
+	bonds := set.NewStrings()
+	infos := make([]network.InterfaceInfo, 0, len(ordered.interfaces))
+	bootInterfaceAddresses := make(map[network.Address]int)
+	for i, iface := range ordered.interfaces {
+
 		var nicType network.InterfaceType
+		var parentName string
 		switch iface.Type {
+		case typeBond:
+			nicType = network.BondInterface
+			bonds.Add(iface.Name)
 		case typePhysical:
 			nicType = network.EthernetInterface
-			children := strings.Join(iface.Children, "")
-			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
-				// FIXME: Verify the bond exists, regardless of its name.
-				// This is a bond member, set the parent correctly (from
-				// Juju's perspective) - to the bond itself.
-				parentName = children
+			// Single child can mean either iface is a bond slave, or it has a
+			// VLAN child. iface.Parents is not as useful, because MAAS models
+			// bonds as children to their slaves.
+			if len(iface.Children) == 1 && bonds.Contains(iface.Children[0]) {
+				parentName = iface.Children[0]
 			}
-		case typeBond:
-			parentName = ""
-			nicType = network.BondInterface
 		case typeVLAN:
 			nicType = network.VLAN_8021QInterface
+			if len(iface.Parents) != 1 {
+				// Shouldn't happen, but log it for easier debugging.
+				logger.Debugf("VLAN interface %q - expected one parent, got: %v", iface.Name, iface.Parents)
+			} else {
+				parentName = iface.Parents[0]
+			}
 		}
 
 		nicInfo := network.InterfaceInfo{
@@ -147,8 +189,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
 			VLANTag:             iface.VLAN.VID,
 			InterfaceName:       iface.Name,
-			InterfaceType:       nicType,
 			ParentInterfaceName: parentName,
+			InterfaceType:       nicType,
 			Disabled:            !iface.Enabled,
 			NoAutoStart:         !iface.Enabled,
 		}
@@ -172,6 +214,12 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
 				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
+
+				// Store all IP addresses assigned to the boot (PXE) interface
+				// so we can later put them on top of the result list.
+				if iface.MACAddress == pxeMACAddress {
+					bootInterfaceAddresses[nicInfo.Address] = len(bootInterfaceAddresses)
+				}
 			}
 
 			if link.Subnet == nil {
@@ -214,7 +262,93 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			infos = append(infos, nicInfo)
 		}
 	}
-	return infos, nil
+
+	if len(bootInterfaceAddresses) == 0 {
+		// No preferred addresses available, return as-is.
+		return infos, nil
+	}
+
+	// Reorder the result to put bootInterfaceAddresses, in order, at the top.
+	results := &byPreferedAddresses{
+		addressesOrder: bootInterfaceAddresses,
+		infos:          infos,
+	}
+	sort.Sort(results)
+
+	// hostname when available will match the boot interface's first address.
+	if hostname != "" {
+		hostnameAddress := results.infos[0]
+		hostnameAddress.Address.Value = hostname
+		hostnameAddress.Address.Type = network.HostName
+		hostnameAddress.ProviderAddressId = "" // avoid duplicating the link ID.
+		results.infos = append([]network.InterfaceInfo{hostnameAddress}, results.infos...)
+	}
+	return results.infos, nil
+}
+
+// maasObjectPXEMACAddressAndHostname extract the values of pxe_mac.mac_address
+// and hostname fields from the given maasObject, or returns an error.
+func maasObjectPXEMACAddressAndHostname(maasObject *gomaasapi.MAASObject) (pxeMACAddress, hostname string, _ error) {
+	// Get the PXE MAC address so we can put the top-level physical NIC with
+	// that MAC on top of the list, as it matches the preferred "private"
+	// address of the node.
+	maasObjectMap := maasObject.GetMap()
+	pxeMAC, ok := maasObjectMap["pxe_mac"]
+	if !ok || pxeMAC.IsNil() {
+		return "", "", errors.Errorf("no pxe_mac field in node details")
+	}
+	pxeMACMap, err := pxeMAC.GetMap()
+	if err != nil {
+		return "", "", errors.Annotatef(err, "getting pxe_mac map failed")
+	}
+	pxeMACAddressField, ok := pxeMACMap["mac_address"]
+	if !ok || pxeMACAddressField.IsNil() {
+		return "", "", errors.Errorf("no pxe_mac.mac_address field")
+	}
+	pxeMACAddress, err = pxeMACAddressField.GetString()
+	if err != nil {
+		return "", "", errors.Annotatef(err, "getting pxe_mac.mac_address failed")
+	}
+
+	hostnameField, ok := maasObjectMap["hostname"]
+	if !ok || hostnameField.IsNil() {
+		return "", "", errors.Errorf("no hostname field in node details")
+	}
+	hostname, err = hostnameField.GetString()
+	if err != nil {
+		return "", "", errors.Annotatef(err, "getting hostname failed")
+	}
+
+	return pxeMACAddress, hostname, nil
+}
+
+type byPreferedAddresses struct {
+	addressesOrder map[network.Address]int
+	infos          []network.InterfaceInfo
+}
+
+func (b byPreferedAddresses) Len() int { return len(b.infos) }
+
+func (b byPreferedAddresses) Swap(i, j int) {
+	b.infos[i], b.infos[j] = b.infos[j], b.infos[i]
+}
+
+func (b byPreferedAddresses) Less(i, j int) bool {
+	addressI := b.infos[i].Address
+	addressJ := b.infos[j].Address
+	orderI, preferI := b.addressesOrder[addressI]
+	orderJ, preferJ := b.addressesOrder[addressJ]
+
+	switch {
+	case preferI && preferJ:
+		// Both are preferred, use given order.
+		return orderI < orderJ
+	case preferI || preferJ:
+		// One is preferred, pick that one.
+		return preferI
+	}
+	// Neither is preferred, order by value.
+	return addressI.Value < addressJ.Value
 }
 
 func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
