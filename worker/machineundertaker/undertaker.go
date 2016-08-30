@@ -25,6 +25,8 @@ type Facade interface {
 	CompleteRemoval(names.MachineTag) error
 }
 
+// AddressReleaser defines the interface we need from the environment
+// networking.
 type AddressReleaser interface {
 	ReleaseContainerAddresses([]network.ProviderInterfaceInfo) error
 }
@@ -36,6 +38,9 @@ type Undertaker struct {
 	Releaser AddressReleaser
 }
 
+// NewWorker returns a machine undertaker worker that will watch for
+// machines that need to be removed and remove them, cleaning up any
+// necessary provider-level resources first.
 func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
@@ -47,11 +52,15 @@ func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 	return w, nil
 }
 
+// Setup (part of watcher.NotifyHandler) starts watching for machine
+// removals.
 func (u *Undertaker) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("setting up machine undertaker")
 	return u.API.WatchMachineRemovals()
 }
 
+// Handle (part of watcher.NotifyHandler) cleans up provider resources
+// and removes machines that have been marked for removal.
 func (u *Undertaker) Handle(<-chan struct{}) error {
 	removals, err := u.API.AllMachineRemovals()
 	if err != nil {
@@ -76,13 +85,16 @@ func (u *Undertaker) Handle(<-chan struct{}) error {
 	return nil
 }
 
+// MaybeReleaseAddresses releases any addresses that have been
+// allocated to this machine by the provider (if the provider supports
+// that).
 func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 	if u.Releaser == nil {
 		// This environ doesn't support releasing addresses.
 		return nil
 	}
 	if !names.IsContainerMachine(machine.Id()) {
-		// Only containers need their addresses releasing.
+		// At the moment, only containers need their addresses releasing.
 		return nil
 	}
 	interfaceInfos, err := u.API.GetProviderInterfaceInfo(machine)
@@ -97,12 +109,17 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.
-	if err != nil && !errors.IsNotSupported(err) {
+	if errors.IsNotSupported(err) {
+		logger.Debugf("%s has addresses but provider doesn't support releasing them", machine)
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
+// Teardown (part of watcher.NotifyHandler) is an opportunity to stop
+// or release any resources created in SetUp other than the watcher,
+// which watcher.NotifyWorker takes care of for us.
 func (u *Undertaker) TearDown() error {
 	logger.Infof("tearing down machine undertaker")
 	return nil

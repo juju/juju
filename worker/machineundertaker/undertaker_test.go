@@ -4,8 +4,6 @@
 package machineundertaker_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,10 +13,10 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machineundertaker"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type undertakerSuite struct {
@@ -35,17 +33,7 @@ func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 	api.SetErrors(errors.New("blam"))
 	w, err := machineundertaker.NewWorker(api, &fakeEnviron{})
 	c.Assert(err, jc.ErrorIsNil)
-
-	diedReason := make(chan error)
-	go func() {
-		diedReason <- w.Wait()
-	}()
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to die")
-	case err = <-diedReason:
-	}
-
+	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "blam")
 	api.CheckCallNames(c, "WatchMachineRemovals")
 }
@@ -55,23 +43,17 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 	api.SetErrors(nil, errors.New("explodo"))
 	w, err := machineundertaker.NewWorker(api, &fakeEnviron{})
 	c.Assert(err, jc.ErrorIsNil)
-
-	diedReason := make(chan error)
-	go func() {
-		diedReason <- w.Wait()
-	}()
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to die")
-	case err = <-diedReason:
-	}
-
+	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "explodo")
 	api.CheckCallNames(c, "WatchMachineRemovals", "AllMachineRemovals")
 }
 
 // It's really fiddly trying to test the code behind the worker, so
-// the rest of the tests use the Undertaker directly.
+// the rest of the tests use the Undertaker directly to test the
+// Handle and MaybeReleaseAddresses methods. This is much simpler
+// because everything happens in the same goroutine (and it's safe
+// since all of the clever/tricky lifecycle management is taken care
+// of in NotifyWorker instead).
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}

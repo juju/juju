@@ -28,7 +28,8 @@ var _ = gc.Suite(&manifoldSuite{})
 func (*manifoldSuite) TestMissingCaller(c *gc.C) {
 	manifold := makeManifold(nil, nil)
 	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
-		"the-caller": dependency.ErrMissing,
+		"the-caller":  dependency.ErrMissing,
+		"the-environ": &fakeEnviron{},
 	}))
 	c.Assert(result, gc.IsNil)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
