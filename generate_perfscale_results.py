@@ -310,7 +310,7 @@ def create_html_report(results_dir, details):
 
 def generate_graph_image(base_dir, results_dir, name, generator):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
-    create_report_graph(metric_files_dir, base_dir, name, generator)
+    return create_report_graph(metric_files_dir, base_dir, name, generator)
 
 
 def create_report_graph(rrd_dir, output_dir, name, generator):
