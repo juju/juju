@@ -300,7 +300,7 @@ func maasObjectPXEMACAddressAndHostname(maasObject *gomaasapi.MAASObject) (pxeMA
 	maasObjectMap := maasObject.GetMap()
 	pxeMAC, ok := maasObjectMap["pxe_mac"]
 	if !ok || pxeMAC.IsNil() {
-		return "", "", errors.Errorf("no pxe_mac field in node details")
+		return "", "", errors.Errorf("missing or null pxe_mac field")
 	}
 	pxeMACMap, err := pxeMAC.GetMap()
 	if err != nil {
@@ -308,7 +308,7 @@ func maasObjectPXEMACAddressAndHostname(maasObject *gomaasapi.MAASObject) (pxeMA
 	}
 	pxeMACAddressField, ok := pxeMACMap["mac_address"]
 	if !ok || pxeMACAddressField.IsNil() {
-		return "", "", errors.Errorf("no pxe_mac.mac_address field")
+		return "", "", errors.Errorf("missing or null pxe_mac.mac_address field")
 	}
 	pxeMACAddress, err = pxeMACAddressField.GetString()
 	if err != nil {
@@ -317,7 +317,7 @@ func maasObjectPXEMACAddressAndHostname(maasObject *gomaasapi.MAASObject) (pxeMA
 
 	hostnameField, ok := maasObjectMap["hostname"]
 	if !ok || hostnameField.IsNil() {
-		return "", "", errors.Errorf("no hostname field in node details")
+		return "", "", errors.Errorf("missing or null hostname field")
 	}
 	hostname, err = hostnameField.GetString()
 	if err != nil {

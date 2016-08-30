@@ -474,6 +474,66 @@ func (s *interfacesSuite) TestSortInterfacesByTypeThenName(c *gc.C) {
 	c.Check(input, jc.DeepEquals, inputCopy)
 }
 
+func (s *interfacesSuite) TestMAASObjectPXEMACAddressAndHostname(c *gc.C) {
+	const (
+		nodeJSONPrefix = `{"system_id": "foo"`
+
+		noPXEMAC   = ""
+		nullPXEMAC = `,"pxe_mac": null`
+		badPXEMAC  = `,"pxe_mac": 42`
+
+		noPXEMACAddress   = `,"pxe_mac": {}`
+		nullPXEMACAddress = `,"pxe_mac": {"mac_address": null}`
+		badPXEMACAddress  = `,"pxe_mac": {"mac_address": 42}`
+		goodPXEMACAddress = `,"pxe_mac": {"mac_address": "mac"}`
+
+		noHostname   = ""
+		nullHostname = `,"hostname": null`
+		badHostname  = `,"hostname": 42`
+		goodHostname = `,"hostname": "node-xyz.maas"`
+
+		errNoPXEMAC        = "missing or null pxe_mac field"
+		errNoPXEMACAddress = `missing or null pxe_mac\.mac_address field`
+		errNoHostname      = "missing or null hostname field"
+		errBadTypeSuffix   = ": Requested .*, got float.*"
+	)
+
+	node := func(pxeMACJSON, hostnameJSON string) *gomaasapi.MAASObject {
+		fullJSON := nodeJSONPrefix + pxeMACJSON + hostnameJSON + "}"
+		nodeObject := s.testMAASObject.TestServer.NewNode(fullJSON)
+		return &nodeObject
+	}
+
+	_, _, err := maasObjectPXEMACAddressAndHostname(node(noPXEMAC, noHostname))
+	c.Check(err, gc.ErrorMatches, errNoPXEMAC)
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(nullPXEMAC, noHostname))
+	c.Check(err, gc.ErrorMatches, errNoPXEMAC)
+
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(badPXEMAC, noHostname))
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac map failed"+errBadTypeSuffix)
+
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(noPXEMACAddress, noHostname))
+	c.Check(err, gc.ErrorMatches, errNoPXEMACAddress)
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(nullPXEMACAddress, noHostname))
+	c.Check(err, gc.ErrorMatches, errNoPXEMACAddress)
+
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(badPXEMACAddress, noHostname))
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac.mac_address failed"+errBadTypeSuffix)
+
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, noHostname))
+	c.Check(err, gc.ErrorMatches, errNoHostname)
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, nullHostname))
+	c.Check(err, gc.ErrorMatches, errNoHostname)
+
+	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, badHostname))
+	c.Check(err, gc.ErrorMatches, "getting hostname failed"+errBadTypeSuffix)
+
+	mac, hostname, err := maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, goodHostname))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mac, gc.Equals, "mac")
+	c.Check(hostname, gc.Equals, "node-xyz.maas")
+}
+
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	nodeJSON := fmt.Sprintf(`{
         "system_id": "foo",
