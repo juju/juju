@@ -89,6 +89,10 @@ type ManifoldsConfig struct {
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc environs.NewEnvironFunc
+
+	// NewMigrationMaster is called to create a new migrationmaster
+	// worker.
+	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
 }
 
 // Manifolds returns a set of interdependent dependency manifolds that will
@@ -177,7 +181,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			FortressName:  migrationFortressName,
 			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
-			NewWorker:     migrationmaster.NewWorker,
+			NewWorker:     config.NewMigrationMaster,
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
