@@ -11,7 +11,7 @@ import (
 )
 
 type cloudimagemetadata struct {
-	Version  int       `yaml:"version"`
+	Version              int                   `yaml:"version"`
 	CloudImageMetadatas_ []*cloudimagemetadata `yaml:"cloudimagemetadata"`
 }
 
