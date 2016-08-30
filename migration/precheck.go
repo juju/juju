@@ -19,7 +19,6 @@ import (
 
 ## Source model
 
-- application life
 - application minunits vs units
 - model is dying/dead
 - pending reboots
@@ -33,6 +32,7 @@ import (
 ## Target controller
 
 - controller model is dying/dead
+- pending reboots
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
@@ -86,7 +86,7 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Trace(err)
 	}
 
-	if err := checkAppsAndUnits(backend); err != nil {
+	if err := checkApplications(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -176,7 +176,7 @@ func checkMachines(backend PrecheckBackend) error {
 	return nil
 }
 
-func checkAppsAndUnits(backend PrecheckBackend) error {
+func checkApplications(backend PrecheckBackend) error {
 	modelVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
@@ -186,6 +186,9 @@ func checkAppsAndUnits(backend PrecheckBackend) error {
 		return errors.Annotate(err, "retrieving applications")
 	}
 	for _, app := range apps {
+		if app.Life() != state.Alive {
+			return errors.Errorf("application %s is %s", app.Name(), app.Life())
+		}
 		err := checkUnits(app, modelVersion)
 		if err != nil {
 			return errors.Trace(err)

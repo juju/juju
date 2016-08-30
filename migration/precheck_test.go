@@ -97,6 +97,19 @@ func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
+func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				life: state.Dying,
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "application foo is dying")
+}
+
 func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
