@@ -342,6 +342,7 @@ def generate_mongo_graph_image(results_dir):
     dest_path = os.path.join(results_dir, 'mongodb')
 
     if not create_mongodb_rrd_file(results_dir, dest_path):
+        log.error('Failed to create the MongoDB RRD file.')
         return None
     return generate_graph_image(
         results_dir, 'mongodb', 'mongodb', _rrd_mongdb_graph)
