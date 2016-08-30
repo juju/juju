@@ -260,6 +260,57 @@ func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.ModelDefaults()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ModelDefaultsResult{})
+}
+
+func (s *modelconfigSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.SetModelDefaults(params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"ftp-proxy": "http://charlie",
+			}}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    "unauthorized access"}}}})
+
+	// Make sure it didn't change.
+	cfg, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Value.(string), jc.DeepEquals, "http://proxy")
+}
+
+func (s *modelconfigSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.UnsetModelDefaults(params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"ftp-proxy"}}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: nil}}})
+
+	// Make sure it didn't change.
+	cfg, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Value.(string), jc.DeepEquals, "http://proxy")
+}
+
 type mockBackend struct {
 	cfg         config.ConfigValues
 	cfgDefaults config.ModelDefaultAttributes
