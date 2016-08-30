@@ -273,7 +273,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	// Remove any dead machines from state.
 	for _, machine := range dead {
 		logger.Infof("removing dead machine %q", machine)
-		if err := machine.Remove(); err != nil {
+		if err := machine.MarkForRemoval(); err != nil {
 			logger.Errorf("failed to remove dead machine %q", machine)
 		}
 		delete(task.machines, machine.Id())
