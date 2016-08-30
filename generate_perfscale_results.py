@@ -42,21 +42,9 @@ class TimingData:
     strf_format = '%F %H:%M:%S'
 
     def __init__(self, start, end):
-        self._start = start
-        self._end = end
-        self._seconds = int((end - start).total_seconds())
-
-    @property
-    def start(self):
-        return self._start.strftime(self.strf_format)
-
-    @property
-    def end(self):
-        return self._end.strftime(self.strf_format)
-
-    @property
-    def seconds(self):
-        return self._seconds
+        self.start = start.strftime(self.strf_format)
+        self.end = end.strftime(self.strf_format)
+        self.seconds = int((end - start).total_seconds())
 
 DeployDetails = namedtuple(
     'DeployDetails', ['name', 'applications', 'timings'])
