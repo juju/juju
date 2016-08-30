@@ -461,8 +461,8 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 	}, c.NextErr()
 }
 
-func (c *fakeCloudAPI) Credentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
-	c.MethodCall(c, "Credentials", user, cloud)
+func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
+	c.MethodCall(c, "UserCredentials", user, cloud)
 	return []names.CloudCredentialTag{
 		names.NewCloudCredentialTag("cloud/admin@local/default"),
 		names.NewCloudCredentialTag("aws/other@local/secrets"),

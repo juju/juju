@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	mgo "gopkg.in/mgo.v2"
@@ -105,6 +106,24 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	return nil
 }
 
+// RemoveCloudCredential removes a cloud credential with the given tag.
+func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		_, err := st.CloudCredential(tag)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return removeCloudCredentialOps(tag), nil
+	}
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotate(err, "removing cloud credential")
+	}
+	return nil
+}
+
 // createCloudCredentialOp returns a txn.Op that will create
 // a cloud credential.
 func createCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential) txn.Op {
@@ -134,6 +153,17 @@ func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 			{"attributes", cred.Attributes()},
 		}}},
 	}
+}
+
+// removeCloudCredentialOp returns a txn.Op that will remove
+// a cloud credential.
+func removeCloudCredentialOps(tag names.CloudCredentialTag) []txn.Op {
+	return []txn.Op{{
+		C:      cloudCredentialsC,
+		Id:     cloudCredentialDocID(tag),
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
 }
 
 func cloudCredentialDocID(tag names.CloudCredentialTag) string {

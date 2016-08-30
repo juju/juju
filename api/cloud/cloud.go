@@ -100,14 +100,14 @@ func (c *Client) DefaultCloud() (names.CloudTag, error) {
 	return cloudTag, nil
 }
 
-// Credentials returns the tags for cloud credentials available to a user for
+// UserCredentials returns the tags for cloud credentials available to a user for
 // use with a specific cloud.
-func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
+func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
 	var results params.StringsResults
 	args := params.UserClouds{[]params.UserCloud{
 		{UserTag: user.String(), CloudTag: cloud.String()},
 	}}
-	if err := c.facade.FacadeCall("Credentials", args, &results); err != nil {
+	if err := c.facade.FacadeCall("UserCredentials", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -142,11 +142,38 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	return results.OneError()
+}
+
+// RevokeCredential revokes/deletes a cloud credential.
+func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
 	}
-	if results.Results[0].Error != nil {
-		return results.Results[0].Error
+	if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+		return errors.Trace(err)
 	}
-	return nil
+	return results.OneError()
+}
+
+// Credentials return a slice of credential values for the specified tags.
+// Secrets are excluded from the credential attributes.
+func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCredentialResult, error) {
+	if len(tags) == 0 {
+		return []params.CloudCredentialResult{}, nil
+	}
+	var results params.CloudCredentialResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
+	}
+	if err := c.facade.FacadeCall("Credential", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results.Results, nil
 }

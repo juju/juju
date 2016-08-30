@@ -73,7 +73,7 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
-	cred := cloud.NewEmptyCredential()
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
 	return environs.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
@@ -145,9 +145,10 @@ type OpFinalizeBootstrap struct {
 }
 
 type OpDestroy struct {
-	Env   string
-	Cloud environs.CloudSpec
-	Error error
+	Env         string
+	Cloud       string
+	CloudRegion string
+	Error       error
 }
 
 type OpNetworkInterfaces struct {
@@ -523,8 +524,20 @@ func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
+func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.EmptyAuthType: {},
+		cloud.UserPassAuthType: {
+			{
+				"username", cloud.CredentialAttr{Description: "The username to authenticate with."},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			},
+		},
+	}
 }
 
 func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
@@ -872,9 +885,10 @@ func (e *environ) Destroy() (res error) {
 		name := estate.name
 		estate.mu.Unlock()
 		ops <- OpDestroy{
-			Env:   name,
-			Cloud: e.cloud,
-			Error: res,
+			Env:         name,
+			Cloud:       e.cloud.Name,
+			CloudRegion: e.cloud.Region,
+			Error:       res,
 		}
 	}()
 	if err := e.checkBroken("Destroy"); err != nil {

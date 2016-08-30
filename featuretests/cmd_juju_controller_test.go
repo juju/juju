@@ -264,7 +264,8 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 
 	destroyOp := (<-ops).(dummy.OpDestroy)
 	c.Assert(destroyOp.Env, gc.Equals, "controller")
-	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
+	c.Assert(destroyOp.Cloud, gc.Equals, "dummy")
+	c.Assert(destroyOp.CloudRegion, gc.Equals, "dummy-region")
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")

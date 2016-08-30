@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 type cloudSuite struct {
@@ -50,7 +51,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 
 func (s *cloudSuite) TestCloud(c *gc.C) {
 	results, err := s.api.Cloud(params.Entities{
-		[]params.Entity{{"cloud-my-cloud"}, {"machine-0"}},
+		Entities: []params.Entity{{Tag: "cloud-my-cloud"}, {Tag: "machine-0"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCalls(c, []gitjujutesting.StubCall{
@@ -90,9 +91,9 @@ func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCredentials(c *gc.C) {
+func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("bruce@local")
-	results, err := s.api.Credentials(params.UserClouds{[]params.UserCloud{{
+	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
 	}, {
@@ -120,9 +121,9 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
+func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin@local")
-	results, err := s.api.Credentials(params.UserClouds{[]params.UserCloud{{
+	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "user-julia",
 		CloudTag: "cloud-meep",
 	}}})
@@ -135,7 +136,7 @@ func (s *cloudSuite) TestCredentialsAdminAccess(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("bruce@local")
-	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{[]params.UpdateCloudCredential{{
+	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_whatever",
@@ -169,7 +170,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin@local")
-	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{[]params.UpdateCloudCredential{{
+	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
 		Tag: "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{
 			AuthType:   "oauth1",
@@ -180,6 +181,84 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can update others' credentials
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_whatever",
+	}, {
+		Tag: "cloudcred-meep_bruce_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	s.backend.CheckCall(
+		c, 1, "RemoveCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+	)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin@local")
+	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_julia_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	// admin can revoke others' credentials
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestCredential(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_foo",
+	}, {
+		Tag: "cloudcred-meep_bruce@local_two",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials", "Cloud")
+	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce@local"), "meep")
+
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[2].Result, jc.DeepEquals, &params.CloudCredential{
+		AuthType:   "userpass",
+		Attributes: map[string]string{"username": "admin"},
+		Redacted:   []string{"password"},
+	})
+}
+
+func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin@local")
+	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_bruce@local_two",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials", "Cloud")
+	c.Assert(results.Results, gc.HasLen, 1)
+	// admin can access others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
@@ -229,6 +308,11 @@ func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (m
 
 func (st *mockBackend) UpdateCloudCredential(tag names.CloudCredentialTag, cred cloud.Credential) error {
 	st.MethodCall(st, "UpdateCloudCredential", tag, cred)
+	return st.NextErr()
+}
+
+func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error {
+	st.MethodCall(st, "RemoveCloudCredential", tag)
 	return st.NextErr()
 }
 

@@ -135,7 +135,7 @@ type CloudAPI interface {
 	DefaultCloud() (names.CloudTag, error)
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
-	Credentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
+	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
 	UpdateCredential(names.CloudCredentialTag, jujucloud.Credential) error
 }
 
@@ -405,7 +405,7 @@ func (c *addModelCommand) maybeUploadCredential(
 	// TODO(axw) consider implementing a call that can check
 	// that the credential exists without fetching all of the
 	// names.
-	credentialTags, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
+	credentialTags, err := cloudClient.UserCredentials(modelOwnerTag, cloudTag)
 	if err != nil {
 		return names.CloudCredentialTag{}, errors.Trace(err)
 	}
