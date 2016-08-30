@@ -119,11 +119,6 @@ LoadPlugin users
 </Plugin>
 
 <Plugin df>
-#    Device "/dev/sda1"
-#    Device "192.168.0.2:/mnt/nfs"
-#    MountPoint "/home"
-#    FSType "ext3"
-
     # ignore rootfs; else, the root file-system would appear twice, causing
     # one of the updates to fail and spam the log
     FSType rootfs
@@ -136,30 +131,10 @@ LoadPlugin users
     FSType fusectl
     FSType cgroup
     IgnoreSelected true
-
-#    ReportByDevice false
-#    ReportReserved false
-#    ReportInodes false
-
-#    ValuesAbsolute true
-#    ValuesPercentage false
 </Plugin>
 
 <Plugin rrdtool>
     DataDir "/var/lib/collectd/rrd"
-#    CacheTimeout 120
-#    CacheFlush 900
-#    WritesPerSecond 30
-#    CreateFilesAsync false
-#    RandomTimeout 0
-#
-# The following settings are rather advanced
-# and should usually not be touched:
-#    StepSize 10
-#    HeartBeat 20
-#    RRARows 1200
-#    RRATimespan 158112000
-#    XFF 0.1
 </Plugin>
 
 <Include "/etc/collectd/collectd.conf.d">
