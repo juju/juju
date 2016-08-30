@@ -19,7 +19,6 @@ import (
 
 ## Source model
 
-- application minunits vs units
 - model is dying/dead
 - pending reboots
 - model is being imported as part of another migration
@@ -66,6 +65,7 @@ type PrecheckApplication interface {
 	Name() string
 	Life() state.Life
 	AllUnits() ([]PrecheckUnit, error)
+	MinUnits() int
 }
 
 // PrecheckUnit describes state interface for a unit needed by
@@ -202,6 +202,10 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 	if err != nil {
 		return errors.Annotatef(err, "retrieving units for %s", app.Name())
 	}
+	if len(units) < app.MinUnits() {
+		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
+	}
+
 	for _, unit := range units {
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())

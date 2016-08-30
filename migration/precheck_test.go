@@ -110,6 +110,20 @@ func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "application foo is dying")
 }
 
+func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:     "foo",
+				minunits: 2,
+				units:    []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "application foo is below its minimum units threshold")
+}
+
 func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -437,9 +451,10 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 }
 
 type fakeApp struct {
-	name  string
-	life  state.Life
-	units []migration.PrecheckUnit
+	name     string
+	life     state.Life
+	units    []migration.PrecheckUnit
+	minunits int
 }
 
 func (a *fakeApp) Name() string {
@@ -452,6 +467,10 @@ func (a *fakeApp) Life() state.Life {
 
 func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
 	return a.units, nil
+}
+
+func (a *fakeApp) MinUnits() int {
+	return a.minunits
 }
 
 type fakeUnit struct {
