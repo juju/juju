@@ -6,6 +6,7 @@ package maas
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"text/template"
 
 	"github.com/juju/gomaasapi"
@@ -437,6 +438,40 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
+}
+
+func (s *interfacesSuite) TestSortInterfacesByTypeThenName(c *gc.C) {
+	input := []maasInterface{
+		{Name: "eth1", Type: "physical"},
+		{Name: "eth0", Type: "physical"},
+		{Name: "eth3", Type: "physical"},
+		{Name: "eth2", Type: "physical"},
+		{Name: "bond0", Type: "bond"},
+		{Name: "bond0.50", Type: "vlan"},
+		{Name: "bond0.100", Type: "vlan"},
+		{Name: "bond1", Type: "bond"},
+		{Name: "bond1.200", Type: "vlan"},
+		{Name: "bond1.100", Type: "vlan"},
+	}
+	expected := []maasInterface{
+		{Name: "bond0", Type: "bond"},
+		{Name: "bond1", Type: "bond"},
+		{Name: "eth0", Type: "physical"},
+		{Name: "eth1", Type: "physical"},
+		{Name: "eth2", Type: "physical"},
+		{Name: "eth3", Type: "physical"},
+		{Name: "bond0.100", Type: "vlan"},
+		{Name: "bond0.50", Type: "vlan"},
+		{Name: "bond1.100", Type: "vlan"},
+		{Name: "bond1.200", Type: "vlan"},
+	}
+	inputCopy := input
+	ordered := &byTypeThenName{interfaces: input}
+	sort.Sort(ordered)
+
+	c.Check(ordered.interfaces, jc.DeepEquals, expected)
+	// Input shouldn't be modified.
+	c.Check(input, jc.DeepEquals, inputCopy)
 }
 
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
