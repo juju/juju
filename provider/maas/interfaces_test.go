@@ -474,6 +474,42 @@ func (s *interfacesSuite) TestSortInterfacesByTypeThenName(c *gc.C) {
 	c.Check(input, jc.DeepEquals, inputCopy)
 }
 
+func (s *interfacesSuite) TestSortInterfaceInfoByPreferredAddresses(c *gc.C) {
+	input := []network.InterfaceInfo{
+		{Address: network.Address{}, InterfaceName: "eth1"},
+		{Address: network.Address{}, InterfaceName: "eth0"},
+		{Address: network.NewAddress("10.20.19.111"), InterfaceName: "bond1"},
+		{Address: network.NewAddress("10.100.19.101"), InterfaceName: "bond0.100"},
+		{Address: network.NewAddress("10.50.19.142"), InterfaceName: "bond0.50"},
+		{Address: network.NewAddress("10.20.19.102"), InterfaceName: "bond0"},
+	}
+	inputCopy := input
+	ordered := &byPreferedAddresses{
+		addressesOrder: nil, // no preferred addresses ordering, no change expected.
+		infos:          input,
+	}
+	sort.Sort(ordered)
+	c.Check(ordered.infos, gc.DeepEquals, input)
+	c.Check(inputCopy, gc.DeepEquals, input)
+
+	ordered.addressesOrder = map[network.Address]int{
+		network.NewAddress("10.20.19.102"):  0,
+		network.NewAddress("10.20.19.111"):  1,
+		network.NewAddress("10.50.19.142"):  22,
+		network.NewAddress("10.100.19.101"): 99,
+	}
+	sort.Sort(ordered)
+	c.Check(ordered.infos, gc.DeepEquals, []network.InterfaceInfo{
+		{Address: network.NewAddress("10.20.19.102"), InterfaceName: "bond0"},
+		{Address: network.NewAddress("10.20.19.111"), InterfaceName: "bond1"},
+		{Address: network.NewAddress("10.50.19.142"), InterfaceName: "bond0.50"},
+		{Address: network.NewAddress("10.100.19.101"), InterfaceName: "bond0.100"},
+		{Address: network.Address{}, InterfaceName: "eth1"},
+		{Address: network.Address{}, InterfaceName: "eth0"},
+	})
+	c.Check(inputCopy, gc.DeepEquals, input)
+}
+
 func (s *interfacesSuite) TestMAASObjectPXEMACAddressAndHostname(c *gc.C) {
 	const (
 		nodeJSONPrefix = `{"system_id": "foo"`
