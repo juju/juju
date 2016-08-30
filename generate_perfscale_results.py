@@ -31,6 +31,12 @@ from utility import (
 __metaclass__ = type
 
 
+class GraphDefaults:
+    height = '600'
+    width = '800'
+    font = 'DEFAULT:0:Bitstream Vera Sans'
+
+
 class TimingData:
 
     strf_format = '%F %H:%M:%S'
@@ -250,6 +256,7 @@ def generate_reports(controller_log, results_dir, deployments):
     """Generate reports and graphs from run results."""
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
+    # Don't forget to remove the swap details.
     swap_image = generate_swap_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
     mongo_image = generate_mongo_graph_image(results_dir)
@@ -462,107 +469,83 @@ def get_mongodb_stat_data(log_file):
 
 
 def _rrd_network_graph(start, end, rrd_path, output_file):
-    script_text = dedent("""\
-    rrdtool graph {output_file} -a PNG --full-size-mode \
-    -s '{start}' -e '{end}' -w '800' -h '600' \
-    '-n' \
-    'DEFAULT:0:Bitstream Vera Sans' \
-    '-v' \
-    'Bytes' \
-    '-r' \
-    '-t' \
-    'Network Usage' \
-    'DEF:rx_avg={rrd_path}/if_packets.rrd:rx:AVERAGE' \
-    'DEF:tx_avg={rrd_path}/if_packets.rrd:tx:AVERAGE' \
-    'CDEF:rx_nnl=rx_avg,UN,0,rx_avg,IF' \
-    'CDEF:tx_nnl=tx_avg,UN,0,tx_avg,IF' \
-    'CDEF:rx_stk=rx_nnl' \
-    'CDEF:tx_stk=tx_nnl' \
-    'LINE2:rx_stk#bff7bf: rx' \
-    'LINE2:tx_stk#ffb000: tx'
-    """.format(
-        output_file=output_file,
-        rrd_path=rrd_path,
-        start=start,
-        end=end))
     with EnvironmentVariable('TZ', 'UTC'):
-        with temp_dir() as temp:
-            script_path = os.path.abspath(os.path.join(temp, 'network.sh'))
-            with open(script_path, 'wt') as f:
-                f.write(script_text)
-            subprocess.check_call(['sh', script_path])
+        # This could prob be made to take: start, end, y-axis, title, data.
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',  # test
+            '-w', GraphDefaults.width,
+            '-h', GraphDefaults.height,
+            '-n', GraphDefaults.font,
+            '-v', 'Bytes',
+            '--alt-autoscale-max',  # test
+            '-t', 'Network Usage',
+            'DEF:rx_avg={}/if_packets.rrd:rx:AVERAGE'.format(rrd_path),
+            'DEF:tx_avg={}/if_packets.rrd:tx:AVERAGE'.format(rrd_path),
+            'CDEF:rx_nnl=rx_avg,UN,0,rx_avg,IF',
+            'CDEF:tx_nnl=tx_avg,UN,0,tx_avg,IF',
+            'CDEF:rx_stk=rx_nnl',
+            'CDEF:tx_stk=tx_nnl',
+            'LINE2:rx_stk#bff7bf: RX',
+            'LINE2:tx_stk#ffb000: TX')
 
 
 def _rrd_swap_graph(start, end, rrd_path, output_file):
-    script_text = dedent("""\
-    rrdtool graph "{output_file}" -a PNG --full-size-mode \
-    -s "{start}" -e "{end}" -w "800" -h "600" \
-    "-n" \
-    "DEFAULT:0:Bitstream Vera Sans" \
-    "-v" \
-    "Swap" \
-    "-r" \
-    "-t" \
-    "Swap space Usage" \
-    "DEF:free_avg={rrd_path}/swap-free.rrd:value:AVERAGE" \
-    "CDEF:free_nnl=free_avg,UN,0,free_avg,IF" \
-    "DEF:used_avg={rrd_path}/swap-used.rrd:value:AVERAGE" \
-    "CDEF:used_nnl=used_avg,UN,0,used_avg,IF" \
-    "CDEF:free_stk=free_nnl" \
-    "CDEF:used_stk=used_nnl" \
-    "AREA:free_stk#ffffff" \
-    "LINE1:free_stk#ffffff: free" \
-    "AREA:used_stk#ffebbf" \
-    "LINE1:used_stk#ffb000: used"
-    """.format(
-        output_file=output_file,
-        rrd_path=rrd_path,
-        start=start,
-        end=end))
     with EnvironmentVariable('TZ', 'UTC'):
-        with temp_dir() as temp:
-            script_path = os.path.abspath(os.path.join(temp, 'swap.sh'))
-            with open(script_path, 'wt') as f:
-                f.write(script_text)
-            subprocess.check_call(['sh', script_path])
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',  # test
+            '-w', GraphDefaults.width,
+            '-h', GraphDefaults.height,
+            '-n', GraphDefaults.font,
+            '-v', 'Swap',
+            '--alt-autoscale-max',  # test
+            '-t', 'Swap space usage',
+            'DEF:free_avg={}/swap-free.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:free_nnl=free_avg,UN,0,free_avg,IF',
+            'DEF:used_avg={}/swap-used.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:used_nnl=used_avg,UN,0,used_avg,IF',
+            'CDEF:free_stk=free_nnl',
+            'CDEF:used_stk=used_nnl',
+            'AREA:free_stk#ffffff',
+            'LINE1:free_stk#ffffff: free',
+            'AREA:used_stk#ffebbf',
+            'LINE1:used_stk#ffb000: used')
 
 
 def _rrd_memory_graph(start, end, rrd_path, output_file):
-    script_text = dedent("""\
-    rrdtool graph "{output_file}" -a PNG --full-size-mode \
-    -s "{start}" -e "{end}" -w "800" -h "600" \
-    "-n" \
-    "DEFAULT:0:Bitstream Vera Sans" \
-    "-v" \
-    "Memory" \
-    "-r" \
-    "-t" \
-    "Memory Usage" \
-    "DEF:free_avg={rrd_path}/memory-free.rrd:value:AVERAGE" \
-    "CDEF:free_nnl=free_avg,UN,0,free_avg,IF" \
-    "DEF:used_avg={rrd_path}/memory-used.rrd:value:AVERAGE" \
-    "CDEF:used_nnl=used_avg,UN,0,used_avg,IF" \
-    "DEF:buffered_avg={rrd_path}/memory-buffered.rrd:value:AVERAGE" \
-    "CDEF:buffered_nnl=buffered_avg,UN,0,buffered_avg,IF" \
-    "DEF:cached_avg={rrd_path}/memory-cached.rrd:value:AVERAGE" \
-    "CDEF:cached_nnl=cached_avg,UN,0,cached_avg,IF" \
-    "CDEF:free_stk=free_nnl" \
-    "CDEF:used_stk=used_nnl" \
-    "AREA:free_stk#ffffff" \
-    "LINE1:free_stk#ffffff: free" \
-    "AREA:used_stk#ffebbf" \
-    "LINE1:used_stk#ffb000: used"
-    """.format(
-        output_file=output_file,
-        rrd_path=rrd_path,
-        start=start,
-        end=end))
     with EnvironmentVariable('TZ', 'UTC'):
-        with temp_dir() as temp:
-            script_path = os.path.abspath(os.path.join(temp, 'memory.sh'))
-            with open(script_path, 'wt') as f:
-                f.write(script_text)
-            subprocess.check_call(['sh', script_path])
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',  # test
+            '-w', GraphDefaults.width,
+            '-h', GraphDefaults.height,
+            '-n', GraphDefaults.font,
+            '-v', 'Memory',
+            '--alt-autoscale-max',  # test
+            '-t', 'Memory Usage',
+            'DEF:free_avg={}/memory-free.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:free_nnl=free_avg,UN,0,free_avg,IF',
+            'DEF:used_avg={}/memory-used.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:used_nnl=used_avg,UN,0,used_avg,IF',
+            'DEF:buffered_avg={}/memory-buffered.rrd:value:AVERAGE'.format(
+                rrd_path),
+            'CDEF:buffered_nnl=buffered_avg,UN,0,buffered_avg,IF',
+            'DEF:cached_avg={}/memory-cached.rrd:value:AVERAGE'.format(
+                rrd_path),
+            'CDEF:cached_nnl=cached_avg,UN,0,cached_avg,IF',
+            'CDEF:free_stk=free_nnl',
+            'CDEF:used_stk=used_nnl',
+            'AREA:free_stk#ffffff',
+            'LINE1:free_stk#ffffff: free',
+            'AREA:used_stk#ffebbf',
+            'LINE1:used_stk#ffb000: used')
 
 
 def _rrd_mongdb_graph(start, end, rrd_path, output_file):
@@ -570,7 +553,7 @@ def _rrd_mongdb_graph(start, end, rrd_path, output_file):
         rrdtool.graph(
             output_file,
             '--start', str(start),
-            '-e', str(end),
+            '--end', str(end),
             '--full-size-mode',
             '-w', '800',
             '-h', '600',
@@ -605,71 +588,62 @@ def _rrd_mongdb_graph(start, end, rrd_path, output_file):
 
 
 def _rrd_cpu_graph(start, end, rrd_path, output_file):
-    script_text = dedent("""\
-    rrdtool graph {output_file} -a PNG --full-size-mode \
-    -s '{start}' -e '{end}' -w '800' -h '600' \
-    '-n' \
-    'DEFAULT:0:Bitstream Vera Sans' \
-    '-v' \
-    'Jiffies' \
-    '-r' \
-    '-u' \
-    '100' \
-    '-t' \
-    'CPU Average' \
-    'DEF:idle_avg={rrd_path}/cpu-idle.rrd:value:AVERAGE' \
-    'CDEF:idle_nnl=idle_avg,UN,0,idle_avg,IF' \
-    'DEF:wait_avg={rrd_path}/cpu-wait.rrd:value:AVERAGE' \
-    'CDEF:wait_nnl=wait_avg,UN,0,wait_avg,IF' \
-    'DEF:nice_avg={rrd_path}/cpu-nice.rrd:value:AVERAGE' \
-    'CDEF:nice_nnl=nice_avg,UN,0,nice_avg,IF' \
-    'DEF:user_avg={rrd_path}/cpu-user.rrd:value:AVERAGE' \
-    'CDEF:user_nnl=user_avg,UN,0,user_avg,IF' \
-    'DEF:system_avg={rrd_path}/cpu-system.rrd:value:AVERAGE' \
-    'CDEF:system_nnl=system_avg,UN,0,system_avg,IF' \
-    'DEF:softirq_avg={rrd_path}/cpu-softirq.rrd:value:AVERAGE' \
-    'CDEF:softirq_nnl=softirq_avg,UN,0,softirq_avg,IF' \
-    'DEF:interrupt_avg={rrd_path}/cpu-interrupt.rrd:value:AVERAGE' \
-    'CDEF:interrupt_nnl=interrupt_avg,UN,0,interrupt_avg,IF' \
-    'DEF:steal_avg={rrd_path}/cpu-steal.rrd:value:AVERAGE' \
-    'CDEF:steal_nnl=steal_avg,UN,0,steal_avg,IF' \
-    'CDEF:steal_stk=steal_nnl' \
-    'CDEF:interrupt_stk=interrupt_nnl,steal_stk,+' \
-    'CDEF:softirq_stk=softirq_nnl,interrupt_stk,+' \
-    'CDEF:system_stk=system_nnl,softirq_stk,+' \
-    'CDEF:user_stk=user_nnl,system_stk,+' \
-    'CDEF:nice_stk=nice_nnl,user_stk,+' \
-    'CDEF:wait_stk=wait_nnl,nice_stk,+' \
-    'CDEF:idle_stk=idle_nnl,wait_stk,+' \
-    'AREA:idle_stk#ffffff' \
-    'LINE1:idle_stk#ffffff: idle     ' \
-    'AREA:wait_stk#ffebbf' \
-    'LINE1:wait_stk#ffb000: wait     ' \
-    'AREA:nice_stk#bff7bf' \
-    'LINE1:nice_stk#00e000: nice     ' \
-    'AREA:user_stk#bfbfff' \
-    'LINE1:user_stk#0000ff: user     ' \
-    'AREA:system_stk#ffbfbf' \
-    'LINE1:system_stk#ff0000: system   ' \
-    'AREA:softirq_stk#ffbfff' \
-    'LINE1:softirq_stk#ff00ff: softirq  ' \
-    'AREA:interrupt_stk#e7bfe7' \
-    'LINE1:interrupt_stk#a000a0: interrupt' \
-    'AREA:steal_stk#bfbfbf' \
-    'LINE1:steal_stk#000000: steal'
-    """.format(
-        output_file=output_file,
-        rrd_path=rrd_path,
-        start=start,
-        end=end
-    ))
-
     with EnvironmentVariable('TZ', 'UTC'):
-        with temp_dir() as temp:
-            script_path = os.path.abspath(os.path.join(temp, 'cpu.sh'))
-            with open(script_path, 'wt') as f:
-                f.write(script_text)
-            subprocess.check_call(['sh', script_path])
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',  # test
+            '-w', GraphDefaults.width,
+            '-h', GraphDefaults.height,
+            '-n', GraphDefaults.font,
+            '-v', 'Jiffies',
+            '--alt-autoscale-max',  # test
+            '-t', 'CPU Average',
+            '-u', '100',
+            '-r',               # ?
+            'DEF:idle_avg={}/cpu-idle.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:idle_nnl=idle_avg,UN,0,idle_avg,IF',
+            'DEF:wait_avg={}/cpu-wait.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:wait_nnl=wait_avg,UN,0,wait_avg,IF',
+            'DEF:nice_avg={}/cpu-nice.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:nice_nnl=nice_avg,UN,0,nice_avg,IF',
+            'DEF:user_avg={}/cpu-user.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:user_nnl=user_avg,UN,0,user_avg,IF',
+            'DEF:system_avg={}/cpu-system.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:system_nnl=system_avg,UN,0,system_avg,IF',
+            'DEF:softirq_avg={}/cpu-softirq.rrd:value:AVERAGE'.format(
+                rrd_path),
+            'CDEF:softirq_nnl=softirq_avg,UN,0,softirq_avg,IF',
+            'DEF:interrupt_avg={}/cpu-interrupt.rrd:value:AVERAGE'.format(
+                rrd_path),
+            'CDEF:interrupt_nnl=interrupt_avg,UN,0,interrupt_avg,IF',
+            'DEF:steal_avg={}/cpu-steal.rrd:value:AVERAGE'.format(rrd_path),
+            'CDEF:steal_nnl=steal_avg,UN,0,steal_avg,IF',
+            'CDEF:steal_stk=steal_nnl',
+            'CDEF:interrupt_stk=interrupt_nnl,steal_stk,+',
+            'CDEF:softirq_stk=softirq_nnl,interrupt_stk,+',
+            'CDEF:system_stk=system_nnl,softirq_stk,+',
+            'CDEF:user_stk=user_nnl,system_stk,+',
+            'CDEF:nice_stk=nice_nnl,user_stk,+',
+            'CDEF:wait_stk=wait_nnl,nice_stk,+',
+            'CDEF:idle_stk=idle_nnl,wait_stk,+',
+            'AREA:idle_stk#ffffff',
+            'LINE1:idle_stk#ffffff: Idle',
+            'AREA:wait_stk#ffebbf',
+            'LINE1:wait_stk#ffb000: Wait',
+            'AREA:nice_stk#bff7bf',
+            'LINE1:nice_stk#00e000: Nice',
+            'AREA:user_stk#bfbfff',
+            'LINE1:user_stk#0000ff: User',
+            'AREA:system_stk#ffbfbf',
+            'LINE1:system_stk#ff0000: system',
+            'AREA:softirq_stk#ffbfff',
+            'LINE1:softirq_stk#ff00ff: Softirq',
+            'AREA:interrupt_stk#e7bfe7',
+            'LINE1:interrupt_stk#a000a0: Interrupt',
+            'AREA:steal_stk#bfbfbf',
+            'LINE1:steal_stk#000000: Steal')
 
 
 def get_duration_points(rrd_file):
@@ -767,26 +741,6 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     assess_perf_test_simple(bs_manager, args.upload_tools)
-
-    # # # deploy
-    # deploy = TimingData(
-    #     datetime(2016, 7, 19, 2, 40, 27, 855692),
-    #     datetime(2016, 7, 19, 2, 51, 51, 910747))
-    # deploy2 = TimingData(
-    #     datetime(2016, 7, 19, 2, 51, 59, 910747),
-    #     datetime(2016, 7, 19, 3, 2, 30, 910747))
-    # # bootstrap:
-    # bootstrap = TimingData(
-    #     datetime(2016, 7, 19, 2, 33, 41, 5351),
-    #     datetime(2016, 7, 19, 2, 39, 45, 16832))
-    # timings = dict(
-    #     bootstrap=bootstrap,
-    #     deploys=[
-    #         DeployDetails('blah', dict(), deploy),
-    #         DeployDetails('blah2', dict(), deploy2)
-    #     ],
-    #     cleanup=bootstrap)
-    # generate_reports('', '/tmp/example_collection/', timings)
 
     return 0
 
