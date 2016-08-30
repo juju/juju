@@ -192,7 +192,9 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			}
 		}
 
-		if bootInterface.Name == "" && iface.MACAddress == pxeMACAddress && parentName == "" {
+		matchesPXEMAC := pxeMACAddress == iface.MACAddress && pxeMACAddress != ""
+		isTopLevel := parentName == ""
+		if bootInterface.Name == "" && isTopLevel && matchesPXEMAC {
 			// Only top-level physical interfaces can be used for PXE booting,
 			// and once we find it, we should stick with it.
 			logger.Infof("boot interface is %q", iface.Name)
