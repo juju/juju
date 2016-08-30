@@ -308,9 +308,9 @@ def create_html_report(results_dir, details):
         f.write(template.render(details))
 
 
-def generate_graph_image(base_dir, results_dir, generator):
+def generate_graph_image(base_dir, results_dir, name, generator):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
-    return generator(metric_files_dir, base_dir)
+    create_report_graph(metric_files_dir, base_dir, name, generator)
 
 
 def create_report_graph(rrd_dir, output_dir, name, generator):
@@ -325,31 +325,17 @@ def create_report_graph(rrd_dir, output_dir, name, generator):
 
 def generate_cpu_graph_image(results_dir):
     return generate_graph_image(
-        results_dir, 'aggregation-cpu-average', create_cpu_report_graph)
-
-
-def create_cpu_report_graph(rrd_dir, output_dir):
-    return create_report_graph(rrd_dir, output_dir, 'cpu', _rrd_cpu_graph)
+        results_dir, 'aggregation-cpu-average', 'cpu', _rrd_cpu_graph)
 
 
 def generate_memory_graph_image(results_dir):
     return generate_graph_image(
-        results_dir, 'memory', create_memory_report_graph)
-
-
-def create_memory_report_graph(rrd_dir, output_dir):
-    return create_report_graph(
-        rrd_dir, output_dir, 'memory', _rrd_memory_graph)
+        results_dir, 'memory', 'memory', _rrd_memory_graph)
 
 
 def generate_network_graph_image(results_dir):
     return generate_graph_image(
-        results_dir, 'interface-eth0', create_network_report_graph)
-
-
-def create_network_report_graph(rrd_dir, output_dir):
-    return create_report_graph(
-        rrd_dir, output_dir, 'network', _rrd_network_graph)
+        results_dir, 'interface-eth0', 'network', _rrd_network_graph)
 
 
 def generate_mongo_graph_image(results_dir):
@@ -358,12 +344,7 @@ def generate_mongo_graph_image(results_dir):
     if not create_mongodb_rrd_file(results_dir, dest_path):
         return None
     return generate_graph_image(
-        results_dir, 'mongodb', create_mongodb_report_graph)
-
-
-def create_mongodb_report_graph(rrd_dir, output_dir):
-    return create_report_graph(
-        rrd_dir, output_dir, 'mongodb', _rrd_mongdb_graph)
+        results_dir, 'mongodb', 'mongodb', _rrd_mongdb_graph)
 
 
 def create_mongodb_rrd_file(results_dir, destination_dir):
@@ -592,9 +573,9 @@ def assess_deployment_perf(client):
     # or one after the other etc.
     deploy_start = datetime.utcnow()
 
-    bundle_name = 'cs:~landscape/bundle/landscape-scalable'
+    # bundle_name = 'cs:~landscape/bundle/landscape-scalable'
     # bundle_name = 'cs:bundle/wiki-simple-0'
-    # bundle_name = 'cs:ubuntu'
+    bundle_name = 'cs:ubuntu'
     client.deploy(bundle_name)
     client.wait_for_started()
 
