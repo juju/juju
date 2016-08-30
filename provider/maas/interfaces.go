@@ -102,26 +102,30 @@ type byTypeThenName struct {
 }
 
 func (b byTypeThenName) Len() int { return len(b.interfaces) }
+
 func (b byTypeThenName) Swap(i, j int) {
 	b.interfaces[i], b.interfaces[j] = b.interfaces[j], b.interfaces[i]
 }
 
 func (b byTypeThenName) Less(i, j int) bool {
-	firstType, secondType := b.interfaces[i].Type, b.interfaces[j].Type
-	switch firstType {
-	case secondType:
-		// Same types sort by name.
-		return b.interfaces[i].Name < b.interfaces[j].Name
+	first, second := b.interfaces[i], b.interfaces[j]
+	switch first.Type {
+	case second.Type:
+		// Same types sort by name, but eth0.50 comes before eth0.100.
+		if first.Type == typeVLAN && first.Parents[0] == second.Parents[0] {
+			return first.VLAN.VID < second.VLAN.VID
+		}
+		return first.Name < second.Name
 	case typeBond:
 		// Bonds come on top, before physical and VLAN..
-		return secondType == typePhysical || secondType == typeVLAN
+		return second.Type == typePhysical || second.Type == typeVLAN
 	case typePhysical:
 		// Physical come before VLANs, but after bonds.
-		return secondType == typeVLAN || secondType != typeBond
+		return second.Type == typeVLAN || second.Type != typeBond
 	}
 
 	// VLANs always come last.
-	return firstType != typeVLAN
+	return first.Type != typeVLAN
 }
 
 // maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
@@ -161,11 +165,11 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 
 	bonds := set.NewStrings()
 	infos := make([]network.InterfaceInfo, 0, len(ordered.interfaces))
-	bootInterfaceAddresses := make(map[network.Address]int)
+	var bootInterface maasInterface
 	for i, iface := range ordered.interfaces {
 
 		var nicType network.InterfaceType
-		var parentName string
+		parentName := ""
 		switch iface.Type {
 		case typeBond:
 			nicType = network.BondInterface
@@ -180,12 +184,19 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			}
 		case typeVLAN:
 			nicType = network.VLAN_8021QInterface
-			if len(iface.Parents) != 1 {
+			if len(iface.Parents) == 1 {
+				parentName = iface.Parents[0]
+			} else {
 				// Shouldn't happen, but log it for easier debugging.
 				logger.Debugf("VLAN interface %q - expected one parent, got: %v", iface.Name, iface.Parents)
-			} else {
-				parentName = iface.Parents[0]
 			}
+		}
+
+		if bootInterface.Name == "" && iface.MACAddress == pxeMACAddress && parentName == "" {
+			// Only top-level physical interfaces can be used for PXE booting,
+			// and once we find it, we should stick with it.
+			logger.Infof("boot interface is %q", iface.Name)
+			bootInterface = iface
 		}
 
 		nicInfo := network.InterfaceInfo{
@@ -219,12 +230,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
 				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
-
-				// Store all IP addresses assigned to the boot (PXE) interface
-				// so we can later put them on top of the result list.
-				if iface.MACAddress == pxeMACAddress {
-					bootInterfaceAddresses[nicInfo.Address] = len(bootInterfaceAddresses)
-				}
 			}
 
 			if link.Subnet == nil {
@@ -268,9 +273,30 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		}
 	}
 
-	if len(bootInterfaceAddresses) == 0 {
-		// No preferred addresses available, return as-is.
+	// hostname when available will be put on top of the list.
+	if hostname != "" {
+		firstInfo := infos[0]
+		spaceName := string(firstInfo.Address.SpaceName)
+		firstInfo.Address = network.NewAddressOnSpace(spaceName, hostname)
+		firstInfo.ProviderAddressId = "" // avoid duplicating the link ID.
+		infos = append([]network.InterfaceInfo{firstInfo}, infos...)
+	}
+
+	if bootInterface.Name == "" {
+		// Could not find the boot interface, no need to reorder results.
 		return infos, nil
+	}
+
+	bootInterfaceAddresses := make(map[network.Address]int)
+	for _, link := range bootInterface.Links {
+		if link.IPAddress != "" {
+			addr := network.NewAddress(link.IPAddress)
+			bootInterfaceAddresses[addr] = len(bootInterfaceAddresses)
+		}
+	}
+	if hostname != "" {
+		// Hostname is the "most preferred" address.
+		bootInterfaceAddresses[infos[0].Address] = -1
 	}
 
 	// Reorder the result to put bootInterfaceAddresses, in order, at the top.
@@ -280,14 +306,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 	}
 	sort.Sort(results)
 
-	// hostname when available will match the boot interface's first address.
-	if hostname != "" {
-		hostnameAddress := results.infos[0]
-		hostnameAddress.Address.Value = hostname
-		hostnameAddress.Address.Type = network.HostName
-		hostnameAddress.ProviderAddressId = "" // avoid duplicating the link ID.
-		results.infos = append([]network.InterfaceInfo{hostnameAddress}, results.infos...)
-	}
 	return results.infos, nil
 }
 
@@ -339,21 +357,27 @@ func (b byPreferedAddresses) Swap(i, j int) {
 }
 
 func (b byPreferedAddresses) Less(i, j int) bool {
-	addressI := b.infos[i].Address
-	addressJ := b.infos[j].Address
-	orderI, preferI := b.addressesOrder[addressI]
-	orderJ, preferJ := b.addressesOrder[addressJ]
+	first, second := b.infos[i], b.infos[j]
+	firstOrder, firstPreferred := b.addressesOrder[first.Address]
+	secondOrder, secondPreferred := b.addressesOrder[second.Address]
 
 	switch {
-	case preferI && preferJ:
+	case firstPreferred && secondPreferred:
 		// Both are preferred, use given order.
-		return orderI < orderJ
-	case preferI || preferJ:
-		// One is preferred, pick that one.
-		return preferI
+		return firstOrder < secondOrder
+	case firstPreferred:
+		return true
+	case secondPreferred:
+		return false
+	case first.VLANTag != second.VLANTag:
+		// Sort VLAN NICs' addresses after those from untagged VLANs, e.g.
+		// addresses from "eth0.50" after "eth0", and "eth1.100" after
+		// "eth1.20".
+		return first.VLANTag < second.VLANTag
 	}
-	// Neither is preferred, order by value.
-	return addressI.Value < addressJ.Value
+
+	// Neither is preferred, order by Value.
+	return first.Address.Value < second.Address.Value
 }
 
 func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
