@@ -85,7 +85,7 @@ func (r *Reboot) runningContainers() ([]instance.Instance, error) {
 		managerConfig := container.ManagerConfig{
 			container.ConfigModelUUID: modelUUID}
 		cfg := container.ManagerConfig(managerConfig)
-		manager, err := factory.NewContainerManager(val, cfg, nil)
+		manager, err := factory.NewContainerManager(val, cfg)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to get manager for container type %v", val)
 		}

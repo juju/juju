@@ -13,11 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
 )
 
@@ -55,20 +55,6 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 		return nil, nil, errors.Trace(err)
 	}
 
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	controllerModelConfig, err := controllerModel.Config()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	if err := updateConfigFromProvider(model, st, controllerModelConfig); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	dbModel, dbState, err := st.Import(model)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -76,25 +62,20 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 	return dbModel, dbState, nil
 }
 
-func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerConfig *config.Config) error {
-	provider, err := environs.GetEnviron(getter, environs.New)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	updater, ok := provider.(environs.MigrationConfigUpdater)
-	if !ok {
-		return nil
-	}
-
-	model.UpdateConfig(updater.MigrationConfigUpdate(controllerConfig))
-	return nil
-}
-
 // CharmDownlaoder defines a single method that is used to download a
 // charm from the source controller in a migration.
 type CharmDownloader interface {
 	OpenCharm(*charm.URL) (io.ReadCloser, error)
+}
+
+// UploadBackend define the methods on *state.State that are needed for
+// uploading the tools and charms from the current controller to a different
+// controller.
+type UploadBackend interface {
+	Charm(*charm.URL) (*state.Charm, error)
+	ModelUUID() string
+	MongoSession() *mgo.Session
+	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
@@ -231,25 +212,6 @@ func uploadTools(config UploadBinariesConfig) error {
 		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
 			return errors.Annotate(err, "cannot upload tools")
 		}
-	}
-	return nil
-}
-
-// PrecheckBackend is implemented by *state.State but defined as an interface
-// for easier testing.
-type PrecheckBackend interface {
-	NeedsCleanup() (bool, error)
-}
-
-// Precheck checks the database state to make sure that the preconditions
-// for model migration are met.
-func Precheck(backend PrecheckBackend) error {
-	cleanupNeeded, err := backend.NeedsCleanup()
-	if err != nil {
-		return errors.Annotate(err, "precheck cleanups")
-	}
-	if cleanupNeeded {
-		return errors.New("precheck failed: cleanup needed")
 	}
 	return nil
 }

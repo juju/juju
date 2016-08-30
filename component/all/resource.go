@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/common"
@@ -64,12 +63,12 @@ func (r resources) registerPublicFacade() {
 		return
 	}
 
+	// NOTE: facade is also defined in api/facadeversions.go.
 	common.RegisterStandardFacade(
-		resource.ComponentName,
+		resource.FacadeName,
 		server.Version,
 		resourceadapters.NewPublicFacade,
 	)
-	coreapi.RegisterFacadeVersion(resource.ComponentName, server.Version)
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
@@ -128,7 +127,11 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return resourceadapters.NewAPIClient(c.NewAPIRoot)
+				apiRoot, err := c.NewAPIRoot()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return resourceadapters.NewAPIClient(apiRoot)
 			},
 			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
@@ -140,7 +143,11 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return resourceadapters.NewAPIClient(c.NewAPIRoot)
+				apiRoot, err := c.NewAPIRoot()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return resourceadapters.NewAPIClient(apiRoot)
 			},
 		})
 	})
@@ -202,7 +209,6 @@ func (r resources) registerHookContextFacade() {
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
-	coreapi.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
 
 	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{

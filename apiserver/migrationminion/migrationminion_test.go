@@ -74,13 +74,13 @@ func (s *Suite) TestReport(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.Report(params.MinionReport{
 		MigrationId: "id",
-		Phase:       "READONLY",
+		Phase:       "IMPORT",
 		Success:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{
-		{"ModelMigration", []interface{}{"id"}},
-		{"Report", []interface{}{s.authorizer.Tag, migration.READONLY, true}},
+		{"Migration", []interface{}{"id"}},
+		{"Report", []interface{}{s.authorizer.Tag, migration.IMPORT, true}},
 	})
 }
 
@@ -127,8 +127,8 @@ func (b *stubBackend) WatchMigrationStatus() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *stubBackend) ModelMigration(id string) (state.ModelMigration, error) {
-	b.stub.AddCall("ModelMigration", id)
+func (b *stubBackend) Migration(id string) (state.ModelMigration, error) {
+	b.stub.AddCall("Migration", id)
 	if b.modelLookupErr != nil {
 		return nil, b.modelLookupErr
 	}
@@ -140,7 +140,7 @@ type stubModelMigration struct {
 	stub *testing.Stub
 }
 
-func (m *stubModelMigration) MinionReport(tag names.Tag, phase migration.Phase, success bool) error {
+func (m *stubModelMigration) SubmitMinionReport(tag names.Tag, phase migration.Phase, success bool) error {
 	m.stub.AddCall("Report", tag, phase, success)
 	return nil
 }

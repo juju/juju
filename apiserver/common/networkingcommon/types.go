@@ -16,9 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -107,11 +105,7 @@ type BackingSpace interface {
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
-	// ModelConfig returns the current environment config.
-	ModelConfig() (*config.Config, error)
-
-	// ControllerConfig returns the current controller config.
-	ControllerConfig() (controller.Config, error)
+	environs.EnvironConfigGetter
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
@@ -132,6 +126,9 @@ type NetworkBacking interface {
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
+
+	// ModelTag returns the tag of the model this state is associated to.
+	ModelTag() names.ModelTag
 }
 
 func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {

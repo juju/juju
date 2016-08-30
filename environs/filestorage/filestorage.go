@@ -114,6 +114,7 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 
 // DefaultConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
+	// TODO(katco): 2016-08-09: lp:1611427
 	return utils.AttemptStrategy{}
 }
 

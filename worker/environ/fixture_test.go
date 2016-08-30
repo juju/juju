@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -21,6 +21,7 @@ import (
 type fixture struct {
 	watcherErr    error
 	observerErrs  []error
+	cloud         environs.CloudSpec
 	initialConfig map[string]interface{}
 }
 
@@ -28,6 +29,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, watcher)
 	context := &runContext{
+		cloud:   fix.cloud,
 		config:  newModelConfig(c, fix.initialConfig),
 		watcher: watcher,
 	}
@@ -38,6 +40,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 type runContext struct {
 	mu      sync.Mutex
 	stub    testing.Stub
+	cloud   environs.CloudSpec
 	config  map[string]interface{}
 	watcher *notifyWatcher
 }
@@ -49,6 +52,17 @@ func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	context.config = newModelConfig(c, extraAttrs)
 }
 
+// CloudSpec is part of the environ.ConfigObserver interface.
+func (context *runContext) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("CloudSpec", tag)
+	if err := context.stub.NextErr(); err != nil {
+		return environs.CloudSpec{}, err
+	}
+	return context.cloud, nil
+}
+
 // ModelConfig is part of the environ.ConfigObserver interface.
 func (context *runContext) ModelConfig() (*config.Config, error) {
 	context.mu.Lock()
@@ -58,22 +72,6 @@ func (context *runContext) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return config.New(config.NoDefaults, context.config)
-}
-
-// ControllerConfig is part of the environ.ConfigObserver interface.
-func (context *runContext) ControllerConfig() (controller.Config, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("ControllerConfig")
-	if err := context.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
-		controller.CACertKey:         coretesting.CACert,
-		controller.CAPrivateKey:      coretesting.CAKey,
-		controller.ApiPort:           4321,
-	}, nil
 }
 
 // KillNotify kills the watcher returned from WatchForModelConfigChanges with
@@ -161,6 +159,6 @@ func (e *mockEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func newMockEnviron(cfg *config.Config) (environs.Environ, error) {
-	return &mockEnviron{cfg: cfg}, nil
+func newMockEnviron(args environs.OpenParams) (environs.Environ, error) {
+	return &mockEnviron{cfg: args.Config}, nil
 }

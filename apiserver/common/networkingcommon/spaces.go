@@ -16,23 +16,11 @@ import (
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func SupportsSpaces(backing environs.EnvironConfigGetter) error {
-	config, err := backing.ModelConfig()
+	env, err := environs.GetEnviron(backing, environs.New)
 	if err != nil {
-		return errors.Annotate(err, "getting model config")
+		return errors.Annotate(err, "getting environ")
 	}
-	env, err := environs.New(config)
-	if err != nil {
-		return errors.Annotate(err, "validating model config")
-	}
-	netEnv, ok := environs.SupportsNetworking(env)
-	if !ok {
-		return errors.NotSupportedf("networking")
-	}
-	ok, err = netEnv.SupportsSpaces()
-	if !ok {
-		if err != nil && !errors.IsNotSupported(err) {
-			logger.Errorf("checking model spaces support failed with: %v", err)
-		}
+	if !environs.SupportsSpaces(env) {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil

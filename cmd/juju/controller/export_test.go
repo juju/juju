@@ -23,9 +23,10 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listCon
 
 // NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
 // as specified.
-func NewShowControllerCommandForTest(testStore jujuclient.ClientStore) *showControllerCommand {
+func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api controllerAccessAPI) *showControllerCommand {
 	return &showControllerCommand{
 		store: testStore,
+		api:   api,
 	}
 }
 
@@ -67,8 +68,8 @@ func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, 
 
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
-func NewRegisterCommandForTest(apiOpen api.OpenFunc, refreshModels func(jujuclient.ClientStore, string, string) error, store jujuclient.ClientStore) *registerCommand {
-	return &registerCommand{apiOpen: apiOpen, refreshModels: refreshModels, store: store}
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, listModels func(jujuclient.ClientStore, string, string) ([]base.UserModel, error), store jujuclient.ClientStore) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, listModelsFunc: listModels, store: store}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the

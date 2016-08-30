@@ -18,16 +18,15 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -42,7 +41,7 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -605,7 +604,7 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -636,7 +635,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -865,10 +864,9 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
 	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")
@@ -1427,7 +1425,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("constraints-tester", &tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("constraints-tester", &tw), gc.IsNil)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

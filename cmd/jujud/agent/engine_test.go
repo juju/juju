@@ -31,10 +31,10 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"spaces-imported-gate",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
 		"charm-revision-updater",
@@ -71,7 +71,6 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"log-sender",
-		"machine-lock",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -84,6 +83,9 @@ var (
 		"leadership-tracker",
 		"logging-config-updater",
 		"meter-status",
+		"metric-collect",
+		"metric-sender",
+		"metric-spool",
 		"proxy-config-updater",
 		"uniter",
 	}
@@ -92,6 +94,7 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"log-forwarder",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -159,33 +162,67 @@ func TrackUnits(c *gc.C, tracker *engineTracker, inner UnitManifoldsFunc) UnitMa
 	}
 }
 
-// EngineMatchFunc returns a func that accepts an identifier for a
-// single engine manager by the tracker; that will return true if the
-// workers running in that engine match the supplied workers.
-func EngineMatchFunc(c *gc.C, tracker *engineTracker, workers []string) func(string) bool {
-	expect := set.NewStrings(workers...)
-	return func(id string) bool {
-		actual := tracker.Workers(id)
-		c.Logf("\n%s: has workers %v", id, actual.SortedValues())
-		extras := actual.Difference(expect)
-		missed := expect.Difference(actual)
-		if len(extras) == 0 && len(missed) == 0 {
-			return true
-		}
-		c.Logf("%s: waiting for %v", id, missed.SortedValues())
-		c.Logf("%s: unexpected %v", id, extras.SortedValues())
-
-		report, _ := goyaml.Marshal(tracker.Report(id))
-		c.Logf("%s: report: \n%s\n", id, report)
-		return false
+// NewWorkerManager takes an engineTracker, an engine manager id to
+// monitor and the workers that are expected to be running and sets up
+// a WorkerManager.
+func NewWorkerMatcher(c *gc.C, tracker *engineTracker, id string, workers []string) *WorkerMatcher {
+	return &WorkerMatcher{
+		c:       c,
+		tracker: tracker,
+		id:      id,
+		expect:  set.NewStrings(workers...),
 	}
 }
 
+// WorkerMatcher monitors the workers of a single engine manager,
+// using an engineTracker, for a given set of workers to be running.
+type WorkerMatcher struct {
+	c         *gc.C
+	tracker   *engineTracker
+	id        string
+	expect    set.Strings
+	matchTime time.Time
+}
+
+// Check returns true if the workers which are expected to be running
+// (as specified in the call to NewWorkerMatcher) are running and have
+// been running for a short period (i.e. some indication of stability).
+func (m *WorkerMatcher) Check() bool {
+	if m.checkOnce() {
+		now := time.Now()
+		if m.matchTime.IsZero() {
+			m.matchTime = now
+			return false
+		}
+		// Only return that the required workers have started if they
+		// have been stable for a little while.
+		return now.Sub(m.matchTime) >= time.Second
+	}
+	// Required workers not running, reset the timestamp.
+	m.matchTime = time.Time{}
+	return false
+}
+
+func (m *WorkerMatcher) checkOnce() bool {
+	actual := m.tracker.Workers(m.id)
+	m.c.Logf("\n%s: has workers %v", m.id, actual.SortedValues())
+	extras := actual.Difference(m.expect)
+	missed := m.expect.Difference(actual)
+	if len(extras) == 0 && len(missed) == 0 {
+		return true
+	}
+	m.c.Logf("%s: waiting for %v", m.id, missed.SortedValues())
+	m.c.Logf("%s: unexpected %v", m.id, extras.SortedValues())
+	report, _ := goyaml.Marshal(m.tracker.Report(m.id))
+	m.c.Logf("%s: report: \n%s\n", m.id, report)
+	return false
+}
+
 // WaitMatch returns only when the match func succeeds, or it times out.
-func WaitMatch(c *gc.C, match func(string) bool, id string, sync func()) {
-	timeout := time.After(coretesting.LongWait)
+func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration, sync func()) {
+	timeout := time.After(maxWait)
 	for {
-		if match(id) {
+		if match() {
 			return
 		}
 		select {

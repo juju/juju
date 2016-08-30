@@ -6,7 +6,7 @@ package provisioner
 import (
 	"time"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
 )

@@ -5,42 +5,38 @@ package environs
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
-// EnvironConfigGetter exposes a controller and model configuration to its clients.
-// TODO(wallyworld) - we want to avoid the need to get controller config in future
-// since the controller uuid and api port can be added to StartInstanceParams.
+// EnvironConfigGetter exposes a model configuration to its clients.
 type EnvironConfigGetter interface {
-	ControllerConfig() (controller.Config, error)
 	ModelConfig() (*config.Config, error)
+	CloudSpec(names.ModelTag) (CloudSpec, error)
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
 // returns an Environ. This will typically be environs.New.
-type NewEnvironFunc func(*config.Config) (Environ, error)
+type NewEnvironFunc func(OpenParams) (Environ, error)
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
 func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
-	envcfg, err := st.ModelConfig()
+	modelConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Add in the controller config as currently environs
-	// use a single config bucket for everything.
-	controllerCfg, err := st.ControllerConfig()
+	cloudSpec, err := st.CloudSpec(names.NewModelTag(modelConfig.UUID()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	envcfg, err = envcfg.Apply(map[string]interface{}{
-		controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
+	env, err := newEnviron(OpenParams{
+		Cloud:  cloudSpec,
+		Config: modelConfig,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := newEnviron(envcfg)
-	return env, errors.Trace(err)
+	return env, nil
 }

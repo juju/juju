@@ -9,19 +9,20 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testing.FakeHomeSuite
 	provider environs.EnvironProvider
 }
 
 var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 
 	var err error
 	s.provider, err = environs.Provider("maas")
@@ -42,7 +43,41 @@ func (s *credentialsSuite) TestOAuth1HiddenAttributes(c *gc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth1", "maas-oauth")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
+	s.Home.AddFiles(c, testing.TestFile{
+		Name: ".maasrc",
+		Data: `{"Server": "http://10.0.0.1/MAAS", "OAuth": "key"}`,
+	})
+	creds, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds.DefaultRegion, gc.Equals, "")
+	expected := cloud.NewCredential(
+		cloud.OAuth1AuthType, map[string]string{
+			"maas-oauth": "key",
+		},
+	)
+	expected.Label = "MAAS credential for http://10.0.0.1/MAAS"
+	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsNoServer(c *gc.C) {
+	s.Home.AddFiles(c, testing.TestFile{
+		Name: ".maasrc",
+		Data: `{"OAuth": "key"}`,
+	})
+	creds, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds.DefaultRegion, gc.Equals, "")
+	expected := cloud.NewCredential(
+		cloud.OAuth1AuthType, map[string]string{
+			"maas-oauth": "key",
+		},
+	)
+	expected.Label = "MAAS credential for unspecified server"
+	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsNoFile(c *gc.C) {
 	_, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

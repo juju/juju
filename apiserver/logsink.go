@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -70,8 +72,22 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			tag := entity.Tag()
 
+			// Note that this endpoint is agent-only. Thus the only
+			// callers will necessarily provide their Juju version.
+			//
+			// This would be a problem if non-Juju clients (e.g. the
+			// GUI) could use this endpoint since we require that the
+			// *Juju* version be provided as part of the request. Any
+			// attempt to open this endpoint to broader access must
+			// address this caveat appropriately.
+			ver, err := jujuClientVersionFromReq(req)
+			if err != nil {
+				h.sendError(socket, req, err)
+				return
+			}
+
 			filePrefix := st.ModelUUID() + " " + tag.String() + ":"
-			dbLogger := state.NewDbLogger(st, tag)
+			dbLogger := state.NewDbLogger(st, tag, ver)
 			defer dbLogger.Close()
 
 			// If we get to here, no more errors to report, so we report a nil
@@ -89,7 +105,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					if fileErr != nil {
 						logger.Errorf("logging to logsink.log failed: %v", fileErr)
 					}
-					dbErr := dbLogger.Log(m.Time, m.Module, m.Location, m.Level, m.Message)
+					level, _ := loggo.ParseLevel(m.Level)
+					dbErr := dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message)
 					if dbErr != nil {
 						logger.Errorf("logging to DB failed: %v", err)
 					}
@@ -101,6 +118,18 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	server.ServeHTTP(w, req)
+}
+
+func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
+	verStr := req.URL.Query().Get("jujuclientversion")
+	if verStr == "" {
+		return version.Zero, errors.New(`missing "jujuclientversion" in URL query`)
+	}
+	ver, err := version.Parse(verStr)
+	if err != nil {
+		return version.Zero, errors.Annotatef(err, "invalid jujuclientversion %q", verStr)
+	}
+	return ver, nil
 }
 
 func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {
@@ -144,7 +173,7 @@ func (h *logSinkHandler) logToFile(prefix string, m params.LogRecord) error {
 	_, err := h.fileLogger.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-		m.Level.String(),
+		m.Level,
 		m.Module,
 		m.Location,
 		m.Message,

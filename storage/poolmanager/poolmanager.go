@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 const (
@@ -23,14 +22,15 @@ var (
 )
 
 // New returns a PoolManager implementation using the specified state.
-func New(settings SettingsManager) PoolManager {
-	return &poolManager{settings}
+func New(settings SettingsManager, registry storage.ProviderRegistry) PoolManager {
+	return &poolManager{settings, registry}
 }
 
 var _ PoolManager = (*poolManager)(nil)
 
 type poolManager struct {
 	settings SettingsManager
+	registry storage.ProviderRegistry
 }
 
 const globalKeyPrefix = "pool#"
@@ -52,7 +52,7 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	p, err := registry.StorageProvider(providerType)
+	p, err := pm.registry.StorageProvider(providerType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,7 +88,7 @@ func (pm *poolManager) Get(name string) (*storage.Config, error) {
 			return nil, errors.Annotatef(err, "reading pool %q", name)
 		}
 	}
-	return configFromSettings(settings)
+	return pm.configFromSettings(settings)
 }
 
 // List is defined on PoolManager interface.
@@ -99,7 +99,7 @@ func (pm *poolManager) List() ([]*storage.Config, error) {
 	}
 	var result []*storage.Config
 	for _, attrs := range settings {
-		cfg, err := configFromSettings(attrs)
+		cfg, err := pm.configFromSettings(attrs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -108,7 +108,7 @@ func (pm *poolManager) List() ([]*storage.Config, error) {
 	return result, nil
 }
 
-func configFromSettings(settings map[string]interface{}) (*storage.Config, error) {
+func (pm *poolManager) configFromSettings(settings map[string]interface{}) (*storage.Config, error) {
 	providerType := storage.ProviderType(settings[Type].(string))
 	name := settings[Name].(string)
 	// Ensure returned attributes are stripped of name and type,
@@ -119,7 +119,7 @@ func configFromSettings(settings map[string]interface{}) (*storage.Config, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	p, err := registry.StorageProvider(providerType)
+	p, err := pm.registry.StorageProvider(providerType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

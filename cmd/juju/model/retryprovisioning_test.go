@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -63,7 +62,7 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.Machin
 				m.data["transient"] = true
 			} else {
 				results[i].Error = common.ServerError(
-					fmt.Errorf("%s is not in an error state",
+					errors.Errorf("%s is not in an error state",
 						names.ReadableString(machine)))
 			}
 		} else {

@@ -7,7 +7,6 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -19,13 +18,6 @@ type environPolSuite struct {
 }
 
 var _ = gc.Suite(&environPolSuite{})
-
-func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
-	archList, err := s.Env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(archList, jc.SameContents, []string{arch.AMD64})
-}
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.Env.ConstraintsValidator()
@@ -65,8 +57,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestSupportNetworks(c *gc.C) {

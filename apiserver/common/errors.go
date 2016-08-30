@@ -33,7 +33,7 @@ func (e *noAddressSetError) Error() string {
 }
 
 func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
-	return &noAddressSetError{unitTag, addressName}
+	return &noAddressSetError{unitTag: unitTag, addressName: addressName}
 }
 
 func isNoAddressSetError(err error) bool {
@@ -93,7 +93,6 @@ var (
 	ErrPerm               = errors.New("permission denied")
 	ErrNotLoggedIn        = errors.New("not logged in")
 	ErrUnknownWatcher     = errors.New("unknown watcher id")
-	ErrUnknownPinger      = errors.New("unknown pinger id")
 	ErrStoppedWatcher     = errors.New("watcher has been stopped")
 	ErrBadRequest         = errors.New("invalid request")
 	ErrTryAgain           = errors.New("try again")
@@ -165,7 +164,9 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 	switch err1.Code {
 	case params.CodeUnauthorized:
 		status = http.StatusUnauthorized
-	case params.CodeNotFound:
+	case params.CodeNotFound,
+		params.CodeUserNotFound,
+		params.CodeModelNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
 		status = http.StatusBadRequest
@@ -179,6 +180,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusForbidden
 	case params.CodeDischargeRequired:
 		status = http.StatusUnauthorized
+	case params.CodeRetry:
+		status = http.StatusServiceUnavailable
 	}
 	return err1, status
 }
@@ -190,6 +193,7 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
+	logger.Infof("server RPC error %v", errors.Details(err))
 	msg := err.Error()
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
@@ -197,10 +201,14 @@ func ServerError(err error) *params.Error {
 	var info *params.ErrorInfo
 	switch {
 	case ok:
+	case isIOTimeout(err):
+		code = params.CodeRetry
 	case errors.IsUnauthorized(err):
 		code = params.CodeUnauthorized
 	case errors.IsNotFound(err):
 		code = params.CodeNotFound
+	case errors.IsUserNotFound(err):
+		code = params.CodeUserNotFound
 	case errors.IsAlreadyExists(err):
 		code = params.CodeAlreadyExists
 	case errors.IsNotAssigned(err):
@@ -218,7 +226,7 @@ func ServerError(err error) *params.Error {
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
 	case isUnknownModelError(err):
-		code = params.CodeNotFound
+		code = params.CodeModelNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
 	case errors.IsBadRequest(err):
@@ -242,6 +250,17 @@ func ServerError(err error) *params.Error {
 		Code:    code,
 		Info:    info,
 	}
+}
+
+// Unfortunately there is no specific type of error for i/o timeout,
+// and the error that bubbles up from mgo is annotated and a string type,
+// so all we can do is look at the error suffix and see if it matches.
+func isIOTimeout(err error) bool {
+	// Perhaps sometime in the future, we'll have additional ways to tell if
+	// the error is an i/o timeout type error, but for now this is all we
+	// have.
+	msg := err.Error()
+	return strings.HasSuffix(msg, "i/o timeout")
 }
 
 func DestroyErr(desc string, ids, errs []string) error {
@@ -284,6 +303,8 @@ func RestoreError(err error) error {
 		// TODO(ericsnow) UnknownModelError should be handled here too.
 		// ...by parsing msg?
 		return errors.NewNotFound(nil, msg)
+	case params.IsCodeUserNotFound(err):
+		return errors.NewUserNotFound(nil, msg)
 	case params.IsCodeAlreadyExists(err):
 		return errors.NewAlreadyExists(nil, msg)
 	case params.IsCodeNotAssigned(err):

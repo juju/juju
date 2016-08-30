@@ -7,9 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"time"
 
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -20,12 +18,10 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
 type BundlesDirSuite struct {
-	gitjujutesting.HTTPSuite
 	testing.JujuConnSuite
 
 	st     api.Connection
@@ -35,17 +31,14 @@ type BundlesDirSuite struct {
 var _ = gc.Suite(&BundlesDirSuite{})
 
 func (s *BundlesDirSuite) SetUpSuite(c *gc.C) {
-	s.HTTPSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
 func (s *BundlesDirSuite) TearDownSuite(c *gc.C) {
 	s.JujuConnSuite.TearDownSuite(c)
-	s.HTTPSuite.TearDownSuite(c)
 }
 
 func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
-	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Add a charm, service and unit to login to the API with.
@@ -69,7 +62,6 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 	err := s.st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.JujuConnSuite.TearDownTest(c)
-	s.HTTPSuite.TearDownTest(c)
 }
 
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
@@ -136,24 +128,15 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 
-	// Abort a download.
+	// Check the abort chan is honoured.
 	err = os.RemoveAll(bunsdir)
 	c.Assert(err, jc.ErrorIsNil)
 	abort := make(chan struct{})
-	done := make(chan bool)
-	go func() {
-		ch, err := d.Read(apiCharm, abort)
-		c.Assert(ch, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: aborted`))
-		close(done)
-	}()
 	close(abort)
-	gitjujutesting.Server.Response(500, nil, nil)
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for abort")
-	}
+
+	ch, err = d.Read(apiCharm, abort)
+	c.Assert(ch, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: aborted`))
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {

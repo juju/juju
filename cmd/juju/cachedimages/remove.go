@@ -6,7 +6,7 @@ package cachedimages
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -20,7 +20,6 @@ Images are identified by:
   Architecture eg "amd64"
 
 Examples:
-
   # Remove cached lxd image for xenial amd64.
   juju remove-cached-images --kind lxd --series xenial --arch amd64
 `
@@ -40,7 +39,7 @@ type removeCommand struct {
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-cached-images",
-		Purpose: "remove cached os images",
+		Purpose: "Remove cached OS images.",
 		Doc:     removeCommandDoc,
 	}
 }
@@ -48,9 +47,9 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
-	f.StringVar(&c.Kind, "kind", "", "the image kind to remove eg lxd")
-	f.StringVar(&c.Series, "series", "", "the series of the image to remove eg xenial")
-	f.StringVar(&c.Arch, "arch", "", "the architecture of the image to remove eg amd64")
+	f.StringVar(&c.Kind, "kind", "", "The image kind to remove eg lxd")
+	f.StringVar(&c.Series, "series", "", "The series of the image to remove eg xenial")
+	f.StringVar(&c.Arch, "arch", "", "The architecture of the image to remove eg amd64")
 }
 
 // Init implements Command.Init.

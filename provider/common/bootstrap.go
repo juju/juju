@@ -55,8 +55,8 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	return bsResult, nil
 }
 
-// BootstrapInstance creates a new instance with the series and architecture
-// of its choice, constrained to those of the available tools, and
+// BootstrapInstance creates a new instance with the series of its choice,
+// constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial Juju controller.
@@ -107,8 +107,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, err
 	}
+	envCfg := env.Config()
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -116,8 +117,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
-	modelCfg := env.Config()
-	instanceConfig.Tags = instancecfg.InstanceTags(modelCfg.UUID(), modelCfg.ControllerUUID(), modelCfg, instanceConfig.Jobs)
+	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
@@ -132,25 +132,53 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
-	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	cloudRegion := args.CloudName
+	if args.CloudRegion != "" {
+		cloudRegion += "/" + args.CloudRegion
+	}
+	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
+	// Print instance status reports status changes during provisioning.
+	// Note the carriage returns, meaning subsequent prints are to the same
+	// line of stderr, not a new line.
 	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
-		fmt.Fprintf(ctx.GetStderr(), "%s      \r", info)
+		// The data arg is not expected to be used in this case, but
+		// print it, rather than ignore it, if we get something.
+		dataString := ""
+		if len(data) > 0 {
+			dataString = fmt.Sprintf(" %v", data)
+		}
+		fmt.Fprintf(ctx.GetStderr(), " - %s%s\r", info, dataString)
+		return nil
+	}
+	// Likely used after the final instanceStatus call to white-out the
+	// current stderr line before the next use, removing any residual status
+	// reporting output.
+	statusCleanup := func(info string) error {
+		fmt.Fprintf(ctx.GetStderr(), "%s\r", info)
 		return nil
 	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:    args.BootstrapConstraints,
-		Tools:          availableTools,
-		InstanceConfig: instanceConfig,
-		Placement:      args.Placement,
-		ImageMetadata:  imageMetadata,
-		StatusCallback: instanceStatus,
+		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
+		Constraints:     args.BootstrapConstraints,
+		Tools:           availableTools,
+		InstanceConfig:  instanceConfig,
+		Placement:       args.Placement,
+		ImageMetadata:   imageMetadata,
+		StatusCallback:  instanceStatus,
+		CleanupCallback: statusCleanup,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
-	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
+	// We need some padding below to overwrite any previous messages. We'll use a width of 40.
+	msg := fmt.Sprintf(" - %s", result.Instance.Id())
+	if len(msg) < 40 {
+		padding := make([]string, 40-len(msg))
+		msg += strings.Join(padding, " ")
+	}
+	fmt.Fprintln(ctx.GetStderr(), msg)
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
@@ -165,7 +193,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
+		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
 }
@@ -180,6 +208,7 @@ var FinishBootstrap = func(
 	env environs.Environ,
 	inst instance.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
+	opts environs.BootstrapDialOpts,
 ) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
@@ -190,7 +219,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		instanceConfig.Bootstrap.ControllerModelConfig.BootstrapSSHOpts(),
+		opts,
 	)
 	if err != nil {
 		return err
@@ -412,8 +441,8 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
-	globalTimeout := time.After(timeout.Timeout)
+func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, opts environs.BootstrapDialOpts) (addr string, err error) {
+	globalTimeout := time.After(opts.Timeout)
 	pollAddresses := time.NewTimer(0)
 
 	// checker checks each address in a loop, in parallel,
@@ -424,7 +453,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 		client:          client,
 		stderr:          stdErr,
 		active:          make(map[network.Address]chan struct{}),
-		checkDelay:      timeout.RetryDelay,
+		checkDelay:      opts.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.wg.Wait()
@@ -434,7 +463,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 	for {
 		select {
 		case <-pollAddresses.C:
-			pollAddresses.Reset(timeout.AddressesDelay)
+			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
 			}
@@ -447,7 +476,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 			checker.Close()
 			lastErr := checker.Wait()
 			format := "waited for %v "
-			args := []interface{}{timeout.Timeout}
+			args := []interface{}{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
 			} else {

@@ -20,13 +20,15 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
+
+const AdminSecret = "admin-secret"
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
@@ -57,7 +59,7 @@ func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
-	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {
@@ -112,13 +114,15 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
-		environs.PrepareParams{
-			BaseConfig:     s.TestConfig,
-			ControllerName: s.TestConfig["name"].(string),
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			ModelConfig:      s.TestConfig,
+			ControllerName:   s.TestConfig["name"].(string),
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
@@ -127,11 +131,14 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerConfig: testing.FakeControllerConfig(),
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
+		AdminSecret:  AdminSecret,
+		CAPrivateKey: testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv
@@ -144,7 +151,7 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.AvailabilityZone, gc.IsNil)
 }

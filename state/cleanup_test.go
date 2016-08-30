@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,8 +15,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -26,11 +23,6 @@ type CleanupSuite struct {
 }
 
 var _ = gc.Suite(&CleanupSuite{})
-
-func (s *CleanupSuite) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-}
 
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -94,8 +86,6 @@ func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
 	s.assertCleanupRuns(c)
 	_, _, err = stor.Get(storagePath)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.Charm(ch.URL())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
@@ -129,10 +119,18 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
-	// Create a state and hosted machine.
+	// Create a controller machine, and manual and non-manual
+	// workload machine.
 	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "inst-ance",
+		Nonce:      "manual:foo",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
@@ -160,6 +158,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+	assertLife(c, manualMachine, state.Dying)
 	assertLife(c, stateMachine, state.Alive)
 }
 
@@ -244,8 +243,7 @@ func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
-	expect := fmt.Sprintf("machine is required by the model")
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
 }
@@ -278,6 +276,50 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+}
+
+func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// this tag matches the storage instance created for the unit above.
+	storageTag := names.NewStorageTag("data/0")
+
+	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Life(), gc.Equals, state.Alive)
+
+	// destroy machine and run cleanups
+	err = machine.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupCount(c, 2)
+
+	// After running the cleanup, the storage attachment and instance
+	// should both be removed.
+	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Check that the unit has been removed.
+	assertRemoved(c, u)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
@@ -481,7 +523,6 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}

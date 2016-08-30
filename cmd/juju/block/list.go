@@ -4,16 +4,16 @@
 package block
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 func newListCommand() cmd.Command {
@@ -41,7 +41,7 @@ func (c *listCommand) Init(args []string) (err error) {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "list juju blocks",
+		Purpose: "List Juju blocks.",
 		Doc:     listCommandDoc,
 	}
 }
@@ -117,15 +117,14 @@ func formatBlockInfo(all []params.Block) []BlockInfo {
 	return output
 }
 
-// formatBlocks returns block list representation.
-func formatBlocks(value interface{}) ([]byte, error) {
+// formatBlocks writes block list representation.
+func formatBlocks(writer io.Writer, value interface{}) error {
 	blocks, ok := value.([]BlockInfo)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", blocks, value)
+		return errors.Errorf("expected value of type %T, got %T", blocks, value)
 	}
-	var out bytes.Buffer
 	// To format things as desired.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := output.TabWriter(writer)
 
 	for _, ablock := range blocks {
 		fmt.Fprintln(tw)
@@ -135,13 +134,13 @@ func formatBlocks(value interface{}) ([]byte, error) {
 		}
 		fmt.Fprintf(tw, "%v\t", ablock.Operation)
 		if ablock.Message != nil {
-			fmt.Fprintf(tw, "\t=%v, %v", switched, *ablock.Message)
+			fmt.Fprintf(tw, "=%v, %v", switched, *ablock.Message)
 			continue
 		}
-		fmt.Fprintf(tw, "\t=%v", switched)
+		fmt.Fprintf(tw, "=%v", switched)
 	}
 
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }

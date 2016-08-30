@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,37 +40,45 @@ type statusCommand struct {
 }
 
 var usageSummary = `
-Displays the current status of Juju, applications, and units.`[1:]
+Reports the current status of the model, machines, applications and units.`[1:]
 
 var usageDetails = `
-By default (without argument), the status of Juju and all applications and all
-units will be displayed. 
-Application or unit names may be used as output filters (the '*' can be used
-as a wildcard character).  
-In addition to matched applications and units, related machines, applications, and
-units will also be displayed. If a subordinate unit is matched, then its
-principal unit will be displayed. If a principal unit is matched, then all
-of its subordinates will be displayed. 
-Explanation of the different formats:
-- {short|line|oneline}: List units and their subordinates. For each
-           unit, the IP address and agent status are listed.
-- summary: Displays the subnet(s) and port(s) the model utilises.
-           Also displays aggregate information about:
-           - MACHINES: total #, and # in each state.
-           - UNITS: total #, and # in each state.
-           - APPLICATIONS: total #, and # exposed of each application.
-- tabular (default): Displays information in a tabular format in these sections:
-           - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
-           - Applications: NAME, EXPOSED, CHARM
-           - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
-             - Also displays subordinate units.
-- yaml: Displays information on machines, applications, and units in yaml format.
-Note: AZ above is the cloud region's availability zone.
+By default (without argument), the status of the model, including all
+applications and units will be output.
+
+Application or unit names may be used as output filters (the '*' can be used as
+a wildcard character). In addition to matched applications and units, related
+machines, applications, and units will also be displayed. If a subordinate unit
+is matched, then its principal unit will be displayed. If a principal unit is
+matched, then all of its subordinates will be displayed.
+
+The available output formats are:
+
+- tabular (default): Displays status in a tabular format with a separate table
+      for the model, machines, applications, relations (if any) and units.
+      Note: in this format, the AZ column refers to the cloud region's
+      availability zone.
+- {short|line|oneline}: List units and their subordinates. For each unit, the IP
+      address and agent status are listed.
+- summary: Displays the subnet(s) and port(s) the model utilises. Also displays
+      aggregate information about:
+      - MACHINES: total #, and # in each state.
+      - UNITS: total #, and # in each state.
+      - APPLICATIONS: total #, and # exposed of each application.
+- yaml: Displays information about the model, machines, applications, and units
+      in structured YAML format.
+- json: Displays information about the model, machines, applications, and units
+      in structured JSON format.
 
 Examples:
     juju status
     juju status mysql
     juju status nova-*
+
+See Also:
+    juju show-model
+    juju machines
+    juju storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
@@ -138,18 +146,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	clientStore := c.ClientStore()
-	controllerDetails, err := clientStore.ControllerByName(c.ControllerName())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	model := modelStatus{
-		Name:       c.ModelName(),
-		Controller: c.ControllerName(),
-		Cloud:      controllerDetails.Cloud,
-	}
-	formatter := newStatusFormatter(status, model, c.isoTime)
+	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

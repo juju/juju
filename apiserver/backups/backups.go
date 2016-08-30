@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -31,6 +32,7 @@ type Backend interface {
 	MongoConnectionInfo() *mongo.MongoInfo
 	MongoSession() *mgo.Session
 	ModelTag() names.ModelTag
+	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (state.StateServingInfo, error)
@@ -48,8 +50,13 @@ type API struct {
 
 // NewAPI creates a new instance of the Backups API facade.
 func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	if !authorizer.AuthClient() {
-		return nil, errors.Trace(common.ErrPerm)
+	isControllerAdmin, err := authorizer.HasPermission(description.SuperuserAccess, backend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	if !authorizer.AuthClient() || !isControllerAdmin {
+		return nil, common.ErrPerm
 	}
 
 	// For now, backup operations are only permitted on the controller environment.

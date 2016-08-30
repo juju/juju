@@ -159,6 +159,8 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	}
 	nonlocal, err := cfg.UsingTCPRemote()
 	c.Assert(err, jc.ErrorIsNil)
+	nonlocal, err = nonlocal.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
 
 	checkValidRemote(c, &nonlocal.Remote)
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Config{

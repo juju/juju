@@ -103,6 +103,7 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
+
 	results := params.StatusHistoryResults{}
 	// TODO(perrito666) the contents of the loop could be split into
 	// a oneHistory method for clarity.
@@ -112,6 +113,15 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			Date:  request.Filter.Date,
 			Delta: request.Filter.Delta,
 		}
+		if err := c.checkCanRead(); err != nil {
+			history := params.StatusHistoryResult{
+				Error: common.ServerError(err),
+			}
+			results.Results = append(results.Results, history)
+			continue
+
+		}
+
 		if err := filter.Validate(); err != nil {
 			history := params.StatusHistoryResult{
 				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
@@ -154,12 +164,13 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
-	cfg, err := c.api.stateAccessor.ModelConfig()
-	if err != nil {
-		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
+	if err := c.checkCanRead(); err != nil {
+		return params.FullStatus{}, err
 	}
+
 	var noStatus params.FullStatus
 	var context statusContext
+	var err error
 	if context.services, context.units, context.latestCharms, err =
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
@@ -257,23 +268,12 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 	}
 
-	newToolsVersion, err := c.newToolsVersionAvailable()
+	modelStatus, err := c.modelStatus()
 	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
-	}
-	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot determine mongo information")
-	}
-	modelVersion := ""
-	if v, ok := cfg.AgentVersion(); ok {
-		modelVersion = v.String()
+		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model: params.ModelStatusInfo{
-			Name:             cfg.Name(),
-			Version:          modelVersion,
-			AvailableVersion: newToolsVersion,
-		},
+		Model:        modelStatus,
 		Machines:     processMachines(context.machines),
 		Applications: context.processApplications(),
 		Relations:    context.processRelations(),
@@ -282,26 +282,64 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 // newToolsVersionAvailable will return a string representing a tools
 // version only if the latest check is newer than current tools.
-func (c *Client) newToolsVersionAvailable() (string, error) {
-	env, err := c.api.stateAccessor.Model()
+func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
+	var info params.ModelStatusInfo
+
+	m, err := c.api.stateAccessor.Model()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot get model")
+		return info, errors.Annotate(err, "cannot get model")
+	}
+	info.Name = m.Name()
+	info.Cloud = m.Cloud()
+	info.CloudRegion = m.CloudRegion()
+
+	cfg, err := m.Config()
+	if err != nil {
+		return info, errors.Annotate(err, "cannot obtain current model config")
 	}
 
-	latestVersion := env.LatestToolsVersion()
-
-	envConfig, err := c.api.stateAccessor.ModelConfig()
-	if err != nil {
-		return "", errors.Annotate(err, "cannot obtain current environ config")
+	latestVersion := m.LatestToolsVersion()
+	current, ok := cfg.AgentVersion()
+	if ok {
+		info.Version = current.String()
+		if current.Compare(latestVersion) < 0 {
+			info.AvailableVersion = latestVersion.String()
+		}
 	}
-	oldV, ok := envConfig.AgentVersion()
-	if !ok {
+
+	migStatus, err := c.getMigrationStatus()
+	if err != nil {
+		// It's not worth killing the entire status out if migration
+		// status can't be retrieved.
+		logger.Errorf("error retrieving migration status: %v", err)
+		info.Migration = "error retrieving migration status"
+	} else {
+		info.Migration = migStatus
+	}
+
+	return info, nil
+}
+
+func (c *Client) getMigrationStatus() (string, error) {
+	mig, err := c.api.stateAccessor.LatestMigration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if phase.IsTerminal() {
+		// There has been a migration attempt but it's no longer
+		// active - don't include this in status.
 		return "", nil
 	}
-	if oldV.Compare(latestVersion) < 0 {
-		return latestVersion.String(), nil
-	}
-	return "", nil
+
+	return mig.StatusMessage(), nil
 }
 
 type statusContext struct {
@@ -319,7 +357,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -350,7 +388,7 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 // fetchAllApplicationsAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
-	st stateInterface,
+	st Backend,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
@@ -401,7 +439,7 @@ func fetchAllApplicationsAndUnits(
 // to have the relations for each service. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // service that used to happen in processServiceRelations().
-func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
+func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err
@@ -508,7 +546,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			eps = append(eps, params.EndpointStatus{
 				ApplicationName: ep.ApplicationName,
 				Name:            ep.Name,
-				Role:            ep.Role,
+				Role:            string(ep.Role),
 				Subordinate:     context.isSubordinate(&ep),
 			})
 			// these should match on both sides so use the last
@@ -519,7 +557,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Id:        relation.Id(),
 			Key:       relation.String(),
 			Interface: relationInterface,
-			Scope:     scope,
+			Scope:     string(scope),
 			Endpoints: eps,
 		}
 		out = append(out, relStatus)
@@ -593,8 +631,9 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.Err = err
 		return processedStatus
 	}
+	units := context.units[service.Name()]
 	if service.IsPrincipal() {
-		processedStatus.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
+		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
 		applicationStatus, err := service.Status()
 		if err != nil {
 			processedStatus.Err = err
@@ -605,8 +644,25 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.Status.Data = applicationStatus.Data
 		processedStatus.Status.Since = applicationStatus.Since
 
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
+		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
+
+	versions := make([]status.StatusInfo, 0, len(units))
+	for _, unit := range units {
+		statuses, err := unit.WorkloadVersionHistory().StatusHistory(
+			status.StatusHistoryFilter{Size: 1},
+		)
+		if err != nil {
+			processedStatus.Err = err
+			return processedStatus
+		}
+		versions = append(versions, statuses[0])
+	}
+	if len(versions) > 0 {
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
+	}
+
 	return processedStatus
 }
 
@@ -660,6 +716,13 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		result.Charm = curl.String()
 	}
+	workloadVersion, err := unit.WorkloadVersion()
+	if err == nil {
+		result.WorkloadVersion = workloadVersion
+	} else {
+		logger.Debugf("error fetching workload version: %v", err)
+	}
+
 	processUnitAndAgentStatus(unit, &result)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
@@ -841,3 +904,14 @@ func processLife(entity lifer) string {
 	}
 	return ""
 }
+
+type bySinceDescending []status.StatusInfo
+
+// Len implements sort.Interface.
+func (s bySinceDescending) Len() int { return len(s) }
+
+// Swap implements sort.Interface.
+func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
+
+// Less implements sort.Interface.
+func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }

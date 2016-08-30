@@ -4,14 +4,15 @@
 package apiserver
 
 import (
-	"errors"
 	"time"
 
-	"launchpad.net/tomb"
+	"github.com/juju/errors"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
+	"github.com/juju/utils/clock"
 )
 
 func init() {
@@ -41,19 +42,21 @@ type Pinger interface {
 type pingTimeout struct {
 	tomb    tomb.Tomb
 	action  func()
+	clock   clock.Clock
 	timeout time.Duration
-	reset   chan time.Duration
+	reset   chan struct{}
 }
 
 // newPingTimeout returns a new pingTimeout instance
 // that invokes the given action asynchronously if there
 // is more than the given timeout interval between calls
 // to its Ping method.
-func newPingTimeout(action func(), timeout time.Duration) Pinger {
+func newPingTimeout(action func(), clock clock.Clock, timeout time.Duration) Pinger {
 	pt := &pingTimeout{
 		action:  action,
+		clock:   clock,
 		timeout: timeout,
-		reset:   make(chan time.Duration),
+		reset:   make(chan struct{}),
 	}
 	go func() {
 		defer pt.tomb.Done()
@@ -67,7 +70,7 @@ func newPingTimeout(action func(), timeout time.Duration) Pinger {
 func (pt *pingTimeout) Ping() {
 	select {
 	case <-pt.tomb.Dying():
-	case pt.reset <- pt.timeout:
+	case pt.reset <- struct{}{}:
 	}
 }
 
@@ -80,18 +83,14 @@ func (pt *pingTimeout) Stop() error {
 // loop waits for a reset signal, otherwise it performs
 // the initially passed action.
 func (pt *pingTimeout) loop() error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	timer := time.NewTimer(pt.timeout)
-	defer timer.Stop()
 	for {
 		select {
 		case <-pt.tomb.Dying():
-			return nil
-		case <-timer.C:
+			return tomb.ErrDying
+		case <-pt.reset:
+		case <-pt.clock.After(pt.timeout):
 			go pt.action()
 			return errors.New("ping timeout")
-		case duration := <-pt.reset:
-			timer.Reset(duration)
 		}
 	}
 }

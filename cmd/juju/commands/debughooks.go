@@ -39,18 +39,18 @@ func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
 		Args:    "<unit name> [hook names]",
-		Purpose: "launch a tmux session to debug a hook",
+		Purpose: "Launch a tmux session to debug a hook.",
 		Doc:     debugHooksDoc,
 	}
 }
 
 func (c *debugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("no unit name specified")
+		return errors.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
 	if !names.IsValidUnit(c.Target) {
-		return fmt.Errorf("%q is not a valid unit name", c.Target)
+		return errors.Errorf("%q is not a valid unit name", c.Target)
 	}
 
 	// If any of the hooks is "*", then debug all hooks.
@@ -111,7 +111,7 @@ func (c *debugHooksCommand) validateHooks() error {
 			}
 			sort.Strings(names)
 			logger.Infof("unknown hook %s, valid hook names: %v", hook, names)
-			return fmt.Errorf("unit %q does not contain hook %q", c.Target, hook)
+			return errors.Errorf("unit %q does not contain hook %q", c.Target, hook)
 		}
 	}
 	return nil

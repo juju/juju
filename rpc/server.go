@@ -7,7 +7,6 @@ import (
 	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -62,6 +61,9 @@ type Header struct {
 
 	// ErrorCode holds the code of the error, if any.
 	ErrorCode string
+
+	// Version defines the wire format of the request and response structure.
+	Version int
 }
 
 // Request represents an RPC to be performed, absent its parameters.
@@ -85,6 +87,15 @@ func (hdr *Header) IsRequest() bool {
 	return hdr.Request.Type != "" || hdr.Request.Action != ""
 }
 
+// ObserverFactory is a type which can construct a new Observer.
+type ObserverFactory interface {
+
+	// RPCObserver will return a new Observer usually constructed
+	// from the state previously built up in the Observer. The
+	// returned instance will be utilized per RPC request.
+	RPCObserver() Observer
+}
+
 // Note that we use "client request" and "server request" to name
 // requests initiated locally and remotely respectively.
 
@@ -95,9 +106,6 @@ func (hdr *Header) IsRequest() bool {
 type Conn struct {
 	// codec holds the underlying RPC connection.
 	codec Codec
-
-	// notifier is informed about RPC requests.
-	notifier RequestNotifier
 
 	// srvPending represents the current server requests.
 	srvPending sync.WaitGroup
@@ -110,16 +118,9 @@ type Conn struct {
 	// mutex guards the following values.
 	mutex sync.Mutex
 
-	// methodFinder is used to lookup methods to serve RPC requests. May be
-	// nil if nothing is being served.
-	methodFinder MethodFinder
-
-	// root is the current object that we are serving.
-	// If it implements the Killer interface, Kill will be called on it
-	// as the connection shuts down.
-	// If it implements the Cleaner interface, Cleanup will be called on
-	// it after the connection has shut down.
-	root interface{}
+	// root represents  the current root object that serves the RPC requests.
+	// It may be nil if nothing is being served.
+	root Root
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -145,75 +146,27 @@ type Conn struct {
 	// inputLoopError holds the error that caused the input loop to
 	// terminate prematurely.  It is set before dead is closed.
 	inputLoopError error
-}
 
-// RequestNotifier can be implemented to find out about requests
-// occurring in an RPC conn, for example to print requests for logging
-// purposes. The calls should not block or interact with the Conn object
-// as that can cause delays to the RPC server or deadlock.
-// Note that the methods on RequestNotifier may
-// be called concurrently.
-type RequestNotifier interface {
-	// ServerRequest informs the RequestNotifier of a request made
-	// to the Conn. If the request was not recognized or there was
-	// an error reading the body, body will be nil.
-	//
-	// ServerRequest is called just before the server method
-	// is invoked.
-	ServerRequest(hdr *Header, body interface{})
-
-	// ServerReply informs the RequestNotifier of a reply sent to a
-	// server request. The given Request gives details of the call
-	// that was made; the given Header and body are the header and
-	// body sent as reply.
-	//
-	// ServerReply is called just before the reply is written.
-	ServerReply(req Request, hdr *Header, body interface{}, timeSpent time.Duration)
-
-	// ClientRequest informs the RequestNotifier of a request
-	// made from the Conn. It is called just before the request is
-	// written.
-	ClientRequest(hdr *Header, body interface{})
-
-	// ClientReply informs the RequestNotifier of a reply received
-	// to a request. If the reply was to an unrecognised request,
-	// the Request will be zero-valued. If the reply contained an
-	// error, body will be nil; otherwise body will be the value that
-	// was passed to the Conn.Call method.
-	//
-	// ClientReply is called just before the reply is handed to
-	// back to the caller.
-	ClientReply(req Request, hdr *Header, body interface{})
+	observerFactory ObserverFactory
 }
 
 // NewConn creates a new connection that uses the given codec for
 // transport, but it does not start it. Conn.Start must be called before
 // any requests are sent or received. If notifier is non-nil, the
 // appropriate method will be called for every RPC request.
-func NewConn(codec Codec, notifier RequestNotifier) *Conn {
-	if notifier == nil {
-		notifier = new(dummyNotifier)
-	}
+func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
 	return &Conn{
-		codec:         codec,
-		clientPending: make(map[uint64]*Call),
-		notifier:      notifier,
+		codec:           codec,
+		clientPending:   make(map[uint64]*Call),
+		observerFactory: observerFactory,
 	}
 }
 
-// dummyNotifier is used when no notifier is provided to NewConn.
-type dummyNotifier struct{}
-
-func (*dummyNotifier) ServerRequest(*Header, interface{})                       {}
-func (*dummyNotifier) ServerReply(Request, *Header, interface{}, time.Duration) {}
-func (*dummyNotifier) ClientRequest(*Header, interface{})                       {}
-func (*dummyNotifier) ClientReply(Request, *Header, interface{})                {}
-
-// Start starts the RPC connection running.  It must be called at least
-// once for any RPC connection (client or server side) It has no effect
-// if it has already been called.  By default, a connection serves no
-// methods.  See Conn.Serve for a description of how to serve methods on
-// a Conn.
+// Start starts the RPC connection running.  It must be called at
+// least once for any RPC connection (client or server side) It has no
+// effect if it has already been called.  By default, a connection
+// serves no methods.  See Conn.Serve for a description of how to
+// serve methods on a Conn.
 func (conn *Conn) Start() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
@@ -263,33 +216,31 @@ func (conn *Conn) Start() {
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, root, transformErrors)
+		conn.serve(rootValue, transformErrors)
 	} else {
-		conn.serve(nil, nil, transformErrors)
+		conn.serve(nil, transformErrors)
 	}
 }
 
-// ServeFinder serves RPC requests on the connection by invoking methods retrieved
-// from root. Note that it does not start the connection running, though
-// it may be called once the connection is already started.
+// ServeRoot is like Serve except that it gives the root object dynamic
+// control over what methods are available instead of using reflection
+// on the type.
 //
 // The server executes each client request by calling FindMethod to obtain a
 // method to invoke. It invokes that method with the request parameters,
 // possibly returning some result.
 //
-// root can optionally implement the Killer method. If implemented, when the
-// connection is closed, root.Kill() will be called.
-func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
-	conn.serve(finder, finder, transformErrors)
+// The Kill method will be called when the connection is closed.
+func (conn *Conn) ServeRoot(root Root, transformErrors func(error) error) {
+	conn.serve(root, transformErrors)
 }
 
-func (conn *Conn) serve(methodFinder MethodFinder, root interface{}, transformErrors func(error) error) {
+func (conn *Conn) serve(root Root, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	conn.methodFinder = methodFinder
 	conn.root = root
 	conn.transformErrors = transformErrors
 }
@@ -327,7 +278,9 @@ func (conn *Conn) Close() error {
 		return nil
 	}
 	conn.closing = true
-	conn.killRequests()
+	if conn.root != nil {
+		conn.root.Kill()
+	}
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
@@ -340,25 +293,7 @@ func (conn *Conn) Close() error {
 	}
 	<-conn.dead
 
-	conn.mutex.Lock()
-	conn.cleanRoot()
-	conn.mutex.Unlock()
-
 	return conn.inputLoopError
-}
-
-// Kill server requests if appropriate. Client requests will be
-// terminated when the input loop finishes.
-func (conn *Conn) killRequests() {
-	if killer, ok := conn.root.(Killer); ok {
-		killer.Kill()
-	}
-}
-
-func (conn *Conn) cleanRoot() {
-	if cleaner, ok := conn.root.(Cleaner); ok {
-		cleaner.Cleanup()
-	}
 }
 
 // ErrorCoder represents an any error that has an associated
@@ -368,22 +303,17 @@ type ErrorCoder interface {
 	ErrorCode() string
 }
 
-// MethodFinder represents a type that can be used to lookup a Method and place
+// Root represents a type that can be used to lookup a Method and place
 // calls on that method.
-type MethodFinder interface {
+type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
+	Killer
 }
 
 // Killer represents a type that can be asked to abort any outstanding
 // requests.  The Kill method should return immediately.
 type Killer interface {
 	Kill()
-}
-
-// Cleaner represents a type that can be asked to clean up after
-// itself once the connection has closed.
-type Cleaner interface {
-	Cleanup()
 }
 
 // input reads messages from the connection and handles them
@@ -442,17 +372,16 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	startTime := time.Now()
+	observer := conn.observerFactory.RPCObserver()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		conn.notifier.ServerRequest(hdr, nil)
+		observer.ServerRequest(hdr, nil)
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, startTime)
+		return conn.writeErrorResponse(hdr, err, observer)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -462,7 +391,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		conn.notifier.ServerRequest(hdr, nil)
+		observer.ServerRequest(hdr, nil)
+
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -476,32 +406,33 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
+		return conn.writeErrorResponse(hdr, req.transformErrors(err), observer)
 	}
 	if req.ParamsType() != nil {
-		conn.notifier.ServerRequest(hdr, arg.Interface())
+		observer.ServerRequest(hdr, arg.Interface())
 	} else {
-		conn.notifier.ServerRequest(hdr, struct{}{})
+		observer.ServerRequest(hdr, struct{}{})
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, startTime)
+		go conn.runRequest(req, arg, hdr.Version, observer)
 	}
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), startTime)
+		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), observer)
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.Time) error {
+func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observer) error {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
 		RequestId: reqHdr.RequestId,
+		Version:   reqHdr.Version,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -509,7 +440,8 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.T
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
+	observer.ServerReply(reqHdr.Request, hdr, struct{}{})
+
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
 
@@ -526,14 +458,14 @@ type boundRequest struct {
 // a boundRequest that can call those methods.
 func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
-	methodFinder := conn.methodFinder
+	root := conn.root
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
-	if methodFinder == nil {
+	if root == nil {
 		return boundRequest{}, errors.New("no service")
 	}
-	caller, err := methodFinder.FindMethod(
+	caller, err := root.FindMethod(
 		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
@@ -553,14 +485,15 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
+func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, observer Observer) {
 	defer conn.srvPending.Done()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)
+		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), observer)
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
+			Version:   version,
 		}
 		var rvi interface{}
 		if rv.IsValid() {
@@ -568,7 +501,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 		} else {
 			rvi = struct{}{}
 		}
-		conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
+		observer.ServerReply(req.hdr.Request, hdr, rvi)
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
 		conn.sending.Unlock()

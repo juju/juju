@@ -6,7 +6,6 @@ package storage
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
 
@@ -24,22 +23,34 @@ const (
 	ScopeMachine
 )
 
+// ProviderRegistry is an interface for obtaining storage providers.
+type ProviderRegistry interface {
+	// StorageProviderTypes returns the storage provider types
+	// contained within this registry.
+	StorageProviderTypes() []ProviderType
+
+	// StorageProvider returns the storage provider with the given
+	// provider type. StorageProvider must return an errors satisfying
+	// errors.IsNotFound if the registry does not contain said the
+	// specified provider type.
+	StorageProvider(ProviderType) (Provider, error)
+}
+
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
-	// VolumeSource returns a VolumeSource given the specified cloud
-	// and storage provider configurations, or an error if the provider
-	// does not support creating volumes or the configuration is invalid.
+	// VolumeSource returns a VolumeSource given the specified storage
+	// provider configurations, or an error if the provider does not
+	// support creating volumes or the configuration is invalid.
 	//
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error
 	// satisfying errors.IsNotSupported.
-	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
+	VolumeSource(*Config) (VolumeSource, error)
 
 	// FilesystemSource returns a FilesystemSource given the specified
-	// cloud and storage provider configurations, or an error if the
-	// provider does not support creating filesystems or the configuration
-	// is invalid.
-	FilesystemSource(environConfig *config.Config, providerConfig *Config) (FilesystemSource, error)
+	// storage provider configurations, or an error if the provider does
+	// not support creating filesystems or the configuration is invalid.
+	FilesystemSource(*Config) (FilesystemSource, error)
 
 	// Supports reports whether or not the storage provider supports
 	// the specified storage kind.
@@ -56,6 +67,10 @@ type Provider interface {
 	// of dynamic storage provisioning. Non-dynamic storage must be
 	// created at the time a machine is provisioned.
 	Dynamic() bool
+
+	// DefaultPools returns the default storage pools for this provider,
+	// to register in each new model.
+	DefaultPools() []*Config
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.

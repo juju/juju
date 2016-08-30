@@ -14,7 +14,7 @@ import (
 
 // AvailabilityZones returns all availability zones in the environment.
 func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	zones, err := env.gce.AvailabilityZones(env.ecfg.region())
+	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -54,7 +54,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 }
 
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
-	zones, err := env.gce.AvailabilityZones(env.ecfg.region())
+	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

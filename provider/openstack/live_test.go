@@ -15,9 +15,6 @@ import (
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -211,23 +208,15 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 }
 
 func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault bool) {
-	attrs := s.TestConfig.Merge(coretesting.Attrs{
-		"name":                 "sample-" + randomName(),
+	s.LiveTests.PatchValue(&s.TestConfig, s.TestConfig.Merge(coretesting.Attrs{
 		"use-default-secgroup": useDefault,
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	// Set up a test environment.
-	env, err := environs.New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
-	defer env.Destroy()
-	// Bootstrap and start an instance.
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
+	}))
+	s.Destroy(c)
+	s.BootstrapOnce(c)
+
+	inst, _ := jujutesting.AssertStartInstance(c, s.Env, s.ControllerUUID, "100")
 	// Check whether the instance has the default security group assigned.
-	novaClient := openstack.GetNovaClient(env)
+	novaClient := openstack.GetNovaClient(s.Env)
 	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	defaultGroupFound := false

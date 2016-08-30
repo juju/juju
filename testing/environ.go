@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"os"
-
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -15,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -37,6 +35,18 @@ var FakeVersionNumber = version.MustParse("1.99.0")
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
+// FakeControllerConfig() returns an environment configuration
+// that is expected to be found in state for a fake controller.
+func FakeControllerConfig() controller.Config {
+	return controller.Config{
+		"controller-uuid":         ModelTag.Id(),
+		"ca-cert":                 CACert,
+		"state-port":              1234,
+		"api-port":                17777,
+		"set-numa-control-policy": false,
+	}
+}
+
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
@@ -44,16 +54,10 @@ func FakeConfig() Attrs {
 		"type":                      "someprovider",
 		"name":                      "testenv",
 		"uuid":                      ModelTag.Id(),
-		"controller-uuid":           ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "fish",
-		"ca-cert":                   CACert,
-		"ca-private-key":            CAKey,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"state-port":                19034,
-		"api-port":                  17777,
 		"default-series":            series.LatestLts(),
 	}
 }
@@ -62,7 +66,7 @@ func FakeConfig() Attrs {
 // setting in the state.
 func ModelConfig(c *gc.C) *config.Config {
 	uuid := mustUUID()
-	return CustomModelConfig(c, Attrs{"uuid": uuid, "controller-uuid": uuid})
+	return CustomModelConfig(c, Attrs{"uuid": uuid})
 }
 
 // mustUUID returns a stringified uuid or panics
@@ -79,15 +83,11 @@ func mustUUID() string {
 func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "1.2.3",
-	}).Merge(extra).Delete("admin-secret", "ca-private-key")
+	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
-
-const (
-	SampleModelName = "erewhemos"
-)
 
 const DefaultMongoPassword = "conn-from-name-secret"
 
@@ -96,20 +96,14 @@ const DefaultMongoPassword = "conn-from-name-secret"
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
-	oldJujuXDGDataHome string
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuXDGDataHome := gitjujutesting.JujuXDGDataHomePath()
-	err := os.MkdirAll(jujuXDGDataHome, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 }
 
 func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
-	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.FakeHomeSuite.TearDownTest(c)
 	s.JujuOSEnvSuite.TearDownTest(c)
 }

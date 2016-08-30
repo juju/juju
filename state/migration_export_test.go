@@ -10,14 +10,18 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -35,18 +39,18 @@ var testAnnotations = map[string]string{
 	"another": "one",
 }
 
-type MigrationSuite struct {
+type MigrationBaseSuite struct {
 	ConnSuite
 }
 
-func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
+func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
+func (s *MigrationBaseSuite) setRandSequenceValue(c *gc.C, name string) int {
 	var value int
 	var err error
 	count := rand.Intn(5) + 1
@@ -58,13 +62,13 @@ func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 	return value + 1
 }
 
-func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
+func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
 	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"index": count - i}
 	}, 0)
 }
 
-func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
+func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
 	c.Assert(leader < count, jc.IsTrue)
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -85,8 +89,37 @@ func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname stri
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
+	pool := "loop-pool"
+	kind := "block"
+	// Create a default pool for block devices.
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := s.AddTestingCharm(c, "storage-"+kind)
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons(pool, 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := service.AddUnit()
+
+	machine := s.Factory.MakeMachine(c, nil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	err = unit.SetAgentVersion(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	return service, unit, storageTag
+}
+
 type MigrationExportSuite struct {
-	MigrationSuite
+	MigrationBaseSuite
 }
 
 var _ = gc.Suite(&MigrationExportSuite{})
@@ -112,11 +145,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("apt-mirror", "http://mirror")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,12 +156,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
-
-	// Remove all controller and cloud config before comparison.
-	controller.RemoveControllerAttributes(modelAttrs)
-	delete(modelAttrs, "apt-mirror")
-	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
+	modelCfg := model.Config()
+	// Config as read from state has resources tags coerced to a map.
+	modelCfg["resource-tags"] = map[string]string{}
+	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
@@ -155,19 +181,19 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond()
-	owner, err := s.State.ModelUser(s.Owner)
+	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(owner, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(state.ModelUserSpec{
+	bob, err := s.State.AddModelUser(state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ModelReadAccess,
+		Access:    description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(bob, lastConnection)
+	err = state.UpdateModelUserLastConnection(s.State, bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -181,24 +207,32 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	exportedAdmin := users[1]
 
 	c.Assert(exportedAdmin.Name(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName())
+	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName)
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
+	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated)
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.ReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.Access(), gc.Equals, description.AdminAccess)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
-	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
+	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated)
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.ReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.Access(), gc.Equals, description.ReadAccess)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
@@ -217,8 +251,11 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -281,12 +318,20 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
 }
 
-func (s *MigrationExportSuite) TestServices(c *gc.C) {
+func (s *MigrationExportSuite) TestApplications(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
+	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -313,7 +358,6 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
-	c.Assert(exported.SettingsRefCount(), gc.Equals, 1)
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
 	})
@@ -321,15 +365,18 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+	if cons.HasVirtType() {
+		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
 }
 
-func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
+func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
@@ -347,6 +394,10 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
@@ -369,6 +420,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
+	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -382,6 +434,16 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
+
+	versionHistory := exported.WorkloadVersionHistory()
+	// There are extra entries at the start that we don't care about.
+	c.Assert(len(versionHistory) >= 4, jc.IsTrue)
+	versions := make([]string, 4)
+	for i, status := range versionHistory[:4] {
+		versions[i] = status.Message()
+	}
+	// The exporter reads history in reverse time order.
+	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {
@@ -632,9 +694,277 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 	c.Check(cloudimagemetadata.Message(), gc.Equals, "")
 }
 
+func (s *MigrationExportSuite) TestActions(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := model.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, "pending")
+	c.Check(action.Message(), gc.Equals, "")
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token
 func (*goodToken) Check(interface{}) error {
 	return nil
+}
+
+func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume: state.VolumeParams{Size: 4000},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 2)
+	provisioned, notProvisioned := volumes[0], volumes[1]
+
+	c.Check(provisioned.Tag(), gc.Equals, volTag)
+	binding, err := provisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(provisioned.Provisioned(), jc.IsTrue)
+	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
+	c.Check(provisioned.Pool(), gc.Equals, "loop")
+	c.Check(provisioned.HardwareID(), gc.Equals, "magic")
+	c.Check(provisioned.VolumeID(), gc.Equals, "volume id")
+	c.Check(provisioned.Persistent(), jc.IsTrue)
+	attachments := provisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	c.Check(notProvisioned.Tag(), gc.Equals, names.NewVolumeTag("0/1"))
+	binding, err = notProvisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
+	c.Check(notProvisioned.Size(), gc.Equals, uint64(4000))
+	c.Check(notProvisioned.Pool(), gc.Equals, "loop")
+	c.Check(notProvisioned.HardwareID(), gc.Equals, "")
+	c.Check(notProvisioned.VolumeID(), gc.Equals, "")
+	c.Check(notProvisioned.Persistent(), jc.IsFalse)
+	attachments = notProvisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment = attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
+	c.Check(attachment.ReadOnly(), jc.IsFalse)
+	c.Check(attachment.DeviceName(), gc.Equals, "")
+	c.Check(attachment.DeviceLink(), gc.Equals, "")
+	c.Check(attachment.BusAddress(), gc.Equals, "")
+
+	// Make sure there is a status.
+	status := provisioned.Status()
+	c.Check(status.Value(), gc.Equals, "pending")
+}
+
+func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Size: 1234},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "location",
+				ReadOnly: true},
+		}, {
+			Filesystem: state.FilesystemParams{Size: 4000},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first filesystem is called "0/0" as it is the first
+	// filesystem (filesystems use sequences), and it is bound to machine 0.
+	fsTag := names.NewFilesystemTag("0/0")
+	err := s.State.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+		Size:         1500,
+		FilesystemId: "filesystem id",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+		MountPoint: "/mnt/foo",
+		ReadOnly:   true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystems := model.Filesystems()
+	c.Assert(filesystems, gc.HasLen, 2)
+	provisioned, notProvisioned := filesystems[0], filesystems[1]
+
+	c.Check(provisioned.Tag(), gc.Equals, fsTag)
+	c.Check(provisioned.Volume(), gc.Equals, names.VolumeTag{})
+	c.Check(provisioned.Storage(), gc.Equals, names.StorageTag{})
+	binding, err := provisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(provisioned.Provisioned(), jc.IsTrue)
+	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
+	c.Check(provisioned.Pool(), gc.Equals, "rootfs")
+	c.Check(provisioned.FilesystemID(), gc.Equals, "filesystem id")
+	attachments := provisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.MountPoint(), gc.Equals, "/mnt/foo")
+
+	c.Check(notProvisioned.Tag(), gc.Equals, names.NewFilesystemTag("0/1"))
+	c.Check(notProvisioned.Volume(), gc.Equals, names.VolumeTag{})
+	c.Check(notProvisioned.Storage(), gc.Equals, names.StorageTag{})
+	binding, err = notProvisioned.Binding()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(binding, gc.Equals, machineTag)
+	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
+	c.Check(notProvisioned.Size(), gc.Equals, uint64(4000))
+	c.Check(notProvisioned.Pool(), gc.Equals, "rootfs")
+	c.Check(notProvisioned.FilesystemID(), gc.Equals, "")
+	attachments = notProvisioned.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment = attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsFalse)
+	c.Check(attachment.ReadOnly(), jc.IsFalse)
+	c.Check(attachment.MountPoint(), gc.Equals, "")
+
+	// Make sure there is a status.
+	status := provisioned.Status()
+	c.Check(status.Value(), gc.Equals, "pending")
+}
+
+func (s *MigrationExportSuite) TestStorage(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := model.Applications()
+	c.Assert(apps, gc.HasLen, 1)
+	constraints := apps[0].StorageConstraints()
+	c.Assert(constraints, gc.HasLen, 2)
+	cons, found := constraints["data"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(cons.Pool(), gc.Equals, "loop-pool")
+	c.Check(cons.Size(), gc.Equals, uint64(0x400))
+	c.Check(cons.Count(), gc.Equals, uint64(1))
+	cons, found = constraints["allecto"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(cons.Pool(), gc.Equals, "loop")
+	c.Check(cons.Size(), gc.Equals, uint64(0x400))
+	c.Check(cons.Count(), gc.Equals, uint64(0))
+
+	storages := model.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+
+	storage := storages[0]
+
+	c.Check(storage.Tag(), gc.Equals, storageTag)
+	c.Check(storage.Kind(), gc.Equals, "block")
+	owner, err := storage.Owner()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owner, gc.Equals, u.Tag())
+	c.Check(storage.Name(), gc.Equals, "data")
+	c.Check(storage.Attachments(), jc.DeepEquals, []names.UnitTag{
+		u.UnitTag(),
+	})
+}
+
+func (s *MigrationExportSuite) TestStoragePools(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
+	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
+		"value": 42,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	pools := model.StoragePools()
+	c.Assert(pools, gc.HasLen, 1)
+	pool := pools[0]
+	c.Assert(pool.Name(), gc.Equals, "test-pool")
+	c.Assert(pool.Provider(), gc.Equals, "loop")
+	c.Assert(pool.Attributes(), jc.DeepEquals, map[string]interface{}{
+		"value": 42,
+	})
+}
+
+func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	up, err := s.State.UnitPayloads(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	original := payload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "something",
+			Type: "special",
+		},
+		ID:     "42",
+		Status: "running",
+		Labels: []string{"foo", "bar"},
+	}
+	err = up.Track(original)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+
+	units := applications[0].Units()
+	c.Assert(units, gc.HasLen, 1)
+
+	payloads := units[0].Payloads()
+	c.Assert(payloads, gc.HasLen, 1)
+
+	payload := payloads[0]
+	c.Check(payload.Name(), gc.Equals, original.Name)
+	c.Check(payload.Type(), gc.Equals, original.Type)
+	c.Check(payload.RawID(), gc.Equals, original.ID)
+	c.Check(payload.State(), gc.Equals, original.Status)
+	c.Check(payload.Labels(), jc.DeepEquals, original.Labels)
 }

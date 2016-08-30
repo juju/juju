@@ -26,6 +26,8 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
@@ -87,7 +89,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = newSingularRunnerRecord()
 	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(*state.State, bool) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
@@ -159,7 +161,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -533,3 +535,26 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+// minModelWorkersEnviron implements just enough of environs.Environ
+// to allow model workers to run.
+type minModelWorkersEnviron struct {
+	environs.Environ
+}
+
+func (e *minModelWorkersEnviron) Config() *config.Config {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
+	return nil
+}
+
+func (e *minModelWorkersEnviron) AllInstances() ([]instance.Instance, error) {
+	return nil, nil
+}

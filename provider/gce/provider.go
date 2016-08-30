@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -19,65 +20,35 @@ type environProvider struct {
 var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
-// BootstrapConfig implements environs.EnvironProvider.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	cfg := args.Config
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.JSONFileAuthType:
-		var err error
-		filename := args.Credentials.Attributes()["file"]
-		args.Credentials, err = parseJSONAuthFile(filename)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		fallthrough
-	case cloud.OAuth2AuthType:
-		credentialAttrs := args.Credentials.Attributes()
-		var err error
-		cfg, err = args.Config.Apply(map[string]interface{}{
-			cfgProjectID:   credentialAttrs[cfgProjectID],
-			cfgClientID:    credentialAttrs[cfgClientID],
-			cfgClientEmail: credentialAttrs[cfgClientEmail],
-			cfgPrivateKey:  credentialAttrs[cfgPrivateKey],
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+// PrepareConfig implements environs.EnvironProvider.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	// Ensure cloud info is in config.
-	var err error
-	cfg, err = cfg.Apply(map[string]interface{}{
-		cfgRegion: args.CloudRegion,
-		// TODO (anastasiamac 2016-06-09) at some stage will need to
-		//  also add endpoint and storage endpoint.
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return p.PrepareForCreateEnvironment(cfg)
+	return configWithDefaults(args.Config)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := env.gce.VerifyCredentials(); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
 	}
-	return env, nil
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.OAuth2AuthType, cloud.JSONFileAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }
 
 // Schema returns the configuration schema for an environment.
@@ -89,9 +60,16 @@ func (environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return configWithDefaults(cfg)
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
 }
 
 // UpgradeModelConfig is specified in the ModelConfigUpgrader interface.
@@ -111,14 +89,6 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 	return cfg.Apply(defaults)
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		cfgRegion,
-		cfgImageEndpoint,
-	}
-}
-
 // Validate implements environs.EnvironProvider.Validate.
 func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := newConfig(cfg, old)
@@ -126,14 +96,4 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 		return nil, errors.Annotate(err, "invalid config")
 	}
 	return newCfg.config, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ecfg.secret(), nil
 }

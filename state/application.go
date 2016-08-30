@@ -90,8 +90,8 @@ func (s *Application) globalKey() string {
 	return applicationGlobalKey(s.doc.Name)
 }
 
-func applicationSettingsKey(applicationname string, curl *charm.URL) string {
-	return fmt.Sprintf("a#%s#%s", applicationname, curl)
+func applicationSettingsKey(appName string, curl *charm.URL) string {
+	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
 // settingsKey returns the charm-version-specific settings collection
@@ -246,7 +246,6 @@ func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the application document.
 func (s *Application) removeOps(asserts bson.D) []txn.Op {
-	settingsDocID := s.st.docID(s.settingsKey())
 	ops := []txn.Op{
 		{
 			C:      applicationsC,
@@ -254,14 +253,11 @@ func (s *Application) removeOps(asserts bson.D) []txn.Op {
 			Assert: asserts,
 			Remove: true,
 		}, {
-			C:      settingsrefsC,
-			Id:     settingsDocID,
-			Remove: true,
-		}, {
 			C:      settingsC,
-			Id:     settingsDocID,
+			Id:     s.settingsKey(),
 			Remove: true,
 		},
+		nsRefcounts.JustRemoveOp(refcountsC, s.settingsKey(), -1),
 		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
@@ -433,16 +429,91 @@ func (s *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 	return asserts, nil
 }
 
-func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
+func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (_ []txn.Op, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot upgrade application %q to charm %q", s, newMeta.Name)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	oldMeta := ch.Meta()
-	for name := range oldMeta.Storage {
-		if _, ok := newMeta.Storage[name]; !ok {
-			return errors.Errorf("storage %q removed", name)
+	var ops []txn.Op
+	var units []*Unit
+	for name, oldStorageMeta := range oldMeta.Storage {
+		if _, ok := newMeta.Storage[name]; ok {
+			continue
+		}
+		if oldStorageMeta.CountMin > 0 {
+			return nil, errors.Errorf("required storage %q removed", name)
+		}
+		// Optional storage has been removed. So long as there
+		// are no instances of the store, it can safely be
+		// removed.
+		if oldStorageMeta.Shared {
+			n, err := s.st.countEntityStorageInstancesForName(
+				s.Tag(), name,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if n > 0 {
+				return nil, errors.Errorf("in-use storage %q removed", name)
+			}
+			// TODO(axw) if/when it is possible to
+			// add shared storage instance to an
+			// application post-deployment, we must
+			// include a txn.Op here that asserts
+			// that the number of instances is zero.
+		} else {
+			if units == nil {
+				var err error
+				units, err = s.AllUnits()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, txn.Op{
+					C:      applicationsC,
+					Id:     s.doc.DocID,
+					Assert: bson.D{{"unitcount", len(units)}},
+				})
+				for _, unit := range units {
+					// Here we check that the storage
+					// attachment count remains the same.
+					// To get around the ABA problem, we
+					// also add ops for the individual
+					// attachments below.
+					ops = append(ops, txn.Op{
+						C:  unitsC,
+						Id: unit.doc.DocID,
+						Assert: bson.D{{
+							"storageattachmentcount",
+							unit.doc.StorageAttachmentCount,
+						}},
+					})
+				}
+			}
+			for _, unit := range units {
+				attachments, err := s.st.UnitStorageAttachments(unit.UnitTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				for _, attachment := range attachments {
+					storageTag := attachment.StorageInstance()
+					storageName, err := names.StorageName(storageTag.Id())
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					if storageName == name {
+						return nil, errors.Errorf("in-use storage %q removed", name)
+					}
+					// We assert that other storage attachments still exist to
+					// avoid the ABA problem.
+					ops = append(ops, txn.Op{
+						C:      storageAttachmentsC,
+						Id:     storageAttachmentId(unit.Name(), storageTag.Id()),
+						Assert: txn.DocExists,
+					})
+				}
+			}
 		}
 	}
 	less := func(a, b int) bool {
@@ -452,7 +523,7 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 		oldStorageMeta, ok := oldMeta.Storage[name]
 		if !ok {
 			if newStorageMeta.CountMin > 0 {
-				return errors.Errorf("required storage %q added", name)
+				return nil, errors.Errorf("required storage %q added", name)
 			}
 			// New storage is fine as long as it is not required.
 			//
@@ -463,31 +534,31 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 			continue
 		}
 		if newStorageMeta.Type != oldStorageMeta.Type {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q type changed from %q to %q",
 				name, oldStorageMeta.Type, newStorageMeta.Type,
 			)
 		}
 		if newStorageMeta.Shared != oldStorageMeta.Shared {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q shared changed from %v to %v",
 				name, oldStorageMeta.Shared, newStorageMeta.Shared,
 			)
 		}
 		if newStorageMeta.ReadOnly != oldStorageMeta.ReadOnly {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q read-only changed from %v to %v",
 				name, oldStorageMeta.ReadOnly, newStorageMeta.ReadOnly,
 			)
 		}
 		if newStorageMeta.Location != oldStorageMeta.Location {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q location changed from %q to %q",
 				name, oldStorageMeta.Location, newStorageMeta.Location,
 			)
 		}
 		if newStorageMeta.CountMin > oldStorageMeta.CountMin {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q range contracted: min increased from %d to %d",
 				name, oldStorageMeta.CountMin, newStorageMeta.CountMin,
 			)
@@ -497,7 +568,7 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 			if oldStorageMeta.CountMax == -1 {
 				oldCountMax = "<unbounded>"
 			}
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q range contracted: max decreased from %v to %d",
 				name, oldCountMax, newStorageMeta.CountMax,
 			)
@@ -506,13 +577,13 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 			// If a location is specified, the store may not go
 			// from being a singleton to multiple, since then the
 			// location has a different meaning.
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"existing storage %q with location changed from singleton to multiple",
 				name,
 			)
 		}
 	}
-	return nil
+	return ops, nil
 }
 
 // changeCharmOps returns the operations necessary to set a service's
@@ -643,9 +714,11 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
-	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
+	storageOps, err := s.checkStorageUpgrade(ch.Meta())
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ops = append(ops, storageOps...)
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
@@ -964,12 +1037,17 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
+	workloadVersionDoc := statusDoc{
+		Status:  status.StatusUnknown,
+		Updated: now.UnixNano(),
+	}
 
 	ops := addUnitOps(s.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: unitStatusDoc,
-		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  unitStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
+		meterStatusDoc:     &meterStatusDoc{Code: MeterNotSet.String()},
 	})
 
 	ops = append(ops, storageOps...)
@@ -993,6 +1071,7 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// them cleanly.
 	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
 	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(s.st, globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
@@ -1019,11 +1098,10 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 		return nil, -1, err
 	}
 	meta := charm.Meta()
-	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, numStorageAttachments, err = createStorageOps(
-		s.st, tag, meta, url, cons,
+		s.st, tag, meta, cons,
 		s.doc.Series,
 		false, // unit is not assigned yet; don't create machine storage
 	)
@@ -1424,91 +1502,49 @@ func (s *Application) StorageConstraints() (map[string]StorageConstraints, error
 }
 
 // settingsIncRefOp returns an operation that increments the ref count
-// of the application settings identified by applicationname and curl. If
+// of the application settings identified by appName and curl. If
 // canCreate is false, a missing document will be treated as an error;
 // otherwise, it will be created with a ref count of 1.
-func settingsIncRefOp(st *State, applicationname string, curl *charm.URL, canCreate bool) (txn.Op, error) {
-	settingsrefs, closer := st.getCollection(settingsrefsC)
+func settingsIncRefOp(st *State, appName string, curl *charm.URL, canCreate bool) (txn.Op, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(applicationname, curl)
-	if count, err := settingsrefs.FindId(key).Count(); err != nil {
-		return txn.Op{}, err
-	} else if count == 0 {
-		if !canCreate {
-			return txn.Op{}, errors.NotFoundf("application %q settings for charm %q", applicationname, curl)
-		}
-		return txn.Op{
-			C:      settingsrefsC,
-			Id:     st.docID(key),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, nil
+	getOp := nsRefcounts.CreateOrIncRefOp
+	if !canCreate {
+		getOp = nsRefcounts.StrictIncRefOp
 	}
-	return txn.Op{
-		C:      settingsrefsC,
-		Id:     st.docID(key),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
-	}, nil
+
+	key := applicationSettingsKey(appName, curl)
+	op, err := getOp(refcounts, key)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return op, nil
 }
 
 // settingsDecRefOps returns a list of operations that decrement the
-// ref count of the application settings identified by applicationname and
+// ref count of the application settings identified by appName and
 // curl. If the ref count is set to zero, the appropriate setting and
 // ref count documents will both be deleted.
-func settingsDecRefOps(st *State, applicationname string, curl *charm.URL) ([]txn.Op, error) {
-	settingsrefs, closer := st.getCollection(settingsrefsC)
+func settingsDecRefOps(st *State, appName string, curl *charm.URL) ([]txn.Op, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(applicationname, curl)
-	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("application %q settings for charm %q", applicationname, curl)
-	} else if err != nil {
-		return nil, err
+	key := applicationSettingsKey(appName, curl)
+	op, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, key)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	docID := st.docID(key)
-	if doc.RefCount == 1 {
-		return []txn.Op{{
-			C:      settingsrefsC,
-			Id:     docID,
-			Assert: bson.D{{"refcount", 1}},
-			Remove: true,
-		}, {
-			C:      settingsC,
-			Id:     docID,
-			Remove: true,
-		}}, nil
-	}
-	return []txn.Op{{
-		C:      settingsrefsC,
-		Id:     docID,
-		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},
-		Update: bson.D{{"$inc", bson.D{{"refcount", -1}}}},
-	}}, nil
-}
 
-// settingsRefsDoc holds the number of units and services using the
-// settings document identified by the document's id. Every time a
-// application upgrades its charm the settings doc ref count for the new
-// charm url is incremented, and the old settings is ref count is
-// decremented. When a unit upgrades to the new charm, the old service
-// settings ref count is decremented and the ref count of the new
-// charm settings is incremented. The last unit upgrading to the new
-// charm is responsible for deleting the old charm's settings doc.
-//
-// Note: We're not using the settingsDoc for this because changing
-// just the ref count is not considered a change worth reporting
-// to watchers and firing config-changed hooks.
-//
-// There is an implicit _id field here, which mongo creates, which is
-// always the same as the settingsDoc's id.
-type settingsRefsDoc struct {
-	RefCount  int
-	ModelUUID string `bson:"model-uuid"`
+	ops := []txn.Op{op}
+	if isFinal {
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     key,
+			Remove: true,
+		})
+	}
+	return ops, nil
 }
 
 // Status returns the status of the service.
@@ -1625,12 +1661,11 @@ var statusServerities = map[status.Status]int{
 }
 
 type addApplicationOpsArgs struct {
-	applicationDoc   *applicationDoc
-	statusDoc        statusDoc
-	constraints      constraints.Value
-	storage          map[string]StorageConstraints
-	settings         map[string]interface{}
-	settingsRefCount int
+	applicationDoc *applicationDoc
+	statusDoc      statusDoc
+	constraints    constraints.Value
+	storage        map[string]StorageConstraints
+	settings       map[string]interface{}
 	// These are nil when adding a new service, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
@@ -1654,14 +1689,8 @@ func addApplicationOps(st *State, args addApplicationOpsArgs) []txn.Op {
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),
 		addModelServiceRefOp(st, svc.Name()),
+		nsRefcounts.JustCreateOp(refcountsC, settingsKey, 1),
 		{
-			C:      settingsrefsC,
-			Id:     settingsKey,
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount: args.settingsRefCount,
-			},
-		}, {
 			C:      applicationsC,
 			Id:     svc.Name(),
 			Assert: txn.DocMissing,

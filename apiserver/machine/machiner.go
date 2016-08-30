@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.machine")
@@ -261,7 +262,9 @@ func (api *MachinerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]
 		return nil, errors.Trace(err)
 	}
 
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(api.st)
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(
+		stateenvirons.EnvironConfigGetter{api.st},
+	)
 	if errors.IsNotSupported(err) {
 		logger.Infof("not updating provider network config: %v", err)
 		return nil, nil

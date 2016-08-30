@@ -15,24 +15,22 @@ type StubStore struct {
 
 	AllControllersFunc       func() (map[string]jujuclient.ControllerDetails, error)
 	ControllerByNameFunc     func(name string) (*jujuclient.ControllerDetails, error)
+	AddControllerFunc        func(name string, one jujuclient.ControllerDetails) error
 	UpdateControllerFunc     func(name string, one jujuclient.ControllerDetails) error
 	RemoveControllerFunc     func(name string) error
 	SetCurrentControllerFunc func(name string) error
 	CurrentControllerFunc    func() (string, error)
 
-	UpdateModelFunc     func(controller, account, model string, details jujuclient.ModelDetails) error
-	SetCurrentModelFunc func(controller, account, model string) error
-	RemoveModelFunc     func(controller, account, model string) error
-	AllModelsFunc       func(controller, account string) (map[string]jujuclient.ModelDetails, error)
-	CurrentModelFunc    func(controller, account string) (string, error)
-	ModelByNameFunc     func(controller, account, model string) (*jujuclient.ModelDetails, error)
+	UpdateModelFunc     func(controller, model string, details jujuclient.ModelDetails) error
+	SetCurrentModelFunc func(controller, model string) error
+	RemoveModelFunc     func(controller, model string) error
+	AllModelsFunc       func(controller string) (map[string]jujuclient.ModelDetails, error)
+	CurrentModelFunc    func(controller string) (string, error)
+	ModelByNameFunc     func(controller, model string) (*jujuclient.ModelDetails, error)
 
-	UpdateAccountFunc     func(controllerName, accountName string, details jujuclient.AccountDetails) error
-	SetCurrentAccountFunc func(controllerName, accountName string) error
-	AllAccountsFunc       func(controllerName string) (map[string]jujuclient.AccountDetails, error)
-	CurrentAccountFunc    func(controllerName string) (string, error)
-	AccountByNameFunc     func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
-	RemoveAccountFunc     func(controllerName, accountName string) error
+	UpdateAccountFunc  func(controllerName string, details jujuclient.AccountDetails) error
+	AccountDetailsFunc func(controllerName string) (*jujuclient.AccountDetails, error)
+	RemoveAccountFunc  func(controllerName string) error
 
 	CredentialForCloudFunc func(string) (*cloud.CloudCredential, error)
 	AllCredentialsFunc     func() (map[string]cloud.CloudCredential, error)
@@ -52,6 +50,9 @@ func NewStubStore() *StubStore {
 	result.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
 		return nil, result.Stub.NextErr()
 	}
+	result.AddControllerFunc = func(name string, one jujuclient.ControllerDetails) error {
+		return result.Stub.NextErr()
+	}
 	result.UpdateControllerFunc = func(name string, one jujuclient.ControllerDetails) error {
 		return result.Stub.NextErr()
 	}
@@ -65,41 +66,32 @@ func NewStubStore() *StubStore {
 		return "", result.Stub.NextErr()
 	}
 
-	result.UpdateModelFunc = func(controller, account, model string, details jujuclient.ModelDetails) error {
+	result.UpdateModelFunc = func(controller, model string, details jujuclient.ModelDetails) error {
 		return result.Stub.NextErr()
 	}
-	result.SetCurrentModelFunc = func(controller, account, model string) error {
+	result.SetCurrentModelFunc = func(controller, model string) error {
 		return result.Stub.NextErr()
 	}
-	result.RemoveModelFunc = func(controller, account, model string) error {
+	result.RemoveModelFunc = func(controller, model string) error {
 		return result.Stub.NextErr()
 	}
-	result.AllModelsFunc = func(controller, account string) (map[string]jujuclient.ModelDetails, error) {
+	result.AllModelsFunc = func(controller string) (map[string]jujuclient.ModelDetails, error) {
 		return nil, result.Stub.NextErr()
 	}
-	result.CurrentModelFunc = func(controller, account string) (string, error) {
+	result.CurrentModelFunc = func(controller string) (string, error) {
 		return "", result.Stub.NextErr()
 	}
-	result.ModelByNameFunc = func(controller, account, model string) (*jujuclient.ModelDetails, error) {
+	result.ModelByNameFunc = func(controller, model string) (*jujuclient.ModelDetails, error) {
 		return nil, result.Stub.NextErr()
 	}
 
-	result.UpdateAccountFunc = func(controllerName, accountName string, details jujuclient.AccountDetails) error {
+	result.UpdateAccountFunc = func(controllerName string, details jujuclient.AccountDetails) error {
 		return result.Stub.NextErr()
 	}
-	result.SetCurrentAccountFunc = func(controllerName, accountName string) error {
-		return result.Stub.NextErr()
-	}
-	result.AllAccountsFunc = func(controllerName string) (map[string]jujuclient.AccountDetails, error) {
+	result.AccountDetailsFunc = func(controllerName string) (*jujuclient.AccountDetails, error) {
 		return nil, result.Stub.NextErr()
 	}
-	result.CurrentAccountFunc = func(controllerName string) (string, error) {
-		return "", result.Stub.NextErr()
-	}
-	result.AccountByNameFunc = func(controllerName, accountName string) (*jujuclient.AccountDetails, error) {
-		return nil, result.Stub.NextErr()
-	}
-	result.RemoveAccountFunc = func(controllerName, accountName string) error {
+	result.RemoveAccountFunc = func(controllerName string) error {
 		return result.Stub.NextErr()
 	}
 
@@ -129,6 +121,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub := NewStubStore()
 	stub.AllControllersFunc = underlying.AllControllers
 	stub.ControllerByNameFunc = underlying.ControllerByName
+	stub.AddControllerFunc = underlying.AddController
 	stub.UpdateControllerFunc = underlying.UpdateController
 	stub.RemoveControllerFunc = underlying.RemoveController
 	stub.SetCurrentControllerFunc = underlying.SetCurrentController
@@ -140,10 +133,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.CurrentModelFunc = underlying.CurrentModel
 	stub.ModelByNameFunc = underlying.ModelByName
 	stub.UpdateAccountFunc = underlying.UpdateAccount
-	stub.SetCurrentAccountFunc = underlying.SetCurrentAccount
-	stub.AllAccountsFunc = underlying.AllAccounts
-	stub.CurrentAccountFunc = underlying.CurrentAccount
-	stub.AccountByNameFunc = underlying.AccountByName
+	stub.AccountDetailsFunc = underlying.AccountDetails
 	stub.RemoveAccountFunc = underlying.RemoveAccount
 	stub.BootstrapConfigForControllerFunc = underlying.BootstrapConfigForController
 	stub.UpdateBootstrapConfigFunc = underlying.UpdateBootstrapConfig
@@ -162,7 +152,13 @@ func (c *StubStore) ControllerByName(name string) (*jujuclient.ControllerDetails
 	return c.ControllerByNameFunc(name)
 }
 
-// UpdateController implements ControllersUpdater.UpdateController
+// AddController implements ControllerUpdater.AddController
+func (c *StubStore) AddController(name string, one jujuclient.ControllerDetails) error {
+	c.MethodCall(c, "AddController", name, one)
+	return c.AddControllerFunc(name, one)
+}
+
+// UpdateController implements ControllerUpdater.UpdateController
 func (c *StubStore) UpdateController(name string, one jujuclient.ControllerDetails) error {
 	c.MethodCall(c, "UpdateController", name, one)
 	return c.UpdateControllerFunc(name, one)
@@ -174,7 +170,7 @@ func (c *StubStore) RemoveController(name string) error {
 	return c.RemoveControllerFunc(name)
 }
 
-// SetCurrentController implements ControllersUpdater.SetCurrentController.
+// SetCurrentController implements ControllerUpdater.SetCurrentController.
 func (c *StubStore) SetCurrentController(name string) error {
 	c.MethodCall(c, "SetCurrentController", name)
 	return c.SetCurrentControllerFunc(name)
@@ -187,75 +183,57 @@ func (c *StubStore) CurrentController() (string, error) {
 }
 
 // UpdateModel implements ModelUpdater.
-func (c *StubStore) UpdateModel(controller, account, model string, details jujuclient.ModelDetails) error {
-	c.MethodCall(c, "UpdateModel", controller, account, model, details)
-	return c.UpdateModelFunc(controller, account, model, details)
+func (c *StubStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
+	c.MethodCall(c, "UpdateModel", controller, model, details)
+	return c.UpdateModelFunc(controller, model, details)
 }
 
 // SetCurrentModel implements ModelUpdater.
-func (c *StubStore) SetCurrentModel(controller, account, model string) error {
-	c.MethodCall(c, "SetCurrentModel", controller, account, model)
-	return c.SetCurrentModelFunc(controller, account, model)
+func (c *StubStore) SetCurrentModel(controller, model string) error {
+	c.MethodCall(c, "SetCurrentModel", controller, model)
+	return c.SetCurrentModelFunc(controller, model)
 }
 
 // RemoveModel implements ModelRemover.
-func (c *StubStore) RemoveModel(controller, account, model string) error {
-	c.MethodCall(c, "RemoveModel", controller, account, model)
-	return c.RemoveModelFunc(controller, account, model)
+func (c *StubStore) RemoveModel(controller, model string) error {
+	c.MethodCall(c, "RemoveModel", controller, model)
+	return c.RemoveModelFunc(controller, model)
 }
 
 // AllModels implements ModelGetter.
-func (c *StubStore) AllModels(controller, account string) (map[string]jujuclient.ModelDetails, error) {
-	c.MethodCall(c, "AllModels", controller, account)
-	return c.AllModelsFunc(controller, account)
+func (c *StubStore) AllModels(controller string) (map[string]jujuclient.ModelDetails, error) {
+	c.MethodCall(c, "AllModels", controller)
+	return c.AllModelsFunc(controller)
 }
 
 // CurrentModel implements ModelGetter.
-func (c *StubStore) CurrentModel(controller, account string) (string, error) {
-	c.MethodCall(c, "CurrentModel", controller, account)
-	return c.CurrentModelFunc(controller, account)
+func (c *StubStore) CurrentModel(controller string) (string, error) {
+	c.MethodCall(c, "CurrentModel", controller)
+	return c.CurrentModelFunc(controller)
 }
 
 // ModelByName implements ModelGetter.
-func (c *StubStore) ModelByName(controller, account, model string) (*jujuclient.ModelDetails, error) {
-	c.MethodCall(c, "ModelByName", controller, account, model)
-	return c.ModelByNameFunc(controller, account, model)
+func (c *StubStore) ModelByName(controller, model string) (*jujuclient.ModelDetails, error) {
+	c.MethodCall(c, "ModelByName", controller, model)
+	return c.ModelByNameFunc(controller, model)
 }
 
 // UpdateAccount implements AccountUpdater.
-func (c *StubStore) UpdateAccount(controllerName, accountName string, details jujuclient.AccountDetails) error {
-	c.MethodCall(c, "UpdateAccount", controllerName, accountName, details)
-	return c.UpdateAccountFunc(controllerName, accountName, details)
+func (c *StubStore) UpdateAccount(controllerName string, details jujuclient.AccountDetails) error {
+	c.MethodCall(c, "UpdateAccount", controllerName, details)
+	return c.UpdateAccountFunc(controllerName, details)
 }
 
-// SetCurrentAccount implements AccountUpdater.
-func (c *StubStore) SetCurrentAccount(controllerName, accountName string) error {
-	c.MethodCall(c, "SetCurrentAccount", controllerName, accountName)
-	return c.SetCurrentAccountFunc(controllerName, accountName)
-}
-
-// AllAccounts implements AccountGetter.
-func (c *StubStore) AllAccounts(controllerName string) (map[string]jujuclient.AccountDetails, error) {
-	c.MethodCall(c, "AllAccounts", controllerName)
-	return c.AllAccountsFunc(controllerName)
-}
-
-// CurrentAccount implements AccountGetter.
-func (c *StubStore) CurrentAccount(controllerName string) (string, error) {
-	c.MethodCall(c, "CurrentAccount", controllerName)
-	return c.CurrentAccountFunc(controllerName)
-}
-
-// AccountByName implements AccountGetter.
-func (c *StubStore) AccountByName(controllerName, accountName string) (*jujuclient.AccountDetails, error) {
-	c.MethodCall(c, "AccountByName", controllerName, accountName)
-	return c.AccountByNameFunc(controllerName, accountName)
+// AccountDetails implements AccountGetter.
+func (c *StubStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
+	c.MethodCall(c, "AccountDetails", controllerName)
+	return c.AccountDetailsFunc(controllerName)
 }
 
 // RemoveAccount implements AccountRemover.
-func (c *StubStore) RemoveAccount(controllerName, accountName string) error {
-	c.MethodCall(c, "RemoveAccount", controllerName, accountName)
-	return c.RemoveAccountFunc(controllerName, accountName)
+func (c *StubStore) RemoveAccount(controllerName string) error {
+	c.MethodCall(c, "RemoveAccount", controllerName)
+	return c.RemoveAccountFunc(controllerName)
 }
 
 // CredentialForCloud implements CredentialsGetter.

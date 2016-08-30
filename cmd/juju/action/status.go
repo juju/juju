@@ -6,11 +6,12 @@ package action
 import (
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 func NewStatusCommand() cmd.Command {
@@ -32,15 +33,15 @@ If --name <name> is provided the search will be done by name rather than by ID.
 
 // Set up the output.
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.StringVar(&c.name, "name", "", "an action name")
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	f.StringVar(&c.name, "name", "", "Action name")
 }
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-action-status",
 		Args:    "[<action ID>|<action ID prefix>]",
-		Purpose: "show results of all actions filtered by optional ID prefix",
+		Purpose: "Show results of all actions filtered by optional ID prefix.",
 		Doc:     statusDoc,
 	}
 }

@@ -12,18 +12,22 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
 type MigrationImportSuite struct {
-	MigrationSuite
+	MigrationBaseSuite
 }
 
 var _ = gc.Suite(&MigrationImportSuite{})
@@ -138,39 +142,39 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
 }
 
-func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	access := state.ModelAdminAccess
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) description.UserAccess {
+	access := description.AdminAccess
 	if readOnly {
-		access = state.ModelReadAccess
+		access = description.ReadAccess
 	}
-	user, err := s.State.AddModelUser(state.ModelUserSpec{
+	user, err := s.State.AddModelUser(state.UserAccessSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if !lastConnection.IsZero() {
-		err = state.UpdateModelUserLastConnection(user, lastConnection)
+		err = state.UpdateModelUserLastConnection(s.State, user, lastConnection)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
 }
 
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.ModelUser) {
-	c.Assert(newUser.UserName(), gc.Equals, oldUser.UserName())
-	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
-	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
-	c.Assert(newUser.DateCreated(), gc.Equals, oldUser.DateCreated())
-	c.Assert(newUser.ReadOnly(), gc.Equals, oldUser.ReadOnly())
+func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser description.UserAccess) {
+	c.Assert(newUser.UserName, gc.Equals, oldUser.UserName)
+	c.Assert(newUser.DisplayName, gc.Equals, oldUser.DisplayName)
+	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
+	c.Assert(newUser.DateCreated, gc.Equals, oldUser.DateCreated)
+	c.Assert(newUser.Access, gc.Equals, newUser.Access)
 
-	connTime, err := oldUser.LastConnection()
+	connTime, err := s.State.LastModelConnection(oldUser.UserTag)
 	if state.IsNeverConnectedError(err) {
-		_, err := newUser.LastConnection()
+		_, err := s.State.LastModelConnection(newUser.UserTag)
 		// The new user should also return an error for last connection.
 		c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
-		newTime, err := newUser.LastConnection()
+		newTime, err := s.State.LastModelConnection(newUser.UserTag)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newTime, gc.Equals, connTime)
 	}
@@ -179,7 +183,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	// To be sure with this test, we create three env users, and remove
 	// the owner.
-	err := s.State.RemoveModelUser(s.Owner)
+	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lastConnection := state.NowToTheSecond()
@@ -191,8 +195,8 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	newModel, newSt := s.importModel(c)
 
 	// Check the import values of the users.
-	for _, user := range []*state.ModelUser{bravo, charlie, delta} {
-		newUser, err := newSt.ModelUser(user.UserTag())
+	for _, user := range []description.UserAccess{bravo, charlie, delta} {
+		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)
 	}
@@ -383,11 +387,20 @@ func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G")
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
+	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Value) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
 	err := exported.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
+	err = exported.SetWorkloadVersion("amethyst")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,6 +420,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	version, err := imported.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, "amethyst")
 
 	exportedMachineId, err := exported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,6 +443,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.assertAnnotations(c, newSt, imported)
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
+	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -543,9 +560,6 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,9 +596,6 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -625,9 +636,6 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	subnet, err := newSt.Subnet(original.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
@@ -664,9 +672,6 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	addresses, _ := newSt.AllIPAddresses()
 	c.Assert(addresses, gc.HasLen, 1)
@@ -691,9 +696,6 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
-	}()
 
 	machine2, err := newSt.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -720,6 +722,259 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	c.Check(cloudimagemetadata.Receiver(), gc.Equals, machine.Id())
 	c.Check(cloudimagemetadata.Name(), gc.Equals, "foo")
 	c.Check(cloudimagemetadata.Status(), gc.Equals, state.CloudImageMetadataPending)
+}
+
+func (s *MigrationImportSuite) TestAction(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	actions, _ := newSt.AllActions()
+	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, state.ActionPending)
+}
+
+func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume:     state.VolumeParams{Size: 4000},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first volume is called "0/0" - although I don't know why.
+	volTag := names.NewVolumeTag("0/0")
+	volInfo := state.VolumeInfo{
+		HardwareId: "magic",
+		Size:       1500,
+		Pool:       "loop",
+		VolumeId:   "volume id",
+		Persistent: true,
+	}
+	err := s.State.SetVolumeInfo(volTag, volInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	volAttachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+	}
+	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	volume, err := newSt.Volume(volTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO: check status
+	// TODO: check storage instance
+	info, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info, jc.DeepEquals, volInfo)
+
+	attachment, err := newSt.VolumeAttachment(machineTag, volTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attInfo, err := attachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
+
+	volTag = names.NewVolumeTag("0/1")
+	volume, err = newSt.Volume(volTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	params, needsProvisioning := volume.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(params.Pool, gc.Equals, "loop")
+	c.Check(params.Size, gc.Equals, uint64(4000))
+
+	attachment, err = newSt.VolumeAttachment(machineTag, volTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attParams, needsProvisioning := attachment.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(attParams.ReadOnly, jc.IsTrue)
+}
+
+func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Size: 1234},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "location",
+				ReadOnly: true},
+		}, {
+			Filesystem: state.FilesystemParams{Size: 4000},
+			Attachment: state.FilesystemAttachmentParams{
+				ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	// We know that the first filesystem is called "0/0" as it is the first
+	// filesystem (filesystems use sequences), and it is bound to machine 0.
+	fsTag := names.NewFilesystemTag("0/0")
+	fsInfo := state.FilesystemInfo{
+		Size:         1500,
+		Pool:         "rootfs",
+		FilesystemId: "filesystem id",
+	}
+	err := s.State.SetFilesystemInfo(fsTag, fsInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	fsAttachmentInfo := state.FilesystemAttachmentInfo{
+		MountPoint: "/mnt/foo",
+		ReadOnly:   true,
+	}
+	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	filesystem, err := newSt.Filesystem(fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO: check status
+	// TODO: check storage instance
+	info, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info, jc.DeepEquals, fsInfo)
+
+	attachment, err := newSt.FilesystemAttachment(machineTag, fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attInfo, err := attachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attInfo, jc.DeepEquals, fsAttachmentInfo)
+
+	fsTag = names.NewFilesystemTag("0/1")
+	filesystem, err = newSt.Filesystem(fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	params, needsProvisioning := filesystem.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(params.Pool, gc.Equals, "rootfs")
+	c.Check(params.Size, gc.Equals, uint64(4000))
+
+	attachment, err = newSt.FilesystemAttachment(machineTag, fsTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attParams, needsProvisioning := attachment.Params()
+	c.Check(needsProvisioning, jc.IsTrue)
+	c.Check(attParams.ReadOnly, jc.IsTrue)
+}
+
+func (s *MigrationImportSuite) TestStorage(c *gc.C) {
+	app, u, storageTag := s.makeUnitWithStorage(c)
+	original, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	originalCount := state.StorageAttachmentCount(original)
+	c.Assert(originalCount, gc.Equals, 1)
+	originalAttachments, err := s.State.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalAttachments, gc.HasLen, 1)
+	c.Assert(originalAttachments[0].Unit(), gc.Equals, u.UnitTag())
+	appName := app.Name()
+
+	_, newSt := s.importModel(c)
+
+	app, err = newSt.Application(appName)
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data":    {Pool: "loop-pool", Size: 0x400, Count: 1},
+		"allecto": {Pool: "loop", Size: 0x400},
+	})
+
+	instance, err := newSt.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(instance.Tag(), gc.Equals, original.Tag())
+	c.Check(instance.Kind(), gc.Equals, original.Kind())
+	c.Check(instance.Life(), gc.Equals, original.Life())
+	c.Check(instance.StorageName(), gc.Equals, original.StorageName())
+	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
+
+	attachments, err := newSt.StorageAttachments(storageTag)
+
+	c.Assert(attachments, gc.HasLen, 1)
+	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
+	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
+		"value": 42,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	pm = poolmanager.New(state.NewStateSettings(newSt), provider.CommonStorageProviders())
+	pools, err := pm.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pools, gc.HasLen, 1)
+
+	pool := pools[0]
+	c.Assert(pool.Name(), gc.Equals, "test-pool")
+	c.Assert(pool.Provider(), gc.Equals, provider.LoopProviderType)
+	c.Assert(pool.Attrs(), jc.DeepEquals, map[string]interface{}{
+		"value": 42,
+	})
+}
+
+func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
+	originalUnit := s.Factory.MakeUnit(c, nil)
+	unitID := originalUnit.UnitTag().Id()
+	up, err := s.State.UnitPayloads(originalUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	original := payload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "something",
+			Type: "special",
+		},
+		ID:     "42",
+		Status: "running",
+		Labels: []string{"foo", "bar"},
+	}
+	err = up.Track(original)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	unit, err := newSt.Unit(unitID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	up, err = newSt.UnitPayloads(unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := up.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Payload, gc.NotNil)
+
+	payload := result[0].Payload
+
+	machineID, err := unit.AssignedMachineId()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(payload.Name, gc.Equals, original.Name)
+	c.Check(payload.Type, gc.Equals, original.Type)
+	c.Check(payload.ID, gc.Equals, original.ID)
+	c.Check(payload.Status, gc.Equals, original.Status)
+	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
+	c.Check(payload.Unit, gc.Equals, unitID)
+	c.Check(payload.Machine, gc.Equals, machineID)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

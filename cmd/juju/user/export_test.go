@@ -15,6 +15,10 @@ type AddCommand struct {
 	*addCommand
 }
 
+type RemoveCommand struct {
+	*removeCommand
+}
+
 type ChangePasswordCommand struct {
 	*changePasswordCommand
 }
@@ -36,6 +40,12 @@ func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi
 	c.SetClientStore(store)
 	c.SetModelApi(modelApi)
 	return modelcmd.WrapController(c), &AddCommand{c}
+}
+
+func NewRemoveCommandForTest(api RemoveUserAPI, store jujuclient.ClientStore) (cmd.Command, *RemoveCommand) {
+	c := &removeCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &RemoveCommand{c}
 }
 
 func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
@@ -92,4 +102,10 @@ func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Co
 	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
+}
+
+// NewWhoAmICommandForTest returns a whoAMI command with a mock store.
+func NewWhoAmICommandForTest(store jujuclient.ClientStore) cmd.Command {
+	c := &whoAmICommand{store: store}
+	return c
 }

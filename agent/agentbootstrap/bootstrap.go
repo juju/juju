@@ -4,6 +4,8 @@
 package agentbootstrap
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -15,11 +17,14 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -38,6 +43,13 @@ type InitializeStateParams struct {
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
+
+	// Provider is called to obtain an EnvironProvider.
+	Provider func(string) (environs.EnvironProvider, error)
+
+	// StorageProviderRegistry is used to determine and store the
+	// details of the default storage pools.
+	StorageProviderRegistry storage.ProviderRegistry
 }
 
 // InitializeState should be called on the bootstrap machine's agent
@@ -58,7 +70,7 @@ func InitializeState(
 	c agent.ConfigSetter,
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
-	policy state.Policy,
+	newPolicy state.NewPolicyFunc,
 ) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(agent.BootstrapMachineId) {
 		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
@@ -80,27 +92,38 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
-	cloudCredentials := make(map[string]cloud.Credential)
-	if args.ControllerCloudCredential != nil {
-		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
+		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+			"%s/%s/%s",
+			args.ControllerCloudName,
+			adminUser.Canonical(),
+			args.ControllerCloudCredentialName,
+		))
+		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:           adminUser,
-			Config:          args.ControllerModelConfig,
-			Constraints:     args.ModelConstraints,
-			CloudRegion:     args.ControllerCloudRegion,
-			CloudCredential: args.ControllerCloudCredentialName,
+			Owner:                   adminUser,
+			Config:                  args.ControllerModelConfig,
+			Constraints:             args.ModelConstraints,
+			CloudName:               args.ControllerCloudName,
+			CloudRegion:             args.ControllerCloudRegion,
+			CloudCredential:         cloudCredentialTag,
+			StorageProviderRegistry: args.StorageProviderRegistry,
 		},
-		CloudName:           args.ControllerCloudName,
-		Cloud:               args.ControllerCloud,
-		CloudCredentials:    cloudCredentials,
-		ModelConfigDefaults: args.ModelConfigDefaults,
-		MongoInfo:           info,
-		MongoDialOpts:       dialOpts,
-		Policy:              policy,
+		CloudName:                 args.ControllerCloudName,
+		Cloud:                     args.ControllerCloud,
+		CloudCredentials:          cloudCredentials,
+		ControllerConfig:          args.ControllerConfig,
+		ControllerInheritedConfig: args.ControllerInheritedConfig,
+		RegionInheritedConfig:     args.RegionInheritedConfig,
+		MongoInfo:                 info,
+		MongoDialOpts:             dialOpts,
+		NewPolicy:                 newPolicy,
 	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
@@ -114,8 +137,8 @@ func InitializeState(
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC bridge addresses from the machine addresses.
-	args.BootstrapMachineAddresses = network.FilterLXCAddresses(args.BootstrapMachineAddresses)
+	// Filter out any LXC or LXD bridge addresses from the machine addresses.
+	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
@@ -131,29 +154,58 @@ func InitializeState(
 
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
-	// and any user supplied config.
+	// and any user supplied config. We also copy the authorized-keys
+	// from the controller model.
 	attrs := make(map[string]interface{})
 	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
-	// TODO(axw) we shouldn't be adding credentials to model config.
-	if args.ControllerCloudCredential != nil {
-		for k, v := range args.ControllerCloudCredential.Attributes() {
-			attrs[k] = v
-		}
+	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
+
+	// Construct a CloudSpec to pass on to NewModelConfig below.
+	cloudSpec, err := environs.MakeCloudSpec(
+		args.ControllerCloud,
+		args.ControllerCloudName,
+		args.ControllerCloudRegion,
+		args.ControllerCloudCredential,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
-		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
+
+	controllerUUID := args.ControllerConfig.ControllerUUID()
+	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
+	hostedModelConfig, err := creator.NewModelConfig(
+		cloudSpec, controllerUUID, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
+	provider, err := args.Provider(cloudSpec.Type)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting environ provider")
+	}
+	hostedModelEnv, err := provider.Open(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: hostedModelConfig,
+	})
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "opening hosted model environment")
+	}
+	if err := hostedModelEnv.Create(environs.CreateParams{
+		ControllerUUID: controllerUUID,
+	}); err != nil {
+		return nil, nil, errors.Annotate(err, "creating hosted model environment")
+	}
+
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
-		Owner:           adminUser,
-		Config:          hostedModelConfig,
-		Constraints:     args.ModelConstraints,
-		CloudRegion:     args.ControllerCloudRegion,
-		CloudCredential: args.ControllerCloudCredentialName,
+		Owner:                   adminUser,
+		Config:                  hostedModelConfig,
+		Constraints:             args.ModelConstraints,
+		CloudName:               args.ControllerCloudName,
+		CloudRegion:             args.ControllerCloudRegion,
+		CloudCredential:         cloudCredentialTag,
+		StorageProviderRegistry: args.StorageProviderRegistry,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")

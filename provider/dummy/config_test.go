@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -24,29 +24,6 @@ type ConfigSuite struct {
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	dummy.Reset(c)
-}
-
-func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
-	attrs := dummy.SampleConfig().Delete("secret")
-	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(
-		ctx, jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			BaseConfig:     attrs,
-			ControllerName: attrs["name"].(string),
-			CloudName:      "dummy",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	defer env.Destroy()
-	expected := map[string]string{
-		"secret": "pork",
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	actual, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.DeepEquals, expected)
 }
 
 var firewallModeTests = []struct {
@@ -72,7 +49,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           `firewall-mode: expected one of \[instance global none ], got "invalid"`,
+		errorMsg:           `firewall-mode: expected one of \[instance global none], got "invalid"`,
 	},
 }
 
@@ -91,12 +68,14 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		ctx := envtesting.BootstrapContext(c)
-		env, err := environs.Prepare(
+		env, err := bootstrap.Prepare(
 			ctx, jujuclienttesting.NewMemStore(),
-			environs.PrepareParams{
-				ControllerName: cfg.Name(),
-				BaseConfig:     cfg.AllAttrs(),
-				CloudName:      "dummy",
+			bootstrap.PrepareParams{
+				ControllerConfig: testing.FakeControllerConfig(),
+				ControllerName:   cfg.Name(),
+				ModelConfig:      cfg.AllAttrs(),
+				Cloud:            dummy.SampleCloudSpec(),
+				AdminSecret:      AdminSecret,
 			},
 		)
 		if test.errorMsg != "" {

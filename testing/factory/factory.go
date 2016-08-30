@@ -19,10 +19,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -51,7 +54,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
-	Access      state.ModelAccess
+	Access      description.Access
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -59,7 +62,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	Access      state.ModelAccess
+	Access      description.Access
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -90,6 +93,7 @@ type ApplicationParams struct {
 	Charm       *state.Charm
 	Status      *status.StatusInfo
 	Settings    map[string]interface{}
+	Storage     map[string]state.StorageConstraints
 	Constraints constraints.Value
 }
 
@@ -117,11 +121,13 @@ type MetricParams struct {
 }
 
 type ModelParams struct {
-	Name            string
-	Owner           names.Tag
-	ConfigAttrs     testing.Attrs
-	CloudRegion     string
-	CloudCredential string
+	Name                    string
+	Owner                   names.Tag
+	ConfigAttrs             testing.Attrs
+	CloudName               string
+	CloudRegion             string
+	CloudCredential         names.CloudCredentialTag
+	StorageProviderRegistry storage.ProviderRegistry
 }
 
 type SpaceParams struct {
@@ -175,15 +181,15 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
-	if params.Access == state.ModelUndefinedAccess {
-		params.Access = state.ModelAdminAccess
+	if params.Access == description.UndefinedAccess {
+		params.Access = description.AdminAccess
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoModelUser {
-		_, err := factory.st.AddModelUser(state.ModelUserSpec{
+		_, err := factory.st.AddModelUser(state.UserAccessSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -202,7 +208,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 // attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) description.UserAccess {
 	if params == nil {
 		params = &ModelUserParams{}
 	}
@@ -213,8 +219,8 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
-	if params.Access == state.ModelUndefinedAccess {
-		params.Access = state.ModelAdminAccess
+	if params.Access == description.UndefinedAccess {
+		params.Access = description.AdminAccess
 	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()
@@ -222,7 +228,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
+	modelUser, err := factory.st.AddModelUser(state.UserAccessSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
@@ -310,6 +316,28 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 // The machine and its password are returned.
 func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
+	return factory.makeMachineReturningPassword(c, params, true)
+}
+
+// MakeUnprovisionedMachineReturningPassword will add a machine with values
+// defined in params. For some values in params, if they are missing, some
+// meaningful empty values will be set. If params is not specified, defaults
+// are used. The machine and its password are returned; the machine will not
+// be provisioned.
+func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
+	if params != nil {
+		c.Assert(params.Nonce, gc.Equals, "")
+		c.Assert(params.InstanceId, gc.Equals, instance.Id(""))
+		c.Assert(params.Characteristics, gc.IsNil)
+	}
+	params = factory.paramsFillDefaults(c, params)
+	params.Nonce = ""
+	params.InstanceId = ""
+	params.Characteristics = nil
+	return factory.makeMachineReturningPassword(c, params, false)
+}
+
+func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
 		Series:      params.Series,
 		Jobs:        params.Jobs,
@@ -319,8 +347,10 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
-	c.Assert(err, jc.ErrorIsNil)
+	if setProvisioned {
+		err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
@@ -394,6 +424,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		Name:        params.Name,
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
+		Storage:     params.Storage,
 		Constraints: params.Constraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -565,32 +596,39 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
+	if params.CloudName == "" {
+		params.CloudName = "dummy"
+	}
+	if params.CloudRegion == "" {
+		params.CloudRegion = "dummy-region"
+	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
+	if params.StorageProviderRegistry == nil {
+		params.StorageProviderRegistry = provider.CommonStorageProviders()
+	}
 	// It only makes sense to make an model with the same provider
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := factory.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name":       params.Name,
-		"uuid":       uuid.String(),
-		"type":       currentCfg.Type(),
-		"state-port": controllerCfg.StatePort(),
-		"api-port":   controllerCfg.APIPort(),
+		"name": params.Name,
+		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
+		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
 		CloudCredential: params.CloudCredential,
 		Config:          cfg,
 		Owner:           params.Owner.(names.UserTag),
+		StorageProviderRegistry: params.StorageProviderRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

@@ -10,14 +10,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -31,17 +36,22 @@ type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
 	ModelConfig() (params.ModelConfigResults, error)
+	GetControllerAccess(params.Entities) (params.UserAccessResults, error)
 	ControllerConfig() (params.ControllerConfigResult, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
-	InitiateModelMigration(params.InitiateModelMigrationArgs) (params.InitiateModelMigrationResults, error)
+	ModelStatus(params.Entities) (params.ModelStatusResults, error)
+	InitiateMigration(params.InitiateMigrationArgs) (params.InitiateMigrationResults, error)
+	ModifyControllerAccess(params.ModifyControllerAccessRequest) (params.ErrorResults, error)
 }
 
 // ControllerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
+	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
+
 	state      *state.State
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -64,27 +74,53 @@ func NewControllerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := st.IsControllerAdministrator(apiUser)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// The entire end point is only accessible to controller administrators.
-	if !isAdmin {
-		return nil, errors.Trace(common.ErrPerm)
-	}
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
-		state:      st,
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		resources:  resources,
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
+		state:               st,
+		authorizer:          authorizer,
+		apiUser:             apiUser,
+		resources:           resources,
 	}, nil
+}
+
+func (s *ControllerAPI) hasReadAccess() (bool, error) {
+	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canRead, err
+
+}
+
+func (s *ControllerAPI) hasWriteAccess() (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
+}
+
+func (s *ControllerAPI) checkHasAdmin() error {
+	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isAdmin {
+		return common.ServerError(common.ErrPerm)
+	}
+	return nil
 }
 
 // AllModels allows controller administrators to get the list of all the
 // environments in the controller.
 func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
+	if err := s.checkHasAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
 
 	// Get all the environments that the authenticated user can see, and
 	// supplement that with the other environments that exist that the user
@@ -142,7 +178,9 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 // list.
 func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-
+	if err := s.checkHasAdmin(); err != nil {
+		return results, errors.Trace(err)
+	}
 	blocks, err := s.state.AllBlocksForController()
 	if err != nil {
 		return results, errors.Trace(err)
@@ -185,34 +223,35 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // client.ModelGet
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
+	if err := s.checkHasAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
 
 	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerModel.Config()
+	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result.Config = config.AllAttrs()
-	return result, nil
-}
-
-// ControllerConfig returns the controller's configuration.
-func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error) {
-	result := params.ControllerConfigResult{}
-	config, err := s.state.ControllerConfig()
-	if err != nil {
-		return result, err
+	result.Config = make(map[string]params.ConfigValue)
+	for name, val := range cfg.AllAttrs() {
+		result.Config[name] = params.ConfigValue{
+			Value: val,
+		}
 	}
-	result.Config = params.ControllerConfig(config)
 	return result, nil
 }
 
 // RemoveBlocks removes all the blocks in the controller.
 func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+	if err := s.checkHasAdmin(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if !args.All {
 		return errors.New("not supported")
 	}
@@ -223,6 +262,9 @@ func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
 func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
+	if err := c.checkHasAdmin(); err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
 	w := c.state.WatchAllModels()
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
@@ -258,32 +300,73 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 
 // ModelStatus returns a summary of the environment.
 func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	envs := req.Entities
+	models := req.Entities
 	results := params.ModelStatusResults{}
-	status := make([]params.ModelStatus, len(envs))
-	for i, env := range envs {
-		envStatus, err := c.environStatus(env.Tag)
+	if err := c.checkHasAdmin(); err != nil {
+		return results, errors.Trace(err)
+	}
+
+	status := make([]params.ModelStatus, len(models))
+	for i, model := range models {
+		modelStatus, err := c.modelStatus(model.Tag)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
-		status[i] = envStatus
+		status[i] = modelStatus
 	}
 	results.Results = status
 	return results, nil
 }
 
-// InitiateModelMigration attempts to begin the migration of one or
-// more models to other controllers.
-func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigrationArgs) (
-	params.InitiateModelMigrationResults, error,
-) {
-	out := params.InitiateModelMigrationResults{
-		Results: make([]params.InitiateModelMigrationResult, len(reqArgs.Specs)),
+// GetControllerAccess returns the level of access the specifed users
+// have on the controller.
+func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
+	results := params.UserAccessResults{}
+	isAdmin, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	if err != nil {
+		return results, errors.Trace(err)
 	}
+
+	users := req.Entities
+	results.Results = make([]params.UserAccessResult, len(users))
+	for i, user := range users {
+		userTag, err := names.ParseUserTag(user.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !isAdmin && !c.authorizer.AuthOwner(userTag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		accessInfo, err := c.state.UserAccess(userTag, c.state.ControllerTag())
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = &params.UserAccess{
+			Access:  string(accessInfo.Access),
+			UserTag: userTag.String()}
+	}
+	return results, nil
+}
+
+// InitiateMigration attempts to begin the migration of one or
+// more models to other controllers.
+func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) (
+	params.InitiateMigrationResults, error,
+) {
+	out := params.InitiateMigrationResults{
+		Results: make([]params.InitiateMigrationResult, len(reqArgs.Specs)),
+	}
+	if err := c.checkHasAdmin(); err != nil {
+		return out, errors.Trace(err)
+	}
+
 	for i, spec := range reqArgs.Specs {
 		result := &out.Results[i]
 		result.ModelTag = spec.ModelTag
-		id, err := c.initiateOneModelMigration(spec)
+		id, err := c.initiateOneMigration(spec)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
@@ -293,7 +376,7 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 	return out, nil
 }
 
-func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec) (string, error) {
+func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string, error) {
 	modelTag, err := names.ParseModelTag(spec.ModelTag)
 	if err != nil {
 		return "", errors.Annotate(err, "model tag")
@@ -318,12 +401,22 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
+
 	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
 
-	args := state.ModelMigrationSpec{
+	var mac *macaroon.Macaroon
+	if targetInfo.Macaroon != "" {
+		mac = new(macaroon.Macaroon)
+		err := mac.UnmarshalJSON([]byte(targetInfo.Macaroon))
+		if err != nil {
+			return "", errors.Annotate(err, "invalid macaroon")
+		}
+	}
+
+	args := state.MigrationSpec{
 		InitiatedBy: c.apiUser,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: controllerTag,
@@ -331,16 +424,17 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 			CACert:        targetInfo.CACert,
 			AuthTag:       authTag,
 			Password:      targetInfo.Password,
+			Macaroon:      mac,
 		},
 	}
-	mig, err := hostedState.CreateModelMigration(args)
+	mig, err := hostedState.CreateMigration(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return mig.Id(), nil
 }
 
-func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
+func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	var status params.ModelStatus
 	modelTag, err := names.ParseModelTag(tag)
 	if err != nil {
@@ -384,6 +478,120 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(services),
 	}, nil
+}
+
+// ModifyControllerAccess changes the model access granted to users.
+func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	hasPermission, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for i, arg := range args.Changes {
+		if !hasPermission {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		controllerAccess := description.Access(arg.Access)
+		if err := description.ValidateControllerAccess(controllerAccess); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify controller access"))
+			continue
+		}
+
+		result.Results[i].Error = common.ServerError(
+			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+	}
+	return result, nil
+}
+
+func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+	if errors.IsAlreadyExists(err) {
+		controllerTag := accessor.ControllerTag()
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if errors.IsNotFound(err) {
+			// Conflicts with prior check, must be inconsistent state.
+			err = txn.ErrExcessiveContention
+		}
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+
+		// Only set access if greater access is being granted.
+		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
+			return errors.Errorf("user already has %q access or greater", access)
+		}
+		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
+			return errors.Annotate(err, "could not set controller access for user")
+		}
+		return nil
+
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+	controllerTag := accessor.ControllerTag()
+	switch access {
+	case description.LoginAccess:
+		// Revoking login access removes all access.
+		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
+		return errors.Annotate(err, "could not revoke controller access")
+	case description.AddModelAccess:
+		// Revoking add-model access sets login.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.LoginAccess)
+		return errors.Annotate(err, "could not set controller access to read-only")
+	case description.SuperuserAccess:
+		// Revoking superuser sets add-model.
+		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		if err != nil {
+			return errors.Annotate(err, "could not look up controller access for user")
+		}
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.AddModelAccess)
+		return errors.Annotate(err, "could not set controller access to add-model")
+
+	default:
+		return errors.Errorf("don't know how to revoke %q access", access)
+	}
+
+}
+
+// ChangeControllerAccess performs the requested access grant or revoke action for the
+// specified user on the controller.
+func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
+	switch action {
+	case params.GrantControllerAccess:
+		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
+		if err != nil {
+			return errors.Annotate(err, "could not grant controller access")
+		}
+		return nil
+	case params.RevokeControllerAccess:
+		return revokeControllerAccess(accessor, targetUserTag, apiUser, access)
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
 }
 
 func (o orderedBlockInfo) Swap(i, j int) {

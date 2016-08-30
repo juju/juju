@@ -174,7 +174,7 @@ func importBlockDeviceV1(source map[string]interface{}) (*blockdevice, error) {
 		"uuid":        schema.String(),
 		"hardware-id": schema.String(),
 		"bus-address": schema.String(),
-		"size":        schema.Uint(),
+		"size":        schema.ForceUint(),
 		"fs-type":     schema.String(),
 		"in-use":      schema.Bool(),
 		"mount-point": schema.String(),

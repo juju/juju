@@ -11,8 +11,6 @@ const (
 	UNKNOWN Phase = iota
 	NONE
 	QUIESCE
-	READONLY
-	PRECHECK
 	IMPORT
 	VALIDATION
 	SUCCESS
@@ -28,8 +26,6 @@ var phaseNames = []string{
 	"UNKNOWN", // To catch uninitialised fields.
 	"NONE",    // For watchers to indicate there's never been a migration attempt.
 	"QUIESCE",
-	"READONLY",
-	"PRECHECK",
 	"IMPORT",
 	"VALIDATION",
 	"SUCCESS",
@@ -85,7 +81,7 @@ func (p Phase) IsRunning() bool {
 		return false
 	}
 	switch p {
-	case QUIESCE, READONLY, PRECHECK, IMPORT, VALIDATION, SUCCESS:
+	case QUIESCE, IMPORT, VALIDATION, SUCCESS:
 		return true
 	default:
 		return false
@@ -97,9 +93,7 @@ func (p Phase) IsRunning() bool {
 // The keys are the "from" states and the values enumerate the
 // possible "to" states.
 var validTransitions = map[Phase][]Phase{
-	QUIESCE:     {READONLY, ABORT},
-	READONLY:    {PRECHECK, ABORT},
-	PRECHECK:    {IMPORT, ABORT},
+	QUIESCE:     {IMPORT, ABORT},
 	IMPORT:      {VALIDATION, ABORT},
 	VALIDATION:  {SUCCESS, ABORT},
 	SUCCESS:     {LOGTRANSFER},

@@ -10,10 +10,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewListCommand returns a command used to list spaces.
@@ -49,11 +50,7 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
-
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.BoolVar(&c.Short, "short", false, "only display spaces.")
 }
 

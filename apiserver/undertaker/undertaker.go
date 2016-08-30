@@ -18,7 +18,7 @@ func init() {
 	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
 }
 
-// UndertakerAPI implements the API used by the machine undertaker worker.
+// UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
 	st        State
 	resources facade.Resources

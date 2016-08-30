@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 // logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
@@ -32,7 +33,11 @@ type logsinkBaseSuite struct {
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	query := server.Query()
+	query.Set("jujuclientversion", version.Current.String())
+	server.RawQuery = query.Encode()
+	return server
 }
 
 type logsinkSuite struct {
@@ -55,13 +60,14 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.password = password
 
 	s.logs.Clear()
-	c.Assert(loggo.RegisterWriter("logsink-tests", &s.logs, loggo.INFO), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
+	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
@@ -95,7 +101,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message strin
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	assertJSONError(c, reader, message)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
@@ -112,7 +118,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
-		Level:    loggo.INFO,
+		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +128,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
-		Level:    loggo.ERROR,
+		Level:    loggo.ERROR.String(),
 		Message:  "oh noes",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,7 +152,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 
 	// Check the recorded logs are correct.
 	modelUUID := s.State.ModelUUID()
-	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
 	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
@@ -154,7 +160,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"].(time.Time).Sub(t1), gc.Equals, time.Duration(0))
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
 	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
@@ -202,13 +208,13 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 
 func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
 	server := s.logsinkURL(c, "wss").String()
-	return s.dialWebsocketFromURL(c, server, header)
+	return dialWebsocketFromURL(c, server, header)
 }
 
 func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
-	conn := s.dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
+	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }

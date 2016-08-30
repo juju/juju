@@ -18,20 +18,14 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
 type updateCloudsSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&updateCloudsSuite{})
-
-func (s *updateCloudsSuite) SetUpTest(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-}
 
 func encodeCloudYAML(c *gc.C, yaml string) string {
 	// TODO(wallyworld) - move test signing key elsewhere
@@ -83,7 +77,7 @@ func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
 		errString := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(errString, gc.Matches, errMsg)
 	}
-	return testing.Stdout(out)
+	return testing.Stderr(out)
 }
 
 func (s *updateCloudsSuite) Test404(c *gc.C) {

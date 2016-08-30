@@ -16,7 +16,7 @@ import (
 type ListResourcesArgs struct {
 	// ResourceNames holds the names of the application's resources for
 	// which information should be provided.
-	ResourceNames []string
+	ResourceNames []string `json:"resource-names"`
 }
 
 // ResourcesResult holds the resource info for a list of requested
@@ -26,7 +26,7 @@ type ResourcesResult struct {
 
 	// Resources is the list of results for the requested resources,
 	// in the same order as requested.
-	Resources []ResourceResult
+	Resources []ResourceResult `json:"resources"`
 }
 
 // ResourceResult is the result for a single requested resource.
@@ -34,5 +34,5 @@ type ResourceResult struct {
 	params.ErrorResult
 
 	// Resource is the info for the requested resource.
-	Resource api.Resource
+	Resource api.Resource `json:"resource"`
 }

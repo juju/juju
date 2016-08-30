@@ -24,6 +24,7 @@ import (
 
 type environInstanceSuite struct {
 	testing.BaseSuite
+	cloud      environs.CloudSpec
 	baseConfig *config.Config
 }
 
@@ -34,13 +35,12 @@ func (s *environInstanceSuite) SetUpSuite(c *gc.C) {
 
 	mock.Start()
 
+	s.cloud = fakeCloudSpec()
+	s.cloud.Endpoint = mock.Endpoint("")
+
 	attrs := testing.Attrs{
-		"name":     "testname",
-		"uuid":     "f54aac3a-9dcd-4a0c-86b5-24091478478c",
-		"region":   "testregion",
-		"endpoint": mock.Endpoint(""),
-		"username": mock.TestUser,
-		"password": mock.TestPassword,
+		"name": "testname",
+		"uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c",
 	}
 	s.baseConfig = newConfig(c, validAttrs().Merge(attrs))
 }
@@ -75,7 +75,11 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 	if cfg == nil {
 		cfg = s.baseConfig
 	}
-	environ, err := environs.New(cfg)
+
+	environ, err := environs.New(environs.OpenParams{
+		Cloud:  s.cloud,
+		Config: cfg,
+	})
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -128,25 +132,18 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
-	attrs := testing.Attrs{
-		"name":     "testname",
-		"region":   "testregion",
-		"endpoint": "https://0.1.2.3:2000/api/2.0/",
-		"username": mock.TestUser,
-		"password": mock.TestPassword,
-	}
-	baseConfig := newConfig(c, validAttrs().Merge(attrs))
 
 	newClientFunc := newClient
-	s.PatchValue(&newClient, func(cfg *environConfig) (*environClient, error) {
-		cli, err := newClientFunc(cfg)
+	s.PatchValue(&newClient, func(spec environs.CloudSpec, uuid string) (*environClient, error) {
+		spec.Endpoint = "https://0.1.2.3:2000/api/2.0/"
+		cli, err := newClientFunc(spec, uuid)
 		if cli != nil {
 			cli.conn.ConnectTimeout(10 * time.Millisecond)
 		}
 		return cli, err
 	})
 
-	environ := s.createEnviron(c, baseConfig)
+	environ := s.createEnviron(c, nil)
 
 	instances, err := environ.AllInstances()
 	c.Assert(instances, gc.IsNil)

@@ -26,8 +26,6 @@ type baseProvider interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 	uuid string
 	raw  *rawProvider
@@ -40,46 +38,38 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(*environConfig) (*rawProvider, error)
+type newRawProviderFunc func(environs.CloudSpec) (*rawProvider, error)
 
-func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
-	ecfg, err := newValidConfig(cfg, configDefaults)
+func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
+	ecfg, err := newValidConfig(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	// Connect and authenticate.
-	raw, err := newRawProvider(ecfg)
+	namespace, err := instance.NewNamespace(cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	env, err := newEnvironRaw(ecfg, raw)
+	raw, err := newRawProvider(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	env.namespace, err = instance.NewNamespace(cfg.UUID())
-	if err != nil {
-		return nil, errors.Trace(err)
+	env := &environ{
+		name:      ecfg.Name(),
+		uuid:      ecfg.UUID(),
+		raw:       raw,
+		namespace: namespace,
+		ecfg:      ecfg,
 	}
+	env.base = common.DefaultProvider{Env: env}
 
 	//TODO(wwitzel3) make sure we are also cleaning up profiles during destroy
 	if err := env.initProfile(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return env, nil
-}
-
-func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
-	env := &environ{
-		name: ecfg.Name(),
-		uuid: ecfg.UUID(),
-		ecfg: ecfg,
-		raw:  raw,
-	}
-	env.base = common.DefaultProvider{Env: env}
 	return env, nil
 }
 
@@ -119,14 +109,11 @@ func (*environ) Provider() environs.EnvironProvider {
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-
-	if env.ecfg == nil {
-		return errors.New("cannot set config on uninitialized env")
+	ecfg, err := newValidConfig(cfg)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	if err := env.ecfg.update(cfg); err != nil {
-		return errors.Annotate(err, "invalid config change")
-	}
+	env.ecfg = ecfg
 	return nil
 }
 
@@ -138,14 +125,18 @@ func (env *environ) Config() *config.Config {
 	return cfg
 }
 
-// Bootstrap creates a new instance, chosing the series and arch out of
-// available tools. The series and arch are returned along with a func
-// that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju controller.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// TODO(ericsnow) Ensure currently not the root user
-	// if remote is local host?
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
 
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
+}
+
+// Bootstrap implements environs.Environ.
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// Using the Bootstrap func from provider/common should be fine.
 	// Local provider does its own thing because it has to deal directly
 	// with localhost rather than using SSH.
@@ -164,21 +155,21 @@ func (env *environ) Destroy() error {
 			return errors.Trace(err)
 		}
 	}
-	cfg := env.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// This is the controller model, so we'll make sure
-		// there are no resources for hosted models remaining.
-		if err := env.destroyHostedModelResources(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (env *environ) destroyHostedModelResources() error {
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	return env.destroyHostedModelResources(controllerUUID)
+}
+
+func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	// Destroy all instances where juju-controller-uuid,
 	// but not juju-model-uuid, matches env.uuid.
 	prefix := env.namespace.Prefix()
@@ -193,7 +184,7 @@ func (env *environ) destroyHostedModelResources() error {
 		if metadata[tags.JujuModel] == env.uuid {
 			continue
 		}
-		if metadata[tags.JujuController] != env.uuid {
+		if metadata[tags.JujuController] != controllerUUID {
 			continue
 		}
 		names = append(names, string(inst.Id()))
@@ -201,10 +192,5 @@ func (env *environ) destroyHostedModelResources() error {
 	if err := env.raw.RemoveInstances(prefix, names...); err != nil {
 		return errors.Annotate(err, "removing hosted model instances")
 	}
-	return nil
-}
-
-func (env *environ) verifyCredentials() error {
-	// TODO(ericsnow) Do something here?
 	return nil
 }

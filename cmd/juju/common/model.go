@@ -4,6 +4,7 @@
 package common
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +18,9 @@ type ModelInfo struct {
 	Name           string                   `json:"name" yaml:"name"`
 	UUID           string                   `json:"model-uuid" yaml:"model-uuid"`
 	ControllerUUID string                   `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName string                   `json:"controller-name" yaml:"controller-name"`
 	Owner          string                   `json:"owner" yaml:"owner"`
+	Cloud          string                   `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                   `json:"region,omitempty" yaml:"region,omitempty"`
 	ProviderType   string                   `json:"type" yaml:"type"`
 	Life           string                   `json:"life" yaml:"life"`
@@ -60,6 +63,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
 		Status:         status,
+		Cloud:          info.Cloud,
 		CloudRegion:    info.CloudRegion,
 		ProviderType:   info.ProviderType,
 		Users:          ModelUserInfoFromParams(info.Users, now),
@@ -83,4 +87,20 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 		output[names.NewUserTag(info.UserName).Canonical()] = outInfo
 	}
 	return output
+}
+
+// OwnerQualifiedModelName returns the model name qualified with the
+// model owner if the owner is not the same as the given canonical
+// user name. If the owner is a local user, we omit the domain.
+func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string {
+	if owner.Canonical() == user.Canonical() {
+		return modelName
+	}
+	var ownerName string
+	if owner.IsLocal() {
+		ownerName = owner.Name()
+	} else {
+		ownerName = owner.Canonical()
+	}
+	return fmt.Sprintf("%s/%s", ownerName, modelName)
 }

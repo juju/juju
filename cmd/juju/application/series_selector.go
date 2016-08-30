@@ -46,7 +46,7 @@ type seriesSelector struct {
 // - model default (if it matches supported series)
 // - default from charm metadata supported series / series in url
 // - default LTS
-func (s seriesSelector) charmSeries() (selectedSeries string, msg string, err error) {
+func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// User has requested a series with --series.
 	if s.seriesFlag != "" {
 		return s.userRequested(s.seriesFlag)
@@ -62,14 +62,16 @@ func (s seriesSelector) charmSeries() (selectedSeries string, msg string, err er
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
 		if isSeriesSupported(defaultSeries, s.supportedSeries) {
-			return defaultSeries, msgDefaultModelSeries, nil
+			logger.Infof(msgDefaultModelSeries, defaultSeries)
+			return defaultSeries, nil
 		}
 	}
 
 	// Use the charm's perferred series, if it has one.  In a multi-series
 	// charm, the first series in the list is the preferred one.
 	if len(s.supportedSeries) > 0 {
-		return s.supportedSeries[0], msgDefaultCharmSeries, nil
+		logger.Infof(msgDefaultCharmSeries, s.supportedSeries[0])
+		return s.supportedSeries[0], nil
 	}
 
 	// Charm hasn't specified a default (likely due to being a local charm
@@ -78,24 +80,29 @@ func (s seriesSelector) charmSeries() (selectedSeries string, msg string, err er
 	// At this point, because we have no idea what series the charm supports,
 	// *everything* requires --force.
 	if !s.force {
-		return "", "", s.unsupportedSeries(series.LatestLts())
+		return "", s.unsupportedSeries(series.LatestLts())
 	}
-	return series.LatestLts(), msgLatestLTSSeries, nil
+
+	latestLTS := series.LatestLts()
+	logger.Infof(msgLatestLTSSeries, latestLTS)
+	return latestLTS, nil
 }
 
 // userRequested checks the series the user has requested, and returns it if it
 // is supported, or if they used --force.
-func (s seriesSelector) userRequested(series string) (selectedSeries string, msg string, err error) {
+func (s seriesSelector) userRequested(series string) (selectedSeries string, err error) {
 	if !s.force && !isSeriesSupported(series, s.supportedSeries) {
-		return "", "", s.unsupportedSeries(series)
+		return "", s.unsupportedSeries(series)
 	}
 
 	// either it's a supported series or the user used --force, so just
 	// give them what they asked for.
 	if s.fromBundle {
-		return series, msgBundleSeries, nil
+		logger.Infof(msgBundleSeries, series)
+		return series, nil
 	}
-	return series, msgUserRequestedSeries, nil
+	logger.Infof(msgUserRequestedSeries, series)
+	return series, nil
 }
 
 func (s seriesSelector) unsupportedSeries(series string) error {

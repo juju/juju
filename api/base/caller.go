@@ -4,21 +4,12 @@
 package base
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 
-	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"gopkg.in/juju/names.v2"
 )
-
-// OldAgentError is returned when an api call is not supported
-// by the Juju agent.
-func OldAgentError(operation string, vers string) error {
-	return errors.NewNotSupported(
-		nil, fmt.Sprintf("%s not supported. Please upgrade API server to Juju %v or later", operation, vers))
-}
 
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
@@ -35,9 +26,9 @@ type APICaller interface {
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
 
-	// ModelTag returns the tag of the model the client is
-	// connected to.
-	ModelTag() (names.ModelTag, error)
+	// ModelTag returns the tag of the model the client is connected
+	// to if there is one. It returns false for a controller-only connection.
+	ModelTag() (names.ModelTag, bool)
 
 	// HTTPClient returns an httprequest.Client that can be used
 	// to make HTTP requests to the API. URLs passed to the client

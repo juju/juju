@@ -12,13 +12,13 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 type poolSuite struct {
 	// TODO - don't use state directly, mock it out and add feature tests.
 	statetesting.StateSuite
+	registry    storage.StaticProviderRegistry
 	poolManager poolmanager.PoolManager
 	settings    poolmanager.SettingsManager
 }
@@ -32,7 +32,12 @@ var poolAttrs = map[string]interface{}{
 func (s *poolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.settings = state.NewStateSettings(s.State)
-	s.poolManager = poolmanager.New(s.settings)
+	s.registry = storage.StaticProviderRegistry{
+		map[storage.ProviderType]storage.Provider{
+			"loop": &dummystorage.StorageProvider{},
+		},
+	}
+	s.poolManager = poolmanager.New(s.settings, s.registry)
 }
 
 func (s *poolSuite) createSettings(c *gc.C) {
@@ -116,12 +121,11 @@ func (s *poolSuite) TestCreateMissingType(c *gc.C) {
 }
 
 func (s *poolSuite) TestCreateInvalidConfig(c *gc.C) {
-	registry.RegisterProvider("invalid", &dummy.StorageProvider{
+	s.registry.Providers["invalid"] = &dummystorage.StorageProvider{
 		ValidateConfigFunc: func(*storage.Config) error {
 			return errors.New("no good")
 		},
-	})
-	defer registry.RegisterProvider("invalid", nil)
+	}
 	_, err := s.poolManager.Create("testpool", "invalid", nil)
 	c.Assert(err, gc.ErrorMatches, "validating storage provider config: no good")
 }

@@ -10,14 +10,13 @@ import (
 )
 
 // MigrationStatus returns the details for a migration as needed by
-// the migration master worker.
+// the migrationmaster worker.
 type MigrationStatus struct {
+	// MigrationId hold the unique id for the migration.
+	MigrationId string
+
 	// ModelUUID holds the UUID of the model being migrated.
 	ModelUUID string
-
-	// Attempt specifies the migration attempt number. This is
-	// incremeted for each attempt to migrate a model.
-	Attempt int
 
 	// Phases indicates the current migration phase.
 	Phase Phase
@@ -47,36 +46,9 @@ type SerializedModel struct {
 	Tools map[version.Binary]string // version -> tools URI
 }
 
-// MinionReports returns information about the migration minion
-// reports received so far for a given migration phase.
-type MinionReports struct {
-	// ModelUUID holds the unique identifier for the model migration.
-	MigrationId string
-
-	// Phases indicates the migration phase the reports relate to.
-	Phase Phase
-
-	// SuccesCount indicates how many agents have successfully
-	// completed the migration phase.
-	SuccessCount int
-
-	// UnknownCount indicates how many agents are yet to report
-	// regarding the migration phase.
-	UnknownCount int
-
-	// SomeUnknownMachines holds the ids of some of the machines which
-	// have not yet reported in.
-	SomeUnknownMachines []string
-
-	// SomeUnknownUnits holds the names of some of the units which
-	// have not yet reported in.
-	SomeUnknownUnits []string
-
-	// FailedMachines holds the ids of machines which have failed to
-	// complete the migration phase.
-	FailedMachines []string
-
-	// FailedUnits holds the names of units which have failed to
-	// complete the migration phase.
-	FailedUnits []string
+// ModelInfo is used to report basic details about a model.
+type ModelInfo struct {
+	UUID         string
+	Name         string
+	AgentVersion version.Number
 }

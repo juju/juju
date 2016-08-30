@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
@@ -86,7 +86,7 @@ var expectedArgs = struct {
 		"mongod_port_t",
 		"-p",
 		"tcp",
-		strconv.Itoa(environs.DefaultStatePort),
+		strconv.Itoa(controller.DefaultStatePort),
 	},
 	Chcon: []string{
 		"-R",
@@ -105,6 +105,20 @@ func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 		SharedSecret: testInfo.SharedSecret,
 
 		DataDir: dataDir,
+	}
+}
+
+func (s *MongoSuite) makeConfigArgs(dataDir string) mongo.ConfigArgs {
+	return mongo.ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dataDir,
+		MongoPath:   mongo.JujuMongod24Path,
+		Port:        1234,
+		OplogSizeMB: 1024,
+		WantNumaCtl: false,
+		Version:     s.mongodVersion,
+		Auth:        true,
+		IPv6:        true,
 	}
 }
 
@@ -451,7 +465,7 @@ func (s *MongoSuite) TestInstallFailSemanageMongodCentOS(c *gc.C) {
 	expectedResult := append(expectedArgs.MongoInstall, []jc.SimpleMessage{
 		{loggo.INFO, "running chcon .*"},
 		{loggo.INFO, "running " + execNameFail + " .*"},
-		{loggo.ERROR, execNameFail + " failed to provide access on port " + strconv.Itoa(environs.DefaultStatePort) + " error exit status " + strconv.Itoa(returnCode)},
+		{loggo.ERROR, execNameFail + " failed to provide access on port " + strconv.Itoa(controller.DefaultStatePort) + " error exit status " + strconv.Itoa(returnCode)},
 		{loggo.ERROR, regexp.QuoteMeta("cannot install/upgrade mongod (will proceed anyway): exit status " + strconv.Itoa(returnCode))},
 	}...)
 	s.assertSuccessWithInstallStepFailCentOS(c, exec, execNameFail, returnCode, expectedResult)
@@ -476,7 +490,7 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 	s.patchSeries(test.series)
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("mongosuite", &tw, loggo.INFO), jc.ErrorIsNil)
+	c.Assert(loggo.RegisterWriter("mongosuite", &tw), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("mongosuite")
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
@@ -534,7 +548,8 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 	s.data.SetStatus(mongo.ServiceName, "installed")
 
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&tw, loggo.ERROR)
+	c.Assert(loggo.RegisterWriter("test-writer", writer), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test-writer")
 
 	dataDir := c.MkDir()
@@ -578,30 +593,34 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(s.makeConfigArgs(c.MkDir()))
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, true, s.mongodVersion, true)
+	args := s.makeConfigArgs(c.MkDir())
+	args.WantNumaCtl = true
+	conf := mongo.NewConf(args)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
-func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
-	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+func (s *MongoSuite) TestNewServiceWithIPv6(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	args.IPv6 = true
+	conf := mongo.NewConf(args)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
-func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
-	dataDir := c.MkDir()
+func (s *MongoSuite) TestNewServiceWithoutIPv6(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	args.IPv6 = false
+	conf := mongo.NewConf(args)
+	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsFalse)
+}
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
+	args := s.makeConfigArgs(c.MkDir())
+	conf := mongo.NewConf(args)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
@@ -657,16 +676,16 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 		},
-		Port: environs.DefaultStatePort}, {
+		Port: controller.DefaultStatePort}, {
 		Address: network.Address{
 			Value: "8.8.8.8",
 			Type:  network.IPv4Address,
 			Scope: network.ScopePublic,
 		},
-		Port: environs.DefaultStatePort}}
+		Port: controller.DefaultStatePort}}
 
 	address := mongo.SelectPeerHostPort(hostPorts)
-	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(environs.DefaultStatePort))
+	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(controller.DefaultStatePort))
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {

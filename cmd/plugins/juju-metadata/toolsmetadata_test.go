@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"text/template"
@@ -20,10 +21,11 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -42,9 +44,6 @@ var _ = gc.Suite(&ToolsMetadataSuite{})
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(dummy.Reset)
-	s.AddCleanup(func(*gc.C) {
-		loggo.ResetLoggers()
-	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -53,13 +52,15 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: cfg.Name(),
-			BaseConfig:     cfg.AllAttrs(),
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   cfg.Name(),
+			ModelConfig:      cfg.AllAttrs(),
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +136,7 @@ var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to 
 var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
 
 func (s *ToolsMetadataSuite) TestGenerateLegacyRelease(c *gc.C) {
-	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
@@ -307,6 +308,9 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
@@ -317,13 +321,16 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
 	currentVersion := jujuversion.Current
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})
@@ -374,5 +381,5 @@ func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
 	// we want to be able to try to read this signed data
 	// with public key with Juju-known public key for tools.
 	// Bugs #1542127, #1542131
-	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, juju.JujuPublicKey)
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, keys.JujuPublicKey)
 }

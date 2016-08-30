@@ -116,10 +116,6 @@ type machineDoc struct {
 	PasswordHash  string
 	Clean         bool
 
-	// TODO(axw) 2015-06-22 #1467379
-	// We need an upgrade step to populate "volumes" and "filesystems"
-	// for entities created in 1.24.
-	//
 	// Volumes contains the names of volumes attached to the machine.
 	Volumes []string `bson:"volumes,omitempty"`
 	// Filesystems contains the names of filesystems attached to the machine.
@@ -828,12 +824,9 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Remove removes the machine from state. It will fail if the machine
-// is not Dead.
-func (m *Machine) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
+func (m *Machine) removeOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
-		return fmt.Errorf("machine is not dead")
+		return nil, fmt.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{
 		{
@@ -858,23 +851,23 @@ func (m *Machine) Remove() (err error) {
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	devicesAddressesOps, err := m.removeAllAddressesOps()
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
@@ -882,10 +875,35 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
 	ops = append(ops, volumeOps...)
+	return ops, nil
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *Machine) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
 	logger.Tracef("removing machine %q", m.Id())
-	// The only abort conditions in play indicate that the machine has already
-	// been removed.
-	return onAbort(m.st.runTransaction(ops), nil)
+	// Local variable so we can re-get the machine without disrupting
+	// the caller.
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			machine, err = machine.st.Machine(machine.Id())
+			if errors.IsNotFound(err) {
+				// The machine's gone away, that's fine.
+				return nil, jujutxn.ErrNoOperations
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops, err := machine.removeOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	return m.st.run(buildTxn)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -1408,10 +1426,20 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 
 	*field = stateAddresses
 	if changedPrivate {
+		oldPrivate := m.doc.PreferredPrivateAddress.networkAddress()
 		m.doc.PreferredPrivateAddress = newPrivate
+		logger.Infof(
+			"machine %q preferred private address changed from %q to %q",
+			m.Id(), oldPrivate, newPrivate.networkAddress(),
+		)
 	}
 	if changedPublic {
+		oldPublic := m.doc.PreferredPublicAddress.networkAddress()
 		m.doc.PreferredPublicAddress = newPublic
+		logger.Infof(
+			"machine %q preferred public address changed from %q to %q",
+			m.Id(), oldPublic, newPublic.networkAddress(),
+		)
 	}
 	return nil
 }

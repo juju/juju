@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/clock"
@@ -88,6 +88,13 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
+	zone, err := time.LoadLocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	state.GetClock = func() clock.Clock {
+		return leaseClock
+	}
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -429,23 +436,19 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
+	var lock hookLock
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"verify config change hook not run while lock held",
 			quickStart{},
-			acquireHookSyncLock{},
+			lock.acquire(),
 			changeConfig{"blog-title": "Goodness Gracious Me"},
 			waitHooks{},
-			releaseHookSyncLock,
+			lock.release(),
 			waitHooks{"config-changed"},
 		), ut(
-			"verify held lock by this unit is broken",
-			acquireHookSyncLock{"u/0:fake"},
-			quickStart{},
-			verifyHookSyncLockUnlocked,
-		), ut(
 			"verify held lock by another unit is not broken",
-			acquireHookSyncLock{"u/1:fake"},
+			lock.acquire(),
 			// Can't use quickstart as it has a built in waitHooks.
 			createCharm{},
 			serveCharm{},
@@ -454,8 +457,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitHooks{},
-			verifyHookSyncLockLocked,
-			releaseHookSyncLock,
+			lock.release(),
 			waitUnitAgent{status: status.StatusIdle},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
@@ -862,127 +864,6 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
-	coretesting.SkipIfGitNotAvailable(c)
-
-	deployerConversionTests := []uniterTest{
-		ut(
-			"install normally, check not using git",
-			quickStart{},
-			verifyCharm{
-				checkFiles: ft.Entries{ft.Removed{".git"}},
-			},
-		), ut(
-			"install with git, restart in steady state",
-			prepareGitUniter{[]stepper{
-				quickStart{},
-				verifyGitCharm{},
-				stopUniter{},
-			}},
-			startUniter{},
-			waitHooks{"config-changed"},
-
-			// At this point, the deployer has been converted, but the
-			// charm directory itself hasn't; the *next* deployment will
-			// actually hit the charm directory and strip out the git
-			// stuff.
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  1,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-				charm:        1,
-			},
-			verifyCharm{
-				revision:   1,
-				checkFiles: ft.Entries{ft.Removed{".git"}},
-			},
-			verifyRunning{},
-		), ut(
-			"install with git, get conflicted, mark resolved",
-			prepareGitUniter{[]stepper{
-				startGitUpgradeError{},
-				stopUniter{},
-			}},
-			startUniter{},
-
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  1,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-				charm:        1,
-			},
-			verifyCharm{revision: 1},
-			verifyRunning{},
-
-			// Due to the uncertainties around marking upgrade conflicts resolved,
-			// the charm directory again remains unconverted, although the deployer
-			// should have been fixed. Again, we check this by running another
-			// upgrade and verifying the .git dir is then removed.
-			createCharm{revision: 2},
-			upgradeCharm{revision: 2},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  2,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-				charm:        2,
-			},
-			verifyCharm{
-				revision:   2,
-				checkFiles: ft.Entries{ft.Removed{".git"}},
-			},
-			verifyRunning{},
-		), ut(
-			"install with git, get conflicted, force an upgrade",
-			prepareGitUniter{[]stepper{
-				startGitUpgradeError{},
-				stopUniter{},
-			}},
-			startUniter{},
-
-			createCharm{
-				revision: 2,
-				customize: func(c *gc.C, ctx *context, path string) {
-					ft.File{"data", "OVERWRITE!", 0644}.Create(c, path)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 2, forced: true},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  2,
-			},
-
-			// A forced upgrade allows us to swap out the git deployer *and*
-			// the .git dir inside the charm immediately; check we did so.
-			verifyCharm{
-				revision: 2,
-				checkFiles: ft.Entries{
-					ft.Removed{".git"},
-					ft.File{"data", "OVERWRITE!", 0644},
-				},
-			},
-			verifyRunning{},
-		),
-	}
-	s.runUniterTests(c, deployerConversionTests)
-}
-
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
 	//TODO(bogdanteleaga): Fix this on windows
@@ -1045,142 +926,6 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			waitUniterDead{},
 			waitHooks{},
 			fixUpgradeError{},
-		),
-	})
-}
-
-func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
-	coretesting.SkipIfGitNotAvailable(c)
-
-	// These tests are copies of the old git-deployer-related tests, to test that
-	// the uniter with the manifest-deployer work patched out still works how it
-	// used to; thus demonstrating that the *other* tests that verify manifest
-	// deployer behaviour in the presence of an old git deployer are working against
-	// an accurate representation of the base state.
-	// The only actual behaviour change is that we no longer commit changes after
-	// each hook execution; this is reflected by checking that it's dirty in a couple
-	// of places where we once checked it was not.
-
-	s.runUniterTests(c, []uniterTest{
-		// Upgrade scenarios - handling conflicts.
-		ugt(
-			"upgrade: conflicting files",
-			startGitUpgradeError{},
-
-			// NOTE: this is just dumbly committing the conflicts, but AFAICT this
-			// is the only reasonable solution; if the user tells us it's resolved
-			// we have to take their word for it.
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  1,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-				charm:        1,
-			},
-			verifyGitCharm{revision: 1},
-		), ugt(
-			`upgrade: conflicting directories`,
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					err := os.Mkdir(filepath.Join(path, "data"), 0755)
-					c.Assert(err, jc.ErrorIsNil)
-					appendHook(c, path, "start", "echo DATA > data/newfile")
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
-				status: status.StatusIdle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyGitCharm{dirty: true},
-
-			createCharm{
-				revision: 1,
-				customize: func(c *gc.C, ctx *context, path string) {
-					data := filepath.Join(path, "data")
-					err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-					c.Assert(err, jc.ErrorIsNil)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusError,
-				info:         "upgrade failed",
-				charm:        1,
-			},
-			verifyWaiting{},
-			verifyGitCharm{dirty: true},
-
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  1,
-			},
-			verifyGitCharm{revision: 1},
-		), ugt(
-			"upgrade conflict resolved with forced upgrade",
-			startGitUpgradeError{},
-			createCharm{
-				revision: 2,
-				customize: func(c *gc.C, ctx *context, path string) {
-					otherdata := filepath.Join(path, "otherdata")
-					err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
-					c.Assert(err, jc.ErrorIsNil)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 2, forced: true},
-			waitUnitAgent{
-				status: status.StatusIdle,
-				charm:  2,
-			}, waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.StatusUnknown,
-				charm:        2,
-			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyGitCharm{revision: 2},
-			custom{func(c *gc.C, ctx *context) {
-				// otherdata should exist (in v2)
-				otherdata, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "otherdata"))
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(string(otherdata), gc.Equals, "blah")
-
-				// ignore should not (only in v1)
-				_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
-				c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-				// data should contain what was written in the start hook
-				data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(string(data), gc.Equals, "STARTDATA\n")
-			}},
-		), ugt(
-			"upgrade conflict unit dying",
-			startGitUpgradeError{},
-			unitDying,
-			verifyWaiting{},
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "leader-settings-changed", "stop"},
-			waitUniterDead{},
-		), ugt(
-			"upgrade conflict unit dead",
-			startGitUpgradeError{},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
 		),
 	})
 }
@@ -2140,7 +1885,7 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (operation.Executor, error) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 )
 
 type fetchDataSuite struct {
@@ -44,7 +44,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrong
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
 	s.expectedData = unsignedData[1:]
-	s.setupDataSource(juju.JujuPublicKey)
+	s.setupDataSource(keys.JujuPublicKey)
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: openpgp: signature made by unknown entity`)
 }
 

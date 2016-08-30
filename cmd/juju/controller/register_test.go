@@ -23,6 +23,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
@@ -32,14 +33,14 @@ import (
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	apiConnection               *mockAPIConnection
-	store                       *jujuclienttesting.MemStore
-	apiOpenError                error
-	refreshModels               func(jujuclient.ClientStore, string, string) error
-	refreshModelsControllerName string
-	refreshModelsAccountName    string
-	server                      *httptest.Server
-	httpHandler                 http.Handler
+	apiConnection            *mockAPIConnection
+	store                    *jujuclienttesting.MemStore
+	apiOpenError             error
+	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
+	listModelsControllerName string
+	listModelsUserName       string
+	server                   *httptest.Server
+	httpHandler              http.Handler
 }
 
 var _ = gc.Suite(&RegisterSuite{})
@@ -59,12 +60,12 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		controllerTag: testing.ModelTag,
 		addr:          serverURL.Host,
 	}
-	s.refreshModelsControllerName = ""
-	s.refreshModelsAccountName = ""
-	s.refreshModels = func(store jujuclient.ClientStore, controllerName, accountName string) error {
-		s.refreshModelsControllerName = controllerName
-		s.refreshModelsAccountName = accountName
-		return nil
+	s.listModelsControllerName = ""
+	s.listModelsUserName = ""
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		s.listModelsControllerName = controllerName
+		s.listModelsUserName = userName
+		return nil, nil
 	}
 
 	s.store = jujuclienttesting.NewMemStore()
@@ -85,7 +86,7 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 }
 
 func (s *RegisterSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
-	command := controller.NewRegisterCommandForTest(s.apiOpen, s.refreshModels, s.store)
+	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
 	err := testing.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -98,6 +99,21 @@ func (s *RegisterSuite) encodeRegistrationData(c *gc.C, user string, secretKey [
 		User:      user,
 		Addrs:     []string{s.apiConnection.addr},
 		SecretKey: secretKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Append some junk to the end of the encoded data to
+	// ensure that, if we have to pad the data in add-user,
+	// register can still decode it.
+	data = append(data, 0, 0, 0)
+	return base64.URLEncoding.EncodeToString(data)
+}
+
+func (s *RegisterSuite) encodeRegistrationDataWithControllerName(c *gc.C, user string, secretKey []byte, controller string) string {
+	data, err := asn1.Marshal(jujuclient.RegistrationInfo{
+		User:           user,
+		Addrs:          []string{s.apiConnection.addr},
+		SecretKey:      secretKey,
+		ControllerName: controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Append some junk to the end of the encoded data to
@@ -130,12 +146,12 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
-	ctx := s.testRegister(c)
-	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
-	c.Assert(s.refreshModelsAccountName, gc.Equals, "bob@local")
+	ctx := s.testRegister(c, "")
+	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
+	c.Assert(s.listModelsUserName, gc.Equals, "bob@local")
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller: 
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -149,41 +165,43 @@ of a model to grant access to that model with "juju grant".
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
-		err := store.UpdateModel(controller, account, "theoneandonly", jujuclient.ModelDetails{
-			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "theoneandonly",
+			Owner: "carol@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
+		}}, nil
 	}
-	s.testRegister(c)
+	s.testRegister(c, "")
 	c.Assert(
-		s.store.Models["controller-name"].AccountModels["bob@local"].CurrentModel,
-		gc.Equals, "theoneandonly",
+		s.store.Models["controller-name"].CurrentModel,
+		gc.Equals, "carol@local/theoneandonly",
 	)
 }
 
 func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
-	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
-		for _, name := range [...]string{"model1", "model2"} {
-			err := store.UpdateModel(controller, account, name, jujuclient.ModelDetails{
-				ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
-			})
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		return nil
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model1",
+			Owner: "bob@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
+		}, {
+			Name:  "model2",
+			Owner: "bob@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b55",
+		}}, nil
 	}
-	ctx := s.testRegister(c)
+	ctx := s.testRegister(c, "")
 
 	// When there are multiple models, no current model will be set.
 	// Instead, the command will output the list of models and inform
 	// the user how to set the current model.
-	_, err := s.store.CurrentModel("controller-name", "bob@local")
+	_, err := s.store.CurrentModel("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-Please set a name for this controller: 
+Enter a name for this controller [controller-name]: 
 Enter a new password: 
 Confirm password: 
 
@@ -197,7 +215,7 @@ one of them:
 `[1:])
 }
 
-func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
+func (s *RegisterSuite) testRegister(c *gc.C, expectedError string) *cmd.Context {
 	secretKey := []byte(strings.Repeat("X", 32))
 	respNonce := []byte(strings.Repeat("X", 24))
 
@@ -229,9 +247,13 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 		c.Check(err, jc.ErrorIsNil)
 	})
 
-	registrationData := s.encodeRegistrationData(c, "bob", secretKey)
-	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+	stdin := strings.NewReader("\nhunter2\nhunter2\n")
 	ctx, err := s.run(c, stdin, registrationData)
+	if expectedError != "" {
+		c.Assert(err, gc.ErrorMatches, expectedError)
+		return ctx
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	// There should have been one POST command to "/register".
@@ -261,7 +283,7 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 		APIEndpoints:   []string{s.apiConnection.addr},
 		CACert:         testing.CACert,
 	})
-	account, err := s.store.AccountByName("controller-name", "bob@local")
+	account, err := s.store.AccountDetails("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "bob@local",
@@ -287,7 +309,7 @@ func (s *RegisterSuite) TestRegisterEmptyControllerName(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
-	err := s.store.UpdateController("controller-name", jujuclient.ControllerDetails{
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
 		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
 		CACert:         testing.CACert,
 	})
@@ -297,6 +319,65 @@ func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
 	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
 	_, err = s.run(c, stdin, registrationData)
 	c.Assert(err, gc.ErrorMatches, `controller "controller-name" already exists`)
+}
+
+func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
+	// Controller has the UUID from s.testRegister to mimic a user with
+	// this controller already registered (regardless of its name).
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		CACert:         testing.CACert,
+	})
+
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model-name",
+			Owner: "bob@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
+		}}, nil
+	}
+
+	s.testRegister(c, "you must specify a non-empty controller name")
+
+	secretKey := []byte(strings.Repeat("X", 32))
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+
+	stdin := strings.NewReader("another-controller-name\nhunter2\nhunter2\n")
+	_, err = s.run(c, stdin, registrationData)
+	c.Assert(err, gc.ErrorMatches, "controller with UUID.*already exists")
+}
+
+func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
+	// Controller does not have the UUID from s.testRegister, thereby
+	// mimicing a user with an already registered 'foreign' controller.
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
+		CACert:         testing.CACert,
+	})
+
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model-name",
+			Owner: "bob@local",
+			UUID:  "df136476-12e9-11e4-8a70-b2227cce2b54",
+		}}, nil
+	}
+
+	ctx := s.testRegister(c, "you must specify a non-empty controller name")
+
+	secretKey := []byte(strings.Repeat("X", 32))
+	registrationData := s.encodeRegistrationDataWithControllerName(c, "bob", secretKey, "controller-name")
+
+	stdin := strings.NewReader("another-controller-name\nhunter2\nhunter2\n")
+	_, err = s.run(c, stdin, registrationData)
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+WARNING: You already have a controller registered with the name "controller-name". Please choose a different name for the new controller.
+
+Enter a name for this controller: 
+`[1:])
+
 }
 
 func (s *RegisterSuite) TestRegisterEmptyPassword(c *gc.C) {

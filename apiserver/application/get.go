@@ -12,22 +12,25 @@ import (
 
 // Get returns the configuration for a service.
 func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	service, err := api.state.Application(args.ApplicationName)
+	if err := api.checkCanRead(); err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+	app, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	settings, err := service.ConfigSettings()
+	settings, err := app.ConfigSettings()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	charm, _, err := service.Charm()
+	charm, _, err := app.Charm()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
 	configInfo := describe(settings, charm.Config())
 	var constraints constraints.Value
-	if service.IsPrincipal() {
-		constraints, err = service.Constraints()
+	if app.IsPrincipal() {
+		constraints, err = app.Constraints()
 		if err != nil {
 			return params.ApplicationGetResults{}, err
 		}
@@ -37,6 +40,7 @@ func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, e
 		Charm:       charm.Meta().Name,
 		Config:      configInfo,
 		Constraints: constraints,
+		Series:      app.Series(),
 	}, nil
 }
 

@@ -6,7 +6,7 @@ package controller
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -38,7 +38,7 @@ type listBlocksAPI interface {
 func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "blocks",
-		Purpose: "list all blocks within the controller",
+		Purpose: "List all blocks within the controller.",
 		Doc:     listBlocksDoc,
 		Aliases: []string{"list-all-blocks", "list-blocks"},
 	}

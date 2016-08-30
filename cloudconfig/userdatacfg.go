@@ -127,7 +127,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 		return err
 	}
 	if targetOS != os.Windows {
-		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
+		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
 	}
 	c.conf.AddScripts(cmds...)
 	return nil

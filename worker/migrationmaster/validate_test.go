@@ -5,13 +5,15 @@ package migrationmaster_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type ValidateSuite struct {
@@ -23,6 +25,12 @@ var _ = gc.Suite(&ValidateSuite{})
 func (*ValidateSuite) TestValid(c *gc.C) {
 	err := validConfig().Validate()
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*ValidateSuite) TestMissingModelUUID(c *gc.C) {
+	config := validConfig()
+	config.ModelUUID = ""
+	checkNotValid(c, config, "empty ModelUUID not valid")
 }
 
 func (*ValidateSuite) TestMissingGuard(c *gc.C) {
@@ -61,14 +69,22 @@ func (*ValidateSuite) TestMissingToolsDownloader(c *gc.C) {
 	checkNotValid(c, config, "nil ToolsDownloader not valid")
 }
 
+func (*ValidateSuite) TestMissingClock(c *gc.C) {
+	config := validConfig()
+	config.Clock = nil
+	checkNotValid(c, config, "nil Clock not valid")
+}
+
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
+		ModelUUID:       "uuid",
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		UploadBinaries:  func(migration.UploadBinariesConfig) error { return nil },
 		CharmDownloader: struct{ migration.CharmDownloader }{},
 		ToolsDownloader: struct{ migration.ToolsDownloader }{},
+		Clock:           struct{ clock.Clock }{},
 	}
 }
 

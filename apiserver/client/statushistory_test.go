@@ -28,11 +28,19 @@ type statusHistoryTestSuite struct {
 
 func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{}
-	client.PatchState(s, s.st)
-	tag := names.NewUserTag("user")
+	tag := names.NewUserTag("admin")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = client.NewClient(nil, nil, authorizer)
+	s.api, err = client.NewClient(
+		s.st,
+		nil, // modelconfig API
+		nil, // resources
+		authorizer,
+		nil, // statusSetter
+		nil, // toolsFinder
+		nil, // newEnviron
+		nil, // blockChecker
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -211,13 +219,17 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 }
 
 type mockState struct {
-	client.StateInterface
+	client.Backend
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
 }
 
 func (m *mockState) ModelUUID() string {
 	return "uuid"
+}
+
+func (m *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func (m *mockState) Unit(name string) (client.Unit, error) {

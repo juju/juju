@@ -37,18 +37,32 @@ func (c *Client) Close() error {
 // CreateModel creates a new model using the model config,
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(
-	name, owner, cloudRegion, cloudCredential string, config map[string]interface{},
+	name, owner, cloud, cloudRegion string,
+	cloudCredential names.CloudCredentialTag,
+	config map[string]interface{},
 ) (params.ModelInfo, error) {
 	var result params.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
+	var cloudTag string
+	if cloud != "" {
+		if !names.IsValidCloud(cloud) {
+			return result, errors.Errorf("invalid cloud name %q", cloud)
+		}
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	var cloudCredentialTag string
+	if cloudCredential != (names.CloudCredentialTag{}) {
+		cloudCredentialTag = cloudCredential.String()
+	}
 	createArgs := params.ModelCreateArgs{
-		Name:            name,
-		OwnerTag:        names.NewUserTag(owner).String(),
-		Config:          config,
-		CloudRegion:     cloudRegion,
-		CloudCredential: cloudCredential,
+		Name:               name,
+		OwnerTag:           names.NewUserTag(owner).String(),
+		Config:             config,
+		CloudTag:           cloudTag,
+		CloudRegion:        cloudRegion,
+		CloudCredentialTag: cloudCredentialTag,
 	}
 	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
 	if err != nil {
@@ -105,21 +119,85 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 	return results.Results, nil
 }
 
+// DumpModel returns the serialized database agnostic model representation.
+func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error) {
+	var results params.MapResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: model.String()}},
+	}
+
+	err := c.facade.FacadeCall("DumpModels", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
+// DumpModelDB returns all relevant mongo documents for the model.
+func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, error) {
+	var results params.MapResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: model.String()}},
+	}
+
+	err := c.facade.FacadeCall("DumpModelsDB", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
+// DestroyModel puts the specified model into a "dying" state, which will
+// cause the model's resources to be cleaned up, after which the model will
+// be removed.
+func (c *Client) DestroyModel(tag names.ModelTag) error {
+	var results params.ErrorResults
+	entities := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+	if err := c.facade.FacadeCall("DestroyModels", entities, &results); err != nil {
+		return errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // ParseModelAccess parses an access permission argument into
 // a type suitable for making an API facade call.
-func ParseModelAccess(access string) (params.ModelAccessPermission, error) {
-	var fail params.ModelAccessPermission
+func ParseModelAccess(access string) (params.UserAccessPermission, error) {
+	var fail params.UserAccessPermission
 
 	modelAccess, err := permission.ParseModelAccess(access)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-	var accessPermission params.ModelAccessPermission
+	var accessPermission params.UserAccessPermission
 	switch modelAccess {
 	case permission.ModelReadAccess:
 		accessPermission = params.ModelReadAccess
 	case permission.ModelWriteAccess:
 		accessPermission = params.ModelWriteAccess
+	case permission.ModelAdminAccess:
+		accessPermission = params.ModelAdminAccess
 	default:
 		return fail, errors.Errorf("unsupported model access permission %v", modelAccess)
 	}

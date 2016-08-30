@@ -146,12 +146,15 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
-	return []txn.Op{{
+	key := charmGlobalKey(cdoc.URL)
+	refOp := nsRefcounts.JustCreateOp(refcountsC, key, 0)
+	charmOp := txn.Op{
 		C:      charmsC,
 		Id:     cdoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: cdoc,
-	}}, nil
+	}
+	return []txn.Op{refOp, charmOp}, nil
 }
 
 // updateCharmOps returns the txn operations necessary to update the charm
@@ -222,13 +225,22 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	refcounts, closer := st.getCollection(refcountsC)
+	defer closer()
+
 	var ops []txn.Op
 	for _, doc := range docs {
 		if doc.URL.Revision >= curl.Revision {
 			continue
 		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
+		key := charmGlobalKey(doc.URL)
+		refOp, err := nsRefcounts.RemoveOp(refcounts, key, 0)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, refOp, txn.Op{
+			C:      charms.Name(),
 			Id:     doc.DocID,
 			Assert: stillPlaceholder,
 			Remove: true,
@@ -333,15 +345,6 @@ func (c *Charm) StoragePath() string {
 	return c.doc.StoragePath
 }
 
-// BundleURL returns the url to the charm bundle in
-// the provider storage.
-//
-// DEPRECATED: this is only to be used for migrating
-// charm archives to model storage.
-func (c *Charm) BundleURL() *url.URL {
-	return c.doc.BundleURL
-}
-
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
 func (c *Charm) BundleSha256() string {
 	return c.doc.BundleSha256
@@ -392,12 +395,8 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 	return nil
 }
 
-// deleteCharmArchive deletes a charm archive from blob storage
-// and removes the corresponding charm record from state.
+// deleteCharmArchive deletes a charm archive from blob storage.
 func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
-	if err := st.deleteCharm(curl); err != nil {
-		return errors.Annotate(err, "cannot delete charm record from state")
-	}
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	if err := stor.Remove(storagePath); err != nil {
 		return errors.Annotate(err, "cannot delete charm from storage")
@@ -435,20 +434,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
-}
-
-// deleteCharm removes the charm record with curl from state.
-func (st *State) deleteCharm(curl *charm.URL) error {
-	op := []txn.Op{{
-		C:      charmsC,
-		Id:     curl.String(),
-		Remove: true,
-	}}
-	err := st.runTransaction(op)
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 type hasMeta interface {

@@ -3,7 +3,10 @@
 
 package jujuclient
 
-import "github.com/juju/juju/cloud"
+import (
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+)
 
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
@@ -59,9 +62,16 @@ type AccountDetails struct {
 // bootstrap configuration. A reference to the credential used will be
 // stored, rather than the credential itself.
 type BootstrapConfig struct {
-	// Config is the base configuration for the provider. This should
-	// be updated with the region, endpoint and credentials.
-	Config map[string]interface{} `yaml:"config"`
+	// ControllerConfig is the controller configuration.
+	ControllerConfig controller.Config `yaml:"controller-config"`
+
+	// Config is the complete configuration for the provider.
+	// This should be updated with the region, endpoint and credentials.
+	Config map[string]interface{} `yaml:"model-config"`
+
+	// TODO(wallyworld) - drop when we get to beta 15.
+	// This is for backwards compatibility with beta 13.
+	OldConfig map[string]interface{} `yaml:"base-model-config,omitempty"`
 
 	// Credential is the name of the credential used to bootstrap.
 	//
@@ -70,6 +80,9 @@ type BootstrapConfig struct {
 
 	// Cloud is the name of the cloud to create the Juju controller in.
 	Cloud string `yaml:"cloud"`
+
+	// CloudType is the type of the cloud to create the Juju controller in.
+	CloudType string `yaml:"type"`
 
 	// CloudRegion is the name of the region of the cloud to create
 	// the Juju controller in. This will be empty for clouds without
@@ -80,19 +93,32 @@ type BootstrapConfig struct {
 	// use when communicating with the cloud.
 	CloudEndpoint string `yaml:"endpoint,omitempty"`
 
+	// CloudIdentityEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's identity service. This will
+	// be empty for clouds that have no identity-specific API endpoint.
+	CloudIdentityEndpoint string `yaml:"identity-endpoint,omitempty"`
+
 	// CloudStorageEndpoint is the location of the API endpoint to use
 	// when communicating with the cloud's storage service. This will
-	// be empty for clouds that have no cloud-specific API endpoint.
+	// be empty for clouds that have no storage-specific API endpoint.
 	CloudStorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
 // ControllerUpdater stores controller details.
 type ControllerUpdater interface {
-	// UpdateController adds the given controller to the controller
+	// AddController adds the given controller to the controller
 	// collection.
 	//
-	// If the controller does not already exist, it will be added.
-	// Otherwise, it will be overwritten with the new details.
+	// Where UpdateController is concerned with the controller name,
+	// AddController uses the controller UUID and will not add a
+	// duplicate even if the name is different.
+	AddController(controllerName string, details ControllerDetails) error
+
+	// UpdateController updates the given controller in the controller
+	// collection.
+	//
+	// If a controller of controllerName exists it will be overwritten
+	// with the new details.
 	UpdateController(controllerName string, details ControllerDetails) error
 
 	// SetCurrentController sets the name of the current controller.
@@ -134,13 +160,13 @@ type ModelUpdater interface {
 	//
 	// If the model does not already exist, it will be added.
 	// Otherwise, it will be overwritten with the new details.
-	UpdateModel(controllerName, accountName, modelName string, details ModelDetails) error
+	UpdateModel(controllerName, modelName string, details ModelDetails) error
 
 	// SetCurrentModel sets the name of the current model for
 	// the specified controller and account. If there exists no
 	// model with the specified names, an error satisfying
 	// errors.IsNotFound will be returned.
-	SetCurrentModel(controllerName, accountName, modelName string) error
+	SetCurrentModel(controllerName, modelName string) error
 }
 
 // ModelRemover removes models.
@@ -149,79 +175,54 @@ type ModelRemover interface {
 	// and model names from the models collection. If there is no model
 	// with the specified names, an errors satisfying errors.IsNotFound
 	// will be returned.
-	RemoveModel(controllerName, accountName, modelName string) error
+	RemoveModel(controllerName, modelName string) error
 }
 
 // ModelGetter gets models.
 type ModelGetter interface {
-	// AllModels gets all models for the specified controller and
-	// account.
+	// AllModels gets all models for the specified controller as a map
+	// from model name to its details.
 	//
-	// If there is no controller or account with the specified
-	// names, or no models cached for the controller and account,
+	// If there is no controller with the specified
+	// name, or no models cached for the controller and account,
 	// an error satisfying errors.IsNotFound will be returned.
-	AllModels(controllerName, accountName string) (map[string]ModelDetails, error)
+	AllModels(controllerName string) (map[string]ModelDetails, error)
 
 	// CurrentModel returns the name of the current model for
-	// the specified controller and account. If there is no current
-	// model for the controller and account, an error satisfying
+	// the specified controller. If there is no current
+	// model for the controller, an error satisfying
 	// errors.IsNotFound is returned.
-	CurrentModel(controllerName, accountName string) (string, error)
+	CurrentModel(controllerName string) (string, error)
 
 	// ModelByName returns the model with the specified controller,
-	// account, and model names. If there exists no model with the
-	// specified names, an error satisfying errors.IsNotFound will
-	// be returned.
-	ModelByName(controllerName, accountName, modelName string) (*ModelDetails, error)
+	// and model name. If a model with the specified name does not
+	// exist, an error satisfying errors.IsNotFound will be
+	// returned.
+	ModelByName(controllerName, modelName string) (*ModelDetails, error)
 }
 
 // AccountUpdater stores account details.
 type AccountUpdater interface {
-	// UpdateAccount adds the given account to the account collection.
-	//
-	// If the account does not already exist, it will be added.
-	// Otherwise, it will be overwritten with the new details.
-	//
-	// It is currently not permitted to create multiple account entries
-	// for a controller; doing so will result in an error satisfying
-	// errors.IsAlreadyExists.
-	UpdateAccount(controllerName, accountName string, details AccountDetails) error
-
-	// SetCurrentAccount sets the name of the current account for
-	// the specified controller. If there exists no account with
-	// the specified names, an error satisfying errors.IsNotFound
-	// will be returned.
-	SetCurrentAccount(controllerName, accountName string) error
+	// UpdateAccount updates the account associated with the
+	// given controller.
+	UpdateAccount(controllerName string, details AccountDetails) error
 }
 
 // AccountRemover removes accounts.
 type AccountRemover interface {
-	// RemoveAccount removes the account with the given controller and account
-	// names from the accounts collection. If there is no account with the
+	// RemoveAccount removes the account associated with the given controller.
+	// If there is no associated account with the
 	// specified names, an errors satisfying errors.IsNotFound will be
 	// returned.
-	RemoveAccount(controllerName, accountName string) error
+	RemoveAccount(controllerName string) error
 }
 
 // AccountGetter gets accounts.
 type AccountGetter interface {
-	// AllAccounts gets all accounts for the specified controller.
-	//
-	// If there is no controller with the specified name, or
-	// no accounts cached for the controller, an error satisfying
-	// errors.IsNotFound will be returned.
-	AllAccounts(controllerName string) (map[string]AccountDetails, error)
-
-	// CurrentAccount returns the name of the current account for
-	// the specified controller. If there is no current account
-	// for the controller, an error satisfying errors.IsNotFound
-	// is returned.
-	CurrentAccount(controllerName string) (string, error)
-
-	// AccountByName returns the account with the specified controller
-	// and account names. If there exists no account with the specified
-	// names, an error satisfying errors.IsNotFound will be returned.
-	AccountByName(controllerName, accountName string) (*AccountDetails, error)
+	// AccountByName returns the account associated with the given
+	// controller name. If no associated account exists, an error
+	// satisfying errors.IsNotFound will be returned.
+	AccountDetails(controllerName string) (*AccountDetails, error)
 }
 
 // CredentialGetter gets credentials.

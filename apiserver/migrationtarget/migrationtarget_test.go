@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -15,10 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -36,17 +34,7 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
-	env, err := environs.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
-		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: "dummycontroller",
-			BaseConfig:     dummy.SampleConfig(),
-			CloudName:      "dummy",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
+	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
 
 	// The call up to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.
@@ -56,7 +44,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.Owner,
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
 	}
 }
 
@@ -90,6 +79,30 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
+}
+
+func (s *Suite) TestPrechecks(c *gc.C) {
+	api := s.mustNewAPI(c)
+	args := params.TargetPrechecksArgs{
+		AgentVersion: s.controllerVersion(c),
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *Suite) TestPrechecksFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+
+	// Set the model version ahead of the controller.
+	modelVersion := controllerVersion
+	modelVersion.Minor++
+
+	api := s.mustNewAPI(c)
+	args := params.TargetPrechecksArgs{
+		AgentVersion: modelVersion,
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *Suite) TestImport(c *gc.C) {
@@ -148,7 +161,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	// The model should no longer exist.
 	model, err := s.State.GetModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {
@@ -198,4 +211,12 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	bytes, err := description.Serialize(model)
 	c.Assert(err, jc.ErrorIsNil)
 	return newUUID, bytes
+}
+
+func (s *Suite) controllerVersion(c *gc.C) version.Number {
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	return vers
 }

@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -56,14 +56,7 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	currentAccount, err := store.CurrentAccount(currentController)
-	if errors.IsNotFound(err) {
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	currentModel, err := store.CurrentModel(currentController, currentAccount)
+	currentModel, err := store.CurrentModel(currentController)
 	if errors.IsNotFound(err) {
 		return currentController + ":", nil
 	} else if err != nil {
@@ -118,7 +111,6 @@ type ModelCommandBase struct {
 	store jujuclient.ClientStore
 
 	modelName      string
-	accountName    string
 	controllerName string
 
 	// opener is the strategy used to open the API connection.
@@ -152,12 +144,7 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 			return errors.Trace(err)
 		}
 	}
-	accountName, err := c.store.CurrentAccount(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	c.controllerName = controllerName
-	c.accountName = accountName
 	c.modelName = modelName
 	return nil
 }
@@ -165,11 +152,6 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 // ModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelName() string {
 	return c.modelName
-}
-
-// AccountName implements the ModelCommand interface.
-func (c *ModelCommandBase) AccountName() string {
-	return c.accountName
 }
 
 // ControllerName implements the ModelCommand interface.
@@ -191,11 +173,40 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewAPIRoot returns a new connection to the API server for the environment.
+// NewAPIRoot returns a new connection to the API server for the environment
+// directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
+	if c.modelName == "" {
+		return nil, errors.Trace(ErrNoModelSpecified)
+	}
+	_, err := c.store.ModelByName(c.controllerName, c.modelName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// The model isn't known locally, so query the models
+		// available in the controller, and cache them locally.
+		if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+			return nil, errors.Annotate(err, "refreshing models")
+		}
+	}
+	return c.newAPIRoot(c.modelName)
+}
+
+// NewControllerAPIRoot returns a new connection to the API server for the environment
+// directed to the controller specified on the command line.
+// This is for the use of model-centered commands that still want
+// to talk to controller-only APIs.
+func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
+	return c.newAPIRoot("")
+}
+
+// newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
+// if modelName is empty, it makes a controller-only connection.
+func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
 	if c.controllerName == "" {
 		controllers, err := c.store.AllControllers()
 		if err != nil {
@@ -206,25 +217,11 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 		}
 		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
-	if c.modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
-	}
 	opener := c.opener
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		// The model isn't known locally, so query the models
-		// available in the controller, and cache them locally.
-		if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
-			return nil, errors.Annotate(err, "refreshing models")
-		}
-	}
-	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)
+	return opener.Open(c.store, c.controllerName, modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -293,8 +290,9 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	store := w.ClientStore()
 	if store == nil {
 		store = jujuclient.NewFileClientStore()
-		w.SetClientStore(store)
 	}
+	store = QualifyingClientStore{store}
+	w.SetClientStore(store)
 	if !w.skipFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.

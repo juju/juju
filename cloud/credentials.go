@@ -33,6 +33,9 @@ type Credential struct {
 	authType   AuthType
 	attributes map[string]string
 
+	// Revoked is true if the credential has been revoked.
+	Revoked bool
+
 	// Label is optionally set to describe the credentials to a user.
 	Label string
 }
@@ -180,12 +183,19 @@ func (s CredentialSchema) Finalize(
 		if field.FilePath {
 			pathValue, ok := resultMap[name]
 			if ok && pathValue != "" {
-				if absPath, err := ValidateFileAttrValue(pathValue.(string)); err != nil {
+				absPath, err := ValidateFileAttrValue(pathValue.(string))
+				if err != nil {
 					return nil, errors.Trace(err)
-				} else {
-					newAttrs[name] = absPath
-					continue
 				}
+				data, err := readFile(absPath)
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading file for %q", name)
+				}
+				if len(data) == 0 {
+					return nil, errors.NotValidf("empty file for %q", name)
+				}
+				newAttrs[name] = string(data)
+				continue
 			}
 		}
 		if val, ok := resultMap[name]; ok {
@@ -301,7 +311,9 @@ type CredentialAttr struct {
 	// value used for this attribute.
 	FileAttr string
 
-	// FilePath is true is the value of this attribute is a file path.
+	// FilePath is true is the value of this attribute is a file path. If
+	// this is true, then the attribute value will be set to the contents
+	// of the file when the credential is "finalized".
 	FilePath bool
 
 	// Optional controls whether the attribute is required to have a non-empty

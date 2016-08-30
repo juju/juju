@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
+	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -25,97 +26,75 @@ type environProvider struct {
 
 var providerInstance environProvider
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p environProvider) RestrictedConfigAttributes() []string {
-	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
-	// See bug http://pad.lv/1580417 for more information.
-	return []string{"region", "vpc-id-force"}
-}
+// Open is specified in the EnvironProvider interface.
+func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	e, err := p.Open(cfg)
+	e := new(environ)
+	e.cloud = args.Cloud
+	e.name = args.Config.Name()
+
+	var err error
+	e.ec2, e.s3, err = awsClients(args.Cloud)
 	if err != nil {
-		return nil, err
-	}
-	env := e.(*environ)
-
-	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
-	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return cfg, nil
-}
-
-// Open is specified in the EnvironProvider interface.
-func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening model %q", cfg.Name())
-	e := new(environ)
-	e.name = cfg.Name()
-	err := e.SetConfig(cfg)
-	if err != nil {
-		return nil, err
+	if err := e.SetConfig(args.Config); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return e, nil
 }
 
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	attrs := map[string]interface{}{
-		"region": args.CloudRegion,
-		// TODO(axw) stop relying on hard-coded
-		//           region endpoint information
-		//           in the provider, and use
-		//           args.CloudEndpoint here.
-	}
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.AccessKeyAuthType:
-		credentialAttrs := args.Credentials.Attributes()
-		attrs["access-key"] = credentialAttrs["access-key"]
-		attrs["secret-key"] = credentialAttrs["secret-key"]
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+func awsClients(cloud environs.CloudSpec) (*ec2.EC2, *s3.S3, error) {
+	if err := validateCloudSpec(cloud); err != nil {
+		return nil, nil, errors.Annotate(err, "validating cloud spec")
 	}
 
+	credentialAttrs := cloud.Credential.Attributes()
+	accessKey := credentialAttrs["access-key"]
+	secretKey := credentialAttrs["secret-key"]
+	auth := aws.Auth{
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+	}
+
+	// TODO(axw) define region in terms of EC2 and S3 endpoints.
+	region := aws.Regions[cloud.Region]
+	signer := aws.SignV4Factory(region.Name, "ec2")
+	return ec2.New(auth, region, signer), s3.New(auth, region), nil
+}
+
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
 		attrs[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
 	}
-
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if len(attrs) == 0 {
+		return args.Config, nil
 	}
-
-	return cfg, nil
+	return args.Config.Apply(attrs)
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	cfg *config.Config,
-) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
+func validateCloudSpec(c environs.CloudSpec) error {
+	if err := c.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-
-	env := e.(*environ)
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env); err != nil {
-			return nil, err
-		}
+	if _, ok := aws.Regions[c.Region]; !ok {
+		return errors.NotValidf("region name %q", c.Region)
 	}
-
-	apiClient, ecfg := env.ec2(), env.ecfg()
-	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
-		return nil, errors.Trace(err)
+	if c.Credential == nil {
+		return errors.NotValidf("missing credential")
 	}
-
-	return e, nil
+	if authType := c.Credential.AuthType(); authType != cloud.AccessKeyAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }
 
 // Validate is specified in the EnvironProvider interface.
@@ -138,22 +117,9 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["access-key"] = ecfg.accessKey()
-	m["secret-key"] = ecfg.secretKey()
-	return m, nil
 }
 
 const badAccessKey = `
@@ -171,7 +137,7 @@ page in the AWS console.`
 // error will be returned, and the original error will be logged at debug
 // level.
 var verifyCredentials = func(e *environ) error {
-	_, err := e.ec2().AccountAttributes()
+	_, err := e.ec2.AccountAttributes()
 	if err != nil {
 		logger.Debugf("ec2 request failed: %v", err)
 		if err, ok := err.(*ec2.Error); ok {

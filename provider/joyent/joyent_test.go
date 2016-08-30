@@ -42,43 +42,38 @@ C+4FYwKBgQDE9yZTUpJjG2424z6bl/MHzwl5RB4pMronp0BbeVqPwhCBfj0W5I42
 	testKeyFingerprint = "66:ca:1c:09:75:99:35:69:be:91:08:25:03:c0:17:c0"
 )
 
-type providerSuite struct {
+type baseSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = gc.Suite(&baseSuite{})
 
-func (s *providerSuite) SetUpSuite(c *gc.C) {
+func (s *baseSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 
-func (s *providerSuite) TearDownSuite(c *gc.C) {
+func (s *baseSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 }
 
-func (s *providerSuite) TearDownTest(c *gc.C) {
+func (s *baseSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func GetFakeConfig(sdcUrl string) coretesting.Attrs {
+func GetFakeConfig() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":          "joyent-test-model",
 		"type":          "joyent",
-		"sdc-user":      testUser,
-		"sdc-key-id":    testKeyFingerprint,
-		"sdc-url":       sdcUrl,
-		"private-key":   testPrivateKey,
-		"algorithm":     "rsa-sha256",
 		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
 }

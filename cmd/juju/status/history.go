@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -58,17 +58,17 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
 		Args:    "<entity name>",
-		Purpose: "output past statuses for the passed entity",
+		Purpose: "Output past statuses for the specified entity.",
 		Doc:     statusHistoryDoc,
 	}
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.outputContent, "type", "unit", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
-	f.IntVar(&c.backlogSize, "n", 0, "returns the last N logs (cannot be combined with --days or --date).")
-	f.IntVar(&c.backlogSizeDays, "days", 0, "returns the logs for the past <days> days (cannot be combined with -n or --date).")
-	f.StringVar(&c.backlogDate, "date", "", "returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days).")
-	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
+	f.StringVar(&c.outputContent, "type", "unit", "Type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance]")
+	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
+	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
+	f.StringVar(&c.backlogDate, "date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
+	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 }
 
 func (c *statusHistoryCommand) Init(args []string) error {

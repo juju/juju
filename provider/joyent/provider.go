@@ -46,51 +46,12 @@ var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (joyentProvider) RestrictedConfigAttributes() []string {
-	return []string{sdcUrl}
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-// BootstrapConfig is specified in the EnvironProvider interface.
-func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	attrs := map[string]interface{}{}
-	// Add the credential attributes to config.
-	switch authType := args.Credentials.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		credentialAttrs := args.Credentials.Attributes()
-		for k, v := range credentialAttrs {
-			attrs[k] = v
-		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+// PrepareConfig is part of the EnvironProvider interface.
+func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	if args.CloudEndpoint != "" {
-		attrs[sdcUrl] = args.CloudEndpoint
-	}
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return p.PrepareForCreateEnvironment(cfg)
-}
-
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*joyentEnviron)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return e, nil
+	return args.Config, nil
 }
 
 const unauthorisedMessage = `
@@ -103,11 +64,11 @@ page in the Joyent console.`
 // error will be returned, and the original error will be logged at debug
 // level.
 var verifyCredentials = func(e *joyentEnviron) error {
-	creds, err := credentials(e.Ecfg())
+	creds, err := credentials(e.cloud)
 	if err != nil {
 		return err
 	}
-	httpClient := client.NewClient(e.Ecfg().sdcUrl(), cloudapi.DefaultAPIVersion, creds, nil)
+	httpClient := client.NewClient(e.cloud.Endpoint, cloudapi.DefaultAPIVersion, creds, nil)
 	apiClient := cloudapi.New(httpClient)
 	_, err = apiClient.CountMachines()
 	if err != nil {
@@ -120,20 +81,32 @@ var verifyCredentials = func(e *joyentEnviron) error {
 	return nil
 }
 
-func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	authentication, err := auth.NewAuth(cfg.sdcUser(), cfg.privateKey(), cfg.algorithm())
+func credentials(cloud environs.CloudSpec) (*auth.Credentials, error) {
+	credAttrs := cloud.Credential.Attributes()
+	sdcUser := credAttrs[credAttrSDCUser]
+	sdcKeyID := credAttrs[credAttrSDCKeyID]
+	privateKey := credAttrs[credAttrPrivateKey]
+	algorithm := credAttrs[credAttrAlgorithm]
+	if algorithm == "" {
+		algorithm = algorithmDefault
+	}
+
+	authentication, err := auth.NewAuth(sdcUser, privateKey, algorithm)
 	if err != nil {
 		return nil, errors.Errorf("cannot create credentials: %v", err)
 	}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
-		SdcKeyId:           cfg.sdcKeyId(),
-		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
+		SdcKeyId:           sdcKeyID,
+		SdcEndpoint:        auth.Endpoint{URL: cloud.Endpoint},
 	}, nil
 }
 
-func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (joyentProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -148,31 +121,6 @@ func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 	return cfg.Apply(newEcfg.attrs)
 }
 
-func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// If you keep configSecretFields up to date, this method should Just Work.
-	ecfg, err := validateConfig(cfg, nil)
-	if err != nil {
-		return nil, err
-	}
-	secretAttrs := map[string]string{}
-	for _, field := range configSecretFields {
-		if value, ok := ecfg.attrs[field]; ok {
-			if stringValue, ok := value.(string); ok {
-				secretAttrs[field] = stringValue
-			} else {
-				// All your secret attributes must be strings at the moment. Sorry.
-				// It's an expedient and hopefully temporary measure that helps us
-				// plug a security hole in the API.
-				return nil, errors.Errorf(
-					"secret %q field must have a string value; got %v",
-					field, value,
-				)
-			}
-		}
-	}
-	return secretAttrs, nil
-}
-
 func GetProviderInstance() environs.EnvironProvider {
 	return providerInstance
 }
@@ -184,8 +132,7 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: []string{"amd64", "armhf"},
+		Region: region,
 	}, nil
 }
 
@@ -195,4 +142,17 @@ func (p joyentProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }

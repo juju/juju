@@ -25,12 +25,11 @@ type unit struct {
 	WorkloadStatus_        *status        `yaml:"workload-status"`
 	WorkloadStatusHistory_ StatusHistory_ `yaml:"workload-status-history"`
 
+	WorkloadVersion_        string         `yaml:"workload-version,omitempty"`
+	WorkloadVersionHistory_ StatusHistory_ `yaml:"workload-version-history"`
+
 	Principal_    string   `yaml:"principal,omitempty"`
 	Subordinates_ []string `yaml:"subordinates,omitempty"`
-
-	// TODO:
-	//  storage constraints
-	//  storage attachment count
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
@@ -41,6 +40,8 @@ type unit struct {
 	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
+
+	Payloads_ payloads `yaml:"payloads"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Application in the Model.
@@ -51,6 +52,7 @@ type UnitArgs struct {
 	Principal    names.UnitTag
 	Subordinates []names.UnitTag
 
+	WorkloadVersion string
 	MeterStatusCode string
 	MeterStatusInfo string
 
@@ -62,17 +64,21 @@ func newUnit(args UnitArgs) *unit {
 	for _, s := range args.Subordinates {
 		subordinates = append(subordinates, s.Id())
 	}
-	return &unit{
-		Name_:                  args.Tag.Id(),
-		Machine_:               args.Machine.Id(),
-		PasswordHash_:          args.PasswordHash,
-		Principal_:             args.Principal.Id(),
-		Subordinates_:          subordinates,
-		MeterStatusCode_:       args.MeterStatusCode,
-		MeterStatusInfo_:       args.MeterStatusInfo,
-		WorkloadStatusHistory_: newStatusHistory(),
-		AgentStatusHistory_:    newStatusHistory(),
+	u := &unit{
+		Name_:                   args.Tag.Id(),
+		Machine_:                args.Machine.Id(),
+		PasswordHash_:           args.PasswordHash,
+		Principal_:              args.Principal.Id(),
+		Subordinates_:           subordinates,
+		WorkloadVersion_:        args.WorkloadVersion,
+		MeterStatusCode_:        args.MeterStatusCode,
+		MeterStatusInfo_:        args.MeterStatusInfo,
+		WorkloadStatusHistory_:  newStatusHistory(),
+		WorkloadVersionHistory_: newStatusHistory(),
+		AgentStatusHistory_:     newStatusHistory(),
 	}
+	u.setPayloads(nil)
+	return u
 }
 
 // Tag implements Unit.
@@ -136,6 +142,11 @@ func (u *unit) SetTools(args AgentToolsArgs) {
 	u.Tools_ = newAgentTools(args)
 }
 
+// WorkloadVersion implements Unit.
+func (u *unit) WorkloadVersion() string {
+	return u.WorkloadVersion_
+}
+
 // WorkloadStatus implements Unit.
 func (u *unit) WorkloadStatus() Status {
 	// To avoid typed nils check nil here.
@@ -158,6 +169,16 @@ func (u *unit) WorkloadStatusHistory() []Status {
 // SetWorkloadStatusHistory implements Unit.
 func (u *unit) SetWorkloadStatusHistory(args []StatusArgs) {
 	u.WorkloadStatusHistory_.SetStatusHistory(args)
+}
+
+// WorkloadVersionHistory implements Unit.
+func (u *unit) WorkloadVersionHistory() []Status {
+	return u.WorkloadVersionHistory_.StatusHistory()
+}
+
+// SetWorkloadVersionHistory implements Unit.
+func (u *unit) SetWorkloadVersionHistory(args []StatusArgs) {
+	u.WorkloadVersionHistory_.SetStatusHistory(args)
 }
 
 // AgentStatus implements Unit.
@@ -195,6 +216,29 @@ func (u *unit) Constraints() Constraints {
 // SetConstraints implements HasConstraints.
 func (u *unit) SetConstraints(args ConstraintsArgs) {
 	u.Constraints_ = newConstraints(args)
+}
+
+// AddPayload implements Unit.
+func (u *unit) AddPayload(args PayloadArgs) Payload {
+	payload := newPayload(args)
+	u.Payloads_.Payloads_ = append(u.Payloads_.Payloads_, payload)
+	return payload
+}
+
+// Payloads implements Unit.
+func (u *unit) Payloads() []Payload {
+	var result []Payload
+	for _, payload := range u.Payloads_.Payloads_ {
+		result = append(result, payload)
+	}
+	return result
+}
+
+func (u *unit) setPayloads(payloadList []*payload) {
+	u.Payloads_ = payloads{
+		Version:   1,
+		Payloads_: payloadList,
+	}
 }
 
 // Validate impelements Unit.
@@ -258,10 +302,12 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"name":    schema.String(),
 		"machine": schema.String(),
 
-		"agent-status":            schema.StringMap(schema.Any()),
-		"agent-status-history":    schema.StringMap(schema.Any()),
-		"workload-status":         schema.StringMap(schema.Any()),
-		"workload-status-history": schema.StringMap(schema.Any()),
+		"agent-status":             schema.StringMap(schema.Any()),
+		"agent-status-history":     schema.StringMap(schema.Any()),
+		"workload-status":          schema.StringMap(schema.Any()),
+		"workload-status-history":  schema.StringMap(schema.Any()),
+		"workload-version":         schema.String(),
+		"workload-version-history": schema.StringMap(schema.Any()),
 
 		"principal":    schema.String(),
 		"subordinates": schema.List(schema.String()),
@@ -271,10 +317,13 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 
 		"meter-status-code": schema.String(),
 		"meter-status-info": schema.String(),
+
+		"payloads": schema.StringMap(schema.Any()),
 	}
 	defaults := schema.Defaults{
 		"principal":         "",
 		"subordinates":      schema.Omit,
+		"workload-version":  "",
 		"meter-status-code": "",
 		"meter-status-info": "",
 	}
@@ -291,19 +340,25 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	// contains fields of the right type.
 
 	result := &unit{
-		Name_:                  valid["name"].(string),
-		Machine_:               valid["machine"].(string),
-		Principal_:             valid["principal"].(string),
-		PasswordHash_:          valid["password-hash"].(string),
-		MeterStatusCode_:       valid["meter-status-code"].(string),
-		MeterStatusInfo_:       valid["meter-status-info"].(string),
-		WorkloadStatusHistory_: newStatusHistory(),
-		AgentStatusHistory_:    newStatusHistory(),
+		Name_:                   valid["name"].(string),
+		Machine_:                valid["machine"].(string),
+		Principal_:              valid["principal"].(string),
+		PasswordHash_:           valid["password-hash"].(string),
+		WorkloadVersion_:        valid["workload-version"].(string),
+		MeterStatusCode_:        valid["meter-status-code"].(string),
+		MeterStatusInfo_:        valid["meter-status-info"].(string),
+		WorkloadStatusHistory_:  newStatusHistory(),
+		WorkloadVersionHistory_: newStatusHistory(),
+		AgentStatusHistory_:     newStatusHistory(),
 	}
 	result.importAnnotations(valid)
 
-	workloadHistory := valid["workload-status-history"].(map[string]interface{})
-	if err := importStatusHistory(&result.WorkloadStatusHistory_, workloadHistory); err != nil {
+	workloadStatusHistory := valid["workload-status-history"].(map[string]interface{})
+	if err := importStatusHistory(&result.WorkloadStatusHistory_, workloadStatusHistory); err != nil {
+		return nil, errors.Trace(err)
+	}
+	workloadVersionHistory := valid["workload-version-history"].(map[string]interface{})
+	if err := importStatusHistory(&result.WorkloadVersionHistory_, workloadVersionHistory); err != nil {
 		return nil, errors.Trace(err)
 	}
 	agentHistory := valid["agent-status-history"].(map[string]interface{})
@@ -339,6 +394,13 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		return nil, errors.Trace(err)
 	}
 	result.WorkloadStatus_ = workloadStatus
+
+	payloadMap := valid["payloads"].(map[string]interface{})
+	payloads, err := importPayloads(payloadMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "payloads")
+	}
+	result.setPayloads(payloads)
 
 	return result, nil
 }

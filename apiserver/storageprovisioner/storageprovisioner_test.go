@@ -15,14 +15,15 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -39,24 +40,6 @@ type provisionerSuite struct {
 	api        *storageprovisioner.StorageProvisionerAPI
 }
 
-func (s *provisionerSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-
-	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-	})
-	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeMachine,
-	})
-	registry.RegisterEnvironStorageProviders(
-		"dummy", "environscoped", "machinescoped",
-	)
-	s.AddCleanup(func(c *gc.C) {
-		registry.RegisterProvider("environscoped", nil)
-		registry.RegisterProvider("machinescoped", nil)
-	})
-}
-
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.factory = factory.NewFactory(s.State)
@@ -66,19 +49,25 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	var err error
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	registry := stateenvirons.NewStorageProviderRegistry(env)
+	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
-	s.api, err = storageprovisioner.NewStorageProvisionerAPI(s.State, s.resources, s.authorizer)
+	backend := storageprovisioner.NewStateBackend(s.State)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPI(backend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := storageprovisioner.NewStorageProvisionerAPI(s.State, common.NewResources(), authorizer)
+	backend := storageprovisioner.NewStateBackend(s.State)
+	_, err := storageprovisioner.NewStorageProvisionerAPI(backend, common.NewResources(), authorizer, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -1032,36 +1021,6 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 			{Error: common.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
-}
-
-func (s *provisionerSuite) TestWatchForModelConfigChanges(c *gc.C) {
-	result, err := s.api.WatchForModelConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
-
-	// Verify the resource was registered and stop it when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, watcher)
-
-	// Check that the Watch has consumed the initial events ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// Updating config should trigger the watcher.
-	err = s.State.UpdateModelConfig(map[string]interface{}{"what": "ever"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-}
-
-func (s *provisionerSuite) TestModelConfig(c *gc.C) {
-	stateModelConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.api.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(stateModelConfig.AllAttrs()))
 }
 
 func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {

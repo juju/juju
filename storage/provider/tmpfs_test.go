@@ -48,13 +48,13 @@ func (s *tmpfsSuite) TestFilesystemSource(c *gc.C) {
 	p := s.tmpfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

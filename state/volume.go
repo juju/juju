@@ -459,16 +459,16 @@ func isVolumeInherentlyMachineBound(st *State, tag names.VolumeTag) (bool, error
 		if err != nil {
 			return false, errors.Trace(err)
 		}
+		if provider.Scope() == storage.ScopeMachine {
+			// Any storage created by a machine must be destroyed
+			// along with the machine.
+			return true, nil
+		}
 		if provider.Dynamic() {
-			// Even machine-scoped storage could be provisioned
-			// while the machine is Dying, and we don't know at
-			// this layer whether or not it will be Persistent.
-			//
-			// TODO(axw) extend storage provider interface to
-			// determine up-front whether or not a volume will
-			// be persistent. This will have to depend on the
-			// machine type, since, e.g., loop devices will
-			// outlive LXC containers.
+			// We don't know ahead of time whether the storage
+			// will be Persistent, so we assume it will be, and
+			// rely on the environment-level storage provisioner
+			// to clean up.
 			return false, nil
 		}
 		// Volume is static, so even if it is provisioned, it will
@@ -746,27 +746,32 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	ops := []txn.Op{
-		createStatusOp(st, volumeGlobalKey(name), statusDoc{
-			Status: status.StatusPending,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			Updated: time.Now().UnixNano(),
-		}),
+	status := statusDoc{
+		Status: status.StatusPending,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+	}
+	doc := volumeDoc{
+		Name:      name,
+		StorageId: params.storage.Id(),
+		Binding:   params.binding.String(),
+		Params:    &params,
+		// Every volume is created with one attachment.
+		AttachmentCount: 1,
+	}
+	return st.newVolumeOps(doc, status), names.NewVolumeTag(name), nil
+}
+
+func (st *State) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
+	return []txn.Op{
+		createStatusOp(st, volumeGlobalKey(doc.Name), status),
 		{
 			C:      volumesC,
-			Id:     name,
+			Id:     doc.Name,
 			Assert: txn.DocMissing,
-			Insert: &volumeDoc{
-				Name:      name,
-				StorageId: params.storage.Id(),
-				Binding:   params.binding.String(),
-				Params:    &params,
-				// Every volume is created with one attachment.
-				AttachmentCount: 1,
-			},
+			Insert: &doc,
 		},
 	}
-	return ops, names.NewVolumeTag(name), nil
 }
 
 func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {

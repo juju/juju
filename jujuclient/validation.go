@@ -36,7 +36,8 @@ func ValidateAccountDetails(details AccountDetails) error {
 	// may use macaroons instead.
 	//
 	// TODO(axw) expand validation rules to check that at least
-	// one of Password or Macaroon is non-empty.
+	// one of Password or Macaroon is non-empty, for local users.
+	// External users may have neither.
 	return nil
 }
 
@@ -51,9 +52,16 @@ func ValidateControllerName(name string) error {
 
 // ValidateModelName validates the given model name.
 func ValidateModelName(name string) error {
-	// TODO(axw) define a regex for valid model names.
-	if name == "" {
-		return errors.NotValidf("empty model name")
+	modelName, owner, err := SplitModelName(name)
+	if err != nil {
+		return errors.Annotatef(err, "validating model name %q", name)
+	}
+	if err := validateUserTag(owner); err != nil {
+		err = errors.Annotate(err, "validating model owner name")
+		return errors.Annotatef(err, "validating model name %q", name)
+	}
+	if !names.IsValidModelName(modelName) {
+		return errors.NotValidf("model name %q", name)
 	}
 	return nil
 }
@@ -69,6 +77,9 @@ func ValidateBootstrapConfig(cfg BootstrapConfig) error {
 	if cfg.Cloud == "" {
 		return errors.NotValidf("empty cloud name")
 	}
+	if cfg.CloudType == "" {
+		return errors.NotValidf("empty cloud type")
+	}
 	if len(cfg.Config) == 0 {
 		return errors.NotValidf("empty config")
 	}
@@ -77,10 +88,15 @@ func ValidateBootstrapConfig(cfg BootstrapConfig) error {
 
 func validateUser(name string) error {
 	if !names.IsValidUser(name) {
-		return errors.NotValidf("account name %q", name)
+		return errors.NotValidf("user name %q", name)
 	}
-	if tag := names.NewUserTag(name); tag.Id() != tag.Canonical() {
-		return errors.NotValidf("unqualified account name %q", name)
+	tag := names.NewUserTag(name)
+	return validateUserTag(tag)
+}
+
+func validateUserTag(tag names.UserTag) error {
+	if tag.Id() != tag.Canonical() {
+		return errors.NotValidf("unqualified user name %q", tag.Id())
 	}
 	return nil
 }

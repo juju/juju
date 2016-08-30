@@ -15,17 +15,14 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ServiceSuite struct {
@@ -38,7 +35,7 @@ var _ = gc.Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -948,7 +945,7 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 
 func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
 	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
@@ -1034,6 +1031,57 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
+}
+
+func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
+	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
+	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	appName := "mywp"
+
+	app := s.AddTestingService(c, appName, oldCh)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// just before setting the unit charm url, switch the service
+	// away from the original charm, causing the attempt to fail
+	// (because the settings have gone away; it's the unit's job to
+	// fail out and handle the new charm when it comes back up
+	// again).
+	dropSettings := func() {
+		cfg := state.SetCharmConfig{Charm: newCh}
+		err = app.SetCharm(cfg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
+
+	err = unit.SetCharmURL(oldCh.URL())
+	c.Check(err, gc.ErrorMatches, "refcount does not exist")
+}
+
+func (s *ServiceSuite) TestSettingsRefRemoveRace(c *gc.C) {
+	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
+	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+	appName := "mywp"
+
+	app := s.AddTestingService(c, appName, oldCh)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// just before updating the app charm url, set that charm url on
+	// a unit to block the removal.
+	grabReference := func() {
+		err := unit.SetCharmURL(oldCh.URL())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, grabReference).Check()
+
+	cfg := state.SetCharmConfig{Charm: newCh}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check refs to both settings exist
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertSettingsRef(c, s.State, appName, newCh, 1)
 }
 
 const mysqlBaseMeta = `
@@ -1703,11 +1751,9 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsTrue)
 
-	// Run the cleanup and check the charm.
+	// Run the cleanup
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Charm(s.charm.URL())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
@@ -1789,7 +1835,7 @@ func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("constraints-tester", &tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("constraints-tester", &tw), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.mysql.SetConstraints(cons)
@@ -2161,6 +2207,16 @@ storage:
       range: 0-
 `
 
+const oneRequiredOneOptionalStorageMeta = `
+storage:
+  data0:
+    type: block
+  data1:
+    type: block
+    multiple:
+      range: 0-
+`
+
 const twoRequiredStorageMeta = `
 storage:
   data0:
@@ -2232,7 +2288,6 @@ func storageRange(min, max int) string {
 }
 
 func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
@@ -2241,12 +2296,45 @@ func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error 
 	return svc.SetCharm(cfg)
 }
 
-func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
+func (s *ServiceSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
 	err := s.setCharmFromMeta(c,
-		mysqlBaseMeta+twoOptionalStorageMeta,
-		mysqlBaseMeta+oneOptionalStorageMeta,
+		mysqlBaseMeta+oneRequiredOneOptionalStorageMeta,
+		mysqlBaseMeta+oneRequiredStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": storage "data1" removed`)
+	c.Assert(err, jc.ErrorIsNil)
+	// It's valid to remove optional storage so long
+	// as it is not in use.
+}
+
+func (s *ServiceSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
+	oldMeta := mysqlBaseMeta + oneRequiredOneOptionalStorageMeta
+	newMeta := mysqlBaseMeta + oneRequiredStorageMeta
+	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+	svc := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "test",
+		Charm: oldCh,
+		Storage: map[string]state.StorageConstraints{
+			"data0": {Count: 1},
+			"data1": {Count: 1},
+		},
+	})
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// Adding a unit will cause the storage to be in-use.
+		_, err := svc.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	cfg := state.SetCharmConfig{Charm: newCh}
+	err := svc.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": in-use storage "data1" removed`)
+}
+
+func (s *ServiceSuite) TestSetCharmRequiredStorageRemoved(c *gc.C) {
+	err := s.setCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": required storage "data0" removed`)
 }
 
 func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {

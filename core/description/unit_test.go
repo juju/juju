@@ -30,14 +30,19 @@ func (s *UnitSerializationSuite) SetUpTest(c *gc.C) {
 
 func minimalUnitMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":                    "ubuntu/0",
-		"machine":                 "0",
-		"agent-status":            minimalStatusMap(),
-		"agent-status-history":    emptyStatusHistoryMap(),
-		"workload-status":         minimalStatusMap(),
-		"workload-status-history": emptyStatusHistoryMap(),
-		"password-hash":           "secure-hash",
-		"tools":                   minimalAgentToolsMap(),
+		"name":                     "ubuntu/0",
+		"machine":                  "0",
+		"agent-status":             minimalStatusMap(),
+		"agent-status-history":     emptyStatusHistoryMap(),
+		"workload-status":          minimalStatusMap(),
+		"workload-status-history":  emptyStatusHistoryMap(),
+		"workload-version-history": emptyStatusHistoryMap(),
+		"password-hash":            "secure-hash",
+		"tools":                    minimalAgentToolsMap(),
+		"payloads": map[interface{}]interface{}{
+			"version":  1,
+			"payloads": []interface{}{},
+		},
 	}
 }
 
@@ -59,7 +64,7 @@ func minimalUnitArgs() UnitArgs {
 
 func (s *UnitSerializationSuite) completeUnit() *unit {
 	// This unit is about completeness, not reasonableness. That is why the
-	// unit has a principle (normally only for subordinates), and also a list
+	// unit has a principal (normally only for subordinates), and also a list
 	// of subordinates.
 	args := UnitArgs{
 		Tag:          names.NewUnitTag("ubuntu/0"),
@@ -70,6 +75,7 @@ func (s *UnitSerializationSuite) completeUnit() *unit {
 			names.NewUnitTag("sub1/0"),
 			names.NewUnitTag("sub2/0"),
 		},
+		WorkloadVersion: "malachite",
 		MeterStatusCode: "meter code",
 		MeterStatusInfo: "meter info",
 	}
@@ -92,6 +98,7 @@ func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
 		names.NewUnitTag("sub1/0"),
 		names.NewUnitTag("sub2/0"),
 	})
+	c.Assert(unit.WorkloadVersion(), gc.Equals, "malachite")
 	c.Assert(unit.MeterStatusCode(), gc.Equals, "meter code")
 	c.Assert(unit.MeterStatusInfo(), gc.Equals, "meter info")
 	c.Assert(unit.Tools(), gc.NotNil)
@@ -190,4 +197,20 @@ func (s *UnitSerializationSuite) TestWorkloadStatusHistory(c *gc.C) {
 		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
 		c.Check(point.Updated(), gc.Equals, args[i].Updated)
 	}
+}
+
+func (s *UnitSerializationSuite) TestPayloads(c *gc.C) {
+	initial := minimalUnit()
+	expected := initial.AddPayload(allPayloadArgs())
+	c.Check(expected.Name(), gc.Equals, "bob")
+	c.Check(expected.Type(), gc.Equals, "docker")
+	c.Check(expected.RawID(), gc.Equals, "d06f00d")
+	c.Check(expected.State(), gc.Equals, "running")
+	c.Check(expected.Labels(), jc.DeepEquals, []string{"auto", "foo"})
+
+	unit := s.exportImport(c, initial)
+
+	payloads := unit.Payloads()
+	c.Assert(payloads, gc.HasLen, 1)
+	c.Assert(payloads[0], jc.DeepEquals, expected)
 }

@@ -48,7 +48,7 @@ func (logger *Logger) setLogging() {
 	} else {
 		if loggingConfig != logger.lastConfig {
 			log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
-			loggo.ResetLoggers()
+			loggo.DefaultContext().ResetLoggerLevels()
 			if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
 				// This shouldn't occur as the loggingConfig should be
 				// validated by the original Config before it gets here.

@@ -43,6 +43,12 @@ func (*AgentAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
+	//
+	// NOTE(axw) with the current implementation of Login, it is
+	// important that we check the password before checking the
+	// nonce, or an unprovisioned machine in a hosted model will
+	// prevent a controller machine from logging into the hosted
+	// model.
 	if machine, ok := authenticator.(*state.Machine); ok {
 		if !machine.CheckProvisioned(req.Nonce) {
 			return nil, errors.NotProvisionedf("machine %v", machine.Id())

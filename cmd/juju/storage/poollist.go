@@ -5,7 +5,7 @@ package storage
 
 import (
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -34,7 +34,6 @@ func formatPoolInfo(all []params.StoragePool) map[string]PoolInfo {
 }
 
 const poolListCommandDoc = `
-Lists storage pools.
 The user can filter on pool type, name.
 
 If no filter is specified, all current pools are listed.
@@ -45,19 +44,6 @@ If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
 Valid pool types are pool types that are registered for Juju model.
-
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= yaml)
-   specify output format (json|tabular|yaml)
---provider
-   pool provider type
---name
-   pool name
-
 `
 
 // NewPoolListCommand returns a command that lists storage pools on a model
@@ -87,7 +73,7 @@ func (c *poolListCommand) Init(args []string) (err error) {
 func (c *poolListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "storage-pools",
-		Purpose: "list storage pools",
+		Purpose: "List storage pools.",
 		Doc:     poolListCommandDoc,
 		Aliases: []string{"list-storage-pools"},
 	}
@@ -96,8 +82,8 @@ func (c *poolListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "only show pools of these provider types")
-	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "only show pools with these names")
+	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "Only show pools of these provider types")
+	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "Only show pools with these names")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

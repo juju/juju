@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -62,6 +62,7 @@ type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
 	BootstrapParamsFile string
+	Timeout             time.Duration
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -82,6 +83,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
+	f.DurationVar(&c.Timeout, "timeout", time.Duration(0), "set the bootstrap timeout")
 }
 
 // Init initializes the command for running.
@@ -125,7 +127,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(args.ControllerModelConfig)
+	cloudSpec, err := environs.MakeCloudSpec(
+		args.ControllerCloud,
+		args.ControllerCloudName,
+		args.ControllerCloudRegion,
+		args.ControllerCloudCredential,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: args.ControllerModelConfig,
+	})
 	if err != nil {
 		return err
 	}
@@ -183,7 +197,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Annotate(err, "failed to generate system key")
 	}
 	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
+	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
@@ -231,8 +245,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Set a longer socket timeout than usual, as the machine
 		// will be starting up and disk I/O slower than usual. This
 		// has been known to cause timeouts in queries.
-		timeouts := controllerModelCfg.BootstrapSSHOpts()
-		dialOpts.SocketTimeout = timeouts.Timeout
+		dialOpts.SocketTimeout = c.Timeout
 		if dialOpts.SocketTimeout < minSocketTimeout {
 			dialOpts.SocketTimeout = minSocketTimeout
 		}
@@ -245,10 +258,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
-				args, addrs, jobs, sharedSecret,
+				StateInitializationParams: args,
+				BootstrapMachineAddresses: addrs,
+				BootstrapMachineJobs:      jobs,
+				SharedSecret:              sharedSecret,
+				Provider:                  environs.Provider,
+				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			environs.NewStatePolicy(),
+			stateenvirons.GetNewPolicyFunc(
+				stateenvirons.GetNewEnvironFunc(environs.New),
+			),
 		)
 		return stateErr
 	})
@@ -272,14 +292,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if len(args.CustomImageMetadata) > 0 {
-		if err := c.saveCustomImageMetadata(st, args.CustomImageMetadata); err != nil {
+		if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
 			return err
 		}
-	}
-
-	// Populate the storage pools.
-	if err = c.populateDefaultStoragePools(st); err != nil {
-		return err
 	}
 
 	// bootstrap machine always gets the vote
@@ -296,8 +311,8 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	// When bootstrapping, we need to allow enough time for mongo
 	// to start as there's no retry loop in place.
 	// 5 minutes should suffice.
-	bootstrapDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
-	dialInfo, err := mongo.DialInfo(info.Info, bootstrapDialOpts)
+	mongoDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
+	dialInfo, err := mongo.DialInfo(info.Info, mongoDialOpts)
 	if err != nil {
 		return err
 	}
@@ -336,12 +351,6 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	logger.Infof("started mongo")
 	return nil
-}
-
-// populateDefaultStoragePools creates the default storage pools.
-func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
-	settings := state.NewStateSettings(st)
-	return poolmanager.AddDefaultStoragePools(settings)
 }
 
 // populateTools stores uploaded tools in provider storage
@@ -442,16 +451,17 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata stores the custom image metadata to the database,
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, imageMetadata []*imagemetadata.ImageMetadata) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ, imageMetadata []*imagemetadata.ImageMetadata) error {
 	logger.Debugf("saving custom image metadata")
-	return storeImageMetadataInState(st, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
+	return storeImageMetadataInState(st, env, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
+func storeImageMetadataInState(st *state.State, env environs.Environ, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
+	cfg := env.Config()
 	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
 	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
@@ -462,6 +472,7 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
 				Source:          source,
+				Version:         one.Version,
 			},
 			priority,
 			one.Id,
@@ -471,6 +482,12 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
+		if m.Stream == "" {
+			m.Stream = cfg.ImageStream()
+		}
+		if m.Source == "" {
+			m.Source = "custom"
+		}
 		metadataState[i] = m
 	}
 	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {

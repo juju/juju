@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -18,13 +17,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
@@ -47,7 +46,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -461,6 +459,10 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
+func hookExecutionLockName() string {
+	return "uniter-hook-execution-test"
+}
+
 type startUniter struct {
 	unitTag         string
 	newExecutorFunc uniter.NewExecutorFunc
@@ -481,9 +483,6 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic(err.Error())
 	}
 	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
-	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
@@ -496,7 +495,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
-		MachineLock:          lock,
+		MachineLockName:      hookExecutionLockName(),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
@@ -794,13 +793,13 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		c.Fatalf("ran more hooks than expected")
 	}
 	waitExecutionLockReleased := func() {
-		lock := createHookLock(c, ctx.dataDir)
-		if err := lock.LockWithTimeout(worstCase, "waiting for lock"); err != nil {
+		spec := hookLockSpec()
+		spec.Timeout = worstCase
+		releaser, err := mutex.Acquire(spec)
+		if err != nil {
 			c.Fatalf("failed to acquire execution lock: %v", err)
 		}
-		if err := lock.Unlock(); err != nil {
-			c.Fatalf("failed to release execution lock: %v", err)
-		}
+		releaser.Release()
 	}
 	if match {
 		if len(s) > 0 {
@@ -1372,40 +1371,41 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
-	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-	return lock
+type hookLock struct {
+	releaser mutex.Releaser
 }
 
-type acquireHookSyncLock struct {
-	message string
+type hookStep struct {
+	stepFunc func(*gc.C, *context)
 }
 
-func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-	err := lock.Lock(s.message)
-	c.Assert(err, jc.ErrorIsNil)
+func (h *hookStep) step(c *gc.C, ctx *context) {
+	h.stepFunc(c, ctx)
 }
 
-var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	// Force the release.
-	err := lock.BreakLock()
-	c.Assert(err, jc.ErrorIsNil)
-}}
+func hookLockSpec() mutex.Spec {
+	return mutex.Spec{
+		Name:  hookExecutionLockName(),
+		Clock: clock.WallClock,
+		Delay: coretesting.ShortWait,
+	}
+}
 
-var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-}}
+func (h *hookLock) acquire() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		releaser, err := mutex.Acquire(hookLockSpec())
+		c.Assert(err, jc.ErrorIsNil)
+		h.releaser = releaser
+	}}
+}
 
-var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsTrue)
-}}
+func (h *hookLock) release() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		c.Assert(h.releaser, gc.NotNil)
+		h.releaser.Release()
+		h.releaser = nil
+	}}
+}
 
 type setProxySettings proxy.Settings
 
@@ -1690,117 +1690,6 @@ func (*mockCharmDirGuard) Unlock() error { return nil }
 
 // Lockdown implements fortress.Guard.
 func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
-
-// prepareGitUniter runs a sequence of uniter tests with the manifest deployer
-// replacement logic patched out, simulating the effect of running an older
-// version of juju that exclusively used a git deployer. This is useful both
-// for testing the new deployer-replacement code *and* for running the old
-// tests against the new, patched code to check that the tweaks made to
-// accommodate the manifest deployer do not change the original behaviour as
-// simulated by the patched-out code.
-type prepareGitUniter struct {
-	prepSteps []stepper
-}
-
-func (s prepareGitUniter) step(c *gc.C, ctx *context) {
-	c.Assert(ctx.uniter, gc.IsNil, gc.Commentf("please don't try to patch stuff while the uniter's running"))
-	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
-		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
-	}
-	restoreNewDeployer := gt.PatchValue(&charm.NewDeployer, newDeployer)
-	defer restoreNewDeployer()
-
-	fixDeployer := func(deployer *charm.Deployer) error {
-		return nil
-	}
-	restoreFixDeployer := gt.PatchValue(&charm.FixDeployer, fixDeployer)
-	defer restoreFixDeployer()
-
-	for _, prepStep := range s.prepSteps {
-		step(c, ctx, prepStep)
-	}
-	if ctx.uniter != nil {
-		step(c, ctx, stopUniter{})
-	}
-}
-
-func ugt(summary string, steps ...stepper) uniterTest {
-	return ut(summary, prepareGitUniter{steps})
-}
-
-type verifyGitCharm struct {
-	revision int
-	dirty    bool
-}
-
-func (s verifyGitCharm) step(c *gc.C, ctx *context) {
-	charmPath := filepath.Join(ctx.path, "charm")
-	if !s.dirty {
-		revisionPath := filepath.Join(charmPath, "revision")
-		content, err := ioutil.ReadFile(revisionPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
-		err = ctx.unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(url, gc.DeepEquals, curl(s.revision))
-	}
-
-	// Before we try to check the git status, make sure expected hooks are all
-	// complete, to prevent the test and the uniter interfering with each other.
-	step(c, ctx, waitHooks{})
-	step(c, ctx, waitHooks{})
-	cmd := exec.Command("git", "status")
-	cmd.Dir = filepath.Join(ctx.path, "charm")
-	out, err := cmd.CombinedOutput()
-	c.Assert(err, jc.ErrorIsNil)
-	cmp := gc.Matches
-	if s.dirty {
-		cmp = gc.Not(gc.Matches)
-	}
-	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
-}
-
-type startGitUpgradeError struct{}
-
-func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
-	steps := []stepper{
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				appendHook(c, path, "start", "echo STARTDATA > data")
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnitAgent{
-			status: status.StatusIdle,
-		},
-		waitHooks(startupHooks(false)),
-		verifyGitCharm{dirty: true},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
-				ft.File{"data", "<nelson>ha ha</nelson>", 0644}.Create(c, path)
-				ft.File{"ignore", "anything", 0644}.Create(c, path)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       status.StatusError,
-			info:         "upgrade failed",
-			charm:        1,
-		},
-		verifyWaiting{},
-		verifyGitCharm{dirty: true},
-	}
-	for _, s_ := range steps {
-		step(c, ctx, s_)
-	}
-}
 
 type provisionStorage struct{}
 

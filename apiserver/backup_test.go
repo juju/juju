@@ -57,7 +57,7 @@ func (s *backupsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, s
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, gc.Equals, statusCode, gc.Commentf("body: %s", body))
-	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON)
+	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON, gc.Commentf("body: %q", body))
 
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)

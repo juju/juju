@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -439,6 +439,7 @@ var IsMachineMaster = func(st *state.State, machineId string) (bool, error) {
 	return isMaster, nil
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 	return utils.AttemptStrategy{
 		Delay: 2 * time.Minute,

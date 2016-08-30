@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/juju/controller"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 )
 
@@ -92,7 +93,7 @@ func (f *fakeControllerAPI) Close() error {
 	return nil
 }
 
-func (f *fakeControllerAPI) ControllerConfig() (map[string]interface{}, error) {
+func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

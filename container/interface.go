@@ -13,8 +13,6 @@ import (
 const (
 	ConfigModelUUID = "model-uuid"
 	ConfigLogDir    = "log-dir"
-
-	DefaultNamespace = "juju"
 )
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.

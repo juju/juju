@@ -4,16 +4,17 @@
 package user
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var usageListUsersSummary = `
@@ -81,29 +82,35 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
 }
 
-func (c *listCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *listCommand) formatTabular(writer io.Writer, value interface{}) error {
 	users, valueConverted := value.([]UserInfo)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
+		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tDISPLAY NAME\tDATE CREATED\tLAST CONNECTION\n")
+	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	if err != nil {
+		return err
+	}
+	loggedInUser := names.NewUserTag(accountDetails.User).Canonical()
+
+	tw := output.TabWriter(writer)
+	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
+	fmt.Fprint(tw, "\n")
+	fmt.Fprint(tw, "NAME\tDISPLAY NAME\tACCESS\tDATE CREATED\tLAST CONNECTION\n")
 	for _, user := range users {
 		conn := user.LastConnection
 		if user.Disabled {
 			conn += " (disabled)"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", user.Username, user.DisplayName, user.DateCreated, conn)
+		userName := user.Username
+		if loggedInUser == names.NewUserTag(user.Username).Canonical() {
+			userName += "*"
+			output.CurrentHighlight.Fprintf(tw, "%s\t", userName)
+		} else {
+			fmt.Fprintf(tw, "%s\t", userName)
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", user.DisplayName, user.Access, user.DateCreated, conn)
 	}
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }

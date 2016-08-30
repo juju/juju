@@ -31,12 +31,15 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
@@ -72,12 +75,13 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	modelTag      names.ModelTag
-	controllerTag names.ModelTag
-	mongoInfo     *mongo.MongoInfo
-	session       *mgo.Session
-	database      Database
-	policy        Policy
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	mongoInfo          *mongo.MongoInfo
+	session            *mgo.Session
+	database           Database
+	policy             Policy
+	newPolicy          NewPolicyFunc
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -130,7 +134,21 @@ type StateServingInfo struct {
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {
-	return st.modelTag == st.controllerTag
+	return st.modelTag == st.controllerModelTag
+}
+
+// ControllerUUID returns the model UUID for the controller model
+// of this state instance.
+func (st *State) ControllerUUID() string {
+	return st.controllerModelTag.Id()
+}
+func (st *State) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag(st.controllerModelTag.Id())
+}
+
+func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
+	ctag := names.NewControllerTag(st.ControllerUUID())
+	return st.UserAccess(tag.(names.UserTag), ctag)
 }
 
 // RemoveAllModelDocs removes all documents from multi-model
@@ -139,7 +157,7 @@ func (st *State) IsController() bool {
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")
 	}
 	return errors.Trace(err)
@@ -150,7 +168,7 @@ func (st *State) RemoveAllModelDocs() error {
 // is "importing".
 func (st *State) RemoveImportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being imported for migration")
 	}
 	return errors.Trace(err)
@@ -161,57 +179,82 @@ func (st *State) RemoveImportingModelDocs() error {
 // is "exporting".
 func (st *State) RemoveExportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
-	if err == txn.ErrAborted {
+	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not being exported for migration")
 	}
 	return errors.Trace(err)
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
+	modelUUID := st.ModelUUID()
+
+	// Remove each collection in its own transaction.
+	for name, info := range st.database.Schema() {
+		if info.global || info.rawAccess {
+			continue
+		}
+
+		ops, err := st.removeAllInCollectionOps(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Make sure we gate everything on the model assertion.
+		ops = append([]txn.Op{{
+			C:      modelsC,
+			Id:     modelUUID,
+			Assert: modelAssertion,
+		}}, ops...)
+		err = st.runTransaction(ops)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Remove from the raw (non-transactional) collections.
+	for name, info := range st.database.Schema() {
+		if !info.global && info.rawAccess {
+			if err := st.removeAllInCollectionRaw(name); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
+	// Remove all user permissions for the model.
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Now remove remove the model.
 	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
-	ops := []txn.Op{{
+	ops = []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      usermodelnameC,
 		Id:     id,
 		Remove: true,
 	}, {
 		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
+		Id:     modelUUID,
 		Remove: true,
 	}, {
 		C:      modelsC,
-		Id:     st.ModelUUID(),
+		Id:     modelUUID,
 		Assert: modelAssertion,
 		Remove: true,
 	}}
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
-	}
-
-	// Add all per-model docs to the txn.
-	for name, info := range st.database.Schema() {
-		if info.global {
-			continue
-		}
-		if info.rawAccess {
-			if err := st.removeAllInCollectionRaw(name); err != nil {
-				return errors.Trace(err)
-			}
-			continue
-		}
-		// TODO(rog): 2016-05-06 lp:1579010
-		// We can end up with an enormous transaction here,
-		// because we'll have one operation for each document in the
-		// whole model.
-		var err error
-		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return st.runTransaction(ops)
 }
@@ -225,17 +268,24 @@ func (st *State) removeAllInCollectionRaw(name string) error {
 	return errors.Trace(err)
 }
 
-// appendRemoveAllInCollectionOps appends to ops operations to
+// removeAllInCollectionOps appends to ops operations to
 // remove all the documents in the given named collection.
-func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
+	return st.removeInCollectionOps(name, nil)
+}
+
+// removeInCollectionOps generates operations to remove all documents
+// from the named collection matching a specific selector.
+func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
 	coll, closer := st.getCollection(name)
 	defer closer()
 
 	var ids []bson.M
-	err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var ops []txn.Op
 	for _, id := range ids {
 		ops = append(ops, txn.Op{
 			C:      name,
@@ -251,12 +301,12 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 func (st *State) ForModel(model names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		model, session, st.mongoInfo, st.policy,
+		model, session, st.mongoInfo, st.newPolicy,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(st.controllerTag); err != nil {
+	if err := newSt.start(st.controllerModelTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -278,7 +328,7 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 		}
 	}()
 
-	st.controllerTag = controllerTag
+	st.controllerModelTag = controllerTag
 
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
@@ -318,7 +368,6 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 
 	logger.Infof("creating cloud image metadata storage")
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
-		st.ModelUUID(),
 		cloudimagemetadataC,
 		&environMongo{st},
 	)
@@ -546,8 +595,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 
 var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error is cause by an
-// upgrade in progress
+// IsUpgradeInProgressError returns true if the error is caused by an
+// in-progress upgrade.
 func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == errUpgradeInProgress
 }
@@ -958,6 +1007,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		}
 	}
 
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
@@ -1038,12 +1095,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			endpointBindingsOp,
 		},
 		addApplicationOps(st, addApplicationOpsArgs{
-			applicationDoc:   svcDoc,
-			statusDoc:        statusDoc,
-			constraints:      args.Constraints,
-			storage:          args.Storage,
-			settings:         map[string]interface{}(args.Settings),
-			settingsRefCount: 1,
+			applicationDoc: svcDoc,
+			statusDoc:      statusDoc,
+			constraints:    args.Constraints,
+			storage:        args.Storage,
+			settings:       map[string]interface{}(args.Settings),
 		})...)
 
 	// Collect peer relation addition operations.
@@ -1771,6 +1827,9 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 
 	var doc controllersDoc
 	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("controllers document")
+	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
@@ -1928,6 +1987,20 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
+}
+
+// PutAuditEntryFn returns a function which will persist
+// audit.AuditEntry instances to the database.
+func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
+	insert := func(collectionName string, docs ...interface{}) error {
+		collection, closeCollection := st.getCollection(collectionName)
+		defer closeCollection()
+
+		writeableCollection := collection.Writeable()
+
+		return errors.Trace(writeableCollection.Insert(docs...))
+	}
+	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
 var tagPrefix = map[byte]string{

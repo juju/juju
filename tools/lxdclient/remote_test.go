@@ -406,11 +406,6 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	c.Check(id, gc.Equals, "local")
 }
 
-func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {
-	c.Skip("not implemented yet")
-	// TODO(ericsnow) Finish this!
-}
-
 func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name:     "my-remote",
@@ -418,7 +413,7 @@ func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 		Protocol: lxdclient.LXDProtocol,
 		Cert:     s.Cert,
 	}
-	nonlocal, err := remote.UsingTCP()
+	nonlocal, err := remote.UsingTCP("")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(nonlocal, jc.DeepEquals, remote)
@@ -429,20 +424,24 @@ type remoteFunctionalSuite struct {
 }
 
 func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
-	if _, err := net.InterfaceByName(lxdclient.DefaultLXDBridge); err != nil {
-		c.Skip("network bridge interface not found")
-	}
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "",
-		Cert: nil,
+		Name:     "my-remote",
+		Host:     "",
+		Cert:     nil,
+		Protocol: lxdclient.LXDProtocol,
 	}
-	nonlocal, err := remote.UsingTCP()
+	nonlocal, err := remote.UsingTCP("lo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkValidRemote(c, &nonlocal)
+	withCert, err := nonlocal.WithDefaults()
+	withoutCert := withCert
+	withoutCert.Cert = nil
+	c.Check(withoutCert, jc.DeepEquals, nonlocal)
+
+	checkValidRemote(c, &withCert)
+
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
 		Name:     "my-remote",
 		Host:     nonlocal.Host,

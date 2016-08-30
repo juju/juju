@@ -24,6 +24,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -93,15 +94,15 @@ func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
 	}
 }
 
-func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
-	config := s.makeWebsocketConfigFromURL(c, server, header)
+func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
+	config := makeWebsocketConfigFromURL(c, server, header)
 	c.Logf("dialing %v", server)
 	conn, err := websocket.DialConfig(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
 
-func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
+func makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, jc.ErrorIsNil)
 	config.Header = header
@@ -113,7 +114,7 @@ func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, heade
 	return config
 }
 
-func (s *authHttpSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
+func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
 	_, err := reader.ReadByte()
 	c.Assert(err, gc.Equals, io.EOF)
 }
@@ -234,9 +235,10 @@ func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
 	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddModelUser(state.ModelUserSpec{
+	_, err := envState.AddModelUser(state.UserAccessSpec{
 		User:      user.UserTag(),
-		CreatedBy: s.userTag})
+		CreatedBy: s.userTag,
+		Access:    description.ReadAccess})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"

@@ -11,11 +11,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 func init() {
@@ -27,6 +29,8 @@ type AgentAPIV2 struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
+	cloudspec.CloudSpecAPI
 
 	st   *state.State
 	auth facade.Authorizer
@@ -42,12 +46,15 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
+	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &AgentAPIV2{
-		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
-		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
-		ModelWatcher:      common.NewModelWatcher(st, resources, auth),
-		st:                st,
-		auth:              auth,
+		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
+		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
+		st:                  st,
+		auth:                auth,
 	}, nil
 }
 
@@ -93,12 +100,26 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	return
 }
 
-func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err error) {
+func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err error) {
 	if !api.auth.AuthModelManager() {
 		err = common.ErrPerm
 		return
 	}
-	return api.st.StateServingInfo()
+	info, err := api.st.StateServingInfo()
+	if err != nil {
+		return params.StateServingInfo{}, errors.Trace(err)
+	}
+	result = params.StateServingInfo{
+		APIPort:        info.APIPort,
+		StatePort:      info.StatePort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SharedSecret:   info.SharedSecret,
+		SystemIdentity: info.SystemIdentity,
+	}
+
+	return result, nil
 }
 
 // MongoIsMaster is called by the IsMaster API call

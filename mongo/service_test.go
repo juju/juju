@@ -28,7 +28,17 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 	mongodVersion := mongo.Mongo24
 	port := 12345
 	oplogSizeMB := 10
-	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false, mongodVersion, true)
+	conf := mongo.NewConf(mongo.ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongodPath,
+		Port:        port,
+		OplogSizeMB: oplogSizeMB,
+		WantNumaCtl: false,
+		Version:     mongodVersion,
+		Auth:        true,
+		IPv6:        true,
+	})
 
 	expected := common.Conf{
 		Desc: "juju state database",
@@ -46,9 +56,9 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			" --syslog" +
 			" --journal" +
 			" --replSet juju" +
-			" --ipv6" +
 			" --quiet" +
 			" --oplogSize 10" +
+			" --ipv6" +
 			" --auth" +
 			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --noprealloc" +

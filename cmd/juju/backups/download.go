@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
@@ -42,7 +42,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "download-backup",
 		Args:    "<ID>",
-		Purpose: "get an archive file",
+		Purpose: "Get an archive file.",
 		Doc:     downloadDoc,
 	}
 }
@@ -50,7 +50,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.Filename, "filename", "", "download target")
+	f.StringVar(&c.Filename, "filename", "", "Download target")
 }
 
 // Init implements Command.Init.

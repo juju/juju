@@ -65,7 +65,47 @@ func (s *DirectorySpecSuite) TestResolveEmpty(c *gc.C) {
 	c.Check(resolved, gc.Equals, dataDir+"/eggs")
 }
 
-func (s *DirectorySpecSuite) TestIsUpToDate(c *gc.C) {
+func (s *DirectorySpecSuite) TestIsUpToDateTrue(c *gc.C) {
+	info, reader := newResource(c, s.stub.Stub, "spam", "some data")
+	content := internal.Content{
+		Data:        reader,
+		Size:        info.Size,
+		Fingerprint: info.Fingerprint,
+	}
+	s.stub.ReturnFingerprintMatches = true
+	dataDir := "/var/lib/juju/agents/unit-spam-1/resources"
+	deps := s.stub
+	spec := internal.NewDirectorySpec(dataDir, "eggs", deps)
+	s.stub.ResetCalls()
+
+	isUpToDate, err := spec.IsUpToDate(content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Join", "FingerprintMatches")
+	c.Check(isUpToDate, jc.IsTrue)
+}
+
+func (s *DirectorySpecSuite) TestIsUpToDateFalse(c *gc.C) {
+	info, reader := newResource(c, s.stub.Stub, "spam", "some data")
+	content := internal.Content{
+		Data:        reader,
+		Size:        info.Size,
+		Fingerprint: info.Fingerprint,
+	}
+	s.stub.ReturnFingerprintMatches = false
+	dataDir := "/var/lib/juju/agents/unit-spam-1/resources"
+	deps := s.stub
+	spec := internal.NewDirectorySpec(dataDir, "eggs", deps)
+	s.stub.ResetCalls()
+
+	isUpToDate, err := spec.IsUpToDate(content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Join", "FingerprintMatches")
+	c.Check(isUpToDate, jc.IsFalse)
+}
+
+func (s *DirectorySpecSuite) TestIsUpToDateCalls(c *gc.C) {
 	info, reader := newResource(c, s.stub.Stub, "spam", "some data")
 	content := internal.Content{
 		Data:        reader,
@@ -77,11 +117,13 @@ func (s *DirectorySpecSuite) TestIsUpToDate(c *gc.C) {
 	spec := internal.NewDirectorySpec(dataDir, "eggs", deps)
 	s.stub.ResetCalls()
 
-	isUpToDate, err := spec.IsUpToDate(content)
+	_, err := spec.IsUpToDate(content)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckNoCalls(c)
-	c.Check(isUpToDate, jc.IsFalse) // For now, always...
+	s.stub.CheckCallNames(c, "Join", "FingerprintMatches")
+	dirname := s.stub.Join(dataDir, "eggs")
+	s.stub.CheckCall(c, 0, "Join", []string{dirname, "eggs"})
+	s.stub.CheckCall(c, 1, "FingerprintMatches", s.stub.Join(dirname, "eggs"), info.Fingerprint)
 }
 
 func (s *DirectorySpecSuite) TestInitialize(c *gc.C) {

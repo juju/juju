@@ -49,22 +49,30 @@ func (*PluginSuite) TestFindPlugins(c *gc.C) {
 }
 
 func (suite *PluginSuite) TestFindPluginsOrder(c *gc.C) {
-	suite.makePlugin("foo", 0744)
-	suite.makePlugin("bar", 0654)
-	suite.makePlugin("baz", 0645)
+	suite.makeWorkingPlugin("foo", 0744)
+	suite.makeWorkingPlugin("bar", 0654)
+	suite.makeWorkingPlugin("baz", 0645)
 	plugins := findPlugins()
 	c.Assert(plugins, gc.DeepEquals, []string{"juju-bar", "juju-baz", "juju-foo"})
 }
 
+func (suite *PluginSuite) TestFindPluginsBadNames(c *gc.C) {
+	suite.makePlugin("juju-1foo", "", 0755)
+	suite.makePlugin("juju--foo", "", 0755)
+	suite.makePlugin("ajuju-foo", "", 0755)
+	plugins := findPlugins()
+	c.Assert(plugins, gc.DeepEquals, []string{})
+}
+
 func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *gc.C) {
-	suite.makePlugin("foo", 0644)
-	suite.makePlugin("bar", 0666)
+	suite.makeWorkingPlugin("foo", 0644)
+	suite.makeWorkingPlugin("bar", 0666)
 	plugins := findPlugins()
 	c.Assert(plugins, gc.DeepEquals, []string{})
 }
 
 func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
-	suite.makePlugin("foo", 0755)
+	suite.makeWorkingPlugin("foo", 0755)
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,37 +165,39 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	// Plugins are run as model commands, and so require a current
 	// account and model.
 	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("myctrl", jujuclient.ControllerDetails{
+	err := store.AddController("myctrl", jujuclient.ControllerDetails{
 		ControllerUUID: testing.ModelTag.Id(),
 		CACert:         "fake",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = store.SetCurrentController("myctrl")
 	c.Assert(err, jc.ErrorIsNil)
-	err = store.UpdateAccount("myctrl", "admin@local", jujuclient.AccountDetails{
+	err = store.UpdateAccount("myctrl", jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "hunter2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetCurrentAccount("myctrl", "admin@local")
-	c.Assert(err, jc.ErrorIsNil)
 
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "foo", "-m", "mymodel", "-p", "pluginarg")
-	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n.*home is:  .*\\.local/share/juju\n"
+	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n"
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
-func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
-	content := fmt.Sprintf("#!/bin/bash --norc\necho %s $*", name)
-	filename := gitjujutesting.HomePath(JujuPluginPrefix + name)
+func (suite *PluginSuite) makePlugin(fullName, script string, perm os.FileMode) {
+	filename := gitjujutesting.HomePath(fullName)
+	content := fmt.Sprintf("#!/bin/bash --norc\n%s", script)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
 
+func (suite *PluginSuite) makeWorkingPlugin(name string, perm os.FileMode) {
+	script := fmt.Sprintf("echo %s $*", name)
+	suite.makePlugin(JujuPluginPrefix+name, script, perm)
+}
+
 func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
-	content := fmt.Sprintf("#!/bin/bash --norc\necho failing\nexit %d", exitStatus)
-	filename := gitjujutesting.HomePath(JujuPluginPrefix + name)
-	ioutil.WriteFile(filename, []byte(content), 0755)
+	script := fmt.Sprintf("echo failing\nexit %d", exitStatus)
+	suite.makePlugin(JujuPluginPrefix+name, script, 0755)
 }
 
 type PluginParams struct {
@@ -225,7 +235,6 @@ fi
 
 echo {{.Name}} $*
 echo "model is: " $JUJU_MODEL
-echo "home is: " $JUJU_DATA
 exit {{.ExitStatus}}
 `
 

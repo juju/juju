@@ -11,9 +11,9 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -57,8 +57,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:        []string{validServiceId},
 		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
+		should:      "schema with tabular output",
+		args:        []string{"--format=tabular", "--schema", validServiceId},
+		expectedErr: "full schema not compatible with tabular output",
+	}, {
 		should:               "init properly with valid application name and --schema",
-		args:                 []string{"--schema", validServiceId},
+		args:                 []string{"--format=yaml", "--schema", validServiceId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
@@ -71,6 +75,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
+				c.Check(err, jc.ErrorIsNil)
 				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
@@ -82,6 +87,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 
 func (s *ListSuite) TestRun(c *gc.C) {
 	simpleOutput := `
+ACTION          DESCRIPTION
 kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
@@ -96,7 +102,7 @@ snapshot        Take a snapshot of the database.
 		expectMessage    string
 		withArgs         []string
 		withAPIErr       string
-		withCharmActions *charm.Actions
+		withCharmActions map[string]params.ActionSpec
 		expectedErr      string
 	}{{
 		should:      "pass back API error correctly",
@@ -109,15 +115,14 @@ snapshot        Take a snapshot of the database.
 		withCharmActions: someCharmActions,
 	}, {
 		should:           "get full schema results properly",
-		withArgs:         []string{"--schema", validServiceId},
+		withArgs:         []string{"--format=yaml", "--schema", validServiceId},
 		expectFullSchema: true,
 		withCharmActions: someCharmActions,
 	}, {
-		should:           "work properly when no results found",
-		withArgs:         []string{validServiceId},
-		expectNoResults:  true,
-		expectMessage:    "No actions defined for " + validServiceId,
-		withCharmActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{}},
+		should:          "work properly when no results found",
+		withArgs:        []string{validServiceId},
+		expectNoResults: true,
+		expectMessage:   "No actions defined for " + validServiceId,
 	}}
 
 	for i, t := range tests {
@@ -155,9 +160,9 @@ snapshot        Take a snapshot of the database.
 	}
 }
 
-func checkFullSchema(c *gc.C, expected *charm.Actions, actual []byte) {
+func checkFullSchema(c *gc.C, expected map[string]params.ActionSpec, actual []byte) {
 	expectedOutput := make(map[string]interface{})
-	for k, v := range expected.ActionSpecs {
+	for k, v := range expected {
 		expectedOutput[k] = v.Params
 	}
 	c.Check(string(actual), jc.YAMLEquals, expectedOutput)

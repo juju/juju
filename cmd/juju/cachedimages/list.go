@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 const listCommandDoc = `
@@ -24,7 +25,6 @@ Images can be filtered on:
 The filter attributes are optional.
 
 Examples:
-
   # List all cached images.
   juju cached-images
 
@@ -51,7 +51,7 @@ type listCommand struct {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "cached-images",
-		Purpose: "shows cached os images",
+		Purpose: "Shows cached os images.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-cached-images"},
 	}
@@ -60,13 +60,10 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
-	f.StringVar(&c.Kind, "kind", "", "the image kind to list eg lxd")
-	f.StringVar(&c.Series, "series", "", "the series of the image to list eg xenial")
-	f.StringVar(&c.Arch, "arch", "", "the architecture of the image to list eg amd64")
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	f.StringVar(&c.Kind, "kind", "", "The image kind to list eg lxd")
+	f.StringVar(&c.Series, "series", "", "The series of the image to list eg xenial")
+	f.StringVar(&c.Arch, "arch", "", "The architecture of the image to list eg amd64")
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.Init.

@@ -34,6 +34,7 @@ import (
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -45,6 +46,10 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+)
+
+const (
+	AdminSecret = "admin-secret"
 )
 
 // LiveTests contains tests that are designed to run against a live server
@@ -71,6 +76,8 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
@@ -90,6 +97,9 @@ type LiveTests struct {
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore
 
+	// ControllerUUID is the uuid of the bootstrapped controller.
+	ControllerUUID string
+
 	prepared     bool
 	bootstrapped bool
 	toolsStorage storage.Storage
@@ -99,7 +109,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
 	t.ControllerStore = jujuclienttesting.NewMemStore()
-	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -113,7 +123,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
-	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -134,25 +144,31 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	t.prepared = true
+	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
-func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
+func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.PrepareParams{
-		BaseConfig:     t.TestConfig,
-		Credential:     credential,
-		CloudEndpoint:  t.CloudEndpoint,
-		CloudRegion:    t.CloudRegion,
+	return bootstrap.PrepareParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		ModelConfig:      t.TestConfig,
+		Cloud: environs.CloudSpec{
+			Type:       t.TestConfig["type"].(string),
+			Name:       t.TestConfig["type"].(string),
+			Region:     t.CloudRegion,
+			Endpoint:   t.CloudEndpoint,
+			Credential: &credential,
+		},
 		ControllerName: t.TestConfig["name"].(string),
-		CloudName:      t.TestConfig["type"].(string),
+		AdminSecret:    AdminSecret,
 	}
 }
 
@@ -169,7 +185,8 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		}}
 	}
 	return bootstrap.BootstrapParams{
-		CloudName: t.TestConfig["type"].(string),
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},
@@ -179,6 +196,8 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		CloudRegion:         t.CloudRegion,
 		CloudCredential:     &credential,
 		CloudCredentialName: "credential",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        coretesting.CAKey,
 	}
 }
 
@@ -210,6 +229,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
+	t.ControllerUUID = ""
 	t.Env = nil
 }
 
@@ -230,7 +250,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst, _ := jujutesting.AssertStartInstance(c, t.Env, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
@@ -283,14 +303,14 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
+	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
+	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -388,13 +408,13 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
+	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
+	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -468,10 +488,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	controllerCfg, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	caCert, _ := controllerCfg.CACert()
-	apiInfo, err := environs.APIInfo(model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
+	apiInfo, err := environs.APIInfo(model.Tag().Id(), model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = owner
-	apiInfo.Password = t.Env.Config().AdminSecret()
+	apiInfo.Password = AdminSecret
 	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
@@ -716,6 +736,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Bi
 	}
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
@@ -749,6 +770,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
 	))
 	params := environs.StartInstanceParams{
+		ControllerUUID: coretesting.ModelTag.Id(),
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 	}
@@ -789,8 +811,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":       "dummy storage",
 	})
 	args := t.prepareForBootstrapParams(c)
-	args.BaseConfig = dummyCfg
-	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c),
+	args.ModelConfig = dummyCfg
+	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		args,
 	)
@@ -803,8 +825,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":           "livetests",
 		"default-series": other.Series,
 	})
-	args.BaseConfig = attrs
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	args.ModelConfig = attrs
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)

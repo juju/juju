@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -23,38 +24,56 @@ var _ = gc.Suite(&BootstrapConfigFileSuite{})
 const testBootstrapConfigYAML = `
 controllers:
   aws-test:
-    config:
+    controller-config:
+      api-port: 17070
+      state-port: 37017
+    model-config:
       name: admin
       type: ec2
     credential: default
     cloud: aws
+    type: ec2
     region: us-east-1
     endpoint: https://us-east-1.amazonaws.com
   mallards:
-    config:
+    controller-config:
+      api-port: 17070
+      state-port: 37017
+    model-config:
       name: admin
       type: maas
     cloud: maas
+    type: maas
     region: 127.0.0.1
 `
 
 var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 	"aws-test": {
+		ControllerConfig: controller.Config{
+			"api-port":   17070,
+			"state-port": 37017,
+		},
 		Config: map[string]interface{}{
 			"type": "ec2",
 			"name": "admin",
 		},
 		Credential:    "default",
 		Cloud:         "aws",
+		CloudType:     "ec2",
 		CloudRegion:   "us-east-1",
 		CloudEndpoint: "https://us-east-1.amazonaws.com",
 	},
 	"mallards": {
+		ControllerConfig: controller.Config{
+			"api-port":   17070,
+			"state-port": 37017,
+		},
 		Config: map[string]interface{}{
 			"type": "maas",
 			"name": "admin",
 		},
 		Cloud:       "maas",
+		CloudType:   "maas",
 		CloudRegion: "127.0.0.1",
 	},
 }

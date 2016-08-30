@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -25,15 +26,17 @@ func init() {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend    Backend
-	authorizer facade.Authorizer
-	resources  facade.Resources
+	backend         Backend
+	precheckBackend migration.PrecheckBackend
+	authorizer      facade.Authorizer
+	resources       facade.Resources
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
 	backend Backend,
+	precheckBackend migration.PrecheckBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -41,9 +44,10 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		resources:  resources,
+		backend:         backend,
+		precheckBackend: precheckBackend,
+		authorizer:      authorizer,
+		resources:       resources,
 	}, nil
 }
 
@@ -51,7 +55,7 @@ func NewAPI(
 // associated with the API connection. The returned id should be used
 // with the NotifyWatcher facade to receive events.
 func (api *API) Watch() params.NotifyWatchResult {
-	watch := api.backend.WatchForModelMigration()
+	watch := api.backend.WatchForMigration()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: api.resources.Register(watch),
@@ -62,12 +66,12 @@ func (api *API) Watch() params.NotifyWatchResult {
 	}
 }
 
-// GetMigrationStatus returns the details and progress of the latest
+// MigrationStatus returns the details and progress of the latest
 // model migration.
-func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
-	empty := params.FullMigrationStatus{}
+func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
+	empty := params.MasterMigrationStatus{}
 
-	mig, err := api.backend.LatestModelMigration()
+	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model migration")
 	}
@@ -77,30 +81,56 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 		return empty, errors.Annotate(err, "retrieving target info")
 	}
 
-	attempt, err := mig.Attempt()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving attempt")
-	}
-
 	phase, err := mig.Phase()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving phase")
 	}
 
-	return params.FullMigrationStatus{
-		Spec: params.ModelMigrationSpec{
+	var macJSON []byte
+	if target.Macaroon != nil {
+		macJSON, err = target.Macaroon.MarshalJSON()
+		if err != nil {
+			return empty, errors.Annotate(err, "marshalling macaroon")
+		}
+	}
+
+	return params.MasterMigrationStatus{
+		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
-			TargetInfo: params.ModelMigrationTargetInfo{
+			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: target.ControllerTag.String(),
 				Addrs:         target.Addrs,
 				CACert:        target.CACert,
 				AuthTag:       target.AuthTag.String(),
 				Password:      target.Password,
+				Macaroon:      string(macJSON),
 			},
 		},
-		Attempt:          attempt,
+		MigrationId:      mig.Id(),
 		Phase:            phase.String(),
 		PhaseChangedTime: mig.PhaseChangedTime(),
+	}, nil
+}
+
+// ModelInfo returns essential information about the model to be
+// migrated.
+func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
+	empty := params.MigrationModelInfo{}
+
+	name, err := api.backend.ModelName()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model name")
+	}
+
+	vers, err := api.backend.AgentVersion()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving agent version")
+	}
+
+	return params.MigrationModelInfo{
+		UUID:         api.backend.ModelUUID(),
+		Name:         name,
+		AgentVersion: vers,
 	}, nil
 }
 
@@ -108,7 +138,7 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
 func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
-	mig, err := api.backend.LatestModelMigration()
+	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
 	}
@@ -120,6 +150,24 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 
 	err = mig.SetPhase(phase)
 	return errors.Annotate(err, "failed to set phase")
+}
+
+// Prechecks performs pre-migration checks on the model and
+// (source) controller.
+func (api *API) Prechecks() error {
+	return migration.SourcePrecheck(api.precheckBackend)
+}
+
+// SetStatusMessage sets a human readable status message containing
+// information about the migration's progress. This will be shown in
+// status output shown to the end user.
+func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) error {
+	mig, err := api.backend.LatestMigration()
+	if err != nil {
+		return errors.Annotate(err, "could not get migration")
+	}
+	err = mig.SetStatusMessage(args.Message)
+	return errors.Annotate(err, "failed to set status message")
 }
 
 // Export serializes the model associated with the API connection.
@@ -150,7 +198,7 @@ func (api *API) Reap() error {
 // WatchMinionReports sets up a watcher which reports when a report
 // for a migration minion has arrived.
 func (api *API) WatchMinionReports() params.NotifyWatchResult {
-	mig, err := api.backend.LatestModelMigration()
+	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return params.NotifyWatchResult{Error: common.ServerError(err)}
 	}
@@ -170,17 +218,17 @@ func (api *API) WatchMinionReports() params.NotifyWatchResult {
 	}
 }
 
-// GetMinionReports returns details of the reports made by migration
+// MinionReports returns details of the reports made by migration
 // minions to the controller for the current migration phase.
-func (api *API) GetMinionReports() (params.MinionReports, error) {
+func (api *API) MinionReports() (params.MinionReports, error) {
 	var out params.MinionReports
 
-	mig, err := api.backend.LatestModelMigration()
+	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return out, errors.Trace(err)
 	}
 
-	reports, err := mig.GetMinionReports()
+	reports, err := mig.MinionReports()
 	if err != nil {
 		return out, errors.Trace(err)
 	}

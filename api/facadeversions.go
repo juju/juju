@@ -3,10 +3,6 @@
 
 package api
 
-import (
-	"github.com/juju/errors"
-)
-
 // facadeVersions lists the best version of facades that we know about. This
 // will be used to pick out a default version for communication, given the list
 // of known versions that the API server tells us it is capable of supporting.
@@ -46,9 +42,11 @@ var facadeVersions = map[string]int{
 	"KeyUpdater":                   1,
 	"LeadershipService":            2,
 	"LifeFlag":                     1,
+	"LogForwarding":                1,
 	"Logger":                       1,
 	"MachineActions":               1,
 	"MachineManager":               2,
+	"MachineUndertaker":            1,
 	"Machiner":                     1,
 	"MeterStatus":                  1,
 	"MetricsAdder":                 2,
@@ -59,21 +57,26 @@ var facadeVersions = map[string]int{
 	"MigrationMinion":              1,
 	"MigrationStatusWatcher":       1,
 	"MigrationTarget":              1,
+	"ModelConfig":                  1,
 	"ModelManager":                 2,
 	"NotifyWatcher":                1,
+	"Payloads":                     1,
+	"PayloadsHookContext":          1,
 	"Pinger":                       1,
 	"Provisioner":                  3,
 	"ProxyUpdater":                 1,
 	"Reboot":                       2,
 	"RelationUnitsWatcher":         1,
+	"Resources":                    1,
+	"ResourcesHookContext":         1,
 	"Resumer":                      2,
 	"RetryStrategy":                1,
 	"Singular":                     1,
 	"Spaces":                       2,
 	"SSHClient":                    1,
 	"StatusHistory":                2,
-	"Storage":                      2,
-	"StorageProvisioner":           2,
+	"Storage":                      3,
+	"StorageProvisioner":           3,
 	"StringsWatcher":               1,
 	"Subnets":                      2,
 	"Undertaker":                   1,
@@ -82,16 +85,6 @@ var facadeVersions = map[string]int{
 	"Upgrader":                     1,
 	"UserManager":                  1,
 	"VolumeAttachmentsWatcher":     2,
-}
-
-// RegisterFacadeVersion sets the API client to prefer the given version
-// for the facade.
-func RegisterFacadeVersion(name string, version int) error {
-	if ver, ok := facadeVersions[name]; ok && ver != version {
-		return errors.Errorf("facade %q already registered", name)
-	}
-	facadeVersions[name] = version
-	return nil
 }
 
 // bestVersion tries to find the newest version in the version list that we can

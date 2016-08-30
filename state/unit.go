@@ -160,6 +160,12 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
+// globalWorkloadVersionKey returns the global database key for the
+// workload version status key for this unit.
+func globalWorkloadVersionKey(name string) string {
+	return unitGlobalKey(name) + "#sat#workload-version"
+}
+
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
@@ -175,9 +181,51 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
+// globalWorkloadVersionKey returns the global database key for the unit's
+// workload version info.
+func (u *Unit) globalWorkloadVersionKey() string {
+	return globalWorkloadVersionKey(u.doc.Name)
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
+}
+
+// WorkloadVersion returns the version of the running workload set by
+// the charm (eg, the version of postgresql that is running, as
+// opposed to the version of the postgresql charm).
+func (u *Unit) WorkloadVersion() (string, error) {
+	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return status.Message, nil
+}
+
+// SetWorkloadVersion sets the version of the workload that the unit
+// is currently running.
+func (u *Unit) SetWorkloadVersion(version string) error {
+	// Store in status rather than an attribute of the unit doc - we
+	// want to avoid everything being an attr of the main docs to
+	// stop a swarm of watchers being notified for irrelevant changes.
+	// TODO(babbageclunk) lp:1558657 - should use clock stored on unit
+	now := time.Now()
+	return setStatus(u.st, setStatusParams{
+		badge:     "workload",
+		globalKey: u.globalWorkloadVersionKey(),
+		status:    status.StatusActive,
+		message:   version,
+		updated:   &now,
+	})
+}
+
+// WorkloadVersionHistory returns a HistoryGetter which enables the
+// caller to request past workload version changes.
+func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
+	return &HistoryGetter{st: u.st, globalKey: u.globalWorkloadVersionKey()}
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -301,9 +349,6 @@ func (u *Unit) Destroy() (err error) {
 func (u *Unit) eraseHistory() error {
 	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
-	// txn and non-txn operations in the same collection without clear and
-	// detailed reasoning for so doing.
 	historyW := history.Writeable()
 
 	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
@@ -403,7 +448,7 @@ func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
 	} else if u.doc.MachineId == "" {
-		unitLogger.Errorf("unit %v unassigned", u)
+		unitLogger.Tracef("unit %v unassigned", u)
 		return nil, nil
 	}
 
@@ -708,7 +753,7 @@ func (u *Unit) machine() (*Machine, error) {
 func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
@@ -718,7 +763,7 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 func (u *Unit) PrivateAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
@@ -1298,9 +1343,6 @@ func validateUnitMachineAssignment(
 	}
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
-	}
-	if err := m.st.supportsUnitPlacement(); err != nil {
-		return errors.Trace(err)
 	}
 	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
 		return errors.Trace(err)
@@ -2243,10 +2285,11 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 }
 
 type addUnitOpsArgs struct {
-	unitDoc           *unitDoc
-	agentStatusDoc    statusDoc
-	workloadStatusDoc statusDoc
-	meterStatusDoc    *meterStatusDoc
+	unitDoc            *unitDoc
+	agentStatusDoc     statusDoc
+	workloadStatusDoc  statusDoc
+	workloadVersionDoc statusDoc
+	meterStatusDoc     *meterStatusDoc
 }
 
 // addUnitOps returns the operations required to add a unit to the units
@@ -2256,17 +2299,49 @@ type addUnitOpsArgs struct {
 func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 	name := args.unitDoc.Name
 	agentGlobalKey := unitAgentGlobalKey(name)
+
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
-	return []txn.Op{
+	prereqOps := []txn.Op{
 		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
 		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
-		{
-			C:      unitsC,
-			Id:     name,
-			Assert: txn.DocMissing,
-			Insert: args.unitDoc,
-		},
 	}
+
+	// Freshly-created units will not have a charm URL set; migrated
+	// ones will, and they need to maintain their refcounts. If we
+	// relax the restrictions on migrating apps mid-upgrade, this
+	// will need to be more sophisticated, because it might need to
+	// create the settings doc; and will likely have to look in the
+	// DB to find out which.
+	if curl := args.unitDoc.CharmURL; curl != nil {
+		appName := args.unitDoc.Application
+		settingsKey := applicationSettingsKey(appName, curl)
+		incRefSettingsOp := nsRefcounts.JustIncRefOp(refcountsC, settingsKey)
+		prereqOps = append(prereqOps, incRefSettingsOp)
+	}
+
+	return append(prereqOps, txn.Op{
+		C:      unitsC,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: args.unitDoc,
+	})
+}
+
+// HistoryGetter allows getting the status history based on some identifying key.
+type HistoryGetter struct {
+	st        *State
+	globalKey string
+}
+
+// StatusHistory implements status.StatusHistoryGetter.
+func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        g.st,
+		globalKey: g.globalKey,
+		filter:    filter,
+	}
+	return statusHistory(args)
 }

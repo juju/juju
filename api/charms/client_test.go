@@ -36,9 +36,9 @@ func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "IsMetered")
 
-			args, ok := a.(params.CharmInfo)
+			args, ok := a.(params.CharmURL)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.CharmURL, gc.DeepEquals, curl)
+			c.Assert(args.URL, gc.DeepEquals, curl)
 			return nil
 		})
 	charmsClient := charms.NewClient(apiCaller)

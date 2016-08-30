@@ -21,8 +21,10 @@ var (
 	// retry strategy for "handling" ErrNotProvisioned. It exists
 	// in the name of stability; as the code evolves, it would be
 	// great to see its function moved up a level or two.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	checkProvisionedStrategy = utils.AttemptStrategy{
-		Total: 1 * time.Minute,
+		Total: 10 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 
@@ -272,9 +274,9 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) error {
 	if a.CurrentConfig().Model().Id() == "" {
 		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-			modelTag, err := conn.ModelTag()
-			if err != nil {
-				return errors.Annotate(err, "no model uuid set on api")
+			modelTag, ok := conn.ModelTag()
+			if !ok {
+				return errors.New("API connection is controller-only (should never happen)")
 			}
 			return setter.Migrate(agent.MigrateParams{
 				Model: modelTag,

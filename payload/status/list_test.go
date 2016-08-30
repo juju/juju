@@ -82,9 +82,9 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-application/0       1       spam          running docker idspam a-tag 
-another-application/1 2       eggs          running docker ideggs       
+UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+a-application/0        1        spam           running  docker  idspam  a-tag  
+another-application/1  2        eggs           running  docker  ideggs         
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -97,7 +97,7 @@ func (s *listSuite) TestNoPayloads(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT MACHINE PAYLOAD-CLASS STATUS TYPE ID TAGS 
+UNIT  MACHINE  PAYLOAD-CLASS  STATUS  TYPE  ID  TAGS  
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -121,9 +121,9 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-application/0       1       spam          running docker idspam a-tag 
-another-application/1 2       eggs          running docker ideggs a-tag 
+UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+a-application/0        1        spam           running  docker  idspam  a-tag  
+another-application/1  2        eggs           running  docker  ideggs  a-tag  
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -158,9 +158,9 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 [Unit Payloads]
-UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-application/0       1       spam          running docker idspam a-tag 
-another-application/1 2       eggs          running docker ideggs       
+UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+a-application/0        1        spam           running  docker  idspam  a-tag  
+another-application/1  2        eggs           running  docker  ideggs         
 
 `[1:],
 		"yaml": `

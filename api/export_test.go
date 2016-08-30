@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 )
 
 var (
@@ -19,6 +21,9 @@ var (
 	FacadeVersions        = &facadeVersions
 	ConnectWebsocket      = connectWebsocket
 )
+
+// RPCConnection defines the methods that are called on the rpc.Conn instance.
+type RPCConnection rpcConnection
 
 // SetServerAddress allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
@@ -41,15 +46,27 @@ type TestingStateParams struct {
 	FacadeVersions map[string][]int
 	ServerScheme   string
 	ServerRoot     string
+	RPCConnection  RPCConnection
+	Clock          clock.Clock
 }
 
 // NewTestingState creates an api.State object that can be used for testing. It
 // isn't backed onto an actual API server, so actual RPC methods can't be
-// called on it. But it can be used for testing general behavior.
+// called on it. But it can be used for testing general behaviour.
 func NewTestingState(params TestingStateParams) Connection {
+	var modelTag names.ModelTag
+	if params.ModelTag != "" {
+		t, err := names.ParseModelTag(params.ModelTag)
+		if err != nil {
+			panic("invalid model tag")
+		}
+		modelTag = t
+	}
 	st := &state{
+		client:            params.RPCConnection,
+		clock:             params.Clock,
 		addr:              params.Address,
-		modelTag:          params.ModelTag,
+		modelTag:          modelTag,
 		hostPorts:         params.APIHostPorts,
 		facadeVersions:    params.FacadeVersions,
 		serverScheme:      params.ServerScheme,

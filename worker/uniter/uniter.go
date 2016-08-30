@@ -6,16 +6,15 @@ package uniter
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
@@ -71,7 +70,6 @@ type Uniter struct {
 	lastReportedStatus  status.Status
 	lastReportedMessage string
 
-	deployer             *deployerProxy
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
 	newOperationExecutor NewExecutorFunc
@@ -79,7 +77,7 @@ type Uniter struct {
 	leadershipTracker leadership.Tracker
 	charmDirGuard     fortress.Guard
 
-	hookLock *fslock.Lock
+	hookLockName string
 
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
@@ -111,7 +109,7 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	Downloader           charm.Downloader
-	MachineLock          *fslock.Lock
+	MachineLockName      string
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
 	HookRetryStrategy    params.RetryStrategy
@@ -123,7 +121,7 @@ type UniterParams struct {
 	Observer UniterExecutionObserver
 }
 
-type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
+type NewExecutorFunc func(string, func() (*corecharm.URL, error), func() (mutex.Releaser, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -132,7 +130,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:             uniterParams.MachineLock,
+		hookLockName:         uniterParams.MachineLockName,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
@@ -199,6 +197,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
+	// TODO(katco): 2016-08-09: This type is deprecated: lp:1611427
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
 		Min:    u.hookRetryStrategy.MinRetryTime,
 		Max:    u.hookRetryStrategy.MaxRetryTime,
@@ -277,7 +276,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		uniterResolver := NewUniterResolver(ResolverConfig{
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
-			FixDeployer:         u.deployer.Fix,
 			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
@@ -387,25 +385,6 @@ func (u *Uniter) terminate() error {
 	}
 }
 
-func (u *Uniter) setupLocks() error {
-	msg, err := u.hookLock.Message()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if u.hookLock.IsLocked() && msg != "" {
-		// Look to see if it was us that held the lock before.  If it was, we
-		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by the init system.
-		parts := strings.SplitN(msg, ":", 2)
-		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			if err := u.hookLock.BreakLock(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -417,9 +396,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
-	}
-	if err = u.setupLocks(); err != nil {
-		return err
 	}
 	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
@@ -453,7 +429,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
-	u.deployer = &deployerProxy{deployer}
 	contextFactory, err := context.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
 	)
@@ -467,7 +442,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	u.operationFactory = operation.NewFactory(operation.FactoryParams{
-		Deployer:       u.deployer,
+		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
 		Abort:          u.catacomb.Dying(),
@@ -535,26 +510,22 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 // acquireExecutionLock acquires the machine-level execution lock, and
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
-func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
-	logger.Debugf("lock: %v", message)
+func (u *Uniter) acquireExecutionLock() (mutex.Releaser, error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's catacomb into account.
-	checkCatacomb := func() error {
-		select {
-		case <-u.catacomb.Dying():
-			return u.catacomb.ErrDying()
-		default:
-			return nil
-		}
+	spec := mutex.Spec{
+		Name:   u.hookLockName,
+		Clock:  u.clock,
+		Delay:  250 * time.Millisecond,
+		Cancel: u.catacomb.Dying(),
 	}
-	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
-	if err := u.hookLock.LockWithFunc(message, checkCatacomb); err != nil {
-		return nil, err
+	logger.Debugf("acquire lock %q for uniter hook execution", u.hookLockName)
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return func() error {
-		logger.Debugf("unlock: %v", message)
-		return u.hookLock.Unlock()
-	}, nil
+	logger.Debugf("lock %q acquired", u.hookLockName)
+	return releaser, nil
 }
 
 func (u *Uniter) reportHookError(hookInfo hook.Info) error {

@@ -12,26 +12,6 @@ import (
 	"github.com/juju/juju/constraints"
 )
 
-type policyProvider interface {
-	// SupportedArchitectures returns the list of image architectures
-	// supported by this environment.
-	SupportedArchitectures() ([]string, error)
-}
-
-type lxdPolicyProvider struct{}
-
-// SupportedArchitectures returns the image architectures which can
-// be hosted by this environment.
-func (pp *lxdPolicyProvider) SupportedArchitectures() ([]string, error) {
-	// TODO(natefinch): This is only correct so long as the lxd is running on
-	// the local machine.  If/when we support a remote lxd environment, we'll
-	// need to change this to match the arch of the remote machine.
-
-	// TODO(ericsnow) Use common.SupportedArchitectures?
-	localArch := arch.HostArch()
-	return []string{localArch}, nil
-}
-
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
@@ -44,18 +24,6 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	}
 
 	return nil
-}
-
-// SupportedArchitectures returns the image architectures which can
-// be hosted by this environment.
-func (env *environ) SupportedArchitectures() ([]string, error) {
-	// TODO(ericsnow) The supported arch depends on the targetted
-	// remote. Thus we may need to support the remote as a constraint.
-	arches, err := env.raw.SupportedArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return arches, nil
 }
 
 var unsupportedConstraints = []string{
@@ -82,22 +50,16 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// Register the constraints vocab.
 
-	// TODO(ericsnow) This depends on the targetted remote host.
-	supportedArches, err := env.SupportedArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	// TODO(natefinch): This is only correct so long as the lxd is running on
+	// the local machine.  If/when we support a remote lxd environment, we'll
+	// need to change this to match the arch of the remote machine.
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.HostArch()})
 
 	// TODO(ericsnow) Get this working...
 	//validator.RegisterVocabulary(constraints.Container, supportedContainerTypes)
 
 	return validator, nil
 }
-
-// environ provides SupportsUnitPlacement (a method of the
-// state.EnvironCapatability interface) by embedding
-// common.SupportsUnitPlacementPolicy.
 
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.

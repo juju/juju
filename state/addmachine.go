@@ -163,13 +163,6 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
-		// Adding a machine without any principals is
-		// only permitted if unit placement is supported.
-		if len(template.principals) == 0 && template.InstanceId == "" {
-			if err := st.supportsUnitPlacement(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -342,10 +335,6 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if containerType == "" {
 		return nil, nil, errors.New("no container type specified")
 	}
-	// Adding a machine within a machine implies add-machine or placement.
-	if err := st.supportsUnitPlacement(); err != nil {
-		return nil, nil, err
-	}
 
 	// If a parent machine is specified, make sure it exists
 	// and can support the requested container type.
@@ -406,10 +395,6 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, errors.New("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		// Adding a machine within a machine implies add-machine or placement.
-		if err := st.supportsUnitPlacement(); err != nil {
-			return nil, nil, err
-		}
 		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints, parentTemplate.Placement); err != nil {
 			return nil, nil, err
 		}
@@ -451,6 +436,10 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	// thing to do when none is available.
 	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
 	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
+	logger.Infof(
+		"new machine %q has preferred addresses: private %q, public %q",
+		id, privateAddr, publicAddr,
+	)
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,

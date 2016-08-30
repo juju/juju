@@ -66,14 +66,6 @@ type Deployer interface {
 	// can be resolved by user intervention will be signalled by returning
 	// ErrConflict.
 	Deploy() error
-
-	// NotifyRevert must be called when a conflicted deploy is abandoned, in
-	// preparation for a new upgrade.
-	NotifyRevert() error
-
-	// NotifyResolved must be called when the cause of a deploy conflict has
-	// been resolved, and a new deploy attempt will be made.
-	NotifyResolved() error
 }
 
 // ErrConflict indicates that an upgrade failed and cannot be resolved

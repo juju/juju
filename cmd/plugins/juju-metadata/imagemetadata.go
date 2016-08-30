@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -31,7 +31,15 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
-	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(c.ControllerName())
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(c.ClientStore())(c.ControllerName())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(bootstrapConfig.CloudType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := provider.PrepareConfig(*params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,7 +49,10 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// identify region and endpoint info that we need. Not sure what
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
-	return environs.New(cfg)
+	return environs.New(environs.OpenParams{
+		Cloud:  params.Cloud,
+		Config: cfg,
+	})
 }
 
 func newImageMetadataCommand() cmd.Command {
@@ -192,7 +203,7 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 	}
 	err = imagemetadata.MergeAndWriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
-		return fmt.Errorf("image metadata files could not be created: %v", err)
+		return errors.Errorf("image metadata files could not be created: %v", err)
 	}
 	dir := context.AbsPath(c.Dir)
 	dest := filepath.Join(dir, storage.BaseImagesPath, "streams", "v1")

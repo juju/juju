@@ -73,7 +73,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	logger.Debugf("cloudsigma user data; %d bytes", len(userData))
 
 	client := env.client
-	server, rootdrive, arch, err := client.newInstance(args, img, userData)
+	cfg := env.Config()
+	server, rootdrive, arch, err := client.newInstance(args, img, userData, cfg.AuthorizedKeys())
 	if err != nil {
 		return nil, errors.Errorf("failed start instance: %v", err)
 	}

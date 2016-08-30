@@ -11,6 +11,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -31,10 +34,6 @@ var _ = gc.Suite(&configureSuite{})
 
 type testProvider struct {
 	environs.EnvironProvider
-}
-
-func (p *testProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }
 
 func init() {
@@ -56,17 +55,42 @@ func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
+	modelConfig := testConfig(c, controller, vers)
 	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
+			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
 			vers.Series, "",
 		)
 		c.Assert(err, jc.ErrorIsNil)
+		icfg.APIInfo = &api.Info{
+			Password: "password",
+			CACert:   coretesting.CACert,
+			ModelTag: coretesting.ModelTag,
+		}
+		icfg.Controller.MongoInfo = &mongo.MongoInfo{
+			Password: "password", Info: mongo.Info{CACert: coretesting.CACert},
+		}
+		icfg.Bootstrap.ControllerModelConfig = modelConfig
 		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
 		icfg.Bootstrap.HostedModelConfig = map[string]interface{}{
 			"name": "hosted-model",
 		}
+		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    123,
+			APIPort:      456,
+		}
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
+		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    123,
+			APIPort:      456,
+		}
 	} else {
 		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -78,8 +102,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			URL:     "http://testing.invalid/tools.tar.gz",
 		},
 	})
-	environConfig := testConfig(c, controller, vers)
-	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
+	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := cloudinit.New(icfg.Series)
 	c.Assert(err, jc.ErrorIsNil)

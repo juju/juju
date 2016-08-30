@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -59,7 +59,7 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
 	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: "localhost"}})
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
@@ -72,13 +72,6 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 
 	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
-}
-
-func (s *providerSuite) TestSecretAttrs(c *gc.C) {
-	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(obtainedAttrs, gc.DeepEquals, map[string]string{"client-key": ""})
 }
 
 type ProviderFunctionalSuite struct {
@@ -104,23 +97,44 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(s.Config)
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  lxdCloudSpec(),
+		Config: s.Config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 
 	c.Check(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *ProviderFunctionalSuite) TestBootstrapConfig(c *gc.C) {
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(env, gc.NotNil)
+func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, nil)
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:       "lxd",
+			Name:       "remotehost",
+			Credential: &cred,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigNonEmptyEndpoint(c *gc.C) {
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:     "lxd",
+			Name:     "remotehost",
+			Endpoint: "1.2.3.4",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: non-empty endpoint "1.2.3.4" not valid`)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -31,9 +30,7 @@ type IsolatedWorkerSuite struct {
 	stub *testing.Stub
 
 	dataDir string
-	lock    *fslock.Lock
-
-	clk *coretesting.Clock
+	clk     *coretesting.Clock
 
 	hookRan         chan struct{}
 	triggersCreated chan struct{}

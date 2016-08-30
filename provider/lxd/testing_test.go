@@ -6,14 +6,13 @@
 package lxd
 
 import (
-	"crypto/tls"
-	"encoding/pem"
 	"os"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -28,6 +27,11 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
 	"github.com/juju/version"
+)
+
+// Ensure LXD provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*environProvider)(nil)
 )
 
 // These values are stub LXD client credentials for use in tests.
@@ -71,13 +75,8 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":            "lxd",
-		"remote-url":      "",
-		"client-cert":     "",
-		"client-key":      "",
-		"server-cert":     "",
-		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
+		"type": "lxd",
+		"uuid": "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
 
@@ -158,7 +157,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// nothing
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{
@@ -186,7 +185,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	s.Metadata = map[string]string{ // userdata
 		tags.JujuIsController: "true",
-		tags.JujuController:   s.Config.ControllerUUID(),
+		tags.JujuController:   testing.ModelTag.Id(),
 		tags.JujuModel:        s.Config.UUID(),
 		metadataKeyCloudInit:  string(userData),
 	}
@@ -204,6 +203,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -220,7 +220,7 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newValidConfig(cfg, configDefaults)
+	ecfg, err := newValidConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
@@ -291,13 +291,11 @@ type BaseSuite struct {
 	Client     *StubClient
 	Firewaller *stubFirewaller
 	Common     *stubCommon
-	Policy     *stubPolicy
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpSuite(c)
 	// Do this *before* s.initEnv() gets called in BaseSuiteUnpatched.SetUpTest
-	s.PatchValue(&asNonLocal, s.asNonLocal)
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -307,32 +305,20 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Client = &StubClient{Stub: s.Stub}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
-	s.Policy = &stubPolicy{stub: s.Stub}
 
 	// Patch out all expensive external deps.
 	s.Env.raw = &rawProvider{
-		lxdInstances:   s.Client,
-		lxdImages:      s.Client,
-		Firewaller:     s.Firewaller,
-		policyProvider: s.Policy,
+		lxdCerts:     s.Client,
+		lxdConfig:    s.Client,
+		lxdInstances: s.Client,
+		lxdImages:    s.Client,
+		Firewaller:   s.Firewaller,
 	}
 	s.Env.base = s.Common
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, nil)
-}
-
-func (s *BaseSuite) asNonLocal(clientCfg lxdclient.Config) (lxdclient.Config, error) {
-	if s.Stub == nil {
-		return clientCfg, nil
-	}
-	s.Stub.AddCall("asNonLocal", clientCfg)
-	if err := s.Stub.NextErr(); err != nil {
-		return clientCfg, errors.Trace(err)
-	}
-
-	return clientCfg, nil
 }
 
 func NewBaseConfig(c *gc.C) *config.Config {
@@ -359,32 +345,6 @@ func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config
 }
 
 type ConfigValues struct {
-	RemoteURL  string
-	ClientCert string
-	ClientKey  string
-	ServerCert string
-}
-
-func (cv ConfigValues) CheckCert(c *gc.C) {
-	certPEM := []byte(cv.ClientCert)
-	keyPEM := []byte(cv.ClientKey)
-
-	_, err := tls.X509KeyPair(certPEM, keyPEM)
-	c.Check(err, jc.ErrorIsNil)
-
-	block, remainder := pem.Decode(certPEM)
-	c.Check(block.Type, gc.Equals, "CERTIFICATE")
-	c.Check(remainder, gc.HasLen, 0)
-
-	block, remainder = pem.Decode(keyPEM)
-	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
-	c.Check(remainder, gc.HasLen, 0)
-
-	if cv.ServerCert != "" {
-		block, remainder = pem.Decode([]byte(cv.ServerCert))
-		c.Check(block.Type, gc.Equals, "CERTIFICATE")
-		c.Check(remainder, gc.HasLen, 1)
-	}
 }
 
 type Config struct {
@@ -396,16 +356,6 @@ func NewConfig(cfg *config.Config) *Config {
 	return &Config{ecfg}
 }
 
-func NewValidConfig(cfg *config.Config) (*Config, error) {
-	ecfg, err := newValidConfig(cfg, nil)
-	return &Config{ecfg}, err
-}
-
-func NewValidDefaultConfig(cfg *config.Config) (*Config, error) {
-	ecfg, err := newValidConfig(cfg, configDefaults)
-	return &Config{ecfg}, err
-}
-
 func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	c.Assert(ecfg.attrs, jc.DeepEquals, ecfg.UnknownAttrs())
 
@@ -413,14 +363,6 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	extras := make(map[string]interface{})
 	for k, v := range ecfg.attrs {
 		switch k {
-		case cfgRemoteURL:
-			values.RemoteURL = v.(string)
-		case cfgClientCert:
-			values.ClientCert = v.(string)
-		case cfgClientKey:
-			values.ClientKey = v.(string)
-		case cfgServerPEMCert:
-			values.ServerCert = v.(string)
 		default:
 			extras[k] = v
 		}
@@ -436,15 +378,6 @@ func (ecfg *Config) Apply(c *gc.C, updates map[string]interface{}) *Config {
 
 func (ecfg *Config) Validate() error {
 	return ecfg.validate()
-}
-
-func (ecfg *Config) ClientConfig() (lxdclient.Config, error) {
-	return ecfg.clientConfig()
-}
-
-func (ecfg *Config) UpdateForClientConfig(clientCfg lxdclient.Config) (*Config, error) {
-	updated, err := ecfg.updateForClientConfig(clientCfg)
-	return &Config{updated}, err
 }
 
 type stubCommon struct {
@@ -469,21 +402,6 @@ func (sc *stubCommon) DestroyEnv() error {
 	}
 
 	return nil
-}
-
-type stubPolicy struct {
-	stub *gitjujutesting.Stub
-
-	Arches []string
-}
-
-func (s *stubPolicy) SupportedArchitectures() ([]string, error) {
-	s.stub.AddCall("SupportedArchitectures")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Arches, nil
 }
 
 type StubClient struct {
@@ -540,6 +458,23 @@ func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}, nil
+}
+
+func (conn *StubClient) AddCert(cert lxdclient.Cert) error {
+	conn.AddCall("AddCert", cert)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
+	conn.AddCall("ServerStatus")
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+	return &shared.ServerState{
+		Environment: shared.ServerStateEnvironment{
+			Certificate: "server-cert",
+		},
+	}, nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

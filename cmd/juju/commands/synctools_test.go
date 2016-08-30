@@ -46,8 +46,8 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	})
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
-	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
+	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
+		User: "admin@local",
 	}
 }
 
@@ -198,7 +198,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	}
 	// Register writer.
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("deprecated-tester", &tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("deprecated-tester", &tw), gc.IsNil)
 	defer loggo.RemoveWriter("deprecated-tester")
 	// Add deprecated message to be checked.
 	messages := []jc.SimpleMessage{

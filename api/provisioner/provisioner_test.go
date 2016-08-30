@@ -71,10 +71,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
-	s.provisioner = s.st.Provisioner()
+	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
@@ -213,6 +213,27 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
+func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
+	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine, err := s.provisioner.Machine(machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.MarkForRemoval()
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.MarkForRemoval()
+	c.Assert(err, jc.ErrorIsNil)
+
+	removals, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removals, jc.SameContents, []string{"1"})
+}
+
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
 	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -233,7 +254,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 

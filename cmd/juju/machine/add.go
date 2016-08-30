@@ -9,12 +9,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -25,7 +27,6 @@ import (
 )
 
 var addMachineDoc = `
-
 Juju supports adding machines using provider-specific machine instances
 (EC2 instances, OpenStack servers, MAAS nodes, etc.); existing machines
 running a supported operating system (see "manual provisioning" below),
@@ -67,8 +68,8 @@ Examples:
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
-See also:
-    remove-machine
+See Also:
+    juju remove-machine
 `
 
 func init() {
@@ -93,6 +94,7 @@ func NewAddCommand() cmd.Command {
 type addCommand struct {
 	modelcmd.ModelCommandBase
 	api               AddMachineAPI
+	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the model default-series
 	Series string
@@ -110,22 +112,22 @@ func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
-		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
+		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
 		Aliases: []string{"add-machines"},
 	}
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "series", "", "the charm series")
+	f.StringVar(&c.Series, "series", "", "The charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
-	f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Additional machine constraints")
+	f.Var(disksFlag{&c.Disks}, "disks", "Constraints for disks to attach to the machine")
 }
 
 func (c *addCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
-		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
+		return errors.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
 	placement, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
@@ -140,7 +142,7 @@ func (c *addCommand) Init(args []string) error {
 		return err
 	}
 	if c.NumMachines > 1 && c.Placement != nil && c.Placement.Directive != "" {
-		return fmt.Errorf("cannot use -n when specifying a placement directive")
+		return errors.New("cannot use -n when specifying a placement directive")
 	}
 	return nil
 }
@@ -149,9 +151,13 @@ type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	ModelGet() (map[string]interface{}, error)
-	ModelUUID() (string, error)
+	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+}
+
+type ModelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+	Close() error
 }
 
 type MachineManagerAPI interface {
@@ -167,6 +173,18 @@ func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
+}
+
+func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+	if c.modelConfigAPI != nil {
+		return c.modelConfigAPI, nil
+	}
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return modelconfig.NewClient(api), nil
+
 }
 
 func (c *addCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
@@ -204,7 +222,12 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	configAttrs, err := client.ModelGet()
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer modelConfigClient.Close()
+	configAttrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -215,12 +238,17 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		logger.Infof("manual provisioning")
+		authKeys, err := common.ReadAuthorizedKeys(ctx, "")
+		if err != nil {
+			return errors.Annotate(err, "reading authorized-keys")
+		}
 		args := manual.ProvisionMachineArgs{
-			Host:   c.Placement.Directive,
-			Client: client,
-			Stdin:  ctx.Stdin,
-			Stdout: ctx.Stdout,
-			Stderr: ctx.Stderr,
+			Host:           c.Placement.Directive,
+			Client:         client,
+			Stdin:          ctx.Stdin,
+			Stdout:         ctx.Stdout,
+			Stderr:         ctx.Stderr,
+			AuthorizedKeys: authKeys,
 			UpdateBehavior: &params.UpdateBehavior{
 				config.EnableOSRefreshUpdate(),
 				config.EnableOSUpgrade(),
@@ -235,9 +263,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		uuid, err := client.ModelUUID()
-		if err != nil {
-			return errors.Trace(err)
+		uuid, ok := client.ModelUUID()
+		if !ok {
+			return errors.New("API connection is controller-only (should never happen)")
 		}
 		c.Placement.Scope = uuid
 	}
@@ -290,7 +318,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	if len(errs) == 1 {
-		fmt.Fprintf(ctx.Stderr, "failed to create 1 machine\n")
+		fmt.Fprint(ctx.Stderr, "failed to create 1 machine\n")
 		return errs[0]
 	}
 	if len(errs) > 1 {

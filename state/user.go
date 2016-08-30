@@ -4,7 +4,7 @@
 // NOTE: the users that are being stored in the database here are only
 // the local users, like "admin" or "bob" (@local).  In the  world
 // where we have external user providers hooked up, there are no records
-// in the databse for users that are authenticated elsewhere.
+// in the database for users that are authenticated elsewhere.
 
 package state
 
@@ -16,12 +16,19 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
+
+const userGlobalKeyPrefix = "us"
+
+func userGlobalKey(userID string) string {
+	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
+}
 
 func (st *State) checkUserExists(name string) (bool, error) {
 	users, closer := st.getCollection(usersC)
@@ -64,6 +71,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
+	dateCreated := nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -72,7 +80,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			DisplayName: displayName,
 			SecretKey:   secretKey,
 			CreatedBy:   creator,
-			DateCreated: nowToTheSecond(),
+			DateCreated: dateCreated,
 		},
 	}
 
@@ -91,6 +99,14 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
+	controllerUserOps := createControllerUserOps(st.ControllerUUID(),
+		names.NewUserTag(name),
+		names.NewUserTag(creator),
+		displayName,
+		dateCreated,
+		defaultControllerPermission)
+	ops = append(ops, controllerUserOps...)
+
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user")
@@ -101,8 +117,40 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
+// RemoveUser marks the user as deleted. This obviates the ability of a user
+// to function, but keeps the userDoc retaining provenance, i.e. auditing.
+func (st *State) RemoveUser(tag names.UserTag) error {
+	name := strings.ToLower(tag.Name())
+
+	u, err := st.User(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if u.IsDeleted() {
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// If it is not our first attempt, refresh the user.
+			if err := u.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
+			Id:     name,
+			C:      usersC,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"deleted": true}},
+		}}
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string) []txn.Op {
 	nameToLower := strings.ToLower(user.Name())
+	dateCreated := nowToTheSecond()
 	doc := userDoc{
 		DocID:        nameToLower,
 		Name:         user.Name(),
@@ -110,14 +158,25 @@ func createInitialUserOp(st *State, user names.UserTag, password, salt string) t
 		PasswordHash: utils.UserPasswordHash(password, salt),
 		PasswordSalt: salt,
 		CreatedBy:    user.Name(),
-		DateCreated:  nowToTheSecond(),
+		DateCreated:  dateCreated,
 	}
-	return txn.Op{
+	ops := []txn.Op{{
 		C:      usersC,
 		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &doc,
-	}
+	}}
+	controllerUserOps := createControllerUserOps(controllerUUID,
+		names.NewUserTag(user.Name()),
+		names.NewUserTag(user.Name()),
+		user.Name(),
+		dateCreated,
+		// first user is controller admin.
+		description.SuperuserAccess)
+
+	ops = append(ops, controllerUserOps...)
+	return ops
+
 }
 
 // getUser fetches information about the user with the
@@ -146,10 +205,19 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 	if err := st.getUser(tag.Name(), &user.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if user.doc.Deleted {
+		// This error is returned to the apiserver and from there to the api
+		// client. So we don't annotate with information regarding deletion.
+		// TODO(redir): We'll return a deletedUserError in the future so we can
+		// return more appropriate errors, e.g. username not available.
+		return nil, errors.UserNotFoundf("%q", user.Name())
+	}
 	return user, nil
 }
 
-// User returns the state User for the given name,
+// AllUsers returns a slice of state.User. This includes all active users. If
+// includeDeactivated is true it also returns inactive users. At this point it
+// never returns deleted users.
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
@@ -157,8 +225,24 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	defer closer()
 
 	var query bson.D
+	// TODO(redir): Provide option to retrieve deleted users in future PR.
+	// e.g. if !includeDelted.
+	// Ensure the query checks for users without the deleted attribute, and
+	// also that if it does that the value is not true. fwereade wanted to be
+	// sure we cannot miss users that previously existed without the deleted
+	// attr. Since this will only be in 2.0 that should never happen, but...
+	// belt and suspenders.
+	query = append(query, bson.DocElem{
+		"deleted", bson.D{{"$ne", true}},
+	})
+
+	// As above, in the case that a user previously existed and doesn't have a
+	// deactivated attribute, we make sure the query checks for the existence
+	// of the attribute, and if it exists that it is not true.
 	if !includeDeactivated {
-		query = append(query, bson.DocElem{"deactivated", false})
+		query = append(query, bson.DocElem{
+			"deactivated", bson.D{{"$ne", true}},
+		})
 	}
 	iter := users.Find(query).Iter()
 	defer iter.Close()
@@ -183,11 +267,11 @@ type User struct {
 }
 
 type userDoc struct {
-	DocID       string `bson:"_id"`
-	Name        string `bson:"name"`
-	DisplayName string `bson:"displayname"`
-	// Removing users means they still exist, but are marked deactivated
-	Deactivated  bool      `bson:"deactivated"`
+	DocID        string    `bson:"_id"`
+	Name         string    `bson:"name"`
+	DisplayName  string    `bson:"displayname"`
+	Deactivated  bool      `bson:"deactivated,omitempty"`
+	Deleted      bool      `bson:"deleted,omitempty"` // Deleted users are marked deleted but not removed.
 	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
 	PasswordSalt string    `bson:"passwordsalt"`
@@ -289,6 +373,9 @@ func IsNeverLoggedInError(err error) bool {
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() (err error) {
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot update last login")
+	}
 	lastLogins, closer := u.st.getCollection(userLastLoginC)
 	defer closer()
 
@@ -316,6 +403,9 @@ func (u *User) SecretKey() []byte {
 
 // SetPassword sets the password associated with the User.
 func (u *User) SetPassword(password string) error {
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot set password")
+	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return err
@@ -327,6 +417,11 @@ func (u *User) SetPassword(password string) error {
 // password. If the User has a secret key set then it
 // will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
+	if err := u.ensureNotDeleted(); err != nil {
+		// If we do get a late set of the password this is fine b/c we have an
+		// explicit check before login.
+		return errors.Annotate(err, "cannot set password hash")
+	}
 	update := bson.D{{"$set", bson.D{
 		{"passwordhash", pwHash},
 		{"passwordsalt", pwSalt},
@@ -351,14 +446,15 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	return nil
 }
 
-// PasswordValid returns whether the given password is valid for the User.
+// PasswordValid returns whether the given password is valid for the User. The
+// caller should call user.Refresh before calling this.
 func (u *User) PasswordValid(password string) bool {
-	// If the User is deactivated, no point in carrying on. Since any
-	// authentication checks are done very soon after the user is read
-	// from the database, there is a very small timeframe where an user
-	// could be disabled after it has been read but prior to being checked,
-	// but in practice, this isn't a problem.
-	if u.IsDisabled() {
+	// If the User is deactivated or deleted, there is no point in carrying on.
+	// Since any authentication checks are done very soon after the user is
+	// read from the database, there is a very small timeframe where an user
+	// could be disabled after it has been read but prior to being checked, but
+	// in practice, this isn't a problem.
+	if u.IsDisabled() || u.IsDeleted() {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
@@ -379,6 +475,9 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot disable")
+	}
 	environment, err := u.st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
@@ -391,6 +490,9 @@ func (u *User) Disable() error {
 
 // Enable reactivates the user, setting disabled to false.
 func (u *User) Enable() error {
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot enable")
+	}
 	return errors.Annotatef(u.setDeactivated(false), "cannot enable user %q", u.Name())
 }
 
@@ -416,6 +518,34 @@ func (u *User) IsDisabled() bool {
 	// Yes, this is a cached value, but in practice the user object is
 	// never held around for a long time.
 	return u.doc.Deactivated
+}
+
+// IsDeleted returns whether the user is currently deleted.
+func (u *User) IsDeleted() bool {
+	return u.doc.Deleted
+}
+
+// DeletedUserError is used to indicate when an attempt to mutate a deleted
+// user is attempted.
+type DeletedUserError struct {
+	UserName string
+}
+
+// Error implements the error interface.
+func (e DeletedUserError) Error() string {
+	return fmt.Sprintf("user %q deleted", e.UserName)
+}
+
+// ensureNotDeleted refreshes the user to ensure it wasn't deleted since we
+// acquired it.
+func (u *User) ensureNotDeleted() error {
+	if err := u.Refresh(); err != nil {
+		return errors.Trace(err)
+	}
+	if u.doc.Deleted {
+		return DeletedUserError{u.Name()}
+	}
+	return nil
 }
 
 // userList type is used to provide the methods for sorting.

@@ -13,10 +13,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type upgradesSuite struct {
@@ -228,7 +227,6 @@ func unsetField(st *State, id, collection, field string) error {
 }
 
 func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, Filesystem, func() error) {
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType, provider.RootfsProviderType)
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
@@ -460,10 +458,11 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Ap
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddModelUser(ModelUserSpec{
+	_, err = s.state.AddModelUser(UserAccessSpec{
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",
+		Access:      description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

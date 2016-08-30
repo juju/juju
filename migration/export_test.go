@@ -3,6 +3,4 @@
 
 package migration
 
-var (
-	UpdateConfigFromProvider = updateConfigFromProvider
-)
+var ()

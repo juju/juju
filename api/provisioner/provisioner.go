@@ -21,6 +21,7 @@ import (
 type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
+	*common.ControllerConfigAPI
 
 	facade base.FacadeCaller
 }
@@ -31,9 +32,11 @@ const provisionerFacade = "Provisioner"
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
 	return &State{
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
-		facade:       facadeCaller}
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		APIAddresser:        common.NewAPIAddresser(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		facade:              facadeCaller,
+	}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.

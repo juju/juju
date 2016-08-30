@@ -411,20 +411,38 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Upload a new revision of the charm, but publish it
-	// only to the development channel.
+	// only to the beta channel.
 
 	id.Revision = 1
 	err = s.client.UploadCharmWithRevision(id, ch, -1)
 	c.Assert(err, gc.IsNil)
 
-	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
 	c.Assert(err, gc.IsNil)
 
-	err = runUpgradeCharm(c, "wordpress", "--channel", "development")
+	err = runUpgradeCharm(c, "wordpress", "--channel", "beta")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
 	})
+}
+
+func (s *UpgradeCharmCharmStoreSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
+	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
+	err := runDeploy(c, "quantal/terms1")
+	c.Assert(err, jc.ErrorIsNil)
+	id.Revision = id.Revision + 1
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.StableChannel}, nil)
+	c.Assert(err, gc.IsNil)
+	s.termsDischargerError = &httpbakery.Error{
+		Message: "term agreement required: term/1 term/2",
+		Code:    "term agreement required",
+	}
+	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	err = runUpgradeCharm(c, "terms1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
 }

@@ -121,9 +121,9 @@ func (s *stubAPICaller) BestFacadeVersion(facade string) int {
 	return 42
 }
 
-func (s *stubAPICaller) ModelTag() (names.ModelTag, error) {
+func (s *stubAPICaller) ModelTag() (names.ModelTag, bool) {
 	s.MethodCall(s, "ModelTag")
-	return names.NewModelTag("foobar"), nil
+	return names.NewModelTag("foobar"), true
 }
 
 func (s *stubAPICaller) ConnectStream(string, url.Values) (base.Stream, error) {

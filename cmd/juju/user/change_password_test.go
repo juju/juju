@@ -107,10 +107,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 // We should not call SetPassword subsequently.
 func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) {
 	store := jujuclienttesting.NewStubStore()
-	store.CurrentAccountFunc = func(string) (string, error) {
-		return "account-name", nil
-	}
-	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
+	store.AccountDetailsFunc = func(string) (*jujuclient.AccountDetails, error) {
 		return &jujuclient.AccountDetails{"user", "old-password", ""}, nil
 	}
 	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {

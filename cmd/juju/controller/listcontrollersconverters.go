@@ -7,7 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -22,6 +24,7 @@ type ControllerSet struct {
 type ControllerItem struct {
 	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
+	Access         string   `yaml:"access,omitempty" json:"access,omitempty"`
 	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
 	ControllerUUID string   `yaml:"uuid" json:"uuid"`
 	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
@@ -53,29 +56,34 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			serverName = details.APIEndpoints[0]
 		}
 
-		var userName, modelName string
-		accountName, err := c.store.CurrentAccount(controllerName)
+		var userName string
+		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				addError("account name", controllerName, err)
-				continue
-			}
-		} else {
-			currentAccount, err := c.store.AccountByName(controllerName, accountName)
-			if err != nil {
 				addError("account details", controllerName, err)
 				continue
 			}
-			userName = currentAccount.User
+		} else {
+			userName = accountDetails.User
+		}
 
-			currentModel, err := c.store.CurrentModel(controllerName, accountName)
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					addError("model", controllerName, err)
-					continue
+		var modelName string
+		currentModel, err := c.store.CurrentModel(controllerName)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				addError("model", controllerName, err)
+				continue
+			}
+		} else {
+			modelName = currentModel
+			if userName != "" {
+				// There's a user logged in, so display the
+				// model name relative to that user.
+				if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
+					user := names.NewUserTag(userName)
+					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, owner, user)
 				}
 			}
-			modelName = currentModel
 		}
 
 		controllers[controllerName] = ControllerItem{

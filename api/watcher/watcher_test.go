@@ -18,9 +18,6 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	corewatcher "github.com/juju/juju/watcher"
@@ -182,20 +179,11 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 // TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
-	registry.RegisterProvider(
-		"envscoped",
-		&dummy.StorageProvider{
-			StorageScope: storage.ScopeEnviron,
-		},
-	)
-	registry.RegisterEnvironStorageProviders("dummy", "envscoped")
-	defer registry.RegisterProvider("envscoped", nil)
-
 	f := factory.NewFactory(s.BackingState)
 	f.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "envscoped",
+				Pool: "environscoped",
 				Size: 1024,
 			},
 		}},
@@ -332,7 +320,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	assertChange("", migration.NONE)
 
 	// Now create a migration, should trigger watcher.
-	spec := state.ModelMigrationSpec{
+	spec := state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("someone"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
@@ -342,7 +330,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 			Password:      "sekret",
 		},
 	}
-	mig, err := hostedState.CreateModelMigration(spec)
+	mig, err := hostedState.CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig.Id(), migration.QUIESCE)
 
@@ -353,7 +341,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	assertChange(mig.Id(), migration.ABORTDONE)
 
 	// Start a new migration, this should also trigger.
-	mig2, err := hostedState.CreateModelMigration(spec)
+	mig2, err := hostedState.CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig2.Id(), migration.QUIESCE)
 }

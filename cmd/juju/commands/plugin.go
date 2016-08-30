@@ -10,18 +10,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
 const JujuPluginPrefix = "juju-"
+const JujuPluginPattern = "^juju-[a-zA-Z]"
 
 // This is a very rudimentary method used to extract common Juju
 // arguments from the full list passed to the plugin. Currently,
@@ -92,7 +94,6 @@ func (c *PluginCommand) Init(args []string) error {
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
-		osenv.JujuXDGDataHomeEnvKey + "=" + osenv.JujuXDGDataHome(),
 		osenv.JujuModelEnvKey + "=" + c.ConnectionName()}...,
 	)
 
@@ -194,9 +195,10 @@ func GetPluginDescriptions() []PluginDescription {
 	return results
 }
 
-// findPlugins searches the current PATH for executable files that start with
-// JujuPluginPrefix.
+// findPlugins searches the current PATH for executable files that match
+// JujuPluginPattern.
 func findPlugins() []string {
+	re := regexp.MustCompile(JujuPluginPattern)
 	path := os.Getenv("PATH")
 	plugins := []string{}
 	for _, name := range filepath.SplitList(path) {
@@ -205,7 +207,7 @@ func findPlugins() []string {
 			continue
 		}
 		for _, entry := range entries {
-			if strings.HasPrefix(entry.Name(), JujuPluginPrefix) && (entry.Mode()&0111) != 0 {
+			if re.Match([]byte(entry.Name())) && (entry.Mode()&0111) != 0 {
 				plugins = append(plugins, entry.Name())
 			}
 		}

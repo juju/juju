@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -40,8 +41,8 @@ type objectKey struct {
 }
 
 // apiHandler represents a single client's connection to the state
-// after it has logged in. It contains an rpc.MethodFinder which it
-// uses to dispatch Api calls appropriately.
+// after it has logged in. It contains an rpc.Root which it
+// uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state     *state.State
 	rpcConn   *rpc.Conn
@@ -56,8 +57,8 @@ type apiHandler struct {
 
 var _ = (*apiHandler)(nil)
 
-// newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+// newAPIHandler returns a new apiHandler.
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:     st,
 		resources: common.NewResources(),
@@ -136,8 +137,8 @@ type apiRoot struct {
 	objectCache map[objectKey]reflect.Value
 }
 
-// newApiRoot returns a new apiRoot.
-func newApiRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+// newAPIRoot returns a new apiRoot.
+func newAPIRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		resources:   resources,
@@ -279,14 +280,14 @@ func lookupMethod(rootName string, version int, methodName string) (reflect.Type
 // which has not logged in.
 type anonRoot struct {
 	*apiHandler
-	adminApis map[int]interface{}
+	adminAPIs map[int]interface{}
 }
 
 // NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAnonRoot(h *apiHandler, adminApis map[int]interface{}) *anonRoot {
+func newAnonRoot(h *apiHandler, adminAPIs map[int]interface{}) *anonRoot {
 	r := &anonRoot{
 		apiHandler: h,
-		adminApis:  adminApis,
+		adminAPIs:  adminAPIs,
 	}
 	return r
 }
@@ -298,7 +299,7 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 			Version:    version,
 		}
 	}
-	if api, ok := r.adminApis[version]; ok {
+	if api, ok := r.adminAPIs[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
 	}
 	return nil, &rpc.RequestError{
@@ -343,9 +344,27 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
+// ConnectedModel returns the UUID of the model authenticated
+// against. It's possible for it to be empty if the login was made
+// directly to the root of the API instead of a model endpoint, but
+// that method is deprecated.
+func (r *apiHandler) ConnectedModel() string {
+	return r.modelUUID
+}
+
 // GetAuthEntity returns the authenticated entity.
 func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// HasPermission returns true if the logged in user can perform <operation> on <target>.
+func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) (bool, error) {
+	return common.HasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
+}
+
+// UserHasPermission returns true if the passed in user can perform <operation> on <target>.
+func (r *apiHandler) UserHasPermission(user names.UserTag, operation description.Access, target names.Tag) (bool, error) {
+	return common.HasPermission(r.state.UserAccess, user, operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

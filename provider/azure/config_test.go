@@ -4,7 +4,7 @@
 package azure_test
 
 import (
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -32,7 +32,7 @@ var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
+	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender: mocks.NewSender(),
 	})
 }
@@ -55,13 +55,6 @@ func (s *configSuite) TestValidateInvalidFirewallMode(c *gc.C) {
 	)
 }
 
-func (s *configSuite) TestValidateLocation(c *gc.C) {
-	s.assertConfigInvalid(c, testing.Attrs{"location": ""}, `"location" config not specified`)
-	// We don't validate locations, because new locations may be added.
-	// Azure will complain if the location is invalid anyway.
-	s.assertConfigValid(c, testing.Attrs{"location": "eurasia"})
-}
-
 func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"name": "someextremelyoverlylongishmodelname"},
@@ -70,25 +63,14 @@ func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
 Please choose a model name of no more than 32 characters.`)
 }
 
-func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
-	s.assertConfigInvalid(c, testing.Attrs{"application-id": ""}, `"application-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"application-password": ""}, `"application-password" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"tenant-id": ""}, `"tenant-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"subscription-id": ""}, `"subscription-id" config not specified`)
-}
-
-func (s *configSuite) TestValidateStorageAccountCantChange(c *gc.C) {
-	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account": "abc"})
+func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Standard_LRS"})
 	_, err := s.provider.Validate(cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfgNew := makeTestModelConfig(c) // no storage-account attribute
+	cfgNew := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Premium_LRS"})
 	_, err = s.provider.Validate(cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot remove immutable "storage-account" config`)
-
-	cfgNew = makeTestModelConfig(c, testing.Attrs{"storage-account": "def"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account" config \(abc -> def\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account-type" config \(Standard_LRS -> Premium_LRS\)`)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
@@ -105,15 +87,8 @@ func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect s
 
 func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
-		"type":                 "azure",
-		"application-id":       fakeApplicationId,
-		"tenant-id":            fakeTenantId,
-		"application-password": "opensezme",
-		"subscription-id":      fakeSubscriptionId,
-		"location":             "westus",
-		"endpoint":             "https://api.azurestack.local",
-		"storage-endpoint":     "https://storage.azurestack.local",
-		"agent-version":        "1.2.3",
+		"type":          "azure",
+		"agent-version": "1.2.3",
 	}
 	for _, extra := range extra {
 		attrs = attrs.Merge(extra)

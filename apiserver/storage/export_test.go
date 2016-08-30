@@ -7,6 +7,4 @@ var (
 	ValidatePoolListFilter   = (*API).validatePoolListFilter
 	ValidateNameCriteria     = (*API).validateNameCriteria
 	ValidateProviderCriteria = (*API).validateProviderCriteria
-
-	CreateAPI = createAPI
 )

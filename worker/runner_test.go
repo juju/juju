@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -131,20 +131,30 @@ func (*RunnerSuite) TestOneWorkerStartWhenStopping(c *gc.C) {
 	starter := newTestWorkerStarter()
 	starter.stopWait = make(chan struct{})
 
+	// Start a worker, and wait for it.
 	err := runner.StartWorker("id", testWorkerStart(starter))
 	c.Assert(err, jc.ErrorIsNil)
 	starter.assertStarted(c, true)
+
+	// XXX the above does not imply the *runner* knows it's started.
+	// voodoo sleep ahoy!
+	time.Sleep(testing.ShortWait)
+
+	// Stop the worker, which will block...
 	err = runner.StopWorker("id")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// While it's still blocked, try to start another.
 	err = runner.StartWorker("id", testWorkerStart(starter))
 	c.Assert(err, jc.ErrorIsNil)
 
-	close(starter.stopWait)
-	starter.assertStarted(c, false)
-	// Check that the task is restarted immediately without
-	// the usual restart timeout delay.
+	// Unblock the stopping worker, and check that the task is
+	// restarted immediately without the usual restart timeout
+	// delay.
 	t0 := time.Now()
-	starter.assertStarted(c, true)
+	close(starter.stopWait)
+	starter.assertStarted(c, false) // stop notification
+	starter.assertStarted(c, true)  // start notification
 	restartDuration := time.Since(t0)
 	if restartDuration > 1*time.Second {
 		c.Fatalf("task did not restart immediately")
@@ -347,7 +357,7 @@ func (starter *testWorkerStarter) assertStarted(c *gc.C, started bool) {
 	select {
 	case isStarted := <-starter.startNotify:
 		c.Assert(isStarted, gc.Equals, started)
-	case <-time.After(1 * time.Second):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for start notification")
 	}
 }

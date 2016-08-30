@@ -8,12 +8,11 @@ import (
 	"net"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/provider/azure/internal/iputils"
 )
@@ -24,17 +23,29 @@ const (
 	//
 	// Each resource group is given its own network, subnet and network
 	// security group to manage. Each resource group will have its own
-	// private 10.0.0.0/16 network.
+	// private 192.168.0.0/16 network.
 	internalNetworkName = "juju-internal-network"
-
-	// internalSubnetName is the name of the subnet that each machine's
-	// primary NIC is attached to.
-	internalSubnetName = "juju-internal-subnet"
 
 	// internalSecurityGroupName is the name of the network security
 	// group that each machine's primary (internal network) NIC is
 	// attached to.
 	internalSecurityGroupName = "juju-internal-nsg"
+
+	// internalSubnetName is the name of the subnet that each
+	// non-controller machine's primary NIC is attached to.
+	internalSubnetName = "juju-internal-subnet"
+
+	// internalSubnetPrefix is the address prefix for the subnet that
+	// each non-controller machine's primary NIC is attached to.
+	internalSubnetPrefix = "192.168.0.0/20"
+
+	// controllerSubnetName is the name of the subnet that each controller
+	// machine's primary NIC is attached to.
+	controllerSubnetName = "juju-controller-subnet"
+
+	// controllerSubnetPrefix is the address prefix for the subnet that
+	// each controller machine's primary NIC is attached to.
+	controllerSubnetPrefix = "192.168.16.0/20"
 )
 
 const (
@@ -56,51 +67,113 @@ const (
 	// security rule that allows inbound SSH access to all
 	// machines.
 	securityRuleInternalSSHInbound = securityRuleInternalMin + iota
+
+	// securityRuleInternalAPIInbound is the priority of the
+	// security rule that allows inbound Juju API access to
+	// controller machines
+	securityRuleInternalAPIInbound
 )
 
-var sshSecurityRule = network.SecurityRule{
-	Name: to.StringPtr("SSHInbound"),
-	Properties: &network.SecurityRulePropertiesFormat{
-		Description:              to.StringPtr("Allow SSH access to all machines"),
-		Protocol:                 network.TCP,
-		SourceAddressPrefix:      to.StringPtr("*"),
-		SourcePortRange:          to.StringPtr("*"),
-		DestinationAddressPrefix: to.StringPtr("*"),
-		DestinationPortRange:     to.StringPtr("22"),
-		Access:                   network.Allow,
-		Priority:                 to.IntPtr(securityRuleInternalSSHInbound),
-		Direction:                network.Inbound,
-	},
-}
+var (
+	sshSecurityRule = network.SecurityRule{
+		Name: to.StringPtr("SSHInbound"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("Allow SSH access to all machines"),
+			Protocol:                 network.TCP,
+			SourceAddressPrefix:      to.StringPtr("*"),
+			SourcePortRange:          to.StringPtr("*"),
+			DestinationAddressPrefix: to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("22"),
+			Access:                   network.Allow,
+			Priority:                 to.Int32Ptr(securityRuleInternalSSHInbound),
+			Direction:                network.Inbound,
+		},
+	}
+
+	apiSecurityRule = network.SecurityRule{
+		Name: to.StringPtr("JujuAPIInbound"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("Allow API connections to controller machines"),
+			Protocol:                 network.TCP,
+			SourceAddressPrefix:      to.StringPtr("*"),
+			SourcePortRange:          to.StringPtr("*"),
+			DestinationAddressPrefix: to.StringPtr(controllerSubnetPrefix),
+			// DestinationPortRange is set by createInternalNetworkSecurityGroup.
+			Access:    network.Allow,
+			Priority:  to.Int32Ptr(securityRuleInternalAPIInbound),
+			Direction: network.Inbound,
+		},
+	}
+)
 
 func createInternalVirtualNetwork(
 	callAPI callAPIFunc,
 	client network.ManagementClient,
-	resourceGroup string,
+	subscriptionId, resourceGroup string,
 	location string,
 	tags map[string]string,
 ) (*network.VirtualNetwork, error) {
-	addressPrefixes := []string{"10.0.0.0/16"}
-	virtualNetworkParams := network.VirtualNetwork{
+	addressPrefixes := []string{internalSubnetPrefix, controllerSubnetPrefix}
+	vnet := network.VirtualNetwork{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.VirtualNetworkPropertiesFormat{
 			AddressSpace: &network.AddressSpace{&addressPrefixes},
 		},
 	}
 	logger.Debugf("creating virtual network %q", internalNetworkName)
 	vnetClient := network.VirtualNetworksClient{client}
-	var vnet network.VirtualNetwork
 	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		vnet, err = vnetClient.CreateOrUpdate(
-			resourceGroup, internalNetworkName, virtualNetworkParams,
+		return vnetClient.CreateOrUpdate(
+			resourceGroup, internalNetworkName, vnet,
+			nil, // abort channel
 		)
-		return vnet.Response, err
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating virtual network %q", internalNetworkName)
 	}
+	vnet.ID = to.StringPtr(internalNetworkId(subscriptionId, resourceGroup))
 	return &vnet, nil
+}
+
+func createInternalNetworkSecurityGroup(
+	callAPI callAPIFunc,
+	client network.ManagementClient,
+	subscriptionId, resourceGroup string,
+	location string,
+	tags map[string]string,
+	apiPort *int,
+) (*network.SecurityGroup, error) {
+	// Create a network security group for the environment. There is only
+	// one NSG per environment (there's a limit of 100 per subscription),
+	// in which we manage rules for each exposed machine.
+	securityRules := []network.SecurityRule{sshSecurityRule}
+	if apiPort != nil {
+		rule := apiSecurityRule
+		properties := *rule.Properties
+		properties.DestinationPortRange = to.StringPtr(fmt.Sprint(*apiPort))
+		rule.Properties = &properties
+		securityRules = append(securityRules, rule)
+	}
+	nsg := network.SecurityGroup{
+		Location: to.StringPtr(location),
+		Tags:     to.StringMapPtr(tags),
+		Properties: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: &securityRules,
+		},
+	}
+	securityGroupClient := network.SecurityGroupsClient{client}
+	securityGroupName := internalSecurityGroupName
+	logger.Debugf("creating security group %q", securityGroupName)
+	if err := callAPI(func() (autorest.Response, error) {
+		return securityGroupClient.CreateOrUpdate(
+			resourceGroup, securityGroupName, nsg,
+			nil, // abort channel
+		)
+	}); err != nil {
+		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
+	}
+	nsg.ID = to.StringPtr(internalNetworkSecurityGroupId(subscriptionId, resourceGroup))
+	return &nsg, nil
 }
 
 // createInternalSubnet creates an internal subnet for the specified resource group,
@@ -110,91 +183,56 @@ func createInternalVirtualNetwork(
 // no concurrent subnet additions to the virtual network. At the moment we have only
 // three places where we modify subnets: at bootstrap, when a new environment is
 // created, and when an environment is destroyed.
-func createInternalSubnet(
+func createInternalNetworkSubnet(
 	callAPI callAPIFunc,
 	client network.ManagementClient,
-	resourceGroup string,
-	vnet *network.VirtualNetwork,
+	subscriptionId, resourceGroup string,
+	subnetName, addressPrefix string,
 	location string,
 	tags map[string]string,
 ) (*network.Subnet, error) {
-
-	nextAddressPrefix := (*vnet.Properties.AddressSpace.AddressPrefixes)[0]
-	if vnet.Properties.Subnets != nil {
-		if len(*vnet.Properties.Subnets) == len(*vnet.Properties.AddressSpace.AddressPrefixes) {
-			return nil, errors.Errorf(
-				"no available address prefixes in vnet %q",
-				to.String(vnet.Name),
-			)
-		}
-		addressPrefixesInUse := make(set.Strings)
-		for _, subnet := range *vnet.Properties.Subnets {
-			addressPrefixesInUse.Add(to.String(subnet.Properties.AddressPrefix))
-		}
-		for _, addressPrefix := range *vnet.Properties.AddressSpace.AddressPrefixes {
-			if !addressPrefixesInUse.Contains(addressPrefix) {
-				nextAddressPrefix = addressPrefix
-				break
-			}
-		}
-	}
-
-	// Create a network security group for the environment. There is only
-	// one NSG per environment (there's a limit of 100 per subscription),
-	// in which we manage rules for each exposed machine.
-	securityRules := []network.SecurityRule{sshSecurityRule}
-	securityGroupParams := network.SecurityGroup{
-		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
-		Properties: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &securityRules,
-		},
-	}
-	securityGroupClient := network.SecurityGroupsClient{client}
-	securityGroupName := internalSecurityGroupName
-	logger.Debugf("creating security group %q", securityGroupName)
-	var nsg network.SecurityGroup
-	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		nsg, err = securityGroupClient.CreateOrUpdate(
-			resourceGroup, securityGroupName, securityGroupParams,
-		)
-		return nsg.Response, err
-	}); err != nil {
-		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
-	}
-
 	// Now create a subnet with the next available address prefix, and
 	// associate the subnet with the NSG created above.
-	subnetName := internalSubnetName
-	subnetParams := network.Subnet{
+	subnet := network.Subnet{
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix:        to.StringPtr(nextAddressPrefix),
-			NetworkSecurityGroup: &network.SubResource{nsg.ID},
+			AddressPrefix: to.StringPtr(addressPrefix),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr(internalNetworkSecurityGroupId(
+					subscriptionId, resourceGroup,
+				)),
+			},
 		},
 	}
-	logger.Debugf("creating subnet %q (%s)", subnetName, nextAddressPrefix)
+	logger.Debugf("creating subnet %q (%s)", subnetName, addressPrefix)
 	subnetClient := network.SubnetsClient{client}
-	var subnet network.Subnet
 	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		subnet, err = subnetClient.CreateOrUpdate(
-			resourceGroup, internalNetworkName, subnetName, subnetParams,
+		return subnetClient.CreateOrUpdate(
+			resourceGroup, internalNetworkName, subnetName, subnet,
+			nil, // abort channel
 		)
-		return subnet.Response, err
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating subnet %q", subnetName)
 	}
+	subnet.ID = to.StringPtr(internalNetworkSubnetId(
+		subscriptionId, resourceGroup, subnetName,
+	))
 	return &subnet, nil
 }
 
+type subnetParams struct {
+	name   string
+	prefix string
+}
+
+// newNetworkProfile creates a public IP and NIC(s) for the VM with the
+// specified name. A separate NIC will be created for each subnet; the
+// first subnet in the list will be associated with the primary NIC.
 func newNetworkProfile(
 	callAPI callAPIFunc,
 	client network.ManagementClient,
 	vmName string,
-	apiPort *int,
-	internalSubnet *network.Subnet,
-	resourceGroup string,
+	controller bool,
+	subscriptionId, resourceGroup string,
 	location string,
 	tags map[string]string,
 ) (*compute.NetworkProfile, error) {
@@ -203,137 +241,93 @@ func newNetworkProfile(
 	// Create a public IP for the NIC. Public IP addresses are dynamic.
 	logger.Debugf("- allocating public IP address")
 	pipClient := network.PublicIPAddressesClient{client}
-	publicIPAddressParams := network.PublicIPAddress{
+	publicIPAddress := network.PublicIPAddress{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAllocationMethod: network.Dynamic,
 		},
 	}
 	publicIPAddressName := vmName + "-public-ip"
-	var publicIPAddress network.PublicIPAddress
 	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		publicIPAddress, err = pipClient.CreateOrUpdate(
-			resourceGroup, publicIPAddressName, publicIPAddressParams,
+		return pipClient.CreateOrUpdate(
+			resourceGroup, publicIPAddressName, publicIPAddress,
+			nil, // abort channel
 		)
-		return publicIPAddress.Response, err
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating public IP address for %q", vmName)
 	}
+	publicIPAddress.ID = to.StringPtr(publicIPAddressId(
+		subscriptionId, resourceGroup, publicIPAddressName,
+	))
+
+	// Controller and non-controller machines are assigned to separate
+	// subnets. This enables us to create controller-specific NSG rules
+	// just by targeting the controller subnet.
+	subnetName := internalSubnetName
+	subnetPrefix := internalSubnetPrefix
+	if controller {
+		subnetName = controllerSubnetName
+		subnetPrefix = controllerSubnetPrefix
+	}
+	subnetId := internalNetworkSubnetId(subscriptionId, resourceGroup, subnetName)
 
 	// Determine the next available private IP address.
 	nicClient := network.InterfacesClient{client}
-	privateIPAddress, err := nextSubnetIPAddress(nicClient, resourceGroup, internalSubnet)
+	privateIPAddress, err := nextSubnetIPAddress(nicClient, resourceGroup, subnetPrefix)
 	if err != nil {
 		return nil, errors.Annotatef(err, "querying private IP addresses")
 	}
 
-	// Create a primary NIC for the machine. This needs to be static, so
-	// that we can create security rules that don't become invalid.
+	// Create a primary NIC for the machine. The private IP address needs
+	// to be static so that we can create NSG rules that don't become
+	// invalid.
 	logger.Debugf("- creating primary NIC")
 	ipConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr(privateIPAddress),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet:          &network.SubResource{internalSubnet.ID},
-			PublicIPAddress: &network.SubResource{publicIPAddress.ID},
+			Subnet: &network.Subnet{ID: to.StringPtr(subnetId)},
+			PublicIPAddress: &network.PublicIPAddress{
+				ID: publicIPAddress.ID,
+			},
 		},
 	}}
-	primaryNicName := vmName + "-primary"
-	primaryNicParams := network.Interface{
+	nicName := vmName + "-primary"
+	nic := network.Interface{
 		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(tags),
+		Tags:     to.StringMapPtr(tags),
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
 	}
-	var primaryNic network.Interface
 	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		primaryNic, err = nicClient.CreateOrUpdate(resourceGroup, primaryNicName, primaryNicParams)
-		return primaryNic.Response, err
+		return nicClient.CreateOrUpdate(resourceGroup, nicName, nic, nil)
 	}); err != nil {
 		return nil, errors.Annotatef(err, "creating network interface for %q", vmName)
 	}
 
-	// Create a network security rule for the machine if we need to open
-	// the API server port.
-	if apiPort != nil {
-		logger.Debugf("- querying network security group")
-		securityGroupClient := network.SecurityGroupsClient{client}
-		securityGroupName := internalSecurityGroupName
-		var securityGroup network.SecurityGroup
-		if err := callAPI(func() (autorest.Response, error) {
-			var err error
-			securityGroup, err = securityGroupClient.Get(resourceGroup, securityGroupName)
-			return securityGroup.Response, err
-		}); err != nil {
-			return nil, errors.Annotate(err, "querying network security group")
-		}
-
-		// NOTE(axw) this looks like TOCTTOU race territory, but it's
-		// safe because we only allocate/deallocate rules in this
-		// range during machine (de)provisioning, which is managed by
-		// a single goroutine. Non-internal ports are managed by the
-		// firewaller exclusively.
-		nextPriority, err := nextSecurityRulePriority(
-			securityGroup,
-			securityRuleInternalSSHInbound+1,
-			securityRuleInternalMax,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		apiSecurityRuleName := fmt.Sprintf("%s-api", vmName)
-		apiSecurityRule := network.SecurityRule{
-			Name: to.StringPtr(apiSecurityRuleName),
-			Properties: &network.SecurityRulePropertiesFormat{
-				Description:              to.StringPtr("Allow API access to server machines"),
-				Protocol:                 network.TCP,
-				SourceAddressPrefix:      to.StringPtr("*"),
-				SourcePortRange:          to.StringPtr("*"),
-				DestinationAddressPrefix: to.StringPtr(privateIPAddress),
-				DestinationPortRange:     to.StringPtr(fmt.Sprint(*apiPort)),
-				Access:                   network.Allow,
-				Priority:                 to.IntPtr(nextPriority),
-				Direction:                network.Inbound,
-			},
-		}
-		logger.Debugf("- creating API network security rule")
-		securityRuleClient := network.SecurityRulesClient{client}
-		if err := callAPI(func() (autorest.Response, error) {
-			result, err := securityRuleClient.CreateOrUpdate(
-				resourceGroup, securityGroupName, apiSecurityRuleName, apiSecurityRule,
-			)
-			return result.Response, err
-		}); err != nil {
-			return nil, errors.Annotate(err, "creating API network security rule")
-		}
-	}
-
-	// For now we only attach a single, flat network to each machine.
-	networkInterfaces := []compute.NetworkInterfaceReference{{
-		ID: primaryNic.ID,
+	nics := []compute.NetworkInterfaceReference{{
+		ID: to.StringPtr(networkInterfaceId(subscriptionId, resourceGroup, nicName)),
 		Properties: &compute.NetworkInterfaceReferenceProperties{
 			Primary: to.BoolPtr(true),
 		},
 	}}
-	return &compute.NetworkProfile{&networkInterfaces}, nil
+	return &compute.NetworkProfile{&nics}, nil
 }
 
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
-func nextSecurityRulePriority(group network.SecurityGroup, min, max int) (int, error) {
+func nextSecurityRulePriority(group network.SecurityGroup, min, max int32) (int32, error) {
 	if group.Properties.SecurityRules == nil {
 		return min, nil
 	}
 	for p := min; p <= max; p++ {
 		var found bool
 		for _, rule := range *group.Properties.SecurityRules {
-			if to.Int(rule.Properties.Priority) == p {
+			if to.Int32(rule.Properties.Priority) == p {
 				found = true
 				break
 			}
@@ -351,9 +345,9 @@ func nextSecurityRulePriority(group network.SecurityGroup, min, max int) (int, e
 func nextSubnetIPAddress(
 	nicClient network.InterfacesClient,
 	resourceGroup string,
-	subnet *network.Subnet,
+	subnetPrefix string,
 ) (string, error) {
-	_, ipnet, err := net.ParseCIDR(to.String(subnet.Properties.AddressPrefix))
+	_, ipnet, err := net.ParseCIDR(subnetPrefix)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing subnet prefix")
 	}
@@ -361,7 +355,6 @@ func nextSubnetIPAddress(
 	if err != nil {
 		return "", errors.Annotate(err, "listing NICs")
 	}
-	// Azure reserves the first 4 addresses in the subnet.
 	var ipsInUse []net.IP
 	if results.Value != nil {
 		ipsInUse = make([]net.IP, 0, len(*results.Value))
@@ -370,11 +363,8 @@ func nextSubnetIPAddress(
 				continue
 			}
 			for _, ipConfiguration := range *item.Properties.IPConfigurations {
-				if to.String(ipConfiguration.Properties.Subnet.ID) != to.String(subnet.ID) {
-					continue
-				}
 				ip := net.ParseIP(to.String(ipConfiguration.Properties.PrivateIPAddress))
-				if ip != nil {
+				if ip != nil && ipnet.Contains(ip) {
 					ipsInUse = append(ipsInUse, ip)
 				}
 			}
@@ -387,13 +377,45 @@ func nextSubnetIPAddress(
 	return ip.String(), nil
 }
 
-// internalSubnetId returns the Azure resource ID of the internal network
-// subnet for the specified resource group.
-func internalSubnetId(resourceGroup, subscriptionId string) string {
+// internalNetworkSubnetId returns the Azure resource ID of the subnet with
+// the specified name, within the internal network subnet for the specified
+// resource group.
+func internalNetworkSubnetId(subscriptionId, resourceGroup, subnetName string) string {
 	return path.Join(
+		internalNetworkId(subscriptionId, resourceGroup),
+		"subnets", subnetName,
+	)
+}
+
+func internalNetworkId(subscriptionId, resourceGroup string) string {
+	return resourceId(subscriptionId, resourceGroup, "Microsoft.Network",
+		"virtualNetworks", internalNetworkName,
+	)
+}
+
+func internalNetworkSecurityGroupId(subscriptionId, resourceGroup string) string {
+	return resourceId(subscriptionId, resourceGroup, "Microsoft.Network",
+		"networkSecurityGroups", internalSecurityGroupName,
+	)
+}
+
+func publicIPAddressId(subscriptionId, resourceGroup, publicIPAddressName string) string {
+	return resourceId(subscriptionId, resourceGroup, "Microsoft.Network",
+		"publicIPAddresses", publicIPAddressName,
+	)
+}
+
+func networkInterfaceId(subscriptionId, resourceGroup, interfaceName string) string {
+	return resourceId(subscriptionId, resourceGroup, "Microsoft.Network",
+		"networkInterfaces", interfaceName,
+	)
+}
+
+func resourceId(subscriptionId, resourceGroup, provider string, resourceId ...string) string {
+	args := append([]string{
 		"/subscriptions", subscriptionId,
 		"resourceGroups", resourceGroup,
-		"providers/Microsoft.Network/virtualNetworks",
-		internalNetworkName, "subnets", internalSubnetName,
-	)
+		"providers", provider,
+	}, resourceId...)
+	return path.Join(args...)
 }

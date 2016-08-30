@@ -5,17 +5,15 @@ package provisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"runtime"
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/mutex"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/clock"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
@@ -26,7 +24,6 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/container"
-	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -43,9 +40,8 @@ type ContainerSetupSuite struct {
 	p           provisioner.Provisioner
 	agentConfig agent.ConfigSetter
 	// Record the apt commands issued as part of container initialisation
-	aptCmdChan  <-chan *exec.Cmd
-	initLockDir string
-	initLock    *fslock.Lock
+	aptCmdChan <-chan *exec.Cmd
+	lockName   string
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -78,14 +74,9 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	var err error
-	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Create a new container initialisation lock.
-	s.initLockDir = c.MkDir()
-	initLock, err := fslock.NewLock(s.initLockDir, "container-init", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-	s.initLock = initLock
+	s.lockName = "provisioner-test"
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -96,9 +87,8 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
-	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
-	pr := s.st.Provisioner()
+	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
@@ -110,11 +100,10 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: instance.ContainerTypes,
-		ImageURLGetter:      &containertesting.MockURLGetter{},
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              cfg,
-		InitLock:            s.initLock,
+		InitLockName:        s.lockName,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
@@ -126,7 +115,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 }
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
-	inst := s.checkStartInstanceNoSecureConnection(c, host)
+	inst := s.checkStartInstance(c, host)
 	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
 
 	// make a container on the host machine
@@ -254,7 +243,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 }
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
-	pr := s.st.Provisioner()
+	pr := apiprovisioner.NewState(s.st)
 	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
@@ -332,6 +321,15 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
+	spec := mutex.Spec{
+		Name:  s.lockName,
+		Clock: clock.WallClock,
+		Delay: coretesting.ShortWait,
+	}
+	releaser, err := mutex.Acquire(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	defer releaser.Release()
+
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -346,8 +344,6 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = os.RemoveAll(s.initLockDir)
-	c.Assert(err, jc.ErrorIsNil)
 	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
 	runner.Kill()
 	err = runner.Wait()
@@ -355,29 +351,11 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	_, err = handler.SetUp()
 	c.Assert(err, jc.ErrorIsNil)
-	err = handler.Handle(nil, []string{"0/lxd/0"})
+	abort := make(chan struct{})
+	close(abort)
+	err = handler.Handle(abort, []string{"0/lxd/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
-}
-
-func AssertFileContains(c *gc.C, filename string, expectedContent ...string) {
-	// TODO(dimitern): We should put this in juju/testing repo and
-	// replace all similar checks with it.
-	data, err := ioutil.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, s := range expectedContent {
-		c.Assert(string(data), jc.Contains, s)
-	}
-}
-
-func AssertFileContents(c *gc.C, checker gc.Checker, filename string, expectedContent ...string) {
-	// TODO(dimitern): We should put this in juju/testing repo and
-	// replace all similar checks with it.
-	data, err := ioutil.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, s := range expectedContent {
-		c.Assert(string(data), checker, s)
-	}
 }
 
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)

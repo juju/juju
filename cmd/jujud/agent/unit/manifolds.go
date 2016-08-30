@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
@@ -22,7 +24,6 @@ import (
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
@@ -51,6 +52,11 @@ type ManifoldsConfig struct {
 	// AgentConfigChanged is set whenever the unit agent's config
 	// is updated.
 	AgentConfigChanged *voyeur.Value
+
+	// ValidateMigration is called by the migrationminion during the
+	// migration process to check that the agent will be ok when
+	// connected to the new target controller.
+	ValidateMigration func(base.APICaller) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -80,13 +86,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
-
-		// The machine lock manifold is a thin concurrent wrapper around an
-		// FSLock in an agreed location. We expect it to be replaced with an
-		// in-memory lock when the unit agent moves into the machine agent.
-		machineLockName: machinelock.Manifold(machinelock.ManifoldConfig{
-			AgentName: agentName,
-		}),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -140,16 +139,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			FortressName:  migrationFortressName,
-			NewFacade:     migrationminion.NewFacade,
-			NewWorker:     migrationminion.NewWorker,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FortressName:      migrationFortressName,
+			APIOpen:           apicaller.APIOpen,
+			ValidateMigration: config.ValidateMigration,
+			NewFacade:         migrationminion.NewFacade,
+			NewWorker:         migrationminion.NewWorker,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -178,6 +179,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			WorkerFunc:    proxyupdater.NewWorker,
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is
@@ -210,10 +212,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:             agentName,
-			APICallerName:         apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			MachineLockName: coreagent.MachineLockName,
+			Clock:           clock.WallClock,
 			LeadershipTrackerName: leadershipTrackerName,
-			MachineLockName:       machineLockName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 		})),
@@ -236,7 +239,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		meterStatusName: ifNotMigrating(meterstatus.Manifold(meterstatus.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			MachineLockName:          machineLockName,
+			MachineLockName:          coreagent.MachineLockName,
+			Clock:                    clock.WallClock,
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
@@ -261,7 +265,6 @@ var ifNotMigrating = engine.Housing{
 
 const (
 	agentName            = "agent"
-	machineLockName      = "machine-lock"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	logSenderName        = "log-sender"

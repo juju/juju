@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -216,6 +216,13 @@ func (s *CatacombSuite) TestStoppedWorkerErrorDoesNotOverwriteNonNil(c *gc.C) {
 	})
 	c.Check(err, gc.Equals, expect)
 	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestPanicWorkerStillStops(c *gc.C) {
+	err := s.fix.run(c, func() {
+		panic("failed to startup")
+	})
+	c.Check(err, gc.ErrorMatches, "panic resulted in: failed to startup")
 }
 
 func (s *CatacombSuite) TestAddWhenDyingStopsWorker(c *gc.C) {

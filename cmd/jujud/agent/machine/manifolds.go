@@ -4,13 +4,19 @@
 package machine
 
 import (
+	"runtime"
+	"time"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -25,6 +31,8 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -47,6 +55,7 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
+
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -110,8 +119,13 @@ type ManifoldsConfig struct {
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
 
-	// Clock is used by the storageprovisioner worker.
+	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// ValidateMigration is called by the migrationminion during the
+	// migration process to check that the agent will be ok when
+	// connected to the new target controller.
+	ValidateMigration func(base.APICaller) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -138,6 +152,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		}
 		return err
+	}
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	return dependency.Manifolds{
@@ -272,16 +290,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			FortressName:  migrationFortressName,
-			NewFacade:     migrationminion.NewFacade,
-			NewWorker:     migrationminion.NewWorker,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FortressName:      migrationFortressName,
+			APIOpen:           apicaller.APIOpen,
+			ValidateMigration: config.ValidateMigration,
+			NewFacade:         migrationminion.NewFacade,
+			NewWorker:         migrationminion.NewWorker,
 		}),
 
 		// The serving-info-setter manifold sets grabs the state
@@ -305,8 +325,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
 		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			MachineLockName: coreagent.MachineLockName,
+			Clock:           config.Clock,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -329,8 +351,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			WorkerFunc:     proxyupdater.NewWorker,
+			ExternalUpdate: externalUpdateProxyFunc,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
@@ -389,6 +413,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Interval:      time.Minute,
+			NewFacade:     resumer.NewFacade,
+			NewWorker:     resumer.NewWorker,
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
@@ -414,6 +442,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			RootDir:       config.RootDir,
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
+		})),
+		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			StateName:     stateName,
+			APICallerName: apiCallerName,
+			Sinks: []logforwarder.LogSinkSpec{{
+				Name:   "juju-log-forward",
+				OpenFn: sinks.OpenSyslog,
+			}},
 		})),
 	}
 }
@@ -469,4 +505,5 @@ const (
 	toolsVersionCheckerName  = "tools-version-checker"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
+	logForwarderName         = "log-forwarder"
 )

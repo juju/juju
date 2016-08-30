@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/worker"
 )
@@ -112,7 +112,7 @@ func Invoke(plan Plan) (err error) {
 	go func() {
 		defer catacomb.tomb.Done()
 		defer catacomb.wg.Wait()
-		catacomb.Kill(plan.Work())
+		catacomb.Kill(runSafely(plan.Work))
 	}()
 	return nil
 }
@@ -246,4 +246,15 @@ type dyingError struct {
 // Error is part of the error interface.
 func (err dyingError) Error() string {
 	return fmt.Sprintf("catacomb %p is dying", err.catacomb)
+}
+
+// runSafely will ensure that the function is run, and any error is returned.
+// If there is a panic, then that will be returned as an error.
+func runSafely(f func() error) (err error) {
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			err = errors.Errorf("panic resulted in: %v", panicResult)
+		}
+	}()
+	return f()
 }

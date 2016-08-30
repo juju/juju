@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -98,7 +98,7 @@ func (t *helpToolCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "help-tool",
 		Args:    "[tool]",
-		Purpose: "show help on a juju charm tool",
+		Purpose: "Show help on a Juju charm tool.",
 	}
 }
 

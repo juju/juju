@@ -6,18 +6,21 @@ package status
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
+	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/status"
 )
 
-// FormatSummary returns a summary of the current environment
+// FormatSummary writes a summary of the current environment
 // including the following information:
 // - Headers:
 //   - All subnets the environment occupies.
@@ -27,24 +30,24 @@ import (
 //   - Units: Displays total #, and then # in each state.
 //   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
-func FormatSummary(value interface{}) ([]byte, error) {
+func FormatSummary(writer io.Writer, value interface{}) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	f := newSummaryFormatter()
+	f := newSummaryFormatter(writer)
 	stateToMachine := f.aggregateMachineStates(fs.Machines)
 	svcExposure := f.aggregateServiceAndUnitStates(fs.Applications)
 	p := f.delimitValuesWithTabs
 
 	// Print everything out
 	p("Running on subnets:", strings.Join(f.netStrings, ", "))
-	p("Utilizing ports:", f.portsInColumnsOf(3))
+	p(" Utilizing ports:", f.portsInColumnsOf(3))
 	f.tw.Flush()
 
 	// Right align summary information
-	f.tw.Init(&f.out, 0, 2, 1, ' ', tabwriter.AlignRight)
+	f.tw.Init(writer, 0, 1, 2, ' ', tabwriter.AlignRight)
 	p("# MACHINES:", fmt.Sprintf("(%d)", len(fs.Machines)))
 	f.printStateToCount(stateToMachine)
 	p(" ")
@@ -53,24 +56,24 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	f.printStateToCount(f.stateToUnit)
 	p(" ")
 
-	p("# APPLICATIONS:", fmt.Sprintf(" (%d)", len(fs.Applications)))
+	p("# APPLICATIONS:", fmt.Sprintf("(%d)", len(fs.Applications)))
 	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
 	f.tw.Flush()
 
-	return f.out.Bytes(), nil
+	return nil
 }
 
-func newSummaryFormatter() *summaryFormatter {
+func newSummaryFormatter(writer io.Writer) *summaryFormatter {
 	f := &summaryFormatter{
 		ipAddrs:     make([]net.IPNet, 0),
 		netStrings:  make([]string, 0),
 		openPorts:   set.NewStrings(),
 		stateToUnit: make(map[status.Status]int),
 	}
-	f.tw = tabwriter.NewWriter(&f.out, 0, 1, 1, ' ', 0)
+	f.tw = output.TabWriter(writer)
 	return f
 }
 
@@ -81,8 +84,7 @@ type summaryFormatter struct {
 	openPorts  set.Strings
 	// status -> count
 	stateToUnit map[status.Status]int
-	tw          *tabwriter.Writer
-	out         bytes.Buffer
+	tw          *ansiterm.TabWriter
 }
 
 func (f *summaryFormatter) delimitValuesWithTabs(values ...string) {

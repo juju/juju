@@ -113,9 +113,10 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 			c.Assert(err, gc.ErrorMatches, tc.expectError)
 		}
 		if len(tc.results) > 0 {
-			buf, err := cmd.DefaultFormatters["yaml"](action.ActionResultsToMap(tc.results))
+			out := &bytes.Buffer{}
+			err := cmd.FormatYaml(out, action.ActionResultsToMap(tc.results))
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, string(buf)+"\n")
+			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, out.String())
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		}
 	}

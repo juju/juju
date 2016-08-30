@@ -134,6 +134,11 @@ func allCollections() collectionSchema {
 			global: true,
 		},
 
+		// This collection holds users that are relative to controllers.
+		controllerUsersC: {
+			global: true,
+		},
+
 		// This collection holds the last time the user connected to the API server.
 		userLastLoginC: {
 			global:    true,
@@ -146,13 +151,20 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds cloud definitions.
+		cloudsC: {global: true},
+
 		// This collection holds users' cloud credentials.
 		cloudCredentialsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner"},
+				Key: []string{"owner", "cloud"},
 			}},
 		},
+
+		// This collection holds settings from various sources which
+		// are inherited and then forked by new models.
+		globalSettingsC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -176,10 +188,16 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
+		// This collection holds users related to a model and will be usde as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
+
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
-		// given collection.
-		modelUsersC: {},
+		// given operation.
+		permissionsC: {
+			global: true,
+		},
 
 		// This collection holds the last time the model user connected
 		// to the model.
@@ -233,8 +251,8 @@ func allCollections() collectionSchema {
 		assignUnitC: {},
 
 		// meterStatusC is the collection used to store meter status information.
-		meterStatusC:  {},
-		settingsrefsC: {},
+		meterStatusC: {},
+		refcountsC:   {},
 		relationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
@@ -252,6 +270,10 @@ func allCollections() collectionSchema {
 		machinesC:      {},
 		rebootC:        {},
 		sshHostKeysC:   {},
+
+		// This collection contains information from removed machines
+		// that needs to be cleaned up in the provider.
+		machineRemovalsC: {},
 
 		// -----
 
@@ -344,13 +366,16 @@ func allCollections() collectionSchema {
 		storageConstraintsC: {},
 		statusesC:           {},
 		statusesHistoryC: {
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},
 		},
 
 		// This collection holds information about cloud image metadata.
-		cloudimagemetadataC: {},
+		cloudimagemetadataC: {
+			global: true,
+		},
 
 		// ----------------------
 
@@ -358,6 +383,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditingC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -371,23 +401,28 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
+	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
 	leasesC                  = "leases"
 	machinesC                = "machines"
+	machineRemovalsC         = "machineremovals"
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
@@ -402,6 +437,7 @@ const (
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
 	payloadsC                = "payloads"
+	permissionsC             = "permissions"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
@@ -411,7 +447,7 @@ const (
 	applicationsC            = "applications"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
-	settingsrefsC            = "settingsrefs"
+	refcountsC               = "refcounts"
 	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"
@@ -433,6 +469,5 @@ const (
 	usersC                   = "users"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
-	// "payloads" (see payload/persistence/mongo.go)
 	// "resources" (see resource/persistence/mongo.go)
 )

@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewListCommand returns a cammin used to list all subnets
@@ -51,7 +52,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
-		Purpose: "list subnets known to Juju",
+		Purpose: "List subnets known to Juju.",
 		Doc:     strings.TrimSpace(listCommandDoc),
 		Aliases: []string{"list-subnets"},
 	}
@@ -60,13 +61,10 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
-	c.Out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	c.Out.AddFlags(f, "yaml", output.DefaultFormatters)
 
-	f.StringVar(&c.SpaceName, "space", "", "filter results by space name")
-	f.StringVar(&c.ZoneName, "zone", "", "filter results by zone name")
+	f.StringVar(&c.SpaceName, "space", "", "Filter results by space name")
+	f.StringVar(&c.ZoneName, "zone", "", "Filter results by zone name")
 }
 
 // Init is defined on the cmd.Command interface. It checks the

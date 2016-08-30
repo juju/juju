@@ -4,8 +4,6 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -29,14 +27,15 @@ type addRelationCommand struct {
 func (c *addRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-relation",
+		Aliases: []string{"relate"},
 		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>]",
-		Purpose: "add a relation between two applications",
+		Purpose: "Add a relation between two applications.",
 	}
 }
 
 func (c *addRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("a relation must involve two applications")
+		return errors.Errorf("a relation must involve two applications")
 	}
 	c.Endpoints = args
 	return nil

@@ -23,58 +23,36 @@ var _ = gc.Suite(&ModelsFileSuite{})
 const testModelsYAML = `
 controllers:
   ctrl:
-    accounts:
-      admin@local:
-        models:
-          admin:
-            uuid: ghi
-      bob@local:
-        models:
-          admin:
-            uuid: jkl
+    models:
+      admin@local/admin:
+        uuid: ghi
   kontroll:
-    accounts:
-      admin@local:
-        models:
-          admin:
-            uuid: abc
-          my-model:
-            uuid: def
-        current-model: my-model
+    models:
+      admin@local/admin:
+        uuid: abc
+      admin@local/my-model:
+        uuid: def
+    current-model: admin@local/my-model
 `
 
-var testControllerModels = map[string]jujuclient.ControllerAccountModels{
+var testControllerModels = map[string]*jujuclient.ControllerModels{
 	"kontroll": {
-		map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"admin":    kontrollAdminModelDetails,
-					"my-model": kontrollMyModelModelDetails,
-				},
-				CurrentModel: "my-model",
-			},
+		Models: map[string]jujuclient.ModelDetails{
+			"admin@local/admin":    kontrollAdminModelDetails,
+			"admin@local/my-model": kontrollMyModelModelDetails,
 		},
+		CurrentModel: "admin@local/my-model",
 	},
 	"ctrl": {
-		map[string]*jujuclient.AccountModels{
-			"admin@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"admin": ctrlAdminAdminModelDetails,
-				},
-			},
-			"bob@local": {
-				Models: map[string]jujuclient.ModelDetails{
-					"admin": ctrlBobAdminModelDetails,
-				},
-			},
+		Models: map[string]jujuclient.ModelDetails{
+			"admin@local/admin": ctrlAdminModelDetails,
 		},
 	},
 }
 
 var kontrollAdminModelDetails = jujuclient.ModelDetails{"abc"}
 var kontrollMyModelModelDetails = jujuclient.ModelDetails{"def"}
-var ctrlAdminAdminModelDetails = jujuclient.ModelDetails{"ghi"}
-var ctrlBobAdminModelDetails = jujuclient.ModelDetails{"jkl"}
+var ctrlAdminModelDetails = jujuclient.ModelDetails{"ghi"}
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestModelsFile(c)

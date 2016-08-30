@@ -132,7 +132,7 @@ func unmarshalHTTPErrorResponse(resp *http.Response) error {
 	// and determine the expected error type from that, but that
 	// seems more fragile than this approach.
 	type genericErrorResponse struct {
-		Error json.RawMessage
+		Error json.RawMessage `json:"error"`
 	}
 	var generic genericErrorResponse
 	if err := json.Unmarshal(body, &generic); err != nil {

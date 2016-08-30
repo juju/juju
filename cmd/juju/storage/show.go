@@ -6,11 +6,12 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewShowCommand returns a command that shows storage details
@@ -28,15 +29,6 @@ Show extended information about storage instances.
 Storage instances to display are specified by storage ids.
 
 * note use of positional arguments
-
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= yaml)
-   specify output format (json|yaml)
-[space separated storage ids]
 `
 
 // showCommand attempts to release storage instance.
@@ -60,7 +52,8 @@ func (c *showCommand) Init(args []string) (err error) {
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-storage",
-		Purpose: "shows storage instance",
+		Args:    "<storage ID> [...]",
+		Purpose: "Shows storage instance information.",
 		Doc:     showCommandDoc,
 	}
 }
@@ -68,7 +61,7 @@ func (c *showCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Run implements Command.Run.

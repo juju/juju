@@ -16,16 +16,13 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/utils/set"
 )
 
@@ -40,10 +37,13 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the controller's certificate, in PEM format.
+	// If this is empty, the standard system root certificates
+	// will be used.
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
-	// trying to connect to.
+	// trying to connect to. If this is empty, a controller-only
+	// login will be made.
 	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
@@ -54,9 +54,8 @@ type Info struct {
 	SkipLogin bool `yaml:"-"`
 
 	// Tag holds the name of the entity that is connecting.
-	// If this is nil, and the password is empty, no login attempt will be made.
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
+	// If this is nil, and the password is empty, macaroon authentication
+	// will be used to log in unless SkipLogin is true.
 	Tag names.Tag
 
 	// Password holds the password for the administrator or connecting entity.
@@ -91,10 +90,7 @@ func (info *Info) Validate() error {
 		return errors.NotValidf("missing addresses")
 	}
 	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
-		return errors.NotValidf("host addresses")
-	}
-	if info.CACert == "" {
-		return errors.NotValidf("missing CA certificate")
+		return errors.NotValidf("host addresses: %v", err)
 	}
 	if info.SkipLogin {
 		if info.Tag != nil {
@@ -153,7 +149,7 @@ func DefaultDialOpts() DialOpts {
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 
 // Connection exists purely to make api-opening funcs mockable. It's just a
-// dumb copy of all the methods on api.Connection; we can and should be extracting
+// dumb copy of all the methods on api.state; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
 
 // Connection represents a connection to a Juju API server.
@@ -178,7 +174,7 @@ type Connection interface {
 	// (as opposed to the model tag of the currently connected
 	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.ModelTag, error)
+	ControllerTag() names.ModelTag
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
@@ -189,10 +185,6 @@ type Connection interface {
 	// either expose Ping() or Broken() but not both.
 	Ping() error
 
-	// RPCClient is apparently exported for testing purposes only, but this
-	// seems to indicate *some* sort of layering confusion.
-	RPCClient() *rpc.Conn
-
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.
 	AllFacadeVersions() map[string][]int
@@ -201,15 +193,17 @@ type Connection interface {
 	// connection.
 	AuthTag() names.Tag
 
+	// ReadOnly returns whether the authorized user is connected to the model
+	// in read-only mode.
+	ReadOnly() bool
+
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.
 	// Client in particular is intimately coupled with State -- and the others
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	Firewaller() *firewaller.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	DiscoverSpaces() *discoverspaces.API

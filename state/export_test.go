@@ -21,40 +21,43 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
 const (
-	InstanceDataC     = instanceDataC
 	MachinesC         = machinesC
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
-	SettingsC         = settingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
+	SettingsC         = settingsC
 )
 
 var (
-	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	ControllerAvailable           = &controllerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	NowToTheSecond                = nowToTheSecond
-	AddVolumeOps                  = (*State).addVolumeOps
-	CombineMeterStatus            = combineMeterStatus
-	ApplicationGlobalKey          = applicationGlobalKey
-	ReadSettings                  = readSettings
-	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
-	MergeBindings                 = mergeBindings
-	UpgradeInProgressError        = errUpgradeInProgress
+	BinarystorageNew                     = &binarystorageNew
+	ImageStorageNewStorage               = &imageStorageNewStorage
+	MachineIdLessThan                    = machineIdLessThan
+	ControllerAvailable                  = &controllerAvailable
+	GetOrCreatePorts                     = getOrCreatePorts
+	GetPorts                             = getPorts
+	NowToTheSecond                       = nowToTheSecond
+	AddVolumeOps                         = (*State).addVolumeOps
+	CombineMeterStatus                   = combineMeterStatus
+	ApplicationGlobalKey                 = applicationGlobalKey
+	ReadSettings                         = readSettings
+	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	ModelGlobalKey                       = modelGlobalKey
+	MergeBindings                        = mergeBindings
+	UpgradeInProgressError               = errUpgradeInProgress
 )
 
 type (
@@ -102,16 +105,12 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, applicationname string, curl *charm.URL) (int, error) {
-	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(applicationname, curl)
-	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
-		return doc.RefCount, nil
-	}
-	return 0, mgo.ErrNotFound
+	key := applicationSettingsKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -432,12 +431,13 @@ func MakeLogDoc(
 ) *logDoc {
 	return &logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      t.UnixNano(),
 		ModelUUID: modelUUID,
 		Entity:    entity.String(),
+		Version:   version.Current.String(),
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     int(level),
 		Message:   msg,
 	}
 }
@@ -456,8 +456,8 @@ func IsManagerMachineError(err error) bool {
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
 
-func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
-	return e.updateLastConnection(when)
+func UpdateModelUserLastConnection(st *State, e description.UserAccess, when time.Time) error {
+	return st.updateLastModelConnection(e.UserTag, when)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
@@ -489,6 +489,23 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 	return client.Leases(), nil
 }
 
-func DeleteCharm(st *State, curl *charm.URL) error {
-	return st.deleteCharm(curl)
+func StorageAttachmentCount(instance StorageInstance) int {
+	internal, ok := instance.(*storageInstance)
+	if !ok {
+		return -1
+	}
+	return internal.doc.AttachmentCount
+}
+
+func ResetMigrationMode(c *gc.C, st *State) {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.M{
+			"$set": bson.M{"migration-mode": MigrationModeNone},
+		},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 }

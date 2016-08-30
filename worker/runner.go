@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 )
 
 // RestartDelay holds the length of time that a worker

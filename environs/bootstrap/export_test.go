@@ -4,10 +4,10 @@
 package bootstrap
 
 var (
-	ValidateUploadAllowed = validateUploadAllowed
-	SetBootstrapTools     = setBootstrapTools
-	FindTools             = &findTools
-	FindBootstrapTools    = findBootstrapTools
-	FindAvailableTools    = findAvailableTools
-	GUIFetchMetadata      = &guiFetchMetadata
+	ValidateUploadAllowed    = validateUploadAllowed
+	GetBootstrapToolsVersion = getBootstrapToolsVersion
+	FindTools                = &findTools
+	FindBootstrapTools       = findBootstrapTools
+	FindPackagedTools        = findPackagedTools
+	GUIFetchMetadata         = &guiFetchMetadata
 )

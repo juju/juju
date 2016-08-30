@@ -12,8 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -40,17 +43,17 @@ func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "controller")
+	context := s.run(c, "grant", username, "read", "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
-	lastConn, err := modelUser.LastConnection()
+	c.Assert(modelUser.UserName, gc.Equals, user.Canonical())
+	c.Assert(modelUser.CreatedBy.Canonical(), gc.Equals, s.AdminUserTag(c).Canonical())
+	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -59,7 +62,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share a model with a user
 	username := "bar@ubuntuone"
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
-		User: username, Access: state.ModelReadAccess})
+		User: username, Access: description.ReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -67,23 +70,23 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context := s.run(c, "revoke", username, "controller")
+	context := s.run(c, "revoke", username, "read", "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.IsNil)
+	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
 }
 
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "controller")
+	context := s.run(c, "grant", username, "read", "controller")
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.NotNil)
 
@@ -96,7 +99,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME                 ACCESS  LAST CONNECTION\n"+
-		"admin@local (admin)  write   just now\n"+
+		"admin@local (admin)  admin   just now\n"+
 		"bar@ubuntuone        read    never connected\n"+
 		"\n")
 
@@ -131,6 +134,39 @@ func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
 	output := testing.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
 	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
+}
+
+func (s *cmdModelSuite) TestDumpModel(c *gc.C) {
+	s.SetFeatureFlags(feature.DeveloperMode)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageModel},
+	})
+	ctx := s.run(c, "dump-model")
+	output := testing.Stdout(ctx)
+	// The output is yaml formatted output that is a model description.
+	model, err := description.Deserialize([]byte(output))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Config()["name"], gc.Equals, "controller")
+}
+
+func (s *cmdModelSuite) TestDumpModelDB(c *gc.C) {
+	s.SetFeatureFlags(feature.DeveloperMode)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageModel},
+	})
+	ctx := s.run(c, "dump-db")
+	output := testing.Stdout(ctx)
+	// The output is map of collection names to documents.
+	// Defaults to yaml output.
+	var valueMap map[string]interface{}
+	err := yaml.Unmarshal([]byte(output), &valueMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%#v", valueMap)
+	model := valueMap["models"]
+	// yaml unmarshals maps with interface keys.
+	modelMap, ok := model.(map[interface{}]interface{})
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(modelMap["name"], gc.Equals, "controller")
 }
 
 func (s *cmdModelSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {

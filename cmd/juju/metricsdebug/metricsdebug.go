@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/metricsdebug"
 	"github.com/juju/juju/apiserver/params"
@@ -21,8 +21,7 @@ import (
 )
 
 const debugMetricsDoc = `
-debug-metrics
-display recently collected metrics and exit
+Display recently collected metrics and exit
 `
 
 // DebugMetricsCommand retrieves metrics stored in the juju controller.
@@ -43,7 +42,7 @@ func (c *DebugMetricsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-metrics",
 		Args:    "[application or unit]",
-		Purpose: "retrieve metrics collected by the given unit/application",
+		Purpose: "Retrieve metrics collected by the given unit/application.",
 		Doc:     debugMetricsDoc,
 	}
 }
@@ -69,8 +68,8 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *DebugMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.Count, "n", 0, "number of metrics to retrieve")
-	f.BoolVar(&c.Json, "json", false, "output metrics as json")
+	f.IntVar(&c.Count, "n", 0, "Number of metrics to retrieve")
+	f.BoolVar(&c.Json, "json", false, "Output metrics as json")
 }
 
 type GetMetricsClient interface {

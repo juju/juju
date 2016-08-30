@@ -13,7 +13,7 @@ import (
 
 const (
 	// remoteLocalName is a specific remote name in the default LXD config.
-	// See https://github.com/lxc/lxd/blob/master/config.go:defaultRemote.
+	// See https://github.com/lxc/lxd/blob/master/config.go:DefaultRemotes.
 	remoteLocalName  = "local"
 	remoteIDForLocal = remoteLocalName
 )
@@ -128,8 +128,6 @@ func (r Remote) withLocalDefaults() Remote {
 		r.Protocol = LXDProtocol
 	}
 
-	// TODO(ericsnow) Set r.Cert to nil?
-
 	return r
 }
 
@@ -174,41 +172,27 @@ func (r Remote) validateLocal() error {
 	return nil
 }
 
-// UsingTCP converts the remote into a non-local version. For
-// non-local remotes this is a no-op.
+// UsingTCP converts the remote into a non-local version. For non-local remotes
+// this is a no-op.
 //
-// For a "local" remote (see Local), the remote is changed to a one
-// with the host set to the IP address of the local lxcbr0 bridge
-// interface. The remote is also set up for remote access, setting
-// the cert if not already set.
-func (r Remote) UsingTCP() (Remote, error) {
+// For a "local" remote (see Local), the remote is changed to a one with the
+// host set to the first IPv4 address assigned to the given bridgeName. The
+// remote's certificate will be unchanged; to set a certificate, the
+// Remote.WithDefaults method may be called.
+func (r Remote) UsingTCP(bridgeName string) (Remote, error) {
 	// Note that r is a value receiver, so it is an implicit copy.
 
 	if !r.isLocal() {
 		return r, nil
 	}
 
-	// TODO: jam 2016-02-25 This should be updated for systems that are
-	// 	 space aware, as we may not be just using the default LXC
-	// 	 bridge.
-	addr, err := utils.GetAddressForInterface(DefaultLXDBridge)
+	address, err := utils.GetAddressForInterface(bridgeName)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	r.Host = addr
-
-	r, err = r.WithDefaults()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
+	r.Host = address
 
 	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
 
 	return r, nil
 }
-
-// TODO(ericsnow) Add a "Connect(Config)" method that connects
-// to the remote and returns the corresponding Client.
-
-// TODO(ericsnow) Add a "Register" method to Client that adds the remote
-// to the client's remote?

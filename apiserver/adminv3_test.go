@@ -22,15 +22,15 @@ type loginV3Suite struct {
 var _ = gc.Suite(&loginV3Suite{
 	loginSuite{
 		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 3)
+			setAdminAPI: func(srv *apiserver.Server) {
+				apiserver.SetAdminAPIVersions(srv, 3)
 			},
 		},
 	},
 })
 
 func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)
@@ -44,7 +44,7 @@ func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)
@@ -56,13 +56,13 @@ func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetModelConstraints()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `logged in to server, no model, "Client" not supported`,
+		Message: `facade "Client" not supported for controller API connection`,
 		Code:    "not supported",
 	})
 }
 
 func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	password := "shhh..."
@@ -87,7 +87,7 @@ func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
-	_, cleanup := s.setupServerWithValidator(c, nil)
+	_, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	info := s.APIInfo(c)

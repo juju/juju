@@ -9,27 +9,24 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 const (
-	providerType                             = "azure"
-	storageProviderType storage.ProviderType = "azure"
+	providerType = "azure"
 )
 
-// NewProviders instantiates and returns Azure providers using the given
-// configuration.
-func NewProviders(config ProviderConfig) (environs.EnvironProvider, storage.Provider, error) {
+// NewProvider instantiates and returns the Azure EnvironProvider using the
+// given configuration.
+func NewProvider(config ProviderConfig) (environs.EnvironProvider, error) {
 	environProvider, err := NewEnvironProvider(config)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return environProvider, &azureStorageProvider{environProvider}, nil
+	return environProvider, nil
 }
 
 func init() {
-	environProvider, storageProvider, err := NewProviders(ProviderConfig{
+	environProvider, err := NewProvider(ProviderConfig{
 		NewStorageClient:            azurestorage.NewClient,
 		StorageAccountNameGenerator: RandomStorageAccountName,
 		RetryClock:                  &clock.WallClock,
@@ -39,8 +36,6 @@ func init() {
 	}
 
 	environs.RegisterProvider(providerType, environProvider)
-	registry.RegisterProvider(storageProviderType, storageProvider)
-	registry.RegisterEnvironStorageProviders(providerType, storageProviderType)
 
 	// TODO(axw) register an image metadata data source that queries
 	// the Azure image registry, and introduce a way to disable the

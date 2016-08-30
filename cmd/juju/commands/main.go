@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
@@ -61,7 +61,7 @@ juju provides easy, intelligent application orchestration on top of cloud
 infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
 Azure, or your local machine.
 
-https://juju.ubuntu.com/
+https://jujucharms.com/
 `
 
 const juju1xCmdName = "juju-1"
@@ -130,11 +130,19 @@ func (m main) Run(args []string) int {
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	m.maybeWarnJuju1x()
+	newInstall := m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		return 2
+	}
+
+	if newInstall {
+		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+		updateCmd := cloud.NewUpdateCloudsCommand()
+		if err := updateCmd.Run(ctx); err != nil {
+			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		}
 	}
 
 	for i := range x {
@@ -149,19 +157,22 @@ func (m main) Run(args []string) int {
 	return cmd.Main(jcmd, ctx, args[1:])
 }
 
-func (m main) maybeWarnJuju1x() {
+func (m main) maybeWarnJuju1x() (newInstall bool) {
+	newInstall = !juju2xConfigDataExists()
 	if !shouldWarnJuju1x() {
-		return
+		return newInstall
 	}
 	ver, exists := m.juju1xVersion()
 	if !exists {
-		return
+		return newInstall
 	}
 	fmt.Fprintf(os.Stderr, `
     Welcome to Juju %s. If you meant to use Juju %s you can continue using it
     with the command %s e.g. '%s switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
+
 `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+	return newInstall
 }
 
 func (m main) juju1xVersion() (ver string, exists bool) {
@@ -248,9 +259,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeJujuCommand(nil))
 	r.Register(application.NewUpgradeCharmCommand())
 
-	// Charm publishing commands.
-	r.Register(newPublishCommand())
-
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
 	r.Register(charmcmd.NewSuperCommand())
@@ -279,6 +287,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewDisableCommand())
 	r.Register(user.NewLoginCommand())
 	r.Register(user.NewLogoutCommand())
+	r.Register(user.NewRemoveCommand())
+	r.Register(user.NewWhoAmICommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewRemoveCommand())
@@ -292,6 +302,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage model
 	r.Register(model.NewGetCommand())
+	r.Register(model.NewModelDefaultsCommand())
+	r.Register(model.NewSetModelDefaultsCommand())
+	r.Register(model.NewUnsetModelDefaultsCommand())
 	r.Register(model.NewSetCommand())
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
@@ -303,6 +316,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	if featureflag.Enabled(feature.Migration) {
 		r.Register(newMigrateCommand())
+	}
+	if featureflag.Enabled(feature.DeveloperMode) {
+		r.Register(model.NewDumpCommand())
+		r.Register(model.NewDumpDBCommand())
 	}
 
 	// Manage and control actions

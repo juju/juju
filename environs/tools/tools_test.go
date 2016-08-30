@@ -16,11 +16,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -45,7 +46,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
-	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
@@ -97,12 +98,14 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	jujuversion.Current = s.origCurrentVersion
 	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
-			ControllerName: attrs["name"].(string),
-			BaseConfig:     attrs,
-			CloudName:      "dummy",
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   attrs["name"].(string),
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +195,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.TRACE), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	logger := loggo.GetLogger("juju.environs")
 	defer logger.SetLogLevel(logger.LogLevel())
@@ -205,10 +208,10 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	messages := []jc.SimpleMessage{
-		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.TRACE, "no architecture specified when finding tools, looking for "},
-		{loggo.TRACE, "no series specified when finding tools, looking for \\[.*\\]"},
+		{loggo.INFO, "reading agent binaries with major version 1"},
+		{loggo.INFO, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
+		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)

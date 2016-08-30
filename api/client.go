@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -184,24 +185,14 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
-// CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision int
-	URL      string
-	Config   *charm.Config
-	Meta     *charm.Meta
-	Actions  *charm.Actions
-	Metrics  *charm.Metrics `json:"Metrics,omitempty"`
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmInfo{CharmURL: charmURL}
-	info := new(CharmInfo)
-	if err := c.facade.FacadeCall("CharmInfo", args, info); err != nil {
-		return nil, err
+// ModelUUID returns the model UUID from the client connection
+// and reports whether it is valud.
+func (c *Client) ModelUUID() (string, bool) {
+	tag, ok := c.st.ModelTag()
+	if !ok {
+		return "", false
 	}
-	return info, nil
+	return tag.Id(), true
 }
 
 // ModelInfo returns details about the Juju model.
@@ -209,15 +200,6 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	var info params.ModelInfo
 	err := c.facade.FacadeCall("ModelInfo", nil, &info)
 	return info, err
-}
-
-// ModelUUID returns the model UUID from the client connection.
-func (c *Client) ModelUUID() (string, error) {
-	tag, err := c.st.ModelTag()
-	if err != nil {
-		return "", errors.Annotate(err, "model tag not an model")
-	}
-	return tag.Id(), nil
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -238,16 +220,11 @@ func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	return info, nil
 }
 
-// WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.
-type WatchAll struct {
-	AllWatcherId string
-}
-
 // WatchAll returns an AllWatcher, from which you can request the Next
 // collection of Deltas.
 func (c *Client) WatchAll() (*AllWatcher, error) {
-	info := new(WatchAll)
-	if err := c.facade.FacadeCall("WatchAll", nil, info); err != nil {
+	var info params.AllWatcherId
+	if err := c.facade.FacadeCall("WatchAll", nil, &info); err != nil {
 		return nil, err
 	}
 	return NewAllWatcher(c.st, &info.AllWatcherId), nil
@@ -259,25 +236,6 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
-}
-
-// ModelGet returns all model settings.
-func (c *Client) ModelGet() (map[string]interface{}, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	return result.Config, err
-}
-
-// ModelSet sets the given key-value pairs in the model.
-func (c *Client) ModelSet(config map[string]interface{}) error {
-	args := params.ModelSet{Config: config}
-	return c.facade.FacadeCall("ModelSet", args, nil)
-}
-
-// ModelUnset sets the given key-value pairs in the model.
-func (c *Client) ModelUnset(keys ...string) error {
-	args := params.ModelUnset{Keys: keys}
-	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
 // SetModelAgentVersion sets the model agent-version setting
@@ -303,14 +261,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	}
 	err = c.facade.FacadeCall("FindTools", args, &result)
 	return result, err
-}
-
-// DestroyModel puts the model into a "dying" state,
-// and removes all non-manager machine instances. DestroyModel
-// will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyModel() error {
-	return c.facade.FacadeCall("DestroyModel", nil, nil)
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
@@ -450,7 +400,7 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Cha
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.URL{*ref}}
+	args := params.ResolveCharms{References: []string{ref.String()}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -462,7 +412,11 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 	if urlInfo.Error != "" {
 		return nil, errors.New(urlInfo.Error)
 	}
-	return urlInfo.URL, nil
+	url, err := charm.ParseURL(urlInfo.URL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return url, nil
 }
 
 // OpenCharm streams out the identified charm from the controller via
@@ -577,6 +531,8 @@ func (c websocketStream) WriteJSON(v interface{}) error {
 	return websocket.JSON.Send(c.Conn, v)
 }
 
+// TODO(ericsnow) Fold DebugLogParams into params.LogStreamConfig.
+
 // DebugLogParams holds parameters for WatchDebugLog that control the
 // filtering of the log messages. If the structure is zero initialized, the
 // entire log file is sent back starting from the end, and until the user
@@ -614,20 +570,7 @@ type DebugLogParams struct {
 	NoTail bool
 }
 
-// WatchDebugLog returns a ReadCloser that the caller can read the log
-// lines from. Only log lines that match the filtering specified in
-// the DebugLogParams are returned. It returns an error that satisfies
-// errors.IsNotImplemented when the API server does not support the
-// end-point.
-func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
-	// The websocket connection just hangs if the server doesn't have the log
-	// end point. So do a version check, as version was added at the same time
-	// as the remote end point.
-	_, err := c.AgentVersion()
-	if err != nil {
-		return nil, errors.NotSupportedf("WatchDebugLog")
-	}
-	// Prepare URL query attributes.
+func (args DebugLogParams) URLQuery() url.Values {
 	attrs := url.Values{
 		"includeEntity": args.IncludeEntity,
 		"includeModule": args.IncludeModule,
@@ -649,10 +592,50 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
 	}
+	return attrs
+}
+
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string
+	Timestamp time.Time
+	Severity  string
+	Module    string
+	Location  string
+	Message   string
+}
+
+// WatchDebugLog returns a channel of structured Log Messages. Only log entries
+// that match the filtering specified in the DebugLogParams are returned.
+func (c *Client) WatchDebugLog(args DebugLogParams) (<-chan LogMessage, error) {
+	// Prepare URL query attributes.
+	attrs := args.URLQuery()
 
 	connection, err := c.st.ConnectStream("/log", attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return connection, nil
+
+	messages := make(chan LogMessage)
+	go func() {
+		defer close(messages)
+
+		for {
+			var msg params.LogMessage
+			err := connection.ReadJSON(&msg)
+			if err != nil {
+				return
+			}
+			messages <- LogMessage{
+				Entity:    msg.Entity,
+				Timestamp: msg.Timestamp,
+				Severity:  msg.Severity,
+				Module:    msg.Module,
+				Location:  msg.Location,
+				Message:   msg.Message,
+			}
+		}
+	}()
+
+	return messages, nil
 }

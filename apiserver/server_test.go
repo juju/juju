@@ -7,11 +7,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
+	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,13 +26,15 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -80,12 +81,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = apimachiner.NewState(st).Machine(machine.MachineTag())
-	err = errors.Cause(err)
-	// The client has not necessarily seen the server shutdown yet,
-	// so there are two possible errors.
-	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
-		c.Fatalf("unexpected error from request: %#v, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
-	}
+	// The client has not necessarily seen the server shutdown yet, so there
+	// are multiple possible errors. All we should care about is that there is
+	// an error, not what the error actually is.
+	c.Assert(err, gc.NotNil)
 
 	// Check it can be stopped twice.
 	err = srv.Stop()
@@ -193,7 +192,11 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
 	mongoInfo.Addrs = []string{proxy.Addr()}
 
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), nil)
+	dialOpts := mongo.DialOpts{
+		Timeout:       5 * time.Second,
+		SocketTimeout: 5 * time.Second,
+	}
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, dialOpts, nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -288,18 +291,25 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
-	// we expose the API at '/' for compatibility, and at '/ModelUUID/api'
-	// for the correct location, but other Paths should fail.
+	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
+	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
-	// '/' should be fine
-	conn, err := dialWebsocket(c, addr, "/", 0)
+
+	// '/api' should be fine
+	conn, err := dialWebsocket(c, addr, "/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
+
+	// '/`' should be fine
+	conn, err = dialWebsocket(c, addr, "/", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	conn.Close()
+
 	// '/model/MODELUUID/api' should be fine
 	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -334,7 +344,7 @@ var _ = gc.Suite(&macaroonServerSuite{})
 
 func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
@@ -384,7 +394,7 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
@@ -428,18 +438,81 @@ func (r *fakeResource) Stop() error {
 	return nil
 }
 
-func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
-	s.checkApiHandlerTeardown(c, s.State, s.State)
+func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.ControllerTag) {
+	u, err := s.State.AddUser("foobar", "Foo Bar", "password", "read")
+	c.Assert(err, jc.ErrorIsNil)
+	user := u.UserTag()
+
+	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	cu, err := s.State.UserAccess(user, ctag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cu.Access, gc.Equals, description.LoginAccess)
+	return u, ctag
 }
 
-func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
+
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, false)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+}
+
+func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
+	user := u.UserTag()
+
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	ua, err := s.State.SetUserAccess(user, ctag, description.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ua.Access, gc.Equals, description.AddModelAccess)
+
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+}
+
+func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
+	u, ctag := s.bootstrapHasPermissionTest(c)
+	user := u.UserTag()
+
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	defer handler.Kill()
+
+	ua, err := s.State.SetUserAccess(user, ctag, description.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ua.Access, gc.Equals, description.SuperuserAccess)
+
+	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, true)
+}
+
+func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {
+	s.checkAPIHandlerTeardown(c, s.State, s.State)
+}
+
+func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	s.checkApiHandlerTeardown(c, s.State, otherState)
+	s.checkAPIHandlerTeardown(c, s.State, otherState)
 }
 
-func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
-	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
+func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
+}
+
+func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
+	handler, resources := apiserver.TestingAPIHandler(c, srvSt, st)
 	resource := new(fakeResource)
 	resources.Register(resource)
 
@@ -453,10 +526,11 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert:   []byte(coretesting.ServerCert),
-		Key:    []byte(coretesting.ServerKey),
-		Tag:    names.NewMachineTag("0"),
-		LogDir: c.MkDir(),
+		Cert:        []byte(coretesting.ServerCert),
+		Key:         []byte(coretesting.ServerKey),
+		Tag:         names.NewMachineTag("0"),
+		LogDir:      c.MkDir(),
+		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

@@ -16,15 +16,10 @@ import (
 )
 
 type removeSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&removeSuite{})
-
-func (s *removeSuite) SetUpTest(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-}
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()

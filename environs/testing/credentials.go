@@ -6,7 +6,6 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -32,8 +31,8 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 	schema, ok := p.CredentialSchemas()[authType]
 	c.Assert(ok, jc.IsTrue, gc.Commentf("missing schema for %q auth-type", authType))
 	validate := func(attrs map[string]string) error {
-		_, err := schema.Finalize(attrs, func(string) ([]byte, error) {
-			return nil, errors.NotSupportedf("reading files")
+		_, err := schema.Finalize(attrs, func(path string) ([]byte, error) {
+			return []byte("contentsOf(" + path + ")"), nil
 		})
 		return err
 	}

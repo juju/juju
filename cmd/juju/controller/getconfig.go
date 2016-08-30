@@ -4,15 +4,16 @@
 package controller
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/controller"
 )
 
 func NewGetConfigCommand() cmd.Command {
@@ -51,7 +52,7 @@ func (c *getConfigCommand) Info() *cmd.Info {
 }
 
 func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 func (c *getConfigCommand) Init(args []string) (err error) {
@@ -61,7 +62,7 @@ func (c *getConfigCommand) Init(args []string) (err error) {
 
 type controllerAPI interface {
 	Close() error
-	ControllerConfig() (map[string]interface{}, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 func (c *getConfigCommand) getAPI() (controllerAPI, error) {
@@ -91,7 +92,7 @@ func (c *getConfigCommand) Run(ctx *cmd.Context) error {
 		if value, found := attrs[c.key]; found {
 			return c.out.Write(ctx, value)
 		}
-		return fmt.Errorf("key %q not found in %q controller.", c.key, c.ControllerName())
+		return errors.Errorf("key %q not found in %q controller.", c.key, c.ControllerName())
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)

@@ -40,6 +40,7 @@ type baseStorageSuite struct {
 	filesystemAttachment *mockFilesystemAttachment
 	calls                []string
 
+	registry    jujustorage.StaticProviderRegistry
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
 
@@ -49,15 +50,16 @@ type baseStorageSuite struct {
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("admin"), EnvironManager: true}
 	s.calls = []string{}
 	s.state = s.constructState()
 
+	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 
 	var err error
-	s.api, err = storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPI(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

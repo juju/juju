@@ -7,7 +7,7 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // JujuRebootCommand implements the juju-reboot command.

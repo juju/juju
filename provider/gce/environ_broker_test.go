@@ -13,16 +13,12 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/testing"
 )
 
 type environBrokerSuite struct {
@@ -93,46 +89,8 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
-}
-
-func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
-	s.FakeEnviron.Spec = s.spec
-	s.FakeEnviron.Inst = s.BaseInstance
-	s.FakeEnviron.Hwc = s.hardware
-
-	// Get the API port from the fake environment config used to
-	// "bootstrap".
-	envConfig := testing.FakeConfig()
-	apiPort, ok := envConfig["api-port"].(int)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiPort, gc.Not(gc.Equals), 0)
-
-	// When StateServingInfo is not nil, verify OpenPorts was called
-	// for the API port.
-	s.StartInstArgs.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{
-		StateServingInfo: params.StateServingInfo{
-			APIPort: apiPort,
-		},
-	}
-
-	result, err := s.Env.StartInstance(s.StartInstArgs)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
-
-	called, calls := s.FakeConn.WasCalled("OpenPorts")
-	c.Check(called, gc.Equals, true)
-	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	expectPorts := []network.PortRange{{
-		FromPort: apiPort,
-		ToPort:   apiPort,
-		Protocol: "tcp",
-	}}
-	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+	c.Check(result.Instance, jc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 }
 
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
@@ -148,14 +106,14 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	spec, err := gce.BuildInstanceSpec(s.Env, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec.InstanceType, gc.DeepEquals, s.InstanceType)
+	c.Check(spec.InstanceType, jc.DeepEquals, s.InstanceType)
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
 	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec, gc.DeepEquals, s.spec)
+	c.Check(spec, jc.DeepEquals, s.spec)
 }
 
 func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
@@ -168,14 +126,14 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	inst, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inst, gc.DeepEquals, s.BaseInstance)
+	c.Check(inst, jc.DeepEquals, s.BaseInstance)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Ubuntu)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, s.UbuntuMetadata)
+	c.Check(metadata, jc.DeepEquals, s.UbuntuMetadata)
 
 }
 
@@ -264,5 +222,5 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
-	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
+	c.Check(calls[0].IDs, jc.DeepEquals, []string{"spam"})
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/keyupdater"

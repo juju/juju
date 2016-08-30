@@ -19,10 +19,11 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -47,10 +48,12 @@ type Server struct {
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	adminApiFactories map[int]adminApiFactory
+	adminAPIFactories map[int]adminAPIFactory
 	modelUUID         string
 	authCtxt          *authContext
-	connections       int32 // count of active websocket connections
+	lastConnectionID  uint64
+	newObserver       observer.ObserverFactory
+	connCount         int64
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -68,8 +71,21 @@ type ServerConfig struct {
 	Validator   LoginValidator
 	CertChanged chan params.StateServingInfo
 
-	// This field only exists to support testing.
+	// NewObserver is a function which will return an observer. This
+	// is used per-connection to instantiate a new observer to be
+	// notified of key events during API requests.
+	NewObserver observer.ObserverFactory
+
+	// StatePool only exists to support testing.
 	StatePool *state.StatePool
+}
+
+func (c *ServerConfig) Validate() error {
+	if c.NewObserver == nil {
+		return errors.NotValidf("missing NewObserver")
+	}
+
+	return nil
 }
 
 // changeCertListener wraps a TLS net.Listener.
@@ -165,6 +181,10 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 //
 // The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Important note:
 	// Do not manipulate the state within NewServer as the API
 	// server needs to run before mongo upgrades have happened and
@@ -199,16 +219,17 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 
 	srv := &Server{
-		state:     s,
-		statePool: stPool,
-		lis:       newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
-		tag:       cfg.Tag,
-		dataDir:   cfg.DataDir,
-		logDir:    cfg.LogDir,
-		limiter:   utils.NewLimiter(loginRateLimit),
-		validator: cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			3: newAdminApiV3,
+		newObserver: cfg.NewObserver,
+		state:       s,
+		statePool:   stPool,
+		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
+		tag:         cfg.Tag,
+		dataDir:     cfg.DataDir,
+		logDir:      cfg.LogDir,
+		limiter:     utils.NewLimiter(loginRateLimit),
+		validator:   cfg.Validator,
+		adminAPIFactories: map[int]adminAPIFactory{
+			3: newAdminAPIV3,
 		},
 	}
 	srv.authCtxt, err = newAuthContext(s)
@@ -217,6 +238,10 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 	go srv.run()
 	return srv, nil
+}
+
+func (srv *Server) ConnectionCount() int64 {
+	return atomic.LoadInt64(&srv.connCount)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -239,87 +264,6 @@ func (srv *Server) Kill() {
 // Wait implements worker.Worker.Wait.
 func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
-}
-
-type requestNotifier struct {
-	id    int64
-	start time.Time
-
-	mu   sync.Mutex
-	tag_ string
-
-	// count is incremented by calls to join, and deincremented
-	// by calls to leave.
-	count *int32
-}
-
-var globalCounter int64
-
-func newRequestNotifier(count *int32) *requestNotifier {
-	return &requestNotifier{
-		id:   atomic.AddInt64(&globalCounter, 1),
-		tag_: "<unknown>",
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		start: time.Now(),
-		count: count,
-	}
-}
-
-func (n *requestNotifier) login(tag string) {
-	n.mu.Lock()
-	n.tag_ = tag
-	n.mu.Unlock()
-}
-
-func (n *requestNotifier) tag() (tag string) {
-	n.mu.Lock()
-	tag = n.tag_
-	n.mu.Unlock()
-	return
-}
-
-func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
-	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	}
-}
-
-func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
-	if req.Type == "Pinger" && req.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some responses.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
-	}
-}
-
-func (n *requestNotifier) join(req *http.Request) {
-	active := atomic.AddInt32(n.count, 1)
-	logger.Infof("[%X] API connection from %s, active connections: %d", n.id, req.RemoteAddr, active)
-}
-
-func (n *requestNotifier) leave() {
-	active := atomic.AddInt32(n.count, -1)
-	logger.Infof("[%X] %s API connection terminated after %v, active connections: %d", n.id, n.tag(), time.Since(n.start), active)
-}
-
-func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
-}
-
-func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
 func (srv *Server) run() {
@@ -387,11 +331,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		}
 	}
 
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.controllerModelOnly = true
+
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
 	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
 	add("/model/:modeluuid/logsink", logSinkHandler)
+	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 	add("/model/:modeluuid/charms",
 		&charmsHandler{
@@ -408,9 +358,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			ctxt: httpCtxt,
 		},
 	)
-	strictCtxt := httpCtxt
-	strictCtxt.strictValidation = true
-	strictCtxt.controllerModelOnly = true
 	add("/model/:modeluuid/backups",
 		&backupHandler{
 			ctxt: strictCtxt,
@@ -451,6 +398,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
 		},
 	)
+	add("/api", mainAPIHandler)
+	// Serve the API at / (only) for backward compatiblity. Note that the
+	// pat muxer special-cases / so that it does not serve all
+	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
 	return endpoints
@@ -521,31 +472,31 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 }
 
 func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
-	switch ep.Method {
-	case "GET":
-		mux.Get(ep.Pattern, ep.Handler)
-	case "POST":
-		mux.Post(ep.Pattern, ep.Handler)
-	case "HEAD":
-		mux.Head(ep.Pattern, ep.Handler)
-	case "PUT":
-		mux.Put(ep.Pattern, ep.Handler)
-	case "DEL":
-		mux.Del(ep.Pattern, ep.Handler)
-	case "OPTIONS":
-		mux.Options(ep.Pattern, ep.Handler)
+	mux.Add(ep.Method, ep.Pattern, ep.Handler)
+	if ep.Method == "GET" {
+		mux.Add("HEAD", ep.Pattern, ep.Handler)
 	}
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	reqNotifier := newRequestNotifier(&srv.connections)
-	reqNotifier.join(req)
-	defer reqNotifier.leave()
+	addCount := func(delta int64) {
+		atomic.AddInt64(&srv.connCount, delta)
+	}
+
+	addCount(1)
+	defer addCount(-1)
+
+	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
+
+	apiObserver := srv.newObserver()
+	apiObserver.Join(req, connectionID)
+	defer apiObserver.Leave()
+
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
-			if err := srv.serveConn(conn, reqNotifier, modelUUID); err != nil {
+			if err := srv.serveConn(conn, modelUUID, apiObserver); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -553,28 +504,20 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
-		codec.SetLogging(true)
-	}
-	var notifier rpc.RequestNotifier
-	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		// Incur request monitoring overhead only if we
-		// know we'll need it.
-		notifier = reqNotifier
-	}
-	conn := rpc.NewConn(codec, notifier)
 
-	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
+	conn := rpc.NewConn(codec, apiObserver)
+
+	h, err := srv.newAPIHandler(conn, modelUUID)
 	if err != nil {
-		conn.ServeFinder(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
-		adminApis := make(map[int]interface{})
-		for apiVersion, factory := range srv.adminApiFactories {
-			adminApis[apiVersion] = factory(srv, h, reqNotifier)
+		adminAPIs := make(map[int]interface{})
+		for apiVersion, factory := range srv.adminAPIFactories {
+			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
 	conn.Start()
 	select {
@@ -584,7 +527,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
@@ -599,7 +542,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, m
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newApiHandler(srv, st, conn, reqNotifier, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID)
 }
 
 func (srv *Server) mongoPinger() error {

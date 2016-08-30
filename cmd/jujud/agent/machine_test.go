@@ -28,6 +28,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -35,7 +36,9 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -51,11 +54,12 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/mongoupgrader"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -360,22 +364,6 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	c.Logf("test agent stopped successfully.")
 }
 
-func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
-		started.trigger()
-		return newDummyWorker()
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	started.assertTriggered(c, "resumer worker to start")
-}
-
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Binary{
@@ -429,7 +417,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ bool) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		started.trigger()
 		return newDummyWorker(), nil
@@ -1253,86 +1241,79 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
-	id := a.Tag().String()
-	checkNotMigrating := EngineMatchFunc(c, tracker, append(
-		alwaysMachineWorkers, notMigratingMachineWorkers...,
-	))
-	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
+	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
+	uuid := s.BackingState.ModelUUID()
+
 	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, aliveModelWorkers...,
-	))
 	instrumented := TrackModels(c, tracker, modelManifolds)
 	s.PatchValue(&modelManifolds, instrumented)
 
-	uuid := s.BackingState.ModelUUID()
-	timeout := time.After(coretesting.LongWait)
-
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, aliveModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, aliveModelWorkers...,
-	))
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	// The dummy provider blows up in the face of multi-model
+	// scenarios so patch in a minimal environs.Environ that's good
+	// enough to allow the model workers to run.
+	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+		return &minModelWorkersEnviron{}, nil
+	})
 
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(ReallyLongWait)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	tracker := NewEngineTracker()
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
+
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, aliveModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
-	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, append(
-		alwaysModelWorkers, migratingModelWorkers...,
-	))
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
-
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(ReallyLongWait)
+
+	tracker := NewEngineTracker()
+
+	// Replace the real migrationmaster worker with a fake one which
+	// does nothing. This is required to make this test be reliable as
+	// the environment required for the migrationmaster to operate
+	// correctly is too involved to set up from here.
+	//
+	// TODO(mjs) - an alternative might be to provide a fake Facade
+	// and api.Open to the real migrationmaster but this test is
+	// awfully far away from the low level details of the worker.
+	origModelManifolds := modelManifolds
+	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
+		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
+			return &nullWorker{}, nil
+		}
+		return origModelManifolds(config)
+	}
+	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
-	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+	_, err := st.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: targetControllerTag,
-			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			Addrs:         []string{"1.2.3.4:5555"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
@@ -1340,27 +1321,19 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, migratingModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
-	timeout := time.After(ReallyLongWait)
 
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+	timeout := time.After(ReallyLongWait)
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		model, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		watch := model.Watch()
@@ -1380,7 +1353,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 				}
 				c.Assert(err, jc.ErrorIsNil) // guaranteed fail
 			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
+				st.StartSync()
 			case <-timeout:
 				c.Fatalf("timed out waiting for workers")
 			}
@@ -1399,23 +1372,12 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
 	tracker := NewEngineTracker()
-	check := EngineMatchFunc(c, tracker, alwaysModelWorkers)
 	instrumented := TrackModels(c, tracker, modelManifolds)
 	s.PatchValue(&modelManifolds, instrumented)
 
-	timeout := time.After(coretesting.LongWait)
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
+	matcher := NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
@@ -1444,4 +1406,17 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+}
+
+type nullWorker struct {
+	tomb tomb.Tomb
+}
+
+func (w *nullWorker) Kill() {
+	w.tomb.Kill(nil)
+	w.tomb.Done()
+}
+
+func (w *nullWorker) Wait() error {
+	return w.tomb.Wait()
 }

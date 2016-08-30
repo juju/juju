@@ -6,7 +6,6 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,13 +14,14 @@ import (
 )
 
 type leaderGetSuite struct {
-	jujutesting.IsolationSuite
+	testing.BaseSuite
 	command cmd.Command
 }
 
 var _ = gc.Suite(&leaderGetSuite{})
 
 func (s *leaderGetSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.command, err = jujuc.NewLeaderGetCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
