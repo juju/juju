@@ -46,3 +46,16 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	}
 	return out, nil
 }
+
+// ControllerBackend implements PrecheckBackend.
+func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+	model, err := s.State.ControllerModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	st, err := s.State.ForModel(model.ModelTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return PrecheckShim(st), nil
+}

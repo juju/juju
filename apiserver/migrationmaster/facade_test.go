@@ -182,7 +182,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 func (s *Suite) TestPrechecks(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.Prechecks()
-	c.Assert(err, gc.ErrorMatches, "checking cleanups: boom")
+	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
 }
 
 func (s *Suite) TestExport(c *gc.C) {
@@ -435,6 +435,6 @@ type failingPrecheckBackend struct {
 	migration.PrecheckBackend
 }
 
-func (b *failingPrecheckBackend) NeedsCleanup() (bool, error) {
-	return false, errors.New("boom")
+func (b *failingPrecheckBackend) AgentVersion() (version.Number, error) {
+	return version.Number{}, errors.New("boom")
 }

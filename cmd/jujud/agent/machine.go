@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -998,6 +999,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		StatusHistoryPrunerInterval:       5 * time.Minute,
 		SpacesImportedGate:                a.discoverSpacesComplete,
 		NewEnvironFunc:                    newEnvirons,
+		NewMigrationMaster:                migrationmaster.NewWorker,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
