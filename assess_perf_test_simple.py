@@ -468,10 +468,10 @@ def _rrd_network_graph(start, end, rrd_path, output_file):
     '-n' \
     'DEFAULT:0:Bitstream Vera Sans' \
     '-v' \
-    'Memory' \
+    'Bytes' \
     '-r' \
     '-t' \
-    'Memory Usage' \
+    'Network Usage' \
     'DEF:rx_avg={rrd_path}/if_packets.rrd:rx:AVERAGE' \
     'DEF:tx_avg={rrd_path}/if_packets.rrd:tx:AVERAGE' \
     'CDEF:rx_nnl=rx_avg,UN,0,rx_avg,IF' \
@@ -549,9 +549,9 @@ def _rrd_memory_graph(start, end, rrd_path, output_file):
     "CDEF:free_stk=free_nnl" \
     "CDEF:used_stk=used_nnl" \
     "AREA:free_stk#ffffff" \
-    "LINE1:free_stk#ffffff:free" \
+    "LINE1:free_stk#ffffff: free" \
     "AREA:used_stk#ffebbf" \
-    "LINE1:used_stk#ffb000:used"
+    "LINE1:used_stk#ffb000: used"
     """.format(
         output_file=output_file,
         rrd_path=rrd_path,
