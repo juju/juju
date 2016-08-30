@@ -19,18 +19,15 @@ import (
 
 ## Source model
 
-- model is dying/dead
 - pending reboots
 - model is being imported as part of another migration
 
 ## Source controller
 
-- controller model is dying/dead
 - pending reboots
 
 ## Target controller
 
-- controller model is dying/dead
 - pending reboots
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
@@ -42,6 +39,7 @@ import (
 // for migration prechecks.
 type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
+	ModelLife() (state.Life, error)
 	NeedsCleanup() (bool, error)
 	IsUpgrading() (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
@@ -82,6 +80,10 @@ type PrecheckUnit interface {
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
 	// Check the model.
+	if err := checkModelLife(backend); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := checkMachines(backend); err != nil {
 		return errors.Trace(err)
 	}
@@ -126,6 +128,10 @@ func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error 
 }
 
 func checkController(backend PrecheckBackend) error {
+	if err := checkModelLife(backend); err != nil {
+		return errors.Trace(err)
+	}
+
 	if upgrading, err := backend.IsUpgrading(); err != nil {
 		return errors.Annotate(err, "checking for upgrades")
 	} else if upgrading {
@@ -134,6 +140,15 @@ func checkController(backend PrecheckBackend) error {
 
 	err := checkMachines(backend)
 	return errors.Trace(err)
+}
+
+func checkModelLife(backend PrecheckBackend) error {
+	if life, err := backend.ModelLife(); err != nil {
+		return errors.Annotate(err, "retrieving model life")
+	} else if life != state.Alive {
+		return errors.Errorf("model is %s", life)
+	}
+	return nil
 }
 
 func checkMachines(backend PrecheckBackend) error {

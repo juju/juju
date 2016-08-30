@@ -21,6 +21,15 @@ type precheckShim struct {
 	*state.State
 }
 
+// ModelLife implements PrecheckBackend.
+func (s *precheckShim) ModelLife() (state.Life, error) {
+	model, err := s.Model()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return model.Life(), nil
+}
+
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
 	cfg, err := s.ModelConfig()

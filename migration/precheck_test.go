@@ -36,6 +36,14 @@ func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (*SourcePrecheckSuite) TestDyingModel(c *gc.C) {
+	backend := &fakeBackend{
+		modelLife: state.Dying,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "model is dying")
+}
+
 func (*SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 	backend := &fakeBackend{
 		cleanupErr: errors.New("boom"),
@@ -174,6 +182,16 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
 }
 
+func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: &fakeBackend{
+			modelLife: state.Dying,
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: model is dying")
+}
+
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: &fakeBackend{
@@ -237,6 +255,14 @@ func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
 	err := migration.TargetPrecheck(backend, version.MustParse("1.2.4"))
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
+}
+
+func (*TargetPrecheckSuite) TestDying(c *gc.C) {
+	backend := &fakeBackend{
+		modelLife: state.Dying,
+	}
+	err := migration.TargetPrecheck(backend, backendVersion)
+	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
@@ -359,10 +385,12 @@ func newBackendWithProvisioningMachine() *fakeBackend {
 }
 
 type fakeBackend struct {
+	agentVersionErr error
+
+	modelLife state.Life
+
 	cleanupNeeded bool
 	cleanupErr    error
-
-	agentVersionErr error
 
 	isUpgrading    bool
 	isUpgradingErr error
@@ -374,6 +402,10 @@ type fakeBackend struct {
 	allAppsErr error
 
 	controllerBackend *fakeBackend
+}
+
+func (b *fakeBackend) ModelLife() (state.Life, error) {
+	return b.modelLife, nil
 }
 
 func (b *fakeBackend) NeedsCleanup() (bool, error) {
