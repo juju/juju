@@ -45,6 +45,19 @@ func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
+func (s *MeterStateSuite) TestMeterStatusWithNoCredsAndTransmitVendorOff(c *gc.C) {
+	err := s.State.UpdateModelConfig(map[string]interface{}{
+		"transmit-vendor-metrics": false,
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.SetMeterStatus("RED", "Additional information.")
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := s.unit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Code, gc.Equals, state.MeterRed)
+	c.Assert(status.Info, gc.Equals, "transmit-vendor-metrics turned off")
+}
+
 func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
