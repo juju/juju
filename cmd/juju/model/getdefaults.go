@@ -170,12 +170,6 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 		if err != nil {
 			return errors.Annotatef(err, "formatting value for %q", name)
 		}
-		// valString := strings.TrimSuffix(out.String(), "\n")
-		// if info.Source == "default" {
-		// 	d = valString
-		// } else {
-		// 	c = valString
-		// }
 		p(name, info)
 	}
 

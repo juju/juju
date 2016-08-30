@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-// ModelConfig
+// ModelConfig related fake environment for testing.
 
 type fakeEnvSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -57,7 +57,7 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 	return result, nil
 }
 
-// ModelDefaults
+// ModelDefaults related fake environment for testing.
 
 type fakeModelDefaultEnvSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -97,14 +97,6 @@ func (f *fakeModelDefaultsAPI) Close() error {
 
 func (f *fakeModelDefaultsAPI) ModelGet() (map[string]interface{}, error) {
 	return f.values, nil
-}
-
-func (f *fakeModelDefaultsAPI) ModelGetWithMetadata() (config.ModelDefaultAttributes, error) {
-	result := make(config.ModelDefaultAttributes)
-	for name, val := range f.values {
-		result[name] = config.AttributeDefaultValues{Default: val}
-	}
-	return result, nil
 }
 
 func (f *fakeModelDefaultsAPI) ModelDefaults() (config.ModelDefaultAttributes, error) {
