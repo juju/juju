@@ -19,16 +19,10 @@ import (
 
 ## Source model
 
-- pending reboots
 - model is being imported as part of another migration
-
-## Source controller
-
-- pending reboots
 
 ## Target controller
 
-- pending reboots
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
@@ -55,6 +49,7 @@ type PrecheckMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	InstanceStatus() (status.StatusInfo, error)
+	ShouldRebootOrShutdown() (state.RebootAction, error)
 }
 
 // PrecheckApplication describes state interface for an application
@@ -176,6 +171,12 @@ func checkMachines(backend PrecheckBackend) error {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
 		} else if statusInfo.Status != status.StatusStarted {
 			return newStatusError("machine %s not started", machine.Id(), statusInfo.Status)
+		}
+
+		if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {
+			return errors.Annotatef(err, "retrieving machine %s reboot status", machine.Id())
+		} else if rebootAction != state.ShouldDoNothing {
+			return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		}
 
 		tools, err := machine.AgentTools()

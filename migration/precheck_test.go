@@ -84,6 +84,10 @@ func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
 	s.checkAgentVersionError(c, sourcePrecheck)
 }
 
+func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
+	s.checkRebootRequired(c, sourcePrecheck)
+}
+
 func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, sourcePrecheck)
 }
@@ -211,6 +215,14 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "controller: machine . tools don't match model.+")
 }
 
+func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: newBackendWithRebootingMachine(),
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is scheduled to reboot")
+}
+
 func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithDyingMachine(),
@@ -265,6 +277,10 @@ func (*TargetPrecheckSuite) TestDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
+func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
+	s.checkRebootRequired(c, targetPrecheck)
+}
+
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
 	s.checkAgentVersionError(c, targetPrecheck)
 }
@@ -313,6 +329,11 @@ type precheckBaseSuite struct {
 	testing.BaseSuite
 }
 
+func (*precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
+	err := runPrecheck(newBackendWithRebootingMachine())
+	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
+}
+
 func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRunner) {
 	backend := &fakeBackend{
 		agentVersionErr: errors.New("boom"),
@@ -353,6 +374,14 @@ func newBackendWithMismatchingTools() *fakeBackend {
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-xenial-amd64")},
+		},
+	}
+}
+
+func newBackendWithRebootingMachine() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0", rebootAction: state.ShouldReboot},
 		},
 	}
 }
@@ -442,6 +471,7 @@ type fakeMachine struct {
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
+	rebootAction   state.RebootAction
 }
 
 func (m *fakeMachine) Id() string {
@@ -480,6 +510,13 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	return &tools.Tools{
 		Version: v,
 	}, nil
+}
+
+func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
+	if m.rebootAction == "" {
+		return state.ShouldDoNothing, nil
+	}
+	return m.rebootAction, nil
 }
 
 type fakeApp struct {
