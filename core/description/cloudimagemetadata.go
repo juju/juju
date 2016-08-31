@@ -16,111 +16,111 @@ type cloudimagemetadatas struct {
 }
 
 type cloudimagemetadata struct {
-	Id_         string                 `yaml:"id"`
-	Receiver_   string                 `yaml:"receiver"`
-	Name_       string                 `yaml:"name"`
-	Parameters_ map[string]interface{} `yaml:"parameters"`
-	Enqueued_   time.Time              `yaml:"enqueued"`
-	// Can't use omitempty with time.Time, it just doesn't work
-	// (nothing is serialised), so use a pointer in the struct.
-	Started_   *time.Time             `yaml:"started,omitempty"`
-	Completed_ *time.Time             `yaml:"completed,omitempty"`
-	Status_    string                 `yaml:"status"`
-	Message_   string                 `yaml:"message"`
-	Results_   map[string]interface{} `yaml:"results"`
+	Stream_          string `yaml:"stream"`
+	Region_          string `yaml:"region"`
+	Version_         string `yaml:"version"`
+	Series_          string `yaml:"series"`
+	Arch_            string `yaml:"arch"`
+	VirtType_        string `yaml:"virttype"`
+	RootStorageType_ string `yaml:"rootstoragetype"`
+	RootStorageSize_ uint64 `yaml:"rootstoragesize"`
+	DateCreated_     int64  `yaml:"datecreated"`
+	Source_          string `yaml:"source"`
+	Priority_        int    `yaml:"priority"`
+	ImageId_         string `yaml:"imageid"`
 }
 
-// Id implements CloudImageMetadata.
-func (i *cloudimagemetadata) Id() string {
-	return i.Id_
+// Stream implements CloudImageMetadata.
+func (i *cloudimagemetadata) Stream() string {
+	return i.Stream_
 }
 
-// Receiver implements CloudImageMetadata.
-func (i *cloudimagemetadata) Receiver() string {
-	return i.Receiver_
+// Region implements CloudImageMetadata.
+func (i *cloudimagemetadata) Region() string {
+	return i.Region_
 }
 
-// Name implements CloudImageMetadata.
-func (i *cloudimagemetadata) Name() string {
-	return i.Name_
+// Version implements CloudImageMetadata.
+func (i *cloudimagemetadata) Version() string {
+	return i.Version_
 }
 
-// Parameters implements CloudImageMetadata.
-func (i *cloudimagemetadata) Parameters() map[string]interface{} {
-	return i.Parameters_
+// Series implements CloudImageMetadata.
+func (i *cloudimagemetadata) Series() string {
+	return i.Series_
 }
 
-// Enqueued implements CloudImageMetadata.
-func (i *cloudimagemetadata) Enqueued() time.Time {
-	return i.Enqueued_
+// Arch implements CloudImageMetadata.
+func (i *cloudimagemetadata) Arch() string {
+	return i.Arch_
 }
 
-// Started implements CloudImageMetadata.
-func (i *cloudimagemetadata) Started() time.Time {
-	var zero time.Time
-	if i.Started_ == nil {
-		return zero
-	}
-	return *i.Started_
+// VirtType implements CloudImageMetadata.
+func (i *cloudimagemetadata) VirtType() string {
+	return i.VirtType_
 }
 
-// Completed implements CloudImageMetadata.
-func (i *cloudimagemetadata) Completed() time.Time {
-	var zero time.Time
-	if i.Completed_ == nil {
-		return zero
-	}
-	return *i.Completed_
+// RootStorageType implements CloudImageMetadata.
+func (i *cloudimagemetadata) RootStorageType() string {
+	return i.RootStorageType_
 }
 
-// Status implements CloudImageMetadata.
-func (i *cloudimagemetadata) Status() string {
-	return i.Status_
+// RootStorageSize implements CloudImageMetadata.
+func (i *cloudimagemetadata) RootStorageSize() uint64 {
+	return i.RootStorageSize_
 }
 
-// Message implements CloudImageMetadata.
-func (i *cloudimagemetadata) Message() string {
-	return i.Message_
+// DateCreated implements CloudImageMetadata.
+func (i *cloudimagemetadata) DateCreated() int64 {
+	return i.DateCreated_
 }
 
-// Results implements CloudImageMetadata.
-func (i *cloudimagemetadata) Results() map[string]interface{} {
-	return i.Results_
+// Source implements CloudImageMetadata.
+func (i *cloudimagemetadata) Source() string {
+	return i.Source_
+}
+
+// Priority implements CloudImageMetadata.
+func (i *cloudimagemetadata) Priority() int {
+	return i.Priority_
+}
+
+//ImageId implements CloudImageMetadata.
+func (i *cloudimagemetadata) ImageId() string {
+	return i.ImageId_
 }
 
 // CloudImageMetadataArgs is an argument struct used to create a
 // new internal cloudimagemetadata type that supports the CloudImageMetadata interface.
 type CloudImageMetadataArgs struct {
-	Id         string
-	Receiver   string
-	Name       string
-	Parameters map[string]interface{}
-	Enqueued   time.Time
-	Started    time.Time
-	Completed  time.Time
-	Status     string
-	Message    string
-	Results    map[string]interface{}
+	Stream          string
+	Region          string
+	Version         string
+	Series          string
+	Arch            string
+	VirtType        string
+	RootStorageType string
+	RootStorageSize uint64
+	DateCreated     int64
+	Source          string
+	Priority        int
+	ImageId         string
 }
 
 func newCloudImageMetadata(args CloudImageMetadataArgs) *cloudimagemetadata {
 	cloudimagemetadata := &cloudimagemetadata{
-		Receiver_:   args.Receiver,
-		Name_:       args.Name,
-		Parameters_: args.Parameters,
-		Enqueued_:   args.Enqueued,
-		Status_:     args.Status,
-		Message_:    args.Message,
-		Id_:         args.Id,
-		Results_:    args.Results,
-	}
-	if !args.Started.IsZero() {
-		value := args.Started
-		cloudimagemetadata.Started_ = &value
-	}
-	if !args.Completed.IsZero() {
-		value := args.Completed
-		cloudimagemetadata.Completed_ = &value
+		Stream_:          args.Stream,
+		Region_:          args.Region,
+		Version_:         args.Version,
+		Series_:          args.Series,
+		Arch_:            args.Arch,
+		VirtType_:        args.VirtType,
+		RootStorageType_: args.RootStorageType,
+		RootStorageSize_: args.RootStorageSize,
+		DateCreated_:     args.DateCreated,
+		Source_:          args.Source,
+		Priority_:        args.Priority,
+		ImageId_:         args.ImageId,
 	}
 	return cloudimagemetadata
 }

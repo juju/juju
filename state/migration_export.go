@@ -870,19 +870,20 @@ func (e *exporter) cloudimagemetadata() error {
 		return errors.Trace(err)
 	}
 	e.logger.Debugf("read %d cloudimagemetadata", len(cloudimagemetadata))
-	for _, cloudimagemetadata := range cloudimagemetadata {
-		results, message := cloudimagemetadata.Results()
+	for _, metadata := range cloudimagemetadata {
 		e.model.AddCloudImageMetadata(description.CloudImageMetadataArgs{
-			Receiver:   cloudimagemetadata.Receiver(),
-			Name:       cloudimagemetadata.Name(),
-			Parameters: cloudimagemetadata.Parameters(),
-			Enqueued:   cloudimagemetadata.Enqueued(),
-			Started:    cloudimagemetadata.Started(),
-			Completed:  cloudimagemetadata.Completed(),
-			Status:     string(cloudimagemetadata.Status()),
-			Results:    results,
-			Message:    message,
-			Id:         cloudimagemetadata.Id(),
+			Stream:          metadata.Stream,
+			Region:          metadata.Region,
+			Version:         metadata.Version,
+			Series:          metadata.Series,
+			Arch:            metadata.Arch,
+			VirtType:        metadata.VirtType,
+			RootStorageType: metadata.RootStorageType,
+			RootStorageSize: metadata.RootStorageSize,
+			DateCreated:     metadata.DateCreated,
+			Source:          metadata.Source,
+			Priority:        metadata.Priority,
+			ImageId:         metadata.ImageId,
 		})
 	}
 	return nil
