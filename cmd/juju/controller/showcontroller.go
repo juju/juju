@@ -125,34 +125,45 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				return err
 			}
 			defer client.Close()
-			userAccess, err := client.GetControllerAccess(accountDetails.User)
-			if err == nil {
-				access = string(userAccess)
-			} else {
-				code := params.ErrCode(err)
-				if code != "" {
-					access = fmt.Sprintf("(%s)", code)
-				} else {
-					fmt.Fprintln(ctx.Stderr, err)
-					access = "(error)"
-				}
-			}
-			mc, err := client.ModelConfig()
-			if err != nil {
-				code := params.ErrCode(err)
-				if code != "" {
-					one.AgentVersion = fmt.Sprintf("(%s)", code)
-				} else {
-					fmt.Fprintln(ctx.Stderr, err)
-					one.AgentVersion = "(error)"
-				}
-				continue
-			}
-			one.AgentVersion = mc["agent-version"].(string)
+			access = c.userAccess(client, ctx, accountDetails.User)
+			one.AgentVersion = c.agentVersion(client, ctx)
 		}
 		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
 	}
 	return c.out.Write(ctx, controllers)
+}
+
+func (c *showControllerCommand) userAccess(client controllerAccessAPI, ctx *cmd.Context, user string) string {
+	var access string
+	userAccess, err := client.GetControllerAccess(user)
+	if err == nil {
+		access = string(userAccess)
+	} else {
+		code := params.ErrCode(err)
+		if code != "" {
+			access = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			access = "(error)"
+		}
+	}
+	return access
+}
+
+func (c *showControllerCommand) agentVersion(client controllerAccessAPI, ctx *cmd.Context) string {
+	var ver string
+	mc, err := client.ModelConfig()
+	if err != nil {
+		code := params.ErrCode(err)
+		if code != "" {
+			ver = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			ver = "(error)"
+		}
+		return ver
+	}
+	return mc["agent-version"].(string)
 }
 
 type ShowControllerDetails struct {
