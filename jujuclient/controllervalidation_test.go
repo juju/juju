@@ -24,6 +24,7 @@ func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 		"test.ca.cert",
 		"aws",
 		"southeastasia",
+		"",
 	}
 }
 

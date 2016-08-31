@@ -81,6 +81,7 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type controllerAccessAPI interface {
 	GetControllerAccess(user string) (description.Access, error)
+	ModelConfig() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -136,6 +137,18 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 					access = "(error)"
 				}
 			}
+			mc, err := client.ModelConfig()
+			if err != nil {
+				code := params.ErrCode(err)
+				if code != "" {
+					one.AgentVersion = fmt.Sprintf("(%s)", code)
+				} else {
+					fmt.Fprintln(ctx.Stderr, err)
+					one.AgentVersion = "(error)"
+				}
+				continue
+			}
+			one.AgentVersion = mc["agent-version"].(string)
 		}
 		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
 	}
@@ -175,6 +188,12 @@ type ControllerDetails struct {
 
 	// CloudRegion is the name of the cloud region that this controller runs in.
 	CloudRegion string `yaml:"region,omitempty" json:"region,omitempty"`
+
+	// AgentVersion is the version of the agent running on this controller.
+	// AgentVersion need not always exist so we omitempty here. This struct is
+	// used in both list-controllers and show-controllers. show-controllers
+	// displays the agent version where list-controllers does not.
+	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -203,6 +222,7 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			CACert:         details.CACert,
 			Cloud:          details.Cloud,
 			CloudRegion:    details.CloudRegion,
+			AgentVersion:   details.AgentVersion,
 		},
 	}
 	c.convertModelsForShow(controllerName, &controller)

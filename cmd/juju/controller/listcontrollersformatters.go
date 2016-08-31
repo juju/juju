@@ -48,6 +48,7 @@ func formatShowControllersTabular(writer io.Writer, value interface{}) error {
 			CACert:         details.Details.CACert,
 			User:           details.Account.User,
 			Access:         details.Account.Access,
+			AgentVersion:   details.Details.AgentVersion,
 		}
 	}
 	return formatControllersTabular(writer, controllerSet, true)
@@ -62,7 +63,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 	}
 
 	if withAccess {
-		print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION")
+		print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
 	} else {
 		print("CONTROLLER", "MODEL", "USER", "CLOUD/REGION")
 	}
@@ -98,7 +99,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 			cloudRegion += "/" + c.CloudRegion
 		}
 		if withAccess {
-			print(modelName, userName, access, cloudRegion)
+			print(modelName, userName, access, cloudRegion, c.AgentVersion)
 		} else {
 			print(modelName, userName, cloudRegion)
 		}
