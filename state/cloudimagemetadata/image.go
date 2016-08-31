@@ -157,6 +157,23 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	return old.metadata(), nil
 }
 
+// AllCloudImageMetadata returns all cloud image metadata in the model.
+func (s *storage) AllCloudImageMetadata() ([]Metadata, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	results := []Metadata{}
+	docs := []imagesMetadataDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all image metadata")
+	}
+	for _, doc := range docs {
+		results = append(results, doc.metadata())
+	}
+	return results, nil
+}
+
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {

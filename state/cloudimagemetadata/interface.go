@@ -71,6 +71,10 @@ type Storage interface {
 	// SupportedArchitectures returns collection of unique architectures
 	// that stored metadata contains.
 	SupportedArchitectures(criteria MetadataFilter) ([]string, error)
+
+	// AllCloudImageMetadata returns all the cloud image metadata in the
+	// model.
+	AllCloudImageMetadata() ([]Metadata, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.

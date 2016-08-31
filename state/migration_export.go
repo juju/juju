@@ -865,7 +865,7 @@ func (e *exporter) sshHostKeys() error {
 }
 
 func (e *exporter) cloudimagemetadata() error {
-	cloudimagemetadata, err := e.st.AllCloudImageMetadatas()
+	cloudimagemetadata, err := e.st.CloudImageMetadataStorage.AllCloudImageMetadata()
 	if err != nil {
 		return errors.Trace(err)
 	}
