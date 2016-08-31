@@ -14,6 +14,7 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	common.BlockGetter
+	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
