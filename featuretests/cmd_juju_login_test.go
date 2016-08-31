@@ -6,11 +6,13 @@ package featuretests
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
@@ -60,10 +62,14 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	s.changeUserPassword(c, "admin", "hunter2")
 	s.run(c, nil, "logout")
 
+	// TODO(axw) 2016-09-08 #1621375
+	// "juju logout" should clear the cookies for the controller.
+	os.Remove(filepath.Join(utils.Home(), ".go-cookies"))
+
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
-password: 
+please enter password for test@local on kontroll: 
 You are now logged in to "kontroll" as "test@local".
 `[1:])
 
@@ -72,7 +78,6 @@ You are now logged in to "kontroll" as "test@local".
 	accountDetails, err := store.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accountDetails.Password, gc.Equals, "")
-	c.Assert(accountDetails.Macaroon, gc.Not(gc.Equals), "")
 
 	// We should be able to login with the macaroon.
 	s.run(c, nil, "status")

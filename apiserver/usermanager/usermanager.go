@@ -6,8 +6,6 @@ package usermanager
 import (
 	"time"
 
-	"gopkg.in/macaroon.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -28,12 +26,11 @@ func init() {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state                    *state.State
-	authorizer               facade.Authorizer
-	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
-	check                    *common.BlockChecker
-	apiUser                  names.UserTag
-	isAdmin                  bool
+	state      *state.State
+	authorizer facade.Authorizer
+	check      *common.BlockChecker
+	apiUser    names.UserTag
+	isAdmin    bool
 }
 
 func NewUserManagerAPI(
@@ -55,22 +52,12 @@ func NewUserManagerAPI(
 		return nil, errors.Trace(err)
 	}
 
-	resource, ok := resources.Get("createLocalLoginMacaroon").(common.ValueResource)
-	if !ok {
-		return nil, errors.NotFoundf("userAuth resource")
-	}
-	createLocalLoginMacaroon, ok := resource.Value.(func(names.UserTag) (*macaroon.Macaroon, error))
-	if !ok {
-		return nil, errors.NotValidf("userAuth resource")
-	}
-
 	return &UserManagerAPI{
-		state:                    st,
-		authorizer:               authorizer,
-		createLocalLoginMacaroon: createLocalLoginMacaroon,
-		check:   common.NewBlockChecker(st),
-		apiUser: apiUser,
-		isAdmin: isAdmin,
+		state:      st,
+		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
+		apiUser:    apiUser,
+		isAdmin:    isAdmin,
 	}, nil
 }
 
@@ -408,37 +395,4 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 		return errors.Annotate(err, "failed to set password")
 	}
 	return nil
-}
-
-// CreateLocalLoginMacaroon creates a macaroon for the specified users to use
-// for future logins.
-func (api *UserManagerAPI) CreateLocalLoginMacaroon(args params.Entities) (params.MacaroonResults, error) {
-	results := params.MacaroonResults{
-		Results: make([]params.MacaroonResult, len(args.Entities)),
-	}
-	createLocalLoginMacaroon := func(arg params.Entity) (*macaroon.Macaroon, error) {
-		user, err := api.getUser(arg.Tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		isSuperUser, err := api.hasControllerAdminAccess()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if api.apiUser != user.UserTag() && !api.isAdmin && isSuperUser {
-			return nil, errors.Trace(common.ErrPerm)
-		}
-		return api.createLocalLoginMacaroon(user.UserTag())
-	}
-	for i, arg := range args.Entities {
-		m, err := createLocalLoginMacaroon(arg)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = m
-	}
-	return results, nil
 }

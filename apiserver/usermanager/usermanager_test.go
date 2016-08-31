@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -28,11 +27,10 @@ import (
 type userManagerSuite struct {
 	jujutesting.JujuConnSuite
 
-	usermanager              *usermanager.UserManagerAPI
-	authorizer               apiservertesting.FakeAuthorizer
-	adminName                string
-	resources                *common.Resources
-	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
+	usermanager *usermanager.UserManagerAPI
+	authorizer  apiservertesting.FakeAuthorizer
+	adminName   string
+	resources   *common.Resources
 
 	commontesting.BlockHelper
 }
@@ -42,16 +40,7 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.createLocalLoginMacaroon = func(tag names.UserTag) (*macaroon.Macaroon, error) {
-		return nil, errors.NotSupportedf("CreateLocalLoginMacaroon")
-	}
 	s.resources = common.NewResources()
-	s.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
-		func(tag names.UserTag) (*macaroon.Macaroon, error) {
-			return s.createLocalLoginMacaroon(tag)
-		},
-	})
-
 	adminTag := s.AdminUserTag(c)
 	s.adminName = adminTag.Name()
 	s.authorizer = apiservertesting.FakeAuthorizer{

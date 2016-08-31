@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -401,11 +402,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/register",
 		&registerUserHandler{
-			httpCtxt,
-			// NOTE(axw) the string we pass in at the moment is
-			// unimportant, as it is not used in the branch. In
-			// the next branch, we won't need to do this.
-			srv.authCtxt.authenticator("").localUserAuth().CreateLocalLoginMacaroon,
+			ctxt: httpCtxt,
 		},
 	)
 	add("/api", mainAPIHandler)
@@ -413,6 +410,28 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// pat muxer special-cases / so that it does not serve all
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
+
+	// Add HTTP handlers for local-user macaroon authentication.
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		localLoginHandlers.authCtxt.localUserThirdPartyBakeryService,
+		localLoginHandlers.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/login",
+		makeHandler(handleJSON(localLoginHandlers.serveLogin)),
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/wait",
+		makeHandler(handleJSON(localLoginHandlers.serveWait)),
+	)
+	add(localUserIdentityLocationPath+"/discharge", dischargeMux)
+	add(localUserIdentityLocationPath+"/publickey", dischargeMux)
+	add(localUserIdentityLocationPath+"/login", dischargeMux)
+	add(localUserIdentityLocationPath+"/wait", dischargeMux)
 
 	return endpoints
 }

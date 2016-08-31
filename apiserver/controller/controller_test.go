@@ -353,6 +353,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
 					Macaroons:     string(macsJSON),
+					Password:      "secret2",
 				},
 				ExternalControl: true,
 			},

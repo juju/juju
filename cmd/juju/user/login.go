@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
@@ -76,7 +75,6 @@ func (c *loginCommand) Init(args []string) error {
 
 // LoginAPI provides the API methods that the login command uses.
 type LoginAPI interface {
-	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	Close() error
 }
 
@@ -148,16 +146,12 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 Run "juju logout" first before attempting to log in as a different user.
 `)
 	}
-	// Read password from the terminal, and attempt to log in using that.
-	fmt.Fprint(ctx.Stderr, "password: ")
-	password, err := readPassword(ctx.Stdin)
-	fmt.Fprintln(ctx.Stderr)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
+	// Log in without specifying a password in the account details. This
+	// will trigger macaroon-based authentication, which will prompt the
+	// user for their password.
 	accountDetails = &jujuclient.AccountDetails{
-		User:     userTag.Canonical(),
-		Password: password,
+		User: userTag.Canonical(),
 	}
 	params, err := c.NewAPIConnectionParams(store, controllerName, "", accountDetails)
 	if err != nil {
@@ -169,19 +163,6 @@ Run "juju logout" first before attempting to log in as a different user.
 	}
 	defer api.Close()
 
-	// Create a new local login macaroon, and update the account details
-	// in the client store, removing the recorded password (if any) and
-	// storing the macaroon.
-	macaroon, err := api.CreateLocalLoginMacaroon(userTag)
-	if err != nil {
-		return errors.Annotate(err, "failed to create a temporary credential")
-	}
-	macaroonJSON, err := macaroon.MarshalJSON()
-	if err != nil {
-		return errors.Annotate(err, "marshalling temporary credential to JSON")
-	}
-	accountDetails.Password = ""
-	accountDetails.Macaroon = string(macaroonJSON)
 	accountDetails.LastKnownAccess = conn.ControllerAccess()
 	if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 		return errors.Annotate(err, "failed to record temporary credential")

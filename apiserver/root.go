@@ -80,15 +80,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := r.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
-		// NOTE(axw) the string we pass in at the moment is
-		// unimportant, as it is not used in the branch. In
-		// the next branch, we won't need to register this
-		// resource.
-		srv.authCtxt.authenticator("").localUserAuth().CreateLocalLoginMacaroon,
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return r, nil
 }
 
