@@ -6,12 +6,10 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -30,11 +28,60 @@ const (
 	modeLinkUp  maasLinkMode = "link_up"
 )
 
+// InterfaceConfigType translates mode's value to its
+// network.InterfaceConfigType equivalent.
+func (mode maasLinkMode) InterfaceConfigType() network.InterfaceConfigType {
+	switch mode {
+	case modeUnknown:
+		return network.ConfigUnknown
+	case modeDHCP:
+		return network.ConfigDHCP
+	case modeStatic, modeLinkUp:
+		return network.ConfigStatic
+	}
+	return network.ConfigManual
+}
+
 type maasInterfaceLink struct {
 	ID        int          `json:"id"`
 	Subnet    *maasSubnet  `json:"subnet,omitempty"`
 	IPAddress string       `json:"ip_address,omitempty"`
 	Mode      maasLinkMode `json:"mode"`
+}
+
+// ProviderId returns link.ID as network.Id.
+func (link maasInterfaceLink) ProviderId() network.Id {
+	return network.Id(fmt.Sprintf("%v", link.ID))
+}
+
+// Address translates link's IPAddress (if set) to network.Address.
+func (link maasInterfaceLink) Address() network.Address {
+	var result network.Address
+
+	if link.Subnet == nil {
+		return result
+	}
+
+	result = network.NewAddressOnSpace(link.Subnet.Space, link.IPAddress)
+	result.SpaceProviderId = link.Subnet.SpaceProviderId
+
+	return result
+}
+
+// InterfaceInfo translates link to the equivalent network.InterfaceInfo.
+func (link maasInterfaceLink) InterfaceInfo() *network.InterfaceInfo {
+	result := &network.InterfaceInfo{
+		ProviderAddressId: link.ProviderId(),
+		ConfigType:        link.Mode.InterfaceConfigType(),
+	}
+
+	if link.Subnet != nil {
+		result.Update(link.Subnet.InterfaceInfo())
+		result.Address = link.Address()
+		result.ProviderSpaceId = link.Subnet.SpaceProviderId
+	}
+
+	return result
 }
 
 type maasInterfaceType string
@@ -45,6 +92,19 @@ const (
 	typeVLAN     maasInterfaceType = "vlan"
 	typeBond     maasInterfaceType = "bond"
 )
+
+// InterfaceType translates ifaceType to its network.InterfaceType.
+func (ifaceType maasInterfaceType) InterfaceType() network.InterfaceType {
+	switch ifaceType {
+	case typePhysical:
+		return network.EthernetInterface
+	case typeVLAN:
+		return network.VLAN_8021QInterface
+	case typeBond:
+		return network.BondInterface
+	}
+	return network.UnknownInterface
+}
 
 type maasInterface struct {
 	ID      int               `json:"id"`
@@ -64,6 +124,104 @@ type maasInterface struct {
 	ResourceURI string `json:"resource_uri"`
 }
 
+// ProviderId returns iface.ID as network.Id.
+func (iface maasInterface) ProviderId() network.Id {
+	return network.Id(fmt.Sprintf("%v", iface.ID))
+}
+
+// ParentInterfaceName returns the name of this interface's parent interface,
+// suitable to populate network.InterfaceInfo. MAAS network model semantics for
+// parent/child relationships are translated to Juju's equivalents.
+func (iface maasInterface) ParentInterfaceName() string {
+	switch iface.Type {
+	case typeBond:
+		// In Juju's network model bonds have no parent, except if a bridge is
+		// created on top of the bond.
+	case typePhysical:
+		// MAAS network model represents interfaces enslaved into a bond as
+		// parents of that bond, and the bond itself as the single child of each
+		// slave.
+		if len(iface.Parents) == 0 && len(iface.Children) == 1 {
+			parent := iface.Children[0]
+			// A single child can be a bond or a VLAN (with name derived from
+			// its parent name).
+			if !strings.HasPrefix(parent, iface.Name) {
+				return parent
+			}
+		}
+	case typeVLAN:
+		// VLAN interfaces have a single parent.
+		if len(iface.Parents) == 1 {
+			return iface.Parents[0]
+		}
+	}
+
+	return ""
+}
+
+// InterfaceInfos translates iface to the equivalent slice of
+// network.InterfaceInfo, with one entry per link, setting each entry's
+// DeviceIndex to the given value. MAAS API does not support device indices.
+func (iface maasInterface) InterfaceInfos(deviceIndex int) []network.InterfaceInfo {
+	commonInfo := &network.InterfaceInfo{
+		ProviderId:          iface.ProviderId(),
+		InterfaceType:       iface.Type.InterfaceType(),
+		Disabled:            !iface.Enabled,
+		NoAutoStart:         !iface.Enabled,
+		MACAddress:          iface.MACAddress,
+		InterfaceName:       iface.Name,
+		ParentInterfaceName: iface.ParentInterfaceName(),
+	}
+	commonInfo.Update(iface.VLAN.InterfaceInfo())
+	commonInfo.MTU = iface.EffectveMTU
+
+	results := make([]network.InterfaceInfo, len(iface.Links))
+	for i, link := range iface.Links {
+		linkInfo := link.InterfaceInfo()
+		linkInfo.Update(commonInfo)
+		linkInfo.DeviceIndex = deviceIndex
+		results[i] = *linkInfo
+	}
+
+	return results
+}
+
+type maasInterfaces []maasInterface
+
+// UpdateSpaceProviderIds uses the provided map to update all interfaces to have
+// SpaceProviderId set on all links with subnets, and returns the result. This
+// is necessary for MAAS 1.9, as the API does not return the space ID a subnet
+// is part of but the space name.
+func (interfaces maasInterfaces) UpdateSpaceProviderIds(subnetCIDRToSpaceProviderId map[string]network.Id) maasInterfaces {
+	results := make(maasInterfaces, len(interfaces))
+	for i, iface := range interfaces {
+		for j, link := range iface.Links {
+			if link.Subnet == nil {
+				continue
+			}
+
+			link.Subnet.SpaceProviderId, _ = subnetCIDRToSpaceProviderId[link.Subnet.CIDR]
+			iface.Links[j] = link
+		}
+		results[i] = iface
+	}
+
+	return results
+}
+
+// FirstTopLevelInterfaceByMACAddress returns the first interface with the given
+// macAddress, for which ParentInterfaceName() returns empty string. Returns nil
+// if no such interface exists.
+func (interfaces maasInterfaces) FirstTopLevelInterfaceByMACAddress(macAddress string) *maasInterface {
+	for _, iface := range interfaces {
+		if iface.MACAddress == macAddress && iface.ParentInterfaceName() == "" {
+			return &iface
+		}
+	}
+
+	return nil
+}
+
 type maasVLAN struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`
@@ -71,6 +229,20 @@ type maasVLAN struct {
 	MTU         int    `json:"mtu"`
 	Fabric      string `json:"fabric"`
 	ResourceURI string `json:"resource_uri"`
+}
+
+// ProviderId returns vlan.ID as network.Id.
+func (vlan maasVLAN) ProviderId() network.Id {
+	return network.Id(fmt.Sprintf("%v", vlan.ID))
+}
+
+// InterfaceInfo translates vlan to the equivalent network.InterfaceInfo.
+func (vlan maasVLAN) InterfaceInfo() *network.InterfaceInfo {
+	return &network.InterfaceInfo{
+		VLANTag:        vlan.VID,
+		ProviderVLANId: vlan.ProviderId(),
+		MTU:            vlan.MTU,
+	}
 }
 
 type maasSubnet struct {
@@ -82,50 +254,60 @@ type maasSubnet struct {
 	DNSServers  []string `json:"dns_servers"`
 	CIDR        string   `json:"cidr"`
 	ResourceURI string   `json:"resource_uri"`
+
+	SpaceProviderId network.Id `json:"-"`
+}
+
+// ProviderId returns subnet.ID as network.Id.
+func (subnet maasSubnet) ProviderId() network.Id {
+	return network.Id(fmt.Sprintf("%v", subnet.ID))
+}
+
+// DNSServerAddresses returns subnet.DNSServers transformed to
+// []network.Address.
+func (subnet maasSubnet) DNSServerAddresses() []network.Address {
+	results := make([]network.Address, len(subnet.DNSServers))
+	for i, dnsServer := range subnet.DNSServers {
+		address := network.NewAddressOnSpace(subnet.Space, dnsServer)
+		address.SpaceProviderId = subnet.SpaceProviderId
+		results[i] = address
+	}
+
+	return results
+}
+
+// GatewayAddress returns subnet.GatewayID as network.Addres.
+func (subnet maasSubnet) GatewayAddress() network.Address {
+	result := network.NewAddressOnSpace(subnet.Space, subnet.GatewayIP)
+	result.SpaceProviderId = subnet.SpaceProviderId
+
+	return result
+}
+
+// InterfaceInfo translates subnet to the equivalent network.InterfaceInfo.
+func (subnet maasSubnet) InterfaceInfo() *network.InterfaceInfo {
+	result := &network.InterfaceInfo{
+		CIDR:             subnet.CIDR,
+		ProviderSubnetId: subnet.ProviderId(),
+		ProviderSpaceId:  subnet.SpaceProviderId,
+		DNSServers:       subnet.DNSServerAddresses(),
+		GatewayAddress:   subnet.GatewayAddress(),
+	}
+	result.Update(subnet.VLAN.InterfaceInfo())
+
+	return result
 }
 
 func (m maasInterface) GoString() string {
 	return fmt.Sprintf(`"%s(%s)"`, m.Name, m.Type)
 }
 
-func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
-	var interfaces []maasInterface
+func parseInterfaces(jsonBytes []byte) (maasInterfaces, error) {
+	var interfaces maasInterfaces
 	if err := json.Unmarshal(jsonBytes, &interfaces); err != nil {
 		return nil, errors.Annotate(err, "parsing interfaces")
 	}
 	return interfaces, nil
-}
-
-type byTypeThenName struct {
-	// Embedded so we sort a copy of the original.
-	interfaces []maasInterface
-}
-
-func (b byTypeThenName) Len() int { return len(b.interfaces) }
-
-func (b byTypeThenName) Swap(i, j int) {
-	b.interfaces[i], b.interfaces[j] = b.interfaces[j], b.interfaces[i]
-}
-
-func (b byTypeThenName) Less(i, j int) bool {
-	first, second := b.interfaces[i], b.interfaces[j]
-	switch first.Type {
-	case second.Type:
-		// Same types sort by name, but eth0.50 comes before eth0.100.
-		if first.Type == typeVLAN && first.Parents[0] == second.Parents[0] {
-			return first.VLAN.VID < second.VLAN.VID
-		}
-		return first.Name < second.Name
-	case typeBond:
-		// Bonds come on top, before physical and VLAN..
-		return second.Type == typePhysical || second.Type == typeVLAN
-	case typePhysical:
-		// Physical come before VLANs, but after bonds.
-		return second.Type == typeVLAN || second.Type != typeBond
-	}
-
-	// VLANs always come last.
-	return first.Type != typeVLAN
 }
 
 // maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
@@ -157,127 +339,28 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
 	}
 
-	interfaces, err := parseInterfaces(rawBytes)
+	parsedInterfaces, err := parseInterfaces(rawBytes)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// In order to correctly match parent-to-child relationships, sort the list
-	// by type (bond, physical, vlan) then name, so parents appear before their
-	// children. Using embedded slice to preserve the original interfaces order.
-	ordered := &byTypeThenName{interfaces: interfaces}
-	sort.Sort(ordered)
+	interfaces := parsedInterfaces.UpdateSpaceProviderIds(subnetsMap)
+	bootInterface := interfaces.FirstTopLevelInterfaceByMACAddress(pxeMACAddress)
 
-	bonds := set.NewStrings()
-	infos := make([]network.InterfaceInfo, 0, len(ordered.interfaces))
-	var bootInterface maasInterface
-	for i, iface := range ordered.interfaces {
+	var infos []network.InterfaceInfo
+	nextDeviceIndex := 0
+	if bootInterface != nil {
+		// Add the boot interface addresses on top as "most preferred"
+		infos = bootInterface.InterfaceInfos(nextDeviceIndex)
+		nextDeviceIndex++
+	}
 
-		var nicType network.InterfaceType
-		parentName := ""
-		switch iface.Type {
-		case typeBond:
-			nicType = network.BondInterface
-			bonds.Add(iface.Name)
-		case typePhysical:
-			nicType = network.EthernetInterface
-			// Single child can mean either iface is a bond slave, or it has a
-			// VLAN child. iface.Parents is not as useful, because MAAS models
-			// bonds as children to their slaves.
-			if len(iface.Children) == 1 && bonds.Contains(iface.Children[0]) {
-				parentName = iface.Children[0]
-			}
-		case typeVLAN:
-			nicType = network.VLAN_8021QInterface
-			if len(iface.Parents) == 1 {
-				parentName = iface.Parents[0]
-			} else {
-				// Shouldn't happen, but log it for easier debugging.
-				logger.Debugf("VLAN interface %q - expected one parent, got: %v", iface.Name, iface.Parents)
-			}
+	for _, iface := range interfaces {
+		if bootInterface != nil && iface.Name == bootInterface.Name {
+			continue
 		}
-
-		matchesPXEMAC := pxeMACAddress == iface.MACAddress && pxeMACAddress != ""
-		isTopLevel := parentName == ""
-		if bootInterface.Name == "" && isTopLevel && matchesPXEMAC {
-			// Only top-level physical interfaces can be used for PXE booting,
-			// and once we find it, we should stick with it.
-			logger.Infof("boot interface is %q", iface.Name)
-			bootInterface = iface
-		}
-
-		nicInfo := network.InterfaceInfo{
-			DeviceIndex:         i,
-			MACAddress:          iface.MACAddress,
-			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:             iface.VLAN.VID,
-			InterfaceName:       iface.Name,
-			ParentInterfaceName: parentName,
-			InterfaceType:       nicType,
-			Disabled:            !iface.Enabled,
-			NoAutoStart:         !iface.Enabled,
-		}
-
-		for _, link := range iface.Links {
-			switch link.Mode {
-			case modeUnknown:
-				nicInfo.ConfigType = network.ConfigUnknown
-			case modeDHCP:
-				nicInfo.ConfigType = network.ConfigDHCP
-			case modeStatic, modeLinkUp:
-				nicInfo.ConfigType = network.ConfigStatic
-			default:
-				nicInfo.ConfigType = network.ConfigManual
-			}
-
-			if link.IPAddress == "" {
-				logger.Debugf("interface %q has no address", iface.Name)
-			} else {
-				// We set it here initially without a space, just so we don't
-				// lose it when we have no linked subnet below.
-				nicInfo.Address = network.NewAddress(link.IPAddress)
-				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
-			}
-
-			if link.Subnet == nil {
-				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
-				infos = append(infos, nicInfo)
-				continue
-			}
-
-			sub := link.Subnet
-			nicInfo.CIDR = sub.CIDR
-			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
-
-			// Now we know the subnet and space, we can update the address to
-			// store the space with it.
-			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
-			spaceId, ok := subnetsMap[string(sub.CIDR)]
-			if !ok {
-				// The space we found is not recognised, no
-				// provider id available.
-				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
-			} else {
-				nicInfo.Address.SpaceProviderId = spaceId
-				nicInfo.ProviderSpaceId = spaceId
-			}
-
-			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
-			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
-			if ok {
-				gwAddr.SpaceProviderId = spaceId
-				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].SpaceProviderId = spaceId
-				}
-			}
-			nicInfo.GatewayAddress = gwAddr
-			nicInfo.MTU = sub.VLAN.MTU
-
-			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
-			infos = append(infos, nicInfo)
-		}
+		infos = append(infos, iface.InterfaceInfos(nextDeviceIndex)...)
+		nextDeviceIndex++
 	}
 
 	// hostname when available will be put on top of the list.
@@ -291,31 +374,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		infos = append([]network.InterfaceInfo{firstInfo}, infos...)
 	}
 
-	if bootInterface.Name == "" {
-		// Could not find the boot interface, no need to reorder results.
-		return infos, nil
-	}
-
-	bootInterfaceAddresses := make(map[network.Address]int)
-	for _, link := range bootInterface.Links {
-		if link.IPAddress != "" {
-			addr := network.NewAddress(link.IPAddress)
-			bootInterfaceAddresses[addr] = len(bootInterfaceAddresses)
-		}
-	}
-	if hostname != "" {
-		// Hostname is the "most preferred" address.
-		bootInterfaceAddresses[infos[0].Address] = -1
-	}
-
-	// Reorder the result to put bootInterfaceAddresses, in order, at the top.
-	results := &byPreferedAddresses{
-		addressesOrder: bootInterfaceAddresses,
-		infos:          infos,
-	}
-	sort.Sort(results)
-
-	return results.infos, nil
+	return infos, nil
 }
 
 // extractMAASObjectPXEMACAddress extract the value of "pxe_mac"."mac_address"
@@ -356,41 +415,6 @@ func extractMAASObjectHostname(maasObject *gomaasapi.MAASObject) (string, error)
 	}
 
 	return hostname, nil
-}
-
-type byPreferedAddresses struct {
-	addressesOrder map[network.Address]int
-	infos          []network.InterfaceInfo
-}
-
-func (b byPreferedAddresses) Len() int { return len(b.infos) }
-
-func (b byPreferedAddresses) Swap(i, j int) {
-	b.infos[i], b.infos[j] = b.infos[j], b.infos[i]
-}
-
-func (b byPreferedAddresses) Less(i, j int) bool {
-	first, second := b.infos[i], b.infos[j]
-	firstOrder, firstPreferred := b.addressesOrder[first.Address]
-	secondOrder, secondPreferred := b.addressesOrder[second.Address]
-
-	switch {
-	case firstPreferred && secondPreferred:
-		// Both are preferred, use given order.
-		return firstOrder < secondOrder
-	case firstPreferred:
-		return true
-	case secondPreferred:
-		return false
-	case first.VLANTag != second.VLANTag:
-		// Sort VLAN NICs' addresses after those from untagged VLANs, e.g.
-		// addresses from "eth0.50" after "eth0", and "eth1.100" after
-		// "eth1.20".
-		return first.VLANTag < second.VLANTag
-	}
-
-	// Neither is preferred, order by Value.
-	return first.Address.Value < second.Address.Value
 }
 
 func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {

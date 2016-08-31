@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"text/template"
 
 	"github.com/juju/gomaasapi"
@@ -334,7 +333,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/subnets/3/",
 	}
 
-	expected := []maasInterface{{
+	expected := maasInterfaces{{
 		ID:          91,
 		Name:        "eth0",
 		Type:        "physical",
@@ -439,112 +438,6 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
-}
-
-var (
-	vlan50  = maasVLAN{VID: 50}
-	vlan100 = maasVLAN{VID: 100}
-	vlan200 = maasVLAN{VID: 200}
-)
-
-func (s *interfacesSuite) TestSortInterfacesByTypeThenNameNoBonds(c *gc.C) {
-	input := []maasInterface{
-		{Name: "eth1", Type: "physical"},
-		{Name: "eth0", Type: "physical"},
-		{Name: "eth3", Type: "physical"},
-		{Name: "eth2", Type: "physical"},
-		{Name: "eth0.50", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan50},
-		{Name: "eth2.100", Type: "vlan", Parents: []string{"eth2"}, VLAN: vlan100},
-		{Name: "eth1.200", Type: "vlan", Parents: []string{"eth1"}, VLAN: vlan200},
-		{Name: "eth0.100", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan100},
-	}
-	expected := []maasInterface{
-		{Name: "eth0", Type: "physical"},
-		{Name: "eth1", Type: "physical"},
-		{Name: "eth2", Type: "physical"},
-		{Name: "eth3", Type: "physical"},
-		{Name: "eth0.50", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan50},
-		{Name: "eth0.100", Type: "vlan", Parents: []string{"eth0"}, VLAN: vlan100},
-		{Name: "eth1.200", Type: "vlan", Parents: []string{"eth1"}, VLAN: vlan200},
-		{Name: "eth2.100", Type: "vlan", Parents: []string{"eth2"}, VLAN: vlan100},
-	}
-	inputCopy := input
-	ordered := &byTypeThenName{interfaces: input}
-	sort.Sort(ordered)
-
-	c.Check(ordered.interfaces, jc.DeepEquals, expected)
-	// Input shouldn't be modified.
-	c.Check(input, jc.DeepEquals, inputCopy)
-}
-
-func (s *interfacesSuite) TestSortInterfacesByTypeThenNameWithBonds(c *gc.C) {
-	input := []maasInterface{
-		{Name: "eth1", Type: "physical"},
-		{Name: "eth0", Type: "physical"},
-		{Name: "eth3", Type: "physical"},
-		{Name: "eth2", Type: "physical"},
-		{Name: "bond0", Type: "bond"},
-		{Name: "bond0.50", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan50},
-		{Name: "bond0.100", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan100},
-		{Name: "bond1", Type: "bond"},
-		{Name: "bond1.200", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan200},
-		{Name: "bond1.100", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan100},
-	}
-	expected := []maasInterface{
-		{Name: "bond0", Type: "bond"},
-		{Name: "bond1", Type: "bond"},
-		{Name: "eth0", Type: "physical"},
-		{Name: "eth1", Type: "physical"},
-		{Name: "eth2", Type: "physical"},
-		{Name: "eth3", Type: "physical"},
-		{Name: "bond0.50", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan50},
-		{Name: "bond0.100", Type: "vlan", Parents: []string{"bond0"}, VLAN: vlan100},
-		{Name: "bond1.100", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan100},
-		{Name: "bond1.200", Type: "vlan", Parents: []string{"bond1"}, VLAN: vlan200},
-	}
-	inputCopy := input
-	ordered := &byTypeThenName{interfaces: input}
-	sort.Sort(ordered)
-
-	c.Check(ordered.interfaces, jc.DeepEquals, expected)
-	// Input shouldn't be modified.
-	c.Check(input, jc.DeepEquals, inputCopy)
-}
-
-func (s *interfacesSuite) TestSortInterfaceInfoByPreferredAddresses(c *gc.C) {
-	input := []network.InterfaceInfo{
-		{Address: network.Address{}, InterfaceName: "eth1"},
-		{Address: network.Address{}, InterfaceName: "eth0"},
-		{Address: network.NewAddress("10.20.19.111"), InterfaceName: "bond1"},
-		{Address: network.NewAddress("10.100.19.101"), InterfaceName: "bond0.100"},
-		{Address: network.NewAddress("10.50.19.142"), InterfaceName: "bond0.50"},
-		{Address: network.NewAddress("10.20.19.102"), InterfaceName: "bond0"},
-	}
-	inputCopy := input
-	ordered := &byPreferedAddresses{
-		addressesOrder: nil, // no preferred addresses ordering, no change expected.
-		infos:          input,
-	}
-	sort.Sort(ordered)
-	c.Check(ordered.infos, gc.DeepEquals, input)
-	c.Check(inputCopy, gc.DeepEquals, input)
-
-	ordered.addressesOrder = map[network.Address]int{
-		network.NewAddress("10.20.19.102"):  0,
-		network.NewAddress("10.20.19.111"):  1,
-		network.NewAddress("10.50.19.142"):  22,
-		network.NewAddress("10.100.19.101"): 99,
-	}
-	sort.Sort(ordered)
-	c.Check(ordered.infos, gc.DeepEquals, []network.InterfaceInfo{
-		{Address: network.NewAddress("10.20.19.102"), InterfaceName: "bond0"},
-		{Address: network.NewAddress("10.20.19.111"), InterfaceName: "bond1"},
-		{Address: network.NewAddress("10.50.19.142"), InterfaceName: "bond0.50"},
-		{Address: network.NewAddress("10.100.19.101"), InterfaceName: "bond0.100"},
-		{Address: network.Address{}, InterfaceName: "eth1"},
-		{Address: network.Address{}, InterfaceName: "eth0"},
-	})
-	c.Check(inputCopy, gc.DeepEquals, input)
 }
 
 func (s *interfacesSuite) TestExtractMAASObjectPXEMACAddress(c *gc.C) {
