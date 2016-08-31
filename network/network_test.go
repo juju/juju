@@ -36,6 +36,45 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *InterfaceInfoSuite) TestUpdate(c *gc.C) {
+	original := s.info[0]
+	input := &original
+	input.Update(nil) // nil => no changes
+	c.Check(input, gc.DeepEquals, &original)
+
+	zones := []string{"z1", "z2"}
+	original = s.info[1]
+	input = &original
+	input.Update(&network.InterfaceInfo{
+		DeviceIndex:       0,                             // 0 is valid
+		VLANTag:           -42,                           // shouldn't be updated
+		InterfaceName:     "foo",                         // updated
+		DNSServers:        nil,                           // set to empty
+		Address:           network.NewAddress("4.2.2.1"), // updated (deep copy)
+		Disabled:          true,                          // always updated
+		NoAutoStart:       false,                         // always updated
+		AvailabilityZones: zones,                         // should be copied
+	})
+
+	zones[0] = "not-z1" // to verify Update copies AvailabilityZones
+	c.Check(*input, gc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:   0,
+		VLANTag:       0,
+		InterfaceName: "foo",
+		DNSServers:    nil,
+		Address: network.Address{
+			Value:           "4.2.2.1",
+			Type:            network.IPv4Address,
+			Scope:           network.ScopePublic,
+			SpaceName:       "",
+			SpaceProviderId: "",
+		},
+		Disabled:          true,
+		NoAutoStart:       false,
+		AvailabilityZones: []string{"z1", "z2"},
+	})
+}
+
 func (s *InterfaceInfoSuite) TestActualInterfaceName(c *gc.C) {
 	c.Check(s.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
 	c.Check(s.info[1].ActualInterfaceName(), gc.Equals, "eth1")

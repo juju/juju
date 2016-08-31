@@ -88,6 +88,13 @@ const (
 	ScopeLinkLocal    Scope = "link-local"
 )
 
+var emptyAddress = Address{}
+
+// IsEmpty returns whether the address (all of its fields) is empty.
+func (a Address) IsEmpty() bool {
+	return a == emptyAddress
+}
+
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
 type Address struct {

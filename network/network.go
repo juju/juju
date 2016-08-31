@@ -250,6 +250,95 @@ type InterfaceInfo struct {
 	GatewayAddress Address
 }
 
+// Update updates `info`'s fields using the respective any non-emtpy fields from
+// `other`. If `other` is nil, nothing is updated. `DeviceIndex` and `VLANTag`
+// are not updated when the corresponding value in `other` is negative.
+// `Disabled` and `NoAutoStart` are always updated.
+func (info *InterfaceInfo) Update(other *InterfaceInfo) {
+	if other == nil {
+		return
+	}
+
+	if other.DeviceIndex >= 0 {
+		info.DeviceIndex = other.DeviceIndex
+	}
+
+	if other.MACAddress != "" {
+		info.MACAddress = other.MACAddress
+	}
+
+	if other.CIDR != "" {
+		info.CIDR = other.CIDR
+	}
+
+	if other.ProviderId != "" {
+		info.ProviderId = other.ProviderId
+	}
+
+	if other.ProviderSubnetId != "" {
+		info.ProviderSubnetId = other.ProviderSubnetId
+	}
+
+	if other.ProviderSpaceId != "" {
+		info.ProviderSpaceId = other.ProviderSpaceId
+	}
+
+	if other.ProviderVLANId != "" {
+		info.ProviderVLANId = other.ProviderVLANId
+	}
+
+	if other.ProviderAddressId != "" {
+		info.ProviderAddressId = other.ProviderAddressId
+	}
+
+	if len(other.AvailabilityZones) > 0 {
+		info.AvailabilityZones = append([]string(nil), other.AvailabilityZones...)
+	}
+
+	if other.VLANTag >= 0 {
+		info.VLANTag = other.VLANTag
+	}
+
+	if other.InterfaceName != "" {
+		info.InterfaceName = other.InterfaceName
+	}
+
+	if other.ParentInterfaceName != "" {
+		info.ParentInterfaceName = other.ParentInterfaceName
+	}
+
+	if other.InterfaceType != UnknownInterface {
+		info.InterfaceType = other.InterfaceType
+	}
+
+	info.Disabled = other.Disabled
+	info.NoAutoStart = other.NoAutoStart
+
+	if other.ConfigType != ConfigUnknown {
+		info.ConfigType = other.ConfigType
+	}
+
+	if !other.Address.IsEmpty() {
+		info.Address = other.Address
+	}
+
+	if len(other.DNSServers) > 0 {
+		info.DNSServers = append([]Address(nil), other.DNSServers...)
+	}
+
+	if other.MTU > 0 {
+		info.MTU = other.MTU
+	}
+
+	if len(other.DNSSearchDomains) > 0 {
+		info.DNSSearchDomains = append([]string(nil), other.DNSSearchDomains...)
+	}
+
+	if !other.GatewayAddress.IsEmpty() {
+		info.GatewayAddress = other.GatewayAddress
+	}
+}
+
 type interfaceInfoSlice []InterfaceInfo
 
 func (s interfaceInfoSlice) Len() int      { return len(s) }
