@@ -37,8 +37,8 @@ func (r *adminAPIV3) Admin(id string) (*adminAPIV3, error) {
 
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
-func (a *adminAPIV3) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req, 3)
+func (a *adminAPIV3) Login(req params.LoginRequest) (params.LoginResult, error) {
+	return a.login(req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.

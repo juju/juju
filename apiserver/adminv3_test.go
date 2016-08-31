@@ -91,7 +91,13 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	defer cleanup()
 
 	info := s.APIInfo(c)
+	info.Tag = nil
+	info.Password = ""
 	info.ModelTag = names.ModelTag{}
-	_, err := api.OpenWithVersion(info, api.DialOpts{}, 2)
+	info.SkipLogin = true
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiState.APICall("Admin", 2, "", "Login", struct{}{}, nil)
 	c.Assert(err, gc.ErrorMatches, ".*this version of Juju does not support login from old clients.*")
 }

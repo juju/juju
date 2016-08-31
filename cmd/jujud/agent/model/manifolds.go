@@ -6,6 +6,7 @@ package model
 import (
 	"time"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
@@ -114,7 +115,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
-			APIOpen:       apicaller.APIOpen,
+			APIOpen:       api.Open,
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),

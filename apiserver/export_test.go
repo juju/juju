@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc"
@@ -138,49 +137,6 @@ func TestingModelOnlyRoot() rpc.Root {
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	r := TestingAPIRoot(nil)
 	return restrictRoot(r, check)
-}
-
-type preFacadeAdminAPI struct{}
-
-func newPreFacadeAdminAPI(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
-	return &preFacadeAdminAPI{}
-}
-
-func (r *preFacadeAdminAPI) Admin(id string) (*preFacadeAdminAPI, error) {
-	return r, nil
-}
-
-var PreFacadeModelTag = names.NewModelTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
-
-func (r *preFacadeAdminAPI) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{
-		ModelTag: PreFacadeModelTag.String(),
-	}, nil
-}
-
-type failAdminAPI struct{}
-
-func newFailAdminAPI(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
-	return &failAdminAPI{}
-}
-
-func (r *failAdminAPI) Admin(id string) (*failAdminAPI, error) {
-	return r, nil
-}
-
-func (r *failAdminAPI) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{}, fmt.Errorf("fail")
-}
-
-// SetPreFacadeAdminAPI is used to create a test scenario where the API server
-// does not know about API facade versioning. In this case, the client should
-// login to the v1 facade, which sends backwards-compatible login fields.
-// The v0 facade will fail on a pre-defined error.
-func SetPreFacadeAdminAPI(srv *Server) {
-	srv.adminAPIFactories = map[int]adminAPIFactory{
-		0: newFailAdminAPI,
-		1: newPreFacadeAdminAPI,
-	}
 }
 
 func SetAdminAPIVersions(srv *Server, versions ...int) {
