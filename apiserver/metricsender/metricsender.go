@@ -81,9 +81,11 @@ func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVe
 
 		var wireData []*wireformat.MetricBatch
 		var heldBatches []string
+		heldBatchUnits := map[string]bool{}
 		for _, m := range metrics {
 			if !transmitVendorMetrics && len(m.Credentials()) == 0 {
 				heldBatches = append(heldBatches, m.UUID())
+				heldBatchUnits[m.Unit()] = true
 			} else {
 				wireData = append(wireData, ToWire(m))
 			}
@@ -107,7 +109,6 @@ func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVe
 				return errors.Trace(err)
 			}
 		}
-
 		// Mark held metric batches as sent so that they can be cleaned up later.
 		if len(heldBatches) > 0 {
 			err := st.SetMetricBatchesSent(heldBatches)
@@ -115,6 +116,8 @@ func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVe
 				return errors.Annotatef(err, "failed to mark metric batches as sent for %s", st.ModelTag())
 			}
 		}
+
+		setHeldBatchUnitMeterStatus(st, heldBatchUnits)
 
 		sent += len(wireData)
 		held += len(heldBatches)
@@ -131,6 +134,18 @@ func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVe
 	logger.Infof("metrics collection summary for %s: sent:%d unsent:%d held:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, held, sentStored)
 
 	return nil
+}
+
+func setHeldBatchUnitMeterStatus(st ModelBackend, units map[string]bool) {
+	for unitID, _ := range units {
+		unit, err := st.Unit(unitID)
+		if err != nil {
+			logger.Warningf("failed to get unit for setting held batch meter status: %v", err)
+		}
+		if err = unit.SetMeterStatus("RED", "transmit-vendor-metrics turned off"); err != nil {
+			logger.Warningf("failed to set held batch meter status: %v", err)
+		}
+	}
 }
 
 // DefaultMaxBatchesPerSend returns the default number of batches per send.
