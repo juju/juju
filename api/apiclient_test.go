@@ -242,10 +242,11 @@ func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: &fakeRPCConnection{
 			errors: []error{
-				&rpc.RequestError{
-					Message: "hmm...",
-					Code:    params.CodeRetry,
-				},
+				errors.Trace(
+					&rpc.RequestError{
+						Message: "hmm...",
+						Code:    params.CodeRetry,
+					}),
 			},
 		},
 		Clock: clock,
@@ -258,7 +259,7 @@ func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 	clock := &fakeClock{}
-	retryError := &rpc.RequestError{Message: "hmm...", Code: params.CodeRetry}
+	retryError := errors.Trace(&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry})
 	var errors []error
 	for i := 0; i < 10; i++ {
 		errors = append(errors, retryError)
