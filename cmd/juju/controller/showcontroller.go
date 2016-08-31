@@ -63,7 +63,6 @@ func (c *showControllerCommand) Info() *cmd.Info {
 		Args:    "[<controller name> ...]",
 		Purpose: usageShowControllerSummary,
 		Doc:     usageShowControllerDetails,
-		Aliases: []string{"show-controllers"},
 	}
 }
 
@@ -202,8 +201,8 @@ type ControllerDetails struct {
 
 	// AgentVersion is the version of the agent running on this controller.
 	// AgentVersion need not always exist so we omitempty here. This struct is
-	// used in both list-controllers and show-controllers. show-controllers
-	// displays the agent version where list-controllers does not.
+	// used in both list-controller and show-controller. show-controller
+	// displays the agent version where list-controller does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
