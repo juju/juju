@@ -11,7 +11,6 @@ import os
 import sys
 import subprocess
 import time
-from textwrap import dedent
 
 import rrdtool
 from jinja2 import Template
@@ -24,7 +23,6 @@ from logbreakdown import breakdown_log_by_timeframes
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    temp_dir,
 )
 
 
@@ -50,97 +48,8 @@ DeployDetails = namedtuple(
     'DeployDetails', ['name', 'applications', 'timings'])
 
 
-collectd_config = dedent("""\
-# Global
-
-Hostname "localhost"
-
-# Interval at which to query values. This may be overwritten on a per-plugin #
-Interval 3
-
-# Logging
-
-LoadPlugin logfile
-# LoadPlugin syslog
-
-<Plugin logfile>
-    LogLevel "debug"
-    File STDOUT
-    Timestamp true
-    PrintSeverity false
-</Plugin>
-
-# LoadPlugin section
-
-LoadPlugin aggregation
-LoadPlugin cpu
-#LoadPlugin cpufreq
-LoadPlugin csv
-LoadPlugin df
-LoadPlugin disk
-LoadPlugin entropy
-LoadPlugin interface
-LoadPlugin irq
-LoadPlugin load
-LoadPlugin memory
-LoadPlugin processes
-LoadPlugin rrdtool
-LoadPlugin swap
-LoadPlugin users
-
-# Plugin configuration                                                       #
-
-<Plugin "aggregation">
-    <Aggregation>
-        #Host "unspecified"
-        Plugin "cpu"
-        # PluginInstance "/[0,2,4,6,8]$/"
-        Type "cpu"
-        #TypeInstance "unspecified"
-
-        # SetPlugin "cpu"
-        # SetPluginInstance "even-%{aggregation}"
-
-        GroupBy "Host"
-        GroupBy "TypeInstance"
-
-        CalculateNum true
-        CalculateSum true
-        CalculateAverage true
-        CalculateMinimum false
-        CalculateMaximum false
-        CalculateStddev false
-    </Aggregation>
-</Plugin>
-
-<Plugin csv>
-    DataDir "/var/lib/collectd/csv"
-    StoreRates true
-</Plugin>
-
-<Plugin df>
-    # ignore rootfs; else, the root file-system would appear twice, causing
-    # one of the updates to fail and spam the log
-    FSType rootfs
-    # ignore the usual virtual / temporary file-systems
-    FSType sysfs
-    FSType proc
-    FSType devtmpfs
-    FSType devpts
-    FSType tmpfs
-    FSType fusectl
-    FSType cgroup
-    IgnoreSelected true
-</Plugin>
-
-<Plugin rrdtool>
-    DataDir "/var/lib/collectd/rrd"
-</Plugin>
-
-<Include "/etc/collectd/collectd.conf.d">
-    Filter "*.conf"
-</Include>
-""")
+SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
+COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
 
 
 log = logging.getLogger("assess_perf_test_simple")
@@ -250,12 +159,6 @@ def get_log_message_in_timed_chunks(log_file, deployments):
     deploy_timings = [
         (d.timings.start, d.timings.end)
         for d in deployments['deploys']]
-
-    # name_lookup = {
-    #     '2016-07-21 08:33:12 - 2016-07-21 08:38:15': 'Bootstrap',
-    #     '2016-07-21 08:39:46 - 2016-07-21 08:42:42': 'Delpoy',
-    #     '2016-07-21 08:42:43 - 2016-07-21 08:43:14': 'Kill Controller',
-    # }
 
     def _render_ds_string(start, end):
         return '{} - {}'.format(start, end)
@@ -601,41 +504,41 @@ def get_client_details(client):
 
 def setup_system_monitoring(admin_client):
     # Using ssh get into the machine-0 (or all api/state servers)
-    # Install the required packages and start up logging.
-    admin_client.juju('ssh', ('0', 'sudo apt-get install -y collectd-core'))
-    admin_client.juju('ssh', ('0', 'sudo mkdir /etc/collectd/collectd.conf.d'))
-    with temp_dir() as temp:
-        path = os.path.join(temp, 'collectd.conf')
-        with open(path, 'w') as f:
-            f.write(collectd_config)
-        admin_client.juju('scp', (path, '0:/tmp/collectd.config'))
+    # Install the required packages and start up logging of systems collections
+    # and mongodb details.
+
+    installer_script_path = _get_static_script_path(SETUP_SCRIPT_PATH)
+    collectd_config_path = _get_static_script_path(COLLECTD_CONFIG_PATH)
+    installer_script_dest_path = '/tmp/installer.sh'
+    runner_script_dest_path = '/tmp/runner.sh'
+    collectd_config_dest_file = '/tmp/collectd.config'
+
+    admin_client.juju(
+        'scp',
+        (collectd_config_path, '0:{}'.format(collectd_config_dest_file)))
+
+    admin_client.juju(
+        'scp',
+        (installer_script_path, '0:{}'.format(installer_script_dest_path)))
+    admin_client.juju('ssh', ('0', 'chmod +x {}'.format(
+        installer_script_dest_path)))
     admin_client.juju(
         'ssh',
-        ('0', 'sudo cp /tmp/collectd.config /etc/collectd/collectd.conf'))
-    admin_client.juju('ssh', ('0', 'sudo /etc/init.d/collectd restart'))
-
-    script_contents = dedent("""\
-    password=`sudo grep oldpassword \
-      /var/lib/juju/agents/machine-*/agent.conf  | cut -d" " -f2`
-    mongostat --host=127.0.0.1:37017 --authenticationDatabase admin --ssl \
-      --sslAllowInvalidCertificates --username \"admin\" \
-      --password \"\$password\" --noheaders 5 > /tmp/mongodb-stats.log
-    """)
-    admin_client.juju(
-        'ssh',
-        ('0', '--', 'echo "{}" > /tmp/runner.sh'.format(script_contents)))
-
-    commands = [
-        'sudo echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/testing multiverse" | sudo tee /etc/apt/sources.list.d/mongo-org.list',
-        'sudo apt-get update',
-        'sudo apt-get install --yes --allow-unauthenticated mongodb-org-tools daemon',
-        'sudo chmod +x /tmp/runner.sh',
-    ]
-    full_command = " && ".join(commands)
-    admin_client.juju('ssh', ('0', '--', full_command))
+        ('0', '{installer} {config_file} {output_file}'.format(
+            installer=installer_script_dest_path,
+            config_file=collectd_config_dest_file,
+            output_file=runner_script_dest_path)))
 
     # Start collection
-    admin_client.juju('ssh', ('0', '--', 'daemon /tmp/runner.sh'))
+    # Respawn incase the initial execution fails for whatever reason.
+    admin_client.juju('ssh', ('0', '--', 'daemon --respawn {}'.format(
+        runner_script_dest_path)))
+
+
+def _get_static_script_path(script_path):
+    full_path = os.path.abspath(__file__)
+    current_dir = os.path.dirname(full_path)
+    return os.path.join(current_dir, script_path)
 
 
 def parse_args(argv):
