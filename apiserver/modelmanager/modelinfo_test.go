@@ -367,8 +367,8 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) AddModelUser(spec state.UserAccessSpec) (description.UserAccess, error) {
-	st.MethodCall(st, "AddModelUser", spec)
+func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (description.UserAccess, error) {
+	st.MethodCall(st, "AddModelUser", modelUUID, spec)
 	return description.UserAccess{}, st.NextErr()
 }
 

@@ -22,13 +22,20 @@ func dontCloseAnything() {}
 // Database exposes the mongodb capabilities that most of state should see.
 type Database interface {
 
-	// CopySession returns a matching Database with its own session, and a
+	// Copy returns a matching Database with its own session, and a
 	// func that must be called when the Database is no longer needed.
 	//
 	// GetCollection and TransactionRunner results from the resulting Database
 	// will all share a session; this does not absolve you of responsibility
 	// for calling those collections' closers.
-	CopySession() (Database, SessionCloser)
+	Copy() (Database, SessionCloser)
+
+	// CopyForModel returns a matching Database with its own session and
+	// its own modelUUID and a func that must be called when the Database is no
+	// longer needed.
+	//
+	// Same warnings apply for CopyForModel than for Copy.
+	CopyForModel(modelUUID string) (Database, SessionCloser)
 
 	// GetCollection returns the named Collection, and a func that must be
 	// called when the Collection is no longer needed. The returned Collection
@@ -73,7 +80,7 @@ var ErrChangeComplete = errors.New("change complete")
 // Apply runs the supplied Change against the supplied Database. If it
 // returns no error, the change succeeded.
 func Apply(db Database, change Change) error {
-	db, closer := db.CopySession()
+	db, closer := db.Copy()
 	defer closer()
 
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -191,20 +198,30 @@ type database struct {
 	runner jujutxn.Runner
 
 	// ownSession is used to avoid copying additional sessions in a database
-	// resulting from CopySession.
+	// resulting from Copy.
 	ownSession bool
 }
 
-// CopySession is part of the Database interface.
-func (db *database) CopySession() (Database, SessionCloser) {
+func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
 		raw:        db.raw.With(session),
 		schema:     db.schema,
-		modelUUID:  db.modelUUID,
+		modelUUID:  modelUUID,
 		runner:     db.runner,
 		ownSession: true,
 	}, session.Close
+
+}
+
+// Copy is part of the Database interface.
+func (db *database) Copy() (Database, SessionCloser) {
+	return db.copySession(db.modelUUID)
+}
+
+// CopyForModel is part of the Database interface.
+func (db *database) CopyForModel(modelUUID string) (Database, SessionCloser) {
+	return db.copySession(modelUUID)
 }
 
 // GetCollection is part of the Database interface.

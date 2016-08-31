@@ -321,6 +321,10 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), description.AdminAccess)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
+	}
 
 	return newModel, newSt, nil
 }
