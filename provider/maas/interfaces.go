@@ -142,9 +142,14 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		return nil, errors.NotSupportedf("interface_set")
 	}
 
-	pxeMACAddress, hostname, err := maasObjectPXEMACAddressAndHostname(maasObject)
+	pxeMACAddress, err := extractMAASObjectPXEMACAddress(maasObject)
 	if err != nil {
-		logger.Warningf("missing pxe_mac.mac_address and/or hostname: %v", err)
+		logger.Warningf("missing pxe_mac.mac_address: %v", err)
+	}
+
+	hostname, err := extractMAASObjectHostname(maasObject)
+	if err != nil {
+		logger.Warningf("missing hostname: %v", err)
 	}
 
 	rawBytes, err := interfaceSet.MarshalJSON()
@@ -279,7 +284,9 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 	if hostname != "" {
 		firstInfo := infos[0]
 		spaceName := string(firstInfo.Address.SpaceName)
+		spaceID := firstInfo.Address.SpaceProviderId
 		firstInfo.Address = network.NewAddressOnSpace(spaceName, hostname)
+		firstInfo.Address.SpaceProviderId = spaceID
 		firstInfo.ProviderAddressId = "" // avoid duplicating the link ID.
 		infos = append([]network.InterfaceInfo{firstInfo}, infos...)
 	}
@@ -311,40 +318,44 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 	return results.infos, nil
 }
 
-// maasObjectPXEMACAddressAndHostname extract the values of pxe_mac.mac_address
-// and hostname fields from the given maasObject, or returns an error.
-func maasObjectPXEMACAddressAndHostname(maasObject *gomaasapi.MAASObject) (pxeMACAddress, hostname string, _ error) {
-	// Get the PXE MAC address so we can put the top-level physical NIC with
-	// that MAC on top of the list, as it matches the preferred "private"
-	// address of the node.
-	maasObjectMap := maasObject.GetMap()
-	pxeMAC, ok := maasObjectMap["pxe_mac"]
+// extractMAASObjectPXEMACAddress extract the value of "pxe_mac"."mac_address"
+// field from the given maasObject, or returns an error.
+func extractMAASObjectPXEMACAddress(maasObject *gomaasapi.MAASObject) (string, error) {
+	objectMap := maasObject.GetMap()
+	pxeMAC, ok := objectMap["pxe_mac"]
 	if !ok || pxeMAC.IsNil() {
-		return "", "", errors.Errorf("missing or null pxe_mac field")
+		return "", errors.Errorf("missing or null pxe_mac field")
 	}
 	pxeMACMap, err := pxeMAC.GetMap()
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting pxe_mac map failed")
+		return "", errors.Annotatef(err, "getting pxe_mac map failed")
 	}
 	pxeMACAddressField, ok := pxeMACMap["mac_address"]
 	if !ok || pxeMACAddressField.IsNil() {
-		return "", "", errors.Errorf("missing or null pxe_mac.mac_address field")
+		return "", errors.Errorf("missing or null pxe_mac.mac_address field")
 	}
-	pxeMACAddress, err = pxeMACAddressField.GetString()
+	pxeMACAddress, err := pxeMACAddressField.GetString()
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting pxe_mac.mac_address failed")
+		return "", errors.Annotatef(err, "getting pxe_mac.mac_address failed")
 	}
 
-	hostnameField, ok := maasObjectMap["hostname"]
+	return pxeMACAddress, nil
+}
+
+// extractMAASObjectHostname extract the value of "hostname" field from the
+// given maasObject, or returns an error.
+func extractMAASObjectHostname(maasObject *gomaasapi.MAASObject) (string, error) {
+	objectMap := maasObject.GetMap()
+	hostnameField, ok := objectMap["hostname"]
 	if !ok || hostnameField.IsNil() {
-		return "", "", errors.Errorf("missing or null hostname field")
+		return "", errors.Errorf("missing or null hostname field")
 	}
-	hostname, err = hostnameField.GetString()
+	hostname, err := hostnameField.GetString()
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting hostname failed")
+		return "", errors.Annotatef(err, "getting hostname failed")
 	}
 
-	return pxeMACAddress, hostname, nil
+	return hostname, nil
 }
 
 type byPreferedAddresses struct {
