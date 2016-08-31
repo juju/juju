@@ -618,6 +618,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 			}, args, response)
 		},
 		IsFatalError: func(err error) bool {
+			err = errors.Cause(err)
 			ec, ok := err.(hasErrorCode)
 			if !ok {
 				return true
