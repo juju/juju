@@ -8,6 +8,7 @@ import (
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -29,7 +30,15 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	}
 
 	mgoInfo := a.backend.MongoConnectionInfo()
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
+	v, err := a.backend.MongoVersion()
+	if err != nil {
+		return p, errors.Annotatef(err, "discovering mongo version")
+	}
+	mongoVersion, err := mongo.NewVersion(v)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

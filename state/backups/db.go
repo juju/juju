@@ -42,10 +42,13 @@ type DBInfo struct {
 	Password string
 	// Targets is a list of databases to dump.
 	Targets set.Strings
+	// MongoVersion the version of the running mongo db.
+	MongoVersion mongo.Version
 }
 
 // ignoredDatabases is the list of databases that should not be
-// backed up.
+// backed up, admin might be removed later, after determining
+// mongo version.
 var ignoredDatabases = set.NewStrings(
 	"admin",
 	storageDBName,
@@ -59,16 +62,17 @@ type DBSession interface {
 
 // NewDBInfo returns the information needed by backups to dump
 // the database.
-func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
+func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, version mongo.Version) (*DBInfo, error) {
 	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	info := DBInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-		Targets:  targets,
+		Address:      mgoInfo.Addrs[0],
+		Password:     mgoInfo.Password,
+		Targets:      targets,
+		MongoVersion: version,
 	}
 
 	// TODO(dfc) Backup should take a Tag.
@@ -183,6 +187,11 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 
 	// Strip the ignored database from the dump dir.
 	ignored := found.Difference(md.Targets)
+	// Admin must be removed only if the mongo version is 3.x or
+	// above, since 2.x will not restore properly without admin.
+	if md.DBInfo.MongoVersion.NewerThan(mongo.Mongo26) == -1 {
+		ignored.Remove("admin")
+	}
 	err = stripIgnored(ignored, baseDumpDir)
 	return errors.Trace(err)
 }

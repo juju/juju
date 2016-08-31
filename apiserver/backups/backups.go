@@ -31,6 +31,7 @@ type Backend interface {
 	MachineSeries(id string) (string, error)
 	MongoConnectionInfo() *mongo.MongoInfo
 	MongoSession() *mgo.Session
+	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
