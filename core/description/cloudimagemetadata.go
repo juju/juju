@@ -4,8 +4,6 @@
 package description
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 )
@@ -166,7 +164,7 @@ var cloudimagemetadataDeserializationFuncs = map[int]cloudimagemetadataDeseriali
 
 func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetadata, error) {
 	fields := schema.Fields{
-		"stream":          schmea.String(),
+		"stream":          schema.String(),
 		"region":          schema.String(),
 		"version":         schema.String(),
 		"series":          schema.String(),
@@ -180,10 +178,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		"imageid":         schema.String(),
 	}
 	// Some values don't have to be there.
-	defaults := schema.Defaults{
-		"started":   time.Time{},
-		"completed": time.Time{},
-	}
+	defaults := schema.Defaults{}
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -192,23 +187,19 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 	}
 	valid := coerced.(map[string]interface{})
 	cloudimagemetadata := &cloudimagemetadata{
-		Id_:         valid["id"].(string),
-		Receiver_:   valid["receiver"].(string),
-		Name_:       valid["name"].(string),
-		Status_:     valid["status"].(string),
-		Message_:    valid["message"].(string),
-		Parameters_: valid["parameters"].(map[string]interface{}),
-		Enqueued_:   valid["enqueued"].(time.Time),
-		Results_:    valid["results"].(map[string]interface{}),
+		Stream_:          valid["stream"].(string),
+		Region_:          valid["region"].(string),
+		Version_:         valid["version"].(string),
+		Series_:          valid["series"].(string),
+		Arch_:            valid["arch"].(string),
+		VirtType_:        valid["virttype"].(string),
+		RootStorageType_: valid["rootstoragetype"].(string),
+		RootStorageSize_: valid["rootstoragesize"].(uint64),
+		DateCreated_:     valid["datecreated"].(int64),
+		Source_:          valid["source"].(string),
+		Priority_:        valid["priority"].(int),
+		ImageId_:         valid["imageid"].(string),
 	}
 
-	started := valid["started"].(time.Time)
-	if !started.IsZero() {
-		cloudimagemetadata.Started_ = &started
-	}
-	completed := valid["completed"].(time.Time)
-	if !started.IsZero() {
-		cloudimagemetadata.Completed_ = &completed
-	}
 	return cloudimagemetadata, nil
 }

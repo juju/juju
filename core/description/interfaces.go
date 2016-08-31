@@ -401,16 +401,18 @@ type SSHHostKey interface {
 
 // CloudImageMetadata represents an IP cloudimagemetadata.
 type CloudImageMetadata interface {
-	Id() string
-	Receiver() string
-	Name() string
-	Parameters() map[string]interface{}
-	Enqueued() time.Time
-	Started() time.Time
-	Completed() time.Time
-	Results() map[string]interface{}
-	Status() string
-	Message() string
+	Stream() string
+	Region() string
+	Version() string
+	Series() string
+	Arch() string
+	VirtType() string
+	RootStorageType() string
+	RootStorageSize() uint64
+	DateCreated() int64
+	Source() string
+	Priority() int
+	ImageId() string
 }
 
 // Action represents an IP action.
