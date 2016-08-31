@@ -1661,12 +1661,14 @@ class EnvJujuClient:
         :param service_count: The number of services for which to wait.
         :param timeout: The number of seconds to wait.
         """
-        for remaining in until_timeout(timeout):
-            status = self.get_status()
-            if status.get_service_count() >= service_count:
-                return
-        else:
-            raise Exception('Timed out waiting for services to start.')
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                for remaining in until_timeout(timeout):
+                    status = self.get_status()
+                    if status.get_service_count() >= service_count:
+                        return
+                else:
+                    raise Exception('Timed out waiting for services to start.')
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
