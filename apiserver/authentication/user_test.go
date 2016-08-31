@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -171,7 +170,7 @@ func (s *userAuthenticatorSuite) TestMacaroonUserLoginExpired(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "bobbrown",
 	})
-	clock := coretesting.NewClock(time.Now())
+	clock := testing.NewClock(time.Now())
 
 	m := &macaroon.Macaroon{}
 	err := m.AddFirstPartyCaveat(
@@ -198,7 +197,7 @@ func (s *userAuthenticatorSuite) TestMacaroonUserLoginExpired(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
-	clock := coretesting.NewClock(time.Time{})
+	clock := testing.NewClock(time.Time{})
 	authenticator := &authentication.UserAuthenticator{
 		Service: &service,
 		Clock:   clock,

@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -37,7 +36,7 @@ func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, _ *coretesting.Clock) {})
+	fix.RunTest(c, func(_ *lease.Manager, _ *testing.Clock) {})
 }
 
 func (s *ExpireSuite) TestStartup_ExpiryInFuture(c *gc.C) {
@@ -46,7 +45,7 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 			"redis": corelease.Info{Expiry: offset(time.Second)},
 		},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(almostSeconds(1))
 	})
 }
@@ -66,14 +65,14 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(time.Second)
 	})
 }
 
 func (s *ExpireSuite) TestStartup_NoExpiry_NotLongEnough(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(almostSeconds(3600))
 	})
 }
@@ -98,7 +97,7 @@ func (s *ExpireSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(time.Hour)
 	})
 }
@@ -119,7 +118,7 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(time.Second)
 	})
 }
@@ -140,7 +139,7 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
 		clock.Advance(time.Second)
 	})
 }
@@ -159,7 +158,7 @@ func (s *ExpireSuite) TestExpire_OtherError(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		clock.Advance(time.Second)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "snarfblat hobalob")
@@ -179,7 +178,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -208,7 +207,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +234,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -270,7 +269,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +323,7 @@ func (s *ExpireSuite) TestExpire_Multiple(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
 		clock.Advance(5 * time.Second)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "what is this\\?")

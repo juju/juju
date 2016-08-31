@@ -32,11 +32,11 @@ func newFixture(c *gc.C, errs ...error) *fixture {
 	return fix
 }
 
-type testFunc func(*singular.FlagWorker, *coretesting.Clock, func())
+type testFunc func(*singular.FlagWorker, *testing.Clock, func())
 
 func (fix *fixture) Run(c *gc.C, test testFunc) {
 	facade := newStubFacade(&fix.Stub)
-	clock := coretesting.NewClock(time.Now())
+	clock := testing.NewClock(time.Now())
 	flagWorker, err := singular.NewFlagWorker(singular.FlagConfig{
 		Facade:   facade,
 		Clock:    clock,

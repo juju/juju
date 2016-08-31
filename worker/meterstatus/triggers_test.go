@@ -6,6 +6,7 @@ package meterstatus_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
@@ -40,7 +41,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"GREEN",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -49,7 +50,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"AMBER",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -58,7 +59,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"RED",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -67,7 +68,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"GREEN",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -76,7 +77,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"AMBER",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -85,7 +86,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"RED",
 		now,
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -94,7 +95,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"GREEN",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -103,7 +104,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"AMBER",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -112,7 +113,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"RED",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -121,7 +122,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"AMBER",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -130,7 +131,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"AMBER",
 		now.Add(-(testRedGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -139,7 +140,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"RED",
 		now.Add(-(testRedGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -148,7 +149,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Done,
 		"RED",
 		now.Add(-(testRedGracePeriod + fudge)),
-		coretesting.NewClock(now),
+		testing.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.IsNil)

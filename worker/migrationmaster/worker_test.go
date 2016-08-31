@@ -30,7 +30,7 @@ import (
 
 type Suite struct {
 	coretesting.BaseSuite
-	clock         *coretesting.Clock
+	clock         *jujutesting.Clock
 	stub          *jujutesting.Stub
 	connection    *stubConnection
 	connectionErr error
@@ -95,7 +95,7 @@ var (
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = coretesting.NewClock(time.Now())
+	s.clock = jujutesting.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{stub: s.stub}
 	s.connectionErr = nil
