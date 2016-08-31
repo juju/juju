@@ -1542,9 +1542,6 @@ class TestEnvJujuClient(ClientTest):
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-        now = soft_deadline + timedelta(seconds=1)
-        client._backend.soft_deadline = soft_deadline
         # This will work even after we patch check_timeouts below.
         real_check_timeouts = client.check_timeouts
 
@@ -1554,8 +1551,7 @@ class TestEnvJujuClient(ClientTest):
 
         with patch.object(client, 'get_status', autospec=True,
                           side_effect=check):
-            with patch.object(client._backend, '_now', return_value=now,
-                              autospec=True):
+            with self.client_past_deadline(client):
                 with patch.object(client, 'check_timeouts', autospec=True):
                     yield
 
@@ -1569,18 +1565,23 @@ class TestEnvJujuClient(ClientTest):
             client._wait_for_status(Mock(), translate)
 
     @contextmanager
+    def client_past_deadline(self, client):
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client._backend.soft_deadline = soft_deadline
+        with patch.object(client._backend, '_now', return_value=now,
+                          autospec=True):
+            yield
+
+    @contextmanager
     def status_does_not_check(self, client, status=None):
         """This context manager ensure get_status never calls check_timeouts.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-        now = soft_deadline + timedelta(seconds=1)
-        client._backend.soft_deadline = soft_deadline
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            with patch.object(client._backend, '_now', return_value=now,
-                              autospec=True):
+            with self.client_past_deadline(client):
                 yield
 
     def test__wait_for_status_checks_deadline(self):
