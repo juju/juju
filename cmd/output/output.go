@@ -93,7 +93,7 @@ func (w *Wrapper) PrintStatus(status status.Status) {
 
 // CurrentHighlight is the color used to show the current
 // controller, user or model in tabular
-var CurrentHighlight = ansiterm.Foreground(ansiterm.Blue)
+var CurrentHighlight = ansiterm.Foreground(ansiterm.Green)
 
 // ErrorHighlight is the color used to show error conditions.
 var ErrorHighlight = ansiterm.Foreground(ansiterm.Red)
@@ -104,7 +104,7 @@ var ErrorHighlight = ansiterm.Foreground(ansiterm.Red)
 var WarningHighlight = ansiterm.Foreground(ansiterm.Yellow)
 
 // GoodHighlight is used to indicate good or success conditions.
-var GoodHighlight = ansiterm.Foreground(ansiterm.Blue)
+var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
