@@ -51,6 +51,10 @@ type Metadata struct {
 
 	// ImageId contains image identifier.
 	ImageId string
+
+	// DateCreated contains the time and date the image was created. This
+	// is populated when the Metadata is saved.
+	DateCreated int64
 }
 
 // Storage provides methods for storing and retrieving cloud image metadata.

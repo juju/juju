@@ -879,7 +879,7 @@ func (e *exporter) cloudimagemetadata() error {
 			Arch:            metadata.Arch,
 			VirtType:        metadata.VirtType,
 			RootStorageType: metadata.RootStorageType,
-			RootStorageSize: metadata.RootStorageSize,
+			RootStorageSize: *metadata.RootStorageSize,
 			DateCreated:     metadata.DateCreated,
 			Source:          metadata.Source,
 			Priority:        metadata.Priority,

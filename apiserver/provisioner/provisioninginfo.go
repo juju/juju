@@ -512,6 +512,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			},
 			priority,
 			m.Id,
+			0,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.

@@ -236,6 +236,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 		},
 		m.Priority,
 		m.ImageId,
+		m.DateCreated,
 	}
 	if m.RootStorageSize != 0 {
 		r.RootStorageSize = &m.RootStorageSize

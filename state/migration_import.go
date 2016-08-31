@@ -1179,29 +1179,7 @@ func (i *importer) cloudimagemetadata() error {
 }
 
 func (i *importer) addCloudImageMetadata(cloudimagemetadata description.CloudImageMetadata) error {
-	modelUUID := i.st.ModelUUID()
-	newDoc := &cloudimagemetadataDoc{
-		DocId:      i.st.docID(cloudimagemetadata.Id()),
-		ModelUUID:  modelUUID,
-		Receiver:   cloudimagemetadata.Receiver(),
-		Name:       cloudimagemetadata.Name(),
-		Parameters: cloudimagemetadata.Parameters(),
-		Enqueued:   cloudimagemetadata.Enqueued(),
-		Results:    cloudimagemetadata.Results(),
-		Message:    cloudimagemetadata.Message(),
-		Started:    cloudimagemetadata.Started(),
-		Completed:  cloudimagemetadata.Completed(),
-		Status:     CloudImageMetadataStatus(cloudimagemetadata.Status()),
-	}
-	prefix := ensureCloudImageMetadataMarker(cloudimagemetadata.Receiver())
-	ops := []txn.Op{{
-		C:      cloudimagemetadataC,
-		Id:     newDoc.DocId,
-		Insert: newDoc,
-	}}
-	if err := i.st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
+	// XXX need to call storage.SaveMetadata but force the creation date.
 	return nil
 }
 

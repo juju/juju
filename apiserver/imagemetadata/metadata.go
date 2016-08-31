@@ -191,6 +191,8 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 			},
 			metadata.Priority,
 			metadata.ImageId,
+			// DateCreated will be filled in on save.
+			0,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.

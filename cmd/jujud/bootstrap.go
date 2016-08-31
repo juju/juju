@@ -476,6 +476,8 @@ func storeImageMetadataInState(st *state.State, env environs.Environ, source str
 			},
 			priority,
 			one.Id,
+			// DateCreated will be filled in on save.
+			0,
 		}
 		s, err := seriesFromVersion(one.Version)
 		if err != nil {
