@@ -1310,6 +1310,27 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(mock_ts.mock_calls, [call(.1), call(.1)])
         self.assertEqual(mock_ju.mock_calls, [call(60)])
 
+    def test_wait_for_resource_suppresses_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        real_check_timeouts = client.check_timeouts
+        def list_resources(service_or_unit):
+            with real_check_timeouts():
+                return make_resource_list()
+        with patch.object(client, 'check_timeouts', autospec=True):
+            with patch.object(client, 'list_resources', autospec=True,
+                              side_effect=list_resources):
+                with self.client_past_deadline(client):
+                    client.wait_for_resource('dummy-resource/foo', 'app_unit')
+
+    def test_wait_for_resource_checks_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        resource_list = make_resource_list()
+        with patch.object(client, 'list_resources', autospec=True,
+                          return_value=resource_list):
+            with self.client_past_deadline(client):
+                with self.assertRaises(SoftDeadlineExceeded):
+                    client.wait_for_resource('dummy-resource/foo', 'app_unit')
+
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)

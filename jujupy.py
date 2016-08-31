@@ -1353,18 +1353,21 @@ class EnvJujuClient:
 
     def wait_for_resource(self, resource_id, service_or_unit, timeout=60):
         log.info('Waiting for resource. Resource id:{}'.format(resource_id))
-        for _ in until_timeout(timeout):
-            resources = self.list_resources(service_or_unit)['resources']
-            for resource in resources:
-                if resource['expected']['resourceid'] == resource_id:
-                    if (resource['expected']['fingerprint'] ==
-                            resource['unit']['fingerprint']):
-                        return
-            time.sleep(.1)
-        raise JujuResourceTimeout(
-            'Timeout waiting for a resource to be downloaded. '
-            'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
-                resource_id, service_or_unit, timeout))
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                for _ in until_timeout(timeout):
+                    resources_dict = self.list_resources(service_or_unit)
+                    resources = resources_dict['resources']
+                    for resource in resources:
+                        if resource['expected']['resourceid'] == resource_id:
+                            if (resource['expected']['fingerprint'] ==
+                                    resource['unit']['fingerprint']):
+                                return
+                    time.sleep(.1)
+                raise JujuResourceTimeout(
+                    'Timeout waiting for a resource to be downloaded. '
+                    'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
+                        resource_id, service_or_unit, timeout))
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
