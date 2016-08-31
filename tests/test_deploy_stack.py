@@ -1380,7 +1380,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
-    def test_bootstrap_context_ignore_soft_deadline(self):
+    def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
         tear_down_client = EnvJujuClient(env, None, None)
@@ -1402,7 +1402,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             with patch.object(client._backend, '_now', return_value=now):
                 fake_exception = Exception()
                 with self.assertRaises(LoggedException) as exc:
-                    with bs_manager.bootstrap_context([]):
+                    with bs_manager.handle_bootstrap_exceptions():
                         client._backend.soft_deadline = soft_deadline
                         tear_down_client._backend.soft_deadline = soft_deadline
                         raise fake_exception

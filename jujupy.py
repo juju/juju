@@ -1450,20 +1450,25 @@ class EnvJujuClient:
         """
         status = None
         try:
-            for _ in chain([None], until_timeout(timeout, start=start)):
-                try:
-                    status = self.get_status()
-                except CannotConnectEnv:
-                    log.info('Suppressing "Unable to connect to environment"')
-                    continue
-                states = translate(status)
-                if states is None:
-                    break
-                reporter.update(states)
-            else:
-                if status is not None:
-                    log.error(status.status_text)
-                raise exc_type(self.env.environment, status)
+            with self.check_timeouts():
+                with self.ignore_soft_deadline():
+                    for _ in chain([None],
+                                   until_timeout(timeout, start=start)):
+                        try:
+                            status = self.get_status()
+                        except CannotConnectEnv:
+                            log.info(
+                                'Suppressing "Unable to connect to'
+                                ' environment"')
+                            continue
+                        states = translate(status)
+                        if states is None:
+                            break
+                        reporter.update(states)
+                    else:
+                        if status is not None:
+                            log.error(status.status_text)
+                        raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
         return status
@@ -1624,21 +1629,24 @@ class EnvJujuClient:
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
-            for remaining in until_timeout(timeout):
-                status = self.get_status(controller=True)
-                status.check_agents_started()
-                states = {}
-                for machine, info in status.iter_machines():
-                    status = self.get_controller_member_status(info)
-                    if status is None:
-                        continue
-                    states.setdefault(status, []).append(machine)
-                if states.keys() == [desired_state]:
-                    if len(states.get(desired_state, [])) >= 3:
-                        break
-                reporter.update(states)
-            else:
-                raise Exception('Timed out waiting for voting to be enabled.')
+            with self.check_timeouts():
+                with self.ignore_soft_deadline():
+                    for remaining in until_timeout(timeout):
+                        status = self.get_status(controller=True)
+                        status.check_agents_started()
+                        states = {}
+                        for machine, info in status.iter_machines():
+                            status = self.get_controller_member_status(info)
+                            if status is None:
+                                continue
+                            states.setdefault(status, []).append(machine)
+                        if states.keys() == [desired_state]:
+                            if len(states.get(desired_state, [])) >= 3:
+                                break
+                        reporter.update(states)
+                    else:
+                        raise Exception('Timed out waiting for voting to be'
+                                        ' enabled.')
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because
@@ -1653,12 +1661,14 @@ class EnvJujuClient:
         :param service_count: The number of services for which to wait.
         :param timeout: The number of seconds to wait.
         """
-        for remaining in until_timeout(timeout):
-            status = self.get_status()
-            if status.get_service_count() >= service_count:
-                return
-        else:
-            raise Exception('Timed out waiting for services to start.')
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                for remaining in until_timeout(timeout):
+                    status = self.get_status()
+                    if status.get_service_count() >= service_count:
+                        return
+                else:
+                    raise Exception('Timed out waiting for services to start.')
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
