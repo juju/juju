@@ -1313,9 +1313,11 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_resource_suppresses_deadline(self):
         client = EnvJujuClient(JujuData('local'), None, None)
         real_check_timeouts = client.check_timeouts
+
         def list_resources(service_or_unit):
             with real_check_timeouts():
                 return make_resource_list()
+
         with patch.object(client, 'check_timeouts', autospec=True):
             with patch.object(client, 'list_resources', autospec=True,
                               side_effect=list_resources):
