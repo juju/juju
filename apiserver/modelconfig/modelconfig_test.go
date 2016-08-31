@@ -365,6 +365,10 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
+func (m *mockBackend) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
+}
+
 type mockBlock struct {
 	state.Block
 	t state.BlockType

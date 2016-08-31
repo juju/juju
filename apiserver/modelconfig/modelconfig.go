@@ -54,7 +54,7 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 }
 
 func (c *ModelConfigAPI) isAdmin() error {
-	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ModelTag())
+	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
