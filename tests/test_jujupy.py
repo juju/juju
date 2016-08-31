@@ -1371,6 +1371,17 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(ut_mock.mock_calls,
                          [call(60), call(30, start=70), call(60), call(60)])
 
+    def test_status_until_suppresses_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with self.only_status_checks(client, None):
+            list(client.status_until(0))
+
+    def test_status_until_checks_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with self.status_does_not_check(client, None):
+            with self.assertRaises(SoftDeadlineExceeded):
+                list(client.status_until(0))
+
     def test_add_ssh_machines(self):
         client = EnvJujuClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True) as cc_mock:

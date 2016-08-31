@@ -1430,9 +1430,11 @@ class EnvJujuClient:
         :param start: If supplied, the time to count from when determining
             timeout.
         """
-        yield self.get_status()
-        for remaining in until_timeout(timeout, start=start):
-            yield self.get_status()
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                yield self.get_status()
+                for remaining in until_timeout(timeout, start=start):
+                    yield self.get_status()
 
     def _wait_for_status(self, reporter, translate, exc_type=StatusNotMet,
                          timeout=1200, start=None):
