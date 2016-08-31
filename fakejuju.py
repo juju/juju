@@ -481,7 +481,7 @@ class FakeBackend:
             else:
                 access = self.controller_state.users[n]['access']
                 append_dict = {
-                    'access': access, 'user-name': n, 'display-name': ''}
+                    'access': access, 'user-name': n}
             user_list.append(append_dict)
         return user_list
 
