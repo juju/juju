@@ -1629,21 +1629,24 @@ class EnvJujuClient:
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
-            for remaining in until_timeout(timeout):
-                status = self.get_status(controller=True)
-                status.check_agents_started()
-                states = {}
-                for machine, info in status.iter_machines():
-                    status = self.get_controller_member_status(info)
-                    if status is None:
-                        continue
-                    states.setdefault(status, []).append(machine)
-                if states.keys() == [desired_state]:
-                    if len(states.get(desired_state, [])) >= 3:
-                        break
-                reporter.update(states)
-            else:
-                raise Exception('Timed out waiting for voting to be enabled.')
+            with self.check_timeouts():
+                with self.ignore_soft_deadline():
+                    for remaining in until_timeout(timeout):
+                        status = self.get_status(controller=True)
+                        status.check_agents_started()
+                        states = {}
+                        for machine, info in status.iter_machines():
+                            status = self.get_controller_member_status(info)
+                            if status is None:
+                                continue
+                            states.setdefault(status, []).append(machine)
+                        if states.keys() == [desired_state]:
+                            if len(states.get(desired_state, [])) >= 3:
+                                break
+                        reporter.update(states)
+                    else:
+                        raise Exception('Timed out waiting for voting to be'
+                                        ' enabled.')
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because

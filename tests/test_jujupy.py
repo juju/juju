@@ -1516,46 +1516,73 @@ class TestEnvJujuClient(ClientTest):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
-    def test__wait_for_status_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
+
+    def make_ha_status(self, client):
+        return client.status_class({'machines': {
+            '0': {'controller-member-status': 'has-vote'},
+            '1': {'controller-member-status': 'has-vote'},
+            '2': {'controller-member-status': 'has-vote'},
+            }}, '')
+
+    @contextmanager
+    def only_status_checks(self, client):
+        """This context manager ensure only get_status calls check_timeouts.
+
+        Everything else will get a mock object.
+
+        Also, the client is patched so that the soft_deadline has been hit.
+        """
         soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
         now = soft_deadline + timedelta(seconds=1)
         client._backend.soft_deadline = soft_deadline
         # This will work even after we patch check_timeouts below.
         real_check_timeouts = client.check_timeouts
 
-        def check():
+        def check(timeout=60, controller=False):
             with real_check_timeouts():
-                pass
-
-        def translate(x):
-            return None
+                return self.make_ha_status(client)
 
         with patch.object(client, 'get_status', autospec=True,
                           side_effect=check):
             with patch.object(client._backend, '_now', return_value=now,
                               autospec=True):
                 with patch.object(client, 'check_timeouts', autospec=True):
-                    client._wait_for_status(Mock(), translate)
+                    yield
 
-    def test__wait_for_status_checks_deadline(self):
+    def test__wait_for_status_suppresses_deadline(self):
         client = EnvJujuClient(JujuData('local'), None, None)
-        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-        now = soft_deadline + timedelta(seconds=1)
-        client._backend.soft_deadline = soft_deadline
-
-        def check():
-            with client.check_timeouts():
-                pass
 
         def translate(x):
             return None
 
-        with patch.object(client, 'get_status', autospec=True):
+        with self.only_status_checks(client):
+            client._wait_for_status(Mock(), translate)
+
+
+    @contextmanager
+    def status_does_not_check(self, client):
+        """This context manager ensure get_status never calls check_timeouts.
+
+        Also, the client is patched so that the soft_deadline has been hit.
+        """
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client._backend.soft_deadline = soft_deadline
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=self.make_ha_status(client)):
             with patch.object(client._backend, '_now', return_value=now,
                               autospec=True):
-                with self.assertRaises(SoftDeadlineExceeded):
-                    client._wait_for_status(Mock(), translate)
+                yield
+
+    def test__wait_for_status_checks_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+
+        def translate(x):
+            return None
+
+        with self.status_does_not_check(client):
+            with self.assertRaises(SoftDeadlineExceeded):
+                client._wait_for_status(Mock(), translate)
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
@@ -2137,6 +2164,17 @@ class TestEnvJujuClient(ClientTest):
                 with self.assertRaisesRegexp(
                         ErroredUnit, '1 is in state error: foo'):
                     client.wait_for_ha()
+
+    def test__wait_for_ha_suppresses_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with self.only_status_checks(client):
+            client.wait_for_ha()
+
+    def test__wait_for_ha_checks_deadline(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with self.status_does_not_check(client):
+            with self.assertRaises(SoftDeadlineExceeded):
+                client.wait_for_ha()
 
     def test_wait_for_deploy_started(self):
         value = yaml.safe_dump({
