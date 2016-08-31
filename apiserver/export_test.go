@@ -32,7 +32,7 @@ var (
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
-	auth, err := srv.authCtxt.macaroonAuth()
+	auth, err := srv.authCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 }
 
 func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
-	auth, err := srv.authCtxt.macaroonAuth()
+	auth, err := srv.authCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 // ServerAuthenticatorForTag calls the authenticatorForTag method
 // of the server's authContext.
 func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.EntityAuthenticator, error) {
-	return srv.authCtxt.authenticatorForTag(tag)
+	return srv.authCtxt.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -98,7 +98,7 @@ func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state:    srvSt,
 		tag:      names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, st.ModelUUID())
+	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }

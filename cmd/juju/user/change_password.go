@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -69,7 +68,6 @@ func (c *changePasswordCommand) Init(args []string) error {
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
-	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	SetPassword(username, password string) error
 	Close() error
 }
@@ -118,36 +116,23 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Errorf("cannot change password for external user %q", userTag)
 		}
 	}
-
-	if accountDetails != nil && accountDetails.Macaroon == "" {
-		// Generate a macaroon first to guard against I/O failures
-		// occurring after the password has been changed, preventing
-		// future logins.
-		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		accountDetails.Password = ""
-
-		// TODO(axw) update jujuclient with code for marshalling
-		// and unmarshalling macaroons as YAML.
-		macaroonJSON, err := macaroon.MarshalJSON()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		accountDetails.Macaroon = string(macaroonJSON)
-
-		if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
-			return errors.Annotate(err, "failed to update client credentials")
-		}
-	}
-
 	if err := c.api.SetPassword(userTag.Canonical(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+
 	if accountDetails == nil {
 		ctx.Infof("Password for %q has been updated.", c.User)
 	} else {
+		if accountDetails.Password != "" {
+			// Wipe the password from disk. In the event of an
+			// error occurring after SetPassword and before the
+			// account details being updated, the user will be
+			// able to recover by running "juju login".
+			accountDetails.Password = ""
+			if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
+				return errors.Annotate(err, "failed to update client credentials")
+			}
+		}
 		ctx.Infof("Your password has been updated.")
 	}
 	return nil
@@ -159,7 +144,7 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// on their own lines.
 	//
 	// TODO(axw) retry/loop on failure
-	fmt.Fprint(ctx.Stderr, "password: ")
+	fmt.Fprint(ctx.Stderr, "new password: ")
 	password, err := readPassword(ctx.Stdin)
 	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
@@ -169,7 +154,7 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 		return "", errors.Errorf("you must enter a password")
 	}
 
-	fmt.Fprint(ctx.Stderr, "type password again: ")
+	fmt.Fprint(ctx.Stderr, "type new password again: ")
 	verify, err := readPassword(ctx.Stdin)
 	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {

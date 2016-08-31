@@ -55,11 +55,6 @@ type AccountDetails struct {
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty"`
 
-	// Macaroon is a time-limited macaroon that may be
-	// used to log in. This string is the JSON-encoding
-	// of a gopkg.in/macaroon.v1.Macaroon.
-	Macaroon string `yaml:"macaroon,omitempty"`
-
 	// LastKnownAccess is the last known access level for the account.
 	LastKnownAccess string `yaml:"last-known-access,omitempty"`
 }

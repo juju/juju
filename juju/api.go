@@ -4,13 +4,11 @@
 package juju
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/jujuclient"
@@ -172,25 +170,17 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		return apiInfo, controller, nil
 	}
 	account := args.AccountDetails
-	if args.AccountDetails.Password != "" {
-		// If a password is available, we always use
-		// that.
-		//
-		// TODO(axw) make it invalid to store both
-		// password and macaroon in accounts.yaml?
-		apiInfo.Tag = names.NewUserTag(account.User)
-		apiInfo.Password = account.Password
-	} else if args.AccountDetails.Macaroon != "" {
-		var m macaroon.Macaroon
-		if err := json.Unmarshal([]byte(account.Macaroon), &m); err != nil {
-			return nil, nil, errors.Trace(err)
+	if account.User != "" {
+		userTag := names.NewUserTag(account.User)
+		if userTag.IsLocal() {
+			apiInfo.Tag = userTag
 		}
-		apiInfo.Tag = names.NewUserTag(account.User)
-		apiInfo.Macaroons = []macaroon.Slice{{&m}}
-	} else {
-		// Neither a password nor a local user macaroon was
-		// found, so we'll use external macaroon authentication,
-		// which requires that no tag be specified.
+	}
+	if args.AccountDetails.Password != "" {
+		// If a password is available, we always use that.
+		// If no password is recorded, we'll attempt to
+		// authenticate using macaroons.
+		apiInfo.Password = account.Password
 	}
 	return apiInfo, controller, nil
 }

@@ -3,10 +3,6 @@
 
 package params
 
-import (
-	"gopkg.in/macaroon.v1"
-)
-
 // SecretKeyLoginRequest contains the parameters for completing
 // the registration of a user. The request contains the tag of
 // the user, and an encrypted and authenticated payload that
@@ -57,8 +53,4 @@ type SecretKeyLoginResponsePayload struct {
 
 	// ControllerUUID is the UUID of the Juju controller.
 	ControllerUUID string `json:"controller-uuid"`
-
-	// Macaroon is a time-limited macaroon that can be used for
-	// authenticating as the registered user.
-	Macaroon *macaroon.Macaroon `json:"macaroon"`
 }
