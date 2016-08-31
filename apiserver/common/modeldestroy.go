@@ -10,8 +10,13 @@ import (
 	"github.com/juju/juju/apiserver/metricsender"
 )
 
-var sendMetrics = func(st metricsender.MetricsSenderBackend) error {
-	err := metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend())
+var sendMetrics = func(st metricsender.ModelBackend) error {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
+	}
+
+	err = metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend(), cfg.TransmitVendorMetrics())
 	return errors.Trace(err)
 }
 

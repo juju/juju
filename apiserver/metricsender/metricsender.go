@@ -28,7 +28,7 @@ var (
 	defaultSender            MetricSender = &HttpSender{}
 )
 
-func handleResponse(mm *state.MetricsManager, st MetricsSenderBackend, response wireformat.Response) {
+func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) {
 	for _, envResp := range response.EnvResponses {
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
 		if err != nil {
@@ -57,12 +57,13 @@ func handleResponse(mm *state.MetricsManager, st MetricsSenderBackend, response 
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
 // no larger than batchSize.
-func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) error {
+func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVendorMetrics bool) error {
 	metricsManager, err := st.MetricsManager()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	sent := 0
+	held := 0
 	for {
 		metrics, err := st.MetricsToSend(batchSize)
 		if err != nil {
@@ -77,9 +78,15 @@ func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) er
 			}
 			break
 		}
-		wireData := make([]*wireformat.MetricBatch, lenM)
-		for i, m := range metrics {
-			wireData[i] = ToWire(m)
+
+		var wireData []*wireformat.MetricBatch
+		var heldBatches []string
+		for _, m := range metrics {
+			if !transmitVendorMetrics && len(m.Credentials()) == 0 {
+				heldBatches = append(heldBatches, m.UUID())
+			} else {
+				wireData = append(wireData, ToWire(m))
+			}
 		}
 		response, err := sender.Send(wireData)
 		if err != nil {
@@ -100,7 +107,17 @@ func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) er
 				return errors.Trace(err)
 			}
 		}
-		sent += lenM
+
+		// Mark held metric batches as sent so that they can be cleaned up later.
+		if len(heldBatches) > 0 {
+			err := st.SetMetricBatchesSent(heldBatches)
+			if err != nil {
+				return errors.Annotatef(err, "failed to mark metric batches as sent for %s", st.ModelTag())
+			}
+		}
+
+		sent += len(wireData)
+		held += len(heldBatches)
 	}
 
 	unsent, err := st.CountOfUnsentMetrics()
@@ -111,7 +128,7 @@ func SendMetrics(st MetricsSenderBackend, sender MetricSender, batchSize int) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("metrics collection summary for %s: sent:%d unsent:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, sentStored)
+	logger.Infof("metrics collection summary for %s: sent:%d unsent:%d held:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, held, sentStored)
 
 	return nil
 }
