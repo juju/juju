@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -1106,6 +1107,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -1127,6 +1129,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
