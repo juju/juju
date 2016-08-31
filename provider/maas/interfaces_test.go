@@ -5,6 +5,7 @@ package maas
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"text/template"
@@ -546,63 +547,53 @@ func (s *interfacesSuite) TestSortInterfaceInfoByPreferredAddresses(c *gc.C) {
 	c.Check(inputCopy, gc.DeepEquals, input)
 }
 
-func (s *interfacesSuite) TestMAASObjectPXEMACAddressAndHostname(c *gc.C) {
-	const (
-		nodeJSONPrefix = `{"system_id": "foo"`
+func (s *interfacesSuite) TestExtractMAASObjectPXEMACAddress(c *gc.C) {
+	node := s.addNode(c, nil)
+	_, err := extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "missing or null pxe_mac field")
 
-		noPXEMAC   = ""
-		nullPXEMAC = `,"pxe_mac": null`
-		badPXEMAC  = `,"pxe_mac": 42`
+	node = s.addNode(c, attributes{"pxe_mac": nil})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "missing or null pxe_mac field")
 
-		noPXEMACAddress   = `,"pxe_mac": {}`
-		nullPXEMACAddress = `,"pxe_mac": {"mac_address": null}`
-		badPXEMACAddress  = `,"pxe_mac": {"mac_address": 42}`
-		goodPXEMACAddress = `,"pxe_mac": {"mac_address": "mac"}`
+	node = s.addNode(c, attributes{"pxe_mac": 42})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac map failed: Requested map, got float.*")
 
-		noHostname   = ""
-		nullHostname = `,"hostname": null`
-		badHostname  = `,"hostname": 42`
-		goodHostname = `,"hostname": "node-xyz.maas"`
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"any-key": 42}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, `missing or null pxe_mac\.mac_address field`)
 
-		errNoPXEMAC        = "missing or null pxe_mac field"
-		errNoPXEMACAddress = `missing or null pxe_mac\.mac_address field`
-		errNoHostname      = "missing or null hostname field"
-		errBadTypeSuffix   = ": Requested .*, got float.*"
-	)
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": nil}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, `missing or null pxe_mac\.mac_address field`)
 
-	node := func(pxeMACJSON, hostnameJSON string) *gomaasapi.MAASObject {
-		fullJSON := nodeJSONPrefix + pxeMACJSON + hostnameJSON + "}"
-		nodeObject := s.testMAASObject.TestServer.NewNode(fullJSON)
-		return &nodeObject
-	}
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": 42}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac.mac_address failed: Requested string, got float.*")
 
-	_, _, err := maasObjectPXEMACAddressAndHostname(node(noPXEMAC, noHostname))
-	c.Check(err, gc.ErrorMatches, errNoPXEMAC)
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(nullPXEMAC, noHostname))
-	c.Check(err, gc.ErrorMatches, errNoPXEMAC)
-
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(badPXEMAC, noHostname))
-	c.Check(err, gc.ErrorMatches, "getting pxe_mac map failed"+errBadTypeSuffix)
-
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(noPXEMACAddress, noHostname))
-	c.Check(err, gc.ErrorMatches, errNoPXEMACAddress)
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(nullPXEMACAddress, noHostname))
-	c.Check(err, gc.ErrorMatches, errNoPXEMACAddress)
-
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(badPXEMACAddress, noHostname))
-	c.Check(err, gc.ErrorMatches, "getting pxe_mac.mac_address failed"+errBadTypeSuffix)
-
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, noHostname))
-	c.Check(err, gc.ErrorMatches, errNoHostname)
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, nullHostname))
-	c.Check(err, gc.ErrorMatches, errNoHostname)
-
-	_, _, err = maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, badHostname))
-	c.Check(err, gc.ErrorMatches, "getting hostname failed"+errBadTypeSuffix)
-
-	mac, hostname, err := maasObjectPXEMACAddressAndHostname(node(goodPXEMACAddress, goodHostname))
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": "mac"}})
+	mac, err := extractMAASObjectPXEMACAddress(node)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(mac, gc.Equals, "mac")
+}
+
+func (s *interfacesSuite) TestExtractMAASObjectHostname(c *gc.C) {
+	node := s.addNode(c, nil)
+	_, err := extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "missing or null hostname field")
+
+	node = s.addNode(c, attributes{"hostname": nil})
+	_, err = extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "missing or null hostname field")
+
+	node = s.addNode(c, attributes{"hostname": 42})
+	_, err = extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "getting hostname failed: Requested string, got float.*")
+
+	node = s.addNode(c, attributes{"hostname": "node-xyz.maas"})
+	hostname, err := extractMAASObjectHostname(node)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(hostname, gc.Equals, "node-xyz.maas")
 }
 
@@ -1103,4 +1094,19 @@ func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (str
 		return "", err
 	}
 	return string(buf.Bytes()), nil
+}
+
+type attributes map[string]interface{}
+
+func (s *interfacesSuite) addNode(c *gc.C, attrs attributes) *gomaasapi.MAASObject {
+	if attrs == nil {
+		attrs = make(attributes)
+	}
+	if _, ok := attrs["system_id"]; !ok {
+		attrs["system_id"] = "node-0"
+	}
+	nodeJSON, err := json.Marshal(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	nodeObject := s.testMAASObject.TestServer.NewNode(string(nodeJSON))
+	return &nodeObject
 }
