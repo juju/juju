@@ -166,16 +166,18 @@ var cloudimagemetadataDeserializationFuncs = map[int]cloudimagemetadataDeseriali
 
 func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetadata, error) {
 	fields := schema.Fields{
-		"receiver":   schema.String(),
-		"name":       schema.String(),
-		"parameters": schema.StringMap(schema.Any()),
-		"enqueued":   schema.Time(),
-		"started":    schema.Time(),
-		"completed":  schema.Time(),
-		"status":     schema.String(),
-		"message":    schema.String(),
-		"results":    schema.StringMap(schema.Any()),
-		"id":         schema.String(),
+		"stream":          schmea.String(),
+		"region":          schema.String(),
+		"version":         schema.String(),
+		"series":          schema.String(),
+		"arch":            schema.String(),
+		"virttype":        schema.String(),
+		"rootstoragetype": schema.String(),
+		"rootstoragesize": schema.Uint(),
+		"datecreated":     schema.Int(),
+		"source":          schema.String(),
+		"priority":        schema.Int(),
+		"imageid":         schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
