@@ -5,17 +5,6 @@ LOG_BREAKDOWN_SECONDS = 20
 dt_format = '%Y-%m-%d %H:%M:%S'
 
 
-def main():
-    # testing
-    timestamps = [
-        ('2016-07-22 01:09:01', '2016-07-22 01:12:59'),
-        ('2016-07-22 01:14:12', '2016-07-22 01:16:56'),
-        ('2016-07-22 01:16:57', '2016-07-22 01:17:29'),
-    ]
-
-    breakdown_log_by_timeframes('./machine-0.log.gz', timestamps)
-
-
 def breakdown_log_by_timeframes(log_file, timestamps):
     all_log_breakdown = dict()
     for event_range in timestamps:
@@ -43,16 +32,6 @@ def breakdown_log_by_timeframes(log_file, timestamps):
         breakdown = get_timerange_logs(log_file, range_breakdown)
         all_log_breakdown[range_name] = breakdown
 
-        # for timeframe in sorted(breakdown.keys()):
-        #     print(
-        #         '{tf}:\n\t{first}\n\t..[skip {count}]..\n\t{last}'.format(
-        #             tf=timeframe,
-        #             first=breakdown[timeframe][0],
-        #             count=len(breakdown[timeframe]) - 2,
-        #             last=breakdown[timeframe][-1],
-        #         )
-        #     )
-        # print('-'*80)
     return all_log_breakdown
 
 
@@ -89,7 +68,6 @@ def get_timerange_logs(log_file, timestamps):
                 # Likely because the log cuts off before the action is
                 # considered complete (i.e. teardown).
                 print('LOG: failed to find start line.')
-                # continue?
                 break
 
             # It it's out of range of the end range then there is nothing for
@@ -137,7 +115,3 @@ def log_line_within_end_range(line, range_start):
     if ds < range_start or ds == range_start:
         return True
     return False
-
-
-if __name__ == '__main__':
-    main()
