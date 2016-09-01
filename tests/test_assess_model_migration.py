@@ -45,7 +45,9 @@ class TestParseArgs(TestCase):
                 region=None,
                 series=None,
                 upload_tools=False,
-                verbose=20))
+                verbose=20,
+                deadline=None,
+                ))
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
@@ -198,7 +200,6 @@ class TestWaitForModel(TestCase):
                               autospec=True):
                 with patch.object(client, 'check_timeouts', autospec=True):
                     amm.wait_for_model(client, 'TestModelName')
-
 
     def test_checks_deadline(self):
         with client_past_deadline() as client:

@@ -637,6 +637,15 @@ class TestClientFromConfig(ClientTest):
                 client_from_config('foo', 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
+    def test_client_from_config_deadline(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+            with patch.object(JujuData, 'from_config',
+                              side_effect=lambda x: JujuData(x, {})):
+                client = client_from_config(
+                    'foo', 'foo/bar/qux', soft_deadline=deadline)
+        self.assertEqual(client._backend.soft_deadline, deadline)
+
 
 @contextmanager
 def client_past_deadline():

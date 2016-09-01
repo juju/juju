@@ -544,7 +544,8 @@ class BootstrapManager:
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
-                                        debug=args.debug)
+                                        debug=args.debug,
+                                        soft_deadline=args.deadline)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,

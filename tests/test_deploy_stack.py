@@ -1141,14 +1141,17 @@ class TestTestUpgrade(FakeHomeTestCase):
 class TestBootstrapManager(FakeHomeTestCase):
 
     def test_from_args(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=deadline)
         with patch('deploy_stack.client_from_config') as fc_mock:
             bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=deadline)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
         self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
@@ -1170,11 +1173,13 @@ class TestBootstrapManager(FakeHomeTestCase):
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs=None, keep_env=True)
+            region='eu-west-northwest-5', logs=None, keep_env=True,
+            deadline=None)
         with patch('deploy_stack.client_from_config') as fc_mock:
             with patch('utility.os.makedirs'):
                 bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=None)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
         self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
@@ -1221,7 +1226,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host=None, machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=None)
         with patch('deploy_stack.client_from_config'):
             bs_manager = BootstrapManager.from_args(args)
         self.assertIs(None, bs_manager.bootstrap_host)
@@ -2043,6 +2049,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             with_chaos=0,
             jes=False,
             region=None,
+            deadline=None,
         ))
 
     def test_upload_tools(self):

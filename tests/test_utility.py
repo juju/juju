@@ -371,6 +371,7 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertTrue(temp_env_name_ts,
                         datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
         self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
+        self.assertIs(None, args.deadline)
 
     def test_default_binary(self):
         cmd_line = []
@@ -388,7 +389,8 @@ class TestAddBasicTestingArguments(TestCase):
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
-            upload_tools=False, bootstrap_host=None, machine=[], region=None)
+            upload_tools=False, bootstrap_host=None, machine=[], region=None,
+            deadline=None)
         self.assertEqual(args, expected)
 
     def test_positional_args_add_juju_bin_name(self):
@@ -528,6 +530,17 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual('foo-bar', args.region)
+
+    def test_deadline(self):
+        now = datetime(2012, 11, 10, 9, 8, 7)
+        cmd_line = ['--timeout', '300']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        with patch('utility.datetime') as dt_class:
+            # Can't patch the utcnow method of datetime.datetime (because it's
+            # C code?) but we can patch out the whole datetime class.
+            dt_class.utcnow.return_value = now
+            args = parser.parse_args(cmd_line)
+        self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
 
 class TestRunCommand(TestCase):

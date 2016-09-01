@@ -53,7 +53,8 @@ class TestScaleOut(TestCase):
             series=None,
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
         self.assertEqual(args, expected)
 
