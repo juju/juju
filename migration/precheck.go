@@ -18,6 +18,10 @@ import (
 /*
 # TODO - remaining prechecks
 
+## Model
+
+- what about if a charm upgrade is in progress? (i.e. charm URL != unit charm URL)
+
 ## Target controller
 
 - target controller already has a model with the same owner:name
