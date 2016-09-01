@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -1167,19 +1168,31 @@ func (i *importer) sshHostKeys() error {
 
 func (i *importer) cloudimagemetadata() error {
 	i.logger.Debugf("importing cloudimagemetadata")
-	for _, cloudimagemetadata := range i.model.CloudImageMetadatas() {
-		err := i.addCloudImageMetadata(cloudimagemetadata)
-		if err != nil {
-			i.logger.Errorf("error importing cloudimagemetadata %v: %s", cloudimagemetadata, err)
-			return errors.Trace(err)
+	images := i.model.CloudImageMetadatas()
+	metadatas := make([]cloudimagemetadata.Metadata, len(images))
+	for index, image := range images {
+		metadatas[index] = cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Source:          image.Source(),
+				Stream:          image.Stream(),
+				Region:          image.Region(),
+				Version:         image.Version(),
+				Series:          image.Series(),
+				Arch:            image.Arch(),
+				RootStorageType: image.RootStorageType(),
+				VirtType:        image.VirtType(),
+			},
+			image.Priority(),
+			image.ImageId(),
+			image.DateCreated(),
 		}
 	}
+	err := i.st.CloudImageMetadataStorage.SaveMetadata(metadatas)
+	if err != nil {
+		i.logger.Errorf("error importing cloudimagemetadata %v: %s", images, err)
+		return errors.Trace(err)
+	}
 	i.logger.Debugf("importing cloudimagemetadata succeeded")
-	return nil
-}
-
-func (i *importer) addCloudImageMetadata(cloudimagemetadata description.CloudImageMetadata) error {
-	// XXX need to call storage.SaveMetadata but force the creation date.
 	return nil
 }
 

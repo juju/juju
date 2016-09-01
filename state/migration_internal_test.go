@@ -19,6 +19,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		annotationsC,
 		blocksC,
+		cloudimagemetadataC,
 		constraintsC,
 		modelsC,
 		modelUsersC,
@@ -157,9 +158,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// model configuration
 		globalSettingsC,
-
-		// model
-		cloudimagemetadataC,
 
 		// machine
 		rebootC,
@@ -635,6 +633,7 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
 }
 
+// XXX move this test to state/cloudimagemetadata
 func (s *MigrationSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
@@ -651,7 +650,7 @@ func (s *MigrationSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 		"Message",
 		"Status",
 	)
-	s.AssertExportedFields(c, cloudimagemetadataDoc{}, migrated.Union(ignored))
+	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
