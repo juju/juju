@@ -58,9 +58,6 @@ type ProviderSchema interface {
 
 // PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
 type PrepareConfigParams struct {
-	// ControllerUUID is the UUID of the controller to be bootstrapped.
-	ControllerUUID string
-
 	// Cloud is the cloud specification to use to connect to the cloud.
 	Cloud CloudSpec
 

@@ -147,9 +147,7 @@ func prepare(
 		return nil, details, errors.Trace(err)
 	}
 
-	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{
-		args.ControllerConfig.ControllerUUID(), args.Cloud, cfg,
-	})
+	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{args.Cloud, cfg})
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}

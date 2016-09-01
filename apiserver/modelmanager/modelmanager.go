@@ -122,7 +122,6 @@ type ConfigSource interface {
 func (mm *ModelManagerAPI) newModelConfig(
 	cloudSpec environs.CloudSpec,
 	args params.ModelCreateArgs,
-	controllerUUID string,
 	source ConfigSource,
 ) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
@@ -165,7 +164,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 			return result.List, nil
 		},
 	}
-	return creator.NewModelConfig(cloudSpec, controllerUUID, baseConfig, joint)
+	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
@@ -277,7 +276,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := mm.newModelConfig(cloudSpec, args, controllerCfg.ControllerUUID(), controllerModel)
+	newConfig, err := mm.newModelConfig(cloudSpec, args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}
