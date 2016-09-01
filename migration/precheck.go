@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -65,6 +66,8 @@ type PrecheckUnit interface {
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
 	AgentStatus() (status.StatusInfo, error)
+	Status() (status.StatusInfo, error)
+	AgentPresence() (bool, error)
 }
 
 // SourcePrecheck checks the state of the source controller to make
@@ -237,10 +240,8 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
 
-		if statusInfo, err := unit.AgentStatus(); err != nil {
-			return errors.Annotatef(err, "retrieving unit %s status", unit.Name())
-		} else if statusInfo.Status != status.StatusIdle {
-			return newStatusError("unit %s not idle", unit.Name(), statusInfo.Status)
+		if err := checkUnitAgentStatus(unit); err != nil {
+			return errors.Trace(err)
 		}
 
 		tools, err := unit.AgentTools()
@@ -252,6 +253,18 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 			return errors.Errorf("unit %s tools don't match model (%s != %s)",
 				unit.Name(), unitVersion, modelVersion)
 		}
+	}
+	return nil
+}
+
+func checkUnitAgentStatus(unit PrecheckUnit) error {
+	statusData, _ := common.UnitStatus(unit)
+	if statusData.Err != nil {
+		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
+	}
+	agentStatus := statusData.Status.Status
+	if agentStatus != status.StatusIdle {
+		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
 	}
 	return nil
 }

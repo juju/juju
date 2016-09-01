@@ -185,13 +185,28 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", status: status.StatusFailed},
+					&fakeUnit{name: "foo/0", agentStatus: status.StatusFailed},
 				},
 			},
 		},
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
+}
+
+func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", lost: true},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (lost)")
 }
 
 func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
@@ -556,10 +571,11 @@ func (a *fakeApp) MinUnits() int {
 }
 
 type fakeUnit struct {
-	name    string
-	version version.Binary
-	life    state.Life
-	status  status.Status
+	name        string
+	version     version.Binary
+	life        state.Life
+	agentStatus status.Status
+	lost        bool
 }
 
 func (u *fakeUnit) Name() string {
@@ -583,10 +599,18 @@ func (u *fakeUnit) Life() state.Life {
 }
 
 func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
-	s := u.status
+	s := u.agentStatus
 	if s == "" {
 		// Avoid the need to specify this everywhere.
 		s = status.StatusIdle
 	}
 	return status.StatusInfo{Status: s}, nil
+}
+
+func (u *fakeUnit) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.StatusIdle}, nil
+}
+
+func (u *fakeUnit) AgentPresence() (bool, error) {
+	return !u.lost, nil
 }
