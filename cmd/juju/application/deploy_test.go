@@ -496,6 +496,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	})
 	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
 	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
+	declaredFlags = append(declaredFlags, modelCommandBaseFlags...)
 	sort.Strings(declaredFlags)
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
@@ -949,10 +950,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			true,
 			// Call to IsMetered
-			0,
 			params.IsMeteredResult{Metered: true},
 			// Call to SetMetricCredentials
-			0,
 			params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			},
@@ -968,26 +967,13 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
-	fakeAPI.CheckCall(c, 11, "APICall",
-		"Application",
-		0,
-		"",
-		"SetMetricCredentials",
-		params.ApplicationMetricCredentials{
-			Creds: []params.ApplicationMetricCredential{
-				{
-					ApplicationName: "metered",
-					// `"hello registration"\n` (quotes and newline
-					// from json encoding) is returned by the fake
-					// http server. This is binary64 encoded before
-					// the call into SetMetricCredentials.
-					MetricCredentials: append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
-				},
-			},
-		},
-		&params.ErrorResults{
-			Results: []params.ErrorResult{{}},
-		},
+	fakeAPI.CheckCall(c, 9, "SetMetricCredentials",
+		"metered",
+		// `"hello registration"\n` (quotes and newline
+		// from json encoding) is returned by the fake
+		// http server. This is binary64 encoded before
+		// the call into SetMetricCredentials.
+		append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
 	)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{{
@@ -1040,10 +1026,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			true,
 			// Call to IsMetered
-			0,
 			params.IsMeteredResult{Metered: true},
 			// Call to SetMetricCredentials
-			0,
 			params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			},
@@ -1058,26 +1042,13 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	fakeAPI.CheckCall(c, 11, "APICall",
-		"Application",
-		0,
-		"",
-		"SetMetricCredentials",
-		params.ApplicationMetricCredentials{
-			Creds: []params.ApplicationMetricCredential{
-				{
-					ApplicationName: "metered",
-					// `"hello registration"\n` (quotes and newline
-					// from json encoding) is returned by the fake
-					// http server. This is binary64 encoded before
-					// the call into SetMetricCredentials.
-					MetricCredentials: append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
-				},
-			},
-		},
-		&params.ErrorResults{
-			Results: []params.ErrorResult{{}},
-		},
+	fakeAPI.CheckCall(c, 9, "SetMetricCredentials",
+		"metered",
+		// `"hello registration"\n` (quotes and newline
+		// from json encoding) is returned by the fake
+		// http server. This is binary64 encoded before
+		// the call into SetMetricCredentials.
+		append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA),
 	)
 
 	c.Logf("KT: %v", fakeAPI.Calls())
@@ -1094,6 +1065,231 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			Limit:           "0",
 		}},
 	}})
+}
+
+func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C) {
+	charmDir := testcharms.Repo.CharmDir("dummy")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/dummy-1", "dummy")
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    charmDir.Meta(),
+				Metrics: charmDir.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			params.IsMeteredResult{Metered: false},
+		},
+	}
+
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
+	c.Assert(err, jc.ErrorIsNil)
+	fakeAPI.CheckCallNames(c,
+		"BestFacadeVersion",
+		"APICall",
+		"BestFacadeVersion",
+		"APICall",
+		"AddCharm",
+		"CharmInfo",
+		"ModelUUID",
+		"IsMetered",
+		"Deploy",
+		"Close",
+	)
+}
+
+func (s *DeployCharmStoreSuite) TestAddMetricCredentialsNotNeededForOptionalPlan(c *gc.C) {
+	metricsYAML := `
+plan:
+  required: false
+metrics:
+  pings:
+    type: gauge
+    description: ping pongs
+`
+	meteredMetaYAML := `
+name: metered
+description: metered charm
+summary: summary
+`
+	url, ch := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    ch.Meta(),
+				Metrics: ch.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			params.IsMeteredResult{Metered: true},
+		},
+	}
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckNoCalls(c)
+	fakeAPI.CheckCallNames(c,
+		"BestFacadeVersion",
+		"APICall",
+		"BestFacadeVersion",
+		"APICall",
+		"AddCharm",
+		"CharmInfo",
+		"ModelUUID",
+		"IsMetered",
+		"Deploy",
+		"Close",
+	)
+}
+
+func (s *DeployCharmStoreSuite) TestSetMetricCredentialsCalledWhenPlanSpecifiedWhenOptional(c *gc.C) {
+	metricsYAML := `
+plan:
+  required: false
+metrics:
+  pings:
+    type: gauge
+    description: ping pongs
+`
+	meteredMetaYAML := `
+name: metered
+description: metered charm
+summary: summary
+`
+	url, ch := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+	fakeAPI := &fakeDeployAPI{
+		ReturnValues: []interface{}{
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to ModelGet
+			0,
+			params.ModelConfigResults{
+				Config: map[string]params.ConfigValue{
+					"name": {Value: "name"},
+					"uuid": {Value: "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+					"type": {Value: "foo"},
+				},
+			},
+			// Call to CharmInfo
+			&charms.CharmInfo{
+				Meta:    ch.Meta(),
+				Metrics: ch.Metrics(),
+			},
+			// Call to ModelUUID
+			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			true,
+			// Call to IsMetered
+			params.IsMeteredResult{Metered: true},
+			// Call to SetMetricCredentials
+			params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			},
+		},
+	}
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	deploy := &DeployCommand{
+		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{{
+		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:~user/quantal/metered-0",
+			ApplicationName: "metered",
+			PlanURL:         "someplan",
+			Budget:          "personal",
+			Limit:           "0",
+		}},
+	}})
+	fakeAPI.CheckCallNames(c,
+		"BestFacadeVersion",
+		"APICall",
+		"BestFacadeVersion",
+		"APICall",
+		"AddCharm",
+		"CharmInfo",
+		"ModelUUID",
+		"IsMetered",
+		"Deploy",
+		"SetMetricCredentials",
+		"Close",
+	)
 }
 
 // FAILING
@@ -1164,10 +1360,8 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			true,
 			// Call to IsMetered
-			0,
 			params.IsMeteredResult{Metered: true},
 			// Call to SetMetricCredentials
-			0,
 			params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			},
@@ -1279,7 +1473,6 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			true,
 			// Call to IsMetered
-			0,
 			params.IsMeteredResult{Metered: false},
 		},
 	}
@@ -1316,7 +1509,6 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			true,
 			// Call to IsMetered
-			0,
 			params.IsMeteredResult{Metered: false},
 		},
 	}
@@ -1346,7 +1538,7 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.
 			// Call to ModelUUID
 			"deadbeef-0bad-400d-8000-4b1d0d06f00d", true,
 			// Call to IsMetered
-			0, params.IsMeteredResult{Metered: false},
+			params.IsMeteredResult{Metered: false},
 		},
 	}
 	deployCmd := NewDeployCommandWithAPI(func() (DeployAPI, error) { return fakeAPI, nil })
@@ -1463,5 +1655,17 @@ func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	f.MethodCall(f, "Deploy", args)
+	return f.NextErr()
+}
+
+func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
+	f.MethodCall(f, "IsMetered", charmURL)
+	retVal := f.ReturnValues[0].(params.IsMeteredResult)
+	f.ReturnValues = f.ReturnValues[1:]
+	return retVal.Metered, f.NextErr()
+
+}
+func (f *fakeDeployAPI) SetMetricCredentials(service string, credentials []byte) error {
+	f.MethodCall(f, "SetMetricCredentials", service, credentials)
 	return f.NextErr()
 }
