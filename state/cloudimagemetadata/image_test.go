@@ -60,8 +60,8 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 		Source:  "test",
 	}
 	added := []cloudimagemetadata.Metadata{
-		{attrs1, 0, "1"},
-		{attrs2, 0, "2"},
+		{attrs1, 0, "1", 0},
+		{attrs2, 0, "2", 0},
 	}
 	s.assertRecordMetadata(c, added[0])
 	s.assertRecordMetadata(c, added[1])

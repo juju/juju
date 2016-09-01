@@ -8,9 +8,9 @@ import (
 	"github.com/juju/schema"
 )
 
-type cloudimagemetadatas struct {
-	Version              int                   `yaml:"version"`
-	CloudImageMetadatas_ []*cloudimagemetadata `yaml:"cloudimagemetadata"`
+type cloudimagemetadataset struct {
+	Version             int                   `yaml:"version"`
+	CloudImageMetadata_ []*cloudimagemetadata `yaml:"cloudimagemetadata"`
 }
 
 type cloudimagemetadata struct {
@@ -123,7 +123,7 @@ func newCloudImageMetadata(args CloudImageMetadataArgs) *cloudimagemetadata {
 	return cloudimagemetadata
 }
 
-func importCloudImageMetadatas(source map[string]interface{}) ([]*cloudimagemetadata, error) {
+func importCloudImageMetadata(source map[string]interface{}) ([]*cloudimagemetadata, error) {
 	checker := versionedChecker("cloudimagemetadata")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {

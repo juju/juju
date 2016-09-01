@@ -127,7 +127,7 @@ type model struct {
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
 
-	CloudImageMetadatas_ cloudimagemetadatas `yaml:"cloudimagemetadatas"`
+	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloudimagemetadataset"`
 
 	Actions_ actions `yaml:"actions"`
 
@@ -411,9 +411,9 @@ func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
 }
 
 // CloudImageMetadatas implements Model.
-func (m *model) CloudImageMetadatas() []CloudImageMetadata {
+func (m *model) CloudImageMetadata() []CloudImageMetadata {
 	var result []CloudImageMetadata
-	for _, addr := range m.CloudImageMetadatas_.CloudImageMetadatas_ {
+	for _, addr := range m.CloudImageMetadata_.CloudImageMetadata_ {
 		result = append(result, addr)
 	}
 	return result
@@ -431,14 +431,14 @@ func (m *model) Actions() []Action {
 // AddCloudImageMetadata implements Model.
 func (m *model) AddCloudImageMetadata(args CloudImageMetadataArgs) CloudImageMetadata {
 	addr := newCloudImageMetadata(args)
-	m.CloudImageMetadatas_.CloudImageMetadatas_ = append(m.CloudImageMetadatas_.CloudImageMetadatas_, addr)
+	m.CloudImageMetadata_.CloudImageMetadata_ = append(m.CloudImageMetadata_.CloudImageMetadata_, addr)
 	return addr
 }
 
 func (m *model) setCloudImageMetadatas(cloudimagemetadataList []*cloudimagemetadata) {
-	m.CloudImageMetadatas_ = cloudimagemetadatas{
-		Version:              1,
-		CloudImageMetadatas_: cloudimagemetadataList,
+	m.CloudImageMetadata_ = cloudimagemetadataset{
+		Version:             1,
+		CloudImageMetadata_: cloudimagemetadataList,
 	}
 }
 
@@ -1036,7 +1036,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	result.setSSHHostKeys(hostKeys)
 
 	cloudimagemetadataMap := valid["cloudimagemetadata"].(map[string]interface{})
-	cloudimagemetadata, err := importCloudImageMetadatas(cloudimagemetadataMap)
+	cloudimagemetadata, err := importCloudImageMetadata(cloudimagemetadataMap)
 	if err != nil {
 		return nil, errors.Annotate(err, "cloudimagemetadata")
 	}

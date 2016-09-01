@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -676,10 +677,19 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-	_, err := s.State.EnqueueCloudImageMetadata(machine.MachineTag(), "foo", nil)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 0, "1", 0}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

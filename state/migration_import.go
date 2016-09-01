@@ -1168,7 +1168,7 @@ func (i *importer) sshHostKeys() error {
 
 func (i *importer) cloudimagemetadata() error {
 	i.logger.Debugf("importing cloudimagemetadata")
-	images := i.model.CloudImageMetadatas()
+	images := i.model.CloudImageMetadata()
 	metadatas := make([]cloudimagemetadata.Metadata, len(images))
 	for index, image := range images {
 		metadatas[index] = cloudimagemetadata.Metadata{

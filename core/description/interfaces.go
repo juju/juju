@@ -85,7 +85,7 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
-	CloudImageMetadatas() []CloudImageMetadata
+	CloudImageMetadata() []CloudImageMetadata
 	AddCloudImageMetadata(CloudImageMetadataArgs) CloudImageMetadata
 
 	Actions() []Action
