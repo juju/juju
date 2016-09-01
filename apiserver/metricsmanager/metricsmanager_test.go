@@ -17,13 +17,14 @@ import (
 	"github.com/juju/juju/apiserver/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/testing"
 )
 
 type metricsManagerSuite struct {
-	jujutesting.JujuConnSuite
+	jujujutesting.JujuConnSuite
 
 	metricsmanager *metricsmanager.MetricsManagerAPI
 	authorizer     apiservertesting.FakeAuthorizer
@@ -38,7 +39,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
-	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, jujutesting.NewClock(time.Now()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
@@ -63,7 +64,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C)
 		anAuthoriser := s.authorizer
 		anAuthoriser.EnvironManager = test.environManager
 		anAuthoriser.Tag = test.tag
-		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
+		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser, jujutesting.NewClock(time.Now()))
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)
