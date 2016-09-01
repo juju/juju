@@ -431,7 +431,6 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		return nil, nil, errors.Trace(err)
 	}
 	return bootstrapConfig, &environs.PrepareConfigParams{
-		controllerDetails.ControllerUUID,
 		environs.CloudSpec{
 			bootstrapConfig.CloudType,
 			bootstrapConfig.Cloud,

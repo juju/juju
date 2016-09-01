@@ -62,7 +62,7 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	cloudSpec := environs.CloudSpec{Type: "fake"}
-	return s.creator.NewModelConfig(cloudSpec, coretesting.ModelTag.Id(), s.baseConfig, attrs)
+	return s.creator.NewModelConfig(cloudSpec, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
