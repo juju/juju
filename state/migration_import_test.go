@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -705,10 +706,21 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-	_, err := s.State.EnqueueCloudImageMetadata(machine.MachineTag(), "foo", nil)
+	storageSize := uint64(3)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -716,12 +728,21 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 		c.Assert(newSt.Close(), jc.ErrorIsNil)
 	}()
 
-	cloudimagemetadata, _ := newSt.AllCloudImageMetadatas()
-	c.Assert(cloudimagemetadata, gc.HasLen, 1)
-	cloudimagemetadata := cloudimagemetadata[0]
-	c.Check(cloudimagemetadata.Receiver(), gc.Equals, machine.Id())
-	c.Check(cloudimagemetadata.Name(), gc.Equals, "foo")
-	c.Check(cloudimagemetadata.Status(), gc.Equals, state.CloudImageMetadataPending)
+	images, err := s.State.CloudImageMetadataStorage.AllCloudImageMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(images, gc.HasLen, 1)
+	image := images[0]
+	c.Check(image.Stream, gc.Equals, "stream")
+	c.Check(image.Region, gc.Equals, "region-test")
+	c.Check(image.Version, gc.Equals, "14.04")
+	c.Check(image.Arch, gc.Equals, "arch")
+	c.Check(image.VirtType, gc.Equals, "virttype-test")
+	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")
+	c.Check(image.RootStorageSize, gc.Equals, 3)
+	c.Check(image.Source, gc.Equals, "test")
+	c.Check(image.Priority, gc.Equals, 2)
+	c.Check(image.ImageId, gc.Equals, "1")
+	c.Check(image.DateCreated, gc.Equals, 2)
 }
 
 func (s *MigrationImportSuite) TestAction(c *gc.C) {

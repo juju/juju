@@ -677,6 +677,7 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
+	storageSize := uint64(3)
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
@@ -685,9 +686,10 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
 		Source:          "test",
 	}
-	metadata := []cloudimagemetadata.Metadata{{attrs, 0, "1", 0}}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
 
 	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
@@ -695,13 +697,20 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudimagemetadata := model.CloudImageMetadatas()
-	c.Assert(cloudimagemetadata, gc.HasLen, 1)
-	cloudimagemetadata := cloudimagemetadata[0]
-	c.Check(cloudimagemetadata.Receiver(), gc.Equals, machine.Id())
-	c.Check(cloudimagemetadata.Name(), gc.Equals, "foo")
-	c.Check(cloudimagemetadata.Status(), gc.Equals, "pending")
-	c.Check(cloudimagemetadata.Message(), gc.Equals, "")
+	images := model.CloudImageMetadata()
+	c.Assert(images, gc.HasLen, 1)
+	image := images[0]
+	c.Check(image.Stream(), gc.Equals, "stream")
+	c.Check(image.Region(), gc.Equals, "region-test")
+	c.Check(image.Version(), gc.Equals, "14.04")
+	c.Check(image.Arch(), gc.Equals, "arch")
+	c.Check(image.VirtType(), gc.Equals, "virttype-test")
+	c.Check(image.RootStorageType(), gc.Equals, "rootStorageType-test")
+	c.Check(image.RootStorageSize(), gc.Equals, 3)
+	c.Check(image.Source(), gc.Equals, "test")
+	c.Check(image.Priority(), gc.Equals, 2)
+	c.Check(image.ImageId(), gc.Equals, "1")
+	c.Check(image.DateCreated(), gc.Equals, 2)
 }
 
 func (s *MigrationExportSuite) TestActions(c *gc.C) {
