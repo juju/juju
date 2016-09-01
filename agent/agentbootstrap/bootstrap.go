@@ -176,7 +176,7 @@ func InitializeState(
 	controllerUUID := args.ControllerConfig.ControllerUUID()
 	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
 	hostedModelConfig, err := creator.NewModelConfig(
-		cloudSpec, controllerUUID, args.ControllerModelConfig, attrs,
+		cloudSpec, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")

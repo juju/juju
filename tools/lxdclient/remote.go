@@ -7,7 +7,6 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	lxdshared "github.com/lxc/lxd/shared"
 )
 
@@ -170,29 +169,4 @@ func (r Remote) validateLocal() error {
 	}
 
 	return nil
-}
-
-// UsingTCP converts the remote into a non-local version. For non-local remotes
-// this is a no-op.
-//
-// For a "local" remote (see Local), the remote is changed to a one with the
-// host set to the first IPv4 address assigned to the given bridgeName. The
-// remote's certificate will be unchanged; to set a certificate, the
-// Remote.WithDefaults method may be called.
-func (r Remote) UsingTCP(bridgeName string) (Remote, error) {
-	// Note that r is a value receiver, so it is an implicit copy.
-
-	if !r.isLocal() {
-		return r, nil
-	}
-
-	address, err := utils.GetAddressForInterface(bridgeName)
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	r.Host = address
-
-	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
-
-	return r, nil
 }

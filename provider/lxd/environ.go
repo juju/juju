@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type baseProvider interface {
@@ -127,6 +128,9 @@ func (env *environ) Config() *config.Config {
 
 // PrepareForBootstrap implements environs.Environ.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if err := lxdclient.EnableHTTPSListener(env.raw); err != nil {
+		return errors.Annotate(err, "enabling HTTPS listener")
+	}
 	return nil
 }
 
