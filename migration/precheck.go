@@ -192,14 +192,8 @@ func checkMachines(backend PrecheckBackend) error {
 			return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		}
 
-		tools, err := machine.AgentTools()
-		if err != nil {
-			return errors.Annotatef(err, "retrieving tools for machine %s", machine.Id())
-		}
-		machineVersion := tools.Version.Number
-		if machineVersion != modelVersion {
-			return errors.Errorf("machine %s tools don't match model (%s != %s)",
-				machine.Id(), machineVersion, modelVersion)
+		if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -244,14 +238,8 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 			return errors.Trace(err)
 		}
 
-		tools, err := unit.AgentTools()
-		if err != nil {
-			return errors.Annotatef(err, "retrieving tools for unit %s", unit.Name())
-		}
-		unitVersion := tools.Version.Number
-		if unitVersion != modelVersion {
-			return errors.Errorf("unit %s tools don't match model (%s != %s)",
-				unit.Name(), unitVersion, modelVersion)
+		if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -267,6 +255,23 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
 	}
 	return nil
+}
+
+func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
+	tools, err := agent.AgentTools()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving tools for %s", agentLabel)
+	}
+	agentVersion := tools.Version.Number
+	if agentVersion != modelVersion {
+		return errors.Errorf("%s tools don't match model (%s != %s)",
+			agentLabel, agentVersion, modelVersion)
+	}
+	return nil
+}
+
+type agentToolsGetter interface {
+	AgentTools() (*tools.Tools, error)
 }
 
 func newStatusError(format, id string, s status.Status) error {
