@@ -41,6 +41,17 @@ var nsRefcounts = nsRefcounts_{}
 // nsRefcounts_ backs nsRefcounts.
 type nsRefcounts_ struct{}
 
+// LazyCreateOp returns a txn.Op that creates a refcount document; or
+// false if the document already exists.
+func (ns nsRefcounts_) LazyCreateOp(coll mongo.Collection, key string) (txn.Op, bool, error) {
+	if exists, err := ns.exists(coll, key); err != nil {
+		return txn.Op{}, false, errors.Trace(err)
+	} else if exists {
+		return txn.Op{}, false, nil
+	}
+	return ns.JustCreateOp(coll.Name(), key, 0), true, nil
+}
+
 // StrictCreateOp returns a txn.Op that creates a refcount document as
 // configured, or an error if the document already exists.
 func (ns nsRefcounts_) StrictCreateOp(coll mongo.Collection, key string, value int) (txn.Op, error) {
