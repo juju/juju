@@ -75,7 +75,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// New controller should have been added to collection.
 	foundController, err := cache.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
+	c.Assert(foundController.ControllerUUID, gc.DeepEquals, controllerCfg.ControllerUUID())
 }
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
@@ -89,7 +89,6 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 	_, err = bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",

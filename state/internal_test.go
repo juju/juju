@@ -57,7 +57,6 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	}
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	st, err := Initialize(InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{

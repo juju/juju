@@ -30,6 +30,7 @@ controllers:
     model-config:
       name: admin
       type: ec2
+    controller-model-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
     credential: default
     cloud: aws
     type: ec2
@@ -42,6 +43,7 @@ controllers:
     model-config:
       name: admin
       type: maas
+    controller-model-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
     cloud: maas
     type: maas
     region: 127.0.0.1
@@ -57,11 +59,12 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 			"type": "ec2",
 			"name": "admin",
 		},
-		Credential:    "default",
-		Cloud:         "aws",
-		CloudType:     "ec2",
-		CloudRegion:   "us-east-1",
-		CloudEndpoint: "https://us-east-1.amazonaws.com",
+		ControllerModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		Credential:          "default",
+		Cloud:               "aws",
+		CloudType:           "ec2",
+		CloudRegion:         "us-east-1",
+		CloudEndpoint:       "https://us-east-1.amazonaws.com",
 	},
 	"mallards": {
 		ControllerConfig: controller.Config{
@@ -72,9 +75,10 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 			"type": "maas",
 			"name": "admin",
 		},
-		Cloud:       "maas",
-		CloudType:   "maas",
-		CloudRegion: "127.0.0.1",
+		ControllerModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		Cloud:               "maas",
+		CloudType:           "maas",
+		CloudRegion:         "127.0.0.1",
 	},
 }
 

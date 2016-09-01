@@ -762,7 +762,7 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -770,7 +770,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
 	))
 	params := environs.StartInstanceParams{
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: coretesting.ControllerTag.Id(),
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 	}

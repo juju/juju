@@ -357,7 +357,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      1024,
 				Provider:  "machinescoped",
 				Tags: map[string]string{
-					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
@@ -372,7 +372,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      2048,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
@@ -387,7 +387,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      4096,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
@@ -422,7 +422,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          1024,
 				Provider:      "machinescoped",
 				Tags: map[string]string{
-					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},
@@ -431,7 +431,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          2048,
 				Provider:      "environscoped",
 				Tags: map[string]string{
-					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},

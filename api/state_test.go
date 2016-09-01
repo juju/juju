@@ -78,8 +78,8 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestModelTag(c *gc.C) {
-	env, err := s.State.Model()
+func (s *stateSuite) TestTags(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
@@ -87,17 +87,15 @@ func (s *stateSuite) TestModelTag(c *gc.C) {
 	// still be set.
 	modelTag, ok := apistate.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, env.ModelTag())
+	c.Check(modelTag, gc.Equals, model.ModelTag())
 	err = apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
 	modelTag, ok = apistate.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, env.ModelTag())
-	// The controller tag is also set, and since the model is the
-	// controller model, the uuid is the same.
+	c.Check(modelTag, gc.Equals, model.ModelTag())
 	controllerTag := apistate.ControllerTag()
-	c.Check(controllerTag, gc.Equals, env.ModelTag())
+	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
 func (s *stateSuite) TestLoginMacaroon(c *gc.C) {

@@ -16,19 +16,24 @@ import (
 // model; its config is immutable; and it doesn't use OldPassword.
 //
 // It's a strong sign that the agent package needs some work...
-func WrapAgent(a agent.Agent, uuid string) (agent.Agent, error) {
-	if !names.IsValidModel(uuid) {
-		return nil, errors.NotValidf("model uuid %q", uuid)
+func WrapAgent(a agent.Agent, controllerUUID, modelUUID string) (agent.Agent, error) {
+	if !names.IsValidModel(modelUUID) {
+		return nil, errors.NotValidf("model uuid %q", modelUUID)
+	}
+	if !names.IsValidController(controllerUUID) {
+		return nil, errors.NotValidf("controller uuid %q", controllerUUID)
 	}
 	return &modelAgent{
-		Agent: a,
-		uuid:  uuid,
+		Agent:          a,
+		modelUUID:      modelUUID,
+		controllerUUID: controllerUUID,
 	}, nil
 }
 
 type modelAgent struct {
 	agent.Agent
-	uuid string
+	modelUUID      string
+	controllerUUID string
 }
 
 // ChangeConfig is part of the agent.Agent interface. This implementation
@@ -41,20 +46,28 @@ func (a *modelAgent) ChangeConfig(_ agent.ConfigMutator) error {
 // returns an agent.Config that reports tweaked API connection information.
 func (a *modelAgent) CurrentConfig() agent.Config {
 	return &modelAgentConfig{
-		Config: a.Agent.CurrentConfig(),
-		uuid:   a.uuid,
+		Config:         a.Agent.CurrentConfig(),
+		modelUUID:      a.modelUUID,
+		controllerUUID: a.controllerUUID,
 	}
 }
 
 type modelAgentConfig struct {
 	agent.Config
-	uuid string
+	modelUUID      string
+	controllerUUID string
 }
 
 // Model is part of the agent.Config interface. This implementation always
 // returns the configured model tag.
 func (c *modelAgentConfig) Model() names.ModelTag {
-	return names.NewModelTag(c.uuid)
+	return names.NewModelTag(c.modelUUID)
+}
+
+// Controller is part of the agent.Config interface. This implementation always
+// returns the configured controller tag.
+func (c *modelAgentConfig) Controller() names.ControllerTag {
+	return names.NewControllerTag(c.controllerUUID)
 }
 
 // APIInfo is part of the agent.Config interface. This implementation always
@@ -64,7 +77,7 @@ func (c *modelAgentConfig) APIInfo() (*api.Info, bool) {
 	if !ok {
 		return nil, false
 	}
-	info.ModelTag = names.NewModelTag(c.uuid)
+	info.ModelTag = names.NewModelTag(c.modelUUID)
 	return info, true
 }
 

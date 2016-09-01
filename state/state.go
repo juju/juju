@@ -77,6 +77,7 @@ type providerIdDoc struct {
 type State struct {
 	modelTag           names.ModelTag
 	controllerModelTag names.ModelTag
+	controllerTag      names.ControllerTag
 	mongoInfo          *mongo.MongoInfo
 	session            *mgo.Session
 	database           Database
@@ -137,18 +138,17 @@ func (st *State) IsController() bool {
 	return st.modelTag == st.controllerModelTag
 }
 
-// ControllerUUID returns the model UUID for the controller model
+// ControllerUUID returns the UUID for the controller
 // of this state instance.
 func (st *State) ControllerUUID() string {
-	return st.controllerModelTag.Id()
+	return st.controllerTag.Id()
 }
 func (st *State) ControllerTag() names.ControllerTag {
-	return names.NewControllerTag(st.controllerModelTag.Id())
+	return st.controllerTag
 }
 
 func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
-	ctag := names.NewControllerTag(st.ControllerUUID())
-	return st.UserAccess(tag.(names.UserTag), ctag)
+	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
 // RemoveAllModelDocs removes all documents from multi-model
@@ -298,15 +298,15 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 
 // ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(model names.ModelTag) (*State, error) {
+func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		model, session, st.mongoInfo, st.newPolicy,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(st.controllerModelTag); err != nil {
+	if err := newSt.start(st.controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -318,7 +318,7 @@ func (st *State) ForModel(model names.ModelTag) (*State, error) {
 //   * creating cloud metadata storage
 //
 // start will close the *State if it fails.
-func (st *State) start(controllerTag names.ModelTag) (err error) {
+func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	defer func() {
 		if err == nil {
 			return
@@ -328,7 +328,7 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 		}
 	}()
 
-	st.controllerModelTag = controllerTag
+	st.controllerTag = controllerTag
 
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I

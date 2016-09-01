@@ -35,11 +35,14 @@ var FakeVersionNumber = version.MustParse("1.99.0")
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
+// ControllerTag is a defined known valid UUID that can be used in testing.
+var ControllerTag = names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+
 // FakeControllerConfig() returns an environment configuration
 // that is expected to be found in state for a fake controller.
 func FakeControllerConfig() controller.Config {
 	return controller.Config{
-		"controller-uuid":         ModelTag.Id(),
+		"controller-uuid":         ControllerTag.Id(),
 		"ca-cert":                 CACert,
 		"state-port":              1234,
 		"api-port":                17777,

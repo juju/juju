@@ -246,7 +246,7 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, apiPort *int) 
 	env.mu.Lock()
 	tags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
-		names.NewModelTag(controllerUUID),
+		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
 	storageAccountType := env.config.storageAccountType
@@ -503,7 +503,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	env.mu.Lock()
 	envTags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
-		names.NewModelTag(args.ControllerUUID),
+		names.NewControllerTag(args.ControllerUUID),
 		env.config,
 	)
 	imageStream := env.config.ImageStream()

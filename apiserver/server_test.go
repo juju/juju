@@ -196,7 +196,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, dialOpts, nil)
+	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, dialOpts, nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

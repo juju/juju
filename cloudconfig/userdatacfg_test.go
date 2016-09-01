@@ -104,6 +104,7 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 	const defaultMachineID = "99"
 
 	cfg := new(testInstanceConfig)
+	cfg.ControllerTag = testing.ControllerTag
 	cfg.AuthorizedKeys = "sshkey1"
 	cfg.AgentEnvironment = map[string]string{
 		agent.ProviderType: "dummy",
@@ -1046,6 +1047,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 					Password: "password",
 				},
 			},
+			ControllerTag:    testing.ControllerTag,
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
 			Series:           "quantal",
@@ -1100,7 +1102,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{

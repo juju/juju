@@ -69,8 +69,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = mockState{
-		uuid:  coretesting.ModelTag.Id(),
-		cloud: dummyCloud,
+		modelUUID: coretesting.ModelTag.Id(),
+		cloud:     dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},

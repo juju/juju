@@ -141,9 +141,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.ControllerModel()
+	model, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
-	return env.Owner()
+	return model.Owner()
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -388,7 +388,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
-	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
+	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
@@ -456,11 +456,14 @@ var redialStrategy = utils.AttemptStrategy{
 
 // newState returns a new State that uses the given environment.
 // The environment must have already been bootstrapped.
-func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
+func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
+	if controllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	config := environ.Config()
 	password := AdminSecret
 	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
+		return nil, errors.Errorf("cannot connect without admin-secret")
 	}
 	modelTag := names.NewModelTag(config.UUID())
 
@@ -469,13 +472,14 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
-	st, err := state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
+	controllerTag := names.NewControllerTag(controllerUUID)
+	st, err := state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, mongoInfo, opts, newPolicyFunc)
+			st, err = state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -700,6 +704,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
+			Controller:        s.State.ControllerTag(),
 			Model:             s.State.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)

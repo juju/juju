@@ -249,7 +249,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
+	c.Assert(utils.IsValidUUIDString(controllerModel.ModelUUID), jc.IsTrue)
 
 	// Bootstrap config should have been saved, and should only contain
 	// the type, name, and any user-supplied configuration.

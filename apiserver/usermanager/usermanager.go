@@ -84,8 +84,7 @@ func (api *UserManagerAPI) hasReadAccess() (bool, error) {
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
-	ctag := names.NewControllerTag(api.state.ControllerUUID())
-	isAdmin, err := api.authorizer.HasPermission(description.SuperuserAccess, ctag)
+	isAdmin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

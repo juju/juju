@@ -56,6 +56,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
+			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)

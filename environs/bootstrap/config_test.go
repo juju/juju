@@ -23,7 +23,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
-	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), nil)
+	cfg, err := bootstrap.NewConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// These three things are generated.
@@ -37,7 +37,7 @@ func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
 }
 
 func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
-	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), map[string]interface{}{
+	cfg, err := bootstrap.NewConfig(map[string]interface{}{
 		"admin-secret":              "sekrit",
 		"ca-cert":                   testing.CACert,
 		"ca-private-key":            testing.CAKey,
@@ -70,7 +70,7 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *gc.C) {
 		{"ca-private-key.pem", testing.CAKey},
 	}...)
 
-	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), nil)
+	cfg, err := bootstrap.NewConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.CACert, gc.Equals, testing.CACert)
@@ -83,7 +83,7 @@ func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *gc.C) {
 		{"ca-private-key-2.pem", testing.OtherCAKey},
 	}...)
 
-	cfg, err := bootstrap.NewConfig(testing.ModelTag.Id(), map[string]interface{}{
+	cfg, err := bootstrap.NewConfig(map[string]interface{}{
 		"ca-cert-path":        "ca-cert-2.pem",
 		"ca-private-key-path": "ca-private-key-2.pem",
 	})
@@ -133,7 +133,7 @@ func (s *ConfigSuite) TestConfigEmptyCACertWithKey(c *gc.C) {
 }
 
 func (*ConfigSuite) testConfigError(c *gc.C, attrs map[string]interface{}, expect string) {
-	_, err := bootstrap.NewConfig(testing.ModelTag.Id(), attrs)
+	_, err := bootstrap.NewConfig(attrs)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

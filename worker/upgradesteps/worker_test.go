@@ -414,7 +414,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
+	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
 	if err != nil {
 		return nil, err
 	}

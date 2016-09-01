@@ -146,6 +146,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
+			Controller:        coretesting.ControllerTag,
 			Model:             apiInfo.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,6 +207,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
+			Controller:        s.State.ControllerTag(),
 			Model:             modelTag,
 		},
 		params.StateServingInfo{
@@ -247,7 +249,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Model(), info, mongotest.DialOpts(), stateenvirons.GetNewPolicyFunc(
+	st, err := state.Open(config.Model(), config.Controller(), info, mongotest.DialOpts(), stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	))
 	c.Assert(err, jc.ErrorIsNil)

@@ -88,7 +88,7 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 func createContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	network := container.BridgeNetworkConfig("virbr0", 0, nil)
 

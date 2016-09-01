@@ -110,7 +110,7 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
   owner: admin@local
   cloud: dummy

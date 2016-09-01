@@ -123,7 +123,7 @@ func (c Config) Validate() error {
 // in well-defined locations: $JUJU_DATA/ca-cert.pem, and
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
-func NewConfig(controllerUUID string, attrs map[string]interface{}) (Config, error) {
+func NewConfig(attrs map[string]interface{}) (Config, error) {
 	coerced, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return Config{}, errors.Trace(err)
