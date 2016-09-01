@@ -2197,12 +2197,11 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_ha()
 
     def test_wait_for_ha_suppresses_deadline(self):
-        with self.only_status_checks(status=self.make_ha_status()) as client:
+        with self.only_status_checks(self.make_ha_status()) as client:
             client.wait_for_ha()
 
     def test_wait_for_ha_checks_deadline(self):
-        with self.status_does_not_check(
-                status=self.make_ha_status()) as client:
+        with self.status_does_not_check(self.make_ha_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_ha()
 
@@ -2253,13 +2252,11 @@ class TestEnvJujuClient(ClientTest):
         }
 
     def test_wait_for_deploy_started_suppresses_deadline(self):
-        with self.only_status_checks(
-                status=self.make_deployed_status()) as client:
+        with self.only_status_checks(self.make_deployed_status()) as client:
             client.wait_for_deploy_started()
 
     def test_wait_for_deploy_started_checks_deadline(self):
-        with self.status_does_not_check(
-                status=self.make_deployed_status()) as client:
+        with self.status_does_not_check(self.make_deployed_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_deploy_started()
 
