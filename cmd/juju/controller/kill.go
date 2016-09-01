@@ -80,13 +80,8 @@ func (c *killCommand) Init(args []string) error {
 func (c *killCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, controllerName); err != nil {
+		if err := confirmDestruction(ctx, controllerName); err != nil {
 			return err
 		}
 	}
@@ -127,7 +122,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
-	updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadModels(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 		ctx.Infof(fmtCtrStatus(ctrStatus))
 		for _, envStatus := range envsStatus {

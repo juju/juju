@@ -100,7 +100,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (de
 			spec.DisplayName,
 			nowToTheSecond(),
 			spec.Access)
-		targetTag = st.ControllerTag()
+		targetTag = st.controllerTag
 	default:
 		return description.UserAccess{}, errors.NotSupportedf("user access global key %q", target.globalKey)
 	}

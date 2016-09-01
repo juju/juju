@@ -97,7 +97,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
 
-	ids, err := s.Env.ControllerInstances(coretesting.ModelTag.Id())
+	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -119,7 +119,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
 
-	ids, err := s.Env.ControllerInstances(coretesting.ModelTag.Id())
+	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})

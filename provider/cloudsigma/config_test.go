@@ -82,7 +82,10 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		environ, err := environs.New(environs.OpenParams{fakeCloudSpec(), testConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  fakeCloudSpec(),
+			Config: testConfig,
+		})
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
 			attrs := environ.Config().AllAttrs()
@@ -148,7 +151,10 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(environs.OpenParams{fakeCloudSpec(), baseConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  fakeCloudSpec(),
+			Config: baseConfig,
+		})
 		c.Assert(err, gc.IsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)

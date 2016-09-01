@@ -51,6 +51,8 @@ func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 
 var agentConfig2_0Contents = `
 # format 2.0
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 tag: machine-0
 datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
@@ -199,6 +201,8 @@ apiport: 17070
 
 var agentConfig2_0NotStateMachine = `
 # format 2.0
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 tag: machine-1
 datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local

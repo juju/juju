@@ -76,11 +76,6 @@ type mockSetter struct {
 	agent.ConfigSetter
 }
 
-func (mock *mockSetter) Migrate(params agent.MigrateParams) error {
-	mock.stub.AddCall("Migrate", params)
-	return mock.stub.NextErr()
-}
-
 func (mock *mockSetter) SetOldPassword(pw string) {
 	mock.stub.AddCall("SetOldPassword", pw)
 	mock.stub.PopNoErr()

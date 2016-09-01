@@ -646,9 +646,8 @@ type LoginResult struct {
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the model that holds the API servers.
-	// This is the initial model created when bootstrapping juju.
-	ControllerTag string `json:"server-tag,omitempty"`
+	// ControllerTag is the tag for the controller that runs the API servers.
+	ControllerTag string `json:"controller-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`

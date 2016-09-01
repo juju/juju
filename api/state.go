@@ -143,9 +143,9 @@ func (st *state) setLoginResult(p loginResultParams) error {
 	if modelTag.Id() != st.modelTag.Id() {
 		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), st.modelTag.Id())
 	}
-	ctag, err := names.ParseModelTag(p.controllerTag)
+	ctag, err := names.ParseControllerTag(p.controllerTag)
 	if err != nil {
-		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.modelTag)
+		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.controllerTag)
 	}
 	st.controllerTag = ctag
 	st.readOnly = p.readOnly

@@ -44,7 +44,8 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin@local"),
 	}
 	s.st = &mockState{
-		uuid: coretesting.ModelTag.Id(),
+		modelUUID:      coretesting.ModelTag.Id(),
+		controllerUUID: coretesting.ControllerTag.Id(),
 		cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -106,7 +107,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
-		ControllerUUID:     "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		OwnerTag:           "user-bob@local",
 		ProviderType:       "someprovider",
 		Cloud:              "some-cloud",
@@ -234,7 +235,8 @@ type mockState struct {
 	common.BlockGetter
 	metricsender.MetricsSenderBackend
 
-	uuid            string
+	modelUUID       string
+	controllerUUID  string
 	cloud           cloud.Cloud
 	clouds          map[names.CloudTag]cloud.Cloud
 	model           *mockModel
@@ -250,12 +252,12 @@ type fakeModelDescription struct {
 }
 
 func (st *mockState) Export() (description.Model, error) {
-	return &fakeModelDescription{UUID: st.uuid}, nil
+	return &fakeModelDescription{UUID: st.modelUUID}, nil
 }
 
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
-	return st.uuid
+	return st.modelUUID
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -297,7 +299,7 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
-	return names.NewControllerTag(st.controllerModel.tag.Id())
+	return names.NewControllerTag(st.controllerUUID)
 }
 
 func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
@@ -312,13 +314,13 @@ func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, reg
 
 func (st *mockState) ControllerUUID() string {
 	st.MethodCall(st, "ControllerUUID")
-	return st.uuid
+	return st.controllerUUID
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{
-		controller.ControllerUUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()
 }
 

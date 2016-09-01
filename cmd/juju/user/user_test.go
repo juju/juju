@@ -26,7 +26,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"127.0.0.1:12345"},
 		CACert:         testing.CACert,
-		ControllerUUID: testing.ModelTag.Id(),
+		ControllerUUID: testing.ControllerTag.Id(),
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "current-user@local",

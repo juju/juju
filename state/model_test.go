@@ -37,7 +37,7 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 
 	expectedTag := names.NewModelTag(model.UUID())
 	c.Assert(model.Tag(), gc.Equals, expectedTag)
-	c.Assert(model.ControllerTag(), gc.Equals, expectedTag)
+	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
 	c.Assert(model.Name(), gc.Equals, "testenv")
 	c.Assert(model.Owner(), gc.Equals, s.Owner)
 	c.Assert(model.Life(), gc.Equals, state.Alive)
@@ -153,7 +153,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	assertModelMatches := func(model *state.Model) {
 		c.Assert(model.UUID(), gc.Equals, modelTag.Id())
 		c.Assert(model.Tag(), gc.Equals, modelTag)
-		c.Assert(model.ControllerTag(), gc.Equals, s.modelTag)
+		c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
 		c.Assert(model.Owner(), gc.Equals, owner)
 		c.Assert(model.Name(), gc.Equals, "testing")
 		c.Assert(model.Life(), gc.Equals, state.Alive)
@@ -220,15 +220,15 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 }
 
 func (s *ModelSuite) TestControllerModel(c *gc.C) {
-	env, err := s.State.ControllerModel()
+	model, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedTag := names.NewModelTag(env.UUID())
-	c.Assert(env.Tag(), gc.Equals, expectedTag)
-	c.Assert(env.ControllerTag(), gc.Equals, expectedTag)
-	c.Assert(env.Name(), gc.Equals, "testenv")
-	c.Assert(env.Owner(), gc.Equals, s.Owner)
-	c.Assert(env.Life(), gc.Equals, state.Alive)
+	expectedTag := names.NewModelTag(model.UUID())
+	c.Assert(model.Tag(), gc.Equals, expectedTag)
+	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
+	c.Assert(model.Name(), gc.Equals, "testenv")
+	c.Assert(model.Owner(), gc.Equals, s.Owner)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
 func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
@@ -978,7 +978,6 @@ func (s *ModelCloudValidationSuite) initializeState(
 		}
 	}
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{

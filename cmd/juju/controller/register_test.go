@@ -57,7 +57,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 	serverURL, err := url.Parse(s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiConnection = &mockAPIConnection{
-		controllerTag: testing.ModelTag,
+		controllerTag: testing.ControllerTag,
 		addr:          serverURL.Host,
 	}
 	s.listModelsControllerName = ""

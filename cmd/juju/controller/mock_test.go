@@ -15,7 +15,7 @@ type mockAPIConnection struct {
 	opts          api.DialOpts
 	addr          string
 	apiHostPorts  [][]network.HostPort
-	controllerTag names.ModelTag
+	controllerTag names.ControllerTag
 	username      string
 	password      string
 }
@@ -32,7 +32,7 @@ func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	return m.apiHostPorts
 }
 
-func (m *mockAPIConnection) ControllerTag() names.ModelTag {
+func (m *mockAPIConnection) ControllerTag() names.ControllerTag {
 	return m.controllerTag
 }
 

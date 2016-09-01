@@ -111,13 +111,8 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -152,7 +147,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 		ctrStatus, modelsStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {

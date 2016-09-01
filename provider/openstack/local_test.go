@@ -602,8 +602,8 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 	testing.AssertStartInstance(c, env, s.ControllerUUID, hostedModelInstanceName)
 	modelUUID := env.Config().UUID()
 	allControllerSecurityGroups := []string{
-		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, s.ControllerUUID),
-		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, s.ControllerUUID, controllerInstanceName),
+		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID()),
+		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID(), controllerInstanceName),
 	}
 	allHostedModelSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, modelUUID),
@@ -630,8 +630,8 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 	testing.AssertStartInstance(c, env, s.ControllerUUID, hostedModelInstanceName)
 	modelUUID := env.Config().UUID()
 	allControllerSecurityGroups := []string{
-		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, s.ControllerUUID),
-		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, s.ControllerUUID, controllerInstanceName),
+		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID()),
+		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID(), controllerInstanceName),
 	}
 	allHostedModelSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, modelUUID),
@@ -1759,7 +1759,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		jc.DeepEquals,
 		map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
-			"juju-controller-uuid": coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			"juju-is-controller":   "true",
 		},
 	)
@@ -1779,7 +1779,7 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			jc.DeepEquals,
 			map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
-				"juju-controller-uuid": coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
 				"juju-is-controller":   "true",
 				extraKey:               extraValue,
 			},

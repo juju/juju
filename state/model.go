@@ -61,12 +61,12 @@ type Model struct {
 
 // modelDoc represents the internal state of the model in MongoDB.
 type modelDoc struct {
-	UUID          string `bson:"_id"`
-	Name          string
-	Life          Life
-	Owner         string        `bson:"owner"`
-	ServerUUID    string        `bson:"server-uuid"`
-	MigrationMode MigrationMode `bson:"migration-mode"`
+	UUID           string `bson:"_id"`
+	Name           string
+	Life           Life
+	Owner          string        `bson:"owner"`
+	ControllerUUID string        `bson:"controller-uuid"`
+	MigrationMode  MigrationMode `bson:"migration-mode"`
 
 	// Cloud is the name of the cloud to which the model is deployed.
 	Cloud string `bson:"cloud"`
@@ -141,14 +141,14 @@ func (st *State) AllModels() ([]*Model, error) {
 	models, closer := st.getCollection(modelsC)
 	defer closer()
 
-	var envDocs []modelDoc
-	err := models.Find(nil).All(&envDocs)
+	var modelDocs []modelDoc
+	err := models.Find(nil).All(&modelDocs)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*Model, len(envDocs))
-	for i, doc := range envDocs {
+	result := make([]*Model, len(modelDocs))
+	for i, doc := range modelDocs {
 		result[i] = &Model{st: st, doc: doc}
 	}
 
@@ -265,7 +265,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), session, st.mongoInfo, st.newPolicy)
+	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -276,7 +276,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, err := newSt.modelSetupOps(args, nil)
+	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -312,7 +312,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerModelTag)
+	err = newSt.start(st.controllerTag)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -423,10 +423,10 @@ func (m *Model) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.doc.UUID)
 }
 
-// ControllerTag is the model tag for the controller that the model is
+// ControllerTag is the tag for the controller that the model is
 // running within.
-func (m *Model) ControllerTag() names.ModelTag {
-	return names.NewModelTag(m.doc.ServerUUID)
+func (m *Model) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag(m.doc.ControllerUUID)
 }
 
 // UUID returns the universally unique identifier of the model.
@@ -437,7 +437,7 @@ func (m *Model) UUID() string {
 // ControllerUUID returns the universally unique identifier of the controller
 // in which the model is running.
 func (m *Model) ControllerUUID() string {
-	return m.doc.ServerUUID
+	return m.doc.ControllerUUID
 }
 
 // Name returns the human friendly name of the model.
@@ -648,6 +648,10 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 	return modelUsers, nil
 }
 
+func (m *Model) isControllerModel() bool {
+	return m.st.controllerModelTag.Id() == m.doc.UUID
+}
+
 // Destroy sets the models's lifecycle to Dying, preventing
 // addition of services or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
@@ -658,7 +662,7 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 // error satisfying IsHasHostedsError.
 func (m *Model) Destroy() error {
 	ensureNoHostedModels := false
-	if m.doc.UUID == m.doc.ServerUUID {
+	if m.isControllerModel() {
 		ensureNoHostedModels = true
 	}
 	return m.destroy(ensureNoHostedModels)
@@ -758,7 +762,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 				{"applications", bson.D{{"$size", 0}}},
 			},
 		}}
-		if modelUUID != m.doc.ServerUUID {
+		if !m.isControllerModel() {
 			// The model is empty, and is not the controller
 			// model, so we can move it straight to Dead.
 			nextLife = Dead
@@ -841,7 +845,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
-	if modelUUID == m.doc.ServerUUID {
+	if m.isControllerModel() {
 		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, modelUUID)
 		ops = append(ops, cleanupOp)
 	}
@@ -926,7 +930,7 @@ func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 // an model document with the given name and UUID.
 func createModelOp(
 	owner names.UserTag,
-	name, uuid, server, cloudName, cloudRegion string,
+	name, uuid, controllerUUID, cloudName, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
 ) txn.Op {
@@ -935,7 +939,7 @@ func createModelOp(
 		Name:            name,
 		Life:            Alive,
 		Owner:           owner.Canonical(),
-		ServerUUID:      server,
+		ControllerUUID:  controllerUUID,
 		MigrationMode:   migrationMode,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,

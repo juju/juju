@@ -198,6 +198,7 @@ func prepare(
 	}
 	details.CACert = caCert
 	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
+	details.ControllerModelUUID = args.ModelConfig[config.UUIDKey].(string)
 	details.User = environs.AdminUser
 	details.Password = args.AdminSecret
 	details.ModelUUID = cfg.UUID()

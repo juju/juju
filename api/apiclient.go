@@ -72,8 +72,8 @@ type state struct {
 	// It is empty if there is no model tag associated with the connection.
 	modelTag names.ModelTag
 
-	// controllerTag holds the controller model's tag once we're connected.
-	controllerTag names.ModelTag
+	// controllerTag holds the controller's tag once we're connected.
+	controllerTag names.ControllerTag
 
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
@@ -643,7 +643,7 @@ func (s *state) ModelTag() (names.ModelTag, bool) {
 }
 
 // ControllerTag implements base.APICaller.ControllerTag.
-func (s *state) ControllerTag() names.ModelTag {
+func (s *state) ControllerTag() names.ControllerTag {
 	return s.controllerTag
 }
 

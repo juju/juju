@@ -436,7 +436,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := statetesting.NewMongoInfo()
-	anotherState, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 

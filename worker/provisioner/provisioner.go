@@ -149,10 +149,6 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
 
-	secureServerConnection := false
-	if info, ok := p.agentConfig.StateServingInfo(); ok {
-		secureServerConnection = info.CAPrivateKey != ""
-	}
 	task, err := NewProvisionerTask(
 		controllerCfg.ControllerUUID(),
 		machineTag,
@@ -164,7 +160,6 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.broker,
 		auth,
 		modelCfg.ImageStream(),
-		secureServerConnection,
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
 	if err != nil {

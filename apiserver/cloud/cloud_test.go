@@ -281,7 +281,7 @@ func (st *mockBackend) ControllerModel() (cloudfacade.Model, error) {
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
-	return names.NewControllerTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	return names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 }
 
 func (st *mockBackend) ModelTag() names.ModelTag {

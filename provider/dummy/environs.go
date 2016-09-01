@@ -680,7 +680,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, err
 	}
 	if _, ok := args.ControllerConfig.CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in controller configuration")
+		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -692,7 +692,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return nil, fmt.Errorf("model is already bootstrapped")
+		return nil, errors.New("model is already bootstrapped")
 	}
 
 	// Create an instance for the bootstrap node.

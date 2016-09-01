@@ -77,6 +77,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 			"type": "dummy",
 			"name": "admin",
 		},
+		ControllerModelUUID: testing.ModelTag.Id(),
 		ControllerConfig: controller.Config{
 			"api-port":   17070,
 			"state-port": 37017,
@@ -229,7 +230,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		c.Assert(args.ControllerConfig, jc.DeepEquals, controller.Config{
-			"controller-uuid":         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			"controller-uuid":         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			"ca-cert":                 testing.CACert,
 			"state-port":              1234,
 			"api-port":                17777,
@@ -246,7 +247,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		Cloud:                  "mycloud",
 		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerUUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		APIEndpoints:           []string{"10.0.0.1:17777"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 	})

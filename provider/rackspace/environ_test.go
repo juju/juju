@@ -65,7 +65,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		"name":            "some-name",
 		"type":            "some-type",
 		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
+		"controller-uuid": testing.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Assert(err, gc.IsNil)

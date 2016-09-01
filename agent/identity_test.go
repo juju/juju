@@ -34,6 +34,7 @@ var attributeParams = AgentConfigParams{
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
+	Controller:        testing.ControllerTag,
 	Model:             testing.ModelTag,
 }
 

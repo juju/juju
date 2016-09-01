@@ -27,12 +27,12 @@ func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	nonControllerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, controllerJobs, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
-		"juju-controller-uuid": testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
 		"juju-is-controller":   "true",
 	})
 	testInstanceTags(c, cfg, nonControllerJobs, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
-		"juju-controller-uuid": testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
 	})
 }
 
@@ -42,14 +42,14 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	})
 	testInstanceTags(c, cfg, nil, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
-		"juju-controller-uuid": testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
 		"a": "b",
 		"c": "",
 	})
 }
 
 func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJob, expectTags map[string]string) {
-	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ModelTag.Id(), cfg, jobs)
+	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }
 

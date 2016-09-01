@@ -433,6 +433,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return cmd.ErrSilent
 	}
 
+	controllerModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
@@ -447,7 +451,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	modelConfigAttrs := map[string]interface{}{
 		"type":         cloud.Type,
 		"name":         bootstrap.ControllerModelName,
-		config.UUIDKey: controllerUUID.String(),
+		config.UUIDKey: controllerModelUUID.String(),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -506,7 +510,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			delete(modelConfigAttrs, k)
 		}
 	}
-	bootstrapConfig, err := bootstrap.NewConfig(controllerUUID.String(), bootstrapConfigAttrs)
+	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "constructing bootstrap config")
 	}

@@ -182,7 +182,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 // ControllerInstances is specified in the Environ interface.
 func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// TODO(wallyworld) - tag instances with controller UUID so we can use that
-	return common.ProviderStateInstances(env, env.Storage())
+	return common.ProviderStateInstances(env.Storage())
 }
 
 // ecfg returns the environment's maasModelConfig, and protects it with a
