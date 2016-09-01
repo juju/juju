@@ -534,7 +534,6 @@ var commandNames = []string{
 	"show-budget",
 	"show-cloud",
 	"show-controller",
-	"show-controllers",
 	"show-machine",
 	"show-machines",
 	"show-model",
