@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
@@ -17,10 +18,6 @@ import (
 
 /*
 # TODO - remaining prechecks
-
-## Model
-
-- what about if a charm upgrade is in progress? (i.e. charm URL != unit charm URL)
 
 ## Target controller
 
@@ -59,6 +56,7 @@ type PrecheckMachine interface {
 type PrecheckApplication interface {
 	Name() string
 	Life() state.Life
+	CharmURL() (*charm.URL, bool)
 	AllUnits() ([]PrecheckUnit, error)
 	MinUnits() int
 }
@@ -69,6 +67,7 @@ type PrecheckUnit interface {
 	Name() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
+	CharmURL() (*charm.URL, bool)
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	AgentPresence() (bool, error)
@@ -233,6 +232,8 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
 	}
 
+	appCharmURL, _ := app.CharmURL()
+
 	for _, unit := range units {
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
@@ -244,6 +245,11 @@ func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
 
 		if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
 			return errors.Trace(err)
+		}
+
+		unitCharmURL, _ := unit.CharmURL()
+		if appCharmURL.String() != unitCharmURL.String() {
+			return errors.Errorf("unit %s is upgrading", unit.Name())
 		}
 	}
 	return nil

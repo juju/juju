@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -42,6 +43,23 @@ func (*SourcePrecheckSuite) TestDyingModel(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "model is dying")
+}
+
+func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:     "spanner",
+				charmURL: "cs:spanner-3",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "spanner/0", charmURL: "cs:spanner-3"},
+					&fakeUnit{name: "spanner/1", charmURL: "cs:spanner-2"},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -550,6 +568,7 @@ func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
 type fakeApp struct {
 	name     string
 	life     state.Life
+	charmURL string
 	units    []migration.PrecheckUnit
 	minunits int
 }
@@ -560,6 +579,14 @@ func (a *fakeApp) Name() string {
 
 func (a *fakeApp) Life() state.Life {
 	return a.life
+}
+
+func (a *fakeApp) CharmURL() (*charm.URL, bool) {
+	url := a.charmURL
+	if url == "" {
+		url = "cs:foo-1"
+	}
+	return charm.MustParseURL(url), false
 }
 
 func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
@@ -574,6 +601,7 @@ type fakeUnit struct {
 	name        string
 	version     version.Binary
 	life        state.Life
+	charmURL    string
 	agentStatus status.Status
 	lost        bool
 }
@@ -596,6 +624,14 @@ func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
 
 func (u *fakeUnit) Life() state.Life {
 	return u.life
+}
+
+func (u *fakeUnit) CharmURL() (*charm.URL, bool) {
+	url := u.charmURL
+	if url == "" {
+		url = "cs:foo-1"
+	}
+	return charm.MustParseURL(url), false
 }
 
 func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
