@@ -988,7 +988,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1011,7 +1011,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1029,7 +1029,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region='region-foo', verbose=False, upgrade=False,
+            region='region-foo', verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',

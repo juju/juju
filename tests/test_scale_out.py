@@ -80,7 +80,8 @@ class TestScaleOut(TestCase):
             series=None,
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
 
         with self.fake_client_cxt() as (fake_client, fake_env, bv_mock):
@@ -98,7 +99,8 @@ class TestScaleOut(TestCase):
             args.keep_env,
             args.upload_tools,
             region=args.region)
-        bv_mock.assert_called_once_with('test_env', '/path/juju', False)
+        bv_mock.assert_called_once_with('test_env', '/path/juju', False,
+                                        soft_deadline=None)
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
         self.assertIs(client, fake_client)
 
@@ -119,7 +121,8 @@ class TestScaleOut(TestCase):
             series='my_series',
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
 
         with self.fake_client_cxt():

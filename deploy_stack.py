@@ -923,7 +923,8 @@ def _deploy_job(args, charm_series, series):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     # GZ 2016-01-22: When upgrading, could make sure to tear down with the
     # newer client instead, this will be required for major version upgrades?
-    client = client_from_config(args.env, start_juju_path, args.debug)
+    client = client_from_config(args.env, start_juju_path, args.debug,
+                                soft_deadline=args.deadline)
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()

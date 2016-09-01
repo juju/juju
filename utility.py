@@ -322,7 +322,7 @@ def _to_deadline(timeout):
     return datetime.utcnow() + timedelta(seconds=int(timeout))
 
 
-def add_basic_testing_arguments(parser, using_jes=False):
+def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -390,7 +390,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
-    parser.add_argument('--timeout', dest='deadline', type=_to_deadline)
+    if deadline:
+        parser.add_argument('--timeout', dest='deadline', type=_to_deadline)
     return parser
 
 

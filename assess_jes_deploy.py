@@ -55,7 +55,8 @@ def jes_setup(args):
     if series is None:
         series = 'precise'
     charm_series = series
-    client = client_from_config(base_env, args.juju_bin, args.debug)
+    client = client_from_config(base_env, args.juju_bin, args.debug,
+                                soft_deadline=args.deadline)
     if not client.is_jes_enabled():
         client.enable_jes()
     with boot_context(
