@@ -616,7 +616,7 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
 
 
 @contextmanager
-def wait_until_removed(client, to_remove, timeout=30):
+def wait_until_removed(client, to_remove, timeout=300):
     """Wait until none of the machines are listed in status.
 
     This is implemented as a context manager so that it is coroutine-friendly.
