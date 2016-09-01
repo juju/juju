@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/worker/uniter/operation"
 )
 
 func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
@@ -777,14 +775,7 @@ type lifer interface {
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
 func processUnitAndAgentStatus(unit *state.Unit, unitStatus *params.UnitStatus) {
-	unitStatus.AgentStatus, unitStatus.WorkloadStatus = processUnitStatus(unit)
-	processUnitLost(unit, unitStatus)
-}
-
-// populateStatusFromGetter creates status information for machines, units.
-func populateStatusFromGetter(agent *params.DetailedStatus, getter status.StatusGetter) {
-	statusInfo, err := getter.Status()
-	populateStatusFromStatusInfoAndErr(agent, statusInfo, err)
+	unitStatus.AgentStatus, unitStatus.WorkloadStatus = processUnit(unit)
 }
 
 // populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output
@@ -800,88 +791,29 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
 func processMachine(machine *state.Machine) (out params.DetailedStatus) {
+	statusInfo, err := machine.Status()
+	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
+
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
-
-	populateStatusFromGetter(&out, machine)
-
-	if out.Err != nil {
-		return
-	}
-	// TODO(perrito666) add status validation.
-	outSt := status.Status(out.Status)
-	if outSt == status.StatusPending || outSt == status.StatusAllocating {
-		// The status is pending - there's no point
-		// in enquiring about the agent liveness.
-		return
-	}
-
 	return
 }
 
 // processUnit retrieves version and status information for the given unit.
-func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
-	// First determine the agent status information.
-	unitAgent := unit.Agent()
-	populateStatusFromGetter(&agentStatus, unitAgent)
+func processUnit(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
+	agent, workload := common.UnitStatus(unit)
+	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
+	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
+
 	agentStatus.Life = processLife(unit)
+
 	if t, err := unit.AgentTools(); err == nil {
 		agentStatus.Version = t.Version.Number.String()
 	}
-
-	// Second, determine the workload (unit) status.
-	populateStatusFromGetter(&workloadStatus, unit)
 	return
-}
-
-func canBeLost(unitStatus *params.UnitStatus) bool {
-	// TODO(perrito666) add status validation.
-	switch status.Status(unitStatus.AgentStatus.Status) {
-	case status.StatusAllocating:
-		return false
-	case status.StatusExecuting:
-		return unitStatus.AgentStatus.Info != operation.RunningHookMessage(string(hooks.Install))
-	}
-	// TODO(fwereade/wallyworld): we should have an explicit place in the model
-	// to tell us when we've hit this point, instead of piggybacking on top of
-	// status and/or status history.
-	// TODO(perrito666) add status validation.
-	wlStatus := status.Status(unitStatus.WorkloadStatus.Status)
-	isInstalled := wlStatus != status.StatusMaintenance || unitStatus.WorkloadStatus.Info != status.MessageInstalling
-	return isInstalled
-}
-
-// processUnitLost determines whether the given unit should be marked as lost.
-// TODO(fwereade/wallyworld): this is also model-level code and should sit in
-// between state and this package.
-func processUnitLost(unit *state.Unit, unitStatus *params.UnitStatus) {
-	if !canBeLost(unitStatus) {
-		// The status is allocating or installing - there's no point
-		// in enquiring about the agent liveness.
-		return
-	}
-	agentAlive, err := unit.AgentPresence()
-	if err != nil {
-		return
-	}
-
-	if unit.Life() != state.Dead && !agentAlive {
-		// If the unit is in error, it would be bad to throw away
-		// the error information as when the agent reconnects, that
-		// error information would then be lost.
-		// TODO(perrito666) add status validation.
-		wlStatus := status.Status(unitStatus.WorkloadStatus.Status)
-
-		if wlStatus != status.StatusError {
-			unitStatus.WorkloadStatus.Status = status.StatusUnknown.String()
-			unitStatus.WorkloadStatus.Info = fmt.Sprintf("Agent lost, see 'juju status-history %s'", unit.Name())
-		}
-		unitStatus.AgentStatus.Status = status.StatusLost.String()
-		unitStatus.AgentStatus.Info = "agent is not communicating with the server"
-	}
 }
 
 // filterStatusData limits what agent StatusData data is passed over

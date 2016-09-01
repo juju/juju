@@ -31,6 +31,7 @@ type ControllerItem struct {
 	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
 	Cloud          string   `yaml:"cloud" json:"cloud"`
 	CloudRegion    string   `yaml:"region,omitempty" json:"region,omitempty"`
+	AgentVersion   string   `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and

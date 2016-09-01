@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -81,7 +82,16 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	mgoInfo := a.backend.MongoConnectionInfo()
 	logger.Debugf("mongo info from state %+v", mgoInfo)
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
+	v, err := a.backend.MongoVersion()
+	if err != nil {
+		return errors.Annotatef(err, "discovering mongo version")
+	}
+	mongoVersion, err := mongo.NewVersion(v)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}

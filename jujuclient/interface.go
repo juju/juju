@@ -34,6 +34,11 @@ type ControllerDetails struct {
 	// CloudRegion is the name of the cloud region that this controller
 	// runs in. This will be empty for clouds without regions.
 	CloudRegion string `yaml:"region,omitempty"`
+
+	// AgentVersion is the version of the agent running on this controller.
+	// While this isn't strictly needed to connect to a controller, it is used
+	// in formatting show-controller output where this struct is also used.
+	AgentVersion string `yaml:"agent-version,omitempty"`
 }
 
 // ModelDetails holds details of a model.

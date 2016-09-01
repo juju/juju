@@ -156,6 +156,10 @@ func (c *restoreCommand) getRebootstrapParams(
 	// things like the admin-secret, controller certificate etc with the
 	// backup.
 	store := c.ClientStore()
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,7 +204,7 @@ func (c *restoreCommand) getRebootstrapParams(
 	for k, v := range config.ControllerConfig {
 		controllerCfg[k] = v
 	}
-	controllerCfg[controller.ControllerUUIDKey] = params.ControllerUUID
+	controllerCfg[controller.ControllerUUIDKey] = controllerDetails.ControllerUUID
 	controllerCfg[controller.CACertKey] = meta.CACert
 
 	return &restoreBootstrapParams{

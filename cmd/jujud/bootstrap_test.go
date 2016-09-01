@@ -802,8 +802,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = cfg.UUID()
 	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-		Config:         cfg,
+		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.Open(environs.OpenParams{
@@ -813,6 +812,10 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(nullContext())
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := env.DestroyController(controllerCfg.ControllerUUID())
+		c.Assert(err, jc.ErrorIsNil)
+	})
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
