@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -1039,6 +1040,31 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		}
 	}
 	return result, nil
+}
+
+// SpecializeCSTransport customizes the charm store http transport for a given
+// configuration.
+func SpecializeCSTransport(cfg *Config, model string) http.RoundTripper {
+	transport := http.DefaultTransport
+	if cfg.TransmitVendorMetrics() {
+		transport = &modifyRequestTransport{
+			RoundTripper: transport,
+			modifyRequest: func(req *http.Request) {
+				req.Header.Set("Juju-Model", model)
+			}}
+	}
+	return transport
+}
+
+type modifyRequestTransport struct {
+	http.RoundTripper
+	modifyRequest func(*http.Request)
+}
+
+// RoundTrip implements http.Transport.
+func (p *modifyRequestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	p.modifyRequest(req)
+	return p.RoundTripper.RoundTrip(req)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
