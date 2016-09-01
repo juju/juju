@@ -10,12 +10,15 @@ from subprocess import CalledProcessError
 import assess_model_migration as amm
 from deploy_stack import BootstrapManager
 from fakejuju import fake_juju_client
+from jujupy import SoftDeadlineExceeded
 from tests import (
     parse_error,
     TestCase,
 )
+from tests.test_jujupy import client_past_deadline
 from utility import (
     JujuAssertionError,
+    noop_context,
     temp_dir,
     until_timeout,
 )
@@ -154,12 +157,17 @@ class TestWaitForModel(TestCase):
     # Check that it returns an error if the model never comes up.
     # Pass in a timeout for the model check
     def test_raises_exception_when_timeout_occurs(self):
+        mock_client = Mock()
+        mock_client.check_timeouts.return_value = noop_context()
+        mock_client.ignore_soft_deadline.return_value = noop_context()
         with patch.object(until_timeout, 'next', side_effect=StopIteration()):
             with self.assertRaises(AssertionError):
-                amm.wait_for_model(Mock(), 'TestModelName')
+                amm.wait_for_model(mock_client, 'TestModelName')
 
     def test_returns_when_model_found(self):
         mock_client = Mock()
+        mock_client.check_timeouts.return_value = noop_context()
+        mock_client.ignore_soft_deadline.return_value = noop_context()
         mock_client.get_models.return_value = dict(
             models=[
                 dict(name='TestModelName')])
@@ -167,6 +175,8 @@ class TestWaitForModel(TestCase):
 
     def test_pauses_between_failed_matches(self):
         mock_client = Mock()
+        mock_client.check_timeouts.return_value = noop_context()
+        mock_client.ignore_soft_deadline.return_value = noop_context()
         mock_client.get_models.side_effect = [
             dict(models=[]),    # Failed check
             dict(models=[dict(name='TestModelName')]),  # Successful check
@@ -174,6 +184,32 @@ class TestWaitForModel(TestCase):
         with patch.object(amm, 'sleep') as mock_sleep:
             amm.wait_for_model(mock_client, 'TestModelName')
             mock_sleep.assert_called_once_with(1)
+
+    def test_suppresses_deadline(self):
+        with client_past_deadline() as client:
+
+            real_check_timeouts = client.check_timeouts
+
+            def get_models():
+                with real_check_timeouts():
+                    return {'models': [{'name': 'TestModelName'}]}
+
+            with patch.object(client, 'get_models', side_effect=get_models,
+                              autospec=True):
+                with patch.object(client, 'check_timeouts', autospec=True):
+                    amm.wait_for_model(client, 'TestModelName')
+
+
+    def test_checks_deadline(self):
+        with client_past_deadline() as client:
+
+            def get_models():
+                return {'models': [{'name': 'TestModelName'}]}
+
+            with patch.object(client, 'get_models', side_effect=get_models,
+                              autospec=True):
+                with self.assertRaises(SoftDeadlineExceeded):
+                    amm.wait_for_model(client, 'TestModelName')
 
 
 class TestRaiseIfSharedMachines(TestCase):
