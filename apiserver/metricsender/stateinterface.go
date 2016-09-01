@@ -6,6 +6,9 @@
 package metricsender
 
 import (
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -19,5 +22,13 @@ type MetricsSenderBackend interface {
 	SetMetricBatchesSent(batchUUIDs []string) error
 	CountOfUnsentMetrics() (int, error)
 	CountOfSentMetrics() (int, error)
+}
+
+// ModelBackend contains additional methods that are used by the metrics sender.
+type ModelBackend interface {
+	MetricsSenderBackend
+
 	Unit(name string) (*state.Unit, error)
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
 }

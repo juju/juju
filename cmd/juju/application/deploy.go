@@ -49,16 +49,22 @@ type DeployAPI interface {
 	// TODO(katco): Pair DeployAPI down to only the methods required
 	// by the deploy command.
 	api.Connection
+	MeteredDeployAPI
 	CharmAdder
 
 	ModelUUID() (string, bool)
 	CharmInfo(string) (*apicharms.CharmInfo, error)
 	Deploy(application.DeployArgs) error
 
-	// IsMetered(charmURL string) (bool, error)
-	// SetMetricCredentials(service string, credentials []byte) error
 	// AddPendingResources(client.AddPendingResourcesArgs) (ids []string, _ error)
 	// DeployResources(cmd.DeployResourcesArgs) (ids []string, _ error)
+}
+
+// MeteredDeployAPI represents the methods of the API the deploy
+// command needs for metered charms.
+type MeteredDeployAPI interface {
+	IsMetered(charmURL string) (bool, error)
+	SetMetricCredentials(service string, credentials []byte) error
 }
 
 // The following structs exist purely because Go cannot create a
@@ -298,10 +304,10 @@ type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(api.Connection, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(api.Connection, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -310,6 +316,7 @@ type DeploymentInfo struct {
 	CharmID         charmstore.CharmID
 	ApplicationName string
 	ModelUUID       string
+	CharmInfo       *apicharms.CharmInfo
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -324,14 +331,16 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
-	bundleOnlyFlags = []string{}
+	charmOnlyFlags        = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
+	bundleOnlyFlags       = []string{}
+	modelCommandBaseFlags = []string{"B", "no-browser-login"}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
@@ -463,6 +472,7 @@ func (c *DeployCommand) deployCharm(
 		CharmID:         id,
 		ApplicationName: serviceName,
 		ModelUUID:       uuid,
+		CharmInfo:       charmInfo,
 	}
 
 	for _, step := range c.Steps {

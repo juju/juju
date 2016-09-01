@@ -39,6 +39,9 @@ type ModelManagerBackend interface {
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
+	Unit(name string) (*state.Unit, error)
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
 	AllModels() ([]Model, error)
 	AddModelUser(string, state.UserAccessSpec) (description.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
@@ -46,7 +49,6 @@ type ModelManagerBackend interface {
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	ModelTag() names.ModelTag
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)
