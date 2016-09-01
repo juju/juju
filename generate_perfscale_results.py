@@ -19,7 +19,10 @@ from fixtures import EnvironmentVariable
 from deploy_stack import (
     BootstrapManager,
 )
-from logbreakdown import breakdown_log_by_timeframes
+from logbreakdown import (
+    _render_ds_string,
+    breakdown_log_by_timeframes,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -67,8 +70,11 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     bs_start = datetime.utcnow()
     # Make sure you check the responsiveness of 'juju status'
     with bs_manager.booted_context(upload_tools):
+        client = bs_manager.client
+        admin_client = client.get_admin_client()
+        admin_client.wait_for_started()
+        bs_end = datetime.utcnow()
         try:
-            client = bs_manager.client
             # Work around mysql charm wanting 80% memory.
             if client.env.get_cloud() == 'lxd':
                 constraint_cmd = [
@@ -80,9 +86,6 @@ def assess_perf_test_simple(bs_manager, upload_tools):
                     '2GB'
                 ]
                 subprocess.check_output(constraint_cmd)
-            admin_client = client.get_admin_client()
-            admin_client.wait_for_started()
-            bs_end = datetime.utcnow()
             bootstrap_timing = TimingData(bs_start, bs_end)
 
             setup_system_monitoring(admin_client)
@@ -147,29 +150,19 @@ def generate_reports(controller_log, results_dir, deployments):
 
 
 def get_log_message_in_timed_chunks(log_file, deployments):
-    # get timeframesfor the different actions.
-    # Hmm, these are actually stored as datetime objects, no need for the
-    # string conversions etc.
-    bootstrap_timings = (
-        deployments['bootstrap'].start, deployments['bootstrap'].end)
+    """Breakdown log into timechunks based on event timeranges in 'deployments'
 
-    cleanup_timings = (
-        deployments['cleanup'].start, deployments['cleanup'].end)
+    """
+    deploy_timings = [d.timings for d in deployments['deploys']]
 
-    deploy_timings = [
-        (d.timings.start, d.timings.end)
-        for d in deployments['deploys']]
+    bootstrap = deployments['bootstrap']
+    cleanup = deployments['cleanup']
+    all_event_timings = [bootstrap] + deploy_timings + [cleanup]
 
-    def _render_ds_string(start, end):
-        return '{} - {}'.format(start, end)
+    raw_details = breakdown_log_by_timeframes(log_file, all_event_timings)
 
-    bs_name = _render_ds_string(
-        deployments['bootstrap'].start,
-        deployments['bootstrap'].end)
-
-    cleanup_name = _render_ds_string(
-        deployments['cleanup'].start,
-        deployments['cleanup'].end)
+    bs_name = _render_ds_string(bootstrap.start, bootstrap.end)
+    cleanup_name = _render_ds_string(cleanup.start, cleanup.end)
 
     name_lookup = {
         bs_name: 'Bootstrap',
@@ -179,10 +172,6 @@ def get_log_message_in_timed_chunks(log_file, deployments):
         name_range = _render_ds_string(
             dep.timings.start, dep.timings.end)
         name_lookup[name_range] = dep.name
-
-    all_timings = [bootstrap_timings] + deploy_timings + [cleanup_timings]
-
-    raw_details = breakdown_log_by_timeframes(log_file, all_timings)
 
     event_details = defaultdict(defaultdict)
     # Outer-layer (i.e. event)

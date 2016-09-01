@@ -5,34 +5,48 @@ LOG_BREAKDOWN_SECONDS = 20
 dt_format = '%Y-%m-%d %H:%M:%S'
 
 
-def breakdown_log_by_timeframes(log_file, timestamps):
+def breakdown_log_by_timeframes(log_file, event_timestamps):
+    """event_timestamps is a list of TimingData objects."""
+    # for each event break the time span into chunks of x seconds. the result
+    # being a list of tuples of start/end timestamps
+
     all_log_breakdown = dict()
-    for event_range in timestamps:
-        range_breakdown = []
-        range_start = datetime.strptime(event_range[0], dt_format)
-        range_end = datetime.strptime(event_range[1], dt_format)
-        range_name = '{} - {}'.format(range_start, range_end)
-
-        next_step = range_start + timedelta(seconds=LOG_BREAKDOWN_SECONDS)
-
-        if next_step > range_end:
-            range_breakdown.append((range_start, range_end))
-        else:
-            while next_step < range_end:
-                range_breakdown.append((range_start, next_step))
-
-                range_start = next_step
-                next_step = range_start + timedelta(
-                    seconds=LOG_BREAKDOWN_SECONDS)
-                # Otherwise there will be overlap.
-                range_start += timedelta(seconds=1)
-
-                if next_step >= range_end:
-                    range_breakdown.append((range_start, range_end))
-        breakdown = get_timerange_logs(log_file, range_breakdown)
+    for event in event_timestamps:
+        event_range_breakdown = _chunk_event_range(event)
+        breakdown = get_timerange_logs(log_file, event_range_breakdown)
+        range_name = _render_ds_string(event.start, event.end)
         all_log_breakdown[range_name] = breakdown
 
     return all_log_breakdown
+
+
+def _chunk_event_range(event):
+    range_breakdown = []
+    range_start = datetime.strptime(event.start, dt_format)
+    range_end = datetime.strptime(event.end, dt_format)
+
+    next_step = range_start + timedelta(seconds=LOG_BREAKDOWN_SECONDS)
+
+    if next_step > range_end:
+        range_breakdown.append((range_start, range_end))
+    else:
+        while next_step < range_end:
+            range_breakdown.append((range_start, next_step))
+
+            range_start = next_step
+            next_step = range_start + timedelta(
+                seconds=LOG_BREAKDOWN_SECONDS)
+            # Otherwise there will be overlap.
+            range_start += timedelta(seconds=1)
+
+            if next_step >= range_end:
+                range_breakdown.append((range_start, range_end))
+
+    return range_breakdown
+
+
+def _render_ds_string(start, end):
+        return '{} - {}'.format(start, end)
 
 
 def get_timerange_logs(log_file, timestamps):
