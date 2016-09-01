@@ -801,36 +801,36 @@ func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 
 	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeDescending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, metricBatches)
 
 	metricBatches, err = s.State.MetricBatchesForUnit("metered/1")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeDescending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, metricBatches)
 
 	metricBatches, err = s.State.MetricBatchesForApplication("metered")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeDescending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, metricBatches)
 
 	metricBatches, err = s.State.MetricBatchesForModel()
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeDescending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, metricBatches)
 
 }
 
-func assertMetricBatchesTimeDescending(c *gc.C, batches []state.MetricBatch) {
-	var tPrior time.Time
+func assertMetricBatchesTimeAscending(c *gc.C, batches []state.MetricBatch) {
+	var tPrev time.Time
 
 	for i := range batches {
 		if i > 0 {
-			beforeOrEqualPrior := func(t time.Time) bool {
-				return t.Before(tPrior) || t.Equal(tPrior)
+			afterOrEqualPrev := func(t time.Time) bool {
+				return t.After(tPrev) || t.Equal(tPrev)
 			}
 			desc := gc.Commentf("%+v <= %+v", batches[i-1], batches[i])
-			c.Assert(batches[i].Created(), jc.Satisfies, beforeOrEqualPrior, desc)
+			c.Assert(batches[i].Created(), jc.Satisfies, afterOrEqualPrev, desc)
 			c.Assert(batches[i].Metrics(), gc.HasLen, 1)
-			c.Assert(batches[i].Metrics()[0].Time, jc.Satisfies, beforeOrEqualPrior, desc)
+			c.Assert(batches[i].Metrics()[0].Time, jc.Satisfies, afterOrEqualPrev, desc)
 		}
-		tPrior = batches[i].Created()
+		tPrev = batches[i].Created()
 	}
 }
 
