@@ -877,7 +877,7 @@ func processUnitLost(unit *state.Unit, unitStatus *params.UnitStatus) {
 
 		if wlStatus != status.StatusError {
 			unitStatus.WorkloadStatus.Status = status.StatusUnknown.String()
-			unitStatus.WorkloadStatus.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
+			unitStatus.WorkloadStatus.Info = fmt.Sprintf("Agent lost, see 'juju status-history %s'", unit.Name())
 		}
 		unitStatus.AgentStatus.Status = status.StatusLost.String()
 		unitStatus.AgentStatus.Info = "agent is not communicating with the server"

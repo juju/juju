@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/juju/testing"
 )
@@ -39,9 +40,9 @@ func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions: []cloud.Region{
-			cloud.Region{
+			{
 				Name:             "dummy-region",
 				Endpoint:         "dummy-endpoint",
 				IdentityEndpoint: "dummy-identity-endpoint",
@@ -51,5 +52,23 @@ func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 		Endpoint:         "dummy-endpoint",
 		IdentityEndpoint: "dummy-identity-endpoint",
 		StorageEndpoint:  "dummy-storage-endpoint",
+	})
+}
+
+func (s *CloudAPISuite) TestCredentialsAPI(c *gc.C) {
+	tag := names.NewCloudCredentialTag("dummy/admin@local/default")
+	err := s.client.UpdateCredential(tag, cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"username": "fred", "password": "secret"},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.client.Credentials(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{
+		{Result: &params.CloudCredential{
+			AuthType:   "userpass",
+			Attributes: map[string]string{"username": "fred"},
+			Redacted:   []string{"password"},
+		}},
 	})
 }

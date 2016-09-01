@@ -71,6 +71,7 @@ func (c *getDefaultsCommand) Info() *cmd.Info {
 }
 
 func (c *getDefaultsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -89,7 +90,7 @@ type modelDefaultsAPI interface {
 	Close() error
 
 	// ModelDefaults returns the default config values used when creating a new model.
-	ModelDefaults() (config.ConfigValues, error)
+	ModelDefaults() (config.ModelDefaultAttributes, error)
 }
 
 func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
@@ -106,7 +107,7 @@ func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
 
 	if c.key != "" {
 		if value, ok := attrs[c.key]; ok {
-			attrs = config.ConfigValues{
+			attrs = config.ModelDefaultAttributes{
 				c.key: value,
 			}
 		} else {
@@ -119,39 +120,58 @@ func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
 
 // formatConfigTabular writes a tabular summary of default config information.
 func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
-	configValues, ok := value.(config.ConfigValues)
+	defaultValues, ok := value.(config.ModelDefaultAttributes)
 	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", configValues, value)
+		return errors.Errorf("expected value of type %T, got %T", defaultValues, value)
 	}
 
 	tw := output.TabWriter(writer)
-	p := func(values ...string) {
+
+	ph := func(values ...string) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
 	}
+
+	p := func(name string, value config.AttributeDefaultValues) {
+		var c, d interface{}
+		switch value.Default {
+		case nil:
+			d = "-"
+		case "":
+			d = `""`
+		default:
+			d = value.Default
+		}
+		switch value.Controller {
+		case nil:
+			c = "-"
+		case "":
+			c = `""`
+		default:
+			c = value.Controller
+		}
+		row := fmt.Sprintf("%s\t%v\t%v", name, d, c)
+		fmt.Fprintln(tw, row)
+		for _, region := range value.Regions {
+			row := fmt.Sprintf("  %s\t%v\t-", region.Name, region.Value)
+			fmt.Fprintln(tw, row)
+		}
+	}
 	var valueNames []string
-	for name := range configValues {
+	for name := range defaultValues {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	p("ATTRIBUTE\tDEFAULT\tCONTROLLER")
+	ph("ATTRIBUTE\tDEFAULT\tCONTROLLER")
 
 	for _, name := range valueNames {
-		info := configValues[name]
+		info := defaultValues[name]
 		out := &bytes.Buffer{}
-		err := cmd.FormatYaml(out, info.Value)
+		err := cmd.FormatYaml(out, info)
 		if err != nil {
 			return errors.Annotatef(err, "formatting value for %q", name)
 		}
-		d := "-"
-		c := "-"
-		valString := strings.TrimSuffix(out.String(), "\n")
-		if info.Source == "default" {
-			d = valString
-		} else {
-			c = valString
-		}
-		p(name, d, c)
+		p(name, info)
 	}
 
 	tw.Flush()

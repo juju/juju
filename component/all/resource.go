@@ -118,11 +118,7 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
-		base := charmcmd.NewCommandBase(spec)
-		resBase := &resourceadapters.CharmCmdBase{base}
-		return cmd.NewListCharmResourcesCommand(resBase)
-	})
+	charmcmd.RegisterSubCommand(cmd.NewListCharmResourcesCommand())
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{

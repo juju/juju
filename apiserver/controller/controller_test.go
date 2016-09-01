@@ -79,11 +79,12 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(state.UserAccessSpec{
-		User:        admin.UserTag(),
-		CreatedBy:   remoteUserTag,
-		DisplayName: "Foo Bar",
-		Access:      description.ReadAccess})
+	st.AddModelUser(st.ModelUUID(),
+		state.UserAccessSpec{
+			User:        admin.UserTag(),
+			CreatedBy:   remoteUserTag,
+			DisplayName: "Foo Bar",
+			Access:      description.ReadAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
@@ -531,7 +532,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerRevoke(c, user, string(description.AddModelAccess))
-	expectedErr := `could not look up controller access for user: controller user "foobar@local" not found`
+	expectedErr := `could not look up controller access for user: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 

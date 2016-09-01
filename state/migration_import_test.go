@@ -147,7 +147,7 @@ func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool,
 	if readOnly {
 		access = description.ReadAccess
 	}
-	user, err := s.State.AddModelUser(state.UserAccessSpec{
+	user, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		Access:    access,

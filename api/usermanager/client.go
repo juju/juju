@@ -148,6 +148,8 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 				errorStrings = append(errorStrings, annotated.Error())
 			}
 		}
+		// TODO(wallyworld) - we should return these errors to the caller so that any
+		// users which are successfully found can be handled.
 		if len(errorStrings) > 0 {
 			return nil, errors.New(strings.Join(errorStrings, ", "))
 		}

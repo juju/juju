@@ -25,8 +25,8 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 func NewDestroyCommand() cmd.Command {
 	return modelcmd.Wrap(
 		&destroyCommand{},
-		modelcmd.ModelSkipDefault,
-		modelcmd.ModelSkipFlags,
+		modelcmd.WrapSkipDefaultModel,
+		modelcmd.WrapSkipModelFlags,
 	)
 }
 
@@ -77,6 +77,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }

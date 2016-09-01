@@ -321,6 +321,10 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), description.AdminAccess)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
+	}
 
 	return newModel, newSt, nil
 }
@@ -622,6 +626,18 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 
 	var modelUsers []description.UserAccess
 	for _, doc := range userDocs {
+		// check if the User belonging to this model user has
+		// been deleted, in this case we should not return it.
+		userTag := names.NewUserTag(doc.UserName)
+		if userTag.IsLocal() {
+			_, err := m.st.User(userTag)
+			if errors.IsUserNotFound(err) {
+				continue
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		mu, err := NewModelUserAccess(m.st, doc)
 		if err != nil {
 			return nil, errors.Trace(err)

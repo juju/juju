@@ -6,6 +6,7 @@ package state_test
 import (
 	"time"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -16,7 +17,7 @@ import (
 )
 
 type SingularSuite struct {
-	clock *coretesting.Clock
+	clock *jujutesting.Clock
 	ConnSuite
 }
 
@@ -30,7 +31,7 @@ func (s *SingularSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *SingularSuite) SetUpTest(c *gc.C) {
-	s.clock = coretesting.NewClock(time.Now())
+	s.clock = jujutesting.NewClock(time.Now())
 	s.ConnSuite.SetUpTest(c)
 }
 

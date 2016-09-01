@@ -379,18 +379,16 @@ func (h *bundleHandler) addService(
 	}
 
 	// Deploy the application.
-	if err := deployApp(
-		api,
-		application.DeployArgs{
-			CharmID:          chID,
-			Cons:             cons,
-			ApplicationName:  p.Application,
-			Series:           series,
-			ConfigYAML:       configYAML,
-			Storage:          storageConstraints,
-			Resources:        resNames2IDs,
-			EndpointBindings: p.EndpointBindings,
-		}); err == nil {
+	if err := api.Deploy(application.DeployArgs{
+		CharmID:          chID,
+		Cons:             cons,
+		ApplicationName:  p.Application,
+		Series:           series,
+		ConfigYAML:       configYAML,
+		Storage:          storageConstraints,
+		Resources:        resNames2IDs,
+		EndpointBindings: p.EndpointBindings,
+	}); err == nil {
 		h.log.Infof("application %s deployed (charm %s)", p.Application, ch)
 		for resName := range resNames2IDs {
 			h.log.Infof("added resource %s", resName)

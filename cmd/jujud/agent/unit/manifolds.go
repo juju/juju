@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -88,13 +88,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
 
-		// The introspection worker provides debugging information over
-		// an abstract domain socket - linux only (for now).
-		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
-			AgentName:  agentName,
-			WorkerFunc: introspection.NewWorker,
-		}),
-
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -111,7 +104,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
-			APIOpen:              apicaller.APIOpen,
+			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 		}),
@@ -155,7 +148,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
-			APIOpen:           apicaller.APIOpen,
+			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
@@ -282,7 +275,6 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	introspectionName        = "introspection"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"

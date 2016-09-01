@@ -54,6 +54,7 @@ type listAgreementsCommand struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "json", map[string]cmd.Formatter{
 		"json": formatJSON,
 		"yaml": cmd.FormatYaml,

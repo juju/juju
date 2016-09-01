@@ -63,3 +63,26 @@ type ConfigSchemaSource interface {
 	// provider specific config attributes.
 	ConfigDefaults() schema.Defaults
 }
+
+// ModelDefaultAttributes is a map of configuration values to a list of possible
+// values.
+type ModelDefaultAttributes map[string]AttributeDefaultValues
+
+// AttributeDefaultValues represents all the default values at each level for a given
+// setting.
+type AttributeDefaultValues struct {
+	// Default and Controller represent the values as set at those levels.
+	Default    interface{} `json:"default,omitempty" yaml:"default,omitempty"`
+	Controller interface{} `json:"controller,omitempty" yaml:"controller,omitempty"`
+	// Regions is a slice of Region representing the values as set in each
+	// region.
+	Regions []RegionDefaultValue `json:"regions,omitempty" yaml:"regions,omitempty"`
+}
+
+// RegionDefaultValue holds the region information for each region in DefaultSetting.
+type RegionDefaultValue struct {
+	// Name represents the region name for this specific setting.
+	Name string `json:"name" yaml:"name"`
+	// Value is the value of the setting this represents in the named region.
+	Value interface{} `json:"value" yaml:"value"`
+}

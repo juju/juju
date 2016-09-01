@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
-	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/logger"
@@ -56,6 +55,7 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
+
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -163,13 +163,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
-		// The introspection worker provides debugging information over
-		// an abstract domain socket - linux only (for now).
-		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
-			AgentName:  agentName,
-			WorkerFunc: introspection.NewWorker,
-		}),
-
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
@@ -226,7 +219,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
-			APIOpen:              apicaller.APIOpen,
+			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 		}),
@@ -305,7 +298,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
-			APIOpen:           apicaller.APIOpen,
+			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
@@ -495,7 +488,6 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	introspectionName        = "introspection"
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "unconverted-api-workers"
 	rebootName               = "reboot-executor"

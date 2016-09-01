@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -108,9 +109,18 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 			},
 		},
 		MigrationId:      "id",
-		Phase:            "PRECHECK",
+		Phase:            "IMPORT",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
+}
+
+func (s *Suite) TestModelInfo(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	model, err := api.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.UUID, gc.Equals, "model-uuid")
+	c.Assert(model.Name, gc.Equals, "model-name")
+	c.Assert(model.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
 }
 
 func (s *Suite) TestSetPhase(c *gc.C) {
@@ -167,6 +177,12 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 
 	err := api.SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
+}
+
+func (s *Suite) TestPrechecks(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.Prechecks()
+	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
 }
 
 func (s *Suite) TestExport(c *gc.C) {
@@ -266,7 +282,7 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 	}
 	c.Assert(reports, gc.DeepEquals, params.MinionReports{
 		MigrationId:   "id",
-		Phase:         "PRECHECK",
+		Phase:         "IMPORT",
 		SuccessCount:  3,
 		UnknownCount:  len(unknown),
 		UnknownSample: expectedSample,
@@ -281,11 +297,12 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, new(failingPrecheckBackend),
+		s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	api, err := s.makeAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -311,6 +328,18 @@ func (b *stubBackend) LatestMigration() (state.ModelMigration, error) {
 		return nil, b.getErr
 	}
 	return b.migration, nil
+}
+
+func (b *stubBackend) ModelUUID() string {
+	return "model-uuid"
+}
+
+func (b *stubBackend) ModelName() (string, error) {
+	return "model-name", nil
+}
+
+func (b *stubBackend) AgentVersion() (version.Number, error) {
+	return version.MustParse("1.2.3"), nil
 }
 
 func (b *stubBackend) RemoveExportingModelDocs() error {
@@ -339,7 +368,7 @@ func (m *stubMigration) Id() string {
 }
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
-	return coremigration.PRECHECK, nil
+	return coremigration.IMPORT, nil
 }
 
 func (m *stubMigration) PhaseChangedTime() time.Time {
@@ -400,4 +429,12 @@ var controllerUUID string
 func init() {
 	modelUUID = utils.MustNewUUID().String()
 	controllerUUID = utils.MustNewUUID().String()
+}
+
+type failingPrecheckBackend struct {
+	migration.PrecheckBackend
+}
+
+func (b *failingPrecheckBackend) AgentVersion() (version.Number, error) {
+	return version.Number{}, errors.New("boom")
 }

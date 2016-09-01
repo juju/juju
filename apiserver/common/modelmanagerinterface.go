@@ -43,7 +43,7 @@ type ModelManagerBackend interface {
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
 	AllModels() ([]Model, error)
-	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
+	AddModelUser(string, state.UserAccessSpec) (description.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)

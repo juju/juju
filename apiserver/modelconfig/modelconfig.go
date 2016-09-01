@@ -53,6 +53,17 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 	return nil
 }
 
+func (c *ModelConfigAPI) isAdmin() error {
+	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hasAccess {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // ModelGet implements the server-side part of the
 // get-model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
@@ -120,9 +131,9 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // ModelDefaults returns the default config values used when creating a new model.
-func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
-	if err := c.checkCanWrite(); err != nil {
+func (c *ModelConfigAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+	result := params.ModelDefaultsResult{}
+	if err := c.isAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -130,12 +141,19 @@ func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.Config = make(map[string]params.ConfigValue)
+	result.Config = make(map[string]params.ModelDefaults)
 	for attr, val := range values {
-		result.Config[attr] = params.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
+		settings := params.ModelDefaults{
+			Controller: val.Controller,
+			Default:    val.Default,
 		}
+		for _, v := range val.Regions {
+			settings.Regions = append(
+				settings.Regions, params.RegionDefaults{
+					RegionName: v.Name,
+					Value:      v.Value})
+		}
+		result.Config[attr] = settings
 	}
 	return result, nil
 }
@@ -156,7 +174,7 @@ func (c *ModelConfigAPI) SetModelDefaults(args params.SetModelDefaults) (params.
 }
 
 func (c *ModelConfigAPI) setModelDefaults(args params.ModelDefaultValues) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.isAdmin(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -173,7 +191,7 @@ func (c *ModelConfigAPI) setModelDefaults(args params.ModelDefaultValues) error 
 // UnsetModelDefaults removes the specified default model settings.
 func (c *ModelConfigAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.isAdmin(); err != nil {
 		return results, err
 	}
 

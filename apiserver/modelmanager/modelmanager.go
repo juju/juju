@@ -8,6 +8,8 @@
 package modelmanager
 
 import (
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -200,13 +202,30 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		}
 	} else {
 		cloudTag = names.NewCloudTag(controllerModel.Cloud())
-		if cloudRegionName == "" {
-			cloudRegionName = controllerModel.CloudRegion()
-		}
+	}
+	if cloudRegionName == "" && cloudTag.Id() == controllerModel.Cloud() {
+		cloudRegionName = controllerModel.CloudRegion()
 	}
 
 	cloud, err := mm.state.Cloud(cloudTag.Id())
 	if err != nil {
+		if errors.IsNotFound(err) && args.CloudTag != "" {
+			// A cloud was specified, and it was not found.
+			// Annotate the error with the supported clouds.
+			clouds, err := mm.state.Clouds()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			cloudNames := make([]string, 0, len(clouds))
+			for tag := range clouds {
+				cloudNames = append(cloudNames, tag.Id())
+			}
+			sort.Strings(cloudNames)
+			return result, errors.NewNotFound(err, fmt.Sprintf(
+				"cloud %q not found, expected one of %q",
+				cloudTag.Id(), cloudNames,
+			))
+		}
 		return result, errors.Annotate(err, "getting cloud definition")
 	}
 
@@ -513,7 +532,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			return params.ModelInfo{}, err
+			return params.ModelInfo{}, errors.Trace(err)
 		}
 		return m.getModelInfo(tag)
 	}
@@ -534,7 +553,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, common.ErrPerm
 	} else if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	defer st.Close()
 
@@ -542,24 +561,24 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, common.ErrPerm
 	} else if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 
 	cfg, err := model.Config()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	users, err := model.Users()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	status, err := model.Status()
 	if err != nil {
-		return params.ModelInfo{}, err
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 
 	owner := model.Owner()
@@ -611,21 +630,10 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 
-	canModify, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
+	canModifyController, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, m.state.ModelTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	canModify = canModify || canModifyModel
-
-	if !canModify {
-		return result, errors.Trace(common.ErrPerm)
-	}
-
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
@@ -638,12 +646,23 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 			continue
 		}
 
-		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, modelTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		canModify := canModifyController || canModifyModel
+
+		if !canModify {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
@@ -721,9 +740,9 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: descriptionAccess})
+		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: descriptionAccess})
 		if errors.IsAlreadyExists(err) {
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = txn.ErrExcessiveContention
@@ -747,11 +766,11 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		switch descriptionAccess {
 		case description.ReadAccess:
 			// Revoking read access removes all access.
-			err := st.RemoveUserAccess(targetUserTag, st.ModelTag())
+			err := st.RemoveUserAccess(targetUserTag, modelTag)
 			return errors.Annotate(err, "could not revoke model access")
 		case description.WriteAccess:
 			// Revoking write access sets read-only.
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
@@ -759,7 +778,7 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			return errors.Annotate(err, "could not set model access to read-only")
 		case description.AdminAccess:
 			// Revoking admin access sets read-write.
-			modelUser, err := st.UserAccess(targetUserTag, st.ModelTag())
+			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}

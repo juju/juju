@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
@@ -67,10 +68,10 @@ type infoCommand struct {
 // UserInfo defines the serialization behaviour of the user information.
 type UserInfo struct {
 	Username       string `yaml:"user-name" json:"user-name"`
-	DisplayName    string `yaml:"display-name" json:"display-name"`
+	DisplayName    string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
 	Access         string `yaml:"access" json:"access"`
-	DateCreated    string `yaml:"date-created" json:"date-created"`
-	LastConnection string `yaml:"last-connection" json:"last-connection"`
+	DateCreated    string `yaml:"date-created,omitempty" json:"date-created,omitempty"`
+	LastConnection string `yaml:"last-connection,omitempty" json:"last-connection,omitempty"`
 	Disabled       bool   `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 }
 
@@ -138,18 +139,20 @@ func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 	var now = time.Now()
 	for _, info := range users {
 		outInfo := UserInfo{
-			Username:       info.Username,
-			DisplayName:    info.DisplayName,
-			Access:         info.Access,
-			Disabled:       info.Disabled,
-			LastConnection: common.LastConnection(info.LastConnection, now, c.exactTime),
+			Username:    info.Username,
+			DisplayName: info.DisplayName,
+			Access:      info.Access,
+			Disabled:    info.Disabled,
 		}
-		if c.exactTime {
-			outInfo.DateCreated = info.DateCreated.String()
-		} else {
-			outInfo.DateCreated = common.UserFriendlyDuration(info.DateCreated, now)
+		// TODO(wallyworld) record login information about external users.
+		if names.NewUserTag(info.Username).IsLocal() {
+			outInfo.LastConnection = common.LastConnection(info.LastConnection, now, c.exactTime)
+			if c.exactTime {
+				outInfo.DateCreated = info.DateCreated.String()
+			} else {
+				outInfo.DateCreated = common.UserFriendlyDuration(info.DateCreated, now)
+			}
 		}
-
 		output = append(output, outInfo)
 	}
 

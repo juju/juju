@@ -30,12 +30,12 @@ type modelUserLastConnectionDoc struct {
 }
 
 // setModelAccess changes the user's access permissions on the model.
-func (st *State) setModelAccess(access description.Access, userGlobalKey string) error {
+func (st *State) setModelAccess(access description.Access, userGlobalKey, modelUUID string) error {
 	if err := description.ValidateModelAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	op := updatePermissionOp(modelKey(st.ModelUUID()), userGlobalKey, access)
-	err := st.runTransaction([]txn.Op{op})
+	op := updatePermissionOp(modelKey(modelUUID), userGlobalKey, access)
+	err := st.runTransactionFor(modelUUID, []txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -104,15 +104,18 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 }
 
 // ModelUser a model userAccessDoc.
-func (st *State) modelUser(user names.UserTag) (userAccessDoc, error) {
+func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
 	modelUser := userAccessDoc{}
-	modelUsers, closer := st.getCollection(modelUsersC)
+	modelUsers, closer := st.getCollectionFor(modelUUID, modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
 	err := modelUsers.FindId(username).One(&modelUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("model user %q", username)
+	}
+	if err != nil {
+		return userAccessDoc{}, errors.Trace(err)
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
@@ -130,6 +133,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
 	}
+
 	ops := []txn.Op{
 		createPermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user)), access),
 		{
@@ -139,21 +143,23 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 			Insert: doc,
 		},
 	}
-
 	return ops
 }
 
-// removeModelUser removes a user from the database.
-func (st *State) removeModelUser(user names.UserTag) error {
-	ops := []txn.Op{
-		removePermissionOp(modelKey(st.ModelUUID()), userGlobalKey(userAccessID(user))),
+func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
+}
 
+// removeModelUser removes a user from the database.
+func (st *State) removeModelUser(user names.UserTag) error {
+	ops := removeModelUserOps(st.ModelUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))

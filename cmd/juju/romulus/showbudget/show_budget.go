@@ -67,6 +67,7 @@ func (c *showBudgetCommand) Init(args []string) error {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
 		"json":    cmd.FormatJson,
@@ -167,7 +168,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 var newAPIClient = newAPIClientImpl
 
 func newAPIClientImpl(c *showBudgetCommand) (APIClient, error) {
-	root, err := c.NewAPIRoot()
+	root, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

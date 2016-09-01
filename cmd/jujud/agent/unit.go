@@ -26,6 +26,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -160,6 +161,13 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
+	}
+	if err := startIntrospection(introspectionConfig{
+		Agent:      a,
+		Engine:     engine,
+		WorkerFunc: introspection.NewWorker,
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return engine, nil
 }

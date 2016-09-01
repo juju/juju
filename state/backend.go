@@ -22,6 +22,7 @@ type modelBackend interface {
 	localID(string) string
 	strictLocalID(string) (string, error)
 	getCollection(name string) (mongo.Collection, func())
+	getCollectionFor(modelUUID, name string) (mongo.Collection, func())
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific
@@ -76,4 +77,13 @@ func (st *State) strictLocalID(ID string) (string, error) {
 // filtering where possible. See modelStateCollection below.
 func (st *State) getCollection(name string) (mongo.Collection, func()) {
 	return st.database.GetCollection(name)
+}
+
+func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
+	database, dbcloser := st.database.CopyForModel(modelUUID)
+	collection, closer := database.GetCollection(name)
+	return collection, func() {
+		closer()
+		dbcloser()
+	}
 }

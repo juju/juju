@@ -38,20 +38,6 @@ type ConfigureParams struct {
 	Series string
 }
 
-// Configure connects to the specified host over SSH,
-// and executes a script that carries out cloud-config.
-// This isn't actually used anywhere because everybody wants to add custom stuff
-// in between getting the script and actually running it
-// I really suggest deleting it
-func Configure(params ConfigureParams) error {
-	logger.Infof("Provisioning machine agent on %s", params.Host)
-	script, err := params.Config.RenderScript()
-	if err != nil {
-		return err
-	}
-	return RunConfigureScript(script, params)
-}
-
 // RunConfigureScript connects to the specified host over
 // SSH, and executes the provided script which is expected
 // to have been returned by cloudinit ConfigureScript.

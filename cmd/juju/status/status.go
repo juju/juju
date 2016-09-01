@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -37,6 +38,8 @@ type statusCommand struct {
 	patterns []string
 	isoTime  bool
 	api      statusAPI
+
+	color bool
 }
 
 var usageSummary = `
@@ -92,7 +95,9 @@ func (c *statusCommand) Info() *cmd.Info {
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
 	defaultFormat := "tabular"
 
@@ -102,7 +107,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"short":   FormatOneline,
 		"oneline": FormatOneline,
 		"line":    FormatOneline,
-		"tabular": FormatTabular,
+		"tabular": c.FormatTabular,
 		"summary": FormatSummary,
 	})
 }
@@ -149,4 +154,8 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
+}
+
+func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+	return FormatTabular(writer, c.color, value)
 }

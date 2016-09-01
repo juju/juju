@@ -48,9 +48,11 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.ModelInfo {
 	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer modelManager.Close()
-	model, err := modelManager.CreateModel(modelname, s.AdminUserTag(c).Id(), "", names.CloudCredentialTag{}, map[string]interface{}{
-		"controller": isServer,
-	})
+	model, err := modelManager.CreateModel(
+		modelname, s.AdminUserTag(c).Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
+			"controller": isServer,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return model
 }
@@ -59,10 +61,12 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 	s.run(c, "add-user", "test")
 	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer modelManager.Close()
-	_, err := modelManager.CreateModel(modelname, names.NewLocalUserTag("test").Id(), "", names.CloudCredentialTag{}, map[string]interface{}{
-		"authorized-keys": "ssh-key",
-		"controller":      isServer,
-	})
+	_, err := modelManager.CreateModel(
+		modelname, names.NewLocalUserTag("test").Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
+			"authorized-keys": "ssh-key",
+			"controller":      isServer,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -156,14 +160,23 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
+	s.testAddModel(c)
+}
+
+func (s *cmdControllerSuite) TestAddModelWithCloudAndRegion(c *gc.C) {
+	s.testAddModel(c, "dummy/dummy-region")
+}
+
+func (s *cmdControllerSuite) testAddModel(c *gc.C, args ...string) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(
-		c, "add-model", "new-model",
+	args = append([]string{"add-model", "new-model"}, args...)
+	args = append(args,
 		"--config", "authorized-keys=fake-key",
 		"--config", "controller=false",
 	)
+	context := s.run(c, args...)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'admin'
@@ -251,7 +264,8 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 
 	destroyOp := (<-ops).(dummy.OpDestroy)
 	c.Assert(destroyOp.Env, gc.Equals, "controller")
-	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
+	c.Assert(destroyOp.Cloud, gc.Equals, "dummy")
+	c.Assert(destroyOp.CloudRegion, gc.Equals, "dummy-region")
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")

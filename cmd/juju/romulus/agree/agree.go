@@ -69,6 +69,7 @@ type agreeCommand struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
 	c.out.AddFlags(f, "json", output.DefaultFormatters)
 }
@@ -183,7 +184,11 @@ func saveAgreements(ctx *cmd.Context, termsClient api.Client, ts []term) error {
 		return errors.Annotate(err, "failed to save user agreement")
 	}
 	for _, agreement := range response.Agreements {
-		_, err = fmt.Fprintf(ctx.Stdout, "Agreed to revision %v of %v for Juju users\n", agreement.Revision, agreement.Term)
+		termName := agreement.Term
+		if agreement.Owner != "" {
+			termName = fmt.Sprintf("%v/%v", agreement.Owner, agreement.Term)
+		}
+		_, err = fmt.Fprintf(ctx.Stdout, "Agreed to revision %v of %v for Juju users\n", agreement.Revision, termName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -198,11 +203,19 @@ var userAnswer = func() (string, error) {
 func printTerms(ctx *cmd.Context, terms []wireformat.GetTermsResponse) (returnErr error) {
 	output := ""
 	for _, t := range terms {
-		output += fmt.Sprintf(`
+		if t.Owner != "" {
+			output += fmt.Sprintf(`
+=== %v/%v/%v: %v ===
+%v
+========
+`, t.Owner, t.Name, t.Revision, t.CreatedOn, t.Content)
+		} else {
+			output += fmt.Sprintf(`
 === %v/%v: %v ===
 %v
 ========
 `, t.Name, t.Revision, t.CreatedOn, t.Content)
+		}
 	}
 	defer func() {
 		if returnErr != nil {

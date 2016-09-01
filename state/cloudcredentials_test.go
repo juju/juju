@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -125,4 +126,31 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 		tag1: cred1,
 		tag3: cred2,
 	})
+}
+
+func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
+	// Create it.
+	err := s.State.AddCloud("stratus", cloud.Cloud{
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := names.NewCloudCredentialTag("stratus/bob@local/bobcred1")
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove it.
+	err = s.State.RemoveCloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it.
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -620,6 +620,7 @@ func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 			"password": "secret",
 		},
 	)
+	c.Assert(cred.Revoked, jc.IsFalse)
 	schema := cloud.CredentialSchema{{
 		"username", cloud.CredentialAttr{},
 	}, {

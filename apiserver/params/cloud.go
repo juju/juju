@@ -32,10 +32,34 @@ type CloudResults struct {
 	Results []CloudResult `json:"results,omitempty"`
 }
 
-// CloudCredential contains a cloud credential.
+// CloudsResult contains a set of Clouds.
+type CloudsResult struct {
+	// Clouds is a map of clouds, keyed by cloud tag.
+	Clouds map[string]Cloud `json:"clouds,omitempty"`
+}
+
+// CloudCredential contains a cloud credential
+// possibly with secrets redacted.
 type CloudCredential struct {
-	AuthType   string            `json:"auth-type"`
+	// AuthType is the authentication type.
+	AuthType string `json:"auth-type"`
+
+	// Attributes contains non-secret credential values.
 	Attributes map[string]string `json:"attrs,omitempty"`
+
+	// Redacted is a list of redacted attributes
+	Redacted []string `json:"redacted,omitempty"`
+}
+
+// CloudCredentialResult contains a CloudCredential or an error.
+type CloudCredentialResult struct {
+	Result *CloudCredential `json:"result,omitempty"`
+	Error  *Error           `json:"error,omitempty"`
+}
+
+// CloudCredentialResults contains a set of CloudCredentialResults.
+type CloudCredentialResults struct {
+	Results []CloudCredentialResult `json:"results,omitempty"`
 }
 
 // UserCloud contains a user/cloud tag pair, typically used for identifying
@@ -45,7 +69,7 @@ type UserCloud struct {
 	CloudTag string `json:"cloud-tag"`
 }
 
-// UserClouds contains a set of USerClouds.
+// UserClouds contains a set of UserClouds.
 type UserClouds struct {
 	UserClouds []UserCloud `json:"user-clouds,omitempty"`
 }

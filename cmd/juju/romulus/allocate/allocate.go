@@ -53,6 +53,7 @@ Examples:
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *allocateCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ModelUUID, "model-uuid", "", "Model UUID of allocation")
 }
 

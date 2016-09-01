@@ -189,7 +189,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoModelUser {
-		_, err := factory.st.AddModelUser(state.UserAccessSpec{
+		_, err := factory.st.AddModelUser(factory.st.ModelUUID(), state.UserAccessSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -228,7 +228,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) descript
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := factory.st.AddModelUser(state.UserAccessSpec{
+	modelUser, err := factory.st.AddModelUser(factory.st.ModelUUID(), state.UserAccessSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,

@@ -364,12 +364,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
 			Type:             cloudSpec.Type,
-			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType},
+			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Endpoint:         cloudSpec.Endpoint,
 			IdentityEndpoint: cloudSpec.IdentityEndpoint,
 			StorageEndpoint:  cloudSpec.StorageEndpoint,
 			Regions: []cloud.Region{
-				cloud.Region{
+				{
 					Name:             "dummy-region",
 					Endpoint:         "dummy-endpoint",
 					IdentityEndpoint: "dummy-identity-endpoint",

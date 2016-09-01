@@ -26,6 +26,23 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Clouds returns the details of all clouds supported by the controller.
+func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+	var result params.CloudsResult
+	if err := c.facade.FacadeCall("Clouds", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	clouds := make(map[names.CloudTag]jujucloud.Cloud)
+	for tagString, cloud := range result.Clouds {
+		tag, err := names.ParseCloudTag(tagString)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		clouds[tag] = cloudFromParams(cloud)
+	}
+	return clouds, nil
+}
+
 // Cloud returns the details of the cloud with the given tag.
 func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	var results params.CloudResults
@@ -39,13 +56,16 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	result := results.Results[0].Cloud
-	authTypes := make([]jujucloud.AuthType, len(result.AuthTypes))
-	for i, authType := range result.AuthTypes {
+	return cloudFromParams(*results.Results[0].Cloud), nil
+}
+
+func cloudFromParams(p params.Cloud) jujucloud.Cloud {
+	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
+	for i, authType := range p.AuthTypes {
 		authTypes[i] = jujucloud.AuthType(authType)
 	}
-	regions := make([]jujucloud.Region, len(result.Regions))
-	for i, region := range result.Regions {
+	regions := make([]jujucloud.Region, len(p.Regions))
+	for i, region := range p.Regions {
 		regions[i] = jujucloud.Region{
 			Name:             region.Name,
 			Endpoint:         region.Endpoint,
@@ -54,13 +74,13 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 		}
 	}
 	return jujucloud.Cloud{
-		Type:             result.Type,
+		Type:             p.Type,
 		AuthTypes:        authTypes,
-		Endpoint:         result.Endpoint,
-		IdentityEndpoint: result.IdentityEndpoint,
-		StorageEndpoint:  result.StorageEndpoint,
+		Endpoint:         p.Endpoint,
+		IdentityEndpoint: p.IdentityEndpoint,
+		StorageEndpoint:  p.StorageEndpoint,
 		Regions:          regions,
-	}, nil
+	}
 }
 
 // DefaultCloud returns the tag of the cloud that models will be
@@ -80,14 +100,14 @@ func (c *Client) DefaultCloud() (names.CloudTag, error) {
 	return cloudTag, nil
 }
 
-// Credentials returns the tags for cloud credentials available to a user for
+// UserCredentials returns the tags for cloud credentials available to a user for
 // use with a specific cloud.
-func (c *Client) Credentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
+func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
 	var results params.StringsResults
 	args := params.UserClouds{[]params.UserCloud{
 		{UserTag: user.String(), CloudTag: cloud.String()},
 	}}
-	if err := c.facade.FacadeCall("Credentials", args, &results); err != nil {
+	if err := c.facade.FacadeCall("UserCredentials", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -122,11 +142,38 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	return results.OneError()
+}
+
+// RevokeCredential revokes/deletes a cloud credential.
+func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
 	}
-	if results.Results[0].Error != nil {
-		return results.Results[0].Error
+	if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+		return errors.Trace(err)
 	}
-	return nil
+	return results.OneError()
+}
+
+// Credentials return a slice of credential values for the specified tags.
+// Secrets are excluded from the credential attributes.
+func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCredentialResult, error) {
+	if len(tags) == 0 {
+		return []params.CloudCredentialResult{}, nil
+	}
+	var results params.CloudCredentialResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
+	}
+	if err := c.facade.FacadeCall("Credential", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results.Results, nil
 }

@@ -11,12 +11,14 @@ import (
 )
 
 type Backend interface {
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	Cloud(cloudName string) (cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloudName string) (map[names.CloudCredentialTag]cloud.Credential, error)
 	ControllerModel() (Model, error)
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
+	RemoveCloudCredential(names.CloudCredentialTag) error
 
 	IsControllerAdmin(names.UserTag) (bool, error)
 

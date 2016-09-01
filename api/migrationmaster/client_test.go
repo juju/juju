@@ -85,7 +85,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 				},
 			},
 			MigrationId:      "id",
-			Phase:            "PRECHECK",
+			Phase:            "IMPORT",
 			PhaseChangedTime: timestamp,
 		}
 		return nil
@@ -97,7 +97,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
 		ModelUUID:        modelUUID,
-		Phase:            migration.PRECHECK,
+		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(controllerUUID),
@@ -156,6 +156,44 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.SetStatusMessage("foo")
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestModelInfo(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
+			UUID:         "uuid",
+			Name:         "name",
+			AgentVersion: version.MustParse("1.2.3"),
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	model, err := client.ModelInfo()
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.ModelInfo", []interface{}{"", nil}},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(model, jc.DeepEquals, migration.ModelInfo{
+		UUID:         "uuid",
+		Name:         "name",
+		AgentVersion: version.MustParse("1.2.3"),
+	})
+}
+
+func (s *ClientSuite) TestPrechecks(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.Prechecks()
+	c.Check(err, gc.ErrorMatches, "blam")
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.Prechecks", []interface{}{"", nil}},
+	})
 }
 
 func (s *ClientSuite) TestExport(c *gc.C) {
@@ -260,7 +298,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			MigrationId:  "id",
-			Phase:        "PRECHECK",
+			Phase:        "IMPORT",
 			SuccessCount: 4,
 			UnknownCount: 3,
 			UnknownSample: []string{
@@ -284,7 +322,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:         "id",
-		Phase:               migration.PRECHECK,
+		Phase:               migration.IMPORT,
 		SuccessCount:        4,
 		UnknownCount:        3,
 		SomeUnknownMachines: []string{"3", "4"},
@@ -320,7 +358,7 @@ func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:         "PRECHECK",
+			Phase:         "IMPORT",
 			UnknownSample: []string{"carl"},
 		}
 		return nil
@@ -334,7 +372,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
-			Phase:  "PRECHECK",
+			Phase:  "IMPORT",
 			Failed: []string{"dave"},
 		}
 		return nil

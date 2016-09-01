@@ -232,19 +232,25 @@ func (c *ModelCommandBase) ConnectionName() string {
 	return c.modelName
 }
 
-// WrapControllerOption sets various parameters of the
-// ModelCommand wrapper.
-type WrapEnvOption func(*modelCommandWrapper)
+// WrapOption specifies an option to the Wrap function.
+type WrapOption func(*modelCommandWrapper)
 
-// ModelSkipFlags instructs the wrapper to skip --m and
-// --model flag definition.
-func ModelSkipFlags(w *modelCommandWrapper) {
-	w.skipFlags = true
+// Options for the Wrap function.
+var (
+	// WrapSkipModelFlags specifies that the -m and --model flags
+	// should not be defined.
+	WrapSkipModelFlags WrapOption = wrapSkipModelFlags
+
+	// WrapSkipDefaultModel specifies that no default model should
+	// be used.
+	WrapSkipDefaultModel WrapOption = wrapSkipDefaultModel
+)
+
+func wrapSkipModelFlags(w *modelCommandWrapper) {
+	w.skipModelFlags = true
 }
 
-// ModelSkipDefault instructs the wrapper not to
-// use the default model.
-func ModelSkipDefault(w *modelCommandWrapper) {
+func wrapSkipDefaultModel(w *modelCommandWrapper) {
 	w.useDefaultModel = false
 }
 
@@ -252,12 +258,11 @@ func ModelSkipDefault(w *modelCommandWrapper) {
 // that proxies to each of the ModelCommand methods.
 // Any provided options are applied to the wrapped command
 // before it is returned.
-func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
+func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
 	wrapper := &modelCommandWrapper{
 		ModelCommand:    c,
-		skipFlags:       false,
+		skipModelFlags:  false,
 		useDefaultModel: true,
-		allowEmptyEnv:   false,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -268,9 +273,8 @@ func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 type modelCommandWrapper struct {
 	ModelCommand
 
-	skipFlags       bool
+	skipModelFlags  bool
 	useDefaultModel bool
-	allowEmptyEnv   bool
 	modelName       string
 }
 
@@ -279,7 +283,7 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	if !w.skipFlags {
+	if !w.skipModelFlags {
 		f.StringVar(&w.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
 		f.StringVar(&w.modelName, "model", "", "")
 	}
@@ -293,7 +297,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	}
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
-	if !w.skipFlags {
+	if !w.skipModelFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
 			defaultModel, err := GetCurrentModel(store)
@@ -303,11 +307,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			w.modelName = defaultModel
 		}
 		if w.modelName == "" && !w.useDefaultModel {
-			if w.allowEmptyEnv {
-				return w.ModelCommand.Init(args)
-			} else {
-				return errors.Trace(ErrNoModelSpecified)
-			}
+			return errors.Trace(ErrNoModelSpecified)
 		}
 	}
 	if w.modelName != "" {

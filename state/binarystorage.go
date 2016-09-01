@@ -54,7 +54,7 @@ func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
 }
 
 func (st *State) newBinaryStorageCloser(collectionName, uuid string) binarystorage.StorageCloser {
-	db, closer1 := st.database.CopySession()
+	db, closer1 := st.database.Copy()
 	metadataCollection, closer2 := db.GetCollection(collectionName)
 	txnRunner, closer3 := db.TransactionRunner()
 	closer := func() {

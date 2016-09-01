@@ -21,7 +21,7 @@ import (
 const showModelCommandDoc = `Show information about the current or specified model`
 
 func NewShowCommand() cmd.Command {
-	return modelcmd.Wrap(&showModelCommand{}, modelcmd.ModelSkipFlags)
+	return modelcmd.Wrap(&showModelCommand{}, modelcmd.WrapSkipModelFlags)
 }
 
 // showModelCommand shows all the users with access to the current model.
@@ -61,6 +61,7 @@ func (c *showModelCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *showModelCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

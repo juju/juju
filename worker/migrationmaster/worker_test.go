@@ -30,7 +30,7 @@ import (
 
 type Suite struct {
 	coretesting.BaseSuite
-	clock         *coretesting.Clock
+	clock         *jujutesting.Clock
 	stub          *jujutesting.Stub
 	connection    *stubConnection
 	connectionErr error
@@ -72,20 +72,20 @@ var (
 		},
 	}
 	importCall = jujutesting.StubCall{
-		"APICall:MigrationTarget.Import",
+		"MigrationTarget.Import",
 		[]interface{}{
 			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = jujutesting.StubCall{
-		"APICall:MigrationTarget.Activate",
+		"MigrationTarget.Activate",
 		[]interface{}{
 			params.ModelArgs{ModelTag: modelTagString},
 		},
 	}
 	connCloseCall = jujutesting.StubCall{"Connection.Close", nil}
 	abortCall     = jujutesting.StubCall{
-		"APICall:MigrationTarget.Abort",
+		"MigrationTarget.Abort",
 		[]interface{}{
 			params.ModelArgs{ModelTag: modelTagString},
 		},
@@ -95,7 +95,7 @@ var (
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = coretesting.NewClock(time.Now())
+	s.clock = jujutesting.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{stub: s.stub}
 	s.connectionErr = nil
@@ -166,7 +166,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.queuePassingMinionReports(coremigration.SUCCESS)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(errors.Cause(err), gc.Equals, migrationmaster.ErrMigrated)
+	c.Check(errors.Cause(err), gc.Equals, migrationmaster.ErrMigrated)
 
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
@@ -178,15 +178,18 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"guard.Lockdown", nil},
 
 		// QUIESCE
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.ModelInfo", nil},
+		apiOpenCallController,
+		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			AgentVersion: version.MustParse("1.2.4"),
+		}}},
+		connCloseCall,
 		{"masterFacade.WatchMinionReports", nil},
 		{"masterFacade.MinionReports", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
-
-		// PRECHECK
-		// Nothing yet.
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 
 		//IMPORT
-		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
 		apiOpenCallController,
 		importCall,
@@ -368,19 +371,119 @@ func (s *Suite) TestQUIESCEMinionWaitGetError(c *gc.C) {
 }
 
 func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
-	s.checkMinionWaitFailedAgent(c, coremigration.QUIESCE)
+	s.masterFacade.status.Phase = coremigration.QUIESCE
+
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
+	s.queueMinionReports(coremigration.MinionReports{
+		MigrationId:    "model-uuid:2",
+		Phase:          coremigration.QUIESCE,
+		FailedMachines: []string{"42"}, // a machine failed
+	})
+
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.ModelInfo", nil},
+		apiOpenCallController,
+		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			AgentVersion: version.MustParse("1.2.4"),
+		}}},
+		connCloseCall,
+		{"masterFacade.WatchMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
-func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *gc.C) {
-	s.checkMinionWaitWatchError(c, coremigration.VALIDATION)
+func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
+	s.masterFacade.status.Phase = coremigration.QUIESCE
+	s.masterFacade.prechecksErr = errors.New("boom")
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
+
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
-func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
-	s.checkMinionWaitGetError(c, coremigration.VALIDATION)
+func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
+	s.masterFacade.status.Phase = coremigration.QUIESCE
+	s.masterFacade.modelInfoErr = errors.New("boom")
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
+
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.ModelInfo", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
-func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
-	s.checkMinionWaitFailedAgent(c, coremigration.VALIDATION)
+func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
+	s.masterFacade.status.Phase = coremigration.QUIESCE
+	s.connection.prechecksErr = errors.New("boom")
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
+
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.ModelInfo", nil},
+		apiOpenCallController,
+		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			AgentVersion: version.MustParse("1.2.4"),
+		}}},
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
 }
 
 func (s *Suite) TestExportFailure(c *gc.C) {
@@ -449,6 +552,44 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		apiOpenCallController,
 		importCall,
 		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		abortCall,
+		connCloseCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+	})
+}
+
+func (s *Suite) TestVALIDATIONMinionWaitWatchError(c *gc.C) {
+	s.checkMinionWaitWatchError(c, coremigration.VALIDATION)
+}
+
+func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
+	s.checkMinionWaitGetError(c, coremigration.VALIDATION)
+}
+
+func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
+	s.masterFacade.status.Phase = coremigration.VALIDATION
+
+	worker, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+	s.triggerMigration()
+	s.queueMinionReports(coremigration.MinionReports{
+		MigrationId:    "model-uuid:2",
+		Phase:          coremigration.VALIDATION,
+		FailedMachines: []string{"42"}, // a machine failed
+	})
+
+	err = workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterFacade.Watch", nil},
+		{"masterFacade.MigrationStatus", nil},
+		{"guard.Lockdown", nil},
+		{"masterFacade.WatchMinionReports", nil},
+		{"masterFacade.MinionReports", nil},
 		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
 		apiOpenCallController,
 		abortCall,
@@ -571,10 +712,10 @@ func (s *Suite) TestMinionWaitWrongPhase(c *gc.C) {
 	// Have the phase in the minion reports be different from the
 	// migration status. This shouldn't happen but the migrationmaster
 	// should handle it.
-	s.queuePassingMinionReports(coremigration.PRECHECK)
+	s.queuePassingMinionReports(coremigration.IMPORT)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.ErrorMatches, `minion reports phase \(PRECHECK\) does not match migration phase \(SUCCESS\)`)
+	c.Assert(err, gc.ErrorMatches, `minion reports phase \(IMPORT\) does not match migration phase \(SUCCESS\)`)
 }
 
 func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
@@ -676,36 +817,6 @@ func (s *Suite) checkMinionWaitGetError(c *gc.C, phase coremigration.Phase) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *Suite) checkMinionWaitFailedAgent(c *gc.C, phase coremigration.Phase) {
-	s.masterFacade.status.Phase = phase
-
-	worker, err := migrationmaster.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, worker)
-	s.triggerMigration()
-	s.queueMinionReports(coremigration.MinionReports{
-		MigrationId:    "model-uuid:2",
-		Phase:          phase,
-		FailedMachines: []string{"42"}, // a machine failed
-	})
-
-	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.Equals, migrationmaster.ErrInactive)
-
-	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterFacade.Watch", nil},
-		{"masterFacade.MigrationStatus", nil},
-		{"guard.Lockdown", nil},
-		{"masterFacade.WatchMinionReports", nil},
-		{"masterFacade.MinionReports", nil},
-		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
-		apiOpenCallController,
-		abortCall,
-		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
-	})
-}
-
 func stubCallNames(stub *jujutesting.Stub) []string {
 	var out []string
 	for _, call := range stub.Calls() {
@@ -768,7 +879,9 @@ type stubMasterFacade struct {
 	status         coremigration.MigrationStatus
 	statusErr      error
 
-	exportErr error
+	prechecksErr error
+	modelInfoErr error
+	exportErr    error
 
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
@@ -812,6 +925,23 @@ func (c *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) 
 	r := c.minionReports[0]
 	c.minionReports = c.minionReports[1:]
 	return r, nil
+}
+
+func (c *stubMasterFacade) Prechecks() error {
+	c.stub.AddCall("masterFacade.Prechecks")
+	return c.prechecksErr
+}
+
+func (c *stubMasterFacade) ModelInfo() (coremigration.ModelInfo, error) {
+	c.stub.AddCall("masterFacade.ModelInfo")
+	if c.modelInfoErr != nil {
+		return coremigration.ModelInfo{}, c.modelInfoErr
+	}
+	return coremigration.ModelInfo{
+		UUID:         modelTag.Id(),
+		Name:         "model-name",
+		AgentVersion: version.MustParse("1.2.4"),
+	}, nil
 }
 
 func (c *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
@@ -860,8 +990,9 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 
 type stubConnection struct {
 	api.Connection
-	stub      *jujutesting.Stub
-	importErr error
+	stub         *jujutesting.Stub
+	prechecksErr error
+	importErr    error
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -869,10 +1000,12 @@ func (c *stubConnection) BestFacadeVersion(string) int {
 }
 
 func (c *stubConnection) APICall(objType string, version int, id, request string, params, response interface{}) error {
-	c.stub.AddCall("APICall:"+objType+"."+request, params)
+	c.stub.AddCall(objType+"."+request, params)
 
 	if objType == "MigrationTarget" {
 		switch request {
+		case "Prechecks":
+			return c.prechecksErr
 		case "Import":
 			return c.importErr
 		case "Activate":

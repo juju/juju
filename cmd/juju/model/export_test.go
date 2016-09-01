@@ -102,8 +102,8 @@ func NewDestroyCommandForTest(api DestroyModelAPI, store jujuclient.ClientStore)
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(
 		cmd,
-		modelcmd.ModelSkipDefault,
-		modelcmd.ModelSkipFlags,
+		modelcmd.WrapSkipDefaultModel,
+		modelcmd.WrapSkipModelFlags,
 	)
 }
 

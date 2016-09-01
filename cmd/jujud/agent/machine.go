@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
@@ -39,7 +40,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -78,7 +78,9 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -396,6 +398,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+	if err := introspection.WriteProfileFunctions(); err != nil {
+		// This isn't fatal, just annoying.
+		logger.Errorf("failed to write profile funcs: %v", err)
+	}
 
 	// Before doing anything else, we need to make sure the certificate generated for
 	// use by mongo to validate controller connections is correct. This needs to be done
@@ -472,6 +478,13 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			}
 			return nil, err
 		}
+		if err := startIntrospection(introspectionConfig{
+			Agent:      a,
+			Engine:     engine,
+			WorkerFunc: introspection.NewWorker,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
 		return engine, nil
 	}
 }
@@ -481,7 +494,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	conn, err := apicaller.OnlyConnect(a, apicaller.APIOpen)
+	conn, err := apicaller.OnlyConnect(a, api.Open)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -955,7 +968,7 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
-				return txnpruner.New(st, time.Hour*2), nil
+				return txnpruner.New(st, time.Hour*2, clock.WallClock), nil
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
@@ -998,6 +1011,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		StatusHistoryPrunerInterval:       5 * time.Minute,
 		SpacesImportedGate:                a.discoverSpacesComplete,
 		NewEnvironFunc:                    newEnvirons,
+		NewMigrationMaster:                migrationmaster.NewWorker,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {

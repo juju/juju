@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -105,7 +105,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
-		coretesting.NewClock(time.Time{}),
+		jujutesting.NewClock(time.Time{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

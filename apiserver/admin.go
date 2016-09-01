@@ -24,10 +24,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// EveryoneTagName represents a special group that encompasses
-// all external users.
-const EveryoneTagName = "everyone@external"
-
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
@@ -46,8 +42,9 @@ var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
-func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.LoginResultV1, error) {
-	var fail params.LoginResultV1
+// login is the internal version of the Login API call.
+func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
+	var fail params.LoginResult
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -98,7 +95,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-			loginResult := params.LoginResultV1{
+			loginResult := params.LoginResult{
 				DischargeRequired:       err.Macaroon,
 				DischargeRequiredReason: err.Error(),
 			}
@@ -168,7 +165,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// permissions on the controller but there are permissions for the special
 		// everyone group.
 		if !userTag.IsLocal() {
-			everyoneTag := names.NewUserTag(EveryoneTagName)
+			everyoneTag := names.NewUserTag(common.EveryoneTagName)
 			everyoneGroupUser, err = state.ControllerAccess(a.root.state, everyoneTag)
 			if err != nil && !errors.IsNotFound(err) {
 				return fail, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
@@ -212,7 +209,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
 	}
 
-	loginResult := params.LoginResultV1{
+	loginResult := params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
@@ -358,33 +355,11 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
+
+	modelUser, controllerUser, err := common.UserAccess(f.st, utag)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	controllerUser, err := state.ControllerAccess(f.st, utag)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(perrito666) remove the following section about everyone group
-	// when groups are implemented, this accounts only for the lack of a local
-	// ControllerUser when logging in from an external user that has not been granted
-	// permissions on the controller but there are permissions for the special
-	// everyone group.
-	if !utag.IsLocal() {
-		controllerUser, err = maybeUseGroupPermission(f.st.UserAccess, controllerUser, f.st.ControllerTag(), utag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-		}
-	}
-
-	if description.IsEmptyUserAccess(modelUser) &&
-		description.IsEmptyUserAccess(controllerUser) {
-		return nil, errors.NotFoundf("model or controller user")
-	}
-
 	u := &modelUserEntity{
 		st:             f.st,
 		modelUser:      modelUser,

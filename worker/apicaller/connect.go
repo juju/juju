@@ -44,21 +44,6 @@ var (
 	ErrChangedPassword = errors.New("insecure password replaced; retry")
 )
 
-// APIOpen is an api.OpenFunc that wraps api.Open, and handles the edge
-// case where a model has jumping several versions and doesn't yet have
-// the model UUID cached in the agent config; in which case we fall back
-// to login version 1.
-//
-// You probably want to use this in ManifoldConfig; *we* probably want to
-// put this particular hack inside api.Open, but I seem to recall there
-// being some complication last time I thought that was a good idea.
-func APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if info.ModelTag.Id() == "" {
-		return api.OpenWithVersion(info, opts, 1)
-	}
-	return api.Open(info, opts)
-}
-
 // OnlyConnect logs into the API using the supplied agent's credentials.
 func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
 	agentConfig := a.CurrentConfig()

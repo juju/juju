@@ -590,14 +590,6 @@ type FacadeVersions struct {
 	Versions []int  `json:"versions"`
 }
 
-// LoginResult holds the result of a Login call.
-type LoginResult struct {
-	Servers        [][]HostPort     `json:"servers"`
-	ModelTag       string           `json:"model-tag"`
-	LastConnection *time.Time       `json:"last-connection"`
-	Facades        []FacadeVersions `json:"facades"`
-}
-
 // RedirectInfoResult holds the result of a RedirectInfo call.
 type RedirectInfoResult struct {
 	// Servers holds an entry for each server that holds the
@@ -632,8 +624,8 @@ type AuthUserInfo struct {
 	ReadOnly bool `json:"read-only"`
 }
 
-// LoginResultV1 holds the result of an Admin v1 Login call.
-type LoginResultV1 struct {
+// LoginResult holds the result of an Admin Login call.
+type LoginResult struct {
 	// DischargeRequired implies that the login request has failed, and none of
 	// the other fields are populated. It contains a macaroon which, when
 	// discharged, will grant access on a subsequent call to Login.

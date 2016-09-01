@@ -84,6 +84,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 }
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

@@ -114,7 +114,7 @@ func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 
 func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
-	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags)
+	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
 	args := []string{"-m", "testenv"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag

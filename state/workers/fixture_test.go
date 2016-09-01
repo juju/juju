@@ -8,11 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/workers"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -39,7 +40,7 @@ func NextWorker(c *gc.C, ch <-chan worker.Worker) worker.Worker {
 	select {
 	case worker := <-ch:
 		return worker
-	case <-time.After(testing.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatalf("expected worker never started")
 	}
 	panic("unreachable") // I hate doing this :-|.
@@ -336,13 +337,13 @@ func PW_getter(w workers.Workers) func() interface{} {
 // IsWorker, or until it times out.
 func WaitWorker(c *gc.C, getter func() interface{}, expect worker.Worker) {
 	var delay time.Duration
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(jujutesting.LongWait)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("expected worker")
 		case <-time.After(delay):
-			delay = testing.ShortWait
+			delay = jujutesting.ShortWait
 		}
 		if IsWorker(getter(), expect) {
 			return
@@ -353,7 +354,7 @@ func WaitWorker(c *gc.C, getter func() interface{}, expect worker.Worker) {
 // WaitAlarms waits until the supplied clock has sent count values on
 // its Alarms channel.
 func WaitAlarms(c *gc.C, clock *testing.Clock, count int) {
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(jujutesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {
 		case <-timeout:

@@ -62,11 +62,12 @@ updates available for resources from the charmstore.
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
-	const defaultFlag = "tabular"
-	c.out.AddFlags(f, defaultFlag, map[string]cmd.Formatter{
-		defaultFlag: FormatSvcTabular,
-		"yaml":      cmd.FormatYaml,
-		"json":      cmd.FormatJson,
+	c.ModelCommandBase.SetFlags(f)
+	const defaultFormat = "tabular"
+	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
+		defaultFormat: FormatSvcTabular,
+		"yaml":        cmd.FormatYaml,
+		"json":        cmd.FormatJson,
 	})
 
 	f.BoolVar(&c.details, "details", false, "show detailed information about resources used by each unit.")

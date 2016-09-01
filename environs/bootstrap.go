@@ -17,6 +17,14 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// Cloud contains the name of the cloud that Juju will be
+	// bootstrapped in. Used for printing feedback during bootstrap.
+	CloudName string
+
+	// CloudRegion is the name of the cloud region that Juju will be
+	// bootstrapped in. Used for printing feedback during bootstrap.
+	CloudRegion string
+
 	// ControllerConfig contains the configuration attributes for the
 	// bootstrapped controller.
 	ControllerConfig controller.Config
