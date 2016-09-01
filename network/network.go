@@ -244,13 +244,13 @@ type InterfaceInfo struct {
 	// lookups.
 	DNSSearchDomains []string
 
-	// Gateway address, if set, defines the default gateway to
-	// configure for this network interface. For containers this
-	// usually is (one of) the host address(es).
+	// GatewayAddress, if set, defines the default gateway to configure for this
+	// network interface. For containers this usually is (one of) the host
+	// address(es).
 	GatewayAddress Address
 }
 
-// Update updates `info`'s fields using the respective any non-emtpy fields from
+// Update updates `info`'s fields using the respective non-emtpy fields from
 // `other`. If `other` is nil, nothing is updated. `DeviceIndex` and `VLANTag`
 // are not updated when the corresponding value in `other` is negative.
 // `Disabled` and `NoAutoStart` are always updated.
