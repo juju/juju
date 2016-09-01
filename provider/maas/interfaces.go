@@ -51,7 +51,7 @@ type maasInterfaceLink struct {
 
 // ProviderId returns link.ID as network.Id.
 func (link maasInterfaceLink) ProviderId() network.Id {
-	return network.Id(fmt.Sprintf("%v", link.ID))
+	return network.Id(fmt.Sprint(link.ID))
 }
 
 // Address translates link's IPAddress (if set) to network.Address.
@@ -71,6 +71,8 @@ func (link maasInterfaceLink) Address() network.Address {
 // InterfaceInfo translates link to the equivalent network.InterfaceInfo.
 func (link maasInterfaceLink) InterfaceInfo() *network.InterfaceInfo {
 	result := &network.InterfaceInfo{
+		DeviceIndex:       -1, // avoid overriding top-level maasInterface.DeviceIndex value
+		VLANTag:           -1, // same as above.
 		ProviderAddressId: link.ProviderId(),
 		ConfigType:        link.Mode.InterfaceConfigType(),
 	}
@@ -126,7 +128,7 @@ type maasInterface struct {
 
 // ProviderId returns iface.ID as network.Id.
 func (iface maasInterface) ProviderId() network.Id {
-	return network.Id(fmt.Sprintf("%v", iface.ID))
+	return network.Id(fmt.Sprint(iface.ID))
 }
 
 // ParentInterfaceName returns the name of this interface's parent interface,
@@ -164,6 +166,7 @@ func (iface maasInterface) ParentInterfaceName() string {
 // DeviceIndex to the given value. MAAS API does not support device indices.
 func (iface maasInterface) InterfaceInfos(deviceIndex int) []network.InterfaceInfo {
 	commonInfo := &network.InterfaceInfo{
+		DeviceIndex:         deviceIndex,
 		ProviderId:          iface.ProviderId(),
 		InterfaceType:       iface.Type.InterfaceType(),
 		Disabled:            !iface.Enabled,
@@ -179,7 +182,6 @@ func (iface maasInterface) InterfaceInfos(deviceIndex int) []network.InterfaceIn
 	for i, link := range iface.Links {
 		linkInfo := link.InterfaceInfo()
 		linkInfo.Update(commonInfo)
-		linkInfo.DeviceIndex = deviceIndex
 		results[i] = *linkInfo
 	}
 
@@ -188,12 +190,11 @@ func (iface maasInterface) InterfaceInfos(deviceIndex int) []network.InterfaceIn
 
 type maasInterfaces []maasInterface
 
-// UpdateSpaceProviderIds uses the provided map to update all interfaces to have
-// SpaceProviderId set on all links with subnets, and returns the result. This
-// is necessary for MAAS 1.9, as the API does not return the space ID a subnet
-// is part of but the space name.
-func (interfaces maasInterfaces) UpdateSpaceProviderIds(subnetCIDRToSpaceProviderId map[string]network.Id) maasInterfaces {
-	results := make(maasInterfaces, len(interfaces))
+// UpdateSpaceProviderIds uses the provided map to update interfaces to have
+// SpaceProviderId set on all links with subnets. This is necessary for MAAS
+// 1.9, as the API does not return the space ID a subnet is part of but the
+// space name.
+func (interfaces maasInterfaces) UpdateSpaceProviderIds(subnetCIDRToSpaceProviderId map[string]network.Id) {
 	for i, iface := range interfaces {
 		for j, link := range iface.Links {
 			if link.Subnet == nil {
@@ -203,10 +204,8 @@ func (interfaces maasInterfaces) UpdateSpaceProviderIds(subnetCIDRToSpaceProvide
 			link.Subnet.SpaceProviderId, _ = subnetCIDRToSpaceProviderId[link.Subnet.CIDR]
 			iface.Links[j] = link
 		}
-		results[i] = iface
+		interfaces[i] = iface
 	}
-
-	return results
 }
 
 // FirstTopLevelInterfaceByMACAddress returns the first interface with the given
@@ -233,12 +232,13 @@ type maasVLAN struct {
 
 // ProviderId returns vlan.ID as network.Id.
 func (vlan maasVLAN) ProviderId() network.Id {
-	return network.Id(fmt.Sprintf("%v", vlan.ID))
+	return network.Id(fmt.Sprint(vlan.ID))
 }
 
 // InterfaceInfo translates vlan to the equivalent network.InterfaceInfo.
 func (vlan maasVLAN) InterfaceInfo() *network.InterfaceInfo {
 	return &network.InterfaceInfo{
+		DeviceIndex:    -1, // avoid overriding top-level maasInterface.DeviceIndex.
 		VLANTag:        vlan.VID,
 		ProviderVLANId: vlan.ProviderId(),
 		MTU:            vlan.MTU,
@@ -260,7 +260,7 @@ type maasSubnet struct {
 
 // ProviderId returns subnet.ID as network.Id.
 func (subnet maasSubnet) ProviderId() network.Id {
-	return network.Id(fmt.Sprintf("%v", subnet.ID))
+	return network.Id(fmt.Sprint(subnet.ID))
 }
 
 // DNSServerAddresses returns subnet.DNSServers transformed to
@@ -276,7 +276,7 @@ func (subnet maasSubnet) DNSServerAddresses() []network.Address {
 	return results
 }
 
-// GatewayAddress returns subnet.GatewayID as network.Addres.
+// GatewayAddress returns subnet.GatewayIP as network.Address.
 func (subnet maasSubnet) GatewayAddress() network.Address {
 	result := network.NewAddressOnSpace(subnet.Space, subnet.GatewayIP)
 	result.SpaceProviderId = subnet.SpaceProviderId
@@ -287,6 +287,7 @@ func (subnet maasSubnet) GatewayAddress() network.Address {
 // InterfaceInfo translates subnet to the equivalent network.InterfaceInfo.
 func (subnet maasSubnet) InterfaceInfo() *network.InterfaceInfo {
 	result := &network.InterfaceInfo{
+		DeviceIndex:      -1, // avoid overriding top-level maasInterface.DeviceIndex.
 		CIDR:             subnet.CIDR,
 		ProviderSubnetId: subnet.ProviderId(),
 		ProviderSpaceId:  subnet.SpaceProviderId,
@@ -296,10 +297,6 @@ func (subnet maasSubnet) InterfaceInfo() *network.InterfaceInfo {
 	result.Update(subnet.VLAN.InterfaceInfo())
 
 	return result
-}
-
-func (m maasInterface) GoString() string {
-	return fmt.Sprintf(`"%s(%s)"`, m.Name, m.Type)
 }
 
 func parseInterfaces(jsonBytes []byte) (maasInterfaces, error) {
@@ -339,31 +336,36 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
 	}
 
-	parsedInterfaces, err := parseInterfaces(rawBytes)
+	interfaces, err := parseInterfaces(rawBytes)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	interfaces := parsedInterfaces.UpdateSpaceProviderIds(subnetsMap)
+	interfaces.UpdateSpaceProviderIds(subnetsMap)
 	bootInterface := interfaces.FirstTopLevelInterfaceByMACAddress(pxeMACAddress)
 
 	var infos []network.InterfaceInfo
 	nextDeviceIndex := 0
 	if bootInterface != nil {
-		// Add the boot interface addresses on top as "most preferred"
+		// Add the boot interface addresses on top as preferred IP addresses.
 		infos = bootInterface.InterfaceInfos(nextDeviceIndex)
 		nextDeviceIndex++
 	}
 
 	for _, iface := range interfaces {
 		if bootInterface != nil && iface.Name == bootInterface.Name {
+			// Boot interface's infos already added before the loop.
 			continue
 		}
 		infos = append(infos, iface.InterfaceInfos(nextDeviceIndex)...)
 		nextDeviceIndex++
 	}
 
-	// hostname when available will be put on top of the list.
+	// hostname, if available, is considered the "most preferred" address of the
+	// machine. MAAS creates hostnames that resolve to the boot interface's IP
+	// addresses (usually one, but can be more with aliases). Since we already
+	// placed the preferred addresses on top, here we can copy the first one and
+	// transform it to a network.HostName.
 	if hostname != "" {
 		firstInfo := infos[0]
 		spaceName := string(firstInfo.Address.SpaceName)
