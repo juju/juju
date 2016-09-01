@@ -312,7 +312,7 @@ def find_actual_start(fetch_output):
     for line in fetch_output.splitlines():
         try:
             timestamp, value = line.split(':', 1)
-            if value != ' -nan':
+            if not value.startswith(' -nan'):
                 return timestamp
         except ValueError:
             pass
