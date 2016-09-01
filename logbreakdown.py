@@ -105,7 +105,7 @@ def get_timerange_logs(log_file, timestamps):
 
 
 def log_line_within_start_range(line, range_start):
-    datestamp = " ".join(line.split()[0:2])
+    datestamp = extract_date_from_line(line)
     try:
         ds = datetime.strptime(datestamp, dt_format)
     except ValueError:
@@ -117,15 +117,19 @@ def log_line_within_start_range(line, range_start):
     return False
 
 
-def log_line_within_end_range(line, range_start):
-    datestamp = " ".join(line.split()[0:2])
+def log_line_within_end_range(line, range_end):
+    datestamp = extract_date_from_line(line)
     try:
         ds = datetime.strptime(datestamp, dt_format)
     except ValueError:
-        # Fine to collect this line as we haven't hit a dated line that is
-        # after our target.
+        # Fine to collect this line as the line doesn't start with a date and
+        # is thus a continuation or undated message.
         return True
 
-    if ds < range_start or ds == range_start:
+    if ds < range_end or ds == range_end:
         return True
     return False
+
+
+def extract_date_from_line(line):
+    return " ".join(line.split()[0:2])

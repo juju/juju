@@ -42,6 +42,8 @@ class TimingData:
 
     strf_format = '%F %H:%M:%S'
 
+    # Log breakdown uses the start/end too. Perhaps have a property for string
+    # rep and a ds for the datetime.
     def __init__(self, start, end):
         self.start = start.strftime(self.strf_format)
         self.end = end.strftime(self.strf_format)
