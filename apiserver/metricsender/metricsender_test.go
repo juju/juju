@@ -112,6 +112,29 @@ func (s *MetricSenderSuite) TestHoldMetrics(c *gc.C) {
 	c.Assert(sent2.Sent(), jc.IsTrue)
 }
 
+func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
+	var sender testing.MockSender
+	now := time.Now()
+	err := s.credUnit.SetMeterStatus("GREEN", "known starting point")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.meteredUnit.SetMeterStatus("GREEN", "known starting point")
+	c.Assert(err, jc.ErrorIsNil)
+	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+	err = metricsender.SendMetrics(s.State, &sender, 10, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 1)
+	c.Assert(sender.Data[0][0].UUID, gc.Equals, unsent1.UUID())
+	msCred, err := s.credUnit.GetMeterStatus()
+	c.Assert(msCred.Code, gc.Equals, state.MeterGreen)
+	c.Assert(msCred.Info, gc.Equals, "known starting point")
+	msMetered, err := s.meteredUnit.GetMeterStatus()
+	c.Assert(msMetered.Code, gc.Equals, state.MeterRed)
+	c.Assert(msMetered.Info, gc.Equals, "transmit-vendor-metrics turned off")
+}
+
 // TestSendBulkMetrics tests the logic of splitting sends
 // into batches is done correctly. The batch size is changed
 // to send batches of 10 metrics. If we create 100 metrics 10 calls
