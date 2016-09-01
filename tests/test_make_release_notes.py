@@ -110,7 +110,7 @@ class MakeReleaseNotes(TestCase):
         self.assertIn(
             'A new proposed stable release of Juju, 1.20.0, is here!', text)
         self.assertIn(
-            'sudo apt-add-repository ppa:juju/proposed', text)
+            'sudo add-apt-repository ppa:juju/proposed', text)
         self.assertIn('  * One\n    Lp 1', text)
 
     def test_make_notes_with_devel_purpose(self):
@@ -119,10 +119,11 @@ class MakeReleaseNotes(TestCase):
         self.assertIn(
             'A new development release of Juju, 1.21-alpha1, is here!',
             text)
-        self.assertIn('sudo apt-add-repository ppa:juju/devel', text)
+        self.assertIn('sudo add-apt-repository ppa:juju/devel', text)
         self.assertIn(
             'https://jujucharms.com/docs/devel/temp-release-notes', text)
-
+        self.assertIn('snap install juju --beta --devmode', text)
+                
     def test_make_notes_with_notable(self):
         # The default value of None implies a stable bug fix release.
         text = make_notes('1.20.1', DEVEL, "* One\n  Lp 1", notable=None)

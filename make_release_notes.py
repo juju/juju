@@ -30,13 +30,17 @@ A new development release of Juju, {version}, is here!
 
 If you are running Ubuntu, you can get it from the juju devel ppa:
 
-    sudo apt-add-repository ppa:juju/devel
-    sudo apt-get update; sudo apt-get install juju-2.0
+    sudo add-apt-repository ppa:juju/devel
+    sudo apt update; sudo apt install juju-2.0
+
+Or install it from the snap store
+
+snap install juju --beta --devmode
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 
-    https://launchpad.net/juju-core/+milestone/{version}
-
+    https://launchpad.net/juju/+milestone/{version}
+    
 
 ## Feedback Appreciated!
 
@@ -68,8 +72,8 @@ This release may replace version {previous} on {release_date}.
 
 If you are running Ubuntu, you can get it from the juju proposed ppa:
 
-    sudo apt-add-repository ppa:juju/proposed
-    sudo apt-get update; sudo apt-get install juju-core
+    sudo add-apt-repository ppa:juju/proposed
+    sudo apt update; sudo apt install juju-core
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 
