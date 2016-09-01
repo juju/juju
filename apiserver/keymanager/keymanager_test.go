@@ -248,7 +248,7 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
-	s.assertEnvironKeys(c, []string{"bad key", key1})
+	s.assertEnvironKeys(c, []string{key1, "bad key"})
 }
 
 func (s *keyManagerSuite) TestDeleteKeysNotJujuInternal(c *gc.C) {
