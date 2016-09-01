@@ -39,7 +39,7 @@ snap install juju --beta --devmode
 
 Windows, Centos, and OS X users can get a corresponding installer at:
 
-    https://launchpad.net/juju-core/+milestone/{version}
+    https://launchpad.net/juju/+milestone/{version}
     
 
 ## Feedback Appreciated!
