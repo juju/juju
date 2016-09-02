@@ -184,7 +184,7 @@ func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
-	err := c.Find(query).Sort("-created").All(&docs)
+	err := c.Find(query).Sort("created").All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
