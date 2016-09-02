@@ -6,6 +6,8 @@ package migration
 import (
 	"time"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/version"
 )
 
@@ -50,5 +52,6 @@ type SerializedModel struct {
 type ModelInfo struct {
 	UUID         string
 	Name         string
+	Owner        names.UserTag
 	AgentVersion version.Number
 }

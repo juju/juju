@@ -160,11 +160,13 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 
 func (s *ClientSuite) TestModelInfo(c *gc.C) {
 	var stub jujutesting.Stub
+	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:         "uuid",
 			Name:         "name",
+			OwnerTag:     owner.String(),
 			AgentVersion: version.MustParse("1.2.3"),
 		}
 		return nil
@@ -178,6 +180,7 @@ func (s *ClientSuite) TestModelInfo(c *gc.C) {
 	c.Check(model, jc.DeepEquals, migration.ModelInfo{
 		UUID:         "uuid",
 		Name:         "name",
+		Owner:        owner,
 		AgentVersion: version.MustParse("1.2.3"),
 	})
 }

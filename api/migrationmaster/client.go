@@ -126,9 +126,14 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
+	owner, err := names.ParseUserTag(info.OwnerTag)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
 	return migration.ModelInfo{
 		UUID:         info.UUID,
 		Name:         info.Name,
+		Owner:        owner,
 		AgentVersion: info.AgentVersion,
 	}, nil
 }
