@@ -99,6 +99,7 @@ type MasterMigrationStatus struct {
 type MigrationModelInfo struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
+	OwnerTag     string         `json:"owner-tag"`
 	AgentVersion version.Number `json:"agent-version"`
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // Backend defines the state functionality required by the
@@ -16,6 +17,7 @@ type Backend interface {
 	LatestMigration() (state.ModelMigration, error)
 	ModelUUID() string
 	ModelName() (string, error)
+	ModelOwner() (names.UserTag, error)
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 
