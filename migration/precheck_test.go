@@ -277,46 +277,57 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 
 type TargetPrecheckSuite struct {
 	precheckBaseSuite
+	modelInfo migration.PrecheckModelInfo
 }
 
 var _ = gc.Suite(&TargetPrecheckSuite{})
 
-func targetPrecheck(backend migration.PrecheckBackend) error {
-	return migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
+	s.modelInfo = migration.PrecheckModelInfo{
+		Tag:     names.NewModelTag(modelUUID),
+		Owner:   names.NewUserTag("owner"),
+		Name:    modelName,
+		Version: backendVersion,
+	}
+}
+
+func (s *TargetPrecheckSuite) runPrecheck(backend migration.PrecheckBackend) error {
+	return migration.TargetPrecheck(backend, s.modelInfo)
 }
 
 func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
-	err := migration.TargetPrecheck(newHappyBackend(), modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(newHappyBackend(), s.modelInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
 	backend := newFakeBackend()
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, version.MustParse("1.2.4"))
+	s.modelInfo.Version = version.MustParse("1.2.4")
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
 
-func (*TargetPrecheckSuite) TestDying(c *gc.C) {
+func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
 func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
-	s.checkRebootRequired(c, targetPrecheck)
+	s.checkRebootRequired(c, s.runPrecheck)
 }
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
-	s.checkAgentVersionError(c, targetPrecheck)
+	s.checkAgentVersionError(c, s.runPrecheck)
 }
 
 func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgradingErr: errors.New("boom"),
 	}
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "checking for upgrades: boom")
 }
 
@@ -324,29 +335,29 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgrading: true,
 	}
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
 }
 
 func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
-	s.checkMachineVersionsDontMatch(c, targetPrecheck)
+	s.checkMachineVersionsDontMatch(c, s.runPrecheck)
 }
 
 func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	backend := newBackendWithDyingMachine()
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
-	err := migration.TargetPrecheck(backend, modelName, modelUUID, backendVersion)
+	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 

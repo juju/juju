@@ -128,23 +128,47 @@ func checkModel(backend PrecheckBackend) error {
 	return nil
 }
 
+// PrecheckModelInfo holds information about a model to be migrated
+// for the purposes of prechecks.
+type PrecheckModelInfo struct {
+	Tag     names.ModelTag
+	Owner   names.UserTag
+	Name    string
+	Version version.Number
+}
+
+func (i *PrecheckModelInfo) validate() error {
+	if i.Tag.Id() == "" {
+		return errors.NotValidf("empty Tag")
+	}
+	if i.Owner.Name() == "" {
+		return errors.NotValidf("empty Owner")
+	}
+	if i.Name == "" {
+		return errors.NotValidf("empty Name")
+	}
+	if i.Version.Compare(version.Number{}) == 0 {
+		return errors.NotValidf("empty Version")
+	}
+	return nil
+}
+
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(
-	backend PrecheckBackend,
-	modelName string,
-	modelUUID string,
-	modelVersion version.Number,
-) error {
+func TargetPrecheck(backend PrecheckBackend, modelInfo PrecheckModelInfo) error {
+	if err := modelInfo.validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	controllerVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
 
-	if controllerVersion.Compare(modelVersion) < 0 {
+	if controllerVersion.Compare(modelInfo.Version) < 0 {
 		return errors.Errorf("model has higher version than target controller (%s > %s)",
-			modelVersion, controllerVersion)
+			modelInfo.Version, controllerVersion)
 	}
 
 	err = checkController(backend)
