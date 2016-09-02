@@ -57,7 +57,6 @@ func (c *getCommand) Info() *cmd.Info {
 		Args:    "<application name> [attribute-key]",
 		Purpose: usageGetConfigSummary,
 		Doc:     usageGetConfigDetails,
-		Aliases: []string{"get-configs"},
 	}
 }
 

@@ -55,7 +55,6 @@ func (c *removeCommand) Info() *cmd.Info {
 		Args:    "<machine number> ...",
 		Purpose: "Removes one or more machines from a model.",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"remove-machines"},
 	}
 }
 

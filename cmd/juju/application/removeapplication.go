@@ -53,7 +53,6 @@ func (c *removeServiceCommand) Info() *cmd.Info {
 		Args:    "<application>",
 		Purpose: helpSummaryRmSvc,
 		Doc:     helpDetailsRmSvc,
-		Aliases: []string{"destroy-application"},
 	}
 }
 

@@ -71,7 +71,6 @@ func (c *setCommand) Info() *cmd.Info {
 		Args:    "<application name> <application key>=<value> ...",
 		Purpose: usageSetConfigSummary,
 		Doc:     usageSetConfigDetails,
-		Aliases: []string{"set-configs"},
 	}
 }
 

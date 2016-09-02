@@ -54,7 +54,6 @@ func (c *removeRelationCommand) Info() *cmd.Info {
 		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>]",
 		Purpose: helpSummary,
 		Doc:     helpDetails,
-		Aliases: []string{"destroy-relation"},
 	}
 }
 

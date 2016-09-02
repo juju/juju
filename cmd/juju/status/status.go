@@ -74,23 +74,24 @@ The available output formats are:
       in structured JSON format.
 
 Examples:
-    juju status
-    juju status mysql
-    juju status nova-*
+    juju show-status
+    juju show-status mysql
+    juju show-status nova-*
 
 See Also:
     juju show-model
+    juju show-status-log
     juju machines
     juju storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status",
+		Name:    "show-status",
 		Args:    "[filter pattern ...]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-		Aliases: []string{"show-status"},
+		Aliases: []string{"status"},
 	}
 }
 

@@ -123,7 +123,6 @@ func (c *addUnitCommand) Info() *cmd.Info {
 		Args:    "<application name>",
 		Purpose: usageAddUnitSummary,
 		Doc:     usageAddUnitDetails,
-		Aliases: []string{"add-units"},
 	}
 }
 
