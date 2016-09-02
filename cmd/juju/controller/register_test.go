@@ -286,8 +286,9 @@ func (s *RegisterSuite) testRegister(c *gc.C, expectedError string) *cmd.Context
 	account, err := s.store.AccountDetails("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
-		User:     "bob@local",
-		Macaroon: string(macaroonJSON),
+		User:            "bob@local",
+		Macaroon:        string(macaroonJSON),
+		LastKnownAccess: "login",
 	})
 	return ctx
 }

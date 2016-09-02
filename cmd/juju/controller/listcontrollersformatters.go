@@ -13,14 +13,17 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-const noValueDisplay = "-"
+const (
+	noValueDisplay  = "-"
+	notKnownDisplay = "(unknown)"
+)
 
-func formatControllersListTabular(writer io.Writer, value interface{}) error {
+func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, value interface{}) error {
 	controllers, ok := value.(ControllerSet)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", controllers, value)
 	}
-	return formatControllersTabular(writer, controllers, false)
+	return formatControllersTabular(writer, controllers, !c.refresh)
 }
 
 func formatShowControllersTabular(writer io.Writer, value interface{}) error {
@@ -51,22 +54,18 @@ func formatShowControllersTabular(writer io.Writer, value interface{}) error {
 			AgentVersion:   details.Details.AgentVersion,
 		}
 	}
-	return formatControllersTabular(writer, controllerSet, true)
+	return formatControllersTabular(writer, controllerSet, false)
 }
 
 // formatControllersTabular returns a tabular summary of controller/model items
 // sorted by controller name alphabetically.
-func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bool) error {
+func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	if withAccess {
-		print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
-	} else {
-		print("CONTROLLER", "MODEL", "USER", "CLOUD/REGION")
-	}
+	print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
 
 	names := []string{}
 	for name, _ := range set.Controllers {
@@ -84,6 +83,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 		access := noValueDisplay
 		if c.User != "" {
 			userName = c.User
+			access = notKnownDisplay
 			if c.Access != "" {
 				access = c.Access
 			}
@@ -98,13 +98,21 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 		if c.CloudRegion != "" {
 			cloudRegion += "/" + c.CloudRegion
 		}
-		if withAccess {
-			print(modelName, userName, access, cloudRegion, c.AgentVersion)
-		} else {
-			print(modelName, userName, cloudRegion)
+		agentVersion := c.AgentVersion
+		if agentVersion == "" {
+			agentVersion = notKnownDisplay
 		}
+		if promptRefresh {
+			if access != noValueDisplay {
+				access += "+"
+			}
+			agentVersion += "+"
+		}
+		print(modelName, userName, access, cloudRegion, agentVersion)
 	}
 	tw.Flush()
-
+	if promptRefresh && len(names) > 0 {
+		fmt.Fprintln(writer, "\n+ these are the last known values, run with --refresh to see the latest information.")
+	}
 	return nil
 }

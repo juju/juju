@@ -139,21 +139,52 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		jc.DeepEquals,
 		[]string{"0.1.2.3:1234", "[2001:db8::1]:1234"},
 	)
+	c.Assert(
+		store.Controllers["noconfig"].AgentVersion,
+		gc.Equals,
+		"1.2.3",
+	)
 
 	controllerBefore, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// If APIHostPorts haven't changed, then the store won't be updated.
+	// If APIHostPorts or agent version haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
 	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
-	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName")
+	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName", "AccountDetails", "UpdateAccount")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
+}
+
+func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
+		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
+		called++
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 1)
+	stubStore.CheckCallNames(c, "AccountDetails", "ModelByName", "ControllerByName", "UpdateController", "AccountDetails", "UpdateAccount")
+
+	c.Assert(
+		store.Accounts["noconfig"],
+		jc.DeepEquals,
+		jujuclient.AccountDetails{User: "admin@local", Password: "hunter2", LastKnownAccess: "superuser"},
+	)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
@@ -237,16 +268,6 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	// fatal to have no bootstrap config.
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(st, gc.IsNil)
-}
-
-func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, addr, host string) {
-	// Populate the controller details with known address and hostname.
-	details, err := store.ControllerByName("my-controller")
-	c.Assert(err, jc.ErrorIsNil)
-	details.APIEndpoints = []string{addr}
-	details.UnresolvedAPIEndpoints = []string{host}
-	err = store.UpdateController("my-controller", *details)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // newClientStore returns a client store that contains information
@@ -349,6 +370,7 @@ func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name st
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.UnresolvedAPIEndpoints, check, 0)
 	c.Assert(found.APIEndpoints, check, 0)
+	c.Assert(found.AgentVersion, gc.Equals, "1.2.3")
 }
 
 func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
@@ -361,7 +383,7 @@ func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string
 
 func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCaching(c *gc.C) {
 	s.assertCreateController(c, "controller-name1")
-	err := juju.UpdateControllerAddresses(s.ControllerStore, "controller-name1", s.hostPorts, s.apiHostPort)
+	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", "1.2.3", s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)

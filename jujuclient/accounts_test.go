@@ -48,6 +48,20 @@ func (s *AccountsSuite) TestAccountDetails(c *gc.C) {
 	c.Assert(*details, jc.DeepEquals, kontrollBobRemoteAccountDetails)
 }
 
+func (s *AccountsSuite) TestUpdateAccountIgnoresEmptyAccess(c *gc.C) {
+	testAccountDetails := jujuclient.AccountDetails{
+		User:     "admin@local",
+		Password: "fnord",
+	}
+	err := s.store.UpdateAccount("ctrl", testAccountDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	details, err := s.store.AccountDetails("ctrl")
+	c.Assert(err, jc.ErrorIsNil)
+	testAccountDetails.LastKnownAccess = ctrlAdminAccountDetails.LastKnownAccess
+	c.Assert(testAccountDetails.LastKnownAccess, gc.Equals, "superuser")
+	c.Assert(*details, jc.DeepEquals, testAccountDetails)
+}
+
 func (s *AccountsSuite) TestUpdateAccountNewController(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{User: "admin@local"}
 	err := s.store.UpdateAccount("new-controller", testAccountDetails)
@@ -61,6 +75,7 @@ func (s *AccountsSuite) TestUpdateAccountOverwrites(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "fnord",
+		LastKnownAccess: "addmodel",
 	}
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with

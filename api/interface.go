@@ -191,9 +191,11 @@ type Connection interface {
 	// connection.
 	AuthTag() names.Tag
 
-	// ReadOnly returns whether the authorized user is connected to the model
-	// in read-only mode.
-	ReadOnly() bool
+	// ModelAccess returns the access level of authorized user to the model.
+	ModelAccess() string
+
+	// ControllerAccess returns the access level of authorized user to the controller.
+	ControllerAccess() string
 
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.

@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -25,7 +26,7 @@ var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER  MODEL  USER  CLOUD/REGION
+CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  VERSION
 
 `[1:]
 
@@ -35,16 +36,37 @@ CONTROLLER  MODEL  USER  CLOUD/REGION
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER           MODEL     USER         CLOUD/REGION
-aws-test             admin     -            aws/us-east-1
-mallards*            my-model  admin@local  mallards/mallards1
-mark-test-prodstack  -         admin@local  prodstack
+CONTROLLER           MODEL     USER         ACCESS      CLOUD/REGION        VERSION
+aws-test             admin     -            -           aws/us-east-1       2.0.1+
+mallards*            my-model  admin@local  superuser+  mallards/mallards1  (unknown)+
+mark-test-prodstack  -         admin@local  (unknown)+  prodstack           (unknown)+
+
++ these are the last known values, run with --refresh to see the latest information.
 
 `[1:]
 
 	store := s.createTestClientStore(c)
 	delete(store.Accounts, "aws-test")
 	s.assertListControllers(c)
+}
+
+type mockConnection struct {
+	api.Connection
+	closed int
+}
+
+func (c *mockConnection) Close() error {
+	c.closed++
+	return nil
+}
+
+func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
+	s.createTestClientStore(c)
+	refreshCloser := &mockConnection{}
+	_, err := testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, refreshCloser), "--refresh")
+	c.Assert(err, jc.ErrorIsNil)
+	// 3 controllers, so 3 calls to api.
+	c.Assert(refreshCloser.closed, gc.Equals, 3)
 }
 
 func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
@@ -59,9 +81,11 @@ controllers:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
+    agent-version: 2.0.1
   mallards:
     current-model: my-model
     user: admin@local
+    access: superuser
     recent-server: this-is-another-of-many-api-endpoints
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
@@ -100,11 +124,13 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				CACert:         "this-is-aws-test-ca-cert",
 				Cloud:          "aws",
 				CloudRegion:    "us-east-1",
+				AgentVersion:   "2.0.1",
 			},
 			"mallards": {
 				ControllerUUID: "this-is-another-uuid",
 				ModelName:      "my-model",
 				User:           "admin@local",
+				Access:         "superuser",
 				Server:         "this-is-another-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-another-of-many-api-endpoints", "this-is-one-more-of-many-api-endpoints"},
 				CACert:         "this-is-another-ca-cert",
@@ -153,7 +179,7 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store), args...)
+	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, nil), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
