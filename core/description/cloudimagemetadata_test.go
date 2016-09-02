@@ -4,8 +4,6 @@
 package description
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -22,7 +20,7 @@ func (s *CloudImageMetadataSerializationSuite) SetUpTest(c *gc.C) {
 	s.importName = "cloudimagemetadata"
 	s.sliceName = "cloudimagemetadata"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
-		return importCloudImageMetadatas(m)
+		return importCloudImageMetadata(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
 		m["cloudimagemetadata"] = []interface{}{}
@@ -31,51 +29,56 @@ func (s *CloudImageMetadataSerializationSuite) SetUpTest(c *gc.C) {
 
 func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C) {
 	args := CloudImageMetadataArgs{
-		Id:         "foo",
-		Receiver:   "bar",
-		Name:       "bam",
-		Parameters: map[string]interface{}{"foo": 3, "bar": "bam"},
-		Enqueued:   time.Now(),
-		Started:    time.Now(),
-		Completed:  time.Now(),
-		Status:     "happy",
-		Message:    "a message",
-		Results:    map[string]interface{}{"the": 3, "thing": "bam"},
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: uint64(3),
+		Source:          "test",
+		Priority:        0,
+		ImageId:         "foo",
+		DateCreated:     0,
 	}
-	cloudimagemetadata := newCloudImageMetadata(args)
-	c.Check(cloudimagemetadata.Id(), gc.Equals, args.Id)
-	c.Check(cloudimagemetadata.Receiver(), gc.Equals, args.Receiver)
-	c.Check(cloudimagemetadata.Name(), gc.Equals, args.Name)
-	c.Check(cloudimagemetadata.Parameters(), jc.DeepEquals, args.Parameters)
-	c.Check(cloudimagemetadata.Enqueued(), gc.Equals, args.Enqueued)
-	c.Check(cloudimagemetadata.Started(), gc.Equals, args.Started)
-	c.Check(cloudimagemetadata.Completed(), gc.Equals, args.Completed)
-	c.Check(cloudimagemetadata.Status(), gc.Equals, args.Status)
-	c.Check(cloudimagemetadata.Message(), gc.Equals, args.Message)
-	c.Check(cloudimagemetadata.Results(), jc.DeepEquals, args.Results)
+	metadata := newCloudImageMetadata(args)
+	c.Check(metadata.Stream(), gc.Equals, args.Stream)
+	c.Check(metadata.Region(), gc.Equals, args.Region)
+	c.Check(metadata.Version(), gc.Equals, args.Version)
+	c.Check(metadata.Series(), gc.Equals, args.Series)
+	c.Check(metadata.Arch(), gc.Equals, args.Arch)
+	c.Check(metadata.VirtType(), gc.Equals, args.VirtType)
+	c.Check(metadata.RootStorageType(), gc.Equals, args.RootStorageType)
+	c.Check(metadata.RootStorageSize(), gc.Equals, args.RootStorageSize)
+	c.Check(metadata.Source(), gc.Equals, args.Source)
+	c.Check(metadata.Priority(), gc.Equals, args.Priority)
+	c.Check(metadata.ImageId(), gc.Equals, args.ImageId)
+	c.Check(metadata.DateCreated(), gc.Equals, args.DateCreated)
 }
 
 func (s *CloudImageMetadataSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := cloudimagemetadata{
+	initial := cloudimagemetadataset{
 		Version: 1,
-		CloudImageMetadatas_: []*cloudimagemetadata{
+		CloudImageMetadata_: []*cloudimagemetadata{
 			newCloudImageMetadata(CloudImageMetadataArgs{
-				Id:         "foo",
-				Receiver:   "bar",
-				Name:       "bam",
-				Parameters: map[string]interface{}{"foo": 3, "bar": "bam"},
-				Enqueued:   time.Now(),
-				Started:    time.Now(),
-				Completed:  time.Now(),
-				Status:     "happy",
-				Message:    "a message",
-				Results:    map[string]interface{}{"the": 3, "thing": "bam"},
+				Stream:          "stream",
+				Region:          "region-test",
+				Version:         "14.04",
+				Series:          "trusty",
+				Arch:            "arch",
+				VirtType:        "virtType-test",
+				RootStorageType: "rootStorageType-test",
+				RootStorageSize: uint64(3),
+				Source:          "test",
+				Priority:        0,
+				ImageId:         "foo",
+				DateCreated:     0,
 			}),
 			newCloudImageMetadata(CloudImageMetadataArgs{
-				Name:       "bing",
-				Enqueued:   time.Now(),
-				Parameters: map[string]interface{}{"bop": 4, "beep": "fish"},
-				Results:    map[string]interface{}{"eggs": 5, "spam": "wow"},
+				Stream:  "stream",
+				Region:  "region-test",
+				Version: "14.04",
 			}),
 		},
 	}
@@ -87,8 +90,8 @@ func (s *CloudImageMetadataSerializationSuite) TestParsingSerializedData(c *gc.C
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudimagemetadata, err := importCloudImageMetadatas(source)
+	metadata, err := importCloudImageMetadata(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cloudimagemetadata, jc.DeepEquals, initial.CloudImageMetadatas_)
+	c.Assert(metadata, jc.DeepEquals, initial.CloudImageMetadata_)
 }
