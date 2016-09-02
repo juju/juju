@@ -8,6 +8,7 @@ from collections import (
     defaultdict,
     namedtuple,
     )
+from contextlib import contextmanager
 import itertools
 import json
 import logging
@@ -18,6 +19,7 @@ from textwrap import dedent
 
 import pexpect
 
+from deploy_stack import BootstrapManager
 from jujupy import (
     client_from_config,
     )
@@ -73,6 +75,8 @@ def assess_autoload_credentials(args):
         }
 
     client = client_from_config(args.env, args.juju_bin, False)
+    client.env.load_yaml()
+    real_credential_details = client_credentials_to_details(client)
     provider = client.env.config['type']
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
@@ -85,12 +89,44 @@ def assess_autoload_credentials(args):
         ensure_autoload_credentials_overwrite_existing(
             client, scenario_setup)
 
+    autoload_and_bootstrap(args, real_credential_details, scenario_setup)
 
-def ensure_autoload_credentials_stores_details(client, cloud_details_fn):
+
+def client_credentials_to_details(client):
+    """Convert the credentials in the client to details."""
+    provider = client.env.config['type']
+    cloud = client.env.credentials['credentials'][client.env.get_cloud()]
+    credentials = cloud['credentials']
+    if 'ec2' == provider:
+        return { 'secret_key': credentials['secret-key'],
+                 'access_key': credentials['access-key'],
+               }
+    if 'gce' == provider:
+        return { 'client_id': credentials['client-id'],
+                 'client_email': credentials['client-email'],
+                 'private_key': credentials['private-key'],
+               }
+    if 'openstack' == provider:
+        return { 'os_tenant_name': credentials['tenant-name'],
+                 'os_password': credentials['password'],
+               }
+
+
+@contextmanager
+def begin_autoload_test(client_base):
+    client = client_base.clone()
+    with temp_dir() as tmp_dir:
+        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
+        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
+        client.env.juju_home = tmp_juju_home
+        client.env.load_yaml()
+        yield client, tmp_scratch_dir
+
+
+def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
-    XXX
-    :param juju_bin: The full path to the juju binary to use for the test run.
+    :param client: EnvJujuClient object to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
@@ -98,11 +134,7 @@ def ensure_autoload_credentials_stores_details(client, cloud_details_fn):
 
     """
     user = 'testing_user'
-    with temp_dir() as tmp_dir:
-        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
-        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client.env.juju_home = tmp_juju_home
-        client.env.load_yaml()
+    with begin_autoload_test(client_base) as (client, tmp_scratch_dir):
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
 
         run_autoload_credentials(
@@ -117,11 +149,11 @@ def ensure_autoload_credentials_stores_details(client, cloud_details_fn):
             cloud_details.expected_details)
 
 
-def ensure_autoload_credentials_overwrite_existing(client, cloud_details_fn):
+def ensure_autoload_credentials_overwrite_existing(client_base,
+                                                   cloud_details_fn):
     """Storing credentials using autoload-credentials must overwrite existing.
 
-    XXX
-    :param juju_bin: The full path to the juju binary to use for the test run.
+    :param client: EnvJujuClient object to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
@@ -129,12 +161,7 @@ def ensure_autoload_credentials_overwrite_existing(client, cloud_details_fn):
 
     """
     user = 'testing_user'
-    with temp_dir() as tmp_dir:
-        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
-        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client.env.juju_home = tmp_juju_home
-        client.env.load_yaml()
-
+    with begin_autoload_test(client_base) as (client, tmp_scratch_dir):
         initial_details = cloud_details_fn(
             user, tmp_scratch_dir, client)
 
@@ -162,6 +189,29 @@ def ensure_autoload_credentials_overwrite_existing(client, cloud_details_fn):
         assert_credentials_contains_expected_results(
             client.env.credentials,
             overwrite_details.expected_details)
+
+
+def autoload_and_bootstrap(args, real_credentials, cloud_details_fn):
+    """Ensure we can bootstrap after autoloading credentials."""
+
+    bs_manager = BootstrapManager.from_args(args)
+    user = 'test_user'
+    with begin_autoload_test(bs_manager.client) as (client_na, tmp_scratch_dir):
+        cloud_details = cloud_details_fn(user, tmp_scratch_dir,
+                                         bs_manager.client, real_credentials)
+
+        with bs_manager.top_context() as machines:
+            with bs_manager.bootstrap_context(
+                    machines, omit_config=bs_manager.client.bootstrap_replaces):
+                run_autoload_credentials(
+                    bs_manager.client,
+                    cloud_details.env_var_changes,
+                    cloud_details.expect_answers)
+                bs_manager.client.env.load_yaml()
+
+                bs_manager.client.bootstrap(
+                    args.upload_tools, bootstrap_series=bs_manager.series)
+                bs_manager.client.kill_controller()
 
 
 def assert_credentials_contains_expected_results(credentials, expected):
