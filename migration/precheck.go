@@ -8,7 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -17,28 +19,8 @@ import (
 /*
 # TODO - remaining prechecks
 
-## Source model
-
-- unit is being provisioned
-- unit is dying/dead
-- model is dying/dead
-- application is being provisioned?
-  * check unit count? possibly can't have unit count > 0 without a unit existing - check this
-  * unit count of 0 is ok if service was deployed and then all units for it were removed.
-  * from Will: I have a suspicion that GUI-deployed apps (and maybe
-    others?) will have minunits of 1, meaning that a unit count of 0
-    is not necessarily stable.
-- pending reboots
-- model is being imported as part of another migration
-
-## Source controller
-
-- controller model is dying/dead
-- pending reboots
-
 ## Target controller
 
-- controller model is dying/dead
 - target controller already has a model with the same owner:name
 - target controller already has a model with the same UUID
   - what about if left over from previous failed attempt? check model migration status
@@ -48,10 +30,13 @@ import (
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
-	NeedsCleanup() (bool, error)
 	AgentVersion() (version.Number, error)
-	AllMachines() ([]PrecheckMachine, error)
+	ModelLife() (state.Life, error)
+	MigrationMode() (state.MigrationMode, error)
+	NeedsCleanup() (bool, error)
 	IsUpgrading() (bool, error)
+	AllMachines() ([]PrecheckMachine, error)
+	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
 }
 
@@ -63,6 +48,29 @@ type PrecheckMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	InstanceStatus() (status.StatusInfo, error)
+	ShouldRebootOrShutdown() (state.RebootAction, error)
+}
+
+// PrecheckApplication describes state interface for an application
+// needed by migration prechecks.
+type PrecheckApplication interface {
+	Name() string
+	Life() state.Life
+	CharmURL() (*charm.URL, bool)
+	AllUnits() ([]PrecheckUnit, error)
+	MinUnits() int
+}
+
+// PrecheckUnit describes state interface for a unit needed by
+// migration prechecks.
+type PrecheckUnit interface {
+	Name() string
+	AgentTools() (*tools.Tools, error)
+	Life() state.Life
+	CharmURL() (*charm.URL, bool)
+	AgentStatus() (status.StatusInfo, error)
+	Status() (status.StatusInfo, error)
+	AgentPresence() (bool, error)
 }
 
 // SourcePrecheck checks the state of the source controller to make
@@ -70,7 +78,19 @@ type PrecheckMachine interface {
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
 	// Check the model.
+	if err := checkModelLife(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkMigrationMode(backend); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := checkMachines(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkApplications(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -110,6 +130,10 @@ func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error 
 }
 
 func checkController(backend PrecheckBackend) error {
+	if err := checkModelLife(backend); err != nil {
+		return errors.Trace(err)
+	}
+
 	if upgrading, err := backend.IsUpgrading(); err != nil {
 		return errors.Annotate(err, "checking for upgrades")
 	} else if upgrading {
@@ -118,6 +142,24 @@ func checkController(backend PrecheckBackend) error {
 
 	err := checkMachines(backend)
 	return errors.Trace(err)
+}
+
+func checkModelLife(backend PrecheckBackend) error {
+	if life, err := backend.ModelLife(); err != nil {
+		return errors.Annotate(err, "retrieving model life")
+	} else if life != state.Alive {
+		return errors.Errorf("model is %s", life)
+	}
+	return nil
+}
+
+func checkMigrationMode(backend PrecheckBackend) error {
+	if mode, err := backend.MigrationMode(); err != nil {
+		return errors.Annotate(err, "retrieving model life")
+	} else if mode == state.MigrationModeImporting {
+		return errors.New("model is being imported as part of another migration")
+	}
+	return nil
 }
 
 func checkMachines(backend PrecheckBackend) error {
@@ -147,17 +189,99 @@ func checkMachines(backend PrecheckBackend) error {
 			return newStatusError("machine %s not started", machine.Id(), statusInfo.Status)
 		}
 
-		tools, err := machine.AgentTools()
-		if err != nil {
-			return errors.Annotatef(err, "retrieving tools for machine %s", machine.Id())
+		if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {
+			return errors.Annotatef(err, "retrieving machine %s reboot status", machine.Id())
+		} else if rebootAction != state.ShouldDoNothing {
+			return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		}
-		machineVersion := tools.Version.Number
-		if machineVersion != modelVersion {
-			return errors.Errorf("machine %s tools don't match model (%s != %s)",
-				machine.Id(), machineVersion, modelVersion)
+
+		if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+func checkApplications(backend PrecheckBackend) error {
+	modelVersion, err := backend.AgentVersion()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model version")
+	}
+	apps, err := backend.AllApplications()
+	if err != nil {
+		return errors.Annotate(err, "retrieving applications")
+	}
+	for _, app := range apps {
+		if app.Life() != state.Alive {
+			return errors.Errorf("application %s is %s", app.Name(), app.Life())
+		}
+		err := checkUnits(app, modelVersion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
+	units, err := app.AllUnits()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving units for %s", app.Name())
+	}
+	if len(units) < app.MinUnits() {
+		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
+	}
+
+	appCharmURL, _ := app.CharmURL()
+
+	for _, unit := range units {
+		if unit.Life() != state.Alive {
+			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
+		}
+
+		if err := checkUnitAgentStatus(unit); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
+			return errors.Trace(err)
+		}
+
+		unitCharmURL, _ := unit.CharmURL()
+		if appCharmURL.String() != unitCharmURL.String() {
+			return errors.Errorf("unit %s is upgrading", unit.Name())
+		}
+	}
+	return nil
+}
+
+func checkUnitAgentStatus(unit PrecheckUnit) error {
+	statusData, _ := common.UnitStatus(unit)
+	if statusData.Err != nil {
+		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
+	}
+	agentStatus := statusData.Status.Status
+	if agentStatus != status.StatusIdle {
+		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
+	}
+	return nil
+}
+
+func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
+	tools, err := agent.AgentTools()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving tools for %s", agentLabel)
+	}
+	agentVersion := tools.Version.Number
+	if agentVersion != modelVersion {
+		return errors.Errorf("%s tools don't match model (%s != %s)",
+			agentLabel, agentVersion, modelVersion)
+	}
+	return nil
+}
+
+type agentToolsGetter interface {
+	AgentTools() (*tools.Tools, error)
 }
 
 func newStatusError(format, id string, s status.Status) error {

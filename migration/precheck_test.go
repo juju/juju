@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -34,6 +35,39 @@ func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend.controllerBackend = newHappyBackend()
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*SourcePrecheckSuite) TestDyingModel(c *gc.C) {
+	backend := &fakeBackend{
+		modelLife: state.Dying,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "model is dying")
+}
+
+func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:     "spanner",
+				charmURL: "cs:spanner-3",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "spanner/0", charmURL: "cs:spanner-3"},
+					&fakeUnit{name: "spanner/1", charmURL: "cs:spanner-2"},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
+}
+
+func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
+	backend := &fakeBackend{
+		migrationMode: state.MigrationModeImporting,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "model is being imported as part of another migration")
 }
 
 func (*SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
@@ -76,6 +110,10 @@ func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
 	s.checkAgentVersionError(c, sourcePrecheck)
 }
 
+func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
+	s.checkRebootRequired(c, sourcePrecheck)
+}
+
 func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, sourcePrecheck)
 }
@@ -97,6 +135,108 @@ func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
+func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				life: state.Dying,
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "application foo is dying")
+}
+
+func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:     "foo",
+				minunits: 2,
+				units:    []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "application foo is below its minimum units threshold")
+}
+
+func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:  "foo",
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+			&fakeApp{
+				name: "bar",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "bar/0"},
+					&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-trusty-ppc64")},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit bar/1 tools don't match model (1.2.4 != 1.2.3)")
+}
+
+func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", life: state.Dead},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
+}
+
+func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", agentStatus: status.StatusFailed},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
+}
+
+func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", lost: true},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (lost)")
+}
+
+func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: &fakeBackend{
+			modelLife: state.Dying,
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: model is dying")
+}
+
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: &fakeBackend{
@@ -114,6 +254,14 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine . tools don't match model.+")
+}
+
+func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
+	backend := &fakeBackend{
+		controllerBackend: newBackendWithRebootingMachine(),
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is scheduled to reboot")
 }
 
 func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
@@ -160,6 +308,18 @@ func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
 	err := migration.TargetPrecheck(backend, version.MustParse("1.2.4"))
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
+}
+
+func (*TargetPrecheckSuite) TestDying(c *gc.C) {
+	backend := &fakeBackend{
+		modelLife: state.Dying,
+	}
+	err := migration.TargetPrecheck(backend, backendVersion)
+	c.Assert(err, gc.ErrorMatches, "model is dying")
+}
+
+func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
+	s.checkRebootRequired(c, targetPrecheck)
 }
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
@@ -210,6 +370,11 @@ type precheckBaseSuite struct {
 	testing.BaseSuite
 }
 
+func (*precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
+	err := runPrecheck(newBackendWithRebootingMachine())
+	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
+}
+
 func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRunner) {
 	backend := &fakeBackend{
 		agentVersionErr: errors.New("boom"),
@@ -229,6 +394,19 @@ func newHappyBackend() *fakeBackend {
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1"},
 		},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:  "foo",
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+			&fakeApp{
+				name: "bar",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "bar/0"},
+					&fakeUnit{name: "bar/1"},
+				},
+			},
+		},
 	}
 }
 
@@ -237,6 +415,14 @@ func newBackendWithMismatchingTools() *fakeBackend {
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-xenial-amd64")},
+		},
+	}
+}
+
+func newBackendWithRebootingMachine() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0", rebootAction: state.ShouldReboot},
 		},
 	}
 }
@@ -269,10 +455,13 @@ func newBackendWithProvisioningMachine() *fakeBackend {
 }
 
 type fakeBackend struct {
+	agentVersionErr error
+
+	modelLife     state.Life
+	migrationMode state.MigrationMode
+
 	cleanupNeeded bool
 	cleanupErr    error
-
-	agentVersionErr error
 
 	isUpgrading    bool
 	isUpgradingErr error
@@ -280,7 +469,18 @@ type fakeBackend struct {
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
 
+	apps       []migration.PrecheckApplication
+	allAppsErr error
+
 	controllerBackend *fakeBackend
+}
+
+func (b *fakeBackend) ModelLife() (state.Life, error) {
+	return b.modelLife, nil
+}
+
+func (b *fakeBackend) MigrationMode() (state.MigrationMode, error) {
+	return b.migrationMode, nil
 }
 
 func (b *fakeBackend) NeedsCleanup() (bool, error) {
@@ -299,6 +499,11 @@ func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
 }
 
+func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
+	return b.apps, b.allAppsErr
+
+}
+
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	if b.controllerBackend == nil {
 		return b, nil
@@ -312,6 +517,7 @@ type fakeMachine struct {
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
+	rebootAction   state.RebootAction
 }
 
 func (m *fakeMachine) Id() string {
@@ -350,4 +556,97 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	return &tools.Tools{
 		Version: v,
 	}, nil
+}
+
+func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
+	if m.rebootAction == "" {
+		return state.ShouldDoNothing, nil
+	}
+	return m.rebootAction, nil
+}
+
+type fakeApp struct {
+	name     string
+	life     state.Life
+	charmURL string
+	units    []migration.PrecheckUnit
+	minunits int
+}
+
+func (a *fakeApp) Name() string {
+	return a.name
+}
+
+func (a *fakeApp) Life() state.Life {
+	return a.life
+}
+
+func (a *fakeApp) CharmURL() (*charm.URL, bool) {
+	url := a.charmURL
+	if url == "" {
+		url = "cs:foo-1"
+	}
+	return charm.MustParseURL(url), false
+}
+
+func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
+	return a.units, nil
+}
+
+func (a *fakeApp) MinUnits() int {
+	return a.minunits
+}
+
+type fakeUnit struct {
+	name        string
+	version     version.Binary
+	life        state.Life
+	charmURL    string
+	agentStatus status.Status
+	lost        bool
+}
+
+func (u *fakeUnit) Name() string {
+	return u.name
+}
+
+func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
+	// Avoid having to specify the version when it's supposed to match
+	// the model config.
+	v := u.version
+	if v.Compare(version.Zero) == 0 {
+		v = backendVersionBinary
+	}
+	return &tools.Tools{
+		Version: v,
+	}, nil
+}
+
+func (u *fakeUnit) Life() state.Life {
+	return u.life
+}
+
+func (u *fakeUnit) CharmURL() (*charm.URL, bool) {
+	url := u.charmURL
+	if url == "" {
+		url = "cs:foo-1"
+	}
+	return charm.MustParseURL(url), false
+}
+
+func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
+	s := u.agentStatus
+	if s == "" {
+		// Avoid the need to specify this everywhere.
+		s = status.StatusIdle
+	}
+	return status.StatusInfo{Status: s}, nil
+}
+
+func (u *fakeUnit) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.StatusIdle}, nil
+}
+
+func (u *fakeUnit) AgentPresence() (bool, error) {
+	return !u.lost, nil
 }

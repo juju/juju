@@ -21,6 +21,24 @@ type precheckShim struct {
 	*state.State
 }
 
+// ModelLife implements PrecheckBackend.
+func (s *precheckShim) ModelLife() (state.Life, error) {
+	model, err := s.Model()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return model.Life(), nil
+}
+
+// MigrationStatus implements PrecheckBackend.
+func (s *precheckShim) MigrationMode() (state.MigrationMode, error) {
+	model, err := s.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return model.MigrationMode(), nil
+}
+
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
 	cfg, err := s.ModelConfig()
@@ -47,6 +65,19 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	return out, nil
 }
 
+// AllApplications implements PrecheckBackend.
+func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
+	apps, err := s.State.AllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckApplication, 0, len(apps))
+	for _, app := range apps {
+		out = append(out, &precheckAppShim{app})
+	}
+	return out, nil
+}
+
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	model, err := s.State.ControllerModel()
@@ -58,4 +89,22 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	return PrecheckShim(st), nil
+}
+
+// precheckAppShim implements PrecheckApplication.
+type precheckAppShim struct {
+	*state.Application
+}
+
+// AllUnits implements PrecheckApplication.
+func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
+	units, err := s.Application.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckUnit, 0, len(units))
+	for _, unit := range units {
+		out = append(out, unit)
+	}
+	return out, nil
 }
