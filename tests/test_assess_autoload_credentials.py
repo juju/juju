@@ -21,7 +21,8 @@ from utility import temp_dir
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = aac.parse_args(['/bin/juju'])
+        args = aac.parse_args(['env', '/bin/juju'])
+        self.assertEqual('env', args.env)
         self.assertEqual('/bin/juju', args.juju_bin)
 
     def test_help(self):
@@ -38,11 +39,20 @@ class TestParseArgs(TestCase):
         self.assertEqual(logging.DEBUG, args.verbose)
 
     def test_verbose_default_values(self):
+        env = 'env'
         juju_bin = '/bin/juju'
-        args = aac.parse_args([juju_bin])
+        log = '/tmp/logs'
+        temp_env_name = 'functional-autoload-credentials'
+        args = aac.parse_args([env, juju_bin, log, temp_env_name])
         self.assertEqual(
             args,
-            Namespace(juju_bin=juju_bin, verbose=logging.INFO))
+            Namespace(agent_stream=None, agent_url=None, bootstrap_host=None,
+                      debug=False, env='env', juju_bin='/bin/juju',
+                      keep_env=False, logs='/tmp/logs', machine=[],
+                      region=None, series=None,
+                      temp_env_name='functional-autoload-credentials',
+                      upload_tools=False, verbose=logging.INFO,
+                      ))
 
 
 class TestCredentialIdCounter(TestCase):

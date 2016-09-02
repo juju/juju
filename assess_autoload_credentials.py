@@ -22,6 +22,7 @@ from jujupy import (
     client_from_config,
     )
 from utility import (
+    add_basic_testing_arguments,
     configure_logging,
     ensure_dir,
     temp_dir,
@@ -500,15 +501,10 @@ def gce_credential_dict_generator():
 
 
 def parse_args(argv):
+    """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description="Test autoload-credentials command.")
-    parser.add_argument(
-        'juju_bin', help='Full path to the Juju binary.')
-    parser.add_argument(
-        '--verbose', action='store_const',
-        default=logging.INFO, const=logging.DEBUG,
-        help='Verbose test harness output.')
-
+    add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 
 
