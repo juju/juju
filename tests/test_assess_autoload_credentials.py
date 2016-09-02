@@ -2,7 +2,6 @@
 
 from argparse import Namespace
 import ConfigParser
-from contextlib import contextmanager
 import logging
 from mock import patch
 import os
@@ -358,16 +357,6 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
             aac.assert_credentials_contains_expected_results,
             cred_actual,
             cred_expected)
-
-
-@contextmanager
-def bogus_credentials():
-    client = fake_juju_client()
-    client.env.credentials = {
-        'credentials': {'bogus': {}}}
-    with patch('assess_autoload_credentials.client_from_config',
-               return_value=client):
-        yield
 
 
 def bogus_credentials():
