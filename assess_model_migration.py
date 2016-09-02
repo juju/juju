@@ -87,15 +87,17 @@ def wait_for_model(client, model_name, timeout=60):
       timeout.
 
     """
-    for _ in until_timeout(timeout):
-        models = client.get_models()
-        if model_name in [m['name'] for m in models['models']]:
-            return
-        sleep(1)
-    raise JujuAssertionError(
-        'Model \'{}\' failed to appear after {} seconds'.format(
-            model_name, timeout
-        ))
+    with client.check_timeouts():
+        with client.ignore_soft_deadline():
+            for _ in until_timeout(timeout):
+                models = client.get_models()
+                if model_name in [m['name'] for m in models['models']]:
+                    return
+                sleep(1)
+            raise JujuAssertionError(
+                'Model \'{}\' failed to appear after {} seconds'.format(
+                    model_name, timeout
+                ))
 
 
 def test_deployed_mongo_is_up(client):

@@ -33,6 +33,12 @@ WSANO_DATA = 11004
 
 
 @contextmanager
+def noop_context():
+    """A context manager that does nothing."""
+    yield
+
+
+@contextmanager
 def scoped_environ(new_environ=None):
     old_environ = dict(os.environ)
     try:

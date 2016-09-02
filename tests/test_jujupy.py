@@ -638,6 +638,17 @@ class TestClientFromConfig(ClientTest):
         self.assertEqual('/foo/bar', env.juju_home)
 
 
+@contextmanager
+def client_past_deadline():
+    client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+    soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+    now = soft_deadline + timedelta(seconds=1)
+    client._backend.soft_deadline = soft_deadline
+    with patch.object(client._backend, '_now', return_value=now,
+                      autospec=True):
+        yield client
+
+
 class TestEnvJujuClient(ClientTest):
 
     def test_no_duplicate_env(self):
@@ -1310,6 +1321,28 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(mock_ts.mock_calls, [call(.1), call(.1)])
         self.assertEqual(mock_ju.mock_calls, [call(60)])
 
+    def test_wait_for_resource_suppresses_deadline(self):
+        with client_past_deadline() as client:
+            real_check_timeouts = client.check_timeouts
+
+            def list_resources(service_or_unit):
+                with real_check_timeouts():
+                    return make_resource_list()
+
+            with patch.object(client, 'check_timeouts', autospec=True):
+                with patch.object(client, 'list_resources', autospec=True,
+                                  side_effect=list_resources):
+                        client.wait_for_resource('dummy-resource/foo',
+                                                 'app_unit')
+
+    def test_wait_for_resource_checks_deadline(self):
+        resource_list = make_resource_list()
+        with client_past_deadline() as client:
+            with patch.object(client, 'list_resources', autospec=True,
+                              return_value=resource_list):
+                with self.assertRaises(SoftDeadlineExceeded):
+                    client.wait_for_resource('dummy-resource/foo', 'app_unit')
+
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)
@@ -1370,6 +1403,15 @@ class TestEnvJujuClient(ClientTest):
         # until_timeout is called by status as well as status_until.
         self.assertEqual(ut_mock.mock_calls,
                          [call(60), call(30, start=70), call(60), call(60)])
+
+    def test_status_until_suppresses_deadline(self):
+        with self.only_status_checks() as client:
+            list(client.status_until(0))
+
+    def test_status_until_checks_deadline(self):
+        with self.status_does_not_check() as client:
+            with self.assertRaises(SoftDeadlineExceeded):
+                list(client.status_until(0))
 
     def test_add_ssh_machines(self):
         client = EnvJujuClient(JujuData('foo'), None, 'juju')
@@ -1516,69 +1558,60 @@ class TestEnvJujuClient(ClientTest):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
-    def make_ha_status(self, client):
-        return client.status_class({'machines': {
+    def make_ha_status(self):
+        return {'machines': {
             '0': {'controller-member-status': 'has-vote'},
             '1': {'controller-member-status': 'has-vote'},
             '2': {'controller-member-status': 'has-vote'},
-            }}, '')
+            }}
 
     @contextmanager
-    def only_status_checks(self, client, status=None):
+    def only_status_checks(self, status=None):
         """This context manager ensure only get_status calls check_timeouts.
 
         Everything else will get a mock object.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-        now = soft_deadline + timedelta(seconds=1)
-        client._backend.soft_deadline = soft_deadline
-        # This will work even after we patch check_timeouts below.
-        real_check_timeouts = client.check_timeouts
+        with client_past_deadline() as client:
+            # This will work even after we patch check_timeouts below.
+            real_check_timeouts = client.check_timeouts
 
-        def check(timeout=60, controller=False):
-            with real_check_timeouts():
-                return status
+            def check(timeout=60, controller=False):
+                with real_check_timeouts():
+                    return client.status_class(status, '')
 
-        with patch.object(client, 'get_status', autospec=True,
-                          side_effect=check):
-            with patch.object(client._backend, '_now', return_value=now,
-                              autospec=True):
+            with patch.object(client, 'get_status', autospec=True,
+                              side_effect=check):
                 with patch.object(client, 'check_timeouts', autospec=True):
-                    yield
+                    yield client
 
     def test__wait_for_status_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
 
         def translate(x):
             return None
 
-        with self.only_status_checks(client):
+        with self.only_status_checks() as client:
             client._wait_for_status(Mock(), translate)
 
     @contextmanager
-    def status_does_not_check(self, client, status=None):
+    def status_does_not_check(self, status=None):
         """This context manager ensure get_status never calls check_timeouts.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-        now = soft_deadline + timedelta(seconds=1)
-        client._backend.soft_deadline = soft_deadline
-        with patch.object(client, 'get_status', autospec=True,
-                          return_value=status):
-            with patch.object(client._backend, '_now', return_value=now,
-                              autospec=True):
-                yield
+        with client_past_deadline() as client:
+            status_obj = client.status_class(status, '')
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status_obj):
+                yield client
 
     def test__wait_for_status_checks_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
 
         def translate(x):
             return None
 
-        with self.status_does_not_check(client):
+        with self.status_does_not_check() as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client._wait_for_status(Mock(), translate)
 
@@ -2164,13 +2197,11 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_ha()
 
     def test_wait_for_ha_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with self.only_status_checks(client, self.make_ha_status(client)):
+        with self.only_status_checks(self.make_ha_status()) as client:
             client.wait_for_ha()
 
     def test_wait_for_ha_checks_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with self.status_does_not_check(client, self.make_ha_status(client)):
+        with self.status_does_not_check(self.make_ha_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_ha()
 
@@ -2206,8 +2237,8 @@ class TestEnvJujuClient(ClientTest):
                         'Timed out waiting for services to start.'):
                     client.wait_for_deploy_started()
 
-    def make_deployed_status(self, client):
-        return client.status_class({
+    def make_deployed_status(self):
+        return {
             'machines': {
                 '0': {'agent-state': 'started'},
             },
@@ -2218,18 +2249,14 @@ class TestEnvJujuClient(ClientTest):
                     }
                 }
             }
-        }, '')
+        }
 
     def test_wait_for_deploy_started_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with self.only_status_checks(client,
-                                     self.make_deployed_status(client)):
+        with self.only_status_checks(self.make_deployed_status()) as client:
             client.wait_for_deploy_started()
 
     def test_wait_for_deploy_started_checks_deadline(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with self.status_does_not_check(client,
-                                        self.make_deployed_status(client)):
+        with self.status_does_not_check(self.make_deployed_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_deploy_started()
 
