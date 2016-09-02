@@ -17,24 +17,13 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-/*
-# TODO - remaining prechecks
-
-## Target controller
-
-- target controller already has a model with the same owner:name
-- target controller already has a model with the same UUID
-  - what about if left over from previous failed attempt? check model migration status
-
-*/
-
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
 	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
-	GetModel(names.ModelTag) (PrecheckModel, error)
+	AllModels() ([]PrecheckModel, error)
 	IsUpgrading() (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
@@ -44,6 +33,9 @@ type PrecheckBackend interface {
 // PrecheckModel describes the state interface a model as needed by
 // the migration prechecks.
 type PrecheckModel interface {
+	UUID() string
+	Name() string
+	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
 }
@@ -131,15 +123,15 @@ func checkModel(backend PrecheckBackend) error {
 // PrecheckModelInfo holds information about a model to be migrated
 // for the purposes of prechecks.
 type PrecheckModelInfo struct {
-	Tag     names.ModelTag
+	UUID    string
 	Owner   names.UserTag
 	Name    string
 	Version version.Number
 }
 
 func (i *PrecheckModelInfo) validate() error {
-	if i.Tag.Id() == "" {
-		return errors.NotValidf("empty Tag")
+	if i.UUID == "" {
+		return errors.NotValidf("empty UUID")
 	}
 	if i.Owner.Name() == "" {
 		return errors.NotValidf("empty Owner")
@@ -171,8 +163,26 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo PrecheckModelInfo) error 
 			modelInfo.Version, controllerVersion)
 	}
 
-	err = checkController(backend)
-	return errors.Trace(err)
+	if err := checkController(backend); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Check for conflicts with existing models
+	models, err := backend.AllModels()
+	if err != nil {
+		return errors.Annotate(err, "retrieving models")
+	}
+	canonicalOwner := modelInfo.Owner.Canonical()
+	for _, model := range models {
+		if model.UUID() == modelInfo.UUID && model.MigrationMode() != state.MigrationModeImporting {
+			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
+		}
+		if model.Name() == modelInfo.Name && model.Owner().Canonical() == canonicalOwner {
+			return errors.Errorf("model named %q already exists", model.Name())
+		}
+	}
+
+	return nil
 }
 
 func checkController(backend PrecheckBackend) error {

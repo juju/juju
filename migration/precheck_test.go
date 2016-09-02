@@ -21,6 +21,7 @@ import (
 var (
 	modelName            = "model-name"
 	modelUUID            = "model-uuid"
+	modelOwner           = names.NewUserTag("owner")
 	backendVersionBinary = version.MustParseBinary("1.2.3-trusty-amd64")
 	backendVersion       = backendVersionBinary.Number
 )
@@ -284,8 +285,8 @@ var _ = gc.Suite(&TargetPrecheckSuite{})
 
 func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
 	s.modelInfo = migration.PrecheckModelInfo{
-		Tag:     names.NewModelTag(modelUUID),
-		Owner:   names.NewUserTag("owner"),
+		UUID:    modelUUID,
+		Owner:   modelOwner,
 		Name:    modelName,
 		Version: backendVersion,
 	}
@@ -359,6 +360,48 @@ func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
 	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+}
+
+func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
+	backend := newFakeBackend()
+	backend.models = []migration.PrecheckModel{
+		&fakeModel{
+			name:  modelName,
+			owner: modelOwner,
+		},
+	}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
+}
+
+func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
+	backend := newFakeBackend()
+	backend.models = []migration.PrecheckModel{
+		&fakeModel{name: modelName, owner: names.NewUserTag("someone.else")},
+	}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
+	backend := newFakeBackend()
+	backend.models = []migration.PrecheckModel{
+		&fakeModel{uuid: modelUUID},
+	}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
+}
+
+func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
+	backend := newFakeBackend()
+	backend.models = []migration.PrecheckModel{
+		&fakeModel{
+			uuid:          modelUUID,
+			migrationMode: state.MigrationModeImporting,
+		},
+	}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type precheckRunner func(migration.PrecheckBackend) error
@@ -460,7 +503,8 @@ func newFakeBackend() *fakeBackend {
 type fakeBackend struct {
 	agentVersionErr error
 
-	model fakeModel
+	model  fakeModel
+	models []migration.PrecheckModel
 
 	cleanupNeeded bool
 	cleanupErr    error
@@ -481,8 +525,8 @@ func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
 	return &b.model, nil
 }
 
-func (b *fakeBackend) GetModel(tag names.ModelTag) (migration.PrecheckModel, error) {
-	return nil, errors.New("not done yet")
+func (b *fakeBackend) AllModels() ([]migration.PrecheckModel, error) {
+	return b.models, nil
 }
 
 func (b *fakeBackend) NeedsCleanup() (bool, error) {
@@ -514,8 +558,23 @@ func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 }
 
 type fakeModel struct {
+	uuid          string
+	name          string
+	owner         names.UserTag
 	life          state.Life
 	migrationMode state.MigrationMode
+}
+
+func (m *fakeModel) UUID() string {
+	return m.uuid
+}
+
+func (m *fakeModel) Name() string {
+	return m.name
+}
+
+func (m *fakeModel) Owner() names.UserTag {
+	return m.owner
 }
 
 func (m *fakeModel) Life() state.Life {

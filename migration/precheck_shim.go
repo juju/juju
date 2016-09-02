@@ -6,7 +6,6 @@ package migration
 import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 )
@@ -24,25 +23,29 @@ type precheckShim struct {
 
 // Model implements PrecheckBackend.
 func (s *precheckShim) Model() (PrecheckModel, error) {
-	model, err := s.Model()
+	model, err := s.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
 }
 
-// GetModel implements PrecheckBackend.
-func (s *precheckShim) GetModel(tag names.ModelTag) (PrecheckModel, error) {
-	model, err := s.GetModel(tag)
+// AllModels implements PrecheckBackend.
+func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
+	models, err := s.State.AllModels()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return model, nil
+	out := make([]PrecheckModel, 0, len(models))
+	for _, model := range models {
+		out = append(out, model)
+	}
+	return out, nil
 }
 
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.ModelConfig()
+	cfg, err := s.State.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
