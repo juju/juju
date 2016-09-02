@@ -201,7 +201,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		RootStorageSize_: &rootstoragesize,
 		DateCreated_:     valid["datecreated"].(int64),
 		Source_:          valid["source"].(string),
-		Priority_:        valid["priority"].(int),
+		Priority_:        int(valid["priority"].(int64)),
 		ImageId_:         valid["imageid"].(string),
 	}
 

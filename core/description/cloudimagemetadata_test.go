@@ -50,7 +50,7 @@ func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C
 	c.Check(metadata.Arch(), gc.Equals, args.Arch)
 	c.Check(metadata.VirtType(), gc.Equals, args.VirtType)
 	c.Check(metadata.RootStorageType(), gc.Equals, args.RootStorageType)
-	c.Check(metadata.RootStorageSize(), gc.Equals, args.RootStorageSize)
+	c.Check(*metadata.RootStorageSize(), gc.Equals, args.RootStorageSize)
 	c.Check(metadata.Source(), gc.Equals, args.Source)
 	c.Check(metadata.Priority(), gc.Equals, args.Priority)
 	c.Check(metadata.ImageId(), gc.Equals, args.ImageId)
