@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
@@ -70,11 +71,11 @@ func (api *API) Prechecks(args params.TargetPrechecksArgs) error {
 	}
 	return migration.TargetPrecheck(
 		migration.PrecheckShim(api.state),
-		migration.PrecheckModelInfo{
-			UUID:    modelTag.Id(),
-			Owner:   ownerTag,
-			Name:    args.ModelName,
-			Version: args.AgentVersion,
+		coremigration.ModelInfo{
+			UUID:         modelTag.Id(),
+			Owner:        ownerTag,
+			Name:         args.ModelName,
+			AgentVersion: args.AgentVersion,
 		},
 	)
 }

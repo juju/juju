@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/migration"
+	coremigration "github.com/juju/juju/core/migration"
 )
 
 // NewClient returns a new Client based on an existing API connection.
@@ -23,12 +23,12 @@ type Client struct {
 	caller base.FacadeCaller
 }
 
-func (c *Client) Prechecks(model migration.PrecheckModelInfo) error {
+func (c *Client) Prechecks(model coremigration.ModelInfo) error {
 	args := params.TargetPrechecksArgs{
 		ModelTag:     names.NewModelTag(model.UUID).String(),
 		OwnerTag:     model.Owner.String(),
 		ModelName:    model.Name,
-		AgentVersion: model.Version,
+		AgentVersion: model.AgentVersion,
 	}
 	return c.caller.FacadeCall("Prechecks", args, nil)
 }

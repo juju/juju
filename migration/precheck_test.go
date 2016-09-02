@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -278,17 +279,17 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 
 type TargetPrecheckSuite struct {
 	precheckBaseSuite
-	modelInfo migration.PrecheckModelInfo
+	modelInfo coremigration.ModelInfo
 }
 
 var _ = gc.Suite(&TargetPrecheckSuite{})
 
 func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
-	s.modelInfo = migration.PrecheckModelInfo{
-		UUID:    modelUUID,
-		Owner:   modelOwner,
-		Name:    modelName,
-		Version: backendVersion,
+	s.modelInfo = coremigration.ModelInfo{
+		UUID:         modelUUID,
+		Owner:        modelOwner,
+		Name:         modelName,
+		AgentVersion: backendVersion,
 	}
 }
 
@@ -303,7 +304,7 @@ func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
 
 func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
 	backend := newFakeBackend()
-	s.modelInfo.Version = version.MustParse("1.2.4")
+	s.modelInfo.AgentVersion = version.MustParse("1.2.4")
 	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)

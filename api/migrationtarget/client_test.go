@@ -13,7 +13,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/migration"
+	coremigration "github.com/juju/juju/core/migration"
 )
 
 type ClientSuite struct {
@@ -38,11 +38,11 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	ownerTag := names.NewUserTag("owner")
 	vers := version.MustParse("1.2.3")
 
-	err := client.Prechecks(migration.PrecheckModelInfo{
-		UUID:    "uuid",
-		Owner:   ownerTag,
-		Name:    "name",
-		Version: vers,
+	err := client.Prechecks(coremigration.ModelInfo{
+		UUID:         "uuid",
+		Owner:        ownerTag,
+		Name:         "name",
+		AgentVersion: vers,
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 

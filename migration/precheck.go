@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -120,36 +121,11 @@ func checkModel(backend PrecheckBackend) error {
 	return nil
 }
 
-// PrecheckModelInfo holds information about a model to be migrated
-// for the purposes of prechecks.
-type PrecheckModelInfo struct {
-	UUID    string
-	Owner   names.UserTag
-	Name    string
-	Version version.Number
-}
-
-func (i *PrecheckModelInfo) validate() error {
-	if i.UUID == "" {
-		return errors.NotValidf("empty UUID")
-	}
-	if i.Owner.Name() == "" {
-		return errors.NotValidf("empty Owner")
-	}
-	if i.Name == "" {
-		return errors.NotValidf("empty Name")
-	}
-	if i.Version.Compare(version.Number{}) == 0 {
-		return errors.NotValidf("empty Version")
-	}
-	return nil
-}
-
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(backend PrecheckBackend, modelInfo PrecheckModelInfo) error {
-	if err := modelInfo.validate(); err != nil {
+func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) error {
+	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -158,9 +134,9 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo PrecheckModelInfo) error 
 		return errors.Annotate(err, "retrieving model version")
 	}
 
-	if controllerVersion.Compare(modelInfo.Version) < 0 {
+	if controllerVersion.Compare(modelInfo.AgentVersion) < 0 {
 		return errors.Errorf("model has higher version than target controller (%s > %s)",
-			modelInfo.Version, controllerVersion)
+			modelInfo.AgentVersion, controllerVersion)
 	}
 
 	if err := checkController(backend); err != nil {
