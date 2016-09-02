@@ -370,7 +370,17 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(
 	// Compare maps by key; order of slices does not matter
 	c.Assert(groups, gc.HasLen, len(metadata))
 	for source, expectedMetadata := range groups {
-		c.Assert(metadata[source], jc.SameContents, expectedMetadata)
+		actual := metadata[source]
+		if len(actual) == len(expectedMetadata) {
+			for i, image := range actual {
+				if expectedMetadata[i].DateCreated == 0 {
+					// Copy the creation date across as this will have been
+					// generated.
+					expectedMetadata[i].DateCreated = image.DateCreated
+				}
+			}
+		}
+		c.Assert(actual, jc.SameContents, expectedMetadata)
 	}
 }
 
