@@ -174,6 +174,15 @@ type MinionReports struct {
 // TargetPrechecksArgs details regarding pre-migration checks to
 // MigrationTarget.Prechecks.
 type TargetPrechecksArgs struct {
+	// ModelName is the name of the model to be migrated.
+	ModelName string `json:"model-name"`
+
+	// ModelTag is tag of the model to be migrated.
+	ModelTag string `json:"model-tag"`
+
+	// OwnerTag is the owner of the model to be migrated.
+	OwnerTag string `json:"model-owner-tag"`
+
 	// AgentVersion is the tools version of the model to be migrated.
 	AgentVersion version.Number `json:"agent-version"`
 }
