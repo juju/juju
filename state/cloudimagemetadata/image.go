@@ -245,6 +245,11 @@ func (m imagesMetadataDoc) metadata() Metadata {
 }
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
+	dateCreated := m.DateCreated
+	if dateCreated == 0 {
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		dateCreated = time.Now().UnixNano()
+	}
 	r := imagesMetadataDoc{
 		Id:              buildKey(m),
 		Stream:          m.Stream,
@@ -255,10 +260,9 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
 		ImageId:         m.ImageId,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		DateCreated: time.Now().UnixNano(),
-		Source:      m.Source,
-		Priority:    m.Priority,
+		DateCreated:     dateCreated,
+		Source:          m.Source,
+		Priority:        m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize

@@ -710,7 +710,7 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 	c.Check(image.Source(), gc.Equals, "test")
 	c.Check(image.Priority(), gc.Equals, 2)
 	c.Check(image.ImageId(), gc.Equals, "1")
-	c.Check(image.DateCreated(), gc.Equals, 2)
+	c.Check(image.DateCreated(), gc.Equals, int64(2))
 }
 
 func (s *MigrationExportSuite) TestActions(c *gc.C) {

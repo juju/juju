@@ -14,18 +14,18 @@ type cloudimagemetadataset struct {
 }
 
 type cloudimagemetadata struct {
-	Stream_          string `yaml:"stream"`
-	Region_          string `yaml:"region"`
-	Version_         string `yaml:"version"`
-	Series_          string `yaml:"series"`
-	Arch_            string `yaml:"arch"`
-	VirtType_        string `yaml:"virttype"`
-	RootStorageType_ string `yaml:"rootstoragetype"`
-	RootStorageSize_ uint64 `yaml:"rootstoragesize"`
-	DateCreated_     int64  `yaml:"datecreated"`
-	Source_          string `yaml:"source"`
-	Priority_        int    `yaml:"priority"`
-	ImageId_         string `yaml:"imageid"`
+	Stream_          string  `yaml:"stream"`
+	Region_          string  `yaml:"region"`
+	Version_         string  `yaml:"version"`
+	Series_          string  `yaml:"series"`
+	Arch_            string  `yaml:"arch"`
+	VirtType_        string  `yaml:"virttype"`
+	RootStorageType_ string  `yaml:"rootstoragetype"`
+	RootStorageSize_ *uint64 `yaml:"rootstoragesize,omitempty"`
+	DateCreated_     int64   `yaml:"datecreated"`
+	Source_          string  `yaml:"source"`
+	Priority_        int     `yaml:"priority"`
+	ImageId_         string  `yaml:"imageid"`
 }
 
 // Stream implements CloudImageMetadata.
@@ -64,7 +64,7 @@ func (i *cloudimagemetadata) RootStorageType() string {
 }
 
 // RootStorageSize implements CloudImageMetadata.
-func (i *cloudimagemetadata) RootStorageSize() uint64 {
+func (i *cloudimagemetadata) RootStorageSize() *uint64 {
 	return i.RootStorageSize_
 }
 
@@ -114,7 +114,7 @@ func newCloudImageMetadata(args CloudImageMetadataArgs) *cloudimagemetadata {
 		Arch_:            args.Arch,
 		VirtType_:        args.VirtType,
 		RootStorageType_: args.RootStorageType,
-		RootStorageSize_: args.RootStorageSize,
+		RootStorageSize_: &args.RootStorageSize,
 		DateCreated_:     args.DateCreated,
 		Source_:          args.Source,
 		Priority_:        args.Priority,
@@ -178,7 +178,9 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		"imageid":         schema.String(),
 	}
 	// Some values don't have to be there.
-	defaults := schema.Defaults{}
+	defaults := schema.Defaults{
+		"RootStorageSize": nil,
+	}
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -186,6 +188,8 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		return nil, errors.Annotatef(err, "cloudimagemetadata v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
+	rootstoragesize := valid["rootstoragesize"].(uint64)
+
 	cloudimagemetadata := &cloudimagemetadata{
 		Stream_:          valid["stream"].(string),
 		Region_:          valid["region"].(string),
@@ -194,7 +198,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		Arch_:            valid["arch"].(string),
 		VirtType_:        valid["virttype"].(string),
 		RootStorageType_: valid["rootstoragetype"].(string),
-		RootStorageSize_: valid["rootstoragesize"].(uint64),
+		RootStorageSize_: &rootstoragesize,
 		DateCreated_:     valid["datecreated"].(int64),
 		Source_:          valid["source"].(string),
 		Priority_:        valid["priority"].(int),
