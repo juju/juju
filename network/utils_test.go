@@ -144,7 +144,7 @@ func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
 	err := os.MkdirAll(fakeSysPath, 0700)
 	c.Check(err, jc.ErrorIsNil)
 
-	writeFakeUEvent := func(interfaceName string, lines ...string) {
+	writeFakeUEvent := func(interfaceName string, lines ...string) string {
 		fakeInterfacePath := filepath.Join(fakeSysPath, interfaceName)
 		err := os.MkdirAll(fakeInterfacePath, 0700)
 		c.Check(err, jc.ErrorIsNil)
@@ -153,6 +153,7 @@ func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
 		contents := strings.Join(lines, "\n")
 		err = ioutil.WriteFile(fakeUEventPath, []byte(contents), 0644)
 		c.Check(err, jc.ErrorIsNil)
+		return fakeUEventPath
 	}
 
 	result := network.ParseInterfaceType(fakeSysPath, "missing")
@@ -162,9 +163,13 @@ func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
 	result = network.ParseInterfaceType(fakeSysPath, "eth0")
 	c.Check(result, gc.Equals, network.UnknownInterface)
 
-	writeFakeUEvent("eth0.42", "DEVTYPE=vlan")
+	fakeUEventPath := writeFakeUEvent("eth0.42", "DEVTYPE=vlan")
 	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
 	c.Check(result, gc.Equals, network.VLAN_8021QInterface)
+
+	os.Chmod(fakeUEventPath, 0000) // permission denied error is OK
+	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
+	c.Check(result, gc.Equals, network.UnknownInterface)
 
 	writeFakeUEvent("bond0", "DEVTYPE=bond")
 	result = network.ParseInterfaceType(fakeSysPath, "bond0")

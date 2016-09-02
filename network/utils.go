@@ -197,6 +197,7 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 
 	data, err := ioutil.ReadFile(location)
 	if err != nil {
+		logger.Debugf("ignoring error reading %q: %v", location, err)
 		return UnknownInterface
 	}
 
