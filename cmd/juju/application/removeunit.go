@@ -51,7 +51,6 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 		Args:    "<unit> [...]",
 		Purpose: "Remove application units from the model.",
 		Doc:     removeUnitDoc,
-		Aliases: []string{"destroy-unit"},
 	}
 }
 

@@ -47,7 +47,6 @@ func (c *showMachineCommand) Info() *cmd.Info {
 		Args:    "<machineID> ...",
 		Purpose: "Show a machine's status.",
 		Doc:     showMachineCommandDoc,
-		Aliases: []string{"show-machines"},
 	}
 }
 

@@ -64,7 +64,6 @@ func (c *importKeysCommand) Info() *cmd.Info {
 		Args:    "<lp|gh>:<user identity> ...",
 		Purpose: usageImportSSHKeySummary,
 		Doc:     usageImportSSHKeyDetails,
-		Aliases: []string{"import-ssh-keys"},
 	}
 }
 

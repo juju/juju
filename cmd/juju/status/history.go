@@ -56,7 +56,7 @@ The statuses are available for the following types.
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status-history",
+		Name:    "show-status-log",
 		Args:    "<entity name>",
 		Purpose: "Output past statuses for the specified entity.",
 		Doc:     statusHistoryDoc,

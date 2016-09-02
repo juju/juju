@@ -51,7 +51,7 @@ func (c *listKeysCommand) Info() *cmd.Info {
 		Name:    "ssh-keys",
 		Purpose: usageListSSHKeysSummary,
 		Doc:     usageListSSHKeysDetails,
-		Aliases: []string{"list-ssh-keys", "ssh-key", "list-ssh-key"},
+		Aliases: []string{"list-ssh-keys"},
 	}
 }
 
