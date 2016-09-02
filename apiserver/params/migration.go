@@ -181,7 +181,7 @@ type TargetPrechecksArgs struct {
 	ModelTag string `json:"model-tag"`
 
 	// OwnerTag is the owner of the model to be migrated.
-	OwnerTag string `json:"model-owner-tag"`
+	OwnerTag string `json:"owner-tag"`
 
 	// AgentVersion is the tools version of the model to be migrated.
 	AgentVersion version.Number `json:"agent-version"`
