@@ -128,6 +128,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		},
 		10,
 		"-999",
+		0,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
