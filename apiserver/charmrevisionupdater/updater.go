@@ -139,7 +139,18 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
-	results, err := charmstore.LatestCharmInfo(client, charms, env.UUID())
+	metadata := map[string]string{
+		"environment_uuid": env.UUID(),
+		"cloud":            env.Cloud(),
+		"cloud_region":     env.CloudRegion(),
+	}
+	cloud, err := st.Cloud(env.Cloud())
+	if err != nil {
+		metadata["provider"] = "unknown"
+	} else {
+		metadata["provider"] = cloud.Type
+	}
+	results, err := charmstore.LatestCharmInfo(client, charms, metadata)
 	if err != nil {
 		return nil, err
 	}
