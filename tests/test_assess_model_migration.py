@@ -199,7 +199,6 @@ class TestWaitForModel(TestCase):
                 with patch.object(client, 'check_timeouts', autospec=True):
                     amm.wait_for_model(client, 'TestModelName')
 
-
     def test_checks_deadline(self):
         with client_past_deadline() as client:
 
