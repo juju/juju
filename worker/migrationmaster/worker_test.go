@@ -103,9 +103,9 @@ var (
 		{"masterFacade.Prechecks", nil},
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
-		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
-			ModelName:    modelName,
-			ModelTag:     modelTag.String(),
+		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
+			UUID:         modelUUID,
+			Name:         modelName,
 			OwnerTag:     ownerTag.String(),
 			AgentVersion: modelVersion,
 		}}},

@@ -46,10 +46,10 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 
-	expectedArg := params.TargetPrechecksArgs{
-		ModelTag:     names.NewModelTag("uuid").String(),
+	expectedArg := params.MigrationModelInfo{
+		UUID:         "uuid",
+		Name:         "name",
 		OwnerTag:     ownerTag.String(),
-		ModelName:    "name",
 		AgentVersion: vers,
 	}
 	stub.CheckCalls(c, []jujutesting.StubCall{

@@ -24,10 +24,10 @@ type Client struct {
 }
 
 func (c *Client) Prechecks(model coremigration.ModelInfo) error {
-	args := params.TargetPrechecksArgs{
-		ModelTag:     names.NewModelTag(model.UUID).String(),
+	args := params.MigrationModelInfo{
+		UUID:         model.UUID,
+		Name:         model.Name,
 		OwnerTag:     model.Owner.String(),
-		ModelName:    model.Name,
 		AgentVersion: model.AgentVersion,
 	}
 	return c.caller.FacadeCall("Prechecks", args, nil)

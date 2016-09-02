@@ -60,22 +60,18 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
-func (api *API) Prechecks(args params.TargetPrechecksArgs) error {
-	modelTag, err := names.ParseModelTag(args.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+func (api *API) Prechecks(model params.MigrationModelInfo) error {
+	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return migration.TargetPrecheck(
 		migration.PrecheckShim(api.state),
 		coremigration.ModelInfo{
-			UUID:         modelTag.Id(),
+			UUID:         model.UUID,
+			Name:         model.Name,
 			Owner:        ownerTag,
-			Name:         args.ModelName,
-			AgentVersion: args.AgentVersion,
+			AgentVersion: model.AgentVersion,
 		},
 	)
 }
