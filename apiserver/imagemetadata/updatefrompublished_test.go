@@ -252,6 +252,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Stream:          "released"},
 			10,
 			"ami-36745463",
+			0,
 		},
 		cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
@@ -264,6 +265,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Stream:          "released"},
 			10,
 			"ami-26745463",
+			0,
 		},
 	}
 
