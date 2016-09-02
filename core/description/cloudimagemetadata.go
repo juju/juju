@@ -179,7 +179,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"RootStorageSize": nil,
+		"rootstoragesize": nil,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
