@@ -127,7 +127,7 @@ type model struct {
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
 
-	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloudimagemetadataset"`
+	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloudimagemetadata"`
 
 	Actions_ actions `yaml:"actions"`
 
