@@ -111,7 +111,13 @@ type CharmMetric struct {
 	Description string `json:"description"`
 }
 
+// CharmPlan mirrors charm.Plan
+type CharmPlan struct {
+	Required bool `json:"required"`
+}
+
 // CharmMetrics mirrors charm.Metrics.
 type CharmMetrics struct {
 	Metrics map[string]CharmMetric `json:"metrics"`
+	Plan    CharmPlan              `json:"plan"`
 }

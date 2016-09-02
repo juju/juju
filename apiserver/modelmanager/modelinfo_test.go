@@ -226,6 +226,10 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
+type unitRetriever interface {
+	Unit(name string) (*state.Unit, error)
+}
+
 type mockState struct {
 	gitjujutesting.Stub
 
@@ -234,6 +238,7 @@ type mockState struct {
 	common.ToolsStorageGetter
 	common.BlockGetter
 	metricsender.MetricsSenderBackend
+	unitRetriever
 
 	modelUUID       string
 	controllerUUID  string

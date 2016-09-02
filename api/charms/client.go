@@ -249,7 +249,12 @@ func convertCharmMetrics(metrics *params.CharmMetrics) *charm.Metrics {
 	}
 	return &charm.Metrics{
 		Metrics: convertCharmMetricMap(metrics.Metrics),
+		Plan:    convertCharmPlan(metrics.Plan),
 	}
+}
+
+func convertCharmPlan(plan params.CharmPlan) *charm.Plan {
+	return &charm.Plan{Required: plan.Required}
 }
 
 func convertCharmMetricMap(metrics map[string]params.CharmMetric) map[string]charm.Metric {

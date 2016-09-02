@@ -208,6 +208,9 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &params.CharmMetrics{
+		Plan: params.CharmPlan{
+			Required: true,
+		},
 		Metrics: map[string]params.CharmMetric{
 			"pings": params.CharmMetric{
 				Type:        "gauge",
