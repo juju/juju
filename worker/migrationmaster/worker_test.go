@@ -42,8 +42,12 @@ var _ = gc.Suite(&Suite{})
 
 var (
 	fakeModelBytes = []byte("model")
-	modelTag       = names.NewModelTag("model-uuid")
+	modelUUID      = "model-uuid"
+	modelTag       = names.NewModelTag(modelUUID)
 	modelTagString = modelTag.String()
+	modelName      = "model-name"
+	ownerTag       = names.NewUserTag("owner")
+	modelVersion   = version.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenCallController = jujutesting.StubCall{
@@ -89,6 +93,18 @@ var (
 		[]interface{}{
 			params.ModelArgs{ModelTag: modelTagString},
 		},
+	}
+	prechecksCalls = []jujutesting.StubCall{
+		{"masterFacade.Prechecks", nil},
+		{"masterFacade.ModelInfo", nil},
+		apiOpenCallController,
+		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			ModelName:    modelName,
+			ModelTag:     modelTag.String(),
+			OwnerTag:     ownerTag.String(),
+			AgentVersion: modelVersion,
+		}}},
+		connCloseCall,
 	}
 )
 
@@ -182,7 +198,10 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
 		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
-			AgentVersion: version.MustParse("1.2.4"),
+			ModelName:    modelName,
+			ModelTag:     modelTag.String(),
+			OwnerTag:     ownerTag.String(),
+			AgentVersion: modelVersion,
 		}}},
 		connCloseCall,
 		{"masterFacade.WatchMinionReports", nil},
@@ -394,6 +413,9 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
 		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			ModelName:    modelName,
+			ModelTag:     modelTag.String(),
+			OwnerTag:     ownerTag.String(),
 			AgentVersion: version.MustParse("1.2.4"),
 		}}},
 		connCloseCall,
@@ -475,6 +497,9 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 		{"masterFacade.ModelInfo", nil},
 		apiOpenCallController,
 		{"MigrationTarget.Prechecks", []interface{}{params.TargetPrechecksArgs{
+			ModelName:    modelName,
+			ModelTag:     modelTag.String(),
+			OwnerTag:     ownerTag.String(),
 			AgentVersion: version.MustParse("1.2.4"),
 		}}},
 		connCloseCall,
@@ -938,9 +963,10 @@ func (c *stubMasterFacade) ModelInfo() (coremigration.ModelInfo, error) {
 		return coremigration.ModelInfo{}, c.modelInfoErr
 	}
 	return coremigration.ModelInfo{
-		UUID:         modelTag.Id(),
-		Name:         "model-name",
-		AgentVersion: version.MustParse("1.2.4"),
+		UUID:         modelUUID,
+		Name:         modelName,
+		Owner:        ownerTag,
+		AgentVersion: modelVersion,
 	}, nil
 }
 
@@ -1048,3 +1074,10 @@ func nullUploadBinaries(migration.UploadBinariesConfig) error {
 var fakeCharmDownloader = struct{ migration.CharmDownloader }{}
 
 var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}
+
+func joinCalls(allCalls ...[]jujutesting.StubCall) (out []jujutesting.StubCall) {
+	for _, calls := range allCalls {
+		out = append(out, calls...)
+	}
+	return
+}
