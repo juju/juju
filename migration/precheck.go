@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
@@ -31,17 +32,24 @@ import (
 // for migration prechecks.
 type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
-	ModelLife() (state.Life, error)
-	MigrationMode() (state.MigrationMode, error)
 	NeedsCleanup() (bool, error)
+	Model() (PrecheckModel, error)
+	GetModel(names.ModelTag) (PrecheckModel, error)
 	IsUpgrading() (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
 }
 
-// PrecheckMachine describes state interface for a machine needed by
-// migration prechecks.
+// PrecheckModel describes the state interface a model as needed by
+// the migration prechecks.
+type PrecheckModel interface {
+	Life() state.Life
+	MigrationMode() state.MigrationMode
+}
+
+// PrecheckMachine describes the state interface for a machine needed
+// by migration prechecks.
 type PrecheckMachine interface {
 	Id() string
 	AgentTools() (*tools.Tools, error)
@@ -51,8 +59,8 @@ type PrecheckMachine interface {
 	ShouldRebootOrShutdown() (state.RebootAction, error)
 }
 
-// PrecheckApplication describes state interface for an application
-// needed by migration prechecks.
+// PrecheckApplication describes the state interface for an
+// application needed by migration prechecks.
 type PrecheckApplication interface {
 	Name() string
 	Life() state.Life
@@ -77,12 +85,7 @@ type PrecheckUnit interface {
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(backend PrecheckBackend) error {
-	// Check the model.
-	if err := checkModelLife(backend); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := checkMigrationMode(backend); err != nil {
+	if err := checkModel(backend); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -111,10 +114,29 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	return nil
 }
 
+func checkModel(backend PrecheckBackend) error {
+	model, err := backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+	if model.Life() != state.Alive {
+		return errors.Errorf("model is %s", model.Life())
+	}
+	if model.MigrationMode() == state.MigrationModeImporting {
+		return errors.New("model is being imported as part of another migration")
+	}
+	return nil
+}
+
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error {
+func TargetPrecheck(
+	backend PrecheckBackend,
+	modelName string,
+	modelUUID string,
+	modelVersion version.Number,
+) error {
 	controllerVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
@@ -130,8 +152,12 @@ func TargetPrecheck(backend PrecheckBackend, modelVersion version.Number) error 
 }
 
 func checkController(backend PrecheckBackend) error {
-	if err := checkModelLife(backend); err != nil {
-		return errors.Trace(err)
+	model, err := backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+	if model.Life() != state.Alive {
+		return errors.Errorf("model is %s", model.Life())
 	}
 
 	if upgrading, err := backend.IsUpgrading(); err != nil {
@@ -140,26 +166,8 @@ func checkController(backend PrecheckBackend) error {
 		return errors.New("upgrade in progress")
 	}
 
-	err := checkMachines(backend)
+	err = checkMachines(backend)
 	return errors.Trace(err)
-}
-
-func checkModelLife(backend PrecheckBackend) error {
-	if life, err := backend.ModelLife(); err != nil {
-		return errors.Annotate(err, "retrieving model life")
-	} else if life != state.Alive {
-		return errors.Errorf("model is %s", life)
-	}
-	return nil
-}
-
-func checkMigrationMode(backend PrecheckBackend) error {
-	if mode, err := backend.MigrationMode(); err != nil {
-		return errors.Annotate(err, "retrieving model life")
-	} else if mode == state.MigrationModeImporting {
-		return errors.New("model is being imported as part of another migration")
-	}
-	return nil
 }
 
 func checkMachines(backend PrecheckBackend) error {
