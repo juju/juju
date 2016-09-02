@@ -41,14 +41,14 @@ class TestParseArgs(TestCase):
     def test_verbose_default_values(self):
         env = 'env'
         juju_bin = '/bin/juju'
-        log = '/tmp/logs'
         temp_env_name = 'functional-autoload-credentials'
-        args = aac.parse_args([env, juju_bin, log, temp_env_name])
+        with temp_dir() as log:
+            args = aac.parse_args([env, juju_bin, log, temp_env_name])
         self.assertEqual(
             args,
             Namespace(agent_stream=None, agent_url=None, bootstrap_host=None,
                       debug=False, env='env', juju_bin='/bin/juju',
-                      keep_env=False, logs='/tmp/logs', machine=[],
+                      keep_env=False, logs=log, machine=[],
                       region=None, series=None,
                       temp_env_name='functional-autoload-credentials',
                       upload_tools=False, verbose=logging.INFO,
@@ -370,17 +370,22 @@ def bogus_credentials():
         yield
 
 
+def bogus_credentials():
+    client = fake_juju_client()
+    client.env.credentials = {
+        'credentials': {'bogus': {}}}
+    return client
+
+
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
 
     def test_existing_credentials_openstack(self):
-        with bogus_credentials():
             aac.ensure_autoload_credentials_stores_details(
-                'foo', aac.openstack_envvar_test_details)
+                bogus_credentials(), aac.openstack_envvar_test_details)
 
 
 class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):
 
     def test_overwrite_existing(self):
-        with bogus_credentials():
             aac.ensure_autoload_credentials_overwrite_existing(
-                'foo', aac.openstack_envvar_test_details)
+                bogus_credentials(), aac.openstack_envvar_test_details)

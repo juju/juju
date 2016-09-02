@@ -59,32 +59,37 @@ class CredentialIdCounter:
         return cls._counter[provider_name].next()
 
 
-def assess_autoload_credentials(juju_bin):
-    test_scenarios = [
-        ('AWS using environment variables', aws_envvar_test_details),
-        ('AWS using credentials file', aws_directory_test_details),
-        ('OS using environment variables', openstack_envvar_test_details),
-        ('OS using credentials file', openstack_directory_test_details),
-        ('GCE using envvar with credentials file',
-         gce_envvar_with_file_test_details),
-        ('GCE using credentials file',
-         gce_file_test_details),
-        ]
+def assess_autoload_credentials(args):
+    test_scenarios = {
+        'ec2': [('AWS using environment variables', aws_envvar_test_details),
+                ('AWS using credentials file', aws_directory_test_details)],
+        'openstack':
+            [('OS using environment variables', openstack_envvar_test_details),
+             ('OS using credentials file', openstack_directory_test_details)],
+        'gce': [('GCE using envvar with credentials file',
+                 gce_envvar_with_file_test_details),
+                ('GCE using credentials file',
+                 gce_file_test_details)],
+        }
 
-    for scenario_name, scenario_setup in test_scenarios:
+    client = client_from_config(args.env, args.juju_bin, False)
+    provider = client.env.config['type']
+
+    for scenario_name, scenario_setup in test_scenarios[provider]:
         log.info('* Starting test scenario: {}'.format(scenario_name))
-        ensure_autoload_credentials_stores_details(juju_bin, scenario_setup)
+        ensure_autoload_credentials_stores_details(client, scenario_setup)
 
-    for scenario_name, scenario_setup in test_scenarios:
+    for scenario_name, scenario_setup in test_scenarios[provider]:
         log.info(
             '* Starting [overwrite] test, scenario: {}'.format(scenario_name))
         ensure_autoload_credentials_overwrite_existing(
-            juju_bin, scenario_setup)
+            client, scenario_setup)
 
 
-def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
+def ensure_autoload_credentials_stores_details(client, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
+    XXX
     :param juju_bin: The full path to the juju binary to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
@@ -96,7 +101,6 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     with temp_dir() as tmp_dir:
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client = client_from_config('local', juju_bin, False)
         client.env.juju_home = tmp_juju_home
         client.env.load_yaml()
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
@@ -113,9 +117,10 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
             cloud_details.expected_details)
 
 
-def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
+def ensure_autoload_credentials_overwrite_existing(client, cloud_details_fn):
     """Storing credentials using autoload-credentials must overwrite existing.
 
+    XXX
     :param juju_bin: The full path to the juju binary to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
@@ -127,7 +132,6 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
     with temp_dir() as tmp_dir:
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
-        client = client_from_config('local', juju_bin, False)
         client.env.juju_home = tmp_juju_home
         client.env.load_yaml()
 
@@ -512,7 +516,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    assess_autoload_credentials(args.juju_bin)
+    assess_autoload_credentials(args)
     return 0
 
 
