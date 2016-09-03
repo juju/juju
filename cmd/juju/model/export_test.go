@@ -10,25 +10,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// NewGetCommandForTest returns a GetCommand with the api provided as specified.
-func NewGetCommandForTest(api GetModelAPI) cmd.Command {
-	cmd := &getCommand{
-		api: api,
-	}
-	return modelcmd.Wrap(cmd)
-}
-
-// NewSetCommandForTest returns a SetCommand with the api provided as specified.
-func NewSetCommandForTest(api SetModelAPI) cmd.Command {
-	cmd := &setCommand{
-		api: api,
-	}
-	return modelcmd.Wrap(cmd)
-}
-
-// NewUnsetCommandForTest returns an UnsetCommand with the api provided as specified.
-func NewUnsetCommandForTest(api UnsetModelAPI) cmd.Command {
-	cmd := &unsetCommand{
+// NewConfigCommandForTest returns a configCommand with the api
+// provided as specified.
+func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
+	cmd := &configCommand{
 		api: api,
 	}
 	return modelcmd.Wrap(cmd)

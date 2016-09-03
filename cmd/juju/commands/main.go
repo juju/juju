@@ -301,12 +301,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewShowMachineCommand())
 
 	// Manage model
-	r.Register(model.NewGetCommand())
+	r.Register(model.NewConfigCommand())
 	r.Register(model.NewModelDefaultsCommand())
 	r.Register(model.NewSetModelDefaultsCommand())
 	r.Register(model.NewUnsetModelDefaultsCommand())
-	r.Register(model.NewSetCommand())
-	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
 	r.Register(model.NewUsersCommand())
