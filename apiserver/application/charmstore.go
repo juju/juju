@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 
@@ -63,12 +64,14 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return nil
 	}
 
-	// Open a charm store client.
-	repo, err := openCSRepo(args)
+	modelConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
-	modelConfig, err := st.ModelConfig()
+	transport := config.SpecializeCSTransport(modelConfig, st.ModelUUID())
+
+	// Open a charm store client.
+	repo, err := openCSRepo(args, transport)
 	if err != nil {
 		return err
 	}
@@ -121,8 +124,8 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	return StoreCharmArchive(st, ca)
 }
 
-func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
-	csClient, err := openCSClient(args)
+func openCSRepo(args params.AddCharmWithAuthorization, transport http.RoundTripper) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(args, transport)
 	if err != nil {
 		return nil, err
 	}
@@ -130,14 +133,19 @@ func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, err
 	return repo, nil
 }
 
-func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, error) {
+func openCSClient(args params.AddCharmWithAuthorization, transport http.RoundTripper) (*csclient.Client, error) {
 	csURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
 		return nil, err
 	}
+	httpClient := httpbakery.NewHTTPClient()
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	httpClient.Transport = transport
 	csParams := csclient.Params{
 		URL:        csURL.String(),
-		HTTPClient: httpbakery.NewHTTPClient(),
+		HTTPClient: httpClient,
 	}
 
 	if args.CharmStoreMacaroon != nil {
