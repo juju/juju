@@ -1948,6 +1948,41 @@ class TestEnvJujuClient(ClientTest):
             m_get_juju_output.assert_called_once_with(
                 'show-model', '--format', 'yaml', 'foo:foo', include_e=False)
 
+    def test_get_controller_model_uuid_returns_uuid(self):
+        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
+        controller_model_uuid = '1c908e10-4f07-459a-8419-bb61553a4660'
+        yaml_string = dedent("""\
+        controller:
+          name: controller
+          model-uuid: {model}
+          controller-uuid: {controller}
+          controller-name: localtempveebers
+          owner: admin@local
+          cloud: lxd
+          region: localhost
+          type: lxd
+          life: alive
+          status:
+            current: available
+            since: 59 seconds ago
+          users:
+            admin@local:
+              display-name: admin
+              access: admin
+              last-connection: just now""".format(
+                  model=controller_model_uuid,
+                  controller=controller_uuid))
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output') as m_get_juju_output:
+            m_get_juju_output.return_value = yaml_string
+            self.assertEqual(
+                client.get_controller_model_uuid(),
+                controller_model_uuid
+            )
+            m_get_juju_output.assert_called_once_with(
+                'show-model', 'controller',
+                '--format', 'yaml', include_e=False)
+
     def test_get_controller_uuid_returns_uuid(self):
         controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
         yaml_string = dedent("""\

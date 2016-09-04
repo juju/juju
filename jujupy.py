@@ -1577,6 +1577,12 @@ class EnvJujuClient:
         output = yaml.safe_load(output_yaml)
         return output[name]['details']['uuid']
 
+    def get_controller_model_uuid(self):
+        output_yaml = self.get_juju_output(
+            'show-model', 'controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output['controller']['model-uuid']
+
     def get_controller_client(self):
         """Return a client for the controller model.  May return self.
 

@@ -104,7 +104,7 @@ def ensure_enabling_log_forwarding_forwards_previous_messages(
       way.
 
     """
-    uuid = dummy.get_controller_uuid()
+    uuid = dummy.get_controller_model_uuid()
 
     enable_log_forwarding(dummy)
     check_string = get_assert_regex(uuid)
