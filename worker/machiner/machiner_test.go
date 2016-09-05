@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -54,7 +55,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
-	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 }
@@ -291,7 +292,7 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
-	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 }
