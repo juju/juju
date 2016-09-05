@@ -6,6 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -52,6 +53,9 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 }
 
 type Machine interface {
+	Id() string
+	ContainerType() instance.ContainerType
+	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
 	ForceDestroy() error
 	Destroy() error

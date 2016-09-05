@@ -89,23 +89,6 @@ func NewControllerAPI(
 	}, nil
 }
 
-func (s *ControllerAPI) hasReadAccess() (bool, error) {
-	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
-func (s *ControllerAPI) hasWriteAccess() (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canWrite, err
-}
-
 func (s *ControllerAPI) checkHasAdmin() error {
 	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
 	if err != nil {

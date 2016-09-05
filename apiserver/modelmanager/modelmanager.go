@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -111,6 +112,14 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 		return nil
 	}
 	return common.ErrPerm
+}
+
+func (s *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, modelTag)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -620,7 +629,47 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, common.ErrPerm
 	}
 
+	canSeeMachines := authorizedOwner
+	if !canSeeMachines {
+		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+	}
+	if canSeeMachines {
+		if err := fillMachineHardwareInfo(&info, st); err != nil {
+			return params.ModelInfo{}, err
+		}
+	}
 	return info, nil
+}
+
+func fillMachineHardwareInfo(info *params.ModelInfo, st common.ModelManagerBackend) error {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info.Machines = make([]params.ModelMachineInfo, len(machines))
+	for i, m := range machines {
+		info.Machines[i].Id = m.Id()
+		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
+			continue
+		}
+		// Only include cores for physical machines.
+		hw, err := m.HardwareCharacteristics()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if hw != nil && hw.CpuCores != nil {
+			info.Machines[i].Cores = hw.CpuCores
+			info.Machines[i].Arch = hw.Arch
+			info.Machines[i].Mem = hw.Mem
+			info.Machines[i].RootDisk = hw.RootDisk
+			info.Machines[i].CpuPower = hw.CpuPower
+			info.Machines[i].Tags = hw.Tags
+			info.Machines[i].AvailabilityZone = hw.AvailabilityZone
+		}
+	}
+	return nil
 }
 
 // ModifyModelAccess changes the model access granted to users.

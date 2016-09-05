@@ -273,7 +273,18 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	if c.listUUID {
 		fmt.Fprint(tw, "\tUUID")
 	}
-	fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
+	// Only owners, or users with write access or above get to see machines and cores.
+	haveMachineInfo := false
+	for _, m := range modelSet.Models {
+		if haveMachineInfo = len(m.Machines) > 0; haveMachineInfo {
+			break
+		}
+	}
+	if haveMachineInfo {
+		fmt.Fprint(tw, "\tOWNER\tSTATUS\tMACHINES\tCORES\tACCESS\tLAST CONNECTION\n")
+	} else {
+		fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
+	}
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
 		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
@@ -295,7 +306,23 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 			userForAccess = names.NewUserTag(c.user)
 		}
 		access := model.Users[userForAccess.Canonical()].Access
-		fmt.Fprintf(tw, "\t%s\t%s\t%s\t%s\n", model.Owner, model.Status.Current, access, lastConnection)
+		fmt.Fprintf(tw, "\t%s\t%s", model.Owner, model.Status.Current)
+		if haveMachineInfo {
+			machineInfo := "-"
+			if len(model.Machines) > 0 {
+				machineInfo = fmt.Sprintf("%d", len(model.Machines))
+			}
+			cores := uint64(0)
+			for _, m := range model.Machines {
+				cores += m.Cores
+			}
+			coresInfo := "-"
+			if cores > 0 {
+				coresInfo = fmt.Sprintf("%d", cores)
+			}
+			fmt.Fprintf(tw, "\t%s\t%s", machineInfo, coresInfo)
+		}
+		fmt.Fprintf(tw, "\t%s\t%s\n", access, lastConnection)
 	}
 	tw.Flush()
 	return nil
