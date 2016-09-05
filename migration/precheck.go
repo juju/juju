@@ -150,6 +150,9 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	}
 	canonicalOwner := modelInfo.Owner.Canonical()
 	for _, model := range models {
+		// If the model is importing then it's probably left behind
+		// from a previous migration attempt. It will be removed
+		// before the next import.
 		if model.UUID() == modelInfo.UUID && model.MigrationMode() != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
