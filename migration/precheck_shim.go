@@ -21,27 +21,31 @@ type precheckShim struct {
 	*state.State
 }
 
-// ModelLife implements PrecheckBackend.
-func (s *precheckShim) ModelLife() (state.Life, error) {
-	model, err := s.Model()
+// Model implements PrecheckBackend.
+func (s *precheckShim) Model() (PrecheckModel, error) {
+	model, err := s.State.Model()
 	if err != nil {
-		return 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return model.Life(), nil
+	return model, nil
 }
 
-// MigrationStatus implements PrecheckBackend.
-func (s *precheckShim) MigrationMode() (state.MigrationMode, error) {
-	model, err := s.Model()
+// AllModels implements PrecheckBackend.
+func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
+	models, err := s.State.AllModels()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return model.MigrationMode(), nil
+	out := make([]PrecheckModel, 0, len(models))
+	for _, model := range models {
+		out = append(out, model)
+	}
+	return out, nil
 }
 
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.ModelConfig()
+	cfg, err := s.State.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}

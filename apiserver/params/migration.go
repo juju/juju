@@ -99,6 +99,7 @@ type MasterMigrationStatus struct {
 type MigrationModelInfo struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
+	OwnerTag     string         `json:"owner-tag"`
 	AgentVersion version.Number `json:"agent-version"`
 }
 
@@ -169,11 +170,4 @@ type MinionReports struct {
 	// Failed contains the tags of all agents which have reported a
 	// failed to complete a given migration phase.
 	Failed []string `json:"failed"`
-}
-
-// TargetPrechecksArgs details regarding pre-migration checks to
-// MigrationTarget.Prechecks.
-type TargetPrechecksArgs struct {
-	// AgentVersion is the tools version of the model to be migrated.
-	AgentVersion version.Number `json:"agent-version"`
 }
