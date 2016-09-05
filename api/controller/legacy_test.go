@@ -8,12 +8,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -40,10 +37,6 @@ type legacySuite struct {
 }
 
 var _ = gc.Suite(&legacySuite{})
-
-func (s *legacySuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
 
 func (s *legacySuite) OpenAPI(c *gc.C) *controller.Client {
 	return controller.NewClient(s.OpenControllerAPI(c))
@@ -274,85 +267,4 @@ func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, description.Access("addmodel"))
-}
-
-func (s *legacySuite) TestInitiateMigration(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	_, err := st.LatestMigration()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-	spec := controller.MigrationSpec{
-		ModelUUID:            st.ModelUUID(),
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetPassword:       "secret",
-	}
-
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	id, err := sysManager.InitiateMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedId := st.ModelUUID() + ":0"
-	c.Check(id, gc.Equals, expectedId)
-
-	// Check database.
-	mig, err := st.LatestMigration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, expectedId)
-}
-
-func (s *legacySuite) TestInitiateMigrationError(c *gc.C) {
-	spec := controller.MigrationSpec{
-		ModelUUID:            randomUUID(), // Model doesn't exist.
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetPassword:       "secret",
-	}
-
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	id, err := sysManager.InitiateMigration(spec)
-	c.Check(id, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
-}
-
-func (s *legacySuite) TestInitiateMigrationWithMacaroon(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
-	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
-	c.Assert(err, jc.ErrorIsNil)
-
-	spec := controller.MigrationSpec{
-		ModelUUID:            st.ModelUUID(),
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetMacaroon:       string(macJSON),
-	}
-
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	_, err = sysManager.InitiateMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check database.
-	mig, err := st.LatestMigration()
-	c.Assert(err, jc.ErrorIsNil)
-	target, err := mig.TargetInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(target.Macaroon, jc.DeepEquals, mac)
-}
-
-func randomUUID() string {
-	return utils.MustNewUUID().String()
 }
