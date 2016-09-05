@@ -323,8 +323,11 @@ def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
     # or one after the other etc.
     deploy_start = datetime.utcnow()
 
+    # We possibly want 2 timing details here, one for started (i.e. agents
+    # ready) and the other for the workloads to be complete.
     client.deploy(bundle_name)
     client.wait_for_started()
+    client.wait_for_workloads()
 
     deploy_end = datetime.utcnow()
     deploy_timing = TimingData(deploy_start, deploy_end)
