@@ -15,6 +15,7 @@ from textwrap import dedent
 
 from deploy_stack import (
     BootstrapManager,
+    client_from_config,
     wait_for_state_server_to_shutdown,
     )
 from jujucharm import (
@@ -29,7 +30,6 @@ from jujupy import (
     get_machine_dns_name,
     LXC_MACHINE,
     LXD_MACHINE,
-    SimpleEnvironment,
     uniquify_local,
     )
 from substrate import (
@@ -204,16 +204,13 @@ class IndustrialTest:
         :param stage_attemps: List of stages to attempt.
         :param debug: If True, use juju --debug logging.
         """
-        old_env = SimpleEnvironment.from_config(env)
-        old_env.set_model_name(env + '-old')
-        old_client = EnvJujuClient.by_version(old_env, debug=debug)
-        new_env = SimpleEnvironment.from_config(env)
-        new_env.set_model_name(env + '-new')
+        old_client = client_from_config(env, None, debug=debug)
+        old_client.env.set_model_name(env + '-old')
+        new_client = client_from_config(env, new_juju_path, debug=debug)
+        new_client.env.set_model_name(env + '-new')
         if new_agent_url is not None:
-            new_env.config['tools-metadata-url'] = new_agent_url
-        uniquify_local(new_env)
-        new_client = EnvJujuClient.by_version(new_env, new_juju_path,
-                                              debug=debug)
+            new_client.env.config['tools-metadata-url'] = new_agent_url
+        uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
     def __init__(self, old_client, new_client, stage_attempts):
@@ -449,8 +446,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
             raise CannotUpgradeToClient(client)
-        return client.by_version(
-            client.env, bootstrap_path, client.debug)
+        return client.clone_path_cls(bootstrap_path)
 
     def iter_steps(self, client):
         """Use a BootstrapAttempt with a different client."""
@@ -611,16 +607,16 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        admin_client = client.get_admin_client()
-        admin_client.enable_ha()
+        controller_client = client.get_controller_client()
+        controller_client.enable_ha()
         yield results
-        admin_client.wait_for_ha()
+        controller_client.wait_for_ha()
         results['result'] = True
         yield results
 
 
 @contextmanager
-def wait_until_removed(client, to_remove, timeout=30):
+def wait_until_removed(client, to_remove, timeout=300):
     """Wait until none of the machines are listed in status.
 
     This is implemented as a context manager so that it is coroutine-friendly.
@@ -745,7 +741,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 client.juju('remove-machine', ('--force', unit['machine']))
         remove_timeout = {
             LXC_MACHINE: 30,
-            LXD_MACHINE: 60,
+            LXD_MACHINE: 900,
         }[machine_type]
         with wait_until_removed(client, container_machines,
                                 timeout=remove_timeout):
@@ -773,21 +769,22 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
-        admin_client = client.get_admin_client()
-        backup_file = admin_client.backup()
+        controller_client = client.get_controller_client()
+        backup_file = controller_client.backup()
         try:
-            status = admin_client.get_status()
+            status = controller_client.get_status()
             instance_id = status.get_instance_id('0')
-            host = get_machine_dns_name(admin_client, '0')
-            terminate_instances(admin_client.env, [instance_id])
+            host = get_machine_dns_name(controller_client, '0')
+            terminate_instances(controller_client.env, [instance_id])
             yield results
-            wait_for_state_server_to_shutdown(host, admin_client, instance_id)
+            wait_for_state_server_to_shutdown(
+                host, controller_client, instance_id)
             yield results
-            with admin_client.restore_backup(backup_file):
+            with controller_client.restore_backup(backup_file):
                 yield results
         finally:
             os.unlink(backup_file)
-        with wait_for_started(admin_client):
+        with wait_for_started(controller_client):
             yield results
         results['result'] = True
         yield results
@@ -989,12 +986,11 @@ def maybe_write_json(filename, results):
 
 
 def run_single(args):
-    env = SimpleEnvironment.from_config(args.env)
+    upgrade_client = client_from_config(args.env, juju_path=None,
+                                        debug=args.debug)
+    env = upgrade_client.env
     env.set_model_name(env.environment + '-single')
-    upgrade_client = EnvJujuClient.by_version(
-        env, debug=args.debug)
-    client = EnvJujuClient.by_version(
-        env,  args.new_juju_path, debug=args.debug)
+    client = upgrade_client.clone_path_cls(args.new_juju_path)
     try:
         for suite in args.suite:
             factory = suites[suite]

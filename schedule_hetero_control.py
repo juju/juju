@@ -13,7 +13,6 @@ from jujuci import (
     )
 from utility import (
     find_candidates,
-    get_auth_token,
     get_candidates_path,
     )
 
@@ -82,13 +81,11 @@ def calculate_jobs(root, schedule_all=False):
 
 
 def build_jobs(credentials, root, jobs):
-    jenkins = Jenkins('http://localhost:8080', *credentials)
-    token = get_auth_token(root, 'compatibility-control')
+    jenkins = Jenkins('http://juju-ci.vapour.ws:8080', *credentials)
     os_str = {"ubuntu": "", "osx": "-osx", "windows": "-windows"}
     for job in jobs:
         jenkins.build_job(
-            'compatibility-control{}'.format(os_str[job['client_os']]), job,
-            token=token)
+            'compatibility-control{}'.format(os_str[job['client_os']]), job)
 
 
 def main():

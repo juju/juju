@@ -10,14 +10,12 @@ clean:
 	find . -name '*.pyc' -delete
 apt-update:
 	sudo apt-get -qq update
-juju-ci-tools.common_0.1.1-0_all.deb: apt-update
+juju-ci-tools.common_0.1.2-0_all.deb: apt-update
 	sudo apt-get install -y equivs
 	equivs-build juju-ci-tools-common
-install-deps: juju-ci-tools.common_0.1.1-0_all.deb apt-update
-	sudo dpkg -i juju-ci-tools.common_0.1.1-0_all.deb || true
+install-deps: juju-ci-tools.common_0.1.2-0_all.deb apt-update
+	sudo dpkg -i juju-ci-tools.common_0.1.2-0_all.deb || true
 	sudo apt-get install -y -f
-	sudo apt-get install -y juju-local juju juju-quickstart juju-deployer
-	sudo apt-get install -y python-pip
 	./pipdeps.py install
 name=NAMEHERE
 assess_file=assess_$(name).py

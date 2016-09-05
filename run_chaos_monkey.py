@@ -7,8 +7,7 @@ from time import sleep
 
 from chaos import MonkeyRunner
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
+    client_from_config,
 )
 from utility import configure_logging
 
@@ -79,7 +78,7 @@ def main():
     """
     configure_logging(logging.INFO)
     args = get_args()
-    client = EnvJujuClient.by_version(SimpleEnvironment.from_config(args.env))
+    client = client_from_config(args.env, None)
     monkey_runner = MonkeyRunner(
         args.env, client, service=args.service,
         health_checker=args.health_checker,

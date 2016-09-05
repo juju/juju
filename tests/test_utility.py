@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import socket
+from tempfile import mkdtemp
 from time import time
 import warnings
 
@@ -29,7 +30,6 @@ from utility import (
     _find_candidates,
     find_candidates,
     find_latest_branch_candidates,
-    get_auth_token,
     get_candidates_path,
     get_deb_arch,
     get_winrm_certs,
@@ -40,6 +40,8 @@ from utility import (
     split_address_port,
     temp_dir,
     until_timeout,
+    unqualified_model_name,
+    qualified_model_name,
     wait_for_port,
     )
 
@@ -96,14 +98,6 @@ def write_config(root, job_name, token):
     with open(job_config, 'w') as config:
         config.write(
             '<config><authToken>{}</authToken></config>'.format(token))
-
-
-class TestGetAuthToken(TestCase):
-
-    def test_get_auth_token(self):
-        with temp_dir() as root:
-            write_config(root, 'job-name', 'foo')
-            self.assertEqual(get_auth_token(root, 'job-name'), 'foo')
 
 
 class TestFindCandidates(TestCase):
@@ -361,6 +355,31 @@ class TestGetDebArch(TestCase):
 
 class TestAddBasicTestingArguments(TestCase):
 
+    def test_no_args(self):
+        cmd_line = []
+        parser = add_basic_testing_arguments(ArgumentParser())
+        with patch('utility.os.getenv', return_value=''):
+            args = parser.parse_args(cmd_line)
+        self.assertEqual(args.env, 'lxd')
+        self.assertEqual(args.juju_bin, '/usr/bin/juju')
+
+        self.assertEqual(args.logs, None)
+
+        temp_env_name_arg = args.temp_env_name.split("-")
+        temp_env_name_ts = temp_env_name_arg[1]
+        self.assertEqual(temp_env_name_arg[0:1], ['testutility'])
+        self.assertTrue(temp_env_name_ts,
+                        datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
+        self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
+
+    def test_default_binary(self):
+        cmd_line = []
+        with patch('utility.os.getenv', return_value='/tmp'):
+            with patch('utility.os.path.isfile', return_value=True):
+                parser = add_basic_testing_arguments(ArgumentParser())
+                args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/tmp/bin/juju')
+
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser())
@@ -407,6 +426,31 @@ class TestAddBasicTestingArguments(TestCase):
                 parser.parse_args(cmd_line)
             self.assertEqual(warned, [])
         self.assertEqual("", self.log_stream.getvalue())
+
+    def test_no_warn_on_help(self):
+        """Special case help should not generate a warning"""
+        with warnings.catch_warnings(record=True) as warned:
+            with patch('utility.sys.exit'):
+                parser = add_basic_testing_arguments(ArgumentParser())
+                cmd_line = ['-h']
+                parser.parse_args(cmd_line)
+                cmd_line = ['--help']
+                parser.parse_args(cmd_line)
+
+            self.assertEqual(warned, [])
+
+    def test_warn_on_nonexistent_directory_creation(self):
+        with warnings.catch_warnings(record=True) as warned:
+            log_dir = mkdtemp()
+            os.rmdir(log_dir)
+            cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
+            self.assertEqual(len(warned), 1)
+            self.assertRegexpMatches(
+                str(warned[0].message),
+                r"Not a directory " + log_dir)
+            self.assertEqual("", self.log_stream.getvalue())
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
@@ -571,3 +615,68 @@ class TestTempDir(TestCase):
             self.assertTrue(os.path.exists(d))
             self.assertTrue(os.path.exists(os.path.join(d, "a-file")))
         self.assertFalse(os.path.exists(p))
+
+
+class TestUnqualifiedModelName(TestCase):
+
+    def test_returns_just_model_name_when_passed_qualifed_full_username(self):
+        self.assertEqual(
+            unqualified_model_name('admin@local/default'),
+            'default'
+        )
+
+    def test_returns_just_model_name_when_passed_just_username(self):
+        self.assertEqual(
+            unqualified_model_name('admin/default'),
+            'default'
+        )
+
+    def test_returns_just_model_name_when_passed_no_username(self):
+        self.assertEqual(
+            unqualified_model_name('default'),
+            'default'
+        )
+
+
+class TestQualifiedModelName(TestCase):
+
+    def test_raises_valueerror_when_model_name_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('', 'admin@local')
+
+    def test_raises_valueerror_when_owner_name_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('default', '')
+
+    def test_raises_valueerror_when_owner_and_model_blank(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('', '')
+
+    def test_raises_valueerror_when_owner_name_doesnt_match_model_owner(self):
+        with self.assertRaises(ValueError):
+            qualified_model_name('test/default', 'admin')
+
+        with self.assertRaises(ValueError):
+            qualified_model_name('test@local/default', 'admin@local')
+
+    def test_returns_qualified_model_name_with_plain_model_name(self):
+        self.assertEqual(
+            qualified_model_name('default', 'admin@local'),
+            'admin@local/default'
+        )
+
+        self.assertEqual(
+            qualified_model_name('default', 'admin'),
+            'admin/default'
+        )
+
+    def test_returns_qualified_model_name_with_model_name_with_owner(self):
+        self.assertEqual(
+            qualified_model_name('admin@local/default', 'admin@local'),
+            'admin@local/default'
+        )
+
+        self.assertEqual(
+            qualified_model_name('admin/default', 'admin'),
+            'admin/default'
+        )

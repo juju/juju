@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from jujuconfig import get_juju_home
 from jujupy import (
     bootstrap_from_env,
+    client_from_config,
     EnvJujuClient,
     SimpleEnvironment,
 )
@@ -20,13 +21,14 @@ def main():
                         help='Override an environment option with value.')
     parser.add_argument('--name', help='A name for the new environment.')
     args = parser.parse_args()
-    env = SimpleEnvironment.from_config(args.env)
+    client = client_from_config(args.env, None)
+    env = client.env
     if args.name is not None:
         env.set_model_name(args.name)
     for option in args.option:
         key, value = option.split('=', 1)
         env.config[key] = value
-    bootstrap_from_env(get_juju_home(), EnvJujuClient.by_version(env))
+    bootstrap_from_env(get_juju_home(), client)
 
 
 if __name__ == '__main__':

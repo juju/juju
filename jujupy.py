@@ -10,7 +10,7 @@ from contextlib import (
 )
 from copy import deepcopy
 from cStringIO import StringIO
-from datetime import timedelta
+from datetime import datetime
 import errno
 from itertools import chain
 import json
@@ -40,9 +40,11 @@ from utility import (
     JujuResourceTimeout,
     pause,
     quote,
+    qualified_model_name,
     scoped_environ,
     split_address_port,
     temp_dir,
+    unqualified_model_name,
     until_timeout,
 )
 
@@ -76,6 +78,14 @@ for super_cmd in [SYSTEM, CONTROLLER]:
 log = logging.getLogger("jujupy")
 
 
+class IncompatibleConfigClass(Exception):
+    """Raised when a client is initialised with the wrong config class."""
+
+
+class SoftDeadlineExceeded(Exception):
+    """Raised when an overall client operation takes too long."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -86,6 +96,14 @@ def get_timeout_prefix(duration, timeout_path=None):
     if timeout_path is None:
         timeout_path = get_timeout_path()
     return (sys.executable, timeout_path, '%.2f' % duration, '--')
+
+
+def get_teardown_timeout(client):
+    """Return the timeout need byt the client to teardown resources."""
+    if client.env.config['type'] == 'azure':
+        return 1800
+    else:
+        return 600
 
 
 def parse_new_state_server_from_error(error):
@@ -157,10 +175,10 @@ def coalesce_agent_status(agent_item):
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
-    env = SimpleEnvironment.from_config(env_name)
+    client = client_from_config(env_name, juju_path, debug)
     if temp_env_name is not None:
-        env.set_model_name(temp_env_name)
-    return EnvJujuClient.by_version(env, juju_path, debug)
+        client.env.set_model_name(temp_env_name)
+    return client
 
 
 class CannotConnectEnv(subprocess.CalledProcessError):
@@ -205,6 +223,195 @@ def temp_yaml_file(yaml_dict):
         yield temp_file.name
     finally:
         os.unlink(temp_file.name)
+
+
+class SimpleEnvironment:
+
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
+        self.user_name = None
+        if controller is None:
+            controller = Controller(environment)
+        self.controller = controller
+        self.environment = environment
+        self.config = config
+        self.juju_home = juju_home
+        if self.config is not None:
+            self.local = bool(self.config.get('type') == 'local')
+            self.kvm = (
+                self.local and bool(self.config.get('container') == 'kvm'))
+            self.maas = bool(self.config.get('type') == 'maas')
+            self.joyent = bool(self.config.get('type') == 'joyent')
+        else:
+            self.local = False
+            self.kvm = False
+            self.maas = False
+            self.joyent = False
+
+    def clone(self, model_name=None):
+        config = deepcopy(self.config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = unqualified_model_name(model_name)
+        result = self.__class__(model_name, config, self.juju_home,
+                                self.controller)
+        result.local = self.local
+        result.kvm = self.kvm
+        result.maas = self.maas
+        result.joyent = self.joyent
+        return result
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.environment != other.environment:
+            return False
+        if self.config != other.config:
+            return False
+        if self.local != other.local:
+            return False
+        if self.maas != other.maas:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
+
+    def set_model_name(self, model_name, set_controller=True):
+        if set_controller:
+            self.controller.name = model_name
+        self.environment = model_name
+        self.config['name'] = unqualified_model_name(model_name)
+
+    @classmethod
+    def from_config(cls, name):
+        return cls._from_config(name)
+
+    @classmethod
+    def _from_config(cls, name):
+        config, selected = get_selected_environment(name)
+        if name is None:
+            name = selected
+        return cls(name, config)
+
+    def needs_sudo(self):
+        return self.local
+
+    @contextmanager
+    def make_jes_home(self, juju_home, dir_name, new_config):
+        home_path = jes_home_path(juju_home, dir_name)
+        if os.path.exists(home_path):
+            rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_yaml(home_path, new_config)
+        yield home_path
+
+    def dump_yaml(self, path, config):
+        dump_environments_yaml(path, config)
+
+
+class JujuData(SimpleEnvironment):
+
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
+        if juju_home is None:
+            juju_home = get_juju_home()
+        super(JujuData, self).__init__(environment, config, juju_home,
+                                       controller)
+        self.credentials = {}
+        self.clouds = {}
+
+    def clone(self, model_name=None):
+        result = super(JujuData, self).clone(model_name)
+        result.credentials = deepcopy(self.credentials)
+        result.clouds = deepcopy(self.clouds)
+        return result
+
+    @classmethod
+    def from_env(cls, env):
+        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data.load_yaml()
+        return juju_data
+
+    def load_yaml(self):
+        try:
+            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+                self.credentials = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read credentials file: {}'.format(str(e)))
+            self.credentials = {}
+        try:
+            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+                self.clouds = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read clouds file: {}'.format(str(e)))
+            # Default to an empty clouds file.
+            self.clouds = {'clouds': {}}
+
+    @classmethod
+    def from_config(cls, name):
+        juju_data = cls._from_config(name)
+        juju_data.load_yaml()
+        return juju_data
+
+    def dump_yaml(self, path, config):
+        """Dump the configuration files to the specified path.
+
+        config is unused, but is accepted for compatibility with
+        SimpleEnvironment and make_jes_home().
+        """
+        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
+            yaml.safe_dump(self.credentials, f)
+        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
+            yaml.safe_dump(self.clouds, f)
+
+    def find_endpoint_cloud(self, cloud_type, endpoint):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != cloud_type:
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def get_cloud(self):
+        provider = self.config['type']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
+            return 'aws-china'
+        if provider not in ('maas', 'openstack'):
+            return {
+                'ec2': 'aws',
+                'gce': 'google',
+            }.get(provider, provider)
+        if provider == 'maas':
+            endpoint = self.config['maas-server']
+        elif provider == 'openstack':
+            endpoint = self.config['auth-url']
+        return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_region(self):
+        provider = self.config['type']
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                return self.config['location'].replace(' ', '').lower()
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider == 'manual':
+            return self.config['bootstrap-host']
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
 
 
 class Status:
@@ -344,13 +551,39 @@ class Juju2Backend:
     Uses -m to specify models, uses JUJU_DATA to specify home directory.
     """
 
-    def __init__(self, full_path, version, feature_flags, debug):
+    def __init__(self, full_path, version, feature_flags, debug,
+                 soft_deadline=None):
         self._version = version
         self._full_path = full_path
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
+        self.soft_deadline = soft_deadline
+        self._ignore_soft_deadline = False
+
+    def _now(self):
+        return datetime.utcnow()
+
+    @contextmanager
+    def _check_timeouts(self):
+        # If an exception occurred, we don't want to replace it with
+        # SoftDeadlineExceeded.
+        yield
+        if self.soft_deadline is None or self._ignore_soft_deadline:
+            return
+        if self._now() > self.soft_deadline:
+            raise SoftDeadlineExceeded('Operation exceeded deadline.')
+
+    @contextmanager
+    def ignore_soft_deadline(self):
+        """Ignore the client deadline.  For cleanup code."""
+        old_val = self._ignore_soft_deadline
+        self._ignore_soft_deadline = True
+        try:
+            yield
+        finally:
+            self._ignore_soft_deadline = old_val
 
     def clone(self, full_path, version, debug, feature_flags):
         if version is None:
@@ -436,7 +669,8 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            rval = call_func(args)
+            with self._check_timeouts():
+                rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -464,14 +698,16 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
-            proc = subprocess.Popen(full_args)
+            with self._check_timeouts():
+                proc = subprocess.Popen(full_args)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None):
+    def get_juju_output(self, command, args, used_feature_flags, juju_home,
+                        model=None, timeout=None, user_name=None,
+                        merge_stderr=False):
         args = self.full_args(command, args, model, timeout)
         env = self.shell_environ(used_feature_flags, juju_home)
         log.debug(args)
@@ -480,15 +716,16 @@ class Juju2Backend:
         with scoped_environ(env):
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE)
-            sub_output, sub_error = proc.communicate()
+                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
+            with self._check_timeouts():
+                sub_output, sub_error = proc.communicate()
             log.debug(sub_output)
             if proc.returncode != 0:
                 log.debug(sub_error)
                 e = subprocess.CalledProcessError(
                     proc.returncode, args, sub_output)
                 e.stderr = sub_error
-                if (
+                if sub_error and (
                     'Unable to connect to environment' in sub_error or
                         'MissingOrIncorrectVersionHeader' in sub_error or
                         '307: Temporary Redirect' in sub_error):
@@ -560,6 +797,51 @@ class Juju1XBackend(Juju2A2Backend):
                 args)
 
 
+def get_client_class(version):
+    if version.startswith('1.16'):
+        raise Exception('Unsupported juju: %s' % version)
+    elif re.match('^1\.22[.-]', version):
+        client_class = EnvJujuClient22
+    elif re.match('^1\.24[.-]', version):
+        client_class = EnvJujuClient24
+    elif re.match('^1\.25[.-]', version):
+        client_class = EnvJujuClient25
+    elif re.match('^1\.26[.-]', version):
+        client_class = EnvJujuClient26
+    elif re.match('^1\.', version):
+        client_class = EnvJujuClient1X
+    # Ensure alpha/beta number matches precisely
+    elif re.match('^2\.0-alpha1([^\d]|$)', version):
+        client_class = EnvJujuClient2A1
+    elif re.match('^2\.0-alpha2([^\d]|$)', version):
+        client_class = EnvJujuClient2A2
+    elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
+        client_class = EnvJujuClient2B2
+    elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
+        client_class = EnvJujuClient2B3
+    elif re.match('^2\.0-(beta7)([^\d]|$)', version):
+        client_class = EnvJujuClient2B7
+    elif re.match('^2\.0-beta8([^\d]|$)', version):
+        client_class = EnvJujuClient2B8
+    # between beta 9-14
+    elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
+        client_class = EnvJujuClient2B9
+    else:
+        client_class = EnvJujuClient
+    return client_class
+
+
+def client_from_config(config, juju_path, debug=False):
+    version = EnvJujuClient.get_version(juju_path)
+    client_class = get_client_class(version)
+    env = client_class.config_class.from_config(config)
+    if juju_path is None:
+        full_path = EnvJujuClient.get_full_path()
+    else:
+        full_path = os.path.abspath(juju_path)
+    return client_class(env, version, full_path, debug=debug)
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -583,7 +865,15 @@ class EnvJujuClient:
 
     default_backend = Juju2Backend
 
+    config_class = JujuData
+
     status_class = Status
+
+    agent_metadata_url = 'agent-metadata-url'
+
+    model_permissions = frozenset(['read', 'write', 'admin'])
+
+    controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
     @classmethod
     def preferred_container(cls):
@@ -598,6 +888,12 @@ class EnvJujuClient:
         if juju_path is None:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
+
+    def check_timeouts(self):
+        return self._backend._check_timeouts()
+
+    def ignore_soft_deadline(self):
+        return self._backend.ignore_soft_deadline()
 
     def enable_feature(self, flag):
         """Enable juju feature by setting the given flag.
@@ -643,41 +939,15 @@ class EnvJujuClient:
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
-    @classmethod
-    def by_version(cls, env, juju_path=None, debug=False):
-        version = cls.get_version(juju_path)
+    def clone_path_cls(self, juju_path):
+        """Clone using the supplied path to determine the class."""
+        version = self.get_version(juju_path)
+        cls = get_client_class(version)
         if juju_path is None:
-            full_path = cls.get_full_path()
+            full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        elif re.match('^1\.22[.-]', version):
-            client_class = EnvJujuClient22
-        elif re.match('^1\.24[.-]', version):
-            client_class = EnvJujuClient24
-        elif re.match('^1\.25[.-]', version):
-            client_class = EnvJujuClient25
-        elif re.match('^1\.26[.-]', version):
-            client_class = EnvJujuClient26
-        elif re.match('^1\.', version):
-            client_class = EnvJujuClient1X
-        # Ensure alpha/beta number matches precisely
-        elif re.match('^2\.0-alpha1([^\d]|$)', version):
-            client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-alpha2([^\d]|$)', version):
-            client_class = EnvJujuClient2A2
-        elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
-            client_class = EnvJujuClient2B2
-        elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
-            client_class = EnvJujuClient2B3
-        elif re.match('^2\.0-(beta7)([^\d]|$)', version):
-            client_class = EnvJujuClient2B7
-        elif re.match('^2\.0-beta8([^\d]|$)', version):
-            client_class = EnvJujuClient2B8
-        else:
-            client_class = EnvJujuClient
-        return client_class(env, version, full_path, debug=debug)
+        return self.clone(version=version, full_path=full_path, cls=cls)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
@@ -704,11 +974,11 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
-    def _cmd_model(self, include_e, admin):
-        if admin:
+    def _cmd_model(self, include_e, controller):
+        if controller:
             return '{controller}:{model}'.format(
                 controller=self.env.controller.name,
-                model=self.get_admin_model_name())
+                model=self.get_controller_model_name())
         elif self.env is None or not include_e:
             return None
         else:
@@ -717,8 +987,8 @@ class EnvJujuClient:
                 model=self.model_name)
 
     def _full_args(self, command, sudo, args,
-                   timeout=None, include_e=True, admin=False):
-        model = self._cmd_model(include_e, admin)
+                   timeout=None, include_e=True, controller=False):
+        model = self._cmd_model(include_e, controller)
         # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout)
 
@@ -804,9 +1074,7 @@ class EnvJujuClient:
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:
@@ -880,12 +1148,16 @@ class EnvJujuClient:
             raise AssertionError(
                 'Controller and environment names should not vary (yet)')
 
+    def update_user_name(self):
+        self.env.user_name = 'admin@local'
+
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
@@ -894,6 +1166,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
+            self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
                 log.info('Waiting for bootstrap of {}.'.format(
@@ -906,7 +1179,7 @@ class EnvJujuClient:
     def destroy_model(self):
         exit_status = self.juju(
             'destroy-model', (self.env.environment, '-y',),
-            include_e=False, timeout=timedelta(minutes=10).total_seconds())
+            include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
     def kill_controller(self):
@@ -914,7 +1187,7 @@ class EnvJujuClient:
         seen_cmd = self.get_jes_command()
         self.juju(
             _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
-            include_e=False, check=False, timeout=600)
+            include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -924,17 +1197,18 @@ class EnvJujuClient:
         <environment> flag will be placed after <command> and before args.
         """
         model = self._cmd_model(kwargs.get('include_e', True),
-                                kwargs.get('admin', False))
-        timeout = kwargs.get('timeout')
+                                kwargs.get('controller', False))
+        pass_kwargs = dict(
+            (k, kwargs[k]) for k in kwargs if k in ['timeout', 'merge_stderr'])
         return self._backend.get_juju_output(
             command, args, self.used_feature_flags, self.env.juju_home,
-            model, timeout)
+            model, user_name=self.env.user_name, **pass_kwargs)
 
     def show_status(self):
         """Print the status to output."""
         self.juju(self._show_status, ('--format', 'yaml'))
 
-    def get_status(self, timeout=60, raw=False, admin=False, *args):
+    def get_status(self, timeout=60, raw=False, controller=False, *args):
         """Get the current status as a dict."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
@@ -943,7 +1217,8 @@ class EnvJujuClient:
                     return self.get_juju_output(self._show_status, *args)
                 return self.status_class.from_text(
                     self.get_juju_output(
-                        self._show_status, '--format', 'yaml', admin=admin))
+                        self._show_status, '--format', 'yaml',
+                        controller=controller))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -975,7 +1250,8 @@ class EnvJujuClient:
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
-        return yaml.safe_load(self.get_juju_output('get-model-config'))
+        return yaml.safe_load(
+            self.get_juju_output('get-model-config', '--format', 'yaml'))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
@@ -986,16 +1262,23 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-model-config', (option_value,))
 
-    def set_testing_tools_metadata_url(self):
-        url = self.get_env_option('tools-metadata-url')
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
+
+    def get_agent_metadata_url(self):
+        return self.get_env_option(self.agent_metadata_url)
+
+    def set_testing_agent_metadata_url(self):
+        url = self.get_agent_metadata_url()
         if 'testing' not in url:
             testing_url = url.replace('/tools', '/testing/tools')
-            self.set_env_option('tools-metadata-url', testing_url)
+            self.set_env_option(self.agent_metadata_url, testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
@@ -1018,7 +1301,7 @@ class EnvJujuClient:
           `args`.
 
         """
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.expect(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, timeout, extra_env)
@@ -1034,12 +1317,13 @@ class EnvJujuClient:
         return stringified_timings
 
     def juju_async(self, command, args, include_e=True, timeout=None):
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.juju_async(command, args, self.used_feature_flags,
                                         self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, resource=None, storage=None):
+               service=None, force=False, resource=None,
+               storage=None, constraints=None):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -1053,6 +1337,8 @@ class EnvJujuClient:
             args.extend(['--resource', resource])
         if storage is not None:
             args.extend(['--storage', storage])
+        if constraints is not None:
+            args.extend(['--constraints', constraints])
         return self.juju('deploy', tuple(args))
 
     def attach(self, service, resource):
@@ -1067,18 +1353,21 @@ class EnvJujuClient:
 
     def wait_for_resource(self, resource_id, service_or_unit, timeout=60):
         log.info('Waiting for resource. Resource id:{}'.format(resource_id))
-        for _ in until_timeout(timeout):
-            resources = self.list_resources(service_or_unit)['resources']
-            for resource in resources:
-                if resource['expected']['resourceid'] == resource_id:
-                    if (resource['expected']['fingerprint'] ==
-                            resource['unit']['fingerprint']):
-                        return
-            time.sleep(.1)
-        raise JujuResourceTimeout(
-            'Timeout waiting for a resource to be downloaded. '
-            'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
-                resource_id, service_or_unit, timeout))
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                for _ in until_timeout(timeout):
+                    resources_dict = self.list_resources(service_or_unit)
+                    resources = resources_dict['resources']
+                    for resource in resources:
+                        if resource['expected']['resourceid'] == resource_id:
+                            if (resource['expected']['fingerprint'] ==
+                                    resource['unit']['fingerprint']):
+                                return
+                    time.sleep(.1)
+                raise JujuResourceTimeout(
+                    'Timeout waiting for a resource to be downloaded. '
+                    'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
+                        resource_id, service_or_unit, timeout))
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
@@ -1116,9 +1405,7 @@ class EnvJujuClient:
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
     def _get_substrate_constraints(self):
-        if self.env.maas:
-            return 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
         else:
@@ -1127,10 +1414,7 @@ class EnvJujuClient:
     def quickstart(self, bundle_template, upload_tools=False):
         """quickstart, using sudo if necessary."""
         bundle = self.format_bundle(bundle_template)
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        else:
-            constraints = 'mem=2G'
+        constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
@@ -1149,9 +1433,11 @@ class EnvJujuClient:
         :param start: If supplied, the time to count from when determining
             timeout.
         """
-        yield self.get_status()
-        for remaining in until_timeout(timeout, start=start):
-            yield self.get_status()
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                yield self.get_status()
+                for remaining in until_timeout(timeout, start=start):
+                    yield self.get_status()
 
     def _wait_for_status(self, reporter, translate, exc_type=StatusNotMet,
                          timeout=1200, start=None):
@@ -1169,20 +1455,25 @@ class EnvJujuClient:
         """
         status = None
         try:
-            for _ in chain([None], until_timeout(timeout, start=start)):
-                try:
-                    status = self.get_status()
-                except CannotConnectEnv:
-                    log.info('Suppressing "Unable to connect to environment"')
-                    continue
-                states = translate(status)
-                if states is None:
-                    break
-                reporter.update(states)
-            else:
-                if status is not None:
-                    log.error(status.status_text)
-                raise exc_type(self.env.environment, status)
+            with self.check_timeouts():
+                with self.ignore_soft_deadline():
+                    for _ in chain([None],
+                                   until_timeout(timeout, start=start)):
+                        try:
+                            status = self.get_status()
+                        except CannotConnectEnv:
+                            log.info(
+                                'Suppressing "Unable to connect to'
+                                ' environment"')
+                            continue
+                        states = translate(status)
+                        if states is None:
+                            break
+                        reporter.update(states)
+                    else:
+                        if status is not None:
+                            log.error(status.status_text)
+                        raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
         return status
@@ -1252,10 +1543,10 @@ class EnvJujuClient:
         for model in models:
             yield self._acquire_model_client(model['name'])
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         return 'controller'
@@ -1271,13 +1562,34 @@ class EnvJujuClient:
             env = self.env.clone(model_name=name)
             return self.clone(env=env)
 
-    def get_admin_client(self):
-        """Return a client for the admin model.  May return self.
+    def get_model_uuid(self):
+        name = self.env.environment
+        model = self._cmd_model(True, False)
+        output_yaml = self.get_juju_output(
+            'show-model', '--format', 'yaml', model, include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
+    def get_controller_uuid(self):
+        name = self.env.controller.name
+        output_yaml = self.get_juju_output(
+            'show-controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output[name]['details']['uuid']
+
+    def get_controller_model_uuid(self):
+        output_yaml = self.get_juju_output(
+            'show-model', 'controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output['controller']['model-uuid']
+
+    def get_controller_client(self):
+        """Return a client for the controller model.  May return self.
 
         This may be inaccurate for models created using add_model
         rather than bootstrap.
         """
-        return self._acquire_model_client(self.get_admin_model_name())
+        return self._acquire_model_client(self.get_controller_model_name())
 
     def list_controllers(self):
         """List the controllers."""
@@ -1328,20 +1640,24 @@ class EnvJujuClient:
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
-            for remaining in until_timeout(timeout):
-                status = self.get_status(admin=True)
-                states = {}
-                for machine, info in status.iter_machines():
-                    status = self.get_controller_member_status(info)
-                    if status is None:
-                        continue
-                    states.setdefault(status, []).append(machine)
-                if states.keys() == [desired_state]:
-                    if len(states.get(desired_state, [])) >= 3:
-                        break
-                reporter.update(states)
-            else:
-                raise Exception('Timed out waiting for voting to be enabled.')
+            with self.check_timeouts():
+                with self.ignore_soft_deadline():
+                    for remaining in until_timeout(timeout):
+                        status = self.get_status(controller=True)
+                        status.check_agents_started()
+                        states = {}
+                        for machine, info in status.iter_machines():
+                            status = self.get_controller_member_status(info)
+                            if status is None:
+                                continue
+                            states.setdefault(status, []).append(machine)
+                        if states.keys() == [desired_state]:
+                            if len(states.get(desired_state, [])) >= 3:
+                                break
+                        reporter.update(states)
+                    else:
+                        raise Exception('Timed out waiting for voting to be'
+                                        ' enabled.')
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because
@@ -1356,12 +1672,14 @@ class EnvJujuClient:
         :param service_count: The number of services for which to wait.
         :param timeout: The number of seconds to wait.
         """
-        for remaining in until_timeout(timeout):
-            status = self.get_status()
-            if status.get_service_count() >= service_count:
-                return
-        else:
-            raise Exception('Timed out waiting for services to start.')
+        with self.check_timeouts():
+            with self.ignore_soft_deadline():
+                for remaining in until_timeout(timeout):
+                    status = self.get_status()
+                    if status.get_service_count() >= service_count:
+                        return
+                else:
+                    raise Exception('Timed out waiting for services to start.')
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
@@ -1442,13 +1760,28 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_juju(self, force_version=True):
+    def upgrade_controller(self, force_version=True):
         args = ()
         if force_version:
             version = self.get_matching_agent_version(no_build=True)
             args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
+
+        self._upgrade_controller(args)
+
+    def _upgrade_controller(self, args):
+        controller = self.get_controller_client()
+        controller.juju('upgrade-juju', args)
+
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        self._upgrade_juju(args)
+
+    def _upgrade_juju(self, args):
         self.juju('upgrade-juju', args)
 
     def upgrade_mongo(self):
@@ -1559,26 +1892,30 @@ class EnvJujuClient:
                 return command_parts[-1]
         raise AssertionError('Juju register command not found in output')
 
-    def add_user(self, username, models=None, permissions='read'):
+    def add_user(self, username):
         """Adds provided user and return register command arguments.
 
         :return: Registration token provided by the add-user command.
-
         """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
+        output = self.get_juju_output(
+            'add-user', username, '-c', self.env.controller.name,
+            include_e=False)
         return self._get_register_command(output)
+
+    def add_user_perms(self, username, models=None, permissions='login'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+        """
+        output = self.add_user(username)
+        self.grant(username, permissions, models)
+        return output
 
     def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
 
-        args = (username, models, '--acl', permissions)
+        args = (username, permissions, models)
 
         self.controller_juju('revoke', args)
 
@@ -1603,8 +1940,173 @@ class EnvJujuClient:
                   (name, provider,
                    'size={}'.format(size)))
 
+    def disable_user(self, user_name):
+        """Disable an user"""
+        self.controller_juju('disable-user', (user_name,))
 
-class EnvJujuClient2B8(EnvJujuClient):
+    def enable_user(self, user_name):
+        """Enable an user"""
+        self.controller_juju('enable-user', (user_name,))
+
+    def logout(self):
+        """Logout an user"""
+        self.controller_juju('logout', ())
+        self.env.user_name = ''
+
+    def register_user(self, user, juju_home, controller_name=None):
+        """Register `user` for the `client` return the cloned client used."""
+        username = user.name
+        if controller_name is None:
+            controller_name = '{}_controller'.format(username)
+
+        model = self.env.environment
+        token = self.add_user_perms(username, models=model,
+                                    permissions=user.permissions)
+        user_client = self.create_cloned_environment(juju_home,
+                                                     controller_name,
+                                                     username)
+
+        try:
+            child = user_client.expect('register', (token), include_e=False)
+            child.expect('(?i)name')
+            child.sendline(controller_name)
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise Exception(
+                    'Registering user failed: pexpect session still alive')
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+        user_client.env.user_name = username
+        return user_client
+
+    def remove_user(self, username):
+        self.juju('remove-user', (username, '-y'), include_e=False)
+
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        If `user_name` is passed ensures that the cloned environment is updated
+        to match.
+
+        """
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        if user_name is not None and user_name != self.env.user_name:
+            user_client.env.user_name = user_name
+            user_client.env.environment = qualified_model_name(
+                user_client.env.environment, self.env.user_name)
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        return user_client
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with model or controller permission."""
+        if permission in self.controller_permissions:
+            self.juju(
+                'grant',
+                (user_name, permission, '-c', self.env.controller.name),
+                include_e=False)
+        elif permission in self.model_permissions:
+            if model is None:
+                model = self.model_name
+            self.juju(
+                'grant',
+                (user_name, permission, model, '-c', self.env.controller.name),
+                include_e=False)
+        else:
+            raise ValueError('Unknown permission {}'.format(permission))
+
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return self.get_juju_output('list-clouds', '--format',
+                                    format, include_e=False)
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return self.get_juju_output('show-controller', '--format',
+                                    format, include_e=False)
+
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('ssh-keys', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('add-ssh-key', *keys, merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('remove-ssh-key', *keys, merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
+
+
+class EnvJujuClient2B9(EnvJujuClient):
+
+    def update_user_name(self):
+        return
+
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        `user_name` is unused in this version of beta.
+        """
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        return user_client
+
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
+    def add_user_perms(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with a model."""
+        if model is None:
+            model = self.model_name
+        self.juju('grant', (user_name, model, '--acl', permission),
+                  include_e=False)
+
+    def revoke(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
+
+
+class EnvJujuClient2B8(EnvJujuClient2B9):
 
     status_class = ServiceStatus
 
@@ -1637,10 +2139,10 @@ class EnvJujuClient2B8(EnvJujuClient):
 
 class EnvJujuClient2B7(EnvJujuClient2B8):
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         return 'admin'
@@ -1658,9 +2160,7 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
+        if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
         else:
@@ -1678,21 +2178,21 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    def get_admin_client(self):
-        """Return a client for the admin model.  May return self."""
+    def get_controller_client(self):
+        """Return a client for the controller model.  May return self."""
         return self
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         models = self.get_models()
         # The dict can be empty because 1.x does not support the models.
         # This is an ambiguous case for the jes feature flag which supports
         # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the admin model.
+        # jes case also uses '-e' for models, the env is the controller model.
         for model in models.get('models', []):
             if 'admin' in model['name']:
                 return 'admin'
@@ -1704,10 +2204,12 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
 
     default_backend = Juju2A2Backend
 
+    config_class = SimpleEnvironment
+
     @classmethod
     def _get_env(cls, env):
         if isinstance(env, JujuData):
-            raise ValueError(
+            raise IncompatibleConfigClass(
                 'JujuData cannot be used with {}'.format(cls.__name__))
         return env
 
@@ -1738,7 +2240,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         return args
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, storage=None):
+               service=None, force=False, storage=None, constraints=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -1748,6 +2250,8 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args.extend([service])
         if storage is not None:
             args.extend(['--storage', storage])
+        if constraints is not None:
+            args.extend(['--constraints', constraints])
         return self.juju('deploy', tuple(args))
 
 
@@ -1803,6 +2307,14 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def list_models(self):
         """List the models registered with the current controller."""
         log.info('The model is environment {}'.format(self.env.environment))
+
+    def list_clouds(self, format='json'):
+        """List all the available clouds."""
+        return {}
+
+    def show_controller(self, format='json'):
+        """Show controller's status."""
+        return {}
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
@@ -1908,13 +2420,15 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
-    def _cmd_model(self, include_e, admin):
-        if admin:
-            return self.get_admin_model_name()
+    agent_metadata_url = 'tools-metadata-url'
+
+    def _cmd_model(self, include_e, controller):
+        if controller:
+            return self.get_controller_model_name()
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return unqualified_model_name(self.model_name)
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
@@ -1948,6 +2462,15 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                     return cmd
         raise JESNotSupported()
 
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
+        if self.env.local:
+            args += ('--upload-tools',)
+        self._upgrade_juju(args)
+
     def make_model_config(self):
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
@@ -1975,7 +2498,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
-            timeout=timedelta(minutes=10).total_seconds())
+            timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
@@ -2048,6 +2571,28 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         self.juju('storage pool create',
                   (name, provider,
                    'size={}'.format(size)))
+
+    def ssh_keys(self, full=False):
+        """Give the ssh keys registered for the current model."""
+        args = []
+        if full:
+            args.append('--full')
+        return self.get_juju_output('authorized-keys', 'list', *args)
+
+    def add_ssh_key(self, *keys):
+        """Add one or more ssh keys to the current model."""
+        return self.get_juju_output('authorized-keys', 'add', *keys,
+                                    merge_stderr=True)
+
+    def remove_ssh_key(self, *keys):
+        """Remove one or more ssh keys from the current model."""
+        return self.get_juju_output('authorized-keys', 'delete', *keys,
+                                    merge_stderr=True)
+
+    def import_ssh_key(self, *keys):
+        """Import ssh keys from one or more identities to the current model."""
+        return self.get_juju_output('authorized-keys', 'import', *keys,
+                                    merge_stderr=True)
 
 
 class EnvJujuClient22(EnvJujuClient1X):
@@ -2238,7 +2783,7 @@ def make_safe_config(client):
     config['test-mode'] = True
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
-    config['name'] = client.env.environment
+    config['name'] = unqualified_model_name(client.env.environment)
     if config['type'] == 'local':
         config.setdefault('root-dir', get_local_root(client.env.juju_home,
                           client.env))
@@ -2330,194 +2875,6 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
-
-
-class SimpleEnvironment:
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
-        if controller is None:
-            controller = Controller(environment)
-        self.controller = controller
-        self.environment = environment
-        self.config = config
-        self.juju_home = juju_home
-        if self.config is not None:
-            self.local = bool(self.config.get('type') == 'local')
-            self.kvm = (
-                self.local and bool(self.config.get('container') == 'kvm'))
-            self.maas = bool(self.config.get('type') == 'maas')
-            self.joyent = bool(self.config.get('type') == 'joyent')
-        else:
-            self.local = False
-            self.kvm = False
-            self.maas = False
-            self.joyent = False
-
-    def clone(self, model_name=None):
-        config = deepcopy(self.config)
-        if model_name is None:
-            model_name = self.environment
-        else:
-            config['name'] = model_name
-        result = self.__class__(model_name, config, self.juju_home,
-                                self.controller)
-        result.local = self.local
-        result.kvm = self.kvm
-        result.maas = self.maas
-        result.joyent = self.joyent
-        return result
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        if self.environment != other.environment:
-            return False
-        if self.config != other.config:
-            return False
-        if self.local != other.local:
-            return False
-        if self.maas != other.maas:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self == other
-
-    def set_model_name(self, model_name, set_controller=True):
-        if set_controller:
-            self.controller.name = model_name
-        self.environment = model_name
-        self.config['name'] = model_name
-
-    @classmethod
-    def from_config(cls, name):
-        return cls._from_config(name)
-
-    @classmethod
-    def _from_config(cls, name):
-        config, selected = get_selected_environment(name)
-        if name is None:
-            name = selected
-        return cls(name, config)
-
-    def needs_sudo(self):
-        return self.local
-
-    @contextmanager
-    def make_jes_home(self, juju_home, dir_name, new_config):
-        home_path = jes_home_path(juju_home, dir_name)
-        if os.path.exists(home_path):
-            rmtree(home_path)
-        os.makedirs(home_path)
-        self.dump_yaml(home_path, new_config)
-        yield home_path
-
-    def dump_yaml(self, path, config):
-        dump_environments_yaml(path, config)
-
-
-class JujuData(SimpleEnvironment):
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
-        if juju_home is None:
-            juju_home = get_juju_home()
-        super(JujuData, self).__init__(environment, config, juju_home,
-                                       controller)
-        self.credentials = {}
-        self.clouds = {}
-
-    def clone(self, model_name=None):
-        result = super(JujuData, self).clone(model_name)
-        result.credentials = deepcopy(self.credentials)
-        result.clouds = deepcopy(self.clouds)
-        return result
-
-    @classmethod
-    def from_env(cls, env):
-        juju_data = cls(env.environment, env.config, env.juju_home)
-        juju_data.load_yaml()
-        return juju_data
-
-    def load_yaml(self):
-        try:
-            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
-                self.credentials = yaml.safe_load(f)
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise RuntimeError(
-                    'Failed to read credentials file: {}'.format(str(e)))
-            self.credentials = {}
-        try:
-            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-                self.clouds = yaml.safe_load(f)
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise RuntimeError(
-                    'Failed to read clouds file: {}'.format(str(e)))
-            # Default to an empty clouds file.
-            self.clouds = {'clouds': {}}
-
-    @classmethod
-    def from_config(cls, name):
-        juju_data = cls._from_config(name)
-        juju_data.load_yaml()
-        return juju_data
-
-    def dump_yaml(self, path, config):
-        """Dump the configuration files to the specified path.
-
-        config is unused, but is accepted for compatibility with
-        SimpleEnvironment and make_jes_home().
-        """
-        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
-            yaml.safe_dump(self.credentials, f)
-        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
-            yaml.safe_dump(self.clouds, f)
-
-    def find_endpoint_cloud(self, cloud_type, endpoint):
-        for cloud, cloud_config in self.clouds['clouds'].items():
-            if cloud_config['type'] != cloud_type:
-                continue
-            if cloud_config['endpoint'] == endpoint:
-                return cloud
-        raise LookupError('No such endpoint: {}'.format(endpoint))
-
-    def get_cloud(self):
-        provider = self.config['type']
-        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
-        # Model CLI specification
-        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
-            return 'aws-china'
-        if provider not in ('maas', 'openstack'):
-            return {
-                'ec2': 'aws',
-                'gce': 'google',
-            }.get(provider, provider)
-        if provider == 'maas':
-            endpoint = self.config['maas-server']
-        elif provider == 'openstack':
-            endpoint = self.config['auth-url']
-        return self.find_endpoint_cloud(provider, endpoint)
-
-    def get_region(self):
-        provider = self.config['type']
-        if provider == 'azure':
-            if 'tenant-id' not in self.config:
-                return self.config['location'].replace(' ', '').lower()
-            return self.config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return 'localhost'
-        elif provider == 'manual':
-            return self.config['bootstrap-host']
-        elif provider in ('maas', 'manual'):
-            return None
-        else:
-            return self.config['region']
 
 
 class GroupReporter:

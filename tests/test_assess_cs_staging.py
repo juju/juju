@@ -11,14 +11,14 @@ from assess_cs_staging import (
     main,
     _set_charm_store_ip,
 )
+from fakejuju import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 
 
 class TestParseArgs(TestCase):
@@ -44,7 +44,7 @@ class TestParseArgs(TestCase):
 
 class TestSetCharmStoreIP(TestCase):
 
-    def test_default_as_admin(self):
+    def test_default_as_controller(self):
         client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
@@ -52,15 +52,15 @@ class TestSetCharmStoreIP(TestCase):
         juju_mock.assert_called_once_with(
             'ssh', ('0', _get_ssh_script('1.2.3.4')))
 
-    def test_separate_admin(self):
+    def test_separate_controller(self):
         client = fake_juju_client()
         client.bootstrap()
-        admin_client = client.get_admin_client()
-        # Force get_admin_client to return the *same* client, instead of an
-        # equivalent one.
-        with patch.object(client, 'get_admin_client',
-                          return_value=admin_client, autospec=True):
-            with patch.object(admin_client, 'juju',
+        controller_client = client.get_controller_client()
+        # Force get_controller_client to return the *same* client, instead of
+        # an equivalent one.
+        with patch.object(client, 'get_controller_client',
+                          return_value=controller_client, autospec=True):
+            with patch.object(controller_client, 'juju',
                               autospec=True) as juju_mock:
                 _set_charm_store_ip(client, '1.2.3.4')
         juju_mock.assert_called_once_with(
@@ -72,24 +72,20 @@ class TestMain(TestCase):
     def test_main(self):
         argv = ["an-ip", "an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled", "juju"])
         with patch("assess_cs_staging.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_cs_staging.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch("assess_cs_staging._set_charm_store_ip",
-                                   autospec=True) as mock_set_ip:
-                            with patch("assess_cs_staging.assess_deploy",
-                                       autospec=True) as mock_assess:
-                                main(argv)
+                with patch("deploy_stack.client_from_config",
+                           return_value=client) as mock_c:
+                    with patch("assess_cs_staging._set_charm_store_ip",
+                               autospec=True) as mock_set_ip:
+                        with patch("assess_cs_staging.assess_deploy",
+                                   autospec=True) as mock_assess:
+                            main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_set_ip.assert_called_once_with(client, 'an-ip')
         mock_assess.assert_called_once_with(client, 'ubuntu')

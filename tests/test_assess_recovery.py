@@ -64,9 +64,9 @@ class TestAssessRecovery(TestCase):
         client.bootstrap()
 
         def terminate(env, instance_ids):
+            model = client._backend.controller_state.controller_model
             for instance_id in instance_ids:
-                admin_model = client._backend.controller_state.admin_model
-                admin_model.remove_state_server(instance_id)
+                model.remove_state_server(instance_id)
 
         with patch('assess_recovery.wait_for_state_server_to_shutdown',
                    autospec=True):
@@ -93,19 +93,19 @@ class TestAssessRecovery(TestCase):
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')
 
-    def test_admin_model_backup(self):
+    def test_controller_model_backup(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'backup', 'trusty')
 
-    def test_admin_model_ha(self):
+    def test_controller_model_ha(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha', 'trusty')
 
-    def test_admin_model_ha_backup(self):
+    def test_controller_model_ha_backup(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
@@ -114,34 +114,32 @@ class TestAssessRecovery(TestCase):
 
 @patch('assess_recovery.configure_logging', autospec=True)
 @patch('assess_recovery.BootstrapManager.booted_context', autospec=True)
-@patch('jujupy.SimpleEnvironment.from_config', return_value=sentinel.env)
 class TestMain(FakeHomeTestCase):
 
-    def test_main(self, mock_e, mock_bc, mock_cl):
+    def test_main(self, mock_bc, mock_cl):
         client = Mock(spec=['is_jes_enabled', 'version'])
         client.version = '1.25.5'
-        with patch('jujupy.EnvJujuClient.by_version',
+        with patch('deploy_stack.client_from_config',
                    return_value=client) as mock_c:
             with patch('assess_recovery.assess_recovery',
                        autospec=True) as mock_assess:
                 main(['an-env', '/juju', 'log_dir', 'tmp-env', '--backup',
                       '--charm-series', 'a-series'])
         mock_cl.assert_called_once_with(logging.INFO)
-        mock_e.assert_called_once_with('an-env')
-        mock_c.assert_called_once_with(sentinel.env, '/juju', debug=False)
+        mock_c.assert_called_once_with('an-env', '/juju', debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         self.assertEqual(mock_assess.call_count, 1)
         bs_manager, strategy, series = mock_assess.call_args[0]
         self.assertEqual((bs_manager.client, strategy, series),
                          (client, 'backup', 'a-series'))
 
-    def test_error(self, mock_e, mock_bc, mock_cl):
+    def test_error(self, mock_bc, mock_cl):
         class FakeError(Exception):
             """Custom exception to validate error handling."""
         error = FakeError('An error during test')
         client = Mock(spec=['is_jes_enabled', 'version'])
         client.version = '2.0.0'
-        with patch('jujupy.EnvJujuClient.by_version',
+        with patch('deploy_stack.client_from_config',
                    return_value=client) as mock_c:
             with patch('assess_recovery.parse_new_state_server_from_error',
                        autospec=True, return_value='a-host') as mock_pe:
@@ -152,8 +150,7 @@ class TestMain(FakeHomeTestCase):
                               '--verbose', '--charm-series', 'a-series'])
                     self.assertIs(ctx.exception, error)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with('an-env')
-        mock_c.assert_called_once_with(sentinel.env, '/juju', debug=False)
+        mock_c.assert_called_once_with('an-env', '/juju', debug=False)
         mock_pe.assert_called_once_with(error)
         self.assertEqual(mock_bc.call_count, 1)
         self.assertEqual(mock_assess.call_count, 1)

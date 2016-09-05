@@ -14,6 +14,9 @@ from deploy_stack import (
     BootstrapManager,
     wait_for_state_server_to_shutdown,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
     parse_new_state_server_from_error,
 )
@@ -24,7 +27,6 @@ from substrate import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    local_charm_path,
     LoggedException,
 )
 
@@ -47,10 +49,10 @@ def deploy_stack(client, charm_series):
     log.info("%s is ready to testing", client.env.environment)
 
 
-def restore_present_state_server(admin_client, backup_file):
+def restore_present_state_server(controller_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
-        output = admin_client.restore_backup(backup_file)
+        output = controller_client.restore_backup(backup_file)
     except CalledProcessError as e:
         log.info(
             "juju-restore correctly refused to restore "
@@ -95,11 +97,11 @@ def delete_controller_members(client, leader_only=False):
     return deleted_machines
 
 
-def restore_missing_state_server(client, admin_client, backup_file):
+def restore_missing_state_server(client, controller_client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     log.info("Starting restore.")
     try:
-        output = admin_client.restore_backup(backup_file)
+        output = controller_client.restore_backup(backup_file)
     except CalledProcessError as e:
         log.info('Call of juju restore exited with an error\n')
         log.info('Call:  %r\n', e.cmd)
@@ -107,7 +109,7 @@ def restore_missing_state_server(client, admin_client, backup_file):
         log.exception(e)
         raise LoggedException(e)
     log.info(output)
-    admin_client.wait_for_started(600).status
+    controller_client.wait_for_started(600).status
     log.info("%s restored", client.env.environment)
     log.info("PASS")
 
@@ -145,19 +147,19 @@ def assess_recovery(bs_manager, strategy, charm_series):
     deploy_stack(client, charm_series)
     log.info("Setup complete.")
     log.info("Test started.")
-    admin_client = client.get_admin_client()
+    controller_client = client.get_controller_client()
     if strategy in ('ha', 'ha-backup'):
-        admin_client.enable_ha()
-        admin_client.wait_for_ha()
+        controller_client.enable_ha()
+        controller_client.wait_for_ha()
     if strategy in ('ha-backup', 'backup'):
-        backup_file = admin_client.backup()
-        restore_present_state_server(admin_client, backup_file)
+        backup_file = controller_client.backup()
+        restore_present_state_server(controller_client, backup_file)
     if strategy == 'ha':
         leader_only = True
     else:
         leader_only = False
     deleted_machine_ids = delete_controller_members(
-        admin_client, leader_only=leader_only)
+        controller_client, leader_only=leader_only)
     log.info("Deleted {}".format(deleted_machine_ids))
     for m_id in deleted_machine_ids:
         if bs_manager.known_hosts.get(m_id):
@@ -167,7 +169,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
         log.info("HA recovered from leader failure.")
         log.info("PASS")
     else:
-        restore_missing_state_server(client, admin_client, backup_file)
+        restore_missing_state_server(client, controller_client, backup_file)
     log.info("Test complete.")
 
 
