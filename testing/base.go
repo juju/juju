@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -246,4 +248,22 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.RepositoryManager = "add-apt-repository"
 	}
 	return s, nil
+}
+
+// GetExportedFields return the exported fields of a struct.
+func GetExportedFields(arg interface{}) set.Strings {
+	t := reflect.TypeOf(arg)
+	result := set.NewStrings()
+
+	count := t.NumField()
+	for i := 0; i < count; i++ {
+		f := t.Field(i)
+		// empty PkgPath means exported field.
+		// see https://golang.org/pkg/reflect/#StructField
+		if f.PkgPath == "" {
+			result.Add(f.Name)
+		}
+	}
+
+	return result
 }
