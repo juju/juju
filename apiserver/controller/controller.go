@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -387,47 +387,44 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.Annotate(err, "unable to read model")
 	}
 
-	// Get State for model.
 	hostedState, err := c.state.ForModel(modelTag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer hostedState.Close()
 
-	// Start the migration.
-	targetInfo := spec.TargetInfo
-
-	controllerTag, err := names.ParseModelTag(targetInfo.ControllerTag)
+	// Construct target info.
+	specTarget := spec.TargetInfo
+	controllerTag, err := names.ParseModelTag(specTarget.ControllerTag)
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
-
-	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
+	authTag, err := names.ParseUserTag(specTarget.AuthTag)
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
-
 	var mac *macaroon.Macaroon
-	if targetInfo.Macaroon != "" {
+	if specTarget.Macaroon != "" {
 		mac = new(macaroon.Macaroon)
-		err := mac.UnmarshalJSON([]byte(targetInfo.Macaroon))
+		err := mac.UnmarshalJSON([]byte(specTarget.Macaroon))
 		if err != nil {
 			return "", errors.Annotate(err, "invalid macaroon")
 		}
 	}
-
-	args := state.MigrationSpec{
-		InitiatedBy: c.apiUser,
-		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         targetInfo.Addrs,
-			CACert:        targetInfo.CACert,
-			AuthTag:       authTag,
-			Password:      targetInfo.Password,
-			Macaroon:      mac,
-		},
+	targetInfo := coremigration.TargetInfo{
+		ControllerTag: controllerTag,
+		Addrs:         specTarget.Addrs,
+		CACert:        specTarget.CACert,
+		AuthTag:       authTag,
+		Password:      specTarget.Password,
+		Macaroon:      mac,
 	}
-	mig, err := hostedState.CreateMigration(args)
+
+	// Trigger the migration.
+	mig, err := hostedState.CreateMigration(state.MigrationSpec{
+		InitiatedBy: c.apiUser,
+		TargetInfo:  targetInfo,
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}

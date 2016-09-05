@@ -372,7 +372,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestInitiateMigrationValidationError(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
