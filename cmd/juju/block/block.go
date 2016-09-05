@@ -4,200 +4,95 @@
 package block
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// BaseBlockCommand is base command for all
-// commands that enable blocks.
-type BaseBlockCommand struct {
-	modelcmd.ModelCommandBase
-	desc string
+// NewDisableCommand returns a disable-command command instance
+// that will use the default API.
+func NewDisableCommand() cmd.Command {
+	return modelcmd.Wrap(&disableCommand{})
 }
 
-// Init initializes the command.
-// Satisfying Command interface.
-func (c *BaseBlockCommand) Init(args []string) error {
-	if len(args) > 1 {
-		return errors.Trace(errors.New("can only specify block message"))
-	}
+type disableCommand struct {
+	modelcmd.ModelCommandBase
+	api     blockClientAPI
+	target  string
+	message string
+}
 
-	if len(args) == 1 {
-		c.desc = args[0]
+// Init implements Command.
+func (c *disableCommand) Init(args []string) error {
+	if len(args) < 1 {
+		return errors.Errorf("missing command set (%s)", validTargets)
 	}
+	c.target, args = args[0], args[1:]
+	target, ok := toAPIValue[c.target]
+	if !ok {
+		return errors.Errorf("bad command set, valid options: %s", validTargets)
+	}
+	c.target = target
+	c.message = strings.Join(args, " ")
 	return nil
 }
 
-// internalRun blocks commands from running successfully.
-func (c *BaseBlockCommand) internalRun(operation string) error {
-	client, err := getBlockClientAPI(c)
-	if err != nil {
-		return errors.Trace(err)
+// Info implements Command.
+func (c *disableCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "disable-command",
+		Args:    "<command set> [message...]",
+		Purpose: "Disable commands for the model.",
+		Doc:     disableCommandDoc,
 	}
-	defer client.Close()
-
-	return client.SwitchBlockOn(TypeFromOperation(operation), c.desc)
 }
 
-// BlockClientAPI defines the client API methods that block command uses.
-type BlockClientAPI interface {
+type blockClientAPI interface {
 	Close() error
 	SwitchBlockOn(blockType, msg string) error
 }
 
-var getBlockClientAPI = func(p *BaseBlockCommand) (BlockClientAPI, error) {
-	return getBlockAPI(&p.ModelCommandBase)
+func (c *disableCommand) getAPI() (blockClientAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return getBlockAPI(c)
 }
 
-func newDestroyCommand() cmd.Command {
-	return modelcmd.Wrap(&destroyCommand{})
+// Run implements Command.Run
+func (c *disableCommand) Run(ctx *cmd.Context) error {
+	api, err := c.getAPI()
+	if err != nil {
+		return errors.Annotate(err, "cannot connect to the API")
+	}
+	defer api.Close()
+
+	return api.SwitchBlockOn(c.target, c.message)
 }
 
-// destroyCommand blocks destroy environment.
-type destroyCommand struct {
-	BaseBlockCommand
-}
+var disableCommandDoc = `
+Juju allows to safeguard deployed models from unintentional damage by preventing
+execution of operations that could alter model.
 
-var destroyBlockDoc = `
-This command allows to block model destruction.
+This is done by disabling certain sets of commands from successful execution.
+Disabled commands must be manually enabled to proceed.
 
-To disable the block, run unblock command - see "juju help unblock". 
-To by-pass the block, run destroy-model with --force option.
-
-"juju block destroy-model" only blocks destroy-model command.
-   
+Some commands offer a --force option that can be used to bypass the disabling.
+` + commandSets + `
 Examples:
     # To prevent the model from being destroyed:
-    juju block destroy-model
+    juju disable-command destroy-model "Check with SA before destruction."
 
-`
-
-// Info provides information about command.
-// Satisfying Command interface.
-func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "destroy-model",
-		Purpose: "Block an operation that would destroy Juju model.",
-		Doc:     destroyBlockDoc,
-	}
-}
-
-// Satisfying Command interface.
-func (c *destroyCommand) Run(_ *cmd.Context) error {
-	return c.internalRun(c.Info().Name)
-}
-
-func newRemoveCommand() cmd.Command {
-	return modelcmd.Wrap(&removeCommand{})
-}
-
-// removeCommand blocks commands that remove juju objects.
-type removeCommand struct {
-	BaseBlockCommand
-}
-
-var removeBlockDoc = `
-This command allows to block all operations that would remove an object 
-from Juju model.
-
-To disable the block, run unblock command - see "juju help unblock". 
-To by-pass the block, where available, run desired remove command with --force option.
-
-"juju block remove-object" blocks these commands:
-    destroy-model
-    remove-machine
-    remove-relation
-    remove-application
-    remove-unit
-   
-Examples:
     # To prevent the machines, applications, units and relations from being removed:
-    juju block remove-object
+    juju disable-command remove-object 
 
-`
-
-// Info provides information about command.
-// Satisfying Command interface.
-func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "remove-object",
-		Purpose: "Block an operation that would remove an object.",
-		Doc:     removeBlockDoc,
-	}
-}
-
-// Satisfying Command interface.
-func (c *removeCommand) Run(_ *cmd.Context) error {
-	return c.internalRun(c.Info().Name)
-}
-
-func newChangeCommand() cmd.Command {
-	return modelcmd.Wrap(&changeCommand{})
-}
-
-// changeCommand blocks commands that may change environment.
-type changeCommand struct {
-	BaseBlockCommand
-}
-
-var changeBlockDoc = `
-This command allows to block all operations that would alter
-Juju model.
-
-To disable the block, run unblock command - see "juju help unblock". 
-To by-pass the block, where available, run desired remove command with --force option.
-
-"juju block all-changes" blocks these commands:
-    add-machine
-    add-relation
-    add-unit
-    authorised-keys add
-    authorised-keys delete
-    authorised-keys import
-    deploy
-    destroy-model
-    enable-ha
-    expose
-    remove-machine
-    remove-relation
-    remove-application
-    remove-unit
-    resolved
-    retry-provisioning
-    run
-    set
-    set-constraints
-    set-model-config
-    sync-tools
-    unexpose
-    unset
-    unset-model-config
-    upgrade-charm
-    upgrade-juju
-    add-user
-    change-user-password
-    disable-user
-    enable-user
-   
-Examples:
     # To prevent changes to the model:
-    juju block all-changes
+    juju disable-command all "Model locked down"
 
+See Also:
+    juju disabled-commands
+    juju enable-command
 `
-
-// Info provides information about command.
-// Satisfying Command interface.
-func (c *changeCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "all-changes",
-		Purpose: "Block operations that could change Juju model.",
-		Doc:     changeBlockDoc,
-	}
-}
-
-// Satisfying Command interface.
-func (c *changeCommand) Run(_ *cmd.Context) error {
-	return c.internalRun(c.Info().Name)
-}

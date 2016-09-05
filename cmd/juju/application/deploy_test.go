@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -52,14 +51,14 @@ import (
 
 type DeploySuite struct {
 	testing.RepoSuite
-	common.CmdBlockHelper
+	coretesting.CmdBlockHelper
 }
 
 var _ = gc.Suite(&DeploySuite{})
 
 func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }

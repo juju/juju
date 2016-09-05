@@ -16,14 +16,18 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns the command that lists the disabled
+// commands for the model.
+func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
 const listCommandDoc = `
-List blocks for Juju model.
-This command shows if each block type is enabled. 
-For enabled blocks, block message is shown if it was specified.
+List disabled commands for the model.
+` + commandSets + `
+See Also:
+    juju disable-command
+    juju enable-command
 `
 
 // listCommand list blocks.
@@ -34,15 +38,16 @@ type listCommand struct {
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
-		Purpose: "List Juju blocks.",
+		Name:    "disabled-commands",
+		Purpose: "List disabled commands.",
 		Doc:     listCommandDoc,
+		Aliases: []string{"list-disabled-commands"},
 	}
 }
 
@@ -83,37 +88,24 @@ var getBlockListAPI = func(cmd *modelcmd.ModelCommandBase) (BlockListAPI, error)
 
 // BlockInfo defines the serialization behaviour of the block information.
 type BlockInfo struct {
-	Operation string  `yaml:"block" json:"block"`
-	Enabled   bool    `yaml:"enabled" json:"enabled"`
-	Message   *string `yaml:"message,omitempty" json:"message,omitempty"`
+	Commands string `yaml:"command-set" json:"command-set"`
+	Message  string `yaml:"message,omitempty" json:"message,omitempty"`
 }
 
 // formatBlockInfo takes a set of Block and creates a
 // mapping to information structures.
 func formatBlockInfo(all []params.Block) []BlockInfo {
-	output := make([]BlockInfo, len(blockArgs))
-
-	info := make(map[string]BlockInfo, len(all))
-	// not all block types may be returned from client
-	for _, one := range all {
-		op := OperationFromType(one.Type)
-		bi := BlockInfo{
-			Operation: op,
-			// If client returned it, it means that it is enabled
-			Enabled: true,
-			Message: &one.Message,
+	output := make([]BlockInfo, len(all))
+	for i, one := range all {
+		set, ok := toCmdValue[one.Type]
+		if !ok {
+			set = "<unknown>"
 		}
-		info[op] = bi
-	}
-
-	for i, aType := range blockArgs {
-		if val, ok := info[aType]; ok {
-			output[i] = val
-			continue
+		output[i] = BlockInfo{
+			Commands: set,
+			Message:  one.Message,
 		}
-		output[i] = BlockInfo{Operation: aType}
 	}
-
 	return output
 }
 
@@ -123,23 +115,17 @@ func formatBlocks(writer io.Writer, value interface{}) error {
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", blocks, value)
 	}
-	// To format things as desired.
-	tw := output.TabWriter(writer)
 
-	for _, ablock := range blocks {
-		fmt.Fprintln(tw)
-		switched := "off"
-		if ablock.Enabled {
-			switched = "on"
-		}
-		fmt.Fprintf(tw, "%v\t", ablock.Operation)
-		if ablock.Message != nil {
-			fmt.Fprintf(tw, "=%v, %v", switched, *ablock.Message)
-			continue
-		}
-		fmt.Fprintf(tw, "=%v", switched)
+	if len(blocks) == 0 {
+		fmt.Fprintf(writer, "No commands are currently disabled.\n")
+		return nil
 	}
 
+	tw := output.TabWriter(writer)
+	fmt.Fprintln(tw, "COMMANDS\tMESSAGE")
+	for _, info := range blocks {
+		fmt.Fprintf(tw, "%s\t%s\n", info.Commands, info.Message)
+	}
 	tw.Flush()
 
 	return nil

@@ -32,6 +32,8 @@ type Block interface {
 
 	// Message returns explanation that accompanies this block.
 	Message() string
+
+	updateMessageOp(string) ([]txn.Op, error)
 }
 
 // BlockType specifies block type for enum benefit.
@@ -115,6 +117,15 @@ type blockDoc struct {
 	Tag       string    `bson:"tag"`
 	Type      BlockType `bson:"type"`
 	Message   string    `bson:"message,omitempty"`
+}
+
+func (b *block) updateMessageOp(message string) ([]txn.Op, error) {
+	return []txn.Op{{
+		C:      blocksC,
+		Id:     b.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"message", message}}}},
+	}}, nil
 }
 
 // Id is part of the state.Block interface.
@@ -244,14 +255,14 @@ func (st *State) RemoveAllBlocksForController() error {
 // Only one instance of each block type can exist in model.
 func setModelBlock(st *State, t BlockType, msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		_, exists, err := st.GetBlockForType(t)
+		block, exists, err := st.GetBlockForType(t)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		// Cannot create blocks of the same type more than once per model.
 		// Cannot update current blocks.
 		if exists {
-			return nil, errors.Errorf("block %v is already ON", t.String())
+			return block.updateMessageOp(msg)
 		}
 		return createModelBlockOps(st, t, msg)
 	}
@@ -310,5 +321,6 @@ func RemoveModelBlockOps(st *State, t BlockType) ([]txn.Op, error) {
 			Remove: true,
 		}}, nil
 	}
-	return nil, errors.Errorf("block %v is already OFF", t.String())
+	// If the block doesn't exist, we're all good.
+	return nil, nil
 }

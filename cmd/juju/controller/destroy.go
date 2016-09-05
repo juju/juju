@@ -270,14 +270,11 @@ func formatTabularBlockedModels(writer io.Writer, value interface{}) error {
 }
 
 func blocksToStr(blocks []string) string {
-	result := ""
-	sep := ""
-	for _, blk := range blocks {
-		result = result + sep + block.OperationFromType(blk)
-		sep = ","
+	result := make([]string, len(blocks))
+	for i, val := range blocks {
+		result[i] = block.OperationFromType(val)
 	}
-
-	return result
+	return strings.Join(result, ", ")
 }
 
 // destroyCommandBase provides common attributes and methods that both the controller

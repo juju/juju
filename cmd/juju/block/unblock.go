@@ -4,165 +4,93 @@
 package block
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewUnblockCommand returns a new command that removes the block from
-// the specified operation.
-func NewUnblockCommand() cmd.Command {
-	c := &unblockCommand{}
-	c.getClient = func() (UnblockClientAPI, error) {
-		return getBlockAPI(&c.ModelCommandBase)
-	}
-	return modelcmd.Wrap(c)
+// NewEnableCommand returns a new command that eanbles previously disabled
+// command sets.
+func NewEnableCommand() cmd.Command {
+	return modelcmd.Wrap(&enableCommand{})
 }
 
-// unblockCommand removes the block from desired operation.
-type unblockCommand struct {
+// enableCommand removes the block from desired operation.
+type enableCommand struct {
 	modelcmd.ModelCommandBase
-	operation string
-	getClient func() (UnblockClientAPI, error)
+	api    unblockClientAPI
+	target string
 }
 
-var (
-	unblockDoc = `
-Juju allows to safeguard deployed models from unintentional damage by preventing
-execution of operations that could alter model.
-
-This is done by blocking certain commands from successful execution. Blocked commands
-must be manually unblocked to proceed.
-
-Some commands offer a --force option that can be used to bypass a block.
-
-Commands that can be unblocked are grouped based on logical operations as follows:
-
-destroy-model includes command:
-    destroy-model
-
-remove-object includes termination commands:
-    destroy-model
-    remove-machine
-    remove-relation
-    remove-application
-    remove-unit
-
-all-changes includes all alteration commands
-    add-machine
-    add-relation
-    add-unit
-    authorised-keys add
-    authorised-keys delete
-    authorised-keys import
-    deploy
-    destroy-model
-    enable-ha
-    expose
-    remove-machine
-    remove-relation
-    remove-application
-    remove-unit
-    resolved
-    retry-provisioning
-    run
-    set
-    set-constraints
-    set-model-config
-    sync-tools
-    unexpose
-    unset
-    unset-model-config
-    upgrade-charm
-    upgrade-juju
-    add-user
-    change-user-password
-    disable-user
-    enable-user
-
-Examples:
-    # To allow the model to be destroyed:
-    juju unblock destroy-model
-
-    # To allow the machines, applications, units and relations to be removed:
-    juju unblock remove-object
-
-    # To allow changes to the model:
-    juju unblock all-changes
-
-See Also:
-   juju block
-`
-
-	// blockArgsFmt has formatted representation of block command valid arguments.
-	blockArgsFmt = fmt.Sprintf(strings.Join(blockArgs, " | "))
-)
-
-// assignValidOperation verifies that supplied operation is supported.
-func (p *unblockCommand) assignValidOperation(cmd string, args []string) error {
+// Init implements Command.
+func (c *enableCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return errors.Trace(errors.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd))
+		return errors.Errorf("missing command set (%s)", validTargets)
 	}
-	var err error
-	p.operation, err = p.obtainValidArgument(args[0])
-	return err
+	c.target, args = args[0], args[1:]
+	target, ok := toAPIValue[c.target]
+	if !ok {
+		return errors.Errorf("bad command set, valid options: %s", validTargets)
+	}
+	c.target = target
+	return cmd.CheckEmpty(args)
 }
 
-// obtainValidArgument returns polished argument:
-// it checks that the argument is a supported operation and
-// forces it into lower case for consistency.
-func (p *unblockCommand) obtainValidArgument(arg string) (string, error) {
-	for _, valid := range blockArgs {
-		if strings.EqualFold(valid, arg) {
-			return strings.ToLower(arg), nil
-		}
-	}
-	return "", errors.Trace(errors.Errorf("%q is not a valid argument: use one of [%v]", arg, blockArgsFmt))
-}
-
-// Info provides information about command.
-// Satisfying Command interface.
-func (c *unblockCommand) Info() *cmd.Info {
+// Info implementsCommand.
+func (c *enableCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "unblock",
-		Args:    blockArgsFmt,
-		Purpose: "Unblock an operation that would alter a running model.",
-		Doc:     unblockDoc,
+		Name:    "enable-command",
+		Args:    "<command set>",
+		Purpose: "Enable commands that had been previously disabled.",
+		Doc:     enableDoc,
 	}
 }
 
-// Init initializes the command.
-// Satisfying Command interface.
-func (c *unblockCommand) Init(args []string) error {
-	if len(args) > 1 {
-		return errors.Trace(errors.New("can only specify block type"))
-	}
-
-	return c.assignValidOperation("unblock", args)
-}
-
-// Run unblocks previously blocked commands.
-// Satisfying Command interface.
-func (c *unblockCommand) Run(_ *cmd.Context) error {
-	client, err := c.getClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-
-	return client.SwitchBlockOff(TypeFromOperation(c.operation))
-}
-
-// UnblockClientAPI defines the client API methods that unblock command uses.
-type UnblockClientAPI interface {
+// unblockClientAPI defines the client API methods that unblock command uses.
+type unblockClientAPI interface {
 	Close() error
 	SwitchBlockOff(blockType string) error
 }
 
-var getUnblockClientAPI = func(p *unblockCommand) (UnblockClientAPI, error) {
-	return getBlockAPI(&p.ModelCommandBase)
+func (c *enableCommand) getAPI() (unblockClientAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return getBlockAPI(c)
 }
+
+// Run implements Command.
+func (c *enableCommand) Run(_ *cmd.Context) error {
+	api, err := c.getAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer api.Close()
+
+	return api.SwitchBlockOff(c.target)
+}
+
+const enableDoc = `
+Juju allows to safeguard deployed models from unintentional damage by preventing
+execution of operations that could alter model.
+
+This is done by disabling certain sets of commands from successful execution.
+Disabled commands must be manually enabled to proceed.
+
+Some commands offer a --force option that can be used to bypass a block.
+` + commandSets + `
+Examples:
+    # To allow the model to be destroyed:
+    juju enable-command destroy-model
+
+    # To allow the machines, applications, units and relations to be removed:
+    juju enable-command remove-object
+
+    # To allow changes to the model:
+    juju enable-command all-changes
+
+See Also:
+    juju disable-command
+    juju disabled-commands
+`
