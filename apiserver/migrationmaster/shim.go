@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // newAPIForRegistration exists to provide the required signature for
@@ -27,6 +28,7 @@ type backendShim struct {
 	*state.State
 }
 
+// ModelName implements Backend.
 func (s *backendShim) ModelName() (string, error) {
 	model, err := s.Model()
 	if err != nil {
@@ -35,6 +37,16 @@ func (s *backendShim) ModelName() (string, error) {
 	return model.Name(), nil
 }
 
+// ModelOwner implements Backend.
+func (s *backendShim) ModelOwner() (names.UserTag, error) {
+	model, err := s.Model()
+	if err != nil {
+		return names.UserTag{}, errors.Trace(err)
+	}
+	return model.Owner(), nil
+}
+
+// AgentVersion implements Backend.
 func (s *backendShim) AgentVersion() (version.Number, error) {
 	cfg, err := s.ModelConfig()
 	if err != nil {

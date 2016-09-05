@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -51,9 +50,9 @@ func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.
 	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
 	return modelcmd.WrapController(
 		kill,
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
-		modelcmd.ControllerAPIOpener(openStrategy),
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
+		modelcmd.WrapControllerAPIOpener(openStrategy),
 	)
 }
 
@@ -72,12 +71,6 @@ func (c *killCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags implements Command.SetFlags.
-func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
-}
-
 // Init implements Command.Init.
 func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
@@ -87,13 +80,8 @@ func (c *killCommand) Init(args []string) error {
 func (c *killCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, controllerName); err != nil {
+		if err := confirmDestruction(ctx, controllerName); err != nil {
 			return err
 		}
 	}
@@ -134,7 +122,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
-	updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadModels(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 		ctx.Infof(fmtCtrStatus(ctrStatus))
 		for _, envStatus := range envsStatus {

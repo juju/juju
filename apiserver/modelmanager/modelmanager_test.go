@@ -69,8 +69,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = mockState{
-		uuid:  coretesting.ModelTag.Id(),
-		cloud: dummyCloud,
+		modelUUID: coretesting.ModelTag.Id(),
+		cloud:     dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
@@ -1073,9 +1073,10 @@ func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 
 		args := params.ModifyModelAccessRequest{
 			Changes: []params.ModifyModelAccess{{
-				UserTag: testParam.tag,
-				Action:  params.GrantModelAccess,
-				Access:  params.ModelReadAccess,
+				ModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				UserTag:  testParam.tag,
+				Action:   params.GrantModelAccess,
+				Access:   params.ModelReadAccess,
 			}}}
 
 		result, err := s.modelmanager.ModifyModelAccess(args)

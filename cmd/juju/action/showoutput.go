@@ -42,6 +42,7 @@ displayed.  This is also the behavior when any negative time is given.
 
 // Set up the output.
 func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
 }

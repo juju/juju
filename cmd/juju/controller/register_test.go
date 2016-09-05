@@ -57,7 +57,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 	serverURL, err := url.Parse(s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiConnection = &mockAPIConnection{
-		controllerTag: testing.ModelTag,
+		controllerTag: testing.ControllerTag,
 		addr:          serverURL.Host,
 	}
 	s.listModelsControllerName = ""
@@ -286,8 +286,9 @@ func (s *RegisterSuite) testRegister(c *gc.C, expectedError string) *cmd.Context
 	account, err := s.store.AccountDetails("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
-		User:     "bob@local",
-		Macaroon: string(macaroonJSON),
+		User:            "bob@local",
+		Macaroon:        string(macaroonJSON),
+		LastKnownAccess: "login",
 	})
 	return ctx
 }

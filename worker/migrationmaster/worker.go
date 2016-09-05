@@ -314,7 +314,7 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	}
 	defer conn.Close()
 	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Prechecks(model.AgentVersion)
+	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
 }
 

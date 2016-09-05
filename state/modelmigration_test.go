@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -18,14 +19,13 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type MigrationSuite struct {
 	ConnSuite
 	State2  *state.State
-	clock   *coretesting.Clock
+	clock   *jujutesting.Clock
 	stdSpec state.MigrationSpec
 }
 
@@ -33,7 +33,7 @@ var _ = gc.Suite(new(MigrationSuite))
 
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = coretesting.NewClock(time.Now().Truncate(time.Second))
+	s.clock = jujutesting.NewClock(time.Now().Truncate(time.Second))
 	s.PatchValue(&state.GetClock, func() clock.Clock {
 		return s.clock
 	})

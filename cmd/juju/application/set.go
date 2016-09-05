@@ -71,12 +71,12 @@ func (c *setCommand) Info() *cmd.Info {
 		Args:    "<application name> <application key>=<value> ...",
 		Purpose: usageSetConfigSummary,
 		Doc:     usageSetConfigDetails,
-		Aliases: []string{"set-configs"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted application config")
 	f.BoolVar(&c.SetDefault, "to-default", false, "set application option values to default")
 }

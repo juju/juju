@@ -4,8 +4,6 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/api/budget"
@@ -53,7 +51,6 @@ func (c *removeServiceCommand) Info() *cmd.Info {
 		Args:    "<application>",
 		Purpose: helpSummaryRmSvc,
 		Doc:     helpDetailsRmSvc,
-		Aliases: []string{"destroy-application"},
 	}
 }
 
@@ -132,12 +129,12 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 
 	resp, err := budgetClient.DeleteAllocation(modelUUID, c.ApplicationName)
 	if wireformat.IsNotAvail(err) {
-		fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not removed - %s.\n", err.Error())
+		logger.Warningf("allocation not removed: %v", err)
 	} else if err != nil {
 		return err
 	}
 	if resp != "" {
-		fmt.Fprintf(ctx.Stdout, "%s\n", resp)
+		logger.Infof(resp)
 	}
 	return nil
 }

@@ -34,6 +34,7 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 		"test.ca.cert",
 		"aws",
 		"southeastasia",
+		"",
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -65,7 +66,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"name":            "whatever",
 		"type":            "anything, really",
 		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -108,12 +109,12 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 		expectedMcfg.Tags = map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
-			"juju-controller-uuid": coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			"juju-is-controller":   "true",
 		}
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
-		return nil, nil, nil, fmt.Errorf("meh, not started")
+		return nil, nil, nil, errors.Errorf("meh, not started")
 	}
 
 	env.startInstance = startInstance
@@ -272,7 +273,7 @@ type brokenAddresses struct {
 }
 
 func (brokenAddresses) Addresses() ([]network.Address, error) {
-	return nil, fmt.Errorf("Addresses will never work")
+	return nil, errors.Errorf("Addresses will never work")
 }
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {

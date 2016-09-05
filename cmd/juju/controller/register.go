@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -172,8 +173,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "marshalling temporary credential to JSON")
 	}
 	accountDetails := jujuclient.AccountDetails{
-		User:     registrationParams.userTag.Canonical(),
-		Macaroon: string(macaroonJSON),
+		User:            registrationParams.userTag.Canonical(),
+		Macaroon:        string(macaroonJSON),
+		LastKnownAccess: string(description.LoginAccess),
 	}
 	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)

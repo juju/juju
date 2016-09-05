@@ -6,11 +6,12 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -97,7 +98,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 }
 
 func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(coretesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {
 		case <-clock.Alarms():

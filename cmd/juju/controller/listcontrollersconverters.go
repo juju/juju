@@ -31,6 +31,7 @@ type ControllerItem struct {
 	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
 	Cloud          string   `yaml:"cloud" json:"cloud"`
 	CloudRegion    string   `yaml:"region,omitempty" json:"region,omitempty"`
+	AgentVersion   string   `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -56,7 +57,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			serverName = details.APIEndpoints[0]
 		}
 
-		var userName string
+		var userName, access string
 		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -65,6 +66,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			}
 		} else {
 			userName = accountDetails.User
+			access = accountDetails.LastKnownAccess
 		}
 
 		var modelName string
@@ -89,12 +91,14 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		controllers[controllerName] = ControllerItem{
 			ModelName:      modelName,
 			User:           userName,
+			Access:         access,
 			Server:         serverName,
 			APIEndpoints:   details.APIEndpoints,
 			ControllerUUID: details.ControllerUUID,
 			CACert:         details.CACert,
 			Cloud:          details.Cloud,
 			CloudRegion:    details.CloudRegion,
+			AgentVersion:   details.AgentVersion,
 		}
 	}
 	return controllers, errs

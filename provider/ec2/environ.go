@@ -541,7 +541,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(args.ControllerUUID),
+			names.NewControllerTag(args.ControllerUUID),
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
@@ -1515,7 +1515,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(controllerUUID),
+			names.NewControllerTag(controllerUUID),
 			cfg,
 		)
 		if err := tagResources(e.ec2, tags, g.Id); err != nil {

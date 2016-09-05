@@ -47,7 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
 		MachineLockName:         "machine-lock-name",
-		Clock:                   coretesting.NewClock(time.Now()),
+		Clock:                   testing.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
 

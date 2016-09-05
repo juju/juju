@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -46,7 +45,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = storageprovisioner.MachineManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
-		Clock:         coretesting.NewClock(defaultClockStart),
+		Clock:         testing.NewClock(defaultClockStart),
 	}
 }
 

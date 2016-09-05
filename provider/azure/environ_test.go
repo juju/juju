@@ -85,18 +85,18 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.sender = nil
 	s.requests = nil
-	s.retryClock = mockClock{Clock: testing.NewClock(time.Time{})}
+	s.retryClock = mockClock{Clock: gitjujutesting.NewClock(time.Time{})}
 
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: requestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
-		RetryClock: &testing.AutoAdvancingClock{
+		RetryClock: &gitjujutesting.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
 	})
 
-	s.controllerUUID = testing.ModelTag.Id()
+	s.controllerUUID = testing.ControllerTag.Id()
 	s.envTags = map[string]*string{
 		"juju-model-uuid":      to.StringPtr(testing.ModelTag.Id()),
 		"juju-controller-uuid": to.StringPtr(s.controllerUUID),
@@ -494,10 +494,10 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		ModelTag: testing.ModelTag,
 	}
 
-	const secureServerConnections = true
 	icfg, err := instancecfg.NewInstanceConfig(
+		names.NewControllerTag(controllerUUID),
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
-		series, secureServerConnections, apiInfo,
+		series, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -536,7 +536,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 
 type mockClock struct {
 	gitjujutesting.Stub
-	*testing.Clock
+	*gitjujutesting.Clock
 }
 
 func (c *mockClock) After(d time.Duration) <-chan time.Time {
@@ -1139,7 +1139,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagname eq 'juju-controller-uuid' and tagvalue eq '%s'",
-		testing.ModelTag.Id(),
+		testing.ControllerTag.Id(),
 	))
 	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")

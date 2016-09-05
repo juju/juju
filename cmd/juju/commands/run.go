@@ -78,6 +78,7 @@ func (c *runCommand) Info() *cmd.Info {
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,

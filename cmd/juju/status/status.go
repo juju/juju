@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -37,6 +38,8 @@ type statusCommand struct {
 	patterns []string
 	isoTime  bool
 	api      statusAPI
+
+	color bool
 }
 
 var usageSummary = `
@@ -71,28 +74,31 @@ The available output formats are:
       in structured JSON format.
 
 Examples:
-    juju status
-    juju status mysql
-    juju status nova-*
+    juju show-status
+    juju show-status mysql
+    juju show-status nova-*
 
 See Also:
     juju show-model
+    juju show-status-log
     juju machines
     juju storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status",
+		Name:    "show-status",
 		Args:    "[filter pattern ...]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-		Aliases: []string{"show-status"},
+		Aliases: []string{"status"},
 	}
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
 	defaultFormat := "tabular"
 
@@ -102,7 +108,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"short":   FormatOneline,
 		"oneline": FormatOneline,
 		"line":    FormatOneline,
-		"tabular": FormatTabular,
+		"tabular": c.FormatTabular,
 		"summary": FormatSummary,
 	})
 }
@@ -149,4 +155,8 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
+}
+
+func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+	return FormatTabular(writer, c.color, value)
 }

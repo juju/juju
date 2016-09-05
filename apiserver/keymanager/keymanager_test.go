@@ -112,6 +112,26 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 	})
 }
 
+func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
+	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
+	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+
+	args := params.ListSSHKeys{
+		Entities: params.Entities{[]params.Entity{
+			{Tag: s.AdminUserTag(c).Name()},
+		}},
+		Mode: ssh.FullKeys,
+	}
+	results, err := s.keymanager.ListKeys(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: nil},
+		},
+	})
+}
+
 func (s *keyManagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,7 +248,29 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
-	s.assertEnvironKeys(c, []string{"bad key", key1})
+	s.assertEnvironKeys(c, []string{key1, "bad key"})
+}
+
+func (s *keyManagerSuite) TestDeleteKeysNotJujuInternal(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
+	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
+	key3 := sshtesting.ValidKeyThree.Key + " a user key"
+	initialKeys := []string{key1, key2, key3}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{"juju-client-key", "juju-system-key"},
+	}
+	results, err := s.keymanager.DeleteKeys(args)
+	c.Check(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
+			{Error: apiservertesting.ServerError("may not delete internal key: juju-system-key")},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvironKeys(c, initialKeys)
 }
 
 func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {

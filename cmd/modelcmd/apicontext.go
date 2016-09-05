@@ -4,10 +4,10 @@
 package modelcmd
 
 import (
-	"net/http"
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/juju/environschema.v1/form"
@@ -24,6 +24,18 @@ type APIContext struct {
 	BakeryClient *httpbakery.Client
 }
 
+// AuthOpts holds flags relating to authentication.
+type AuthOpts struct {
+	// NoBrowser specifies that web-browser-based auth should
+	// not be used when authenticating.
+	NoBrowser bool
+}
+
+func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&o.NoBrowser, "B", false, "do not use web browser for authentication")
+	f.BoolVar(&o.NoBrowser, "no-browser-login", false, "")
+}
+
 // NewAPIContext returns an API context that will use the given
 // context for user interactions when authorizing.
 // The returned API context must be closed after use.
@@ -33,7 +45,7 @@ type APIContext struct {
 //
 // This function is provided for use by commands that cannot use
 // JujuCommandBase. Most clients should use that instead.
-func NewAPIContext(ctxt *cmd.Context) (*APIContext, error) {
+func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
 	})
@@ -42,20 +54,18 @@ func NewAPIContext(ctxt *cmd.Context) (*APIContext, error) {
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
-	if ctxt != nil {
+	var visitors []httpbakery.Visitor
+
+	if ctxt != nil && opts != nil && opts.NoBrowser {
 		filler := &form.IOFiller{
 			In:  ctxt.Stdin,
 			Out: ctxt.Stdout,
 		}
-		client.VisitWebPage = ussologin.VisitWebPage(
-			"juju",
-			&http.Client{},
-			filler,
-			jujuclient.NewTokenStore(),
-		)
+		visitors = append(visitors, ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore()))
 	} else {
-		client.VisitWebPage = httpbakery.OpenWebBrowser
+		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
+	client.WebPageVisitor = httpbakery.NewMultiVisitor(visitors...)
 	return &APIContext{
 		Jar:          jar,
 		BakeryClient: client,

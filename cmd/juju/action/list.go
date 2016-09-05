@@ -40,6 +40,7 @@ For more information, see also the 'run-action' command, which executes actions.
 
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

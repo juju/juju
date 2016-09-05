@@ -36,8 +36,8 @@ func NewDestroyCommand() cmd.Command {
 	// controller environment anyway.
 	return modelcmd.WrapController(
 		&destroyCommand{},
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 	)
 }
 
@@ -103,21 +103,16 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 }
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -152,7 +147,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 		ctrStatus, modelsStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
@@ -311,6 +306,7 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }

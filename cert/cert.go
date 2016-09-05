@@ -90,11 +90,9 @@ func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err 
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 
-	// A serial number can be up to 20 octets in size.
-	// https://tools.ietf.org/html/rfc5280#section-4.1.2.2
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 8*20))
+	serialNumber, err := newSerialNumber()
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate serial number: %s", err)
+		return "", "", errors.Trace(err)
 	}
 
 	template := &x509.Certificate{
@@ -127,7 +125,19 @@ func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err 
 	return string(certPEMData), string(keyPEMData), nil
 }
 
-// NewServer generates a certificate/key pair suitable for use by a server, with an
+// newSerialNumber returns a new random serial number suitable
+// for use in a certificate.
+func newSerialNumber() (*big.Int, error) {
+	// A serial number can be up to 20 octets in size.
+	// https://tools.ietf.org/html/rfc5280#section-4.1.2.2
+	n, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 8*20))
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to generate serial number")
+	}
+	return n, nil
+}
+
+// NewDefaultServer generates a certificate/key pair suitable for use by a server, with an
 // expiry time of 10 years.
 func NewDefaultServer(caCertPEM, caKeyPEM string, hostnames []string) (certPEM, keyPEM string, err error) {
 	// TODO(perrito666) 2016-05-02 lp:1558657
@@ -164,10 +174,15 @@ func newLeaf(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string, e
 	if err != nil {
 		return "", "", errors.Errorf("cannot generate key: %v", err)
 	}
+
+	serialNumber, err := newSerialNumber()
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	template := &x509.Certificate{
-		SerialNumber: new(big.Int),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			// This won't match host names with dots. The hostname
 			// is hardcoded when connecting to avoid the issue.

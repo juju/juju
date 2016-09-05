@@ -54,6 +54,7 @@ func (s *agreeSuite) TestAgreementNothingToSign(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `Already agreed
 `)
 }
+
 func (s *agreeSuite) TestAgreement(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("less not on windows, bug 1614330")
@@ -70,12 +71,13 @@ func (s *agreeSuite) TestAgreement(c *gc.C) {
 		Content:  testTerms,
 	}})
 	tests := []struct {
-		about    string
-		args     []string
-		err      string
-		stdout   string
-		answer   string
-		apiCalls []jujutesting.StubCall
+		about       string
+		args        []string
+		err         string
+		stdout      string
+		answer      string
+		apiCalls    []jujutesting.StubCall
+		clientTerms []wireformat.GetTermsResponse
 	}{{
 		about:    "everything works",
 		args:     []string{"test-term/1", "--yes"},
@@ -84,7 +86,7 @@ func (s *agreeSuite) TestAgreement(c *gc.C) {
 	}, {
 		about:    "everything works with owner term",
 		args:     []string{"owner/test-term/1", "--yes"},
-		stdout:   "Agreed to revision 1 of test-term for Juju users\n",
+		stdout:   "Agreed to revision 1 of owner/test-term for Juju users\n",
 		apiCalls: []jujutesting.StubCall{{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermOwner: "owner", TermName: "test-term", TermRevision: 1}}}}}},
 	}, {
 		about: "cannot parse revision number",
@@ -170,10 +172,37 @@ Agreed to revision 2 of test-term for Juju users
 					{TermName: "test-term", TermRevision: 1},
 					{TermName: "test-term", TermRevision: 2},
 				}}}}},
-	},
-	}
+	}, {
+		about: "everything works with term owner - user accepts",
+		clientTerms: []wireformat.GetTermsResponse{{
+			Name:     "test-term",
+			Owner:    "test-owner",
+			Revision: 1,
+			Content:  testTerms,
+		}},
+		args:   []string{"test-owner/test-term/1"},
+		answer: "y",
+		stdout: `
+=== test-owner/test-term/1: 0001-01-01 00:00:00 +0000 UTC ===
+Test Terms
+========
+Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/test-term for Juju users
+`,
+		apiCalls: []jujutesting.StubCall{{
+			FuncName: "GetUnunsignedTerms", Args: []interface{}{
+				&wireformat.CheckAgreementsRequest{Terms: []string{"test-owner/test-term/1"}},
+			},
+		}, {
+			FuncName: "SaveAgreement", Args: []interface{}{
+				&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermOwner: "test-owner", TermName: "test-term", TermRevision: 1}}},
+			},
+		}},
+	}}
 	for i, test := range tests {
 		s.client.ResetCalls()
+		if len(test.clientTerms) > 0 {
+			s.client.setUnsignedTerms(test.clientTerms)
+		}
 		c.Logf("running test %d: %s", i, test.about)
 		if test.answer != "" {
 			answer = test.answer
@@ -217,6 +246,7 @@ func (c *mockClient) SaveAgreement(p *wireformat.SaveAgreements) (*wireformat.Sa
 	for i, agreement := range p.Agreements {
 		responses[i] = wireformat.AgreementResponse{
 			User:     c.user,
+			Owner:    agreement.TermOwner,
 			Term:     agreement.TermName,
 			Revision: agreement.TermRevision,
 		}

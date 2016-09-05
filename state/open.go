@@ -35,27 +35,36 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
-	st, err := open(tag, info, opts, newPolicy)
+func Open(
+	controllerModelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	info *mongo.MongoInfo, opts mongo.DialOpts,
+	newPolicy NewPolicyFunc,
+) (*State, error) {
+	st, err := open(controllerModelTag, info, opts, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("closing State for %s: %v", tag, err)
+			logger.Errorf("closing State for %s: %v", controllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
+		return nil, errors.Annotatef(err, "cannot read model %s", controllerModelTag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForModel.
-	if err := st.start(tag); err != nil {
+	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
+func open(
+	controllerModelTag names.ModelTag,
+	info *mongo.MongoInfo, opts mongo.DialOpts,
+	newPolicy NewPolicyFunc,
+) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -71,21 +80,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPol
 	}
 	logger.Debugf("mongodb login successful")
 
-	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
-	// model UUID available. In that case we need to infer what it might be;
-	// we depend on the assumption that this is the only circumstance in which
-	// the the UUID might not be known.
-	if tag.Id() == "" {
-		logger.Warningf("creating state without model tag; inferring bootstrap model")
-		ssInfo, err := readRawControllerInfo(session)
-		if err != nil {
-			session.Close()
-			return nil, errors.Trace(err)
-		}
-		tag = ssInfo.ModelTag
-	}
-
-	st, err := newState(tag, session, info, newPolicy)
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -160,8 +155,8 @@ func (p InitializeParams) Validate() error {
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
 	controllerUUID := p.ControllerConfig.ControllerUUID()
-	if uuid != controllerUUID {
-		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
+	if uuid == controllerUUID {
+		return errors.NotValidf("same controller model uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
 	if p.MongoInfo == nil {
 		return errors.NotValidf("nil MongoInfo")
@@ -228,6 +223,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
 	modelOps, err := st.modelSetupOps(
+		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 		&lineage{
 			ControllerConfig: args.ControllerInheritedConfig,
@@ -241,7 +237,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := createInitialUserOps(st.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	ops := createInitialUserOps(args.ControllerConfig.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
 	ops = append(ops,
 
 		txn.Op{
@@ -290,7 +286,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(modelTag); err != nil {
+	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
+	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -304,7 +301,7 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, error) {
 	if inherited != nil {
 		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
 			return nil, errors.Trace(err)
@@ -314,7 +311,7 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 		return nil, errors.Trace(err)
 	}
 
-	controllerUUID := st.controllerModelTag.Id()
+	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
@@ -326,10 +323,6 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 		Status: status.StatusAvailable,
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
-	isHostedModel := controllerUUID != modelUUID
-
 	modelUserOps := createModelUserOps(
 		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
 	)
@@ -337,7 +330,8 @@ func (st *State) modelSetupOps(args ModelArgs, inherited *lineage) ([]txn.Op, er
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, args.Constraints),
 	}
-	if isHostedModel {
+	// Inc ref count for hosted models.
+	if controllerModelUUID != modelUUID {
 		ops = append(ops, incHostedModelCountOp())
 	}
 
@@ -456,7 +450,11 @@ func isUnauthorized(err error) bool {
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, newPolicy NewPolicyFunc) (_ *State, err error) {
+func newState(
+	modelTag, controllerModelTag names.ModelTag,
+	session *mgo.Session, mongoInfo *mongo.MongoInfo,
+	newPolicy NewPolicyFunc,
+) (_ *State, err error) {
 
 	defer func() {
 		if err != nil {
@@ -476,11 +474,12 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 
 	// Create State.
 	st := &State{
-		modelTag:  modelTag,
-		mongoInfo: mongoInfo,
-		session:   session,
-		database:  database,
-		newPolicy: newPolicy,
+		modelTag:           modelTag,
+		controllerModelTag: controllerModelTag,
+		mongoInfo:          mongoInfo,
+		session:            session,
+		database:           database,
+		newPolicy:          newPolicy,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

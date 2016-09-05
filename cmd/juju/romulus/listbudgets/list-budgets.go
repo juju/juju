@@ -50,6 +50,7 @@ func (c *listBudgetsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *listBudgetsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
 		"json":    cmd.FormatJson,

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -69,7 +70,6 @@ func NewProvisionerTask(
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
-	secureServerConnection bool,
 	retryStartInstanceStrategy RetryStrategy,
 ) (ProvisionerTask, error) {
 	machineChanges := machineWatcher.Changes()
@@ -92,7 +92,6 @@ func NewProvisionerTask(
 		harvestModeChan:            make(chan config.HarvestMode, 1),
 		machines:                   make(map[string]*apiprovisioner.Machine),
 		imageStream:                imageStream,
-		secureServerConnection:     secureServerConnection,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -117,7 +116,6 @@ type provisionerTask struct {
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
 	imageStream                string
-	secureServerConnection     bool
 	harvestMode                config.HarvestMode
 	harvestModeChan            chan config.HarvestMode
 	retryStartInstanceStrategy RetryStrategy
@@ -273,7 +271,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	// Remove any dead machines from state.
 	for _, machine := range dead {
 		logger.Infof("removing dead machine %q", machine)
-		if err := machine.Remove(); err != nil {
+		if err := machine.MarkForRemoval(); err != nil {
 			logger.Errorf("failed to remove dead machine %q", machine)
 		}
 		delete(task.machines, machine.Id())
@@ -498,11 +496,11 @@ func (task *provisionerTask) constructInstanceConfig(
 
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
+		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		pInfo.Series,
-		task.secureServerConnection,
 		apiInfo,
 	)
 	if err != nil {

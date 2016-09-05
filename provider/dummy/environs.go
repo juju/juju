@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -214,6 +215,7 @@ type environProvider struct {
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
 	apiPort                int
+	controllerState        *environState
 	state                  map[string]*environState
 }
 
@@ -226,20 +228,20 @@ func ApiPort(p environs.EnvironProvider) int {
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	name            string
-	ops             chan<- Operation
-	newStatePolicy  state.NewPolicyFunc
-	mu              sync.Mutex
-	maxId           int // maximum instance id allocated so far.
-	maxAddr         int // maximum allocated address last byte
-	insts           map[instance.Id]*dummyInstance
-	globalPorts     map[network.PortRange]bool
-	bootstrapped    bool
-	apiListener     net.Listener
-	apiServer       *apiserver.Server
-	apiState        *state.State
-	apiStatePool    *state.StatePool
-	bootstrapConfig *config.Config
+	name           string
+	ops            chan<- Operation
+	newStatePolicy state.NewPolicyFunc
+	mu             sync.Mutex
+	maxId          int // maximum instance id allocated so far.
+	maxAddr        int // maximum allocated address last byte
+	insts          map[instance.Id]*dummyInstance
+	globalPorts    map[network.PortRange]bool
+	bootstrapped   bool
+	apiListener    net.Listener
+	apiServer      *apiserver.Server
+	apiState       *state.State
+	apiStatePool   *state.StatePool
+	creator        string
 }
 
 // environ represents a client's connection to a given environment's
@@ -287,6 +289,7 @@ func Reset(c *gc.C) {
 	dummy.mu.Lock()
 	dummy.ops = discardOperations
 	oldState := dummy.state
+	dummy.controllerState = nil
 	dummy.state = make(map[string]*environState)
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
@@ -392,12 +395,15 @@ func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
 
 // newState creates the state for a new environment with the given name.
 func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyFunc) *environState {
+	buf := make([]byte, 8192)
+	buf = buf[:runtime.Stack(buf, false)]
 	s := &environState{
 		name:           name,
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
 		insts:          make(map[instance.Id]*dummyInstance),
 		globalPorts:    make(map[network.PortRange]bool),
+		creator:        string(buf),
 	}
 	return s
 }
@@ -593,55 +599,10 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	ecfg, err := p.newConfig(args.Config)
-	if err != nil {
+	if _, err := dummy.newConfig(args.Config); err != nil {
 		return nil, err
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	controllerUUID := args.ControllerUUID
-	if controllerUUID != args.Config.UUID() {
-		// NOTE: this check might appear redundant, but it's not: some tests
-		// (apiserver/modelmanager) inject a string value and determine that
-		// the config is validated later; validating here would render that
-		// test meaningless.
-		if args.Config.AllAttrs()["controller"] == true {
-			// NOTE: cfg.Apply *does* validate, but we're only adding a
-			// valid value so it doesn't matter.
-			return args.Config.Apply(map[string]interface{}{
-				"controller": false,
-			})
-		}
-		return args.Config, nil
-	}
-
-	envState, ok := p.state[controllerUUID]
-	if ok {
-		// PrepareConfig is expected to return the same result given
-		// the same input. We assume that the args are the same for a
-		// previously prepared/bootstrapped controller.
-		return envState.bootstrapConfig, nil
-	}
-
-	name := args.Config.Name()
-	if ecfg.controller() && len(p.state) != 0 {
-		for _, old := range p.state {
-			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
-		}
-	}
-
-	// The environment has not been prepared, so create it and record it.
-	// We don't start listening for State or API connections until
-	// PrepareForBootstrap has been called.
-	envState = newState(name, p.ops, p.newStatePolicy)
-	cfg := args.Config
-	if ecfg.controller() {
-		p.apiPort = envState.listenAPI()
-	}
-	envState.bootstrapConfig = cfg
-	p.state[controllerUUID] = envState
-	return cfg, nil
+	return args.Config, nil
 }
 
 // Override for testing - the data directory with which the state api server is initialised.
@@ -674,11 +635,35 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 
 // Create is part of the Environ interface.
 func (e *environ) Create(args environs.CreateParams) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	dummy.state[e.modelUUID] = newState(e.name, dummy.ops, dummy.newStatePolicy)
 	return nil
 }
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	ecfg := e.ecfgUnlocked
+
+	if ecfg.controller() && dummy.controllerState != nil {
+		// Because of global variables, we can only have one dummy
+		// controller per process. Panic if there is an attempt to
+		// bootstrap while there is another active controller.
+		old := dummy.controllerState
+		panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q: %s", old.name, e.name, old.creator))
+	}
+
+	// The environment has not been prepared, so create it and record it.
+	// We don't start listening for State or API connections until
+	// Bootstrap has been called.
+	envState := newState(e.name, dummy.ops, dummy.newStatePolicy)
+	if ecfg.controller() {
+		dummy.apiPort = envState.listenAPI()
+		dummy.controllerState = envState
+	}
+	dummy.state[e.modelUUID] = envState
 	return nil
 }
 
@@ -695,7 +680,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, err
 	}
 	if _, ok := args.ControllerConfig.CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in controller configuration")
+		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -707,7 +692,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return nil, fmt.Errorf("model is already bootstrapped")
+		return nil, errors.New("model is already bootstrapped")
 	}
 
 	// Create an instance for the bootstrap node.
@@ -883,6 +868,7 @@ func (e *environ) Destroy() (res error) {
 		estate.mu.Lock()
 		ops := estate.ops
 		name := estate.name
+		delete(dummy.state, e.modelUUID)
 		estate.mu.Unlock()
 		ops <- OpDestroy{
 			Env:         name,
@@ -906,7 +892,7 @@ func (e *environ) DestroyController(controllerUUID string) error {
 		return err
 	}
 	dummy.mu.Lock()
-	delete(dummy.state, e.modelUUID)
+	dummy.controllerState = nil
 	dummy.mu.Unlock()
 	return nil
 }

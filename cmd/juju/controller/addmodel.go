@@ -97,6 +97,7 @@ func (c *addModelCommand) Info() *cmd.Info {
 }
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
 	f.StringVar(&c.CredentialName, "credential", "", "Credential used to add the model")
 	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")

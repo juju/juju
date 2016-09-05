@@ -95,9 +95,19 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = api.state.CleanupOldMetrics()
+		modelState := api.state
+		if tag != api.state.ModelTag() {
+			modelState, err = api.state.ForModel(tag)
+			if err != nil {
+				err = errors.Annotatef(err, "failed to access state for %s", tag)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
+
+		err = modelState.CleanupOldMetrics()
 		if err != nil {
-			err = errors.Annotate(err, "failed to cleanup old metrics")
+			err = errors.Annotatef(err, "failed to cleanup old metrics for %s", tag)
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
@@ -126,13 +136,35 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
+		modelState := api.state
+		if tag != api.state.ModelTag() {
+			modelState, err = api.state.ForModel(tag)
+			if err != nil {
+				err = errors.Annotatef(err, "failed to access state for %s", tag)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
+		txVendorMetrics, err := transmitVendorMetrics(modelState)
 		if err != nil {
-			err = errors.Annotate(err, "failed to send metrics")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = metricsender.SendMetrics(modelState, sender, maxBatchesPerSend, txVendorMetrics)
+		if err != nil {
+			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 	}
 	return result, nil
+}
+
+func transmitVendorMetrics(st *state.State) (bool, error) {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
+	}
+	return cfg.TransmitVendorMetrics(), nil
 }

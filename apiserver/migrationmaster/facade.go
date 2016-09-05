@@ -122,6 +122,11 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 		return empty, errors.Annotate(err, "retrieving model name")
 	}
 
+	owner, err := api.backend.ModelOwner()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model owner")
+	}
+
 	vers, err := api.backend.AgentVersion()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving agent version")
@@ -130,6 +135,7 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 	return params.MigrationModelInfo{
 		UUID:         api.backend.ModelUUID(),
 		Name:         name,
+		OwnerTag:     owner.String(),
 		AgentVersion: vers,
 	}, nil
 }

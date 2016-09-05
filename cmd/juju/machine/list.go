@@ -46,7 +46,7 @@ func (c *listMachinesCommand) Info() *cmd.Info {
 		Name:    "machines",
 		Purpose: usageListMachinesSummary,
 		Doc:     usageListMachinesDetails,
-		Aliases: []string{"list-machines", "machine", "list-machine"},
+		Aliases: []string{"list-machines"},
 	}
 }
 

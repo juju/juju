@@ -92,7 +92,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil)
+		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.Series, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}

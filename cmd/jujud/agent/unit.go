@@ -167,7 +167,11 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Engine:     engine,
 		WorkerFunc: introspection.NewWorker,
 	}); err != nil {
-		return nil, errors.Trace(err)
+		// If the introspection worker failed to start, we just log error
+		// but continue. It is very unlikely to happen in the real world
+		// as the only issue is connecting to the abstract domain socket
+		// and the agent is controlled by by the OS to only have one.
+		logger.Errorf("failed to start introspection worker: %v", err)
 	}
 	return engine, nil
 }

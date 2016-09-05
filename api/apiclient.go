@@ -72,8 +72,8 @@ type state struct {
 	// It is empty if there is no model tag associated with the connection.
 	modelTag names.ModelTag
 
-	// controllerTag holds the controller model's tag once we're connected.
-	controllerTag names.ModelTag
+	// controllerTag holds the controller's tag once we're connected.
+	controllerTag names.ControllerTag
 
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
@@ -96,9 +96,11 @@ type state struct {
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
 
-	// readOnly holds whether the user has read-only access for the
-	// connected model.
-	readOnly bool
+	// mpdelAccess holds the access level of the user to the connected model.
+	modelAccess string
+
+	// controllerAccess holds the access level of the user to the connected controller.
+	controllerAccess string
 
 	// broken is a channel that gets closed when the connection is
 	// broken.
@@ -165,19 +167,16 @@ func (e *RedirectError) Error() string {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, clock.WallClock, (*state).Login)
+	return open(info, opts, clock.WallClock)
 }
 
-// This unexported open method is used both directly above in the Open
-// function, and also the OpenWithVersion function below to explicitly cause
-// the API server to think that the client is older than it really is.
+// open is the unexported version of open that also includes
+// an explicit clock instance argument.
 func open(
 	info *Info,
 	opts DialOpts,
 	clock clock.Clock,
-	loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error,
 ) (Connection, error) {
-
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
 	}
@@ -238,7 +237,7 @@ func open(
 		modelTag:     info.ModelTag,
 	}
 	if !info.SkipLogin {
-		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
+		if err := st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
 			conn.Close()
 			return nil, errors.Trace(err)
 		}
@@ -267,22 +266,6 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 		return t.primary.RoundTrip(req)
 	}
 	return t.fallback.RoundTrip(req)
-}
-
-// OpenWithVersion uses an explicit version of the Admin facade to call Login
-// on. This allows the caller to pretend to be an older client, and is used
-// only in testing.
-func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
-	var loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error
-	switch loginVersion {
-	case 2:
-		loginFunc = (*state).loginV2
-	case 3:
-		loginFunc = (*state).loginV3
-	default:
-		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
-	}
-	return open(info, opts, clock.WallClock, loginFunc)
 }
 
 // connectWebsocket establishes a websocket connection to the RPC
@@ -618,6 +601,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 			}, args, response)
 		},
 		IsFatalError: func(err error) bool {
+			err = errors.Cause(err)
 			ec, ok := err.(hasErrorCode)
 			if !ok {
 				return true
@@ -661,7 +645,7 @@ func (s *state) ModelTag() (names.ModelTag, bool) {
 }
 
 // ControllerTag implements base.APICaller.ControllerTag.
-func (s *state) ControllerTag() names.ModelTag {
+func (s *state) ControllerTag() names.ControllerTag {
 	return s.controllerTag
 }
 

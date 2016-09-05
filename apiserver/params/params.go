@@ -590,14 +590,6 @@ type FacadeVersions struct {
 	Versions []int  `json:"versions"`
 }
 
-// LoginResult holds the result of a Login call.
-type LoginResult struct {
-	Servers        [][]HostPort     `json:"servers"`
-	ModelTag       string           `json:"model-tag"`
-	LastConnection *time.Time       `json:"last-connection"`
-	Facades        []FacadeVersions `json:"facades"`
-}
-
 // RedirectInfoResult holds the result of a RedirectInfo call.
 type RedirectInfoResult struct {
 	// Servers holds an entry for each server that holds the
@@ -627,13 +619,14 @@ type AuthUserInfo struct {
 	// the client, if any.
 	Credentials *string `json:"credentials,omitempty"`
 
-	// ReadOnly holds whether the user has read-only access for the
-	// connected model.
-	ReadOnly bool `json:"read-only"`
+	// ControllerAccess holds the access the user has to the connected controller.
+	ControllerAccess string `json:"controller-access"`
+	// ModelAccess holds the access the user has to the connected model.
+	ModelAccess string `json:"model-access"`
 }
 
-// LoginResultV1 holds the result of an Admin v1 Login call.
-type LoginResultV1 struct {
+// LoginResult holds the result of an Admin Login call.
+type LoginResult struct {
 	// DischargeRequired implies that the login request has failed, and none of
 	// the other fields are populated. It contains a macaroon which, when
 	// discharged, will grant access on a subsequent call to Login.
@@ -654,9 +647,8 @@ type LoginResultV1 struct {
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the model that holds the API servers.
-	// This is the initial model created when bootstrapping juju.
-	ControllerTag string `json:"server-tag,omitempty"`
+	// ControllerTag is the tag for the controller that runs the API servers.
+	ControllerTag string `json:"controller-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`

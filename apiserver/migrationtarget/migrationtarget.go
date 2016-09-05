@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
@@ -59,10 +60,19 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
-func (api *API) Prechecks(args params.TargetPrechecksArgs) error {
+func (api *API) Prechecks(model params.MigrationModelInfo) error {
+	ownerTag, err := names.ParseUserTag(model.OwnerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return migration.TargetPrecheck(
 		migration.PrecheckShim(api.state),
-		args.AgentVersion,
+		coremigration.ModelInfo{
+			UUID:         model.UUID,
+			Name:         model.Name,
+			Owner:        ownerTag,
+			AgentVersion: model.AgentVersion,
+		},
 	)
 }
 
@@ -75,6 +85,8 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	}
 	defer st.Close()
 	// TODO(mjs) - post import checks
+	// NOTE(fwereade) - checks here would be sensible, but we will
+	// also need to check after the binaries are imported too.
 	return err
 }
 
@@ -118,5 +130,6 @@ func (api *API) Activate(args params.ModelArgs) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(fwereade) - need to validate binaries here.
 	return model.SetMigrationMode(state.MigrationModeNone)
 }

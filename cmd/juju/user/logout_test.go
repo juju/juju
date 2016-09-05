@@ -96,7 +96,7 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogoutWithoutMacaroon(c *gc.C) {
-	s.assertStorePassword(c, "current-user@local", "old-password")
+	s.assertStorePassword(c, "current-user@local", "old-password", "")
 	s.assertStoreMacaroon(c, "current-user@local", nil)
 	_, err := s.run(c)
 	c.Assert(err, gc.NotNil)
@@ -115,7 +115,7 @@ this command again with the "--force" flag.
 }
 
 func (s *LogoutCommandSuite) TestLogoutWithoutMacaroonForced(c *gc.C) {
-	s.assertStorePassword(c, "current-user@local", "old-password")
+	s.assertStorePassword(c, "current-user@local", "old-password", "")
 	s.assertStoreMacaroon(c, "current-user@local", nil)
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)

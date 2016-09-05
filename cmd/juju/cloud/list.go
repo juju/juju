@@ -61,6 +61,7 @@ func (c *listCloudsCommand) Info() *cmd.Info {
 }
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

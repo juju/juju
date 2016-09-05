@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -113,7 +114,7 @@ const defaultHostedModelName = "default"
 func newBootstrapCommand() cmd.Command {
 	return modelcmd.Wrap(
 		&bootstrapCommand{},
-		modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault,
+		modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel,
 	)
 }
 
@@ -144,8 +145,6 @@ type bootstrapCommand struct {
 	Region              string
 	noGUI               bool
 	interactive         bool
-
-	flagset *gnuflag.FlagSet
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -158,9 +157,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	// we need to store this so that later we can easily check how many flags
-	// have been set (for interactive mode).
-	c.flagset = f
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set model constraints")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
@@ -358,6 +355,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		for authType := range schemas {
 			authTypes = append(authTypes, authType)
 		}
+		// Since we are iterating over a map, lets sort the authTypes so
+		// they are always in a consistent order.
+		sort.Sort(jujucloud.AuthTypes(authTypes))
 		cloud = &jujucloud.Cloud{
 			Type:      c.Cloud,
 			AuthTypes: authTypes,
@@ -433,6 +433,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return cmd.ErrSilent
 	}
 
+	controllerModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
@@ -447,7 +451,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	modelConfigAttrs := map[string]interface{}{
 		"type":         cloud.Type,
 		"name":         bootstrap.ControllerModelName,
-		config.UUIDKey: controllerUUID.String(),
+		config.UUIDKey: controllerModelUUID.String(),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -506,7 +510,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			delete(modelConfigAttrs, k)
 		}
 	}
-	bootstrapConfig, err := bootstrap.NewConfig(controllerUUID.String(), bootstrapConfigAttrs)
+	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "constructing bootstrap config")
 	}
@@ -738,7 +742,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Trace(err)
 	}
 
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerConfig.APIPort(), environ)
+	agentVersion := jujuversion.Current
+	if c.AgentVersion != nil {
+		agentVersion = *c.AgentVersion
+	}
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, controllerConfig.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}

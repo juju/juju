@@ -15,9 +15,10 @@ import (
 
 // NewListControllersCommandForTest returns a listControllersCommand with the clientstore provided
 // as specified.
-func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listControllersCommand {
+func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api api.Connection) *listControllersCommand {
 	return &listControllersCommand{
 		store: testStore,
+		api:   api,
 	}
 }
 
@@ -100,8 +101,8 @@ func NewDestroyCommandForTest(
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
 		cmd,
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 	)
 }
 

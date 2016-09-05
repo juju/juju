@@ -24,7 +24,7 @@ var _ = gc.Suite(&ResumerSuite{})
 
 func (*ResumerSuite) TestImmediateFailure(c *gc.C) {
 	fix := newFixture(errors.New("zap"))
-	stub := fix.Run(c, func(_ *coretesting.Clock, worker *resumer.Resumer) {
+	stub := fix.Run(c, func(_ *testing.Clock, worker *resumer.Resumer) {
 		err := workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches, "cannot resume transactions: zap")
 	})
@@ -33,7 +33,7 @@ func (*ResumerSuite) TestImmediateFailure(c *gc.C) {
 
 func (*ResumerSuite) TestWaitsToResume(c *gc.C) {
 	fix := newFixture(nil, errors.New("unexpected"))
-	stub := fix.Run(c, func(clock *coretesting.Clock, worker *resumer.Resumer) {
+	stub := fix.Run(c, func(clock *testing.Clock, worker *resumer.Resumer) {
 		waitAlarms(c, clock, 2)
 		clock.Advance(time.Hour - time.Nanosecond)
 		workertest.CheckAlive(c, worker)
@@ -44,7 +44,7 @@ func (*ResumerSuite) TestWaitsToResume(c *gc.C) {
 
 func (*ResumerSuite) TestResumesAfterWait(c *gc.C) {
 	fix := newFixture(nil, nil, errors.New("unexpected"))
-	stub := fix.Run(c, func(clock *coretesting.Clock, worker *resumer.Resumer) {
+	stub := fix.Run(c, func(clock *testing.Clock, worker *resumer.Resumer) {
 		waitAlarms(c, clock, 2)
 		clock.Advance(time.Hour)
 		waitAlarms(c, clock, 1)
@@ -55,7 +55,7 @@ func (*ResumerSuite) TestResumesAfterWait(c *gc.C) {
 
 func (*ResumerSuite) TestSeveralResumes(c *gc.C) {
 	fix := newFixture(nil, nil, nil, errors.New("unexpected"))
-	stub := fix.Run(c, func(clock *coretesting.Clock, worker *resumer.Resumer) {
+	stub := fix.Run(c, func(clock *testing.Clock, worker *resumer.Resumer) {
 		waitAlarms(c, clock, 2)
 		clock.Advance(time.Hour)
 		waitAlarms(c, clock, 1)
@@ -74,13 +74,13 @@ type fixture struct {
 	errors []error
 }
 
-type TestFunc func(*coretesting.Clock, *resumer.Resumer)
+type TestFunc func(*testing.Clock, *resumer.Resumer)
 
 func (fix fixture) Run(c *gc.C, test TestFunc) *testing.Stub {
 
 	stub := &testing.Stub{}
 	stub.SetErrors(fix.errors...)
-	clock := coretesting.NewClock(time.Now())
+	clock := testing.NewClock(time.Now())
 	facade := newMockFacade(stub)
 
 	worker, err := resumer.NewResumer(resumer.Config{
@@ -108,7 +108,7 @@ func (mock *mockFacade) ResumeTransactions() error {
 	return mock.stub.NextErr()
 }
 
-func waitAlarms(c *gc.C, clock *coretesting.Clock, count int) {
+func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
 	timeout := time.After(coretesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {

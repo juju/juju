@@ -31,6 +31,17 @@ Examples:
 See also: 
     controllers`[1:]
 
+type showControllerCommand struct {
+	modelcmd.JujuCommandBase
+
+	out   cmd.Output
+	store jujuclient.ClientStore
+	api   controllerAccessAPI
+
+	controllerNames []string
+	showPasswords   bool
+}
+
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
 	cmd := &showControllerCommand{
@@ -52,7 +63,6 @@ func (c *showControllerCommand) Info() *cmd.Info {
 		Args:    "[<controller name> ...]",
 		Purpose: usageShowControllerSummary,
 		Doc:     usageShowControllerDetails,
-		Aliases: []string{"show-controllers"},
 	}
 }
 
@@ -61,15 +71,15 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"tabular": formatShowControllersTabular,
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
 	})
 }
 
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type controllerAccessAPI interface {
 	GetControllerAccess(user string) (description.Access, error)
+	ModelConfig() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -113,22 +123,45 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				return err
 			}
 			defer client.Close()
-			userAccess, err := client.GetControllerAccess(accountDetails.User)
-			if err == nil {
-				access = string(userAccess)
-			} else {
-				code := params.ErrCode(err)
-				if code != "" {
-					access = fmt.Sprintf("(%s)", code)
-				} else {
-					fmt.Fprintln(ctx.Stderr, err)
-					access = "(error)"
-				}
-			}
+			access = c.userAccess(client, ctx, accountDetails.User)
+			one.AgentVersion = c.agentVersion(client, ctx)
 		}
 		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
 	}
 	return c.out.Write(ctx, controllers)
+}
+
+func (c *showControllerCommand) userAccess(client controllerAccessAPI, ctx *cmd.Context, user string) string {
+	var access string
+	userAccess, err := client.GetControllerAccess(user)
+	if err == nil {
+		access = string(userAccess)
+	} else {
+		code := params.ErrCode(err)
+		if code != "" {
+			access = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			access = "(error)"
+		}
+	}
+	return access
+}
+
+func (c *showControllerCommand) agentVersion(client controllerAccessAPI, ctx *cmd.Context) string {
+	var ver string
+	mc, err := client.ModelConfig()
+	if err != nil {
+		code := params.ErrCode(err)
+		if code != "" {
+			ver = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			ver = "(error)"
+		}
+		return ver
+	}
+	return mc["agent-version"].(string)
 }
 
 type ShowControllerDetails struct {
@@ -164,6 +197,12 @@ type ControllerDetails struct {
 
 	// CloudRegion is the name of the cloud region that this controller runs in.
 	CloudRegion string `yaml:"region,omitempty" json:"region,omitempty"`
+
+	// AgentVersion is the version of the agent running on this controller.
+	// AgentVersion need not always exist so we omitempty here. This struct is
+	// used in both list-controller and show-controller. show-controller
+	// displays the agent version where list-controller does not.
+	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -192,6 +231,7 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			CACert:         details.CACert,
 			Cloud:          details.Cloud,
 			CloudRegion:    details.CloudRegion,
+			AgentVersion:   details.AgentVersion,
 		},
 	}
 	c.convertModelsForShow(controllerName, &controller)
@@ -236,15 +276,4 @@ func (c *showControllerCommand) convertModelsForShow(controllerName string, cont
 		controller.Errors = append(controller.Errors, err.Error())
 		return
 	}
-}
-
-type showControllerCommand struct {
-	modelcmd.JujuCommandBase
-
-	out   cmd.Output
-	store jujuclient.ClientStore
-	api   controllerAccessAPI
-
-	controllerNames []string
-	showPasswords   bool
 }

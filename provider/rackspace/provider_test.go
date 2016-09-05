@@ -32,7 +32,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 		"name":            "some-name",
 		"type":            "some-type",
 		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)

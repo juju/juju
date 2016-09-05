@@ -29,6 +29,16 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	return runner.RunTransaction(ops)
 }
 
+// runTransaction is a convenience method delegating to the state's Database
+// for the model with the given modelUUID.
+func (st *State) runTransactionFor(modelUUID string, ops []txn.Op) error {
+	database, dbcloser := st.database.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := database.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
 // runRawTransaction is a convenience method that will run a single
 // transaction using a "raw" transaction runner that won't perform
 // model filtering.
@@ -44,6 +54,16 @@ func (st *State) runRawTransaction(ops []txn.Op) error {
 // run is a convenience method delegating to the state's Database.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
 	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
+}
+
+// runForModel is a convenience method that delegates to a Database for a different
+// modelUUID.
+func (st *State) runForModel(modelUUID string, transactions jujutxn.TransactionSource) error {
+	database, dbcloser := st.database.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := database.TransactionRunner()
 	defer closer()
 	return runner.Run(transactions)
 }

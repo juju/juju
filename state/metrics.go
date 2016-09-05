@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +50,14 @@ type Metric struct {
 	Key   string    `bson:"key"`
 	Value string    `bson:"value"`
 	Time  time.Time `bson:"time"`
+}
+
+type byTime []Metric
+
+func (t byTime) Len() int      { return len(t) }
+func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+func (t byTime) Less(i, j int) bool {
+	return t[i].Time.Before(t[j].Time)
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -171,15 +180,11 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	return results, nil
 }
 
-func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
+func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
-	if query == nil {
-		query = bson.M{}
-	}
-	query["charmurl"] = bson.M{"$regex": "^local:"}
-	err := c.Find(query).All(&docs)
+	err := c.Find(query).Sort("created").All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -190,13 +195,18 @@ func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
 	return results, nil
 }
 
-// MetricBatchesUnit returns metric batches for the given unit.
+// MetricBatchesForUnit returns metric batches for the given unit.
 func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
-	return st.queryLocalMetricBatches(bson.M{"unit": unit})
+	return st.queryMetricBatches(bson.M{"unit": unit})
 }
 
-// MetricBatchesUnit returns metric batches for the given application.
-func (st *State) MetricBatchesForService(application string) ([]MetricBatch, error) {
+// MetricBatchesForModel returns metric batches for all the units in the model.
+func (st *State) MetricBatchesForModel() ([]MetricBatch, error) {
+	return st.queryMetricBatches(bson.M{"model-uuid": st.ModelUUID()})
+}
+
+// MetricBatchesForApplication returns metric batches for the given application.
+func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
 	svc, err := st.Application(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -209,7 +219,7 @@ func (st *State) MetricBatchesForService(application string) ([]MetricBatch, err
 	for i, u := range units {
 		unitNames[i] = bson.M{"unit": u.Name()}
 	}
-	return st.queryLocalMetricBatches(bson.M{"$or": unitNames})
+	return st.queryMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.
@@ -240,6 +250,7 @@ func (st *State) CleanupOldMetrics() error {
 	metricsW := metrics.Writeable()
 	// TODO (mattyw) iter over this.
 	info, err := metricsW.RemoveAll(bson.M{
+		"model-uuid":  st.ModelUUID(),
 		"sent":        true,
 		"delete-time": bson.M{"$lte": now},
 	})
@@ -255,9 +266,12 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	var docs []metricBatchDoc
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	err := c.Find(bson.M{
-		"sent": false,
-	}).Limit(batchSize).All(&docs)
+
+	q := bson.M{
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
+	}
+	err := c.Find(q).Limit(batchSize).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +291,8 @@ func (st *State) CountOfUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": false,
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
 	}).Count()
 }
 
@@ -288,7 +303,8 @@ func (st *State) CountOfSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": true,
+		"model-uuid": st.ModelUUID(),
+		"sent":       true,
 	}).Count()
 }
 
@@ -334,6 +350,24 @@ func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
 	copy(result, m.doc.Metrics)
 	return result
+}
+
+// UniqueMetrics returns only the last value for each
+// metric key in this batch.
+func (m *MetricBatch) UniqueMetrics() []Metric {
+	metrics := m.Metrics()
+	sort.Sort(byTime(metrics))
+	uniq := map[string]Metric{}
+	for _, m := range metrics {
+		uniq[m.Key] = m
+	}
+	results := make([]Metric, len(uniq))
+	i := 0
+	for _, m := range uniq {
+		results[i] = m
+		i++
+	}
+	return results
 }
 
 // SetSent marks the metric has having been sent at

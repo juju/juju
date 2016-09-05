@@ -99,29 +99,31 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		"type":            "ec2",
 		"default-series":  "precise",
 		"region":          "us-east-1",
-		"controller-uuid": ec2UUID,
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"uuid":            ec2UUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	store.Controllers["ec2-controller"] = jujuclient.ControllerDetails{
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: coretesting.ControllerTag.Id(),
 		CACert:         coretesting.CACert,
 	}
 	store.Accounts["ec2-controller"] = jujuclient.AccountDetails{
 		User: "admin@local",
 	}
 	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
-		Config:      ec2Config.AllAttrs(),
-		Cloud:       "ec2",
-		CloudType:   "ec2",
-		CloudRegion: "us-east-1",
+		ControllerConfig:    coretesting.FakeControllerConfig(),
+		ControllerModelUUID: ec2UUID,
+		Config:              ec2Config.AllAttrs(),
+		Cloud:               "ec2",
+		CloudType:           "ec2",
+		CloudRegion:         "us-east-1",
 	}
 
 	azureUUID := utils.MustNewUUID().String()
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":                 "azure",
 		"type":                 "azure",
-		"controller-uuid":      azureUUID,
+		"controller-uuid":      coretesting.ControllerTag.Id(),
 		"uuid":                 azureUUID,
 		"default-series":       "raring",
 		"location":             "West US",
@@ -132,13 +134,15 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: coretesting.ControllerTag.Id(),
 		CACert:         coretesting.CACert,
 	}
 	store.Accounts["azure-controller"] = jujuclient.AccountDetails{
 		User: "admin@local",
 	}
 	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		ControllerModelUUID:  azureUUID,
 		Config:               azureConfig.AllAttrs(),
 		Cloud:                "azure",
 		CloudType:            "azure",

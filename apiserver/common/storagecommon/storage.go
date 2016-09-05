@@ -258,7 +258,7 @@ func storageTags(
 ) (map[string]string, error) {
 	storageTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
-		names.NewModelTag(controllerUUID),
+		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
 	if storageInstance != nil {

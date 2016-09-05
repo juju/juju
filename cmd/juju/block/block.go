@@ -6,7 +6,6 @@ package block
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -40,11 +39,6 @@ func (c *BaseBlockCommand) internalRun(operation string) error {
 	defer client.Close()
 
 	return client.SwitchBlockOn(TypeFromOperation(operation), c.desc)
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *BaseBlockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
 }
 
 // BlockClientAPI defines the client API methods that block command uses.

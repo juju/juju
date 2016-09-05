@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -79,11 +78,6 @@ func (c *collectMetricsCommand) Init(args []string) error {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
 	return nil
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *collectMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
 }
 
 type runClient interface {

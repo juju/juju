@@ -37,6 +37,7 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
+    agent-version: 999.99.99
 `
 	s.createTestClientStore(c)
 
@@ -47,6 +48,7 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
+    agent-version: 999.99.99
   models:
     admin:
       uuid: abc
@@ -68,6 +70,7 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
+    agent-version: 999.99.99
 `
 	s.createTestClientStore(c)
 
@@ -78,6 +81,7 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
+    agent-version: 999.99.99
   models:
     admin:
       uuid: abc
@@ -101,6 +105,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     region: mallards1
+    agent-version: 999.99.99
 `
 	store := s.createTestClientStore(c)
 	store.BootstrapConfig["mallards"] = jujuclient.BootstrapConfig{
@@ -124,6 +129,7 @@ mallards:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     region: mallards1
+    agent-version: 999.99.99
   models:
     admin:
       uuid: abc
@@ -149,6 +155,7 @@ aws-test:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
+    agent-version: 999.99.99
   models:
     admin:
       uuid: ghi
@@ -170,6 +177,7 @@ aws-test:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
+    agent-version: 999.99.99
   models:
     admin:
       uuid: ghi
@@ -183,6 +191,7 @@ mark-test-prodstack:
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
+    agent-version: 999.99.99
   account:
     user: admin@local
     access: superuser
@@ -191,23 +200,11 @@ mark-test-prodstack:
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
 }
 
-func (s *ShowControllerSuite) TestShowSomeControllerTabular(c *gc.C) {
-	s.createTestClientStore(c)
-	s.expectedOutput = `
-CONTROLLER           MODEL  USER         ACCESS     CLOUD/REGION
-aws-test             admin  admin@local  superuser  aws/us-east-1
-mark-test-prodstack  -      admin@local  superuser  prodstack
-
-`[1:]
-
-	s.assertShowController(c, "--format", "tabular", "aws-test", "mark-test-prodstack")
-}
-
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -216,7 +213,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack"},"account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -238,7 +235,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store := s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	store.CurrentControllerName = "aws-test"
 	s.assertShowController(c, "--format", "json")
@@ -287,6 +284,10 @@ type fakeController struct{}
 
 func (*fakeController) GetControllerAccess(user string) (description.Access, error) {
 	return "superuser", nil
+}
+
+func (*fakeController) ModelConfig() (map[string]interface{}, error) {
+	return map[string]interface{}{"agent-version": "999.99.99"}, nil
 }
 
 func (*fakeController) Close() error {

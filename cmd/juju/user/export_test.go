@@ -65,7 +65,7 @@ func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.Cli
 // NewLoginCommand returns a LoginCommand with the api
 // and writer provided as specified.
 func NewLoginCommandForTest(
-	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, error),
+	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error),
 	store jujuclient.ClientStore,
 ) (cmd.Command, *LoginCommand) {
 	c := &loginCommand{newLoginAPI: newLoginAPI}

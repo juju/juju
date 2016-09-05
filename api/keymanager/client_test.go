@@ -139,7 +139,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 		{Error: nil},
 		{Error: clientError("invalid ssh key: missing")},
 	})
-	s.assertModelKeys(c, []string{"invalid", key3})
+	s.assertModelKeys(c, []string{key3, "invalid"})
 }
 
 func (s *keymanagerSuite) TestImportKeys(c *gc.C) {

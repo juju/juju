@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -174,18 +175,19 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()
 	}
+	bootstrapVersion := v100p64
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", series.LatestLts(), 1)
-		v := version.MustParseBinary(useVersion)
-		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
-		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
-		v.Build = 1
+		bootstrapVersion = version.MustParseBinary(useVersion)
+		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
-			v.Number = uploadVers.Number
+			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &v.Number)))
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -245,10 +247,16 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.UnresolvedAPIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
+	// We don't care about build numbers here.
+	bootstrapVers := bootstrapVersion.Number
+	bootstrapVers.Build = 0
+	controllerVers := version.MustParse(controller.AgentVersion)
+	controllerVers.Build = 0
+	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
+	c.Assert(utils.IsValidUUIDString(controllerModel.ModelUUID), jc.IsTrue)
 
 	// Bootstrap config should have been saved, and should only contain
 	// the type, name, and any user-supplied configuration.
@@ -550,7 +558,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
-	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel)
 	_, err := coretesting.RunCommand(c, wrapped, controllerName, "dummy", "--auto-upgrade")
 	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
@@ -1106,6 +1114,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -1127,6 +1136,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},

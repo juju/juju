@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
@@ -60,7 +61,7 @@ Examples:
 See also: 
     sync-tools`
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapEnvOption) cmd.Command {
+func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
@@ -93,6 +94,7 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 }
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
@@ -177,6 +179,11 @@ type modelConfigAPI interface {
 	Close() error
 }
 
+type controllerAPI interface {
+	ModelConfig() (map[string]interface{}, error)
+	Close() error
+}
+
 var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
 }
@@ -187,6 +194,14 @@ var getModelConfigAPI = func(c *upgradeJujuCommand) (modelConfigAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return modelconfig.NewClient(api), nil
+}
+
+var getControllerAPI = func(c *upgradeJujuCommand) (controllerAPI, error) {
+	api, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controller.NewClient(api), nil
 }
 
 // Run changes the version proposed for the juju envtools.
@@ -202,6 +217,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer modelConfigClient.Close()
+	controllerClient, err := getControllerAPI(c)
+	if err != nil {
+		return err
+	}
+	defer controllerClient.Close()
 	defer func() {
 		if err == errUpToDate {
 			ctx.Infof(err.Error())
@@ -219,11 +239,11 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	controller, err := c.ClientStore().ControllerByName(c.ControllerName())
+	controllerModelConfig, err := controllerClient.ModelConfig()
 	if err != nil {
 		return err
 	}
-	isControllerModel := cfg.UUID() == controller.ControllerUUID
+	isControllerModel := cfg.UUID() == controllerModelConfig[config.UUIDKey]
 	if c.BuildAgent && !isControllerModel {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID

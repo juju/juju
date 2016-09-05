@@ -327,6 +327,10 @@ func (mock *mockConfig) Model() names.ModelTag {
 	return testing.ModelTag
 }
 
+func (mock *mockConfig) Controller() names.ControllerTag {
+	return testing.ControllerTag
+}
+
 func (mock *mockConfig) CACert() string {
 	return testing.CACert
 }

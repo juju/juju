@@ -16,10 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
 )
 
 var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
@@ -51,7 +47,7 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
-func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	if allocBudget, allocLimit, err := parseBudgetWithLimit(r.AllocationSpec); err == nil {
 		// Make these available to registration if valid.
 		r.budget, r.limit = allocBudget, allocLimit
@@ -59,12 +55,15 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		return errors.Trace(err)
 	}
 
-	charmsClient := charms.NewClient(state)
-	metered, err := charmsClient.IsMetered(deployInfo.CharmID.URL.String())
+	metered, err := api.IsMetered(deployInfo.CharmID.URL.String())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !metered {
+		return nil
+	}
+	info := deployInfo.CharmInfo
+	if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
 		return nil
 	}
 
@@ -102,15 +101,14 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+func (r *RegisterMeteredCharm) RunPost(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	if prevErr != nil {
 		return nil
 	}
 	if r.credentials == nil {
 		return nil
 	}
-	appClient := application.NewClient(state)
-	err := appClient.SetMetricCredentials(deployInfo.ApplicationName, r.credentials)
+	err := api.SetMetricCredentials(deployInfo.ApplicationName, r.credentials)
 	if err != nil {
 		logger.Warningf("failed to set metric credentials: %v", err)
 		return errors.Trace(err)

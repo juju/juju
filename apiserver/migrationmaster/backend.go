@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/version"
@@ -16,6 +18,7 @@ type Backend interface {
 	LatestMigration() (state.ModelMigration, error)
 	ModelUUID() string
 	ModelName() (string, error)
+	ModelOwner() (names.UserTag, error)
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 

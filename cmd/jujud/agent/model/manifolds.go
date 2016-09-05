@@ -6,6 +6,7 @@ package model
 import (
 	"time"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/machineundertaker"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
@@ -113,7 +115,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
-			APIOpen:       apicaller.APIOpen,
+			APIOpen:       api.Open,
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),
@@ -283,6 +285,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
+		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			NewWorker:     machineundertaker.NewWorker,
+		})),
 	}
 }
 
@@ -375,4 +382,5 @@ const (
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
+	machineUndertakerName    = "machine-undertaker"
 )

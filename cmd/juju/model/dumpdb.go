@@ -50,6 +50,7 @@ func (c *dumpDBCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *dumpDBCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

@@ -242,10 +242,11 @@ func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: &fakeRPCConnection{
 			errors: []error{
-				&rpc.RequestError{
-					Message: "hmm...",
-					Code:    params.CodeRetry,
-				},
+				errors.Trace(
+					&rpc.RequestError{
+						Message: "hmm...",
+						Code:    params.CodeRetry,
+					}),
 			},
 		},
 		Clock: clock,
@@ -258,7 +259,7 @@ func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 	clock := &fakeClock{}
-	retryError := &rpc.RequestError{Message: "hmm...", Code: params.CodeRetry}
+	retryError := errors.Trace(&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry})
 	var errors []error
 	for i := 0; i < 10; i++ {
 		errors = append(errors, retryError)
@@ -339,12 +340,12 @@ type redirectAPIAdmin struct {
 	r *redirectAPI
 }
 
-func (a *redirectAPIAdmin) Login(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *redirectAPIAdmin) Login(req params.LoginRequest) (params.LoginResult, error) {
 	if a.r.modelUUID != "beef1beef1-0000-0000-000011112222" {
-		return params.LoginResultV1{}, errors.New("logged into unexpected model")
+		return params.LoginResult{}, errors.New("logged into unexpected model")
 	}
 	a.r.redirected = true
-	return params.LoginResultV1{}, params.Error{
+	return params.LoginResult{}, params.Error{
 		Message: "redirect",
 		Code:    params.CodeRedirect,
 	}

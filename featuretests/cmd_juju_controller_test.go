@@ -73,8 +73,10 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         CLOUD/REGION
-kontroll*   controller  admin@local  dummy/dummy-region
+CONTROLLER  MODEL       USER         ACCESS      CLOUD/REGION        VERSION
+kontroll*   controller  admin@local  superuser+  dummy/dummy-region  (unknown)+
+
++ these are the last known values, run with --refresh to see the latest information.
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -110,7 +112,7 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
   owner: admin@local
   cloud: dummy

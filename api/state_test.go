@@ -78,8 +78,8 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestModelTag(c *gc.C) {
-	env, err := s.State.Model()
+func (s *stateSuite) TestTags(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
@@ -87,17 +87,15 @@ func (s *stateSuite) TestModelTag(c *gc.C) {
 	// still be set.
 	modelTag, ok := apistate.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, env.ModelTag())
+	c.Check(modelTag, gc.Equals, model.ModelTag())
 	err = apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
 	modelTag, ok = apistate.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, env.ModelTag())
-	// The controller tag is also set, and since the model is the
-	// controller model, the uuid is the same.
+	c.Check(modelTag, gc.Equals, model.ModelTag())
 	controllerTag := apistate.ControllerTag()
-	c.Check(controllerTag, gc.Equals, env.ModelTag())
+	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
 func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
@@ -113,11 +111,10 @@ func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
 	c.Assert(apistate.AuthTag(), gc.Equals, tag)
 }
 
-func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
-	// The default user has read and write access.
-	c.Assert(s.APIState.ReadOnly(), jc.IsFalse)
+func (s *stateSuite) TestLoginSetsModelAccess(c *gc.C) {
+	// The default user has admin access.
+	c.Assert(s.APIState.ModelAccess(), gc.Equals, "admin")
 
-	// Check with an user in read-only mode.
 	manager := usermanager.NewClient(s.OpenControllerAPI(c))
 	defer manager.Close()
 	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
@@ -129,7 +126,25 @@ func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
 	err = mmanager.GrantModel(usertag.Canonical(), "read", modeltag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenAPIAs(c, usertag, "ro-password")
-	c.Assert(conn.ReadOnly(), jc.IsTrue)
+	c.Assert(conn.ModelAccess(), gc.Equals, "read")
+}
+
+func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
+	// The default user has admin access.
+	c.Assert(s.APIState.ControllerAccess(), gc.Equals, "superuser")
+
+	manager := usermanager.NewClient(s.OpenControllerAPI(c))
+	defer manager.Close()
+	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
+	c.Assert(err, jc.ErrorIsNil)
+	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer mmanager.Close()
+	modeltag, ok := s.APIState.ModelTag()
+	c.Assert(ok, jc.IsTrue)
+	err = mmanager.GrantModel(usertag.Canonical(), "read", modeltag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	conn := s.OpenAPIAs(c, usertag, "ro-password")
+	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {

@@ -121,10 +121,7 @@ func (s *LogsSuite) TestLastSentLogTrackerIndependentSinks(c *gc.C) {
 }
 
 func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
-	st, err := s.State.ForModel(names.NewModelTag(s.State.ControllerUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	tracker, err := state.NewAllLastSentLogTracker(st, "test-sink")
+	tracker, err := state.NewAllLastSentLogTracker(s.State, "test-sink")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tracker.Close()
 

@@ -1095,24 +1095,23 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the service settings for the new charm.
-		incOp, err := settingsIncRefOp(u.st, u.doc.Application, curl, false)
+		incOps, err := charmIncRefOps(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		// Set the new charm URL.
 		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-		ops := []txn.Op{
-			incOp,
-			{
+		ops := append(incOps,
+			txn.Op{
 				C:      unitsC,
 				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-			}}
+			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := settingsDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := charmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -2296,7 +2295,7 @@ type addUnitOpsArgs struct {
 // collection, along with all the associated expected other unit entries. This
 // method is used by both the *Service.addUnitOpsWithCons method and the
 // migration import code.
-func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
+func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	name := args.unitDoc.Name
 	agentGlobalKey := unitAgentGlobalKey(name)
 
@@ -2313,13 +2312,14 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 	// ones will, and they need to maintain their refcounts. If we
 	// relax the restrictions on migrating apps mid-upgrade, this
 	// will need to be more sophisticated, because it might need to
-	// create the settings doc; and will likely have to look in the
-	// DB to find out which.
+	// create the settings doc.
 	if curl := args.unitDoc.CharmURL; curl != nil {
 		appName := args.unitDoc.Application
-		settingsKey := applicationSettingsKey(appName, curl)
-		incRefSettingsOp := nsRefcounts.JustIncRefOp(refcountsC, settingsKey)
-		prereqOps = append(prereqOps, incRefSettingsOp)
+		charmRefOps, err := charmIncRefOps(st, appName, curl, false)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		prereqOps = append(prereqOps, charmRefOps...)
 	}
 
 	return append(prereqOps, txn.Op{
@@ -2327,7 +2327,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: args.unitDoc,
-	})
+	}), nil
 }
 
 // HistoryGetter allows getting the status history based on some identifying key.

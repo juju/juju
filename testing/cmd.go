@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
@@ -87,15 +86,6 @@ func RunCommand(c *gc.C, com cmd.Command, args ...string) (*cmd.Context, error) 
 	return context, com.Run(context)
 }
 
-// RunCommandInDir works like RunCommand, but runs with a context that uses dir.
-func RunCommandInDir(c *gc.C, com cmd.Command, args []string, dir string) (*cmd.Context, error) {
-	if err := InitCommand(com, args); err != nil {
-		return nil, err
-	}
-	var context = ContextForDir(c, dir)
-	return context, com.Run(context)
-}
-
 // TestInit checks that a command initialises correctly with the given set of
 // arguments.
 func TestInit(c *gc.C, com cmd.Command, args []string, errPat string) {
@@ -105,17 +95,4 @@ func TestInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
-}
-
-// ExtractCommandsFromHelpOutput takes the standard output from the
-// command context and looks for the "commands:" string and returns the
-// commands output after that.
-func ExtractCommandsFromHelpOutput(ctx *cmd.Context) []string {
-	var namesFound []string
-	commandHelp := strings.SplitAfter(Stdout(ctx), "commands:")[1]
-	commandHelp = strings.TrimSpace(commandHelp)
-	for _, line := range strings.Split(commandHelp, "\n") {
-		namesFound = append(namesFound, strings.TrimSpace(strings.Split(line, " - ")[0]))
-	}
-	return namesFound
 }

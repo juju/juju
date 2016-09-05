@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
+	"github.com/juju/version"
 )
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
@@ -30,10 +31,14 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 }
 
 // SetBootstrapEndpointAddress writes the API endpoint address of the
-// bootstrap server into the connection information. This should only be run
-// once directly after Bootstrap. It assumes that there is just one instance
-// in the environment - the bootstrap instance.
-func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerName string, apiPort int, environ environs.Environ) error {
+// bootstrap server, plus the agent version, into the connection information.
+// This should only be run once directly after Bootstrap. It assumes that
+// there is just one instance in the environment - the bootstrap instance.
+func SetBootstrapEndpointAddress(
+	store jujuclient.ControllerStore,
+	controllerName string, agentVersion version.Number,
+	apiPort int, environ environs.Environ,
+) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -54,7 +59,7 @@ func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerNam
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerAddresses(store, controllerName, nil, apiHostPorts...)
+	return juju.UpdateControllerDetailsFromLogin(store, controllerName, agentVersion.String(), nil, apiHostPorts...)
 }
 
 var (

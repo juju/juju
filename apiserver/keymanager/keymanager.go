@@ -27,6 +27,9 @@ func init() {
 	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
 }
 
+// The comment values used by juju internal ssh keys.
+var internalComments = set.NewStrings([]string{"juju-client-key", "juju-system-key"}...)
+
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
@@ -128,16 +131,20 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			keyInfo = append(keyInfo, fmt.Sprintf("Invalid key: %v", key))
+			continue
+		}
+		// Only including user added keys not internal ones.
+		if internalComments.Contains(comment) {
+			continue
+		}
+		if mode == ssh.FullKeys {
+			keyInfo = append(keyInfo, key)
 		} else {
-			if mode == ssh.FullKeys {
-				keyInfo = append(keyInfo, key)
-			} else {
-				shortKey := fingerprint
-				if comment != "" {
-					shortKey += fmt.Sprintf(" (%s)", comment)
-				}
-				keyInfo = append(keyInfo, shortKey)
+			shortKey := fingerprint
+			if comment != "" {
+				shortKey += fmt.Sprintf(" (%s)", comment)
 			}
+			keyInfo = append(keyInfo, shortKey)
 		}
 	}
 	return keyInfo
@@ -318,33 +325,31 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 
 // currentKeyDataForDelete gathers data used when deleting ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForDelete() (
-	keys map[string]string, invalidKeys []string, comments map[string]string, err error) {
+	currentKeys []string, byFingerprint map[string]string, byComment map[string]string, err error) {
 
 	cfg, err := api.state.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
 	// For now, authorised keys are global, common to all users.
-	existingSSHKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	currentKeys = ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 
-	// Build up a map of keys indexed by fingerprint, and fingerprints indexed by comment
-	// so we can easily get the key represented by each keyId, which may be either a fingerprint
-	// or comment.
-	keys = make(map[string]string)
-	comments = make(map[string]string)
-	for _, key := range existingSSHKeys {
+	// Make two maps that index keys by fingerprint and by comment for fast
+	// lookup of keys to delete which may be given as either.
+	byFingerprint = make(map[string]string)
+	byComment = make(map[string]string)
+	for _, key := range currentKeys {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
-			invalidKeys = append(invalidKeys, key)
 			continue
 		}
-		keys[fingerprint] = key
+		byFingerprint[fingerprint] = key
 		if comment != "" {
-			comments[comment] = fingerprint
+			byComment[comment] = key
 		}
 	}
-	return keys, invalidKeys, comments, nil
+	return currentKeys, byFingerprint, byComment, nil
 }
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
@@ -363,32 +368,44 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
-	sshKeys, invalidKeys, keyComments, err := api.currentKeyDataForDelete()
+	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
-	// We keep all existing invalid keys.
-	keysToWrite := invalidKeys
+	// Record the keys to be deleted in the second pass.
+	keysToDelete := make(set.Strings)
 
 	// Find the keys corresponding to the specified key fingerprints or comments.
 	for i, keyId := range arg.Keys {
-		// assume keyId may be a fingerprint
-		fingerprint := keyId
-		_, ok := sshKeys[keyId]
-		if !ok {
-			// keyId is a comment
-			fingerprint, ok = keyComments[keyId]
+		// Is given keyId a fingerprint?
+		key, ok := byFingerprint[keyId]
+		if ok {
+			keysToDelete.Add(key)
+			continue
 		}
-		if !ok {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
+		// Not a fingerprint, is it a comment?
+		key, ok = byComment[keyId]
+		if ok {
+			if internalComments.Contains(keyId) {
+				result.Results[i].Error = common.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
+				continue
+			}
+			keysToDelete.Add(key)
+			continue
 		}
-		// We found the key to delete so remove it from those we wish to keep.
-		delete(sshKeys, fingerprint)
+		result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
 	}
-	for _, key := range sshKeys {
-		keysToWrite = append(keysToWrite, key)
+
+	var keysToWrite []string
+
+	// Add back only the keys that are not deleted, preserving the order.
+	for _, key := range allKeys {
+		if !keysToDelete.Contains(key) {
+			keysToWrite = append(keysToWrite, key)
+		}
 	}
+
 	if len(keysToWrite) == 0 {
 		return params.ErrorResults{}, common.ServerError(fmt.Errorf("cannot delete all keys"))
 	}

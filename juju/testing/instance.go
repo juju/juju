@@ -175,11 +175,11 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	machineNonce := "fake_nonce"
 	apiInfo := FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
+		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		preferredSeries,
-		true,
 		apiInfo,
 	)
 	if err != nil {
@@ -200,7 +200,7 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 		instanceConfig.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
 	}
 	cfg := env.Config()
-	instanceConfig.Tags = instancecfg.InstanceTags(params.ControllerUUID, params.ControllerUUID, cfg, nil)
+	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return nil

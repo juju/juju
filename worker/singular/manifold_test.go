@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -48,7 +47,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
-	fix.Run(c, func(flag *singular.FlagWorker, _ *coretesting.Clock, _ func()) {
+	fix.Run(c, func(flag *singular.FlagWorker, _ *testing.Clock, _ func()) {
 		var out interface{}
 		err := manifold.Output(flag, &out)
 		c.Check(err, gc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
@@ -59,7 +58,7 @@ func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
-	fix.Run(c, func(flag *singular.FlagWorker, _ *coretesting.Clock, _ func()) {
+	fix.Run(c, func(flag *singular.FlagWorker, _ *testing.Clock, _ func()) {
 		var out engine.Flag
 		err := manifold.Output(flag, &out)
 		c.Check(err, jc.ErrorIsNil)

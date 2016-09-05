@@ -120,6 +120,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.UUID, gc.Equals, "model-uuid")
 	c.Assert(model.Name, gc.Equals, "model-name")
+	c.Assert(model.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
 	c.Assert(model.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
 }
 
@@ -182,7 +183,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 func (s *Suite) TestPrechecks(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.Prechecks()
-	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
+	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
 func (s *Suite) TestExport(c *gc.C) {
@@ -338,6 +339,10 @@ func (b *stubBackend) ModelName() (string, error) {
 	return "model-name", nil
 }
 
+func (b *stubBackend) ModelOwner() (names.UserTag, error) {
+	return names.NewUserTag("owner"), nil
+}
+
 func (b *stubBackend) AgentVersion() (version.Number, error) {
 	return version.MustParse("1.2.3"), nil
 }
@@ -435,6 +440,6 @@ type failingPrecheckBackend struct {
 	migration.PrecheckBackend
 }
 
-func (b *failingPrecheckBackend) AgentVersion() (version.Number, error) {
-	return version.Number{}, errors.New("boom")
+func (b *failingPrecheckBackend) Model() (migration.PrecheckModel, error) {
+	return nil, errors.New("boom")
 }

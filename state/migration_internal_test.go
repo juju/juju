@@ -197,9 +197,9 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"Name",
 		// Life will always be alive, or we won't be migrating.
 		"Life",
-		// ServerUUID is recreated when the new model is created in the
-		// new controller (yay name changes).
-		"ServerUUID",
+		// ControllerUUID is recreated when the new model
+		// is created in the new controller (yay name changes).
+		"ControllerUUID",
 
 		"MigrationMode",
 		"Owner",
@@ -211,7 +211,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
+func (s *MigrationSuite) TestUserAccessDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",

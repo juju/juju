@@ -34,6 +34,11 @@ type ControllerDetails struct {
 	// CloudRegion is the name of the cloud region that this controller
 	// runs in. This will be empty for clouds without regions.
 	CloudRegion string `yaml:"region,omitempty"`
+
+	// AgentVersion is the version of the agent running on this controller.
+	// While this isn't strictly needed to connect to a controller, it is used
+	// in formatting show-controller output where this struct is also used.
+	AgentVersion string `yaml:"agent-version,omitempty"`
 }
 
 // ModelDetails holds details of a model.
@@ -54,6 +59,9 @@ type AccountDetails struct {
 	// used to log in. This string is the JSON-encoding
 	// of a gopkg.in/macaroon.v1.Macaroon.
 	Macaroon string `yaml:"macaroon,omitempty"`
+
+	// LastKnownAccess is the last known access level for the account.
+	LastKnownAccess string `yaml:"last-known-access,omitempty"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.
@@ -66,12 +74,10 @@ type BootstrapConfig struct {
 	ControllerConfig controller.Config `yaml:"controller-config"`
 
 	// Config is the complete configuration for the provider.
-	// This should be updated with the region, endpoint and credentials.
 	Config map[string]interface{} `yaml:"model-config"`
 
-	// TODO(wallyworld) - drop when we get to beta 15.
-	// This is for backwards compatibility with beta 13.
-	OldConfig map[string]interface{} `yaml:"base-model-config,omitempty"`
+	// ControllerModelUUID is the controller model UUID.
+	ControllerModelUUID string `yaml:"controller-model-uuid"`
 
 	// Credential is the name of the credential used to bootstrap.
 	//

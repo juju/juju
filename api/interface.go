@@ -170,11 +170,9 @@ type Connection interface {
 	// This should not be used outside the api/* packages or tests.
 	base.APICaller
 
-	// ControllerTag returns the model tag of the controller
-	// (as opposed to the model tag of the currently connected
-	// model inside that controller).
+	// ControllerTag returns the tag of the controller.
 	// This could be defined on base.APICaller.
-	ControllerTag() names.ModelTag
+	ControllerTag() names.ControllerTag
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
@@ -193,9 +191,11 @@ type Connection interface {
 	// connection.
 	AuthTag() names.Tag
 
-	// ReadOnly returns whether the authorized user is connected to the model
-	// in read-only mode.
-	ReadOnly() bool
+	// ModelAccess returns the access level of authorized user to the model.
+	ModelAccess() string
+
+	// ControllerAccess returns the access level of authorized user to the controller.
+	ControllerAccess() string
 
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.

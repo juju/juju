@@ -60,3 +60,20 @@ func IsRunningLocally() (bool, error) {
 
 	return running, nil
 }
+
+// EnableHTTPSListener configures LXD to listen for HTTPS requests,
+// rather than only via the Unix socket.
+func EnableHTTPSListener(client interface {
+	SetConfig(k, v string) error
+}) error {
+	// Make sure the LXD service is configured to listen to local https
+	// requests, rather than only via the Unix socket.
+	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
+	//      which does expose the LXD to outside requests. It would
+	//      probably be better to only tell LXD to listen for requests on
+	//      the loopback and LXC bridges that we are using.
+	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
