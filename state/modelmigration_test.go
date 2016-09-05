@@ -91,6 +91,25 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	c.Check(model.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
+func (s *MigrationSuite) TestIsMigrationActive(c *gc.C) {
+	check := func(expected bool) {
+		isActive, err := s.State2.IsMigrationActive()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(isActive, gc.Equals, expected)
+
+		isActive2, err := state.IsMigrationActive(s.State, s.State2.ModelUUID())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(isActive2, gc.Equals, expected)
+	}
+
+	check(false)
+
+	_, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	check(true)
+}
+
 func (s *MigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 	st2 := s.State2
 	st3 := s.Factory.MakeModel(c, nil)
