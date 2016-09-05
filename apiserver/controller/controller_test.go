@@ -310,6 +310,8 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	macJSON, err := mac.MarshalJSON()
 	c.Assert(err, jc.ErrorIsNil)
 
+	controller.SetPrecheckResult(s, nil)
+
 	// Kick off migrations
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
@@ -396,6 +398,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
+	controller.SetPrecheckResult(s, nil)
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
@@ -448,6 +451,34 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
 	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
+}
+
+func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	controller.SetPrecheckResult(s, errors.New("boom"))
+
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
+			ModelTag: st.ModelTag().String(),
+			TargetInfo: params.MigrationTargetInfo{
+				ControllerTag: randomModelTag(),
+				Addrs:         []string{"1.1.1.1:1111"},
+				CACert:        "cert1",
+				AuthTag:       names.NewUserTag("admin1").String(),
+				Password:      "secret1",
+			},
+		}},
+	}
+	out, err := s.controller.InitiateMigration(args)
+	c.Assert(out.Results, gc.HasLen, 1)
+	c.Check(out.Results[0].Error, gc.ErrorMatches, "boom")
+
+	active, err := st.IsMigrationActive()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(active, jc.IsFalse)
+
 }
 
 func randomModelTag() string {

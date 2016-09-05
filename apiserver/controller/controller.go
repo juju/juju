@@ -15,12 +15,15 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -420,6 +423,11 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		Macaroon:      mac,
 	}
 
+	// Check if the migration is likely to succeed.
+	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	// Trigger the migration.
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: c.apiUser,
@@ -513,6 +521,59 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
 	}
 	return result, nil
+}
+
+var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.TargetInfo) error {
+	// Check model and source controller.
+	if err := migration.SourcePrecheck(migration.PrecheckShim(st)); err != nil {
+		return errors.Annotate(err, "source prechecks failed")
+	}
+
+	// Check target controller.
+	conn, err := api.Open(targetToAPIInfo(targetInfo), api.DialOpts{})
+	if err != nil {
+		return errors.Annotate(err, "connect to target controller")
+	}
+	defer conn.Close()
+	modelInfo, err := makeModelInfo(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = migrationtarget.NewClient(conn).Prechecks(modelInfo)
+	return errors.Annotate(err, "target prechecks failed")
+}
+
+func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
+	var empty coremigration.ModelInfo
+
+	model, err := st.Model()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	conf, err := st.ModelConfig()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	agentVersion, _ := conf.AgentVersion()
+	return coremigration.ModelInfo{
+		UUID:         model.UUID(),
+		Name:         model.Name(),
+		Owner:        model.Owner(),
+		AgentVersion: agentVersion,
+	}, nil
+}
+
+func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
+	out := &api.Info{
+		Addrs:    ti.Addrs,
+		CACert:   ti.CACert,
+		Tag:      ti.AuthTag,
+		Password: ti.Password,
+	}
+	if ti.Macaroon != nil {
+		out.Macaroons = []macaroon.Slice{{ti.Macaroon}}
+	}
+	return out
 }
 
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
