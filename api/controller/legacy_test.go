@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller_test
@@ -31,22 +31,25 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type controllerSuite struct {
+// legacySuite has the tests for the controller client-side facade
+// which use JujuConnSuite. The plan is to gradually move these tests
+// to Suite in controller_test.go.
+type legacySuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 }
 
-var _ = gc.Suite(&controllerSuite{})
+var _ = gc.Suite(&legacySuite{})
 
-func (s *controllerSuite) SetUpTest(c *gc.C) {
+func (s *legacySuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
+func (s *legacySuite) OpenAPI(c *gc.C) *controller.Client {
 	return controller.NewClient(s.OpenControllerAPI(c))
 }
 
-func (s *controllerSuite) TestAllModels(c *gc.C) {
+func (s *legacySuite) TestAllModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner}).Close()
@@ -71,7 +74,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *controllerSuite) TestModelConfig(c *gc.C) {
+func (s *legacySuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	cfg, err := sysManager.ModelConfig()
@@ -79,7 +82,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	c.Assert(cfg["name"], gc.Equals, "controller")
 }
 
-func (s *controllerSuite) TestControllerConfig(c *gc.C) {
+func (s *legacySuite) TestControllerConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	cfg, err := sysManager.ControllerConfig()
@@ -91,7 +94,7 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	c.Assert(int(cfg["api-port"].(float64)), gc.Equals, cfgFromDB.APIPort())
 }
 
-func (s *controllerSuite) TestDestroyController(c *gc.C) {
+func (s *legacySuite) TestDestroyController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
 	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
 	st.Close()
@@ -102,7 +105,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other models \(controller has hosted models\)`)
 }
 
-func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
+func (s *legacySuite) TestListBlockedModels(c *gc.C) {
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
 	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,7 +127,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	})
 }
 
-func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *legacySuite) TestRemoveBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -138,7 +141,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)
@@ -176,7 +179,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
+func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,7 +251,7 @@ func (s *controllerSuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestModelStatus(c *gc.C) {
+func (s *legacySuite) TestModelStatus(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	modelTag := s.State.ModelTag()
@@ -263,7 +266,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}})
 }
 
-func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	controller := s.OpenAPI(c)
 	defer controller.Close()
 	err := controller.GrantController("fred@external", "addmodel")
@@ -273,7 +276,7 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 	c.Assert(access, gc.Equals, description.Access("addmodel"))
 }
 
-func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
+func (s *legacySuite) TestInitiateMigration(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -302,7 +305,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	c.Check(mig.Id(), gc.Equals, expectedId)
 }
 
-func (s *controllerSuite) TestInitiateMigrationError(c *gc.C) {
+func (s *legacySuite) TestInitiateMigrationError(c *gc.C) {
 	spec := controller.MigrationSpec{
 		ModelUUID:            randomUUID(), // Model doesn't exist.
 		TargetControllerUUID: randomUUID(),
@@ -319,7 +322,7 @@ func (s *controllerSuite) TestInitiateMigrationError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func (s *controllerSuite) TestInitiateMigrationWithMacaroon(c *gc.C) {
+func (s *legacySuite) TestInitiateMigrationWithMacaroon(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
