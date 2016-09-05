@@ -73,8 +73,8 @@ func (s *AccountsSuite) TestUpdateAccountNewController(c *gc.C) {
 
 func (s *AccountsSuite) TestUpdateAccountOverwrites(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{
-		User:     "admin@local",
-		Password: "fnord",
+		User:            "admin@local",
+		Password:        "fnord",
 		LastKnownAccess: "addmodel",
 	}
 	for i := 0; i < 2; i++ {

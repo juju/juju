@@ -25,6 +25,7 @@ import (
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type restoreSuite struct {
@@ -250,6 +251,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		ControllerUUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		APIEndpoints:           []string{"10.0.0.1:17777"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
+		AgentVersion:           version.Current.String(),
 	})
 }
 

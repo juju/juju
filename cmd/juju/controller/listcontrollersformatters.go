@@ -10,7 +10,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
+
 	"github.com/juju/juju/cmd/output"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -26,46 +29,16 @@ func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, 
 	return formatControllersTabular(writer, controllers, !c.refresh)
 }
 
-func formatShowControllersTabular(writer io.Writer, value interface{}) error {
-	controllers, ok := value.(map[string]ShowControllerDetails)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", controllers, value)
-	}
-	controllerSet := ControllerSet{
-		Controllers: make(map[string]ControllerItem, len(controllers)),
-	}
-	for name, details := range controllers {
-		serverName := ""
-		// The most recently connected-to address
-		// is the first in the list.
-		if len(details.Details.APIEndpoints) > 0 {
-			serverName = details.Details.APIEndpoints[0]
-		}
-		controllerSet.Controllers[name] = ControllerItem{
-			ControllerUUID: details.Details.ControllerUUID,
-			Server:         serverName,
-			ModelName:      details.CurrentModel,
-			Cloud:          details.Details.Cloud,
-			CloudRegion:    details.Details.CloudRegion,
-			APIEndpoints:   details.Details.APIEndpoints,
-			CACert:         details.Details.CACert,
-			User:           details.Account.User,
-			Access:         details.Account.Access,
-			AgentVersion:   details.Details.AgentVersion,
-		}
-	}
-	return formatControllersTabular(writer, controllerSet, false)
-}
-
 // formatControllersTabular returns a tabular summary of controller/model items
 // sorted by controller name alphabetically.
 func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
 	print := func(values ...string) {
-		fmt.Fprintln(tw, strings.Join(values, "\t"))
+		fmt.Fprint(tw, strings.Join(values, "\t"))
 	}
 
 	print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
+	fmt.Fprintln(tw, "")
 
 	names := []string{}
 	for name, _ := range set.Controllers {
@@ -99,8 +72,12 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			cloudRegion += "/" + c.CloudRegion
 		}
 		agentVersion := c.AgentVersion
+		staleVersion := false
 		if agentVersion == "" {
 			agentVersion = notKnownDisplay
+		} else {
+			agentVersionNum, err := version.Parse(agentVersion)
+			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
 		if promptRefresh {
 			if access != noValueDisplay {
@@ -108,7 +85,13 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			}
 			agentVersion += "+"
 		}
-		print(modelName, userName, access, cloudRegion, agentVersion)
+		print(modelName, userName, access, cloudRegion)
+		if staleVersion {
+			output.WarningHighlight.Fprintf(tw, "\t%s", agentVersion)
+		} else {
+			fmt.Fprintf(tw, "\t%s", agentVersion)
+		}
+		fmt.Fprintln(tw, "")
 	}
 	tw.Flush()
 	if promptRefresh && len(names) > 0 {

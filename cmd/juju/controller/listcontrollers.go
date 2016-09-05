@@ -81,11 +81,12 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		var wg sync.WaitGroup
 		wg.Add(len(controllers))
 		for controllerName := range controllers {
+			name := controllerName
 			go func() {
 				defer wg.Done()
-				client, err := c.getAPI(controllerName)
+				client, err := c.getAPI(name)
 				if err != nil {
-					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v", controllerName, err)
+					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v", name, err)
 					return
 				}
 				client.Close()

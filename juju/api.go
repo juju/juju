@@ -124,7 +124,9 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	if !apiInfo.SkipLogin {
 		if ok {
 			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
-				logger.Errorf("cannot find local account information: %v", err)
+				if !errors.IsNotFound(err) {
+					logger.Errorf("cannot load local account information: %v", err)
+				}
 			} else {
 				accountDetails.LastKnownAccess = st.ControllerAccess()
 			}
