@@ -15,12 +15,16 @@ import (
 // NewDisableCommand returns a disable-command command instance
 // that will use the default API.
 func NewDisableCommand() cmd.Command {
-	return modelcmd.Wrap(&disableCommand{})
+	return modelcmd.Wrap(&disableCommand{
+		apiFunc: func(c newAPIRoot) (blockClientAPI, error) {
+			return getBlockAPI(c)
+		},
+	})
 }
 
 type disableCommand struct {
 	modelcmd.ModelCommandBase
-	api     blockClientAPI
+	apiFunc func(newAPIRoot) (blockClientAPI, error)
 	target  string
 	message string
 }
@@ -55,16 +59,9 @@ type blockClientAPI interface {
 	SwitchBlockOn(blockType, msg string) error
 }
 
-func (c *disableCommand) getAPI() (blockClientAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	return getBlockAPI(c)
-}
-
 // Run implements Command.Run
 func (c *disableCommand) Run(ctx *cmd.Context) error {
-	api, err := c.getAPI()
+	api, err := c.apiFunc(c)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to the API")
 	}

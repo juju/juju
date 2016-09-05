@@ -4,7 +4,7 @@
 package block_test
 
 import (
-	"strings"
+	"errors"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,55 +13,88 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type UnblockCommandSuite struct {
-	ProtectionCommandSuite
-	mockClient *block.MockBlockClient
+var _ = gc.Suite(&enableCommandSuite{})
+
+type enableCommandSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
 }
 
-func (s *UnblockCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.mockClient = &block.MockBlockClient{}
+func (s *enableCommandSuite) TestInit(c *gc.C) {
+	for _, test := range []struct {
+		args []string
+		err  string
+	}{
+		{
+			err: "missing command set (all, destroy-model, remove-object)",
+		}, {
+			args: []string{"other"},
+			err:  "bad command set, valid options: all, destroy-model, remove-object",
+		}, {
+			args: []string{"all"},
+		}, {
+			args: []string{"destroy-model"},
+		}, {
+			args: []string{"remove-object"},
+		}, {
+			args: []string{"all", "extra"},
+			err:  `unrecognized args: ["extra"]`,
+		},
+	} {
+		cmd := block.NewEnableCommand()
+		err := testing.InitCommand(cmd, test.args)
+		if test.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err.Error(), gc.Equals, test.err)
+		}
+	}
 }
 
-var _ = gc.Suite(&UnblockCommandSuite{})
-
-func (s *UnblockCommandSuite) runUnblockCommand(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, block.NewUnblockCommandWithClient(s.mockClient), args...)
-	return err
+func (s *enableCommandSuite) TestRunGetAPIError(c *gc.C) {
+	cmd := block.NewEnableCommandForTest(nil, errors.New("boom"))
+	_, err := testing.RunCommand(c, cmd, "all")
+	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
 }
 
-func (s *UnblockCommandSuite) assertRunUnblock(c *gc.C, operation string) {
-	err := s.runUnblockCommand(c, operation)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedOp := block.TypeFromOperation(strings.ToLower(operation))
-	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
+func (s *enableCommandSuite) TestRun(c *gc.C) {
+	for _, test := range []struct {
+		args  []string
+		type_ string
+	}{{
+		args:  []string{"all"},
+		type_: "BlockChange",
+	}, {
+		args:  []string{"destroy-model"},
+		type_: "BlockDestroy",
+	}, {
+		args:  []string{"remove-object"},
+		type_: "BlockRemove",
+	}} {
+		mockClient := &mockUnblockClient{}
+		cmd := block.NewEnableCommandForTest(mockClient, nil)
+		_, err := testing.RunCommand(c, cmd, test.args...)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(mockClient.blockType, gc.Equals, test.type_)
+	}
 }
 
-func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c), `.*must specify one of.*`)
+func (s *enableCommandSuite) TestRunError(c *gc.C) {
+	mockClient := &mockUnblockClient{err: errors.New("boom")}
+	cmd := block.NewEnableCommandForTest(mockClient, nil)
+	_, err := testing.RunCommand(c, cmd, "all")
+	c.Check(err, gc.ErrorMatches, "boom")
 }
 
-func (s *UnblockCommandSuite) TestUnblockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-model", "change"), `.*can only specify block type.*`)
+type mockUnblockClient struct {
+	blockType string
+	err       error
 }
 
-func (s *UnblockCommandSuite) TestUnblockCmdOperationWithSeparator(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-model|"), `.*valid argument.*`)
+func (c *mockUnblockClient) Close() error {
+	return nil
 }
 
-func (s *UnblockCommandSuite) TestUnblockCmdUnknownJujuOperation(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "add-machine"), `.*valid argument.*`)
-}
-
-func (s *UnblockCommandSuite) TestUnblockCmdUnknownOperation(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "blah"), `.*valid argument.*`)
-}
-
-func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.assertRunUnblock(c, "DESTROY-MODEL")
-}
-
-func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.assertRunUnblock(c, "destroy-model")
+func (c *mockUnblockClient) SwitchBlockOff(blockType string) error {
+	c.blockType = blockType
+	return c.err
 }

@@ -19,7 +19,11 @@ import (
 // NewListCommand returns the command that lists the disabled
 // commands for the model.
 func NewListCommand() cmd.Command {
-	return modelcmd.Wrap(&listCommand{})
+	return modelcmd.Wrap(&listCommand{
+		apiFunc: func(c newAPIRoot) (blockListAPI, error) {
+			return getBlockAPI(c)
+		},
+	})
 }
 
 const listCommandDoc = `
@@ -33,7 +37,8 @@ See Also:
 // listCommand list blocks.
 type listCommand struct {
 	modelcmd.ModelCommandBase
-	out cmd.Output
+	apiFunc func(newAPIRoot) (blockListAPI, error)
+	out     cmd.Output
 }
 
 // Init implements Command.Init.
@@ -54,16 +59,16 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "blocks", map[string]cmd.Formatter{
-		"yaml":   cmd.FormatYaml,
-		"json":   cmd.FormatJson,
-		"blocks": formatBlocks,
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": formatBlocks,
 	})
 }
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getBlockListAPI(&c.ModelCommandBase)
+	api, err := c.apiFunc(c)
 	if err != nil {
 		return err
 	}
@@ -76,14 +81,10 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, formatBlockInfo(result))
 }
 
-// BlockListAPI defines the client API methods that block list command uses.
-type BlockListAPI interface {
+// blockListAPI defines the client API methods that block list command uses.
+type blockListAPI interface {
 	Close() error
 	List() ([]params.Block, error)
-}
-
-var getBlockListAPI = func(cmd *modelcmd.ModelCommandBase) (BlockListAPI, error) {
-	return getBlockAPI(cmd)
 }
 
 // BlockInfo defines the serialization behaviour of the block information.
@@ -117,7 +118,7 @@ func formatBlocks(writer io.Writer, value interface{}) error {
 	}
 
 	if len(blocks) == 0 {
-		fmt.Fprintf(writer, "No commands are currently disabled.\n")
+		fmt.Fprintf(writer, "No commands are currently disabled.")
 		return nil
 	}
 

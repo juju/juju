@@ -13,14 +13,18 @@ import (
 // NewEnableCommand returns a new command that eanbles previously disabled
 // command sets.
 func NewEnableCommand() cmd.Command {
-	return modelcmd.Wrap(&enableCommand{})
+	return modelcmd.Wrap(&enableCommand{
+		apiFunc: func(c newAPIRoot) (unblockClientAPI, error) {
+			return getBlockAPI(c)
+		},
+	})
 }
 
 // enableCommand removes the block from desired operation.
 type enableCommand struct {
 	modelcmd.ModelCommandBase
-	api    unblockClientAPI
-	target string
+	apiFunc func(newAPIRoot) (unblockClientAPI, error)
+	target  string
 }
 
 // Init implements Command.
@@ -53,18 +57,11 @@ type unblockClientAPI interface {
 	SwitchBlockOff(blockType string) error
 }
 
-func (c *enableCommand) getAPI() (unblockClientAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	return getBlockAPI(c)
-}
-
 // Run implements Command.
 func (c *enableCommand) Run(_ *cmd.Context) error {
-	api, err := c.getAPI()
+	api, err := c.apiFunc(c)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot connect to the API")
 	}
 	defer api.Close()
 

@@ -4,96 +4,102 @@
 package block_test
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/testing"
 )
 
-type BlockCommandSuite struct {
-	ProtectionCommandSuite
-	mockClient *block.MockBlockClient
+var _ = gc.Suite(&disableCommandSuite{})
+
+type disableCommandSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
 }
 
-func (s *BlockCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.mockClient = &block.MockBlockClient{}
-	s.PatchValue(block.BlockClient, func(p *block.BaseBlockCommand) (block.BlockClientAPI, error) {
-		return s.mockClient, nil
-	})
-}
-
-var _ = gc.Suite(&BlockCommandSuite{})
-
-func (s *BlockCommandSuite) assertBlock(c *gc.C, operation, message string) {
-	expectedOp := block.TypeFromOperation(operation)
-	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
-	c.Assert(s.mockClient.Msg, gc.DeepEquals, message)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, block.NewDestroyCommand(), "change", "too much")
-	c.Assert(
-		err,
-		gc.ErrorMatches,
-		`.*can only specify block message.*`)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdNoMessage(c *gc.C) {
-	command := block.NewDestroyCommand()
-	_, err := testing.RunCommand(c, command)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertBlock(c, command.Info().Name, "")
-}
-
-func (s *BlockCommandSuite) TestBlockDestroyOperations(c *gc.C) {
-	command := block.NewDestroyCommand()
-	_, err := testing.RunCommand(c, command, "TestBlockDestroyOperations")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertBlock(c, command.Info().Name, "TestBlockDestroyOperations")
-}
-
-func (s *BlockCommandSuite) TestBlockRemoveOperations(c *gc.C) {
-	command := block.NewRemoveCommand()
-	_, err := testing.RunCommand(c, command, "TestBlockRemoveOperations")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertBlock(c, command.Info().Name, "TestBlockRemoveOperations")
-}
-
-func (s *BlockCommandSuite) TestBlockChangeOperations(c *gc.C) {
-	command := block.NewChangeCommand()
-	_, err := testing.RunCommand(c, command, "TestBlockChangeOperations")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertBlock(c, command.Info().Name, "TestBlockChangeOperations")
-}
-
-func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
-	if tstError != nil {
-		c.Assert(errors.Cause(block.ProcessBlockedError(tstError, blockType)), gc.Equals, expectedError)
-	} else {
-		c.Assert(block.ProcessBlockedError(tstError, blockType), jc.ErrorIsNil)
+func (s *disableCommandSuite) TestInit(c *gc.C) {
+	for _, test := range []struct {
+		args []string
+		err  string
+	}{
+		{
+			err: "missing command set (all, destroy-model, remove-object)",
+		}, {
+			args: []string{"other"},
+			err:  "bad command set, valid options: all, destroy-model, remove-object",
+		}, {
+			args: []string{"all"},
+		}, {
+			args: []string{"destroy-model"},
+		}, {
+			args: []string{"remove-object"},
+		}, {
+			args: []string{"all", "lots", "of", "args"},
+		},
+	} {
+		cmd := block.NewDisableCommand()
+		err := testing.InitCommand(cmd, test.args)
+		if test.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err.Error(), gc.Equals, test.err)
+		}
 	}
-	// warning displayed
-	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(logOutputText, gc.Matches, expectedWarning)
 }
 
-func (s *BlockCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
-	s.processErrorTest(c, common.OperationBlockedError("operations that remove"), block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
-	s.processErrorTest(c, common.OperationBlockedError("destroy-model operation has been blocked"), block.BlockDestroy, cmd.ErrSilent, ".*destroy-model operation has been blocked.*")
+func (s *disableCommandSuite) TestRunGetAPIError(c *gc.C) {
+	cmd := block.NewDisableCommandForTest(nil, errors.New("boom"))
+	_, err := testing.RunCommand(c, cmd, "all")
+	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
 }
 
-func (s *BlockCommandSuite) TestProcessErrNil(c *gc.C) {
-	s.processErrorTest(c, nil, block.BlockDestroy, nil, "")
+func (s *disableCommandSuite) TestRun(c *gc.C) {
+	for _, test := range []struct {
+		args    []string
+		type_   string
+		message string
+	}{{
+		args:    []string{"all", "this is a single arg message"},
+		type_:   "BlockChange",
+		message: "this is a single arg message",
+	}, {
+		args:    []string{"destroy-model", "this", "is", "many", "args"},
+		type_:   "BlockDestroy",
+		message: "this is many args",
+	}, {
+		args:    []string{"remove-object", "this is a", "mix"},
+		type_:   "BlockRemove",
+		message: "this is a mix",
+	}} {
+		mockClient := &mockBlockClient{}
+		cmd := block.NewDisableCommandForTest(mockClient, nil)
+		_, err := testing.RunCommand(c, cmd, test.args...)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(mockClient.blockType, gc.Equals, test.type_)
+		c.Check(mockClient.message, gc.Equals, test.message)
+	}
 }
 
-func (s *BlockCommandSuite) TestProcessErrAny(c *gc.C) {
-	err := errors.New("Test error Processing")
-	s.processErrorTest(c, err, block.BlockDestroy, err, "")
+func (s *disableCommandSuite) TestRunError(c *gc.C) {
+	mockClient := &mockBlockClient{err: errors.New("boom")}
+	cmd := block.NewDisableCommandForTest(mockClient, nil)
+	_, err := testing.RunCommand(c, cmd, "all")
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
+type mockBlockClient struct {
+	blockType string
+	message   string
+	err       error
+}
+
+func (c *mockBlockClient) Close() error {
+	return nil
+}
+
+func (c *mockBlockClient) SwitchBlockOn(blockType, message string) error {
+	c.blockType = blockType
+	c.message = message
+	return c.err
 }
