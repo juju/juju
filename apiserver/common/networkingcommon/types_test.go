@@ -4,10 +4,15 @@
 package networkingcommon_test
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,9 +25,21 @@ import (
 
 type TypesSuite struct {
 	coretesting.BaseSuite
+
+	stubConfigSource *stubNetworkConfigSource
 }
 
 var _ = gc.Suite(&TypesSuite{})
+
+func (s *TypesSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.stubConfigSource = &stubNetworkConfigSource{
+		Stub:                &testing.Stub{},
+		fakeSysClassNetPath: c.MkDir(),
+		interfaces:          exampleObservedInterfaces,
+		interfaceAddrs:      exampleObservedInterfaceAddrs,
+	}
+}
 
 func (s *TypesSuite) TestCopyNetworkConfig(c *gc.C) {
 	inputAndExpectedOutput := []params.NetworkConfig{{
@@ -158,14 +175,14 @@ func (f fakeAddr) String() string  { return string(f) }
 var _ net.Addr = (*fakeAddr)(nil)
 
 var exampleObservedInterfaceAddrs = map[string][]net.Addr{
-	"eth0":        nil,
-	"eth1":        nil,
-	"eth0.50":     nil,
-	"eth0.100":    nil,
-	"eth0.25":     nil,
-	"eth1.11":     nil,
-	"eth1.12":     nil,
-	"eth1.13":     nil,
+	"eth0":        {fakeAddr("fe80::5054:ff:fedd:eef0/64")},
+	"eth1":        {fakeAddr("fe80::5054:ff:fedd:eef1/64")},
+	"eth0.50":     {fakeAddr("fe80::5054:ff:fedd:eef0:50/64")},
+	"eth0.100":    {fakeAddr("fe80::5054:ff:fedd:eef0:100/64")},
+	"eth0.25":     {fakeAddr("fe80::5054:ff:fedd:eef0:25/64")},
+	"eth1.11":     {fakeAddr("fe80::5054:ff:fedd:eef1:11/64")},
+	"eth1.12":     {fakeAddr("fe80::5054:ff:fedd:eef1:12/64")},
+	"eth1.13":     {fakeAddr("fe80::5054:ff:fedd:eef1:13/64")},
 	"lo":          {fakeAddr("127.0.0.1/8"), fakeAddr("::1/128")},
 	"br-eth0":     {fakeAddr("10.20.19.100/24"), fakeAddr("10.20.19.123/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
 	"br-eth1":     {fakeAddr("10.20.19.105/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
@@ -931,6 +948,13 @@ func (s *TypesSuite) TestSortNetworkConfigsByInterfaceName(c *gc.C) {
 	}
 }
 
+func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
+
+	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
+	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
+}
+
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
 	observedConfigsLength := len(expectedSortedObservedNetworkConfigs)
 	providerConfigsLength := len(expectedSortedProviderNetworkConfigs)
@@ -948,28 +972,244 @@ func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
 	}
 }
 
-func (s *TypesSuite) TestGetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(networkingcommon.NetInterfaces, func() ([]net.Interface, error) {
-		return exampleObservedInterfaces, nil
-	})
-	s.PatchValue(networkingcommon.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		if addrs, found := exampleObservedInterfaceAddrs[i.Name]; found {
-			return addrs, nil
-		}
-		return nil, nil
-	})
+func (s *TypesSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
+	s.stubConfigSource.SetErrors(errors.New("no interfaces"))
 
-	observedConfig, err := networkingcommon.GetObservedNetworkConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	jsonResult := s.networkConfigsAsJSON(c, observedConfig)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedObservedNetworkConfigs)
-	c.Check(jsonResult, gc.Equals, jsonExpected)
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, "cannot get network interfaces: no interfaces")
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces")
 }
 
-func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
+func (s *TypesSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
+	s.stubConfigSource.SetErrors(
+		nil, // Interfaces() succeeds.
+		errors.New("no addresses"), // InterfaceAddressses fails.
+	)
 
-	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
-	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, `cannot get interface "lo" addresses: no addresses`)
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth0
+	s.stubConfigSource.interfaceAddrs = make(map[string][]net.Addr)
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth0", "bridge")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   10,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "br-eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[0:1] // only lo
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "lo", "")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   1,
+		CIDR:          "127.0.0.0/8",
+		Address:       "127.0.0.1",
+		MTU:           65536,
+		InterfaceName: "lo",
+		InterfaceType: "loopback", // inferred from the flags.
+		ConfigType:    "loopback", // since it is a loopback
+	}, {
+		DeviceIndex:   1,
+		MTU:           65536,
+		InterfaceName: "lo",
+		InterfaceType: "loopback",
+		ConfigType:    "loopback",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[6:7] // only eth0.100
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0.100": []net.Addr{
+			fakeAddr("fe80::5054:ff:fedd:eef0:100/64"),
+			fakeAddr("10.100.19.123/24"),
+		},
+	}
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   13,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0.100",
+		InterfaceType: "802.1q",
+		ConfigType:    "manual", // the IPv6 adress treated as empty.
+	}, {
+		DeviceIndex:   13,
+		CIDR:          "10.100.19.0/24",
+		Address:       "10.100.19.123",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0.100",
+		InterfaceType: "802.1q",
+		ConfigType:    "static",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0.100")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "manual", // the IPv6 adress treated as empty.
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	// Simluate running on Windows, where net.InterfaceAddrs() returns
+	// non-CIDR-formatted addresses.
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("10.20.19.42")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		Address:       "10.20.19.42", // just Address, no CIDR as netmask cannot be inferred.
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "static",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("invalid")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, `cannot parse interface "eth0" IP address "invalid"`)
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+type stubNetworkConfigSource struct {
+	*testing.Stub
+
+	fakeSysClassNetPath string
+	interfaces          []net.Interface
+	interfaceAddrs      map[string][]net.Addr
+}
+
+// makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
+// and a uevent file there with the given devtype set.
+func (s *stubNetworkConfigSource) makeSysClassNetInterfacePath(c *gc.C, interfaceName, devType string) {
+	interfacePath := filepath.Join(s.fakeSysClassNetPath, interfaceName)
+	err := os.Mkdir(interfacePath, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var contents string
+	if devType == "" {
+		contents = fmt.Sprintf(`
+IFINDEX=42
+INTERFACE=%s
+`, interfaceName)
+	} else {
+		contents = fmt.Sprintf(`
+IFINDEX=42
+INTERFACE=%s
+DEVTYPE=%s
+`, interfaceName, devType)
+	}
+	ueventPath := filepath.Join(interfacePath, "uevent")
+	err = ioutil.WriteFile(ueventPath, []byte(contents), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// SysClassNetPath implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) SysClassNetPath() string {
+	s.AddCall("SysClassNetPath")
+	return s.fakeSysClassNetPath
+}
+
+// Interfaces implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) Interfaces() ([]net.Interface, error) {
+	s.AddCall("Interfaces")
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.interfaces, nil
+}
+
+// InterfaceAddresses implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
+	s.AddCall("InterfaceAddresses", name)
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.interfaceAddrs[name], nil
 }

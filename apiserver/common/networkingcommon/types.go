@@ -6,7 +6,6 @@ package networkingcommon
 import (
 	"encoding/json"
 	"net"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -375,49 +374,59 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	return netEnviron, nil
 }
 
-var vlanInterfaceNameRegex = regexp.MustCompile(`^.+\.[0-9]{1,4}[^0-9]?$`)
+// NetworkConfigSource defines the necessary calls to obtain the network
+// configuration of a machine.
+type NetworkConfigSource interface {
+	SysClassNetPath() string
+	Interfaces() ([]net.Interface, error)
+	InterfaceAddresses(name string) ([]net.Addr, error)
+}
 
-var (
-	netInterfaces  = net.Interfaces
-	interfaceAddrs = (*net.Interface).Addrs
-)
+type netPackageConfigSource struct{}
 
-// GetObservedNetworkConfig discovers what network interfaces exist on the
-// machine, and returns that as a sorted slice of params.NetworkConfig to later
-// update the state network config we have about the machine.
-func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
+// SysClassNetPath implements NetworkConfigSource.
+func (n *netPackageConfigSource) SysClassNetPath() string {
+	return network.SysClassNetPath
+}
+
+// Interfaces implements NetworkConfigSource.
+func (n *netPackageConfigSource) Interfaces() ([]net.Interface, error) {
+	return net.Interfaces()
+}
+
+// InterfaceAddresses implements NetworkConfigSource.
+func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return iface.Addrs()
+}
+
+// DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
+// package, to be used with GetObservedNetworkConfig().
+func DefaultNetworkConfigSource() NetworkConfigSource {
+	return &netPackageConfigSource{}
+}
+
+// GetObservedNetworkConfig discovers what network interfaces exist on using the
+// given source, transforms and returns the result as []params.NetworkConfig.
+func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
 	logger.Tracef("discovering observed machine network config...")
 
-	interfaces, err := netInterfaces()
+	sysClassNetPath := source.SysClassNetPath()
+
+	interfaces, err := source.Interfaces()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get network interfaces")
 	}
 
 	var observedConfig []params.NetworkConfig
 	for _, nic := range interfaces {
-		isUp := nic.Flags&net.FlagUp > 0
+		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
+		nicConfig := interfaceToNetworkConfig(nic, nicType)
 
-		derivedType := network.EthernetInterface
-		derivedConfigType := ""
-		if nic.Flags&net.FlagLoopback > 0 {
-			derivedType = network.LoopbackInterface
-			derivedConfigType = string(network.ConfigLoopback)
-		} else if vlanInterfaceNameRegex.MatchString(nic.Name) {
-			derivedType = network.VLAN_8021QInterface
-		}
-
-		nicConfig := params.NetworkConfig{
-			DeviceIndex:   nic.Index,
-			MACAddress:    nic.HardwareAddr.String(),
-			ConfigType:    derivedConfigType,
-			MTU:           nic.MTU,
-			InterfaceName: nic.Name,
-			InterfaceType: string(derivedType),
-			NoAutoStart:   !isUp,
-			Disabled:      !isUp,
-		}
-
-		addrs, err := interfaceAddrs(&nic)
+		addrs, err := source.InterfaceAddresses(nic.Name)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get interface %q addresses", nic.Name)
 		}
@@ -429,41 +438,89 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 		}
 
 		for _, addr := range addrs {
-			cidrAddress := addr.String()
-			if cidrAddress == "" {
-				continue
-			}
-			ip, ipNet, err := net.ParseCIDR(cidrAddress)
+			addressConfig, err := interfaceAddressToNetworkConfig(nic.Name, nicConfig.ConfigType, addr)
 			if err != nil {
-				logger.Warningf("cannot parse interface %q address %q as CIDR: %v", nic.Name, cidrAddress, err)
-				if ip := net.ParseIP(cidrAddress); ip == nil {
-					return nil, errors.Errorf("cannot parse interface %q IP address %q", nic.Name, cidrAddress)
-				} else {
-					ipNet = &net.IPNet{}
-				}
-				ipNet.IP = ip
-				ipNet.Mask = net.IPv4Mask(255, 255, 255, 0)
-				logger.Infof("assuming interface %q has observed address %q", nic.Name, ipNet.String())
-			}
-			if ip.To4() == nil {
-				logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, nic.Name)
-				continue
+				return nil, errors.Trace(err)
 			}
 
-			nicConfigCopy := nicConfig
-			nicConfigCopy.CIDR = ipNet.String()
-			nicConfigCopy.Address = ip.String()
-
-			// TODO(dimitern): Add DNS servers, search domains, and gateway
-			// later.
-
-			observedConfig = append(observedConfig, nicConfigCopy)
+			nicConfig.Address = addressConfig.Address
+			nicConfig.CIDR = addressConfig.CIDR
+			nicConfig.ConfigType = addressConfig.ConfigType
+			observedConfig = append(observedConfig, nicConfig)
 		}
 	}
-	sortedConfig := SortNetworkConfigsByParents(observedConfig)
 
-	logger.Tracef("about to update network config with observed: %+v", sortedConfig)
-	return sortedConfig, nil
+	logger.Tracef("about to update network config with observed: %+v", observedConfig)
+	return observedConfig, nil
+}
+
+func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) params.NetworkConfig {
+	configType := network.ConfigUnknown
+	isUp := nic.Flags&net.FlagUp > 0
+	isLoopback := nic.Flags&net.FlagLoopback > 0
+	isUnknown := nicType == network.UnknownInterface
+
+	switch {
+	case isUnknown && isLoopback:
+		nicType = network.LoopbackInterface
+		configType = network.ConfigLoopback
+	case isUnknown:
+		nicType = network.EthernetInterface
+		fallthrough
+	default:
+		configType = network.ConfigManual // assume manual unless we have address.
+	}
+
+	return params.NetworkConfig{
+		DeviceIndex:   nic.Index,
+		MACAddress:    nic.HardwareAddr.String(),
+		ConfigType:    string(configType),
+		MTU:           nic.MTU,
+		InterfaceName: nic.Name,
+		InterfaceType: string(nicType),
+		NoAutoStart:   !isUp,
+		Disabled:      !isUp,
+	}
+}
+
+func interfaceAddressToNetworkConfig(interfaceName, configType string, address net.Addr) (params.NetworkConfig, error) {
+	config := params.NetworkConfig{
+		ConfigType: configType,
+	}
+
+	cidrAddress := address.String()
+	if cidrAddress == "" {
+		return config, nil
+	}
+
+	ip, ipNet, err := net.ParseCIDR(cidrAddress)
+	if err != nil {
+		logger.Infof("cannot parse interface %q address %q as CIDR, trying as IP address: %v", interfaceName, cidrAddress, err)
+		if ip = net.ParseIP(cidrAddress); ip == nil {
+			return config, errors.Errorf("cannot parse interface %q IP address %q", interfaceName, cidrAddress)
+		} else {
+			ipNet = &net.IPNet{IP: ip}
+		}
+	}
+	if ip.To4() == nil {
+		logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, interfaceName)
+		// Treat IPv6 addresses as empty until we can handle them
+		// reliably.
+		return config, nil
+	}
+
+	if ipNet.Mask != nil {
+		config.CIDR = ipNet.String()
+	}
+	config.Address = ip.String()
+	if configType != string(network.ConfigLoopback) {
+		config.ConfigType = string(network.ConfigStatic)
+	}
+
+	// TODO(dimitern): Add DNS servers, search domains, and gateway
+	// later.
+
+	return config, nil
 }
 
 // MergeProviderAndObservedNetworkConfigs returns the effective, sorted, network
