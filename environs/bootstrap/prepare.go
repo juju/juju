@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -201,6 +202,7 @@ func prepare(
 	details.ControllerModelUUID = args.ModelConfig[config.UUIDKey].(string)
 	details.User = environs.AdminUser
 	details.Password = args.AdminSecret
+	details.LastKnownAccess = string(description.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region

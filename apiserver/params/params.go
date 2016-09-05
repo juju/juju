@@ -619,9 +619,10 @@ type AuthUserInfo struct {
 	// the client, if any.
 	Credentials *string `json:"credentials,omitempty"`
 
-	// ReadOnly holds whether the user has read-only access for the
-	// connected model.
-	ReadOnly bool `json:"read-only"`
+	// ControllerAccess holds the access the user has to the connected controller.
+	ControllerAccess string `json:"controller-access"`
+	// ModelAccess holds the access the user has to the connected model.
+	ModelAccess string `json:"model-access"`
 }
 
 // LoginResult holds the result of an Admin Login call.

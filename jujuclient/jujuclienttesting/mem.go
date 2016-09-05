@@ -261,6 +261,11 @@ func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.Accou
 	if err := jujuclient.ValidateAccountDetails(details); err != nil {
 		return err
 	}
+	oldDetails := c.Accounts[controllerName]
+	// Only update last known access if it has a value.
+	if details.LastKnownAccess == "" {
+		details.LastKnownAccess = oldDetails.LastKnownAccess
+	}
 	c.Accounts[controllerName] = details
 	return nil
 }

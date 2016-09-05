@@ -73,8 +73,10 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         CLOUD/REGION
-kontroll*   controller  admin@local  dummy/dummy-region
+CONTROLLER  MODEL       USER         ACCESS      CLOUD/REGION        VERSION
+kontroll*   controller  admin@local  superuser+  dummy/dummy-region  (unknown)+
+
++ these are the last known values, run with --refresh to see the latest information.
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)

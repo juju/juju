@@ -35,12 +35,12 @@ See also: enable-user
 // NewLoginCommand returns a new cmd.Command to handle "juju login".
 func NewLoginCommand() cmd.Command {
 	return modelcmd.WrapController(&loginCommand{
-		newLoginAPI: func(args juju.NewAPIConnectionParams) (LoginAPI, error) {
+		newLoginAPI: func(args juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error) {
 			api, err := juju.NewAPIConnection(args)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
-			return usermanager.NewClient(api), nil
+			return usermanager.NewClient(api), api, nil
 		},
 	})
 }
@@ -48,7 +48,7 @@ func NewLoginCommand() cmd.Command {
 // loginCommand changes the password for a user.
 type loginCommand struct {
 	modelcmd.ControllerCommandBase
-	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, error)
+	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error)
 	User        string
 }
 
@@ -76,6 +76,11 @@ func (c *loginCommand) Init(args []string) error {
 type LoginAPI interface {
 	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	Close() error
+}
+
+// ConnectionAPI provides relevant API methods off the underlying connection.
+type ConnectionAPI interface {
+	ControllerAccess() string
 }
 
 // Run implements Command.Run.
@@ -131,7 +136,7 @@ Run "juju logout" first before attempting to log in as a different user.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	api, err := c.newLoginAPI(params)
+	api, conn, err := c.newLoginAPI(params)
 	if err != nil {
 		return errors.Annotate(err, "creating API connection")
 	}
@@ -150,6 +155,7 @@ Run "juju logout" first before attempting to log in as a different user.
 	}
 	accountDetails.Password = ""
 	accountDetails.Macaroon = string(macaroonJSON)
+	accountDetails.LastKnownAccess = conn.ControllerAccess()
 	if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 		return errors.Annotate(err, "failed to record temporary credential")
 	}

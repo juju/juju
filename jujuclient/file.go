@@ -539,6 +539,11 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 	}
 	if oldDetails, ok := accounts[controllerName]; ok && details == oldDetails {
 		return nil
+	} else {
+		// Only update last known access if it has a value.
+		if details.LastKnownAccess == "" {
+			details.LastKnownAccess = oldDetails.LastKnownAccess
+		}
 	}
 
 	accounts[controllerName] = details

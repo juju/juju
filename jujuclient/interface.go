@@ -59,6 +59,9 @@ type AccountDetails struct {
 	// used to log in. This string is the JSON-encoding
 	// of a gopkg.in/macaroon.v1.Macaroon.
 	Macaroon string `yaml:"macaroon,omitempty"`
+
+	// LastKnownAccess is the last known access level for the account.
+	LastKnownAccess string `yaml:"last-known-access,omitempty"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.

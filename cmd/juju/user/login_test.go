@@ -32,12 +32,12 @@ func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *LoginCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Context, juju.NewAPIConnectionParams, error) {
 	var argsOut juju.NewAPIConnectionParams
-	cmd, _ := user.NewLoginCommandForTest(func(args juju.NewAPIConnectionParams) (user.LoginAPI, error) {
+	cmd, _ := user.NewLoginCommandForTest(func(args juju.NewAPIConnectionParams) (user.LoginAPI, user.ConnectionAPI, error) {
 		argsOut = args
 		// The account details are modified in place, so take a copy.
 		accountDetails := *argsOut.AccountDetails
 		argsOut.AccountDetails = &accountDetails
-		return s.mockAPI, nil
+		return s.mockAPI, s.mockAPI, nil
 	}, s.store)
 	ctx := coretesting.Context(c)
 	if stdin == "" {
@@ -91,7 +91,7 @@ username: password:
 You are now logged in to "testing" as "current-user@local".
 `[1:],
 	)
-	s.assertStorePassword(c, "current-user@local", "")
+	s.assertStorePassword(c, "current-user@local", "", "superuser")
 	s.assertStoreMacaroon(c, "current-user@local", fakeLocalLoginMacaroon(names.NewUserTag("current-user@local")))
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "current-user@local",
@@ -110,7 +110,7 @@ password:
 You are now logged in to "testing" as "new-user@local".
 `[1:],
 	)
-	s.assertStorePassword(c, "new-user@local", "")
+	s.assertStorePassword(c, "new-user@local", "", "superuser")
 	s.assertStoreMacaroon(c, "new-user@local", fakeLocalLoginMacaroon(names.NewUserTag("new-user@local")))
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "new-user@local",
@@ -135,10 +135,14 @@ func (s *LoginCommandSuite) TestLoginFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("failed to do something"))
 	_, _, err := s.run(c, "", "current-user")
 	c.Assert(err, gc.ErrorMatches, "failed to create a temporary credential: failed to do something")
-	s.assertStorePassword(c, "current-user@local", "old-password")
+	s.assertStorePassword(c, "current-user@local", "old-password", "")
 	s.assertStoreMacaroon(c, "current-user@local", nil)
 }
 
 type mockLoginAPI struct {
 	mockChangePasswordAPI
+}
+
+func (*mockLoginAPI) ControllerAccess() string {
+	return "superuser"
 }

@@ -109,22 +109,42 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	// controllers that redirect involves them having well known
 	// public addresses that won't change over time.
 	hostPorts := st.APIHostPorts()
-	err = updateControllerAddresses(args.Store, args.ControllerName, controller, hostPorts, addrConnectedTo)
+	agentVersion := ""
+	if v, ok := st.ServerVersion(); ok {
+		agentVersion = v.String()
+	}
+	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, agentVersion, hostPorts, addrConnectedTo)
 	if err != nil {
 		logger.Errorf("cannot cache API addresses: %v", err)
 	}
-	if apiInfo.Tag == nil && !apiInfo.SkipLogin {
-		// We used macaroon auth to login; save the username
-		// that we've logged in as.
-		user, ok := st.AuthTag().(names.UserTag)
-		if ok && !user.IsLocal() {
-			if err := args.Store.UpdateAccount(args.ControllerName, jujuclient.AccountDetails{
-				User: user.Canonical(),
-			}); err != nil {
-				logger.Errorf("cannot update account information: %v", err)
+
+	// Process the account details obtained from login.
+	var accountDetails *jujuclient.AccountDetails
+	user, ok := st.AuthTag().(names.UserTag)
+	if !apiInfo.SkipLogin {
+		if ok {
+			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
+				if !errors.IsNotFound(err) {
+					logger.Errorf("cannot load local account information: %v", err)
+				}
+			} else {
+				accountDetails.LastKnownAccess = st.ControllerAccess()
 			}
-		} else {
+		}
+		if ok && !user.IsLocal() && apiInfo.Tag == nil {
+			// We used macaroon auth to login; save the username
+			// that we've logged in as.
+			accountDetails = &jujuclient.AccountDetails{
+				User:            user.Canonical(),
+				LastKnownAccess: st.ControllerAccess(),
+			}
+		} else if apiInfo.Tag == nil {
 			logger.Errorf("unexpected logged-in username %v", st.AuthTag())
+		}
+	}
+	if accountDetails != nil {
+		if err := args.Store.UpdateAccount(args.ControllerName, *accountDetails); err != nil {
+			logger.Errorf("cannot update account information: %v", err)
 		}
 	}
 	return st, nil
@@ -293,36 +313,45 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
-// UpdateControllerAddresses writes any new api addresses to the client controller file.
+// UpdateControllerDetailsFromLogin writes any new api addresses and other relevant details
+// to the client controller file.
 // Controller may be specified by a UUID or name, and must already exist.
-func UpdateControllerAddresses(
-	store jujuclient.ControllerStore, controllerName string,
+func UpdateControllerDetailsFromLogin(
+	store jujuclient.ControllerStore, controllerName, agentVersion string,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return updateControllerAddresses(
+	return updateControllerDetailsFromLogin(
 		store, controllerName, controllerDetails,
+		agentVersion,
 		currentHostPorts, addrConnectedTo...,
 	)
 }
 
-func updateControllerAddresses(
+func updateControllerDetailsFromLogin(
 	store jujuclient.ControllerStore,
 	controllerName string, controllerDetails *jujuclient.ControllerDetails,
+	agentVersion string,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 	// Get the new endpoint addresses.
 	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
-	if !addrsChanged {
+	otherDataChanged := agentVersion != controllerDetails.AgentVersion
+	if !addrsChanged && !otherDataChanged {
 		return nil
 	}
 
 	// Write the new controller data.
-	controllerDetails.APIEndpoints = addrs
-	controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
+	if addrsChanged {
+		controllerDetails.APIEndpoints = addrs
+		controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
+	}
+	if otherDataChanged {
+		controllerDetails.AgentVersion = agentVersion
+	}
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
 }

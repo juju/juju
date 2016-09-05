@@ -342,7 +342,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
 	apiPort := params.ControllerConfig.APIPort()
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), apiPort, env)
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), bootVers, apiPort, env)
 	if err != nil {
 		return errors.Trace(err)
 	}

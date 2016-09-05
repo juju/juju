@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
+	"github.com/juju/version"
 )
 
 type mockAPIState struct {
@@ -72,6 +73,10 @@ func (s *mockAPIState) Close() error {
 	return nil
 }
 
+func (s *mockAPIState) ServerVersion() (version.Number, bool) {
+	return version.MustParse("1.2.3"), true
+}
+
 func (s *mockAPIState) Addr() string {
 	return s.addr
 }
@@ -97,6 +102,14 @@ func (s *mockAPIState) ControllerTag() names.ControllerTag {
 		panic("bad controller tag")
 	}
 	return t
+}
+
+func (s *mockAPIState) AuthTag() names.Tag {
+	return names.NewUserTag("admin")
+}
+
+func (s *mockAPIState) ControllerAccess() string {
+	return "superuser"
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

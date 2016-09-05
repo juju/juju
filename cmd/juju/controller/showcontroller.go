@@ -71,9 +71,8 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"tabular": formatShowControllersTabular,
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
 	})
 }
 

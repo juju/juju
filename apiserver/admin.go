@@ -187,10 +187,10 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			description.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
-		maybeUserInfo.ReadOnly = modelUser.Access == description.ReadAccess
-		if maybeUserInfo.ReadOnly {
-			logger.Debugf("model user %s is READ ONLY", entity.Tag())
-		}
+		maybeUserInfo.ControllerAccess = string(controllerUser.Access)
+		maybeUserInfo.ModelAccess = string(modelUser.Access)
+		logger.Tracef("controller user %s has %v", entity.Tag(), controllerUser.Access)
+		logger.Tracef("model user %s has %s", entity.Tag(), modelUser.Access)
 	}
 
 	// Fetch the API server addresses from state.

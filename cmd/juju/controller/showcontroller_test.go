@@ -200,18 +200,6 @@ mark-test-prodstack:
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
 }
 
-func (s *ShowControllerSuite) TestShowSomeControllerTabular(c *gc.C) {
-	s.createTestClientStore(c)
-	s.expectedOutput = `
-CONTROLLER           MODEL  USER         ACCESS     CLOUD/REGION   VERSION
-aws-test             admin  admin@local  superuser  aws/us-east-1  999.99.99
-mark-test-prodstack  -      admin@local  superuser  prodstack      999.99.99
-
-`[1:]
-
-	s.assertShowController(c, "--format", "tabular", "aws-test", "mark-test-prodstack")
-}
-
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 

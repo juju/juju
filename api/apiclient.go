@@ -96,9 +96,11 @@ type state struct {
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
 
-	// readOnly holds whether the user has read-only access for the
-	// connected model.
-	readOnly bool
+	// mpdelAccess holds the access level of the user to the connected model.
+	modelAccess string
+
+	// controllerAccess holds the access level of the user to the connected controller.
+	controllerAccess string
 
 	// broken is a channel that gets closed when the connection is
 	// broken.
