@@ -6,10 +6,9 @@ package migration
 import (
 	"time"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // MigrationStatus returns the details for a migration as needed by
