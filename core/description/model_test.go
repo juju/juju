@@ -636,6 +636,7 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 }
 
 func (s *ModelSerializationSuite) TestCloudImageMetadata(c *gc.C) {
+	storageSize := uint64(3)
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	image := initial.AddCloudImageMetadata(CloudImageMetadataArgs{
 		Stream:          "stream",
@@ -645,7 +646,7 @@ func (s *ModelSerializationSuite) TestCloudImageMetadata(c *gc.C) {
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
-		RootStorageSize: uint64(3),
+		RootStorageSize: &storageSize,
 		Source:          "test",
 		Priority:        2,
 		ImageId:         "1",

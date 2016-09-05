@@ -28,6 +28,7 @@ func (s *CloudImageMetadataSerializationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C) {
+	storageSize := uint64(3)
 	args := CloudImageMetadataArgs{
 		Stream:          "stream",
 		Region:          "region-test",
@@ -36,7 +37,7 @@ func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
-		RootStorageSize: uint64(3),
+		RootStorageSize: &storageSize,
 		Source:          "test",
 		Priority:        0,
 		ImageId:         "foo",
@@ -50,7 +51,7 @@ func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C
 	c.Check(metadata.Arch(), gc.Equals, args.Arch)
 	c.Check(metadata.VirtType(), gc.Equals, args.VirtType)
 	c.Check(metadata.RootStorageType(), gc.Equals, args.RootStorageType)
-	c.Check(*metadata.RootStorageSize(), gc.Equals, args.RootStorageSize)
+	c.Check(*metadata.RootStorageSize(), gc.Equals, *args.RootStorageSize)
 	c.Check(metadata.Source(), gc.Equals, args.Source)
 	c.Check(metadata.Priority(), gc.Equals, args.Priority)
 	c.Check(metadata.ImageId(), gc.Equals, args.ImageId)
@@ -58,6 +59,7 @@ func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C
 }
 
 func (s *CloudImageMetadataSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	storageSize := uint64(3)
 	initial := cloudimagemetadataset{
 		Version: 1,
 		CloudImageMetadata_: []*cloudimagemetadata{
@@ -69,7 +71,7 @@ func (s *CloudImageMetadataSerializationSuite) TestParsingSerializedData(c *gc.C
 				Arch:            "arch",
 				VirtType:        "virtType-test",
 				RootStorageType: "rootStorageType-test",
-				RootStorageSize: uint64(3),
+				RootStorageSize: &storageSize,
 				Source:          "test",
 				Priority:        0,
 				ImageId:         "foo",

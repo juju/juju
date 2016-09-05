@@ -98,7 +98,7 @@ type CloudImageMetadataArgs struct {
 	Arch            string
 	VirtType        string
 	RootStorageType string
-	RootStorageSize uint64
+	RootStorageSize *uint64
 	DateCreated     int64
 	Source          string
 	Priority        int
@@ -114,7 +114,7 @@ func newCloudImageMetadata(args CloudImageMetadataArgs) *cloudimagemetadata {
 		Arch_:            args.Arch,
 		VirtType_:        args.VirtType,
 		RootStorageType_: args.RootStorageType,
-		RootStorageSize_: &args.RootStorageSize,
+		RootStorageSize_: args.RootStorageSize,
 		DateCreated_:     args.DateCreated,
 		Source_:          args.Source,
 		Priority_:        args.Priority,
@@ -171,7 +171,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		"arch":            schema.String(),
 		"virttype":        schema.String(),
 		"rootstoragetype": schema.String(),
-		"rootstoragesize": schema.Uint(),
+		"rootstoragesize": schema.OneOf(schema.Uint(), schema.Nil("rootstoragesize")),
 		"datecreated":     schema.Int(),
 		"source":          schema.String(),
 		"priority":        schema.Int(),
@@ -188,7 +188,11 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		return nil, errors.Annotatef(err, "cloudimagemetadata v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	rootstoragesize := valid["rootstoragesize"].(uint64)
+	rootstoragesize, ok := valid["rootstoragesize"].(uint64)
+	var pointerSize *uint64
+	if ok {
+		pointerSize = &rootstoragesize
+	}
 
 	cloudimagemetadata := &cloudimagemetadata{
 		Stream_:          valid["stream"].(string),
@@ -198,7 +202,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		Arch_:            valid["arch"].(string),
 		VirtType_:        valid["virttype"].(string),
 		RootStorageType_: valid["rootstoragetype"].(string),
-		RootStorageSize_: &rootstoragesize,
+		RootStorageSize_: pointerSize,
 		DateCreated_:     valid["datecreated"].(int64),
 		Source_:          valid["source"].(string),
 		Priority_:        int(valid["priority"].(int64)),
