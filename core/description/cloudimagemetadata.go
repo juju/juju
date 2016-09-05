@@ -179,7 +179,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"rootstoragesize": nil,
+		"rootstoragesize": schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -188,10 +188,11 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		return nil, errors.Annotatef(err, "cloudimagemetadata v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	rootstoragesize, ok := valid["rootstoragesize"].(uint64)
+	_, ok := valid["rootstoragesize"]
 	var pointerSize *uint64
 	if ok {
-		pointerSize = &rootstoragesize
+		rootStorageSize := valid["rootstoragesize"].(uint64)
+		pointerSize = &rootStorageSize
 	}
 
 	cloudimagemetadata := &cloudimagemetadata{
