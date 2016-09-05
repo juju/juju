@@ -66,7 +66,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     bs_start = datetime.utcnow()
     with bs_manager.booted_context(upload_tools):
         client = bs_manager.client
-        admin_client = client.get_admin_client()
+        admin_client = client.get_controller_client()
         admin_client.wait_for_started()
         bs_end = datetime.utcnow()
         try:
