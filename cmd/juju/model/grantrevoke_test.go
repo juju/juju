@@ -85,7 +85,7 @@ func (s *grantRevokeSuite) TestBlockGrant(c *gc.C) {
 	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
 	_, err := s.run(c, "sam", "read", "foo")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Check(c.GetTestLog(), jc.Contains, "To unblock changes")
+	c.Check(c.GetTestLog(), jc.Contains, "To enable changes")
 }
 
 type grantSuite struct {

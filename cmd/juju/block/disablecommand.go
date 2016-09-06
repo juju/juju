@@ -84,7 +84,7 @@ Examples:
     juju disable-command destroy-model "Check with SA before destruction."
 
     # To prevent the machines, applications, units and relations from being removed:
-    juju disable-command remove-object 
+    juju disable-command remove-object
 
     # To prevent changes to the model:
     juju disable-command all "Model locked down"

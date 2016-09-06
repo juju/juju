@@ -820,7 +820,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
-	s.AssertBlocked(c, err, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

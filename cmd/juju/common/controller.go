@@ -62,8 +62,13 @@ var (
 	blockAPI                = getBlockAPI
 )
 
+type listBlocksAPI interface {
+	List() ([]params.Block, error)
+	Close() error
+}
+
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (*block.Client, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

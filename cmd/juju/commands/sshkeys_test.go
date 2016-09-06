@@ -52,7 +52,7 @@ func (s *SSHKeysSuite) TestHelpImport(c *gc.C) {
 
 type keySuiteBase struct {
 	jujutesting.JujuConnSuite
-	jujutesting.CmdBlockHelper
+	coretesting.CmdBlockHelper
 }
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
@@ -62,7 +62,7 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CmdBlockHelper = jujutesting.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
