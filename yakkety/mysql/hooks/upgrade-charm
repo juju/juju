@@ -1,0 +1,27 @@
+#!/bin/sh
+home=`dirname $0`
+# Remove any existing .service_user files, which will cause
+# new users/pw's to be generated, which is a good thing
+old_service_user_files=$(ls /var/lib/juju/*.service_user)
+if [ -n "$old_service_user_files" ] ; then
+    juju-log -l WARNING "Stale users left around, should be revoked: $(cat $old_service_user_files)"
+    rm -f $old_service_user_files
+fi
+
+# Move service_user2 files to /var/lib/mysql as they are
+# now stored there to support HA clustering with ceph.
+new_service_user_files=$(ls /var/lib/juju/*.service_user2)
+if [ -n "$new_service_user_files" ]; then
+    juju-log -l INFO "Moving service_user files [$new_service_user_files] to [/var/lib/mysql]"
+    mv $new_service_user_files /var/lib/mysql/
+fi
+# Move passwd files to /var/lib/mysql as they are
+# now stored there to support HA clustering with ceph.
+password_files=$(ls /var/lib/juju/*.passwd)
+if [ -n "$password_files" ]; then
+    juju-log -l INFO "Moving passwd files [$password_files] to [/var/lib/mysql]"
+    mv $password_files /var/lib/mysql/
+fi
+
+$home/install
+exec $home/config-changed
