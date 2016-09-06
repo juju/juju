@@ -100,11 +100,17 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		&mockMachine{
 			id:            "1",
 			containerType: "none",
+			life:          state.Alive,
 			hw:            &instance.HardwareCharacteristics{CpuCores: &one},
 		},
 		&mockMachine{
 			id:            "2",
+			life:          state.Alive,
 			containerType: "lxc",
+		},
+		&mockMachine{
+			id:   "3",
+			life: state.Dead,
 		},
 	}
 
@@ -470,12 +476,17 @@ func (st *mockState) DumpAll() (map[string]interface{}, error) {
 type mockMachine struct {
 	common.Machine
 	id            string
+	life          state.Life
 	containerType instance.ContainerType
 	hw            *instance.HardwareCharacteristics
 }
 
 func (m *mockMachine) Id() string {
 	return m.id
+}
+
+func (m *mockMachine) Life() state.Life {
+	return m.life
 }
 
 func (m *mockMachine) ContainerType() instance.ContainerType {

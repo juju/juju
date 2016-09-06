@@ -648,10 +648,14 @@ func fillMachineHardwareInfo(info *params.ModelInfo, st common.ModelManagerBacke
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info.Machines = make([]params.ModelMachineInfo, len(machines))
-	for i, m := range machines {
-		info.Machines[i].Id = m.Id()
+	info.Machines = make([]params.ModelMachineInfo, 0, len(machines))
+	for _, m := range machines {
+		if m.Life() != state.Alive {
+			continue
+		}
+		mInfo := params.ModelMachineInfo{Id: m.Id()}
 		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
+			info.Machines = append(info.Machines, mInfo)
 			continue
 		}
 		// Only include cores for physical machines.
@@ -660,14 +664,15 @@ func fillMachineHardwareInfo(info *params.ModelInfo, st common.ModelManagerBacke
 			return errors.Trace(err)
 		}
 		if hw != nil && hw.CpuCores != nil {
-			info.Machines[i].Cores = hw.CpuCores
-			info.Machines[i].Arch = hw.Arch
-			info.Machines[i].Mem = hw.Mem
-			info.Machines[i].RootDisk = hw.RootDisk
-			info.Machines[i].CpuPower = hw.CpuPower
-			info.Machines[i].Tags = hw.Tags
-			info.Machines[i].AvailabilityZone = hw.AvailabilityZone
+			mInfo.Cores = hw.CpuCores
+			mInfo.Arch = hw.Arch
+			mInfo.Mem = hw.Mem
+			mInfo.RootDisk = hw.RootDisk
+			mInfo.CpuPower = hw.CpuPower
+			mInfo.Tags = hw.Tags
+			mInfo.AvailabilityZone = hw.AvailabilityZone
 		}
+		info.Machines = append(info.Machines, mInfo)
 	}
 	return nil
 }
