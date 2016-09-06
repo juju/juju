@@ -40,7 +40,7 @@ var (
 	validTargets = cmdAll + ", " + cmdDestroyModel + ", " + cmdRemoveObject
 )
 
-func OperationFromType(blockType string) string {
+func operationFromType(blockType string) string {
 	value, ok := toCmdValue[blockType]
 	if !ok {
 		value = "<unknown>"

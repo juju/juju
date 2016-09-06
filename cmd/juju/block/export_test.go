@@ -6,6 +6,7 @@ package block
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -13,7 +14,7 @@ import (
 // apiFunc specified to return the args.
 func NewDisableCommandForTest(api blockClientAPI, err error) cmd.Command {
 	return modelcmd.Wrap(&disableCommand{
-		apiFunc: func(c newAPIRoot) (blockClientAPI, error) {
+		apiFunc: func(_ newAPIRoot) (blockClientAPI, error) {
 			return api, err
 		},
 	})
@@ -23,17 +24,26 @@ func NewDisableCommandForTest(api blockClientAPI, err error) cmd.Command {
 // apiFunc specified to return the args.
 func NewEnableCommandForTest(api unblockClientAPI, err error) cmd.Command {
 	return modelcmd.Wrap(&enableCommand{
-		apiFunc: func(c newAPIRoot) (unblockClientAPI, error) {
+		apiFunc: func(_ newAPIRoot) (unblockClientAPI, error) {
 			return api, err
 		},
 	})
 }
 
+type listMockAPI interface {
+	blockListAPI
+	// Can't include two interfaces that specify the same method
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
+}
+
 // NewListCommandForTest returns a new list command with the
 // apiFunc specified to return the args.
-func NewListCommandForTest(api blockListAPI, err error) cmd.Command {
+func NewListCommandForTest(api listMockAPI, err error) cmd.Command {
 	return modelcmd.Wrap(&listCommand{
-		apiFunc: func(c newAPIRoot) (blockListAPI, error) {
+		apiFunc: func(_ newAPIRoot) (blockListAPI, error) {
+			return api, err
+		},
+		controllerAPIFunc: func(_ newControllerAPIRoot) (controllerListAPI, error) {
 			return api, err
 		},
 	})

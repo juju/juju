@@ -126,17 +126,6 @@ func NewKillCommandForTest(
 	return wrapKillCommand(kill, apiOpen, clock)
 }
 
-// NewListBlocksCommandForTest returns a ListBlocksCommand with the controller
-// endpoint mocked out.
-func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclient.ClientStore) cmd.Command {
-	c := &listBlocksCommand{
-		api:    api,
-		apierr: apierr,
-	}
-	c.SetClientStore(store)
-	return modelcmd.WrapController(c)
-}
-
 // NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
 // the api provided as specified.
 func NewGetConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {

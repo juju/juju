@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/block"
 )
 
@@ -20,9 +20,9 @@ type CmdBlockHelper struct {
 
 // NewCmdBlockHelper creates a block switch used in testing
 // to manage desired juju blocks.
-func NewCmdBlockHelper(st api.Connection) CmdBlockHelper {
+func NewCmdBlockHelper(api base.APICallCloser) CmdBlockHelper {
 	return CmdBlockHelper{
-		blockClient: block.NewClient(st),
+		blockClient: block.NewClient(api),
 	}
 }
 
