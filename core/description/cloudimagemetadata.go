@@ -171,7 +171,7 @@ func importCloudImageMetadataV1(source map[string]interface{}) (*cloudimagemetad
 		"arch":            schema.String(),
 		"virttype":        schema.String(),
 		"rootstoragetype": schema.String(),
-		"rootstoragesize": schema.OneOf(schema.Uint(), schema.Nil("rootstoragesize")),
+		"rootstoragesize": schema.Uint(),
 		"datecreated":     schema.Int(),
 		"source":          schema.String(),
 		"priority":        schema.Int(),
