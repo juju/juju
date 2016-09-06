@@ -6,7 +6,9 @@ package migration
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -44,4 +46,28 @@ type SerializedModel struct {
 	// their URIs. The URIs can be used to download the tools from the
 	// source controller.
 	Tools map[version.Binary]string // version -> tools URI
+}
+
+// ModelInfo is used to report basic details about a model.
+type ModelInfo struct {
+	UUID         string
+	Owner        names.UserTag
+	Name         string
+	AgentVersion version.Number
+}
+
+func (i *ModelInfo) Validate() error {
+	if i.UUID == "" {
+		return errors.NotValidf("empty UUID")
+	}
+	if i.Owner.Name() == "" {
+		return errors.NotValidf("empty Owner")
+	}
+	if i.Name == "" {
+		return errors.NotValidf("empty Name")
+	}
+	if i.AgentVersion.Compare(version.Number{}) == 0 {
+		return errors.NotValidf("empty Version")
+	}
+	return nil
 }

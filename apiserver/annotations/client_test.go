@@ -22,7 +22,7 @@ type annotationSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
 
-	annotationsApi *annotations.API
+	annotationsAPI *annotations.API
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -34,7 +34,7 @@ func (s *annotationSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.annotationsApi, err = annotations.NewAPI(s.State, nil, s.authorizer)
+	s.annotationsAPI, err = annotations.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -79,7 +79,7 @@ func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 func (s *annotationSuite) assertAnnotationsRemoval(c *gc.C, tag names.Tag) {
 	entity := tag.String()
 	entities := params.Entities{[]params.Entity{{entity}}}
-	ann := s.annotationsApi.Get(entities)
+	ann := s.annotationsAPI.Get(entities)
 	c.Assert(ann.Results, gc.HasLen, 1)
 
 	aResult := ann.Results[0]
@@ -92,11 +92,11 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 	entities := params.Entities{[]params.Entity{{entity}}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
-	setResult := s.annotationsApi.Set(
+	setResult := s.annotationsAPI.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters([]string{entity}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
 
-	got := s.annotationsApi.Get(entities)
+	got := s.annotationsAPI.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
@@ -161,11 +161,11 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	entities := params.Entities{[]params.Entity{entity}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
-	setResult := s.annotationsApi.Set(
+	setResult := s.annotationsAPI.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters([]string{tag}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
-	got := s.annotationsApi.Get(entities)
+	got := s.annotationsAPI.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
@@ -201,7 +201,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	}
 	annotations := map[string]string{"mykey": "myvalue"}
 
-	setResult := s.annotationsApi.Set(
+	setResult := s.annotationsAPI.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	c.Assert(setResult.Results, gc.HasLen, 1)
 
@@ -210,7 +210,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	c.Assert(oneError, gc.Matches, fmt.Sprintf(".*%q.*", rTag))
 	c.Assert(oneError, gc.Matches, ".*does not support annotations.*")
 
-	got := s.annotationsApi.Get(params.Entities{[]params.Entity{
+	got := s.annotationsAPI.Get(params.Entities{[]params.Entity{
 		{rEntity},
 		{sEntity}}})
 	c.Assert(got.Results, gc.HasLen, 2)
@@ -251,7 +251,7 @@ func (s *annotationSuite) setupEntity(
 	entities []string,
 	initialAnnotations map[string]string) {
 	if initialAnnotations != nil {
-		initialResult := s.annotationsApi.Set(
+		initialResult := s.annotationsAPI.Set(
 			params.AnnotationsSet{
 				Annotations: constructSetParameters(entities, initialAnnotations)})
 		c.Assert(initialResult.Combine(), jc.ErrorIsNil)
@@ -262,7 +262,7 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 	entities []string,
 	annotations map[string]string,
 	expectedError string) {
-	setResult := s.annotationsApi.Set(
+	setResult := s.annotationsAPI.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	if expectedError != "" {
 		c.Assert(setResult.OneError().Error(), gc.Matches, expectedError)
@@ -275,7 +275,7 @@ func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
 	entities params.Entities,
 	entity string,
 	expected map[string]string) params.AnnotationsGetResult {
-	got := s.annotationsApi.Get(entities)
+	got := s.annotationsAPI.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
@@ -291,7 +291,7 @@ func (s *annotationSuite) cleanupEntityAnnotations(c *gc.C,
 	for key := range aResult.Annotations {
 		cleanup[key] = ""
 	}
-	cleanupResult := s.annotationsApi.Set(
+	cleanupResult := s.annotationsAPI.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters(entities, cleanup)})
 	c.Assert(cleanupResult.Combine(), jc.ErrorIsNil)
 }

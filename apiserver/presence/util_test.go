@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/presence"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -69,7 +68,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 	context := &context{
 		c:       c,
 		stub:    stub,
-		clock:   coretesting.NewClock(time.Now()),
+		clock:   testing.NewClock(time.Now()),
 		timeout: time.After(time.Second),
 		starts:  make(chan worker.Worker, 1000),
 	}
@@ -91,7 +90,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 type context struct {
 	c       *gc.C
 	stub    *testing.Stub
-	clock   *coretesting.Clock
+	clock   *testing.Clock
 	timeout <-chan time.Time
 
 	starts  chan worker.Worker

@@ -23,10 +23,8 @@ import (
 
 type environ struct {
 	name   string
+	cloud  environs.CloudSpec
 	client *client
-
-	archLock               sync.Mutex // archLock protects access to the following fields.
-	supportedArchitectures []string
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -35,13 +33,13 @@ type environ struct {
 	ecfg *environConfig
 }
 
-func newEnviron(cfg *config.Config) (*environ, error) {
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	client, err := newClient(ecfg)
+	client, err := newClient(cloud)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to create new client")
 	}
@@ -53,6 +51,7 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 
 	env := &environ{
 		name:      ecfg.Name(),
+		cloud:     cloud,
 		ecfg:      ecfg,
 		client:    client,
 		namespace: namespace,

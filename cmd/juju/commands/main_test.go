@@ -23,7 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
@@ -49,10 +49,6 @@ func setconfigHelpText() string {
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
-}
-
-func blockHelpText() string {
-	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -131,18 +127,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
-	}, {
-		summary: "check block command registered properly",
-		args:    []string{"block", "-h"},
-		code:    0,
-		out:     blockHelpText(),
-	}, {
-		summary: "check unblock command registered properly",
-		args:    []string{"unblock"},
-		code:    0,
-		out:     "error: must specify one of [destroy-model | remove-object | all-changes] to unblock\n",
-	},
-	} {
+	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, gc.Equals, t.out)
@@ -190,9 +175,13 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
 
 	// remove the new juju-home and create a fake old juju home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 	makeValidOldHome(c)
 
@@ -217,7 +206,8 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
     Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
     with the command juju-1 e.g. 'juju-1 switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
-`[1:], jujuversion.Current))
+
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -233,9 +223,13 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
 
 	// remove the new juju-home and create a fake old juju home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	makeValidOldHome(c)
@@ -251,7 +245,8 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 
-	c.Check(string(stderr), gc.Equals, "")
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -300,9 +295,13 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
 
 	// remove the new juju-home.
-	err := os.Remove(osenv.JujuXDGDataHome())
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// create fake (empty) old juju home.
@@ -319,8 +318,42 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 
 	assertNoArgs(c, argChan)
-	c.Assert(string(stderr), gc.Equals, "")
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
+	argChan := make(chan []string, 1)
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+
+	})
+	var code int
+	gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stub.Calls()[0].FuncName, gc.Equals, expectedCall)
+}
+
+func (s *MainSuite) TestFirstRunUpdateCloud(c *gc.C) {
+	// remove the juju-home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertRunCommandUpdateCloud(c, "Run")
+}
+
+func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
+	s.assertRunCommandUpdateCloud(c, "Info")
 }
 
 func makeValidOldHome(c *gc.C) {
@@ -356,24 +389,19 @@ var commandNames = []string{
 	"add-cloud",
 	"add-credential",
 	"add-machine",
-	"add-machines",
 	"add-model",
 	"add-relation",
 	"add-space",
 	"add-ssh-key",
-	"add-ssh-keys",
 	"add-storage",
 	"add-subnet",
 	"add-unit",
-	"add-units",
 	"add-user",
 	"agree",
 	"agreements",
 	"allocate",
 	"autoload-credentials",
 	"backups",
-	"block",
-	"blocks",
 	"bootstrap",
 	"budgets",
 	"cached-images",
@@ -388,21 +416,19 @@ var commandNames = []string{
 	"credentials",
 	"debug-hooks",
 	"debug-log",
-	"debug-metrics",
 	"remove-user",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
-	"destroy-relation",
-	"destroy-application",
-	"destroy-unit",
+	"disable-command",
 	"disable-user",
+	"disabled-commands",
 	"download-backup",
 	"enable-ha",
+	"enable-command",
 	"enable-user",
 	"expose",
 	"get-config",
-	"get-configs",
 	"get-constraints",
 	"get-controller-config",
 	"get-model-config",
@@ -412,24 +438,20 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"import-ssh-key",
-	"import-ssh-keys",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-all-blocks",
 	"list-backups",
-	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
 	"list-credentials",
-	"list-machine",
+	"list-disabled-commands",
 	"list-machines",
 	"list-models",
 	"list-plans",
 	"list-shares",
-	"list-ssh-key",
 	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
@@ -438,8 +460,8 @@ var commandNames = []string{
 	"list-users",
 	"login",
 	"logout",
-	"machine",
 	"machines",
+	"metrics",
 	"model-config",
 	"model-defaults",
 	"models",
@@ -447,17 +469,15 @@ var commandNames = []string{
 	"register",
 	"relate", //alias for add-relation
 	"remove-all-blocks",
-	"remove-application", // alias for destroy-application
+	"remove-application",
 	"remove-backup",
 	"remove-cached-images",
 	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
-	"remove-machines",
-	"remove-relation", // alias for destroy-relation
+	"remove-relation",
 	"remove-ssh-key",
-	"remove-ssh-keys",
-	"remove-unit", // alias for destroy-unit
+	"remove-unit",
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
@@ -467,7 +487,6 @@ var commandNames = []string{
 	"scp",
 	"set-budget",
 	"set-config",
-	"set-configs",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
@@ -476,8 +495,6 @@ var commandNames = []string{
 	"set-model-constraints",
 	"set-model-default",
 	"set-plan",
-	"ssh-key",
-	"ssh-keys",
 	"shares",
 	"show-action-output",
 	"show-action-status",
@@ -485,23 +502,21 @@ var commandNames = []string{
 	"show-budget",
 	"show-cloud",
 	"show-controller",
-	"show-controllers",
 	"show-machine",
-	"show-machines",
 	"show-model",
 	"show-status",
+	"show-status-log",
 	"show-storage",
 	"show-user",
 	"spaces",
 	"ssh",
+	"ssh-keys",
 	"status",
-	"status-history",
 	"storage",
 	"storage-pools",
 	"subnets",
 	"switch",
 	"sync-tools",
-	"unblock",
 	"unexpose",
 	"update-allocation",
 	"upload-backup",
@@ -514,6 +529,7 @@ var commandNames = []string{
 	"upgrade-juju",
 	"users",
 	"version",
+	"whoami",
 }
 
 // devFeatures are feature flags that impact registration of commands.
@@ -525,8 +541,6 @@ var commandNamesBehindFlags = set.NewStrings(
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
-
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
 	// First check default commands, and then check commands that are
@@ -590,7 +604,6 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

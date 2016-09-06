@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -51,7 +49,10 @@ type EnvironProvider struct {
 	FirewallerFactory FirewallerFactory
 }
 
-var _ environs.EnvironProvider = (*EnvironProvider)(nil)
+var (
+	_ environs.EnvironProvider = (*EnvironProvider)(nil)
+	_ environs.ProviderSchema  = (*EnvironProvider)(nil)
+)
 
 var providerInstance *EnvironProvider = &EnvironProvider{
 	OpenstackCredentials{},
@@ -73,21 +74,21 @@ var shortAttempt = utils.AttemptStrategy{
 
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
-	e := new(Environ)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
 
+	e := &Environ{
+		name:  args.Config.Name(),
+		cloud: args.Cloud,
+	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
 	err := e.SetConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
-	e.name = args.Config.Name()
 	return e, nil
-}
-
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p EnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "auth-url", "auth-mode"}
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -109,30 +110,12 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	// Add credentials to the configuration.
-	attrs := map[string]interface{}{
-		"region":   args.Cloud.Region,
-		"auth-url": args.Cloud.Endpoint,
-	}
-	credentialAttrs := args.Cloud.Credential.Attributes()
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		// TODO(axw) we need a way of saying to use legacy auth.
-		attrs["username"] = credentialAttrs["username"]
-		attrs["password"] = credentialAttrs["password"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["domain-name"] = credentialAttrs["domain-name"]
-		attrs["auth-mode"] = AuthUserPass
-	case cloud.AccessKeyAuthType:
-		attrs["access-key"] = credentialAttrs["access-key"]
-		attrs["secret-key"] = credentialAttrs["secret-key"]
-		attrs["tenant-name"] = credentialAttrs["tenant-name"]
-		attrs["auth-mode"] = AuthKeyPair
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 
 	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
 		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
 	}
@@ -151,21 +134,8 @@ func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.Met
 		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: arch.AllSupportedArches,
+		Region: region,
 	}, nil
-}
-
-func (p EnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := p.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["username"] = ecfg.username()
-	m["password"] = ecfg.password()
-	m["tenant-name"] = ecfg.tenantName()
-	return m, nil
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -177,13 +147,8 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	name string
-
-	// archMutex gates access to cachedSupportedArchitectures
-	archMutex sync.Mutex
-	// cachedSupportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	cachedSupportedArchitectures []string
+	name  string
+	cloud environs.CloudSpec
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -396,13 +361,8 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.supportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
@@ -415,25 +375,6 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
-}
-
-func (e *Environ) supportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.cachedSupportedArchitectures != nil {
-		return e.cachedSupportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.cachedSupportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.cachedSupportedArchitectures, err
 }
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
@@ -592,31 +533,32 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func newCredentials(ecfg *environConfig) (identity.Credentials, identity.AuthMode) {
+func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode) {
+	credAttrs := spec.Credential.Attributes()
 	cred := identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
-		DomainName: ecfg.domainName(),
+		Region:     spec.Region,
+		URL:        spec.Endpoint,
+		TenantName: credAttrs[credAttrTenantName],
 	}
-	// authModeCfg has already been validated so we know it's one of the values below.
+
+	// AuthType is validated when the environment is opened, so it's known
+	// to be one of these values.
 	var authMode identity.AuthMode
-	switch AuthMode(ecfg.authMode()) {
-	case AuthLegacy:
-		authMode = identity.AuthLegacy
-	case AuthUserPass:
+	switch spec.Credential.AuthType() {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		cred.User = credAttrs[credAttrUserName]
+		cred.Secrets = credAttrs[credAttrPassword]
+		cred.DomainName = credAttrs[credAttrDomainName]
 		authMode = identity.AuthUserPass
 		if cred.DomainName != "" {
 			authMode = identity.AuthUserPassV3
 		}
-	case AuthKeyPair:
+	case cloud.AccessKeyAuthType:
+		cred.User = credAttrs[credAttrAccessKey]
+		cred.Secrets = credAttrs[credAttrSecretKey]
 		authMode = identity.AuthKeyPair
-		cred.User = ecfg.accessKey()
-		cred.Secrets = ecfg.secretKey()
 	}
-
 	return cred, authMode
 }
 
@@ -642,13 +584,13 @@ func determineBestClient(
 	return client
 }
 
-func authClient(ecfg *environConfig) (client.AuthenticatingClient, error) {
+func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
 
-	identityClientVersion, err := identityClientVersion(ecfg.authURL())
+	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
-	cred, authMode := newCredentials(ecfg)
+	cred, authMode := newCredentials(spec)
 
 	newClient := client.NewClient
 	if ecfg.SSLHostnameVerification() == false {
@@ -700,7 +642,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(ecfg)
+	client, err := authClient(e.cloud, ecfg)
 	if err != nil {
 		return errors.Annotate(err, "cannot set config")
 	}
@@ -718,7 +660,7 @@ func identityClientVersion(authURL string) (int, error) {
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Debugf("authURL: %s", authURL)
+	logger.Tracef("authURL: %s", authURL)
 	versionNumStr := url.Path[2:]
 	if versionNumStr[len(versionNumStr)-1] == '/' {
 		versionNumStr = versionNumStr[:len(versionNumStr)-1]
@@ -910,7 +852,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
+		Region:      e.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
@@ -1419,29 +1361,28 @@ func (e *Environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.ecfg().region()
+		region = e.cloud.Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Series:   config.PreferredSeries(e.ecfg()),
+		Region:   cloudSpec.Region,
+		Endpoint: cloudSpec.Endpoint,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *Environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.ecfg().region())
+	return e.cloudSpec(e.cloud.Region)
 }
 
 func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: e.ecfg().authURL(),
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
 
@@ -1449,6 +1390,33 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateAuthURL(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating auth-url")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.UserPassAuthType:
+	case cloud.AccessKeyAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
+}
+
+func validateAuthURL(authURL string) error {
+	parts, err := url.Parse(authURL)
+	if err != nil || parts.Host == "" || parts.Scheme == "" {
+		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
 }

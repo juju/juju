@@ -193,6 +193,7 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
+	logger.Tracef("server RPC error %v", errors.Details(err))
 	msg := err.Error()
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)

@@ -27,7 +27,6 @@ func TestPackage(t *stdtesting.T) {
 // BaseSubnetSuite is used for embedding in other suites.
 type BaseSubnetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	coretesting.BaseSuite
 
 	command cmd.Command
 	api     *StubAPI
@@ -37,11 +36,9 @@ var _ = gc.Suite(&BaseSubnetSuite{})
 
 func (s *BaseSubnetSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
@@ -49,11 +46,10 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
 
-	s.BaseSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	if hasFeatureFlag {
-		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+		s.FakeJujuXDGDataHomeSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	}
 
 	s.api = NewStubAPI()
@@ -64,7 +60,6 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 

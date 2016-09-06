@@ -21,7 +21,6 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -136,7 +135,7 @@ type BaseUpgradeCharmSuite struct{}
 type UpgradeCharmSuccessSuite struct {
 	BaseUpgradeCharmSuite
 	jujutesting.RepoSuite
-	common.CmdBlockHelper
+	testing.CmdBlockHelper
 	path string
 	riak *state.Application
 }
@@ -165,7 +164,7 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -411,16 +410,16 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Upload a new revision of the charm, but publish it
-	// only to the development channel.
+	// only to the beta channel.
 
 	id.Revision = 1
 	err = s.client.UploadCharmWithRevision(id, ch, -1)
 	c.Assert(err, gc.IsNil)
 
-	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
 	c.Assert(err, gc.IsNil)
 
-	err = runUpgradeCharm(c, "wordpress", "--channel", "development")
+	err = runUpgradeCharm(c, "wordpress", "--channel", "beta")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")

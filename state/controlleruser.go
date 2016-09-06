@@ -19,10 +19,11 @@ const defaultControllerPermission = description.LoginAccess
 
 // setAccess changes the user's access permissions on the controller.
 func (st *State) setControllerAccess(access description.Access, userGlobalKey string) error {
-	if err := access.Validate(); err != nil {
+	if err := description.ValidateControllerAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	op := updatePermissionOp(controllerGlobalKey, userGlobalKey, access)
+	op := updatePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey, access)
+
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
@@ -58,7 +59,7 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(controllerGlobalKey, userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user)), access),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
@@ -69,10 +70,9 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 	return ops
 }
 
-// RemoveControllerUser removes a user from the database.
-func (st *State) removeControllerUser(user names.UserTag) error {
-	ops := []txn.Op{
-		removePermissionOp(controllerGlobalKey, userGlobalKey(userAccessID(user))),
+func removeControllerUserOps(controllerUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
@@ -80,6 +80,11 @@ func (st *State) removeControllerUser(user names.UserTag) error {
 			Remove: true,
 		}}
 
+}
+
+// RemoveControllerUser removes a user from the database.
+func (st *State) removeControllerUser(user names.UserTag) error {
+	ops := removeControllerUserOps(st.ControllerUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("controller user %q does not exist", user.Canonical()))

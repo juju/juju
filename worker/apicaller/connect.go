@@ -21,8 +21,10 @@ var (
 	// retry strategy for "handling" ErrNotProvisioned. It exists
 	// in the name of stability; as the code evolves, it would be
 	// great to see its function moved up a level or two.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	checkProvisionedStrategy = utils.AttemptStrategy{
-		Total: 1 * time.Minute,
+		Total: 10 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 
@@ -41,21 +43,6 @@ var (
 	// has been updated with a new password, and you should try again.
 	ErrChangedPassword = errors.New("insecure password replaced; retry")
 )
-
-// APIOpen is an api.OpenFunc that wraps api.Open, and handles the edge
-// case where a model has jumping several versions and doesn't yet have
-// the model UUID cached in the agent config; in which case we fall back
-// to login version 1.
-//
-// You probably want to use this in ManifoldConfig; *we* probably want to
-// put this particular hack inside api.Open, but I seem to recall there
-// being some complication last time I thought that was a good idea.
-func APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if info.ModelTag.Id() == "" {
-		return api.OpenWithVersion(info, opts, 1)
-	}
-	return api.Open(info, opts)
-}
 
 // OnlyConnect logs into the API using the supplied agent's credentials.
 func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
@@ -161,8 +148,6 @@ func connectFallback(
 //
 //   * returns ErrConnectImpossible if the agent entity is dead or
 //     unauthorized for all known passwords;
-//   * if the agent's config does not specify a model, tries to record the
-//     model we just connected to;
 //   * replaces insecure credentials with freshly (locally) generated ones
 //     (and returns ErrPasswordChanged, expecting to be reinvoked);
 //   * unconditionally resets the remote-state password to its current value
@@ -206,14 +191,6 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 			}
 		}
 	}()
-
-	// Update the agent config if necessary; this should just read the
-	// conn's properties, rather than making api calls, so we don't
-	// need to think about facades yet.
-	if err := maybeSetAgentModelTag(a, conn); err != nil {
-		// apperently it's fine for this to fail
-		logger.Errorf("maybeSetAgentModelTag failed: %v", err)
-	}
 
 	// newConnFacade is patched out in export_test, because exhaustion.
 	// proper config/params struct would be better.
@@ -263,26 +240,6 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		return nil, errors.Annotate(err, "can't reset agent password")
 	}
 	return conn, nil
-}
-
-// maybeSetAgentModelTag tries to update the agent configuration if
-// it's missing a model tag. It doesn't *really* matter if it fails,
-// because we can demonstrably connect without it, so we log any
-// errors encountered and never return any to the client.
-func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) error {
-	if a.CurrentConfig().Model().Id() == "" {
-		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-			modelTag, err := conn.ModelTag()
-			if err != nil {
-				return errors.Annotate(err, "no model uuid set on api")
-			}
-			return setter.Migrate(agent.MigrateParams{
-				Model: modelTag,
-			})
-		})
-		return errors.Annotate(err, "unable to save model uuid")
-	}
-	return nil
 }
 
 // changePassword generates a new random password and records it in

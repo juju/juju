@@ -4,11 +4,10 @@
 package machine
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -56,22 +55,22 @@ func (c *removeCommand) Info() *cmd.Info {
 		Args:    "<machine number> ...",
 		Purpose: "Removes one or more machines from a model.",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"remove-machines"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 }
 
 func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no machines specified")
+		return errors.Errorf("no machines specified")
 	}
 	for _, id := range args {
 		if !names.IsValidMachine(id) {
-			return fmt.Errorf("invalid machine id %q", id)
+			return errors.Errorf("invalid machine id %q", id)
 		}
 	}
 	c.MachineIds = args

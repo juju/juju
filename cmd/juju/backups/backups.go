@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
@@ -55,6 +55,7 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}

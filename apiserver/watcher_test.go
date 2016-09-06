@@ -100,7 +100,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
 		Attempt:        2,
-		Phase:          "READONLY",
+		Phase:          "IMPORT",
 		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
 		SourceCACert:   "no worries",
 		TargetAPIAddrs: []string{"1.2.3.4:5555"},
@@ -158,7 +158,7 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) LatestModelMigration() (state.ModelMigration, error) {
+func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	if b.noMigration {
 		return nil, errors.NotFoundf("migration")
 	}
@@ -201,7 +201,7 @@ func (m *fakeModelMigration) Attempt() (int, error) {
 }
 
 func (m *fakeModelMigration) Phase() (migration.Phase, error) {
-	return migration.READONLY, nil
+	return migration.IMPORT, nil
 }
 
 func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {

@@ -4,19 +4,19 @@
 package action
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -111,7 +111,8 @@ var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.ActionCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
 }
@@ -140,7 +141,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 		ActionName := args[1]
 		if valid := ActionNameRule.MatchString(ActionName); !valid {
-			return fmt.Errorf("invalid action name %q", ActionName)
+			return errors.Errorf("invalid action name %q", ActionName)
 		}
 		c.unitTag = names.NewUnitTag(unitName)
 		c.actionName = ActionName
@@ -152,13 +153,13 @@ func (c *runCommand) Init(args []string) error {
 		for _, arg := range args[2:] {
 			thisArg := strings.SplitN(arg, "=", 2)
 			if len(thisArg) != 2 {
-				return fmt.Errorf("argument %q must be of the form key...=value", arg)
+				return errors.Errorf("argument %q must be of the form key...=value", arg)
 			}
 			keySlice := strings.Split(thisArg[0], ".")
 			// check each key for validity
 			for _, key := range keySlice {
 				if valid := keyRule.MatchString(key); !valid {
-					return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+					return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
 				}
 			}
 			// c.args={..., [key, key, key, key, value]}

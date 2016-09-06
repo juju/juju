@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 
@@ -43,6 +42,7 @@ var (
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",
+		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -123,14 +123,6 @@ var (
 		"unit-agent-deployer",
 	}
 )
-
-// Some workers only exist on certain operating systems.
-func init() {
-	if runtime.GOOS == "linux" {
-		alwaysMachineWorkers = append(alwaysMachineWorkers, "introspection")
-		alwaysUnitWorkers = append(alwaysUnitWorkers, "introspection")
-	}
-}
 
 type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
 

@@ -4,19 +4,19 @@
 package action
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 func NewListCommand() cmd.Command {
@@ -40,7 +40,12 @@ For more information, see also the 'run-action' command, which executes actions.
 
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.ActionCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
+	})
 	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
 }
 
@@ -56,6 +61,9 @@ func (c *listCommand) Info() *cmd.Info {
 
 // Init validates the service name and any other options.
 func (c *listCommand) Init(args []string) error {
+	if c.out.Name() == "tabular" && c.fullSchema {
+		return errors.New("full schema not compatible with tabular output")
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no application name specified")
@@ -85,10 +93,6 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	if len(actions) == 0 {
-		return c.out.Write(ctx, "No actions defined for "+c.applicationTag.Id())
-	}
-
 	if c.fullSchema {
 		verboseSpecs := make(map[string]interface{})
 		for k, v := range actions {
@@ -108,25 +112,44 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		sortedNames = append(sortedNames, name)
 	}
 	utils.SortStringsNaturally(sortedNames)
-	return c.printTabular(ctx, shortOutput, sortedNames)
+
+	var output interface{}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = shortOutput
+	default:
+		var list []listOutput
+		for _, name := range sortedNames {
+			list = append(list, listOutput{name, shortOutput[name]})
+		}
+		output = list
+	}
+
+	return c.out.Write(ctx, output)
+}
+
+type listOutput struct {
+	action      string
+	description string
 }
 
 // printTabular prints the list of actions in tabular format
-func (c *listCommand) printTabular(ctx *cmd.Context, actions map[string]string, sortedNames []string) error {
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 2
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+	list, ok := value.([]listOutput)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	if len(list) == 0 {
+		fmt.Fprintf(writer, "No actions defined for %s", c.applicationTag.Id())
+		return nil
+	}
+
+	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "%s\t%s\n", "ACTION", "DESCRIPTION")
-	for _, name := range sortedNames {
-		fmt.Fprintf(tw, "%s\t%s\n", name, strings.TrimSpace(actions[name]))
+	for _, value := range list {
+		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
 	}
 	tw.Flush()
-	return c.out.Write(ctx, string(out.Bytes()))
+	return nil
 }

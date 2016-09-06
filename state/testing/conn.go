@@ -23,7 +23,7 @@ import (
 // Initialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, newPolicy state.NewPolicyFunc) *state.State {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.State {
 	if cfg == nil {
 		cfg = testing.ModelConfig(c)
 	}
@@ -31,13 +31,13 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 	dialOpts := mongotest.DialOpts()
 
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Config:    cfg,
-			Owner:     owner,
+			CloudName:   "dummy",
+			CloudRegion: "dummy-region",
+			Config:      cfg,
+			Owner:       owner,
 			StorageProviderRegistry: StorageProviders(),
 		},
 		ControllerInheritedConfig: controllerInheritedConfig,
@@ -45,6 +45,21 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:             "dummy-region",
+					Endpoint:         "dummy-endpoint",
+					IdentityEndpoint: "dummy-identity-endpoint",
+					StorageEndpoint:  "dummy-storage-endpoint",
+				},
+				cloud.Region{
+					Name:             "nether-region",
+					Endpoint:         "nether-endpoint",
+					IdentityEndpoint: "nether-identity-endpoint",
+					StorageEndpoint:  "nether-storage-endpoint",
+				},
+			},
+			RegionConfig: regionConfig,
 		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
@@ -97,5 +112,5 @@ func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
 	cfg := testing.ModelConfig(c)
 	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
-	return Initialize(c, owner, cfg, nil, newPolicy)
+	return Initialize(c, owner, cfg, nil, nil, newPolicy)
 }

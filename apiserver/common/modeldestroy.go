@@ -10,8 +10,13 @@ import (
 	"github.com/juju/juju/apiserver/metricsender"
 )
 
-var sendMetrics = func(st metricsender.MetricsSenderBackend) error {
-	err := metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend())
+var sendMetrics = func(st metricsender.ModelBackend) error {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
+	}
+
+	err = metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend(), cfg.TransmitVendorMetrics())
 	return errors.Trace(err)
 }
 
@@ -44,12 +49,12 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 
 	if destroyHostedModels {
 		// Check we are operating on the controller state.
-		controllerCfg, err := st.ControllerConfig()
+		controllerModel, err := st.ControllerModel()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if modelTag.Id() != controllerCfg.ControllerUUID() {
-			return errors.Errorf("expected controller model UUID %v, got %v", modelTag.Id(), controllerCfg.ControllerUUID())
+		if modelTag != controllerModel.ModelTag() {
+			return errors.Errorf("expected controller model UUID %v, got %v", modelTag.Id(), controllerModel.ModelTag().Id())
 		}
 		models, err := st.AllModels()
 		if err != nil {
@@ -65,6 +70,11 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 			if err = check.DestroyAllowed(); err != nil {
 				return errors.Trace(err)
 			}
+			err = sendMetrics(modelSt)
+			if err != nil {
+				logger.Errorf("failed to send leftover metrics: %v", err)
+			}
+
 		}
 	} else {
 		check := NewBlockChecker(st)
@@ -87,7 +97,6 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 			return errors.Trace(err)
 		}
 	}
-
 	err = sendMetrics(st)
 	if err != nil {
 		logger.Errorf("failed to send leftover metrics: %v", err)

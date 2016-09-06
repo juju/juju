@@ -65,7 +65,7 @@ func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.Cli
 // NewLoginCommand returns a LoginCommand with the api
 // and writer provided as specified.
 func NewLoginCommandForTest(
-	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, error),
+	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error),
 	store jujuclient.ClientStore,
 ) (cmd.Command, *LoginCommand) {
 	c := &loginCommand{newLoginAPI: newLoginAPI}
@@ -102,4 +102,10 @@ func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Co
 	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
+}
+
+// NewWhoAmICommandForTest returns a whoAMI command with a mock store.
+func NewWhoAmICommandForTest(store jujuclient.ClientStore) cmd.Command {
+	c := &whoAmICommand{store: store}
+	return c
 }

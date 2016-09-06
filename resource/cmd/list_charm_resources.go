@@ -6,37 +6,29 @@ package cmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// CharmCommandBase exposes the functionality of charmcmd.CommandBase
-// needed here.
-type CharmCommandBase interface {
-	// Connect connects to the charm store and returns a client.
-	// cmd.Context needs to be passed in so that we can do authentication
-	// via the cli if available.
-	Connect(*cmd.Context) (CharmResourceLister, error)
-}
-
-// CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
-type CharmResourceLister interface {
-	// ListResources lists the resources for each of the identified charms.
-	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
-
-	// Close closes the client.
-	Close() error
+// CharmResourceLister lists resources for the given charm ids.
+type ResourceLister interface {
+	ListResources(ids []charmstore.CharmID) ([][]charmresource.Resource, error)
 }
 
 // ListCharmResourcesCommand implements the "juju charm resources" command.
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
-	CharmCommandBase
+
+	// ResourceLister is called by Run to list charm resources. The
+	// default implementation uses juju/juju/charmstore.Client, but
+	// it may be set to mock out the call to that method.
+	ResourceLister ResourceLister
+
 	out     cmd.Output
 	channel string
 	charm   string
@@ -44,11 +36,10 @@ type ListCharmResourcesCommand struct {
 
 // NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewListCharmResourcesCommand(base CharmCommandBase) *ListCharmResourcesCommand {
-	cmd := &ListCharmResourcesCommand{
-		CharmCommandBase: base,
-	}
-	return cmd
+func NewListCharmResourcesCommand() *ListCharmResourcesCommand {
+	var c ListCharmResourcesCommand
+	c.ResourceLister = &c
+	return &c
 }
 
 var listCharmResourcesDoc = `
@@ -81,6 +72,7 @@ func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.
 func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"tabular": FormatCharmTabular,
@@ -100,20 +92,12 @@ func (c *ListCharmResourcesCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 
 // Run implements cmd.Command.
 func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
-
-	apiclient, err := c.Connect(ctx)
-	if err != nil {
-		// TODO(ericsnow) Return a more user-friendly error?
-		return errors.Trace(err)
-	}
-	defer apiclient.Close()
 
 	charmURLs, err := resolveCharms([]string{c.charm})
 	if err != nil {
@@ -125,7 +109,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 		charms[i] = charmstore.CharmID{URL: id, Channel: csparams.Channel(c.channel)}
 	}
 
-	resources, err := apiclient.ListResources(charms)
+	resources, err := c.ResourceLister.ListResources(charms)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -138,6 +122,21 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	formatter := newCharmResourcesFormatter(resources[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
+}
+
+// ListCharmResources implements CharmResourceLister by getting the charmstore client
+// from the command's ModelCommandBase.
+func (c *ListCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][]charmresource.Resource, error) {
+	apiContext, err := c.APIContext()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We use the default for URL.
+	client, err := charmstore.NewCustomClient(apiContext.BakeryClient, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client.ListResources(ids)
 }
 
 func resolveCharms(charms []string) ([]*charm.URL, error) {

@@ -25,6 +25,7 @@ controllers:
   ctrl:
     user: admin@local
     password: hunter2
+    last-known-access: superuser
   kontroll:
     user: bob@remote
 `
@@ -36,8 +37,9 @@ var testControllerAccounts = map[string]jujuclient.AccountDetails{
 
 var (
 	ctrlAdminAccountDetails = jujuclient.AccountDetails{
-		User:     "admin@local",
-		Password: "hunter2",
+		User:            "admin@local",
+		Password:        "hunter2",
+		LastKnownAccess: "superuser",
 	}
 	kontrollBobRemoteAccountDetails = jujuclient.AccountDetails{
 		User: "bob@remote",

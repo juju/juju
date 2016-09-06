@@ -118,16 +118,16 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
-		base := charmcmd.NewCommandBase(spec)
-		resBase := &resourceadapters.CharmCmdBase{base}
-		return cmd.NewListCharmResourcesCommand(resBase)
-	})
+	charmcmd.RegisterSubCommand(cmd.NewListCharmResourcesCommand())
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return resourceadapters.NewAPIClient(c.NewAPIRoot)
+				apiRoot, err := c.NewAPIRoot()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return resourceadapters.NewAPIClient(apiRoot)
 			},
 			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
@@ -139,7 +139,11 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return resourceadapters.NewAPIClient(c.NewAPIRoot)
+				apiRoot, err := c.NewAPIRoot()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return resourceadapters.NewAPIClient(apiRoot)
 			},
 		})
 	})

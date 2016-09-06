@@ -119,10 +119,18 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
-	// Create a state and hosted machine.
+	// Create a controller machine, and manual and non-manual
+	// workload machine.
 	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "inst-ance",
+		Nonce:      "manual:foo",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
@@ -150,6 +158,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+	assertLife(c, manualMachine, state.Dying)
 	assertLife(c, stateMachine, state.Alive)
 }
 

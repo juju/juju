@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -95,9 +96,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	expectedNumber := jujuversion.Current
+	expectedNumber.Build = 1235
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &expectedNumber))
 
-	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string, string) error {
 		return nil
 	})
 
@@ -172,12 +175,19 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()
 	}
+	bootstrapVersion := v100p64
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", series.LatestLts(), 1)
-		v := version.MustParseBinary(useVersion)
-		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
-		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
+		bootstrapVersion = version.MustParseBinary(useVersion)
+		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		bootstrapVersion.Build = 1
+		if test.upload != "" {
+			uploadVers := version.MustParseBinary(test.upload)
+			bootstrapVersion.Number = uploadVers.Number
+		}
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -193,15 +203,20 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"--config", "default-series=raring",
 	}, test.args...)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(), args...)
+	var err error
+	select {
+	case err = <-errc:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	// Check for remaining operations/errors.
 	if test.err != "" {
-		err := <-errc
 		c.Assert(err, gc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, gc.Matches, test.err)
 		return restore
 	}
-	if !c.Check(<-errc, gc.IsNil) {
+	if !c.Check(err, gc.IsNil) {
 		return restore
 	}
 
@@ -232,10 +247,16 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.UnresolvedAPIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
+	// We don't care about build numbers here.
+	bootstrapVers := bootstrapVersion.Number
+	bootstrapVers.Build = 0
+	controllerVers := version.MustParse(controller.AgentVersion)
+	controllerVers.Build = 0
+	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
+	c.Assert(utils.IsValidUUIDString(controllerModel.ModelUUID), jc.IsTrue)
 
 	// Bootstrap config should have been saved, and should only contain
 	// the type, name, and any user-supplied configuration.
@@ -248,6 +269,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"type":            "dummy",
 		"default-series":  "raring",
 		"authorized-keys": "public auth key\n",
+		// Dummy provider defaults
+		"broken":     "",
+		"secret":     "pork",
+		"controller": false,
 	}
 	for k, v := range config.ConfigDefaults() {
 		if _, ok := expected[k]; !ok {
@@ -288,29 +313,29 @@ var bootstrapTests = []bootstrapTest{{
 	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
 }, {
-	info:        "--upload-tools uses arch from constraint if it matches current version",
+	info:        "--build-agent uses arch from constraint if it matches current version",
 	version:     "1.3.3-saucy-ppc64el",
 	hostArch:    "ppc64el",
-	args:        []string{"--upload-tools", "--constraints", "arch=ppc64el"},
+	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
 	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
-	info:     "--upload-tools rejects mismatched arch",
+	info:     "--build-agent rejects mismatched arch",
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	err:      `failed to bootstrap model: cannot build tools for "ppc64el" using a machine running on "amd64"`,
+	args:     []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	err:      `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 }, {
-	info:     "--upload-tools rejects non-supported arch",
+	info:     "--build-agent rejects non-supported arch",
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
-	args:     []string{"--upload-tools"},
+	args:     []string{"--build-agent"},
 	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 }, {
-	info:     "--upload-tools always bumps build number",
+	info:     "--build-agent always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools"},
+	args:     []string{"--build-agent"},
 	upload:   "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
@@ -325,9 +350,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
 }, {
-	info: "--agent-version with --upload-tools",
-	args: []string{"--agent-version", "1.1.0", "--upload-tools"},
-	err:  `--agent-version and --upload-tools can't be used together`,
+	info: "--agent-version with --build-agent",
+	args: []string{"--agent-version", "1.1.0", "--build-agent"},
+	err:  `--agent-version and --build-agent can't be used together`,
 }, {
 	info: "invalid --agent-version value",
 	args: []string{"--agent-version", "foo"},
@@ -533,7 +558,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
-	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel)
 	_, err := coretesting.RunCommand(c, wrapped, controllerName, "dummy", "--auto-upgrade")
 	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
@@ -554,7 +579,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
-		return nil, fmt.Errorf("mock-prepare")
+		return nil, errors.New("mock-prepare")
 	})
 
 	ctx := coretesting.Context(c)
@@ -566,10 +591,24 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, model, user string) {
-	err := s.store.UpdateController(controller, jujuclient.ControllerDetails{
-		CACert:         "x",
-		ControllerUUID: "y",
+type controllerModelAccountParams struct {
+	controller     string
+	controllerUUID string
+	model          string
+	user           string
+}
+
+func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *controllerModelAccountParams) {
+	controller := context.controller
+	model := context.model
+	user := context.user
+	controllerUUID := "a-uuid"
+	if context.controllerUUID != "" {
+		controllerUUID = context.controllerUUID
+	}
+	err := s.store.AddController(controller, jujuclient.ControllerDetails{
+		CACert:         "a-cert",
+		ControllerUUID: controllerUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.SetCurrentController(controller)
@@ -594,11 +633,22 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
-		s.writeControllerModelAccountInfo(c, "foo", "foobar@local/bar", "foobar@local")
-		return nil, fmt.Errorf("mock-prepare")
+		ctx := controllerModelAccountParams{
+			controller: "foo",
+			model:      "foobar@local/bar",
+			user:       "foobar@local",
+		}
+		s.writeControllerModelAccountInfo(c, &ctx)
+		return nil, errors.New("mock-prepare")
 	})
 
-	s.writeControllerModelAccountInfo(c, "olddevcontroller", "fred@local/fredmodel", "fred@local")
+	ctx := controllerModelAccountParams{
+		controller:     "olddevcontroller",
+		controllerUUID: "another-uuid",
+		model:          "fred@local/fredmodel",
+		user:           "fred@local",
+	}
+	s.writeControllerModelAccountInfo(c, &ctx)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
@@ -616,7 +666,12 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
 	s.patchVersionAndSeries(c, "raring")
 
-	s.writeControllerModelAccountInfo(c, "devcontroller", "fred@local/fredmodel", "fred@local")
+	cmaCtx := controllerModelAccountParams{
+		controller: "devcontroller",
+		model:      "fred@local/fredmodel",
+		user:       "fred@local",
+	}
+	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
@@ -643,7 +698,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 		c, s.newBootstrapCommand(), "--metadata-source", c.MkDir(),
 		"devcontroller", "dummy",
 	)
-	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*`)
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*`)
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -795,7 +850,9 @@ my-dummy-cloud
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	patchedVersion := version.MustParse(vers)
+	patchedVersion.Build = 1
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -822,22 +879,16 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--config", "default-series=raring",
 		"--auto-upgrade",
 	)
-	c.Assert(<-errc, gc.IsNil)
+	select {
+	case err := <-errc:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
-}
-
-func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := cmdtesting.RunCommand(
-		cmdtesting.NullContext(c), s.newBootstrapCommand(),
-		"devcontroller", "dummy-cloud/region-1",
-	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -845,36 +896,35 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(),
 		"devcontroller", "dummy-cloud/region-1",
-		"--config", "default-series=raring",
+		"--config", "default-series=raring", "--agent-version=1.8.4",
 	)
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
-	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
-		return nil, fmt.Errorf("an error")
+	BuildAgentTarballAlwaysFails := func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
+		return nil, errors.New("an error")
 	}
 
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
-	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
+	s.PatchValue(&sync.BuildAgentTarball, BuildAgentTarballAlwaysFails)
 
 	ctx, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"devcontroller", "dummy-cloud/region-1",
 		"--config", "default-series=raring",
 		"--config", "agent-stream=proposed",
-		"--auto-upgrade",
+		"--auto-upgrade", "--agent-version=1.7.3",
 	)
 
-	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+	c.Check(coretesting.Stderr(ctx), gc.Equals, `
 Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Bootstrapping model %q
-Starting new instance for initial controller
-Building tools to upload (1.7.3.1-raring-%s)
-`[1:], bootstrap.ControllerModelName, arch.HostArch()))
-	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
+Looking for packaged Juju agent version 1.7.3 for amd64
+No packaged binary found, preparing local Juju agent binary
+`[1:])
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -887,8 +937,13 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	select {
+	case err := <-errc:
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {
@@ -909,14 +964,19 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(),
+	ctx := coretesting.Context(c)
+	opc, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(),
 		"--keep-broken",
 		"devcontroller", "dummy-cloud/region-1",
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	select {
+	case err := <-errc:
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
 	done := false
 	for !done {
 		select {
@@ -934,6 +994,8 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 			break
 		}
 	}
+	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	c.Assert(stderr, gc.Matches, `.*See .*juju kill\-controller.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {
@@ -984,10 +1046,10 @@ func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
 }
 
-func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "many-credentials")
-	c.Assert(err, gc.ErrorMatches, ambiguousCredentialError.Error())
+	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
@@ -1017,6 +1079,26 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 	c.Assert(bootstrap.args.Cloud.AuthTypes, jc.SameContents, cloud.AuthTypes{"one", "two"})
 }
 
+func (s *BootstrapSuite) TestManyAvailableCredentialsNoneSpecified(c *gc.C) {
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	s.store.Credentials = map[string]cloud.CloudCredential{
+		"dummy": {
+			AuthCredentials: map[string]cloud.Credential{
+				"one": cloud.NewCredential("one", nil),
+				"two": cloud.NewCredential("two", nil),
+			},
+		},
+	}
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "more than one credential is available.*")
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	resetJujuXDGDataHome(c)
 
@@ -1032,9 +1114,10 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "bruce", Endpoint: "endpoint"}},
 	})
 }
@@ -1053,9 +1136,10 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 	})
 }
 
@@ -1069,7 +1153,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 		params bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		prepareParams = params
-		return nil, fmt.Errorf("mock-prepare")
+		return nil, errors.New("mock-prepare")
 	})
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/DUMMY")
@@ -1088,7 +1172,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 		c, s.newBootstrapCommand(), "ctrl", "dummy",
 		"--config", configFile,
 	)
-	c.Assert(err, gc.ErrorMatches, `controller: expected bool, got string.*`)
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got string.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
@@ -1141,9 +1225,9 @@ func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
 		"--auto-upgrade",
 		// Configuration specified on the command line overrides
 		// anything specified in files, no matter what the order.
-		"--config", "controller=false",
+		"--config", "controller=not-a-bool",
 	)
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got .*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
@@ -1232,7 +1316,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
 		seenControllerName = base.ControllerName()
 		return nil
 	})
@@ -1268,7 +1352,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// Simulate another controller being bootstrapped during the
 	// bootstrap. Changing the current controller shouldn't affect the
 	// bootstrap process.
-	c.Assert(s.store.UpdateController("another", jujuclient.ControllerDetails{
+	c.Assert(s.store.AddController("another", jujuclient.ControllerDetails{
 		ControllerUUID: "uuid",
 		CACert:         "cert",
 	}), jc.ErrorIsNil)
@@ -1318,12 +1402,8 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
 func resetJujuXDGDataHome(c *gc.C) {
-	jenvDir := testing.JujuXDGDataHomePath("models")
-	err := os.RemoveAll(jenvDir)
-	c.Assert(err, jc.ErrorIsNil)
-
 	cloudsPath := cloud.JujuPersonalCloudsPath()
-	err = ioutil.WriteFile(cloudsPath, []byte(`
+	err := ioutil.WriteFile(cloudsPath, []byte(`
 clouds:
     dummy-cloud:
         type: dummy

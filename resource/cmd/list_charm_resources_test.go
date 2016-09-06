@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	jujucmd "github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,15 +29,6 @@ func (s *ListCharmSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
-}
-
-func (s *ListCharmSuite) newAPIClient(c *ListCharmResourcesCommand) (CharmResourceLister, error) {
-	s.stub.AddCall("newAPIClient", c)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.client, nil
 }
 
 func (s *ListCharmSuite) TestInfo(c *gc.C) {
@@ -77,32 +67,24 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := NewListCharmResourcesCommand(s.client)
+	command := NewListCharmResourcesCommand()
+	command.ResourceLister = s.client
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE REVISION
-website  2
-music    1
+RESOURCE  REVISION
+website   2
+music     1
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCallNames(c,
-		"Connect",
 		"ListResources",
-		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []charmstore.CharmID{
+	s.stub.CheckCall(c, 0, "ListResources", []charmstore.CharmID{
 		{
-			URL: &charm.URL{
-				Schema:   "cs",
-				User:     "",
-				Name:     "a-charm",
-				Revision: -1,
-				Series:   "",
-				Channel:  "",
-			},
+			URL:     charm.MustParseURL("cs:a-charm"),
 			Channel: "stable",
 		},
 	})
@@ -111,16 +93,17 @@ music    1
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := NewListCharmResourcesCommand(s.client)
+	command := NewListCharmResourcesCommand()
+	command.ResourceLister = s.client
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE REVISION
+RESOURCE  REVISION
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCallNames(c, "Connect", "ListResources", "Close")
+	s.stub.CheckCallNames(c, "ListResources")
 }
 
 func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
@@ -136,9 +119,9 @@ func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
 
 	formats := map[string]string{
 		"tabular": `
-RESOURCE REVISION
-website  1
-music    1
+RESOURCE  REVISION
+website   1
+music     1
 
 `[1:],
 		"yaml": `
@@ -185,7 +168,8 @@ music    1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := NewListCharmResourcesCommand(s.client)
+		command := NewListCharmResourcesCommand()
+		command.ResourceLister = s.client
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -208,7 +192,8 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := NewListCharmResourcesCommand(s.client)
+	command := NewListCharmResourcesCommand()
+	command.ResourceLister = s.client
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",

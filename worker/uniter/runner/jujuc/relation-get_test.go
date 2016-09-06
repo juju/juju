@@ -152,8 +152,8 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
-			if expect != "" {
-				expect = expect + "\n"
+			if len(expect) > 0 {
+				expect += "\n"
 			}
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {

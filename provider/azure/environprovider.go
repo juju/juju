@@ -4,7 +4,7 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
@@ -82,22 +82,12 @@ func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Envir
 	return environ, nil
 }
 
-// RestrictedConfigAttributes is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // PrepareConfig is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 	return args.Config, nil
-}
-
-// SecretAttrs is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

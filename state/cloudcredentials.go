@@ -7,8 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -25,20 +27,45 @@ type cloudCredentialDoc struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
-// CloudCredentials returns the user's cloud credentials for a given cloud,
-// keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+// CloudCredential returns the cloud credential for the given tag.
+func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
 	coll, cleanup := st.getCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
-	credentials := make(map[string]cloud.Credential)
+	err := coll.FindId(cloudCredentialDocID(tag)).One(&doc)
+	if err == mgo.ErrNotFound {
+		return cloud.Credential{}, errors.NotFoundf(
+			"cloud credential %q", tag.Id(),
+		)
+	} else if err != nil {
+		return cloud.Credential{}, errors.Annotatef(
+			err, "getting cloud credential %q", tag.Id(),
+		)
+	}
+	return doc.toCredential(), nil
+}
+
+// CloudCredentials returns the user's cloud credentials for a given cloud,
+// keyed by credential name.
+func (st *State) CloudCredentials(user names.UserTag, cloudName string) (
+	map[names.CloudCredentialTag]cloud.Credential, error,
+) {
+	coll, cleanup := st.getCollection(cloudCredentialsC)
+	defer cleanup()
+
+	var doc cloudCredentialDoc
+	credentials := make(map[names.CloudCredentialTag]cloud.Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Canonical()},
 		{"cloud", cloudName},
 	}).Iter()
 	for iter.Next(&doc) {
-		credentials[doc.Name] = doc.toCredential()
+		tag, err := doc.cloudCredentialTag()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		credentials[tag] = doc.toCredential()
 	}
 	if err := iter.Err(); err != nil {
 		return nil, errors.Annotatef(
@@ -49,11 +76,11 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 	return credentials, nil
 }
 
-// UpdateCloudCredentials updates the user's cloud credentials. Any existing
-// credentials with the same names will be replaced, and any other credentials
-// not in the updated set will be untouched.
-func (st *State) UpdateCloudCredentials(user names.UserTag, cloudName string, credentials map[string]cloud.Credential) error {
+// UpdateCloudCredential adds or updates a cloud credential with the given tag.
+func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
+	credentials := map[names.CloudCredentialTag]cloud.Credential{tag: credential}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -62,39 +89,52 @@ func (st *State) UpdateCloudCredentials(user names.UserTag, cloudName string, cr
 		if err != nil {
 			return nil, errors.Annotate(err, "validating cloud credentials")
 		}
-		existingCreds, err := st.CloudCredentials(user, cloudName)
+		existingCreds, err := st.CloudCredentials(tag.Owner(), cloudName)
 		if err != nil {
 			return nil, errors.Maskf(err, "fetching cloud credentials")
 		}
-		for credName, cred := range credentials {
-			if _, ok := existingCreds[credName]; ok {
-				ops = append(ops, updateCloudCredentialOp(user, cloudName, credName, cred))
-			} else {
-				ops = append(ops, createCloudCredentialOp(user, cloudName, credName, cred))
-			}
+		if _, ok := existingCreds[tag]; ok {
+			ops = append(ops, updateCloudCredentialOp(tag, credential))
+		} else {
+			ops = append(ops, createCloudCredentialOp(tag, credential))
 		}
 		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
-		return errors.Annotatef(
-			err, "updating cloud credentials for user %q, cloud %q",
-			user.String(), cloudName,
-		)
+		return errors.Annotate(err, "updating cloud credentials")
+	}
+	return nil
+}
+
+// RemoveCloudCredential removes a cloud credential with the given tag.
+func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		_, err := st.CloudCredential(tag)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return removeCloudCredentialOps(tag), nil
+	}
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotate(err, "removing cloud credential")
 	}
 	return nil
 }
 
 // createCloudCredentialOp returns a txn.Op that will create
 // a cloud credential.
-func createCloudCredentialOp(user names.UserTag, cloudName, credName string, cred cloud.Credential) txn.Op {
+func createCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential) txn.Op {
 	return txn.Op{
 		C:      cloudCredentialsC,
-		Id:     cloudCredentialDocID(user, cloudName, credName),
+		Id:     cloudCredentialDocID(tag),
 		Assert: txn.DocMissing,
 		Insert: &cloudCredentialDoc{
-			Owner:      user.Canonical(),
-			Cloud:      cloudName,
-			Name:       credName,
+			Owner:      tag.Owner().Canonical(),
+			Cloud:      tag.Cloud().Id(),
+			Name:       tag.Name(),
 			AuthType:   string(cred.AuthType()),
 			Attributes: cred.Attributes(),
 		},
@@ -103,10 +143,10 @@ func createCloudCredentialOp(user names.UserTag, cloudName, credName string, cre
 
 // updateCloudCredentialOp returns a txn.Op that will update
 // a cloud credential.
-func updateCloudCredentialOp(user names.UserTag, cloudName, credName string, cred cloud.Credential) txn.Op {
+func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential) txn.Op {
 	return txn.Op{
 		C:      cloudCredentialsC,
-		Id:     cloudCredentialDocID(user, cloudName, credName),
+		Id:     cloudCredentialDocID(tag),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
 			{"auth-type", string(cred.AuthType())},
@@ -115,8 +155,27 @@ func updateCloudCredentialOp(user names.UserTag, cloudName, credName string, cre
 	}
 }
 
-func cloudCredentialDocID(user names.UserTag, cloudName, credentialName string) string {
-	return fmt.Sprintf("%s#%s#%s", user.Canonical(), cloudName, credentialName)
+// removeCloudCredentialOp returns a txn.Op that will remove
+// a cloud credential.
+func removeCloudCredentialOps(tag names.CloudCredentialTag) []txn.Op {
+	return []txn.Op{{
+		C:      cloudCredentialsC,
+		Id:     cloudCredentialDocID(tag),
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+}
+
+func cloudCredentialDocID(tag names.CloudCredentialTag) string {
+	return fmt.Sprintf("%s#%s#%s", tag.Cloud().Id(), tag.Owner().Canonical(), tag.Name())
+}
+
+func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, error) {
+	id := fmt.Sprintf("%s/%s/%s", c.Cloud, c.Owner, c.Name)
+	if !names.IsValidCloudCredential(id) {
+		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential ID")
+	}
+	return names.NewCloudCredentialTag(id), nil
 }
 
 func (c cloudCredentialDoc) toCredential() cloud.Credential {
@@ -127,7 +186,8 @@ func (c cloudCredentialDoc) toCredential() cloud.Credential {
 
 // validateCloudCredentials checks that the supplied cloud credentials are
 // valid for use with the controller's cloud, and returns a set of txn.Ops
-// to assert the same in a transaction.
+// to assert the same in a transaction. The map keys are the cloud credential
+// IDs.
 //
 // TODO(rogpeppe) We're going to a lot of effort here to assert that a
 // cloud's auth types haven't changed since we looked at them a moment
@@ -136,9 +196,19 @@ func (c cloudCredentialDoc) toCredential() cloud.Credential {
 // cloud's auth type would invalidate all existing credentials and would
 // usually involve a new provider version and juju binary too, so
 // perhaps all this code is unnecessary.
-func validateCloudCredentials(cloud cloud.Cloud, cloudName string, credentials map[string]cloud.Credential) ([]txn.Op, error) {
+func validateCloudCredentials(
+	cloud cloud.Cloud,
+	cloudName string,
+	credentials map[names.CloudCredentialTag]cloud.Credential,
+) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
-	for name, credential := range credentials {
+	for tag, credential := range credentials {
+		if tag.Cloud().Id() != cloudName {
+			return nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"credential %q for non-matching cloud is not valid (expected %q)",
+				tag.Id(), cloudName,
+			))
+		}
 		var found bool
 		for _, authType := range cloud.AuthTypes {
 			if credential.AuthType() == authType {
@@ -149,7 +219,7 @@ func validateCloudCredentials(cloud cloud.Cloud, cloudName string, credentials m
 		if !found {
 			return nil, errors.NewNotValid(nil, fmt.Sprintf(
 				"credential %q with auth-type %q is not supported (expected one of %q)",
-				name, credential.AuthType(), cloud.AuthTypes,
+				tag.Id(), credential.AuthType(), cloud.AuthTypes,
 			))
 		}
 		requiredAuthTypes.Add(string(credential.AuthType()))

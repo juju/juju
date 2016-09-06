@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -114,7 +114,7 @@ func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
 			DestinationAddressPrefix: to.StringPtr(ipAddress),
 			DestinationPortRange:     to.StringPtr(ports),
 			Access:                   network.Allow,
-			Priority:                 to.IntPtr(200),
+			Priority:                 to.Int32Ptr(200),
 			Direction:                network.Inbound,
 		},
 	}
@@ -260,7 +260,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.UDP,
 			DestinationPortRange: to.StringPtr("*"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(200),
+			Priority:             to.Int32Ptr(200),
 			Direction:            network.Inbound,
 		},
 	}, {
@@ -269,7 +269,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("1000-2000"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(201),
+			Priority:             to.Int32Ptr(201),
 			Direction:            network.Inbound,
 		},
 	}, {
@@ -278,7 +278,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.Asterisk,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
@@ -287,7 +287,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
@@ -296,7 +296,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Deny,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
@@ -305,7 +305,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Outbound,
 		},
 	}, {
@@ -314,7 +314,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(199), // internal range
+			Priority:             to.Int32Ptr(199), // internal range
 			Direction:            network.Inbound,
 		},
 	}})
@@ -345,7 +345,9 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	inst := s.getInstance(c)
 	sender := mocks.NewSender()
 	notFoundSender := mocks.NewSender()
-	notFoundSender.EmitStatus("rule not found", http.StatusNotFound)
+	notFoundSender.AppendResponse(mocks.NewResponseWithStatus(
+		"rule not found", http.StatusNotFound,
+	))
 	s.sender = azuretesting.Senders{sender, notFoundSender}
 
 	err := inst.ClosePorts("0", []jujunetwork.PortRange{{
@@ -374,8 +376,9 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
 			PrivateIPAddress: to.StringPtr("10.0.0.4"),
-			Subnet: &network.SubResource{
+			Subnet: &network.Subnet{
 				ID: to.StringPtr(internalSubnetId),
 			},
 		},
@@ -386,7 +389,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 
 	inst := s.getInstance(c)
 	okSender := mocks.NewSender()
-	okSender.EmitContent("{}")
+	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
@@ -415,7 +418,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			DestinationPortRange:     to.StringPtr("1000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
-			Priority:  to.IntPtr(200),
+			Priority:  to.Int32Ptr(200),
 			Direction: network.Inbound,
 		},
 	})
@@ -430,7 +433,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
-			Priority:  to.IntPtr(201),
+			Priority:  to.Int32Ptr(201),
 			Direction: network.Inbound,
 		},
 	})
@@ -444,8 +447,9 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
 			PrivateIPAddress: to.StringPtr("10.0.0.4"),
-			Subnet: &network.SubResource{
+			Subnet: &network.Subnet{
 				ID: to.StringPtr(internalSubnetId),
 			},
 		},
@@ -456,14 +460,14 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 
 	inst := s.getInstance(c)
 	okSender := mocks.NewSender()
-	okSender.EmitContent("{}")
+	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
 		Name: to.StringPtr("machine-0-tcp-1000"),
 		Properties: &network.SecurityRulePropertiesFormat{
 			Protocol:             network.Asterisk,
 			DestinationPortRange: to.StringPtr("1000"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}})
@@ -494,7 +498,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
-			Priority:  to.IntPtr(200),
+			Priority:  to.Int32Ptr(200),
 			Direction: network.Inbound,
 		},
 	})

@@ -44,12 +44,30 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin@local"),
 	}
 	s.st = &mockState{
-		uuid: coretesting.ModelTag.Id(),
+		modelUUID:      coretesting.ModelTag.Id(),
+		controllerUUID: coretesting.ControllerTag.Id(),
 		cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
 	}
+	s.st.controllerModel = &mockModel{
+		owner: names.NewUserTag("admin@local"),
+		life:  state.Alive,
+		cfg:   coretesting.ModelConfig(c),
+		status: status.StatusInfo{
+			Status: status.StatusAvailable,
+			Since:  &time.Time{},
+		},
+		users: []*mockModelUser{{
+			userName: "admin",
+			access:   description.AdminAccess,
+		}, {
+			userName: "otheruser",
+			access:   description.AdminAccess,
+		}},
+	}
+
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
@@ -58,6 +76,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			Status: status.StatusDestroying,
 			Since:  &time.Time{},
 		},
+
 		users: []*mockModelUser{{
 			userName: "admin",
 			access:   description.AdminAccess,
@@ -86,16 +105,16 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
-		Name:            "testenv",
-		UUID:            s.st.model.cfg.UUID(),
-		ControllerUUID:  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		OwnerTag:        "user-bob@local",
-		ProviderType:    "someprovider",
-		Cloud:           "some-cloud",
-		CloudRegion:     "some-region",
-		CloudCredential: "some-credential",
-		DefaultSeries:   series.LatestLts(),
-		Life:            params.Dying,
+		Name:               "testenv",
+		UUID:               s.st.model.cfg.UUID(),
+		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		OwnerTag:           "user-bob@local",
+		ProviderType:       "someprovider",
+		Cloud:              "some-cloud",
+		CloudRegion:        "some-region",
+		CloudCredentialTag: "cloudcred-some-cloud_bob@local_some-credential",
+		DefaultSeries:      series.LatestLts(),
+		Life:               params.Dying,
 		Status: params.EntityStatus{
 			Status: status.StatusDestroying,
 			Since:  &time.Time{},
@@ -117,7 +136,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
+		{"ControllerTag", nil},
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
@@ -207,6 +226,10 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
+type unitRetriever interface {
+	Unit(name string) (*state.Unit, error)
+}
+
 type mockState struct {
 	gitjujutesting.Stub
 
@@ -215,13 +238,16 @@ type mockState struct {
 	common.ToolsStorageGetter
 	common.BlockGetter
 	metricsender.MetricsSenderBackend
+	unitRetriever
 
-	uuid            string
+	modelUUID       string
+	controllerUUID  string
 	cloud           cloud.Cloud
+	clouds          map[names.CloudTag]cloud.Cloud
 	model           *mockModel
 	controllerModel *mockModel
 	users           []description.UserAccess
-	creds           map[string]cloud.Credential
+	cred            cloud.Credential
 }
 
 type fakeModelDescription struct {
@@ -231,12 +257,12 @@ type fakeModelDescription struct {
 }
 
 func (st *mockState) Export() (description.Model, error) {
-	return &fakeModelDescription{UUID: st.uuid}, nil
+	return &fakeModelDescription{UUID: st.modelUUID}, nil
 }
 
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
-	return st.uuid
+	return st.modelUUID
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -244,8 +270,8 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 	return nil, st.NextErr()
 }
 
-func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error) {
-	st.MethodCall(st, "IsControllerAdministrator", user)
+func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
+	st.MethodCall(st, "IsControllerAdmin", user)
 	if st.controllerModel == nil {
 		return user.Canonical() == "admin@local", st.NextErr()
 	}
@@ -276,7 +302,12 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
-func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error) {
+func (st *mockState) ControllerTag() names.ControllerTag {
+	st.MethodCall(st, "ControllerTag")
+	return names.NewControllerTag(st.controllerUUID)
+}
+
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
 	for attrName, val := range modelAttr {
@@ -286,16 +317,26 @@ func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}) (ma
 	return attr, st.NextErr()
 }
 
+func (st *mockState) ControllerUUID() string {
+	st.MethodCall(st, "ControllerUUID")
+	return st.controllerUUID
+}
+
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{
-		controller.ControllerUUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()
 }
 
 func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
 	st.MethodCall(st, "ForModel", tag)
 	return st, st.NextErr()
+}
+
+func (st *mockState) GetModel(tag names.ModelTag) (common.Model, error) {
+	st.MethodCall(st, "GetModel", tag)
+	return st.model, st.NextErr()
 }
 
 func (st *mockState) Model() (common.Model, error) {
@@ -313,14 +354,19 @@ func (st *mockState) AllModels() ([]common.Model, error) {
 	return []common.Model{st.model}, st.NextErr()
 }
 
+func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	st.MethodCall(st, "Clouds")
+	return st.clouds, st.NextErr()
+}
+
 func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
 	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	st.MethodCall(st, "CloudCredentials", user, cloudName)
-	return st.creds, st.NextErr()
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredential", tag)
+	return st.cred, st.NextErr()
 }
 
 func (st *mockState) Close() error {
@@ -328,8 +374,8 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) AddModelUser(spec state.UserAccessSpec) (description.UserAccess, error) {
-	st.MethodCall(st, "AddModelUser", spec)
+func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (description.UserAccess, error) {
+	st.MethodCall(st, "AddModelUser", modelUUID, spec)
 	return description.UserAccess{}, st.NextErr()
 }
 
@@ -361,6 +407,13 @@ func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) e
 func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error) {
 	st.MethodCall(st, "SetUserAccess", subject, target, access)
 	return description.UserAccess{}, st.NextErr()
+}
+
+func (st *mockState) DumpAll() (map[string]interface{}, error) {
+	st.MethodCall(st, "DumpAll")
+	return map[string]interface{}{
+		"models": "lots of data",
+	}, st.NextErr()
 }
 
 type mockModel struct {
@@ -413,10 +466,10 @@ func (m *mockModel) CloudRegion() string {
 	return "some-region"
 }
 
-func (m *mockModel) CloudCredential() string {
+func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredential")
 	m.PopNoErr()
-	return "some-credential"
+	return names.NewCloudCredentialTag("some-cloud/bob@local/some-credential"), true
 }
 
 func (m *mockModel) Users() ([]description.UserAccess, error) {

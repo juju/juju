@@ -55,6 +55,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		"name",
 		"region",
 		"endpoint",
+		"identity-endpoint",
 		"storage-endpoint",
 		&credential,
 	}
@@ -75,10 +76,11 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 			"name",
 			"region",
 			"endpoint",
+			"identity-endpoint",
 			"storage-endpoint",
 			&params.CloudCredential{
-				"auth-type",
-				map[string]string{"k": "v"},
+				AuthType:   "auth-type",
+				Attributes: map[string]string{"k": "v"},
 			},
 		},
 	}, {
@@ -111,6 +113,7 @@ func (s *CloudSpecSuite) TestCloudSpecNilCredential(c *gc.C) {
 			"name",
 			"region",
 			"endpoint",
+			"identity-endpoint",
 			"storage-endpoint",
 			nil,
 		},

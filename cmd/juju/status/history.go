@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -56,7 +56,7 @@ The statuses are available for the following types.
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status-history",
+		Name:    "show-status-log",
 		Args:    "<entity name>",
 		Purpose: "Output past statuses for the specified entity.",
 		Doc:     statusHistoryDoc,
@@ -64,6 +64,7 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.outputContent, "type", "unit", "Type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance]")
 	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
 	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")

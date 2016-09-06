@@ -52,7 +52,6 @@ func (c *removeKeysCommand) Info() *cmd.Info {
 		Args:    "<ssh key id> ...",
 		Purpose: usageRemoveSSHKeySummary,
 		Doc:     usageRemoveSSHKeyDetails,
-		Aliases: []string{"remove-ssh-keys"},
 	}
 }
 

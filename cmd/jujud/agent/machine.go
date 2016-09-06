@@ -16,7 +16,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
@@ -33,12 +36,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -77,7 +78,9 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -187,7 +190,7 @@ type machineAgentCmd struct {
 func (a *machineAgentCmd) Init(args []string) error {
 
 	if !names.IsValidMachine(a.machineId) {
-		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
+		return errors.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
 		return err
@@ -388,12 +391,16 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
-		return fmt.Errorf("cannot read agent configuration: %v", err)
+		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
+	if err := introspection.WriteProfileFunctions(); err != nil {
+		// This isn't fatal, just annoying.
+		logger.Errorf("failed to write profile funcs: %v", err)
 	}
 
 	// Before doing anything else, we need to make sure the certificate generated for
@@ -463,12 +470,24 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
+			ValidateMigration:    a.validateMigration,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
+		}
+		if err := startIntrospection(introspectionConfig{
+			Agent:      a,
+			Engine:     engine,
+			WorkerFunc: introspection.NewWorker,
+		}); err != nil {
+			// If the introspection worker failed to start, we just log error
+			// but continue. It is very unlikely to happen in the real world
+			// as the only issue is connecting to the abstract domain socket
+			// and the agent is controlled by by the OS to only have one.
+			logger.Errorf("failed to start introspection worker: %v", err)
 		}
 		return engine, nil
 	}
@@ -479,7 +498,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	conn, err := apicaller.OnlyConnect(a, apicaller.APIOpen)
+	conn, err := apicaller.OnlyConnect(a, api.Open)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -661,7 +680,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
 			return nil, worker.ErrTerminateAgent
 		}
-		return nil, fmt.Errorf("setting up container support: %v", err)
+		return nil, errors.Errorf("setting up container support: %v", err)
 	}
 
 	if isModelManager {
@@ -744,8 +763,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(
-		agentConfig.Model(), info, mongo.DefaultDialOpts(),
+	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, mongo.DefaultDialOpts(),
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -754,6 +772,15 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(mjs) - more extensive checks to come.
+	facade := apimachiner.NewState(apiCaller)
+	_, err := facade.Machine(names.NewMachineTag(a.machineId))
+	return errors.Trace(err)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -868,9 +895,10 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
 				w, err := modelworkermanager.New(modelworkermanager.Config{
-					Backend:    st,
-					NewWorker:  a.startModelWorkers,
-					ErrorDelay: worker.RestartDelay,
+					ControllerUUID: st.ControllerUUID(),
+					Backend:        st,
+					NewWorker:      a.startModelWorkers,
+					ErrorDelay:     worker.RestartDelay,
 				})
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start model worker manager")
@@ -944,7 +972,7 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
-				return txnpruner.New(st, time.Hour*2), nil
+				return txnpruner.New(st, time.Hour*2, clock.WallClock), nil
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
@@ -955,8 +983,8 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller.
-func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
-	modelAgent, err := model.WrapAgent(a, uuid)
+func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (worker.Worker, error) {
+	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -987,6 +1015,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		StatusHistoryPrunerInterval:       5 * time.Minute,
 		SpacesImportedGate:                a.discoverSpacesComplete,
 		NewEnvironFunc:                    newEnvirons,
+		NewMigrationMaster:                migrationmaster.NewWorker,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
@@ -1268,9 +1297,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, nil, fmt.Errorf("no state info available")
+		return nil, nil, errors.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, dialOpts,
+	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, dialOpts,
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1430,9 +1459,9 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {
-			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		} else if err := svc.Remove(); err != nil {
-			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 
@@ -1460,7 +1489,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errs)
+	return errors.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

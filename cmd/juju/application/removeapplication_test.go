@@ -10,7 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -22,7 +23,7 @@ import (
 
 type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
-	common.CmdBlockHelper
+	testing.CmdBlockHelper
 	stub            *jutesting.Stub
 	budgetAPIClient budgetAPIClient
 }
@@ -31,7 +32,7 @@ var _ = gc.Suite(&RemoveServiceSuite{})
 
 func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.stub = &jutesting.Stub{}
@@ -63,8 +64,8 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 
 func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
-	deploy := &DeployCommand{}
-	_, err := testing.RunCommand(c, modelcmd.Wrap(deploy), ch, "--series", "quantal")
+	deploy := NewDeployCommand()
+	_, err := testing.RunCommand(c, deploy, ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,8 +126,22 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
-	deploy := &DeployCommand{}
-	_, err := testing.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
+	deployCmd := &DeployCommand{}
+	cmd := modelcmd.Wrap(deployCmd)
+	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &deployAPIAdapter{
+			Connection:        apiRoot,
+			apiClient:         &apiClient{Client: apiRoot.Client()},
+			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
+			applicationClient: &applicationClient{application.NewClient(apiRoot)},
+		}, nil
+	}
+
+	_, err := testing.RunCommand(c, cmd, "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 }

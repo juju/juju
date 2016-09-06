@@ -8,6 +8,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
@@ -26,9 +28,11 @@ type Facade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Agent  agent.Agent
-	Facade Facade
-	Guard  fortress.Guard
+	Agent             agent.Agent
+	Facade            Facade
+	Guard             fortress.Guard
+	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
+	ValidateMigration func(base.APICaller) error
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -41,6 +45,12 @@ func (config Config) Validate() error {
 	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
+	}
+	if config.APIOpen == nil {
+		return errors.NotValidf("nil APIOpen")
+	}
+	if config.ValidateMigration == nil {
+		return errors.NotValidf("nil ValidateMigration")
 	}
 	return nil
 }
@@ -109,6 +119,8 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 		return w.config.Guard.Unlock()
 	}
 
+	// Ensure that all workers related to migration fortress have
+	// stopped and aren't allowed to restart.
 	err := w.config.Guard.Lockdown(w.catacomb.Dying())
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
@@ -117,20 +129,57 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 	}
 
 	switch status.Phase {
+	case migration.QUIESCE:
+		err = w.doQUIESCE(status)
+	case migration.VALIDATION:
+		err = w.doVALIDATION(status)
 	case migration.SUCCESS:
-		// Report first because the config update in doSUCCESS will
-		// cause the API connection to drop. The SUCCESS phase is the
-		// point of no return anyway.
-		if err := w.report(status, true); err != nil {
-			return errors.Trace(err)
-		}
-		if err = w.doSUCCESS(status); err != nil {
-			return errors.Trace(err)
-		}
+		err = w.doSUCCESS(status)
 	default:
 		// The minion doesn't need to do anything for other
 		// migration phases.
 	}
+	return errors.Trace(err)
+}
+
+func (w *Worker) doQUIESCE(status watcher.MigrationStatus) error {
+	// Report that the minion is ready and that all workers that
+	// should be shut down have done so.
+	return w.report(status, true)
+}
+
+func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
+	err := w.validate(status)
+	if err != nil {
+		// Don't return this error just log it and report to the
+		// migrationmaster that things didn't work out.
+		logger.Errorf("validation failed: %v", err)
+	}
+	return w.report(status, err == nil)
+}
+
+func (w *Worker) validate(status watcher.MigrationStatus) error {
+	agentConf := w.config.Agent.CurrentConfig()
+	apiInfo, ok := agentConf.APIInfo()
+	if !ok {
+		return errors.New("no API connection details")
+	}
+	apiInfo.Addrs = status.TargetAPIAddrs
+	apiInfo.CACert = status.TargetCACert
+
+	// Use zero DialOpts (no retries) because the worker must stay
+	// responsive to Kill requests. We don't want it to be blocked by
+	// a long set of retry attempts.
+	conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
+	if err != nil {
+		// Don't return this error just log it and report to the
+		// migrationmaster that things didn't work out.
+		return errors.Annotate(err, "failed to open API to target controller")
+	}
+	defer conn.Close()
+
+	// Ask the agent to confirm that things look ok.
+	err = w.config.ValidateMigration(conn)
 	return errors.Trace(err)
 }
 
@@ -139,6 +188,14 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
 	}
+
+	// Report first because the config update that's about to happen
+	// will cause the API connection to drop. The SUCCESS phase is the
+	// point of no return anyway.
+	if err := w.report(status, true); err != nil {
+		return errors.Trace(err)
+	}
+
 	err = w.config.Agent.ChangeConfig(func(conf agent.ConfigSetter) error {
 		conf.SetAPIHostPorts(hps)
 		conf.SetCACert(status.TargetCACert)

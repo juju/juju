@@ -50,8 +50,11 @@ func NewModel(args ModelArgs) Model {
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
+	m.setActions(nil)
 	m.setVolumes(nil)
 	m.setFilesystems(nil)
+	m.setStorages(nil)
+	m.setStoragePools(nil)
 	return m
 }
 
@@ -122,6 +125,7 @@ type model struct {
 	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
+	Actions_          actions          `yaml:"actions"`
 
 	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
 
@@ -135,10 +139,10 @@ type model struct {
 	CloudRegion_     string `yaml:"cloud-region,omitempty"`
 	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
-	// TODO:
-	// Storage...
-	Volumes_     volumes     `yaml:"volumes"`
-	Filesystems_ filesystems `yaml:"filesystems"`
+	Volumes_      volumes      `yaml:"volumes"`
+	Filesystems_  filesystems  `yaml:"filesystems"`
+	Storages_     storages     `yaml:"storages"`
+	StoragePools_ storagepools `yaml:"storage-pools"`
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -402,6 +406,29 @@ func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
 	}
 }
 
+// Actions implements Model.
+func (m *model) Actions() []Action {
+	var result []Action
+	for _, addr := range m.Actions_.Actions_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddAction implements Model.
+func (m *model) AddAction(args ActionArgs) Action {
+	addr := newAction(args)
+	m.Actions_.Actions_ = append(m.Actions_.Actions_, addr)
+	return addr
+}
+
+func (m *model) setActions(actionsList []*action) {
+	m.Actions_ = actions{
+		Version:  1,
+		Actions_: actionsList,
+	}
+}
+
 // Sequences implements Model.
 func (m *model) Sequences() map[string]int {
 	return m.Sequences_
@@ -486,29 +513,72 @@ func (m *model) setFilesystems(filesystemList []*filesystem) {
 	}
 }
 
+// Storages implements Model.
+func (m *model) Storages() []Storage {
+	var result []Storage
+	for _, storage := range m.Storages_.Storages_ {
+		result = append(result, storage)
+	}
+	return result
+}
+
+// AddStorage implemets Model.
+func (m *model) AddStorage(args StorageArgs) Storage {
+	storage := newStorage(args)
+	m.Storages_.Storages_ = append(m.Storages_.Storages_, storage)
+	return storage
+}
+
+func (m *model) setStorages(storageList []*storage) {
+	m.Storages_ = storages{
+		Version:   1,
+		Storages_: storageList,
+	}
+}
+
+// StoragePools implements Model.
+func (m *model) StoragePools() []StoragePool {
+	var result []StoragePool
+	for _, pool := range m.StoragePools_.Pools_ {
+		result = append(result, pool)
+	}
+	return result
+}
+
+// AddStoragePool implemets Model.
+func (m *model) AddStoragePool(args StoragePoolArgs) StoragePool {
+	pool := newStoragePool(args)
+	m.StoragePools_.Pools_ = append(m.StoragePools_.Pools_, pool)
+	return pool
+}
+
+func (m *model) setStoragePools(poolList []*storagepool) {
+	m.StoragePools_ = storagepools{
+		Version: 1,
+		Pools_:  poolList,
+	}
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
 	if m.Owner_ == "" {
 		return errors.NotValidf("missing model owner")
 	}
-
+	allMachines := set.NewStrings()
 	unitsWithOpenPorts := set.NewStrings()
 	for _, machine := range m.Machines_.Machines_ {
-		if err := machine.Validate(); err != nil {
+		if err := m.validateMachine(machine, allMachines, unitsWithOpenPorts); err != nil {
 			return errors.Trace(err)
 		}
-		for _, op := range machine.OpenedPorts() {
-			for _, pr := range op.OpenPorts() {
-				unitsWithOpenPorts.Add(pr.UnitName())
-			}
-		}
 	}
+	allApplications := set.NewStrings()
 	allUnits := set.NewStrings()
 	for _, application := range m.Applications_.Applications_ {
 		if err := application.Validate(); err != nil {
 			return errors.Trace(err)
 		}
+		allApplications.Add(application.Name())
 		allUnits = allUnits.Union(application.unitNames())
 	}
 	// Make sure that all the unit names specified in machine opened ports
@@ -536,11 +606,8 @@ func (m *model) Validate() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = m.validateVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = m.validateFilesystems()
+
+	err = m.validateStorage(allMachines, allApplications, allUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -548,21 +615,79 @@ func (m *model) Validate() error {
 	return nil
 }
 
-func (m *model) validateVolumes() error {
+func (m *model) validateMachine(machine Machine, allMachineIDs, unitsWithOpenPorts set.Strings) error {
+	if err := machine.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	allMachineIDs.Add(machine.Id())
+	for _, op := range machine.OpenedPorts() {
+		for _, pr := range op.OpenPorts() {
+			unitsWithOpenPorts.Add(pr.UnitName())
+		}
+	}
+	for _, container := range machine.Containers() {
+		err := m.validateMachine(container, allMachineIDs, unitsWithOpenPorts)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (m *model) validateStorage(allMachineIDs, allApplications, allUnits set.Strings) error {
+	appsAndUnits := allApplications.Union(allUnits)
+	allStorage := set.NewStrings()
+	for i, storage := range m.Storages_.Storages_ {
+		if err := storage.Validate(); err != nil {
+			return errors.Annotatef(err, "storage[%d]", i)
+		}
+		allStorage.Add(storage.Tag().Id())
+		owner, err := storage.Owner()
+		if err != nil {
+			return errors.Wrap(err, errors.NotValidf("storage[%d] owner (%s)", i, owner))
+		}
+		ownerID := owner.Id()
+		if !appsAndUnits.Contains(ownerID) {
+			return errors.NotValidf("storage[%d] owner (%s)", i, ownerID)
+		}
+		for _, unit := range storage.Attachments() {
+			if !allUnits.Contains(unit.Id()) {
+				return errors.NotValidf("storage[%d] attachment referencing unknown unit %q", i, unit)
+			}
+		}
+	}
+	allVolumes := set.NewStrings()
 	for i, volume := range m.Volumes_.Volumes_ {
 		if err := volume.Validate(); err != nil {
 			return errors.Annotatef(err, "volume[%d]", i)
 		}
+		allVolumes.Add(volume.Tag().Id())
+		if storeID := volume.Storage().Id(); storeID != "" && !allStorage.Contains(storeID) {
+			return errors.NotValidf("volume[%d] referencing unknown storage %q", i, storeID)
+		}
+		for j, attachment := range volume.Attachments() {
+			if machineID := attachment.Machine().Id(); !allMachineIDs.Contains(machineID) {
+				return errors.NotValidf("volume[%d].attachment[%d] referencing unknown machine %q", i, j, machineID)
+			}
+		}
 	}
-	return nil
-}
-
-func (m *model) validateFilesystems() error {
 	for i, filesystem := range m.Filesystems_.Filesystems_ {
 		if err := filesystem.Validate(); err != nil {
 			return errors.Annotatef(err, "filesystem[%d]", i)
 		}
+		if storeID := filesystem.Storage().Id(); storeID != "" && !allStorage.Contains(storeID) {
+			return errors.NotValidf("filesystem[%d] referencing unknown storage %q", i, storeID)
+		}
+		if volID := filesystem.Volume().Id(); volID != "" && !allVolumes.Contains(volID) {
+			return errors.NotValidf("filesystem[%d] referencing unknown volume %q", i, volID)
+		}
+		for j, attachment := range filesystem.Attachments() {
+			if machineID := attachment.Machine().Id(); !allMachineIDs.Contains(machineID) {
+				return errors.NotValidf("filesystem[%d].attachment[%d] referencing unknown machine %q", i, j, machineID)
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -752,12 +877,15 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"applications":     schema.StringMap(schema.Any()),
 		"relations":        schema.StringMap(schema.Any()),
 		"sshhostkeys":      schema.StringMap(schema.Any()),
+		"actions":          schema.StringMap(schema.Any()),
 		"ipaddresses":      schema.StringMap(schema.Any()),
 		"spaces":           schema.StringMap(schema.Any()),
 		"subnets":          schema.StringMap(schema.Any()),
 		"linklayerdevices": schema.StringMap(schema.Any()),
 		"volumes":          schema.StringMap(schema.Any()),
 		"filesystems":      schema.StringMap(schema.Any()),
+		"storages":         schema.StringMap(schema.Any()),
+		"storage-pools":    schema.StringMap(schema.Any()),
 		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -879,6 +1007,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSSHHostKeys(hostKeys)
 
+	actionsMap := valid["actions"].(map[string]interface{})
+	actions, err := importActions(actionsMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "actions")
+	}
+	result.setActions(actions)
+
 	volumes, err := importVolumes(valid["volumes"].(map[string]interface{}))
 	if err != nil {
 		return nil, errors.Annotate(err, "volumes")
@@ -890,6 +1025,18 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "filesystems")
 	}
 	result.setFilesystems(filesystems)
+
+	storages, err := importStorages(valid["storages"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "storages")
+	}
+	result.setStorages(storages)
+
+	pools, err := importStoragePools(valid["storage-pools"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Annotate(err, "storage-pools")
+	}
+	result.setStoragePools(pools)
 
 	return result, nil
 }

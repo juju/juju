@@ -14,6 +14,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/migrationmaster"
@@ -21,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -86,26 +88,40 @@ func (s *Suite) TestWatch(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestGetMigrationStatus(c *gc.C) {
-	api := s.mustMakeAPI(c)
+func (s *Suite) TestMigrationStatus(c *gc.C) {
+	var expectedMacaroon = `
+{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}`[1:]
 
-	status, err := api.GetMigrationStatus()
+	api := s.mustMakeAPI(c)
+	status, err := api.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, params.MasterMigrationStatus{
-		Spec: params.ModelMigrationSpec{
+
+	c.Check(status, gc.DeepEquals, params.MasterMigrationStatus{
+		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
-			TargetInfo: params.ModelMigrationTargetInfo{
+			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: names.NewModelTag(controllerUUID).String(),
 				Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      "secret",
+				Macaroon:      expectedMacaroon,
 			},
 		},
 		MigrationId:      "id",
-		Phase:            "READONLY",
+		Phase:            "IMPORT",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
+}
+
+func (s *Suite) TestModelInfo(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	model, err := api.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.UUID, gc.Equals, "model-uuid")
+	c.Assert(model.Name, gc.Equals, "model-name")
+	c.Assert(model.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
+	c.Assert(model.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
 }
 
 func (s *Suite) TestSetPhase(c *gc.C) {
@@ -164,6 +180,12 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
 }
 
+func (s *Suite) TestPrechecks(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.Prechecks()
+	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
+}
+
 func (s *Suite) TestExport(c *gc.C) {
 	s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
@@ -214,7 +236,7 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c,
-		"LatestModelMigration",
+		"LatestMigration",
 		"ModelMigration.WatchMinionReports",
 	)
 
@@ -229,7 +251,7 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestGetMinionReports(c *gc.C) {
+func (s *Suite) TestMinionReports(c *gc.C) {
 	// Report 16 unknowns. These are in reverse order in order to test
 	// sorting.
 	unknown := make([]names.Tag, 0, 16)
@@ -250,7 +272,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	}
 
 	api := s.mustMakeAPI(c)
-	reports, err := api.GetMinionReports()
+	reports, err := api.MinionReports()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Expect the sample of unknowns to be in order and be limited to
@@ -261,7 +283,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	}
 	c.Assert(reports, gc.DeepEquals, params.MinionReports{
 		MigrationId:   "id",
-		Phase:         "READONLY",
+		Phase:         "IMPORT",
 		SuccessCount:  3,
 		UnknownCount:  len(unknown),
 		UnknownSample: expectedSample,
@@ -276,11 +298,12 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, new(failingPrecheckBackend),
+		s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	api, err := s.makeAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -295,17 +318,33 @@ type stubBackend struct {
 	model     description.Model
 }
 
-func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
-	b.stub.AddCall("WatchForModelMigration")
+func (b *stubBackend) WatchForMigration() state.NotifyWatcher {
+	b.stub.AddCall("WatchForMigration")
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *stubBackend) LatestModelMigration() (state.ModelMigration, error) {
-	b.stub.AddCall("LatestModelMigration")
+func (b *stubBackend) LatestMigration() (state.ModelMigration, error) {
+	b.stub.AddCall("LatestMigration")
 	if b.getErr != nil {
 		return nil, b.getErr
 	}
 	return b.migration, nil
+}
+
+func (b *stubBackend) ModelUUID() string {
+	return "model-uuid"
+}
+
+func (b *stubBackend) ModelName() (string, error) {
+	return "model-name", nil
+}
+
+func (b *stubBackend) ModelOwner() (names.UserTag, error) {
+	return names.NewUserTag("owner"), nil
+}
+
+func (b *stubBackend) AgentVersion() (version.Number, error) {
+	return version.MustParse("1.2.3"), nil
 }
 
 func (b *stubBackend) RemoveExportingModelDocs() error {
@@ -334,7 +373,7 @@ func (m *stubMigration) Id() string {
 }
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
-	return coremigration.READONLY, nil
+	return coremigration.IMPORT, nil
 }
 
 func (m *stubMigration) PhaseChangedTime() time.Time {
@@ -350,12 +389,17 @@ func (m *stubMigration) ModelUUID() string {
 }
 
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	if err != nil {
+		panic(err)
+	}
 	return &coremigration.TargetInfo{
 		ControllerTag: names.NewModelTag(controllerUUID),
 		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
+		Macaroon:      mac,
 	}, nil
 }
 
@@ -380,7 +424,7 @@ func (m *stubMigration) WatchMinionReports() (state.NotifyWatcher, error) {
 	return apiservertesting.NewFakeNotifyWatcher(), nil
 }
 
-func (m *stubMigration) GetMinionReports() (*state.MinionReports, error) {
+func (m *stubMigration) MinionReports() (*state.MinionReports, error) {
 	return m.minionReports, nil
 }
 
@@ -390,4 +434,12 @@ var controllerUUID string
 func init() {
 	modelUUID = utils.MustNewUUID().String()
 	controllerUUID = utils.MustNewUUID().String()
+}
+
+type failingPrecheckBackend struct {
+	migration.PrecheckBackend
+}
+
+func (b *failingPrecheckBackend) Model() (migration.PrecheckModel, error) {
+	return nil, errors.New("boom")
 }

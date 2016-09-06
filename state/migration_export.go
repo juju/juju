@@ -14,6 +14,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 // Export the current model for the State.
@@ -105,6 +107,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := export.storage(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.actions(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -448,12 +454,12 @@ func (e *exporter) applications() error {
 	}
 	e.logger.Debugf("found %d applications", len(applications))
 
-	refcounts, err := e.readAllSettingsRefCounts()
+	e.units, err = e.readAllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	e.units, err = e.readAllUnits()
+	storageConstraints, err := e.readAllStorageConstraints()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -468,14 +474,58 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	payloads, err := e.readAllPayloads()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
-		if err := e.addApplication(application, refcounts, applicationUnits, meterStatus, leader); err != nil {
+		if err := e.addApplication(addApplicationContext{
+			application:        application,
+			units:              applicationUnits,
+			storageConstraints: storageConstraints,
+			meterStatus:        meterStatus,
+			leader:             leader,
+			payloads:           payloads,
+		}); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+func (e *exporter) readAllStorageConstraints() (map[string]map[string]StorageConstraints, error) {
+	coll, closer := e.st.getCollection(storageConstraintsC)
+	defer closer()
+
+	result := make(map[string]map[string]StorageConstraints)
+	var doc storageConstraintsDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[e.st.localID(doc.DocID)] = doc.Constraints
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read storage constraints")
+	}
+	e.logger.Debugf("read %d storage constraint documents", count)
+	return result, nil
+}
+
+func (e *exporter) storageConstraints(constraints map[string]StorageConstraints) map[string]description.StorageConstraintArgs {
+	result := make(map[string]description.StorageConstraintArgs)
+	for key, value := range constraints {
+		result[key] = description.StorageConstraintArgs{
+			Pool:  value.Pool,
+			Size:  value.Size,
+			Count: value.Count,
+		}
+	}
+	return result
 }
 
 func (e *exporter) readApplicationLeaders() (map[string]string, error) {
@@ -491,21 +541,40 @@ func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addApplication(application *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, error) {
+	result := make(map[string][]payload.FullPayloadInfo)
+	all, err := ModelPayloads{db: e.st.database}.ListAll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, payload := range all {
+		result[payload.Unit] = append(result[payload.Unit], payload)
+	}
+	return result, nil
+}
+
+type addApplicationContext struct {
+	application        *Application
+	units              []*Unit
+	storageConstraints map[string]map[string]StorageConstraints
+	meterStatus        map[string]*meterStatusDoc
+	leader             string
+	payloads           map[string][]payload.FullPayloadInfo
+}
+
+func (e *exporter) addApplication(ctx addApplicationContext) error {
+	application := ctx.application
+	appName := application.Name()
 	settingsKey := application.settingsKey()
-	leadershipKey := leadershipSettingsKey(application.Name())
+	leadershipKey := leadershipSettingsKey(appName)
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings for application %q", application.Name())
-	}
-	refCount, found := refcounts[settingsKey]
-	if !found {
-		return errors.Errorf("missing settings refcount for application %q", application.Name())
+		return errors.Errorf("missing settings for application %q", appName)
 	}
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
-		return errors.Errorf("missing leadership settings for application %q", application.Name())
+		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
 
 	args := description.ApplicationArgs{
@@ -519,17 +588,19 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
 		Settings:             applicationSettingsDoc.Settings,
-		SettingsRefCount:     refCount,
-		Leader:               leader,
+		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 	}
+	globalKey := application.globalKey()
+	if constraints, found := ctx.storageConstraints[globalKey]; found {
+		args.StorageConstraints = e.storageConstraints(constraints)
+	}
 	exApplication := e.model.AddApplication(args)
 	// Find the current application status.
-	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
-		return errors.Annotatef(err, "status for application %s", application.Name())
+		return errors.Annotatef(err, "status for application %s", appName)
 	}
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
@@ -541,9 +612,9 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	}
 	exApplication.SetConstraints(constraintsArgs)
 
-	for _, unit := range units {
+	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
-		unitMeterStatus, found := meterStatus[agentKey]
+		unitMeterStatus, found := ctx.meterStatus[agentKey]
 		if !found {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
@@ -569,6 +640,11 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
+
+		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
+			return errors.Trace(err)
+		}
+
 		// workload uses globalKey, agent uses globalAgentKey,
 		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
@@ -609,6 +685,25 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		exUnit.SetConstraints(constraintsArgs)
 	}
 
+	return nil
+}
+
+func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
+	unitID := exUnit.Tag().Id()
+	machineID := exUnit.Machine().Id()
+	for _, payload := range payloads {
+		if payload.Machine != machineID {
+			return errors.NotValidf("payload for unit %q reports wrong machine %q (should be %q)", unitID, payload.Machine, machineID)
+		}
+		args := description.PayloadArgs{
+			Name:   payload.Name,
+			Type:   payload.Type,
+			RawID:  payload.ID,
+			State:  payload.Status,
+			Labels: payload.Labels,
+		}
+		exUnit.AddPayload(args)
+	}
 	return nil
 }
 
@@ -760,6 +855,30 @@ func (e *exporter) sshHostKeys() error {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			MachineID: machine.Id(),
 			Keys:      keys,
+		})
+	}
+	return nil
+}
+
+func (e *exporter) actions() error {
+	actions, err := e.st.AllActions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d actions", len(actions))
+	for _, action := range actions {
+		results, message := action.Results()
+		e.model.AddAction(description.ActionArgs{
+			Receiver:   action.Receiver(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+			Enqueued:   action.Enqueued(),
+			Started:    action.Started(),
+			Completed:  action.Completed(),
+			Status:     string(action.Status()),
+			Results:    results,
+			Message:    message,
+			Id:         action.Id(),
 		})
 	}
 	return nil
@@ -1068,34 +1187,6 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	return result, nil
 }
 
-func (e *exporter) readAllSettingsRefCounts() (map[string]int, error) {
-	refCounts, closer := e.st.getCollection(settingsrefsC)
-	defer closer()
-
-	var docs []bson.M
-	err := refCounts.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to read settings refcount collection")
-	}
-
-	e.logger.Debugf("read %d settings refcount documents", len(docs))
-	result := make(map[string]int)
-	for _, doc := range docs {
-		docId, ok := doc["_id"].(string)
-		if !ok {
-			return nil, errors.Errorf("expected string, got %s (%T)", doc["_id"], doc["_id"])
-		}
-		id := e.st.localID(docId)
-		count, ok := doc["refcount"].(int)
-		if !ok {
-			return nil, errors.Errorf("expected int, got %s (%T)", doc["refcount"], doc["refcount"])
-		}
-		result[id] = count
-	}
-
-	return result, nil
-}
-
 func (e *exporter) logExtras() {
 	// As annotations are saved into the model, they are removed from the
 	// exporter's map. If there are any left at the end, we are missing
@@ -1112,6 +1203,12 @@ func (e *exporter) storage() error {
 		return errors.Trace(err)
 	}
 	if err := e.filesystems(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := e.storageInstances(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := e.storagePools(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1145,7 +1242,15 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 	args := description.VolumeArgs{
 		Tag:     vol.VolumeTag(),
 		Binding: vol.LifeBinding(),
-		// TODO: add storage link
+	}
+	if tag, err := vol.StorageInstance(); err == nil {
+		// only returns an error when no storage tag.
+		args.Storage = tag
+	} else {
+		if !errors.IsNotAssigned(err) {
+			// This is an unexpected error.
+			return errors.Trace(err)
+		}
 	}
 	logger.Debugf("addVolume: %#v", vol.doc)
 	if info, err := vol.Info(); err == nil {
@@ -1320,5 +1425,97 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 		return nil, errors.Annotate(err, "failed to read filesystem attachments")
 	}
 	e.logger.Debugf("read %d filesystem attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) storageInstances() error {
+	coll, closer := e.st.getCollection(storageInstancesC)
+	defer closer()
+
+	attachments, err := e.readStorageAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var doc storageInstanceDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		instance := &storageInstance{e.st, doc}
+		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read storage instances")
+	}
+	return nil
+}
+
+func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	args := description.StorageArgs{
+		Tag:         instance.StorageTag(),
+		Kind:        instance.Kind().String(),
+		Owner:       instance.Owner(),
+		Name:        instance.StorageName(),
+		Attachments: attachments,
+	}
+	e.model.AddStorage(args)
+	return nil
+}
+
+func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
+	coll, closer := e.st.getCollection(storageAttachmentsC)
+	defer closer()
+
+	result := make(map[string][]names.UnitTag)
+	var doc storageAttachmentDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		unit := names.NewUnitTag(doc.Unit)
+		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read storage attachments")
+	}
+	e.logger.Debugf("read %d storage attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) storagePools() error {
+	registry, err := e.st.storageProviderRegistry()
+	if err != nil {
+		return errors.Annotate(err, "getting provider registry")
+	}
+	pm := poolmanager.New(storagePoolSettingsManager{e: e}, registry)
+	poolConfigs, err := pm.List()
+	if err != nil {
+		return errors.Annotate(err, "listing pools")
+	}
+	for _, cfg := range poolConfigs {
+		e.model.AddStoragePool(description.StoragePoolArgs{
+			Name:       cfg.Name(),
+			Provider:   string(cfg.Provider()),
+			Attributes: cfg.Attrs(),
+		})
+	}
+	return nil
+}
+
+type storagePoolSettingsManager struct {
+	poolmanager.SettingsManager
+	e *exporter
+}
+
+func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
+	result := make(map[string]map[string]interface{})
+	for key, doc := range m.e.modelSettings {
+		if strings.HasPrefix(key, keyPrefix) {
+			result[key] = doc.Settings
+		}
+	}
 	return result, nil
 }

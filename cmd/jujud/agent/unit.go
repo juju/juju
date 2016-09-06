@@ -10,20 +10,23 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -140,6 +143,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
 		AgentConfigChanged:  a.configChangedVal,
+		ValidateMigration:   a.validateMigration,
 	})
 
 	config := dependency.EngineConfig{
@@ -158,6 +162,17 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
+	if err := startIntrospection(introspectionConfig{
+		Agent:      a,
+		Engine:     engine,
+		WorkerFunc: introspection.NewWorker,
+	}); err != nil {
+		// If the introspection worker failed to start, we just log error
+		// but continue. It is very unlikely to happen in the real world
+		// as the only issue is connecting to the abstract domain socket
+		// and the agent is controlled by by the OS to only have one.
+		logger.Errorf("failed to start introspection worker: %v", err)
+	}
 	return engine, nil
 }
 
@@ -169,4 +184,27 @@ func (a *UnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
 	return errors.Trace(err)
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(mjs) - more extensive checks to come.
+	unitTag := names.NewUnitTag(a.UnitName)
+	facade := uniter.NewState(apiCaller, unitTag)
+	_, err := facade.Unit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	model, err := facade.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curModelUUID := a.CurrentConfig().Model().Id()
+	newModelUUID := model.UUID()
+	if newModelUUID != curModelUUID {
+		return errors.Errorf("model mismatch when validating: got %q, expected %q",
+			newModelUUID, curModelUUID)
+	}
+	return nil
 }

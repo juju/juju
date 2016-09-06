@@ -104,6 +104,24 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
+func (s *serverSuite) TestModelInfo(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	conf, _ := s.State.ModelConfig()
+	info, err := s.client.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
+	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
+	c.Assert(info.ProviderType, gc.Equals, conf.Type())
+	c.Assert(info.Name, gc.Equals, conf.Name())
+	c.Assert(info.UUID, gc.Equals, model.UUID())
+	c.Assert(info.OwnerTag, gc.Equals, model.Owner().String())
+	c.Assert(info.Life, gc.Equals, params.Alive)
+	// The controller UUID is not returned by the ModelInfo endpoint on the
+	// Client facade.
+	c.Assert(info.ControllerUUID, gc.Equals, "")
+}
+
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
 	owner, err := s.State.UserAccess(testAdmin, s.State.ModelTag())
@@ -395,20 +413,6 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
-}
-
-func (s *clientSuite) TestClientModelInfo(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	conf, _ := s.State.ModelConfig()
-	info, err := s.APIState.Client().ModelInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
-	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
-	c.Assert(info.ProviderType, gc.Equals, conf.Type())
-	c.Assert(info.Name, gc.Equals, conf.Name())
-	c.Assert(info.UUID, gc.Equals, model.UUID())
-	c.Assert(info.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {

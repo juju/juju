@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -83,7 +81,7 @@ type testMetricSender struct {
 	jtesting.Stub
 }
 
-func (t *testMetricSender) SendMetrics(st metricsender.MetricsSenderBackend) error {
+func (t *testMetricSender) SendMetrics(st metricsender.ModelBackend) error {
 	t.AddCall("SendMetrics")
 	return nil
 }
@@ -95,32 +93,9 @@ func (s *destroyModelSuite) TestMetrics(c *gc.C) {
 	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
-}
-
-func (s *destroyModelSuite) TestDestroyModelManual(c *gc.C) {
-	_, nonManager := s.setUpManual(c)
-
-	// If there are any non-manager manual machines in state, DestroyModel will
-	// error. It will not set the Dying flag on the environment.
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy model: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-
-	// If we remove the non-manager machine, it should pass.
-	// Manager machines will remain.
-	err = nonManager.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = nonManager.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
-
+	metricSender.CheckCalls(c, []jtesting.StubCall{{
+		FuncName: "SendMetrics",
+	}})
 }
 
 func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {

@@ -17,13 +17,14 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", apiInfo)
 	if err != nil {
 		return nil, err
 	}

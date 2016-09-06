@@ -4,15 +4,15 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -55,10 +55,10 @@ func (c *signMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *signMetadataCommand) Init(args []string) error {
 	if c.dir == "" {
-		return fmt.Errorf("directory must be specified")
+		return errors.Errorf("directory must be specified")
 	}
 	if c.keyFile == "" {
-		return fmt.Errorf("keyfile must be specified")
+		return errors.Errorf("keyfile must be specified")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -88,15 +88,15 @@ func process(dir, key, passphrase string) error {
 		logger.Infof("signing file %q", filename)
 		f, err := os.Open(filename)
 		if err != nil {
-			return fmt.Errorf("opening file %q: %v", filename, err)
+			return errors.Errorf("opening file %q: %v", filename, err)
 		}
 		encoded, err := simplestreams.Encode(f, key, passphrase)
 		if err != nil {
-			return fmt.Errorf("encoding file %q: %v", filename, err)
+			return errors.Errorf("encoding file %q: %v", filename, err)
 		}
 		signedFilename := strings.Replace(filename, simplestreams.UnsignedSuffix, simplestreams.SignedSuffix, -1)
 		if err = ioutil.WriteFile(signedFilename, encoded, 0644); err != nil {
-			return fmt.Errorf("writing signed file %q: %v", signedFilename, err)
+			return errors.Errorf("writing signed file %q: %v", signedFilename, err)
 		}
 	}
 	// Now process any directories in dir.

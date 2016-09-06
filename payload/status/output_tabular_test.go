@@ -4,6 +4,8 @@
 package status_test
 
 import (
+	"bytes"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,26 +23,28 @@ func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-application", 1, 0)
 	payload.Labels = []string{"a-tag", "other"}
 	formatted := status.Formatted(payload)
-	data, err := status.FormatTabular(formatted)
+	buff := &bytes.Buffer{}
+	err := status.FormatTabular(buff, formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(string(data), gc.Equals, `
+	c.Check(buff.String(), gc.Equals, `
 [Unit Payloads]
-UNIT            MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
-a-application/0 1       spam          running docker idspam a-tag other 
+UNIT             MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS         
+a-application/0  1        spam           running  docker  idspam  a-tag other  
 `[1:])
 }
 
 func (s *outputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
 	payload := status.NewPayload("spam", "a-application", 1, 0)
 	formatted := status.Formatted(payload)
-	data, err := status.FormatTabular(formatted)
+	buff := &bytes.Buffer{}
+	err := status.FormatTabular(buff, formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(string(data), gc.Equals, `
+	c.Check(buff.String(), gc.Equals, `
 [Unit Payloads]
-UNIT            MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
-a-application/0 1       spam          running docker idspam      
+UNIT             MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS  
+a-application/0  1        spam           running  docker  idspam        
 `[1:])
 }
 
@@ -65,24 +69,24 @@ func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 		p22A,
 		p10x,
 	)
-	data, err := status.FormatTabular(formatted)
+	buff := &bytes.Buffer{}
+	err := status.FormatTabular(buff, formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(string(data), gc.Equals, `
+	c.Check(buff.String(), gc.Equals, `
 [Unit Payloads]
-UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
-a-application/0       1       spam          running docker idspam  a-tag       
-a-application/1       2       spam          stopped docker idspam  a-tag       
-a-application/1       2       spam          running docker idspamB             
-a-application/1       2       eggs          running kvm    ideggs              
-a-application/2       2       spam          running docker idspam              
-another-application/0 1       ham           running docker idham   other extra 
+UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID       TAGS         
+a-application/0        1        spam           running  docker  idspam   a-tag        
+a-application/1        2        spam           stopped  docker  idspam   a-tag        
+a-application/1        2        spam           running  docker  idspamB               
+a-application/1        2        eggs           running  kvm     ideggs                
+a-application/2        2        spam           running  docker  idspam                
+another-application/0  1        ham            running  docker  idham    other extra  
 `[1:])
 }
 
 func (s *outputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
 	bogus := "should have been []formattedPayload"
-	_, err := status.FormatTabular(bogus)
-
+	err := status.FormatTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }

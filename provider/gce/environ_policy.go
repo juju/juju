@@ -7,9 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -26,39 +23,6 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	}
 
 	return nil
-}
-
-func (env *environ) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-
-	archList, err := env.lookupArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env.supportedArchitectures = archList
-	return archList, nil
-}
-
-var supportedArchitectures = common.SupportedArchitectures
-
-func (env *environ) lookupArchitectures() ([]string, error) {
-	// Create a filter to get all images from our region and for the
-	// correct stream.
-	cloudSpec, err := env.Region()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    env.Config().ImageStream(),
-	})
-	archList, err := supportedArchitectures(env, imageConstraint)
-	return archList, errors.Trace(err)
 }
 
 var unsupportedConstraints = []string{
@@ -94,12 +58,6 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterUnsupported(unsupportedConstraints)
 
 	// vocab
-
-	supportedArches, err := env.getSupportedArchitectures()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {

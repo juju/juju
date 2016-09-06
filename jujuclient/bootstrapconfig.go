@@ -55,14 +55,6 @@ func ParseBootstrapConfig(data []byte) (map[string]BootstrapConfig, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal bootstrap config")
 	}
-	// TODO(wallyworld) - drop when we get to beta 15.
-	// This is for backwards compatibility with beta 13.
-	for controllerName, cfg := range result.ControllerBootstrapConfig {
-		if cfg.Config == nil {
-			cfg.Config = cfg.OldConfig
-			result.ControllerBootstrapConfig[controllerName] = cfg
-		}
-	}
 	return result.ControllerBootstrapConfig, nil
 }
 

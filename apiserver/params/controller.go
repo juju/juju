@@ -46,3 +46,43 @@ type ModelStatus struct {
 type ModelStatusResults struct {
 	Results []ModelStatus `json:"models"`
 }
+
+// ModifyControllerAccessRequest holds the parameters for making grant and revoke controller calls.
+type ModifyControllerAccessRequest struct {
+	Changes []ModifyControllerAccess `json:"changes"`
+}
+
+type ModifyControllerAccess struct {
+	UserTag string           `json:"user-tag"`
+	Action  ControllerAction `json:"action"`
+	Access  string           `json:"access"`
+}
+
+// UserAccess holds the level of access a user
+// has on a controller or model.
+type UserAccess struct {
+	UserTag string `json:"user-tag"`
+	Access  string `json:"access"`
+}
+
+// UserAccessResult holds an access level for
+// a user, or an error.
+type UserAccessResult struct {
+	Result *UserAccess `json:"result,omitempty"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
+// UserAccessResults holds the results of an api
+// call to look up access for users.
+type UserAccessResults struct {
+	Results []UserAccessResult `json:"results,omitempty"`
+}
+
+// ControllerAction is an action that can be performed on a model.
+type ControllerAction string
+
+// Actions that can be preformed on a model.
+const (
+	GrantControllerAccess  ControllerAction = "grant"
+	RevokeControllerAccess ControllerAction = "revoke"
+)

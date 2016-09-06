@@ -6,8 +6,6 @@
 package lxd_test
 
 import (
-	"fmt"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -16,7 +14,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type configSuite struct {
@@ -42,154 +39,7 @@ func (s *configSuite) TestDefaults(c *gc.C) {
 	values, extras := ecfg.Values(c)
 	c.Assert(extras, gc.HasLen, 0)
 
-	c.Check(values, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "",
-		ClientCert: "",
-		ClientKey:  "",
-		ServerCert: "",
-	})
-}
-
-func (s *configSuite) TestClientConfigLocal(c *gc.C) {
-	cfg := lxd.NewBaseConfig(c)
-	ecfg := lxd.NewConfig(cfg)
-	values, _ := ecfg.Values(c)
-	c.Assert(values.RemoteURL, gc.Equals, "")
-
-	clientCfg, err := ecfg.ClientConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
-		Remote: lxdclient.Remote{
-			Name:          "juju-remote",
-			Host:          "",
-			Protocol:      lxdclient.LXDProtocol,
-			Cert:          nil,
-			ServerPEMCert: "",
-		},
-	})
-}
-
-func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
-	cfg := lxd.NewBaseConfig(c)
-	ecfg := lxd.NewConfig(cfg)
-	ecfg = ecfg.Apply(c, map[string]interface{}{
-		"remote-url":  "10.0.0.1",
-		"client-cert": "<a valid x.509 cert>",
-		"client-key":  "<a valid x.509 key>",
-		"server-cert": "<a valid x.509 server cert>",
-	})
-
-	clientCfg, err := ecfg.ClientConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
-		Remote: lxdclient.Remote{
-			Name:     "juju-remote",
-			Host:     "10.0.0.1",
-			Protocol: lxdclient.LXDProtocol,
-			Cert: &lxdclient.Cert{
-				Name:    fmt.Sprintf("juju cert for env %q", s.config.Name()),
-				CertPEM: []byte("<a valid x.509 cert>"),
-				KeyPEM:  []byte("<a valid x.509 key>"),
-			},
-			ServerPEMCert: "<a valid x.509 server cert>",
-		},
-	})
-}
-
-func (s *configSuite) TestUpdateForClientConfigLocal(c *gc.C) {
-	cfg := lxd.NewBaseConfig(c)
-	ecfg := lxd.NewConfig(cfg)
-
-	clientCfg, err := ecfg.ClientConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	updated, err := ecfg.UpdateForClientConfig(clientCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	values, extras := updated.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
-
-	c.Check(values, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "",
-		ClientCert: "",
-		ClientKey:  "",
-		ServerCert: "",
-	})
-}
-
-func (s *configSuite) TestUpdateForClientConfigNonLocal(c *gc.C) {
-	cfg := lxd.NewBaseConfig(c)
-	ecfg := lxd.NewConfig(cfg)
-	ecfg = ecfg.Apply(c, map[string]interface{}{
-		"remote-url":  "10.0.0.1",
-		"client-cert": "<a valid x.509 cert>",
-		"client-key":  "<a valid x.509 key>",
-		"server-cert": "<a valid x.509 server cert>",
-	})
-
-	before, extras := ecfg.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
-
-	clientCfg, err := ecfg.ClientConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	updated, err := ecfg.UpdateForClientConfig(clientCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	after, extras := updated.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
-
-	c.Check(before, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "10.0.0.1",
-		ClientCert: "<a valid x.509 cert>",
-		ClientKey:  "<a valid x.509 key>",
-		ServerCert: "<a valid x.509 server cert>",
-	})
-	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "10.0.0.1",
-		ClientCert: "<a valid x.509 cert>",
-		ClientKey:  "<a valid x.509 key>",
-		ServerCert: "<a valid x.509 server cert>",
-	})
-}
-
-func (s *configSuite) TestUpdateForClientConfigGeneratedCert(c *gc.C) {
-	cfg := lxd.NewBaseConfig(c)
-	ecfg := lxd.NewConfig(cfg)
-	ecfg = ecfg.Apply(c, map[string]interface{}{
-		"remote-url":  "10.0.0.1",
-		"client-cert": "",
-		"client-key":  "",
-		"server-cert": "",
-	})
-
-	before, extras := ecfg.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
-
-	clientCfg, err := ecfg.ClientConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	updated, err := ecfg.UpdateForClientConfig(clientCfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	after, extras := updated.Values(c)
-	c.Assert(extras, gc.HasLen, 0)
-
-	c.Check(before, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "10.0.0.1",
-		ClientCert: "",
-		ClientKey:  "",
-		ServerCert: "",
-	})
-	after.CheckCert(c)
-	after.ClientCert = ""
-	after.ClientKey = ""
-	after.ServerCert = ""
-	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
-		RemoteURL:  "10.0.0.1",
-		ClientCert: "",
-		ClientKey:  "",
-		ServerCert: "",
-	})
+	c.Check(values, jc.DeepEquals, lxd.ConfigValues{})
 }
 
 // TODO(ericsnow) Each test only deals with a single field, so having
@@ -275,34 +125,6 @@ func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "remote-url is optional",
-	remove: []string{"remote-url"},
-	expect: testing.Attrs{"remote-url": ""},
-}, {
-	info:   "remote-url can be empty",
-	insert: testing.Attrs{"remote-url": ""},
-	expect: testing.Attrs{"remote-url": ""},
-}, {
-	info:   "client-cert is optional",
-	remove: []string{"client-cert"},
-	expect: testing.Attrs{"client-cert": ""},
-}, {
-	info:   "client-cert can be empty",
-	insert: testing.Attrs{"client-cert": ""},
-	expect: testing.Attrs{"client-cert": ""},
-}, {
-	info:   "client-key is optional",
-	remove: []string{"client-key"},
-	expect: testing.Attrs{"client-key": ""},
-}, {
-	info:   "client-key can be empty",
-	insert: testing.Attrs{"client-key": ""},
-	expect: testing.Attrs{"client-key": ""},
-}, {
-	info:   "server-cert is optional",
-	remove: []string{"server-cert"},
-	expect: testing.Attrs{"server-cert": ""},
-}, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
 	expect: testing.Attrs{"unknown-field": 12345},
@@ -321,7 +143,10 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(environs.OpenParams{lxdCloudSpec(), testConfig})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  lxdCloudSpec(),
+			Config: testConfig,
+		})
 
 		// Check the result
 		if test.err != "" {
@@ -381,8 +206,6 @@ func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 	}
 }
 
-// TODO(ericsnow) Add tests for client-cert and client-key.
-
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: lxd.ConfigAttrs,
@@ -421,7 +244,10 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(environs.OpenParams{lxdCloudSpec(), s.config})
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  lxdCloudSpec(),
+			Config: s.config,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)

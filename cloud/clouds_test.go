@@ -11,12 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
 type cloudSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&cloudSuite{})
@@ -84,6 +83,46 @@ func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
+	clouds, err := cloud.ParseCloudMetadata([]byte(`clouds:
+  testing:
+    type: dummy
+    config:
+      k1: v1
+      k2: 2.0
+    region-config:
+      region1:
+        mascot: [eggs, ham]
+      region2:
+        mascot: glenda
+      region3:
+        mascot:  gopher
+`))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	testingCloud := clouds["testing"]
+	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Type: "dummy",
+		Config: map[string]interface{}{
+			"k1": "v1",
+			"k2": float64(2.0),
+		},
+		RegionConfig: cloud.RegionConfig{
+			"region1": cloud.Attrs{
+				"mascot": []interface{}{"eggs", "ham"},
+			},
+
+			"region2": cloud.Attrs{
+				"mascot": "glenda",
+			},
+
+			"region3": cloud.Attrs{
+				"mascot": "gopher",
+			},
+		},
+	})
+}
+
 func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata("badfile.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,9 +167,6 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 }
 
 func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
-	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
-
 	clouds := map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
 			Type:      "aws",

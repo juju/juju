@@ -246,6 +246,9 @@ type Config interface {
 	// Model returns the tag for the model that the agent belongs to.
 	Model() names.ModelTag
 
+	// Controller returns the tag for the controller that the agent belongs to.
+	Controller() names.ControllerTag
+
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
 	MetricsSpoolDir() string
@@ -283,22 +286,6 @@ type configSetterOnly interface {
 	// SetCACert sets the CA cert used for validating API connections.
 	SetCACert(string)
 
-	// Migrate takes an existing agent config and applies the given
-	// parameters to change it.
-	//
-	// Only non-empty fields in newParams are used
-	// to change existing config settings. All changes are written
-	// atomically. UpgradedToVersion cannot be changed here, because
-	// Migrate is most likely called during an upgrade, so it will be
-	// changed at the end of the upgrade anyway, if successful.
-	//
-	// Migrate does not actually write the new configuration.
-	//
-	// Note that if the configuration file moves location,
-	// (if DataDir is set), the the caller is responsible for removing
-	// the old configuration.
-	Migrate(MigrateParams) error
-
 	// SetStateServingInfo sets the information needed
 	// to run a controller
 	SetStateServingInfo(info params.StateServingInfo)
@@ -330,17 +317,6 @@ type ConfigSetterWriter interface {
 	ConfigWriter
 }
 
-// MigrateParams holds agent config values to change in a
-// Migrate call. Empty fields will be ignored. DeleteValues
-// specifies a list of keys to delete.
-type MigrateParams struct {
-	Paths        Paths
-	Jobs         []multiwatcher.MachineJob
-	DeleteValues []string
-	Values       map[string]string
-	Model        names.ModelTag
-}
-
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
@@ -363,6 +339,7 @@ type configInternal struct {
 	paths             Paths
 	tag               names.Tag
 	nonce             string
+	controller        names.ControllerTag
 	model             names.ModelTag
 	jobs              []multiwatcher.MachineJob
 	upgradedToVersion version.Number
@@ -384,6 +361,7 @@ type AgentConfigParams struct {
 	Tag               names.Tag
 	Password          string
 	Nonce             string
+	Controller        names.ControllerTag
 	Model             names.ModelTag
 	StateAddresses    []string
 	APIAddresses      []string
@@ -413,6 +391,11 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.Password == "" {
 		return nil, errors.Trace(requiredError("password"))
 	}
+	if uuid := configParams.Controller.Id(); uuid == "" {
+		return nil, errors.Trace(requiredError("controller"))
+	} else if !names.IsValidController(uuid) {
+		return nil, errors.Errorf("%q is not a valid controller uuid", uuid)
+	}
 	if uuid := configParams.Model.Id(); uuid == "" {
 		return nil, errors.Trace(requiredError("model"))
 	} else if !names.IsValidModel(uuid) {
@@ -433,6 +416,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
+		controller:        configParams.Controller,
 		model:             configParams.Model,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
@@ -539,31 +523,6 @@ func (c0 *configInternal) Clone() Config {
 		c1.values[key] = val
 	}
 	return &c1
-}
-
-func (config *configInternal) Migrate(newParams MigrateParams) error {
-	config.paths.Migrate(newParams.Paths)
-	config.configFilePath = ConfigPath(config.paths.DataDir, config.tag)
-	if len(newParams.Jobs) > 0 {
-		config.jobs = make([]multiwatcher.MachineJob, len(newParams.Jobs))
-		copy(config.jobs, newParams.Jobs)
-	}
-	for _, key := range newParams.DeleteValues {
-		delete(config.values, key)
-	}
-	for key, value := range newParams.Values {
-		if config.values == nil {
-			config.values = make(map[string]string)
-		}
-		config.values[key] = value
-	}
-	if newParams.Model.Id() != "" {
-		config.model = newParams.Model
-	}
-	if err := config.check(); err != nil {
-		return fmt.Errorf("migrated agent config is invalid: %v", err)
-	}
-	return nil
 }
 
 func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
@@ -693,6 +652,10 @@ func (c *configInternal) Tag() names.Tag {
 
 func (c *configInternal) Model() names.ModelTag {
 	return c.model
+}
+
+func (c *configInternal) Controller() names.ControllerTag {
+	return c.controller
 }
 
 func (c *configInternal) Dir() string {

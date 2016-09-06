@@ -15,6 +15,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type BSInteractSuite struct {
@@ -30,12 +31,12 @@ func (BSInteractSuite) TestInitEmpty(c *gc.C) {
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitUploadTools(c *gc.C) {
+func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"--upload-tools"})
+	err := jujutesting.InitCommand(cmd, []string{"--build-agent"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
-	c.Assert(cmd.UploadTools, jc.IsTrue)
+	c.Assert(cmd.BuildAgent, jc.IsTrue)
 }
 
 func (BSInteractSuite) TestInitArg(c *gc.C) {
@@ -52,11 +53,18 @@ func (BSInteractSuite) TestInitTwoArgs(c *gc.C) {
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
-func (BSInteractSuite) TestInitOtherFlag(c *gc.C) {
+func (BSInteractSuite) TestInitInfoOnlyFlag(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	err := jujutesting.InitCommand(cmd, []string{"--clouds"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
+}
+
+func (BSInteractSuite) TestInitVariousFlags(c *gc.C) {
+	cmd := &bootstrapCommand{}
+	err := jujutesting.InitCommand(cmd, []string{"--keep-broken", "--agent-version", version.Current.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
 func (BSInteractSuite) TestQueryCloud(c *gc.C) {

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -2399,10 +2399,10 @@ func (w *blockDevicesWatcher) loop() error {
 	}
 }
 
-// WatchForModelMigration returns a notify watcher which reports when
+// WatchForMigration returns a notify watcher which reports when
 // a migration is in progress for the model associated with the
 // State.
-func (st *State) WatchForModelMigration() NotifyWatcher {
+func (st *State) WatchForMigration() NotifyWatcher {
 	return newMigrationActiveWatcher(st)
 }
 
@@ -2483,6 +2483,12 @@ func (st *State) WatchMigrationStatus() NotifyWatcher {
 	// will only see changes for one migration status document at a
 	// time for the model.
 	return newNotifyCollWatcher(st, migrationsStatusC, isLocalID(st))
+}
+
+// WatchMachineRemovals returns a NotifyWatcher which triggers
+// whenever machine removal records are added or removed.
+func (st *State) WatchMachineRemovals() NotifyWatcher {
+	return newNotifyCollWatcher(st, machineRemovalsC, isLocalID(st))
 }
 
 // notifyCollWatcher implements NotifyWatcher, triggering when a

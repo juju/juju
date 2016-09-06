@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
@@ -38,7 +39,7 @@ type fakeDestroyAPI struct {
 
 func (f *fakeDestroyAPI) Close() error { return nil }
 
-func (f *fakeDestroyAPI) DestroyModel() error {
+func (f *fakeDestroyAPI) DestroyModel(names.ModelTag) error {
 	return f.err
 }
 
@@ -192,5 +193,5 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
 	s.runDestroyCommand(c, "test2", "-y")
-	c.Check(c.GetTestLog(), jc.Contains, "To remove the block")
+	c.Check(c.GetTestLog(), jc.Contains, "To enable the command")
 }

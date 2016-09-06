@@ -6,10 +6,15 @@ package commands
 import (
 	"fmt"
 	"io"
+	"os"
+	"time"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
+	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -101,7 +106,11 @@ func (c *debugLogCommand) Info() *cmd.Info {
 }
 
 func newDebugLogCommand() cmd.Command {
-	return modelcmd.Wrap(&debugLogCommand{})
+	return newDebugLogCommandTZ(time.Local)
+}
+
+func newDebugLogCommandTZ(tz *time.Location) cmd.Command {
+	return modelcmd.Wrap(&debugLogCommand{tz: tz})
 }
 
 type debugLogCommand struct {
@@ -109,9 +118,22 @@ type debugLogCommand struct {
 
 	level  string
 	params api.DebugLogParams
+
+	utc      bool
+	location bool
+	date     bool
+	ms       bool
+
+	tail   bool
+	notail bool
+	color  bool
+
+	format string
+	tz     *time.Location
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "Only show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "Only show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "Do not show log messages for these entities")
@@ -126,24 +148,45 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
 	f.UintVar(&c.params.Limit, "limit", 0, "Exit once this many of the most recent (possibly filtered) lines are shown")
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
-	f.BoolVar(&c.params.NoTail, "T", false, "Stop after returning existing log messages")
-	f.BoolVar(&c.params.NoTail, "no-tail", false, "")
+
+	f.BoolVar(&c.notail, "no-tail", false, "Stop after returning existing log messages")
+	f.BoolVar(&c.tail, "tail", false, "Wait for new logs")
+	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
+
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+	f.BoolVar(&c.location, "location", false, "Show filename and line numbers")
+	f.BoolVar(&c.date, "date", false, "Show dates as well as times")
+	f.BoolVar(&c.ms, "ms", false, "Show times to millisecond precision")
 }
 
 func (c *debugLogCommand) Init(args []string) error {
 	if c.level != "" {
 		level, ok := loggo.ParseLevel(c.level)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			return errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
 				c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		c.params.Level = level
+	}
+	if c.tail && c.notail {
+		return errors.NotValidf("setting --tail and --no-tail")
+	}
+	if c.utc {
+		c.tz = time.UTC
+	}
+	if c.date {
+		c.format = "2006-01-02 15:04:05"
+	} else {
+		c.format = "15:04:05"
+	}
+	if c.ms {
+		c.format = c.format + ".000"
 	}
 	return cmd.CheckEmpty(args)
 }
 
 type DebugLogAPI interface {
-	WatchDebugLog(params api.DebugLogParams) (io.ReadCloser, error)
+	WatchDebugLog(params api.DebugLogParams) (<-chan api.LogMessage, error)
 	Close() error
 }
 
@@ -151,18 +194,69 @@ var getDebugLogAPI = func(c *debugLogCommand) (DebugLogAPI, error) {
 	return c.NewAPIClient()
 }
 
+func isTerminal(out io.Writer) bool {
+	f, ok := out.(*os.File)
+	if !ok {
+		return false
+	}
+	return isatty.IsTerminal(f.Fd())
+}
+
 // Run retrieves the debug log via the API.
 func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
+	if c.tail {
+		c.params.NoTail = false
+	} else if c.notail {
+		c.params.NoTail = true
+	} else {
+		// Set the default tail option to true if the caller is
+		// using a terminal.
+		c.params.NoTail = !isTerminal(ctx.Stdout)
+	}
+
 	client, err := getDebugLogAPI(c)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	debugLog, err := client.WatchDebugLog(c.params)
+	messages, err := client.WatchDebugLog(c.params)
 	if err != nil {
 		return err
 	}
-	defer debugLog.Close()
-	_, err = io.Copy(ctx.Stdout, debugLog)
-	return err
+	writer := ansiterm.NewWriter(ctx.Stdout)
+	if c.color {
+		writer.SetColorCapable(true)
+	}
+	for {
+		msg, ok := <-messages
+		if !ok {
+			break
+		}
+		c.writeLogRecord(writer, msg)
+	}
+
+	return nil
+}
+
+var SeverityColor = map[string]*ansiterm.Context{
+	"TRACE":   ansiterm.Foreground(ansiterm.Default),
+	"DEBUG":   ansiterm.Foreground(ansiterm.Green),
+	"INFO":    ansiterm.Foreground(ansiterm.BrightBlue),
+	"WARNING": ansiterm.Foreground(ansiterm.Yellow),
+	"ERROR":   ansiterm.Foreground(ansiterm.BrightRed),
+	"CRITICAL": &ansiterm.Context{
+		Foreground: ansiterm.White,
+		Background: ansiterm.Red,
+	},
+}
+
+func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r api.LogMessage) {
+	ts := r.Timestamp.In(c.tz).Format(c.format)
+	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
+	SeverityColor[r.Severity].Fprintf(w, r.Severity)
+	fmt.Fprintf(w, " %s ", r.Module)
+	if c.location {
+		loggo.LocationColor.Fprintf(w, "%s ", r.Location)
+	}
+	fmt.Fprintln(w, r.Message)
 }

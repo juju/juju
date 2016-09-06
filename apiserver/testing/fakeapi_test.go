@@ -18,9 +18,10 @@ type fakeAPISuite struct {
 	testing.IsolationSuite
 }
 
+const fakeUUID = "f47ac10b-58cc-dead-beef-0e02b2c3d479"
+
 func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
 	var r root
-	fakeUUID := "dead-beef"
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
 		c.Check(modelUUID, gc.Equals, fakeUUID)
 		return &r
@@ -29,7 +30,7 @@ func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
 	info := &api.Info{
 		Addrs:    srv.Addrs,
 		CACert:   jtesting.CACert,
-		ModelTag: names.NewModelTag("dead-beef"),
+		ModelTag: names.NewModelTag(fakeUUID),
 	}
 	_, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,11 +50,11 @@ func (r *root) Admin(id string) (facade, error) {
 	return facade{r}, nil
 }
 
-func (f facade) Login(req params.LoginRequest) (params.LoginResultV1, error) {
+func (f facade) Login(req params.LoginRequest) (params.LoginResult, error) {
 	f.r.calledMethods = append(f.r.calledMethods, "Login")
-	return params.LoginResultV1{
-		ModelTag:      names.NewModelTag("dead-beef").String(),
-		ControllerTag: names.NewModelTag("dead-beef").String(),
+	return params.LoginResult{
+		ModelTag:      names.NewModelTag(fakeUUID).String(),
+		ControllerTag: names.NewControllerTag(fakeUUID).String(),
 		UserInfo: &params.AuthUserInfo{
 			DisplayName: "foo",
 			Identity:    "user-bar",

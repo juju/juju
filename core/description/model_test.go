@@ -635,6 +635,29 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
 
+func (s *ModelSerializationSuite) TestAction(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	enqueued := time.Now().UTC()
+	action := initial.AddAction(ActionArgs{
+		Name:       "foo",
+		Enqueued:   enqueued,
+		Parameters: map[string]interface{}{},
+		Results:    map[string]interface{}{},
+	})
+	c.Assert(action.Name(), gc.Equals, "foo")
+	c.Assert(action.Enqueued(), gc.Equals, enqueued)
+	actions := initial.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	c.Assert(actions[0], jc.DeepEquals, action)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Actions(), jc.DeepEquals, actions)
+}
+
 func (s *ModelSerializationSuite) TestVolumeValidation(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddVolume(testVolumeArgs())
@@ -680,4 +703,60 @@ func (s *ModelSerializationSuite) TestFilesystems(c *gc.C) {
 	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Filesystems(), jc.DeepEquals, filesystems)
+}
+
+func (s *ModelSerializationSuite) TestStorage(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	storage := initial.AddStorage(testStorageArgs())
+	storages := initial.Storages()
+	c.Assert(storages, gc.HasLen, 1)
+	c.Assert(storages[0], jc.DeepEquals, storage)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Storages(), jc.DeepEquals, storages)
+}
+
+func (s *ModelSerializationSuite) TestStoragePools(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	poolOne := map[string]interface{}{
+		"foo":   42,
+		"value": true,
+	}
+	poolTwo := map[string]interface{}{
+		"value": "spanner",
+	}
+	initial.AddStoragePool(StoragePoolArgs{
+		Name: "one", Provider: "sparkles", Attributes: poolOne})
+	initial.AddStoragePool(StoragePoolArgs{
+		Name: "two", Provider: "spanner", Attributes: poolTwo})
+
+	pools := initial.StoragePools()
+	c.Assert(pools, gc.HasLen, 2)
+	one, two := pools[0], pools[1]
+	c.Check(one.Name(), gc.Equals, "one")
+	c.Check(one.Provider(), gc.Equals, "sparkles")
+	c.Check(one.Attributes(), jc.DeepEquals, poolOne)
+	c.Check(two.Name(), gc.Equals, "two")
+	c.Check(two.Provider(), gc.Equals, "spanner")
+	c.Check(two.Attributes(), jc.DeepEquals, poolTwo)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pools = model.StoragePools()
+	c.Assert(pools, gc.HasLen, 2)
+	one, two = pools[0], pools[1]
+	c.Check(one.Name(), gc.Equals, "one")
+	c.Check(one.Provider(), gc.Equals, "sparkles")
+	c.Check(one.Attributes(), jc.DeepEquals, poolOne)
+	c.Check(two.Name(), gc.Equals, "two")
+	c.Check(two.Provider(), gc.Equals, "spanner")
+	c.Check(two.Attributes(), jc.DeepEquals, poolTwo)
 }

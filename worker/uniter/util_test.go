@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -47,7 +46,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -1692,117 +1690,6 @@ func (*mockCharmDirGuard) Unlock() error { return nil }
 
 // Lockdown implements fortress.Guard.
 func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
-
-// prepareGitUniter runs a sequence of uniter tests with the manifest deployer
-// replacement logic patched out, simulating the effect of running an older
-// version of juju that exclusively used a git deployer. This is useful both
-// for testing the new deployer-replacement code *and* for running the old
-// tests against the new, patched code to check that the tweaks made to
-// accommodate the manifest deployer do not change the original behaviour as
-// simulated by the patched-out code.
-type prepareGitUniter struct {
-	prepSteps []stepper
-}
-
-func (s prepareGitUniter) step(c *gc.C, ctx *context) {
-	c.Assert(ctx.uniter, gc.IsNil, gc.Commentf("please don't try to patch stuff while the uniter's running"))
-	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
-		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
-	}
-	restoreNewDeployer := gt.PatchValue(&charm.NewDeployer, newDeployer)
-	defer restoreNewDeployer()
-
-	fixDeployer := func(deployer *charm.Deployer) error {
-		return nil
-	}
-	restoreFixDeployer := gt.PatchValue(&charm.FixDeployer, fixDeployer)
-	defer restoreFixDeployer()
-
-	for _, prepStep := range s.prepSteps {
-		step(c, ctx, prepStep)
-	}
-	if ctx.uniter != nil {
-		step(c, ctx, stopUniter{})
-	}
-}
-
-func ugt(summary string, steps ...stepper) uniterTest {
-	return ut(summary, prepareGitUniter{steps})
-}
-
-type verifyGitCharm struct {
-	revision int
-	dirty    bool
-}
-
-func (s verifyGitCharm) step(c *gc.C, ctx *context) {
-	charmPath := filepath.Join(ctx.path, "charm")
-	if !s.dirty {
-		revisionPath := filepath.Join(charmPath, "revision")
-		content, err := ioutil.ReadFile(revisionPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
-		err = ctx.unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(url, gc.DeepEquals, curl(s.revision))
-	}
-
-	// Before we try to check the git status, make sure expected hooks are all
-	// complete, to prevent the test and the uniter interfering with each other.
-	step(c, ctx, waitHooks{})
-	step(c, ctx, waitHooks{})
-	cmd := exec.Command("git", "status")
-	cmd.Dir = filepath.Join(ctx.path, "charm")
-	out, err := cmd.CombinedOutput()
-	c.Assert(err, jc.ErrorIsNil)
-	cmp := gc.Matches
-	if s.dirty {
-		cmp = gc.Not(gc.Matches)
-	}
-	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
-}
-
-type startGitUpgradeError struct{}
-
-func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
-	steps := []stepper{
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				appendHook(c, path, "start", "echo STARTDATA > data")
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnitAgent{
-			status: status.StatusIdle,
-		},
-		waitHooks(startupHooks(false)),
-		verifyGitCharm{dirty: true},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
-				ft.File{"data", "<nelson>ha ha</nelson>", 0644}.Create(c, path)
-				ft.File{"ignore", "anything", 0644}.Create(c, path)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       status.StatusError,
-			info:         "upgrade failed",
-			charm:        1,
-		},
-		verifyWaiting{},
-		verifyGitCharm{dirty: true},
-	}
-	for _, s_ := range steps {
-		step(c, ctx, s_)
-	}
-}
 
 type provisionStorage struct{}
 

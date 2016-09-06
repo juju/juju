@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"os"
-
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -17,7 +15,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -38,11 +35,14 @@ var FakeVersionNumber = version.MustParse("1.99.0")
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
+// ControllerTag is a defined known valid UUID that can be used in testing.
+var ControllerTag = names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+
 // FakeControllerConfig() returns an environment configuration
 // that is expected to be found in state for a fake controller.
 func FakeControllerConfig() controller.Config {
 	return controller.Config{
-		"controller-uuid":         ModelTag.Id(),
+		"controller-uuid":         ControllerTag.Id(),
 		"ca-cert":                 CACert,
 		"state-port":              1234,
 		"api-port":                17777,
@@ -99,20 +99,14 @@ const DefaultMongoPassword = "conn-from-name-secret"
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
-	oldJujuXDGDataHome string
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuXDGDataHome := gitjujutesting.JujuXDGDataHomePath()
-	err := os.MkdirAll(jujuXDGDataHome, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 }
 
 func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
-	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.FakeHomeSuite.TearDownTest(c)
 	s.JujuOSEnvSuite.TearDownTest(c)
 }

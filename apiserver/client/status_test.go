@@ -61,18 +61,11 @@ var _ = gc.Suite(&statusUnitTestSuite{})
 
 type statusUnitTestSuite struct {
 	baseSuite
-	*factory.Factory
-}
-
-func (s *statusUnitTestSuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
-	// State gets reset per test, so must the factory.
-	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
-	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
-	container := s.MakeMachineNested(c, host.Id(), nil)
+	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
+	container := s.Factory.MakeMachineNested(c, host.Id(), nil)
 	machines := map[string][]*state.Machine{
 		host.Id(): {host, container},
 	}
@@ -85,14 +78,14 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
-	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
-	lxdHost := s.MakeMachineNested(c, host.Id(), nil)
+	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
+	lxdHost := s.Factory.MakeMachineNested(c, host.Id(), nil)
 	machines := map[string][]*state.Machine{
 		host.Id(): {
 			host,
 			lxdHost,
-			s.MakeMachineNested(c, lxdHost.Id(), nil),
-			s.MakeMachineNested(c, host.Id(), nil),
+			s.Factory.MakeMachineNested(c, lxdHost.Id(), nil),
+			s.Factory.MakeMachineNested(c, host.Id(), nil),
 		},
 	}
 
@@ -124,7 +117,7 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	service := s.MakeApplication(c, nil)
+	service := s.Factory.MakeApplication(c, nil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,7 +183,7 @@ func checkUnitVersion(c *gc.C, appStatus params.ApplicationStatus, unit *state.U
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
-	application := s.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "voltron")
 	unit3 := addUnitWithVersion(c, application, "zarkon")
@@ -202,7 +195,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
-	application := s.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 
 	appStatus := s.checkAppVersion(c, application, "voltron")
@@ -210,7 +203,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
-	application := s.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "")
 
@@ -220,12 +213,12 @@ func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
-	application := s.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	s.checkAppVersion(c, application, "")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
-	application := s.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	unit, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
@@ -255,7 +248,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus("")
 
 	// Start it migrating.
-	mig, err := state2.CreateModelMigration(state.ModelMigrationSpec{
+	mig, err := state2.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),

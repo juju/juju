@@ -43,7 +43,11 @@ See also: clouds
 `
 
 // NewUpdateCloudsCommand returns a command to update cloud information.
-func NewUpdateCloudsCommand() cmd.Command {
+var NewUpdateCloudsCommand = func() cmd.Command {
+	return newUpdateCloudsCommand()
+}
+
+func newUpdateCloudsCommand() cmd.Command {
 	return &updateCloudsCommand{
 		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
@@ -59,7 +63,7 @@ func (c *updateCloudsCommand) Info() *cmd.Info {
 }
 
 func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprint(ctxt.Stdout, "Fetching latest public cloud list...\n")
+	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
 	resp, err := client.Get(c.publicCloudURL)
 	if err != nil {
@@ -70,12 +74,12 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			fmt.Fprintln(ctxt.Stdout, "Public cloud list is unavailable right now.")
+			fmt.Fprintln(ctxt.Stderr, "Public cloud list is unavailable right now.")
 			return nil
 		case http.StatusUnauthorized:
 			return errors.Unauthorizedf("unauthorised access to URL %q", c.publicCloudURL)
 		}
-		return fmt.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
+		return errors.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
 	}
 
 	cloudData, err := decodeCheckSignature(resp.Body, c.publicSigningKey)
@@ -96,14 +100,14 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stdout, "Your list of public clouds is up to date, see `juju clouds`.")
+		fmt.Fprintln(ctxt.Stderr, "Your list of public clouds is up to date, see `juju clouds`.")
 		return nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {
 		return errors.Annotate(err, "error writing new local public cloud data")
 	}
 	updateDetails := diffClouds(newPublicClouds, currentPublicClouds)
-	fmt.Fprintln(ctxt.Stdout, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
+	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
 	return nil
 }
 
@@ -118,7 +122,7 @@ func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
 	}
 	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse public key: %v", err)
+		return nil, errors.Errorf("failed to parse public key: %v", err)
 	}
 
 	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
@@ -180,9 +184,10 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 	}
 
 	endpointChanged := new.Endpoint != old.Endpoint
+	identityEndpointChanged := new.IdentityEndpoint != old.IdentityEndpoint
 	storageEndpointChanged := new.StorageEndpoint != old.StorageEndpoint
 
-	if endpointChanged || storageEndpointChanged || new.Type != old.Type || !sameAuthTypes() {
+	if endpointChanged || identityEndpointChanged || storageEndpointChanged || new.Type != old.Type || !sameAuthTypes() {
 		diff.addChange(updateChange, attributeScope, cloudName)
 	}
 
@@ -200,7 +205,7 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 			continue
 
 		}
-		if (oldRegion.Endpoint != newRegion.Endpoint) || (oldRegion.StorageEndpoint != newRegion.StorageEndpoint) {
+		if (oldRegion.Endpoint != newRegion.Endpoint) || (oldRegion.IdentityEndpoint != newRegion.IdentityEndpoint) || (oldRegion.StorageEndpoint != newRegion.StorageEndpoint) {
 			diff.addChange(updateChange, regionScope, formatCloudRegion(newName))
 		}
 	}

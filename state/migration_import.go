@@ -19,8 +19,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 )
 
@@ -94,6 +96,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := restore.sshHostKeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshHostKeys")
+	}
+	if err := restore.actions(); err != nil {
+		return nil, nil, errors.Annotate(err, "actions")
 	}
 
 	if err := restore.modelUsers(); err != nil {
@@ -270,7 +275,6 @@ func (i *importer) machine(m description.Machine) error {
 	//    - adds status doc
 	//    - adds machine block devices doc
 
-	// TODO: consider filesystems and volumes
 	mStatus := m.Status()
 	if mStatus == nil {
 		return errors.NotValidf("missing status")
@@ -445,6 +449,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	machineTag := m.Tag()
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
@@ -459,7 +464,9 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		NoVote:                   true,  // State servers can't be migrated yet.
 		HasVote:                  false, // State servers can't be migrated yet.
 		PasswordHash:             m.PasswordHash(),
-		Clean:                    true, // check this later
+		Clean:                    !i.machineHasUnits(machineTag),
+		Volumes:                  i.machineVolumes(machineTag),
+		Filesystems:              i.machineFilesystems(machineTag),
 		Addresses:                i.makeAddresses(m.ProviderAddresses()),
 		MachineAddresses:         i.makeAddresses(m.MachineAddresses()),
 		PreferredPrivateAddress:  i.makeAddress(m.PreferredPrivateAddress()),
@@ -468,6 +475,41 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		SupportedContainers:      supportedContainers,
 		Placement:                m.Placement(),
 	}, nil
+}
+
+func (i *importer) machineHasUnits(tag names.MachineTag) bool {
+	for _, app := range i.model.Applications() {
+		for _, unit := range app.Units() {
+			if unit.Machine() == tag {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (i *importer) machineVolumes(tag names.MachineTag) []string {
+	var result []string
+	for _, volume := range i.model.Volumes() {
+		for _, attachment := range volume.Attachments() {
+			if attachment.Machine() == tag {
+				result = append(result, volume.Tag().Id())
+			}
+		}
+	}
+	return result
+}
+
+func (i *importer) machineFilesystems(tag names.MachineTag) []string {
+	var result []string
+	for _, filesystem := range i.model.Filesystems() {
+		for _, attachment := range filesystem.Attachments() {
+			if attachment.Machine() == tag {
+				result = append(result, filesystem.Tag().Id())
+			}
+		}
+	}
+	return result
 }
 
 func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
@@ -567,7 +609,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 }
 
 func (i *importer) application(s description.Application) error {
-	// Import this application, then soon, its units.
+	// Import this application, then its units.
 	i.logger.Debugf("importing application %s", s.Name())
 
 	// 1. construct an applicationDoc
@@ -584,15 +626,17 @@ func (i *importer) application(s description.Application) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops := addApplicationOps(i.st, addApplicationOpsArgs{
-		applicationDoc: sdoc,
-		statusDoc:      statusDoc,
-		constraints:    i.constraints(s.Constraints()),
-		// storage          TODO,
+	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
+		applicationDoc:     sdoc,
+		statusDoc:          statusDoc,
+		constraints:        i.constraints(s.Constraints()),
+		storage:            i.storageConstraints(s.StorageConstraints()),
 		settings:           s.Settings(),
-		settingsRefCount:   s.SettingsRefCount(),
 		leadershipSettings: s.LeadershipSettings(),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -624,6 +668,21 @@ func (i *importer) application(s description.Application) error {
 	}
 
 	return nil
+}
+
+func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
+	if len(cons) == 0 {
+		return nil
+	}
+	result := make(map[string]StorageConstraints)
+	for key, value := range cons {
+		result[key] = StorageConstraints{
+			Pool:  value.Pool(),
+			Size:  value.Size(),
+			Count: value.Count(),
+		}
+	}
+	return result
 }
 
 func (i *importer) unit(s description.Application, u description.Unit) error {
@@ -658,7 +717,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		StatusInfo: workloadVersion,
 	}
 
-	ops := addUnitOps(i.st, addUnitOpsArgs{
+	ops, err := addUnitOps(i.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  workloadStatusDoc,
@@ -668,6 +727,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 			Info: u.MeterStatusInfo(),
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the unit is a principal, add it to its machine.
 	if u.Principal().Id() == "" {
@@ -688,6 +750,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 
 	if err := i.st.runTransaction(ops); err != nil {
+		i.logger.Debugf("failed ops: %#v", ops)
 		return errors.Trace(err)
 	}
 
@@ -705,6 +768,32 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
+	}
+	if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {
+	up, err := i.st.UnitPayloads(unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, p := range payloads {
+		if err := up.Track(payload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: p.Name(),
+				Type: p.Type(),
+			},
+			ID:     p.RawID(),
+			Status: p.State(),
+			Labels: p.Labels(),
+		}); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -766,18 +855,30 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	}
 
 	return &unitDoc{
-		Name:         u.Name(),
-		Application:  s.Name(),
-		Series:       s.Series(),
-		CharmURL:     charmUrl,
-		Principal:    u.Principal().Id(),
-		Subordinates: subordinates,
-		// StorageAttachmentCount int `bson:"storageattachmentcount"`
-		MachineId:    u.Machine().Id(),
-		Tools:        i.makeTools(u.Tools()),
-		Life:         Alive,
-		PasswordHash: u.PasswordHash(),
+		Name:                   u.Name(),
+		Application:            s.Name(),
+		Series:                 s.Series(),
+		CharmURL:               charmUrl,
+		Principal:              u.Principal().Id(),
+		Subordinates:           subordinates,
+		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),
+		MachineId:              u.Machine().Id(),
+		Tools:                  i.makeTools(u.Tools()),
+		Life:                   Alive,
+		PasswordHash:           u.PasswordHash(),
 	}, nil
+}
+
+func (i *importer) unitStorageAttachmentCount(unit names.UnitTag) int {
+	count := 0
+	for _, storage := range i.model.Storages() {
+		for _, tag := range storage.Attachments() {
+			if tag == unit {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func (i *importer) relations() error {
@@ -1067,6 +1168,57 @@ func (i *importer) sshHostKeys() error {
 	return nil
 }
 
+func (i *importer) actions() error {
+	i.logger.Debugf("importing actions")
+	for _, action := range i.model.Actions() {
+		err := i.addAction(action)
+		if err != nil {
+			i.logger.Errorf("error importing action %v: %s", action, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing actions succeeded")
+	return nil
+}
+
+func (i *importer) addAction(action description.Action) error {
+	modelUUID := i.st.ModelUUID()
+	newDoc := &actionDoc{
+		DocId:      i.st.docID(action.Id()),
+		ModelUUID:  modelUUID,
+		Receiver:   action.Receiver(),
+		Name:       action.Name(),
+		Parameters: action.Parameters(),
+		Enqueued:   action.Enqueued(),
+		Results:    action.Results(),
+		Message:    action.Message(),
+		Started:    action.Started(),
+		Completed:  action.Completed(),
+		Status:     ActionStatus(action.Status()),
+	}
+	prefix := ensureActionMarker(action.Receiver())
+	notificationDoc := &actionNotificationDoc{
+		DocId:     i.st.docID(prefix + action.Id()),
+		ModelUUID: modelUUID,
+		Receiver:  action.Receiver(),
+		ActionID:  action.Id(),
+	}
+	ops := []txn.Op{{
+		C:      actionsC,
+		Id:     newDoc.DocId,
+		Insert: newDoc,
+	}, {
+		C:      actionNotificationsC,
+		Id:     notificationDoc.DocId,
+		Insert: notificationDoc,
+	}}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
 	docs := make([]interface{}, len(history))
 	for i, statusVal := range history {
@@ -1131,11 +1283,64 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
+	if err := i.storageInstances(); err != nil {
+		return errors.Annotate(err, "storage instances")
+	}
 	if err := i.volumes(); err != nil {
 		return errors.Annotate(err, "volumes")
 	}
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
+	}
+	if err := i.storagePools(); err != nil {
+		return errors.Annotate(err, "storage pools")
+	}
+	return nil
+}
+
+func (i *importer) storageInstances() error {
+	i.logger.Debugf("importing storage instances")
+	for _, storage := range i.model.Storages() {
+		err := i.addStorageInstance(storage)
+		if err != nil {
+			i.logger.Errorf("error importing storage %s: %s", storage.Tag(), err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing storage instances succeeded")
+	return nil
+}
+
+func (i *importer) addStorageInstance(storage description.Storage) error {
+	kind := parseStorageKind(storage.Kind())
+	if kind == StorageKindUnknown {
+		return errors.Errorf("storage kind %q is unknown", storage.Kind())
+	}
+	owner, err := storage.Owner()
+	if err != nil {
+		return errors.Annotate(err, "storage owner")
+	}
+	attachments := storage.Attachments()
+	tag := storage.Tag()
+	var ops []txn.Op
+	for _, unit := range attachments {
+		ops = append(ops, createStorageAttachmentOp(tag, unit))
+	}
+	doc := &storageInstanceDoc{
+		Id:              storage.Tag().Id(),
+		Kind:            kind,
+		Owner:           owner.String(),
+		StorageName:     storage.Name(),
+		AttachmentCount: len(attachments),
+	}
+	ops = append(ops, txn.Op{
+		C:      storageInstancesC,
+		Id:     tag.Id(),
+		Assert: txn.DocMissing,
+		Insert: doc,
+	})
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -1182,9 +1387,8 @@ func (i *importer) addVolume(volume description.Volume) error {
 		}
 	}
 	doc := volumeDoc{
-		Name: tag.Id(),
-		// TODO: add storage ID
-		// StorageId: ...,
+		Name:      tag.Id(),
+		StorageId: volume.Storage().Id(),
 		// Life: ..., // TODO: import life, default is Alive
 		Binding:         binding,
 		Params:          params,
@@ -1332,4 +1536,20 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 			Info:   info,
 		},
 	}
+}
+
+func (i *importer) storagePools() error {
+	registry, err := i.st.storageProviderRegistry()
+	if err != nil {
+		return errors.Annotate(err, "getting provider registry")
+	}
+	pm := poolmanager.New(NewStateSettings(i.st), registry)
+
+	for _, pool := range i.model.StoragePools() {
+		_, err := pm.Create(pool.Name(), storage.ProviderType(pool.Provider()), pool.Attributes())
+		if err != nil {
+			return errors.Annotatef(err, "creating pool %q", pool.Name())
+		}
+	}
+	return nil
 }

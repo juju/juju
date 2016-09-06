@@ -30,9 +30,12 @@ type modelUserLastConnectionDoc struct {
 }
 
 // setModelAccess changes the user's access permissions on the model.
-func (st *State) setModelAccess(access description.Access, userGlobalKey string) error {
-	op := updatePermissionOp(modelGlobalKey, userGlobalKey, access)
-	err := st.runTransaction([]txn.Op{op})
+func (st *State) setModelAccess(access description.Access, userGlobalKey, modelUUID string) error {
+	if err := description.ValidateModelAccess(access); err != nil {
+		return errors.Trace(err)
+	}
+	op := updatePermissionOp(modelKey(modelUUID), userGlobalKey, access)
+	err := st.runTransactionFor(modelUUID, []txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -101,15 +104,18 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 }
 
 // ModelUser a model userAccessDoc.
-func (st *State) modelUser(user names.UserTag) (userAccessDoc, error) {
+func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
 	modelUser := userAccessDoc{}
-	modelUsers, closer := st.getCollection(modelUsersC)
+	modelUsers, closer := st.getCollectionFor(modelUUID, modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
 	err := modelUsers.FindId(username).One(&modelUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("model user %q", username)
+	}
+	if err != nil {
+		return userAccessDoc{}, errors.Trace(err)
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
@@ -127,8 +133,9 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
 	}
+
 	ops := []txn.Op{
-		createPermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user)), access),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
@@ -136,21 +143,23 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 			Insert: doc,
 		},
 	}
-
 	return ops
 }
 
-// removeModelUser removes a user from the database.
-func (st *State) removeModelUser(user names.UserTag) error {
-	ops := []txn.Op{
-		removePermissionOp(modelGlobalKey, userGlobalKey(userAccessID(user))),
+func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
+}
 
+// removeModelUser removes a user from the database.
+func (st *State) removeModelUser(user names.UserTag) error {
+	ops := removeModelUserOps(st.ModelUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))
@@ -214,35 +223,14 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	return result, nil
 }
 
-// IsControllerAdministrator returns true if the user specified has access to the
-// controller model (the system model).
-func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
-	ssinfo, err := st.ControllerInfo()
-	if err != nil {
-		return false, errors.Annotate(err, "could not get controller info")
+// IsControllerAdmin returns true if the user specified has Super User Access.
+func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
+	ua, err := st.UserAccess(user, st.ControllerTag())
+	if errors.IsNotFound(err) {
+		return false, nil
 	}
-
-	serverUUID := ssinfo.ModelTag.Id()
-
-	modelPermission, closer := st.getRawCollection(permissionsC)
-	defer closer()
-
-	username := strings.ToLower(user.Canonical())
-	subjectGlobalKey := userGlobalKey(username)
-
-	// TODO(perrito666) 20160606 this is prone to errors, it will just
-	// yield ErrPerm and be hard to trace, use ModelUser and Permission.
-	// TODO(perrito666) 20160614 since last change on this query it has
-	// too much out of band knowledge, it should go away when controller
-	// permissions are implemented.
-	count, err := modelPermission.Find(bson.D{
-		{"_id", fmt.Sprintf("%s:%s", serverUUID, permissionID(modelGlobalKey, subjectGlobalKey))},
-		{"object-global-key", modelGlobalKey},
-		{"subject-global-key", subjectGlobalKey},
-		{"access", description.AdminAccess},
-	}).Count()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return count == 1, nil
+	return ua.Access == description.SuperuserAccess, nil
 }

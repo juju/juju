@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -29,23 +30,29 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
-	IsControllerAdministrator(user names.UserTag) (bool, error)
+	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
-	ComposeNewModelConfig(modelAttr map[string]interface{}) (map[string]interface{}, error)
+	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
+	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
+	Unit(name string) (*state.Unit, error)
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
 	AllModels() ([]Model, error)
-	AddModelUser(state.UserAccessSpec) (description.UserAccess, error)
+	AddModelUser(string, state.UserAccessSpec) (description.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
-	ModelTag() names.ModelTag
+	ControllerUUID() string
+	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)
+	DumpAll() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -59,7 +66,7 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	Cloud() string
-	CloudCredential() string
+	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]description.UserAccess, error)
 	Destroy() error
@@ -103,6 +110,15 @@ func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBacken
 		return nil, err
 	}
 	return modelManagerStateShim{otherState}, nil
+}
+
+// GetModel implements ModelManagerBackend.
+func (st modelManagerStateShim) GetModel(tag names.ModelTag) (Model, error) {
+	m, err := st.State.GetModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	return modelShim{m}, nil
 }
 
 // Model implements ModelManagerBackend.

@@ -81,6 +81,9 @@ type storageAccess interface {
 	// ModelName is required for pool functionality.
 	ModelName() (string, error)
 
+	// ModelTag is required for model permission checking.
+	ModelTag() names.ModelTag
+
 	// AllVolumes is required for volume functionality.
 	AllVolumes() ([]state.Volume, error)
 

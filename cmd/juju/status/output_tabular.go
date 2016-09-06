@@ -4,19 +4,19 @@
 package status
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"regexp"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -76,40 +76,25 @@ func (r *relationFormatter) get(k string) *statusRelation {
 	return r.relations[k]
 }
 
-func printHelper(tw *tabwriter.Writer) func(...interface{}) {
-	return func(values ...interface{}) {
-		for i, v := range values {
-			if i != len(values)-1 {
-				fmt.Fprintf(tw, "%v\t", v)
-			} else {
-				fmt.Fprintf(tw, "%v", v)
-			}
-		}
-		fmt.Fprintln(tw)
-	}
-}
-
-func getTabWriter(out io.Writer) *tabwriter.Writer {
-	padding := 2
-	return tabwriter.NewWriter(out, 0, 1, padding, ' ', 0)
-}
-
-// FormatTabular returns a tabular summary of machines, applications, and
+// FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
-func FormatTabular(value interface{}) ([]byte, error) {
+func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	const maxVersionWidth = 7
 	const ellipsis = "..."
 	const truncatedWidth = maxVersionWidth - len(ellipsis)
 
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
 	// To format things into columns.
-	tw := getTabWriter(&out)
-	p := printHelper(tw)
+	tw := output.TabWriter(writer)
+	if forceColor {
+		tw.SetColorCapable(forceColor)
+	}
+	w := output.Wrapper{tw}
+	p := w.Println
 	outputHeaders := func(values ...interface{}) {
 		p()
 		p(values...)
@@ -122,10 +107,12 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD/REGION", "VERSION"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
-	if fs.Model.AvailableVersion != "" {
-		header = append(header, "UPGRADE-AVAILABLE")
-		values = append(values, fs.Model.AvailableVersion)
+	message := getModelMessage(fs.Model)
+	if message != "" {
+		header = append(header, "NOTES")
+		values = append(values, message)
 	}
+
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	p(header...)
 	p(values...)
@@ -133,7 +120,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	outputHeaders("APP", "VERSION", "STATUS", "EXPOSED", "ORIGIN", "CHARM", "REV", "OS")
+	outputHeaders("APP", "VERSION", "STATUS", "SCALE", "CHARM", "STORE", "REV", "OS", "NOTES")
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
@@ -141,14 +128,19 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
 		}
-		p(appName,
-			version,
-			app.StatusInfo.Current,
-			fmt.Sprintf("%t", app.Exposed),
-			app.CharmOrigin,
+		// Notes may well contain other things later.
+		notes := ""
+		if app.Exposed {
+			notes = "exposed"
+		}
+		w.Print(appName, version)
+		w.PrintStatus(app.StatusInfo.Current)
+		p(fs.applicationScale(appName),
 			app.CharmName,
+			app.CharmOrigin,
 			app.CharmRev,
-			app.OS)
+			app.OS,
+			notes)
 
 		for un, u := range app.Units {
 			units[un] = u
@@ -156,7 +148,6 @@ func FormatTabular(value interface{}) ([]byte, error) {
 				metering = true
 			}
 		}
-
 		// Ensure that we pick a consistent name for peer relations.
 		sortedRelTypes := make([]string, 0, len(app.Relations))
 		for relType := range app.Relations {
@@ -188,10 +179,10 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)
 		}
+		w.Print(indent("", level*2, name))
+		w.PrintStatus(u.WorkloadStatusInfo.Current)
+		w.PrintStatus(u.JujuStatusInfo.Current)
 		p(
-			indent("", level*2, name),
-			u.WorkloadStatusInfo.Current,
-			u.JujuStatusInfo.Current,
 			u.Machine,
 			u.PublicAddress,
 			strings.Join(u.OpenedPorts, ","),
@@ -217,38 +208,33 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		}
 	}
 
-	var pMachine func(machineStatus)
-	pMachine = func(m machineStatus) {
-		// We want to display availability zone so extract from hardware info".
-		hw, err := instance.ParseHardware(m.Hardware)
-		if err != nil {
-			logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
-		}
-		az := ""
-		if hw.AvailabilityZone != nil {
-			az = *hw.AvailabilityZone
-		}
-		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
-		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
-			pMachine(m.Containers[name])
-		}
-	}
-
 	p()
 	printMachines(tw, fs.Machines)
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }
 
-func printMachines(tw *tabwriter.Writer, machines map[string]machineStatus) {
-	p := printHelper(tw)
-	p("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
-	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
-		printMachine(p, machines[name], "")
+func getModelMessage(model modelStatus) string {
+	// Select the most important message about the model (if any).
+	switch {
+	case model.Migration != "":
+		return "migrating: " + model.Migration
+	case model.AvailableVersion != "":
+		return "upgrade available: " + model.AvailableVersion
+	default:
+		return ""
 	}
 }
 
-func printMachine(p func(...interface{}), m machineStatus, prefix string) {
+func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
+	w := output.Wrapper{tw}
+	w.Println("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
+		printMachine(w, machines[name])
+	}
+}
+
+func printMachine(w output.Wrapper, m machineStatus) {
 	// We want to display availability zone so extract from hardware info".
 	hw, err := instance.ParseHardware(m.Hardware)
 	if err != nil {
@@ -258,26 +244,28 @@ func printMachine(p func(...interface{}), m machineStatus, prefix string) {
 	if hw.AvailabilityZone != nil {
 		az = *hw.AvailabilityZone
 	}
-	p(prefix+m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
+	w.Print(m.Id)
+	w.PrintStatus(m.JujuStatus.Current)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az)
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
-		printMachine(p, m.Containers[name], prefix+"  ")
+		printMachine(w, m.Containers[name])
 	}
 }
 
-// FormatMachineTabular returns a tabular summary of machine
-func FormatMachineTabular(value interface{}) ([]byte, error) {
+// FormatMachineTabular writes a tabular summary of machine
+func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	fs, valueConverted := value.(formattedMachineStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
-	// To format things into columns.
-	tw := getTabWriter(&out)
-
+	tw := output.TabWriter(writer)
+	if forceColor {
+		tw.SetColorCapable(forceColor)
+	}
 	printMachines(tw, fs.Machines)
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }
 
 // agentDoing returns what hook or action, if any,

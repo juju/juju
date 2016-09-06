@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -117,7 +118,7 @@ func decorateAndWriteInfo(
 		names.NewUserTag(details.AccountDetails.User),
 		modelName,
 	)
-	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
+	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	if err := store.UpdateBootstrapConfig(controllerName, details.BootstrapConfig); err != nil {
@@ -147,9 +148,7 @@ func prepare(
 		return nil, details, errors.Trace(err)
 	}
 
-	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{
-		args.ControllerConfig.ControllerUUID(), args.Cloud, cfg,
-	})
+	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{args.Cloud, cfg})
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
@@ -200,8 +199,10 @@ func prepare(
 	}
 	details.CACert = caCert
 	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
+	details.ControllerModelUUID = args.ModelConfig[config.UUIDKey].(string)
 	details.User = environs.AdminUser
 	details.Password = args.AdminSecret
+	details.LastKnownAccess = string(description.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region
@@ -209,6 +210,7 @@ func prepare(
 	details.BootstrapConfig.Cloud = args.Cloud.Name
 	details.BootstrapConfig.CloudRegion = args.Cloud.Region
 	details.CloudEndpoint = args.Cloud.Endpoint
+	details.CloudIdentityEndpoint = args.Cloud.IdentityEndpoint
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 

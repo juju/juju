@@ -21,7 +21,7 @@ const diskTypesBase = "https://www.googleapis.com/compute/v1/projects/%s/zones/%
 // These are attempt strategies used in waitOperation.
 var (
 	// TODO(ericsnow) Tune the timeouts and delays.
-
+	// TODO(katco): 2016-08-09: lp:1611427
 	attemptsLong = utils.AttemptStrategy{
 		Total: 5 * time.Minute,
 		Delay: 2 * time.Second,
@@ -325,6 +325,8 @@ var doOpCall = func(call opDoer) (*compute.Operation, error) {
 // waitOperation waits for the provided operation to reach the "done"
 // status. It follows the given attempt strategy (e.g. wait time between
 // attempts) and may time out.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attempts utils.AttemptStrategy) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	started := time.Now()

@@ -32,22 +32,8 @@ import (
 // or macaroons. Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	err := st.loginV3(tag, password, nonce, ms)
-	return errors.Trace(err)
-}
-
-// loginV2 is retained for testing logins from older clients.
-func (st *state) loginV2(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	return st.loginForVersion(tag, password, nonce, ms, 2)
-}
-
-func (st *state) loginV3(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	return st.loginForVersion(tag, password, nonce, ms, 3)
-}
-
-func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroons []macaroon.Slice, vers int) error {
-	var result params.LoginResultV1
+func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
+	var result params.LoginResult
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
 		Credentials: password,
@@ -61,7 +47,7 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
 		)
 	}
-	err := st.APICall("Admin", vers, "", "Login", request, &result)
+	err := st.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		var resp params.RedirectInfoResult
 		if params.IsRedirect(err) {
@@ -99,8 +85,8 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
-		result = params.LoginResultV1{} // zero result
-		err = st.APICall("Admin", vers, "", "Login", request, &result)
+		result = params.LoginResult{} // zero result
+		err = st.APICall("Admin", 3, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -109,22 +95,25 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 	}
 
-	var readOnly bool
+	var controllerAccess string
+	var modelAccess string
 	if result.UserInfo != nil {
 		tag, err = names.ParseTag(result.UserInfo.Identity)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		readOnly = result.UserInfo.ReadOnly
+		controllerAccess = result.UserInfo.ControllerAccess
+		modelAccess = result.UserInfo.ModelAccess
 	}
 	servers := params.NetworkHostsPorts(result.Servers)
 	if err = st.setLoginResult(loginResultParams{
-		tag:           tag,
-		modelTag:      result.ModelTag,
-		controllerTag: result.ControllerTag,
-		servers:       servers,
-		facades:       result.Facades,
-		readOnly:      readOnly,
+		tag:              tag,
+		modelTag:         result.ModelTag,
+		controllerTag:    result.ControllerTag,
+		servers:          servers,
+		facades:          result.Facades,
+		modelAccess:      modelAccess,
+		controllerAccess: controllerAccess,
 	}); err != nil {
 		return errors.Trace(err)
 	}
@@ -136,19 +125,35 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 }
 
 type loginResultParams struct {
-	tag           names.Tag
-	modelTag      string
-	controllerTag string
-	readOnly      bool
-	servers       [][]network.HostPort
-	facades       []params.FacadeVersions
+	tag              names.Tag
+	modelTag         string
+	controllerTag    string
+	modelAccess      string
+	controllerAccess string
+	servers          [][]network.HostPort
+	facades          []params.FacadeVersions
 }
 
 func (st *state) setLoginResult(p loginResultParams) error {
 	st.authTag = p.tag
-	st.modelTag = p.modelTag
-	st.controllerTag = p.controllerTag
-	st.readOnly = p.readOnly
+	var modelTag names.ModelTag
+	if p.modelTag != "" {
+		var err error
+		modelTag, err = names.ParseModelTag(p.modelTag)
+		if err != nil {
+			return errors.Annotatef(err, "invalid model tag in login result")
+		}
+	}
+	if modelTag.Id() != st.modelTag.Id() {
+		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), st.modelTag.Id())
+	}
+	ctag, err := names.ParseControllerTag(p.controllerTag)
+	if err != nil {
+		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.controllerTag)
+	}
+	st.controllerTag = ctag
+	st.controllerAccess = p.controllerAccess
+	st.modelAccess = p.modelAccess
 
 	hostPorts, err := addAddress(p.servers, st.addr)
 	if err != nil {
@@ -173,10 +178,14 @@ func (st *state) AuthTag() names.Tag {
 	return st.authTag
 }
 
-// ReadOnly returns whether the authorized user is connected to the model in
-// read-only mode.
-func (st *state) ReadOnly() bool {
-	return st.readOnly
+// ModelAccess returns the access level of authorized user to the model.
+func (st *state) ModelAccess() string {
+	return st.modelAccess
+}
+
+// ControllerAccess returns the access level of authorized user to the model.
+func (st *state) ControllerAccess() string {
+	return st.controllerAccess
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be

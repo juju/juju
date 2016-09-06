@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/common"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -20,12 +19,12 @@ import (
 
 type ResolvedSuite struct {
 	jujutesting.RepoSuite
-	common.CmdBlockHelper
+	testing.CmdBlockHelper
 }
 
 func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }

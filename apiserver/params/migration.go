@@ -3,40 +3,46 @@
 
 package params
 
-import "time"
+import (
+	"time"
 
-// InitiateModelMigrationArgs holds the details required to start one
-// or more model migrations.
-type InitiateModelMigrationArgs struct {
-	Specs []ModelMigrationSpec `json:"specs"`
+	"github.com/juju/version"
+)
+
+// InitiateMigrationArgs holds the details required to start one or
+// more model migrations.
+type InitiateMigrationArgs struct {
+	Specs []MigrationSpec `json:"specs"`
 }
 
-// ModelMigrationSpec holds the details required to start the
-// migration of a single model.
-type ModelMigrationSpec struct {
-	ModelTag   string                   `json:"model-tag"`
-	TargetInfo ModelMigrationTargetInfo `json:"target-info"`
+// MigrationSpec holds the details required to start the migration of
+// a single model.
+type MigrationSpec struct {
+	ModelTag        string              `json:"model-tag"`
+	TargetInfo      MigrationTargetInfo `json:"target-info"`
+	ExternalControl bool                `json:"external-control"`
 }
 
-// ModelMigrationTargetInfo holds the details required to connect to
-// and authenticate with a remote controller for model migration.
-type ModelMigrationTargetInfo struct {
+// MigrationTargetInfo holds the details required to connect to and
+// authenticate with a remote controller for model migration.
+type MigrationTargetInfo struct {
 	ControllerTag string   `json:"controller-tag"`
 	Addrs         []string `json:"addrs"`
 	CACert        string   `json:"ca-cert"`
 	AuthTag       string   `json:"auth-tag"`
-	Password      string   `json:"password"`
+	Password      string   `json:"password,omitempty"`
+	Macaroon      string   `json:"macaroon,omitempty"`
 }
 
-// InitiateModelMigrationResults is used to return the result of one
-// or more attempts to start model migrations.
-type InitiateModelMigrationResults struct {
-	Results []InitiateModelMigrationResult `json:"results"`
+// InitiateMigrationResults is used to return the result of one or
+// more attempts to start model migrations.
+type InitiateMigrationResults struct {
+	Results []InitiateMigrationResult `json:"results"`
 }
 
-// InitiateModelMigrationResult is used to return the result of one
-// model migration initiation attempt.
-type InitiateModelMigrationResult struct {
+// InitiateMigrationResult is used to return the result of one model
+// migration initiation attempt.
+type InitiateMigrationResult struct {
 	ModelTag    string `json:"model-tag"`
 	Error       *Error `json:"error,omitempty"`
 	MigrationId string `json:"migration-id"`
@@ -83,10 +89,19 @@ type ModelArgs struct {
 // model migration for the migrationmaster. It includes authentication
 // details for the remote controller.
 type MasterMigrationStatus struct {
-	Spec             ModelMigrationSpec `json:"spec"`
-	MigrationId      string             `json:"migration-id"`
-	Phase            string             `json:"phase"`
-	PhaseChangedTime time.Time          `json:"phase-changed-time"`
+	Spec             MigrationSpec `json:"spec"`
+	MigrationId      string        `json:"migration-id"`
+	Phase            string        `json:"phase"`
+	PhaseChangedTime time.Time     `json:"phase-changed-time"`
+}
+
+// MigrationModelInfo is used to report basic model information to the
+// migrationmaster worker.
+type MigrationModelInfo struct {
+	UUID         string         `json:"uuid"`
+	Name         string         `json:"name"`
+	OwnerTag     string         `json:"owner-tag"`
+	AgentVersion version.Number `json:"agent-version"`
 }
 
 // MigrationStatus reports the current status of a model migration.

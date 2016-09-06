@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -51,12 +51,13 @@ func (c *listKeysCommand) Info() *cmd.Info {
 		Name:    "ssh-keys",
 		Purpose: usageListSSHKeysSummary,
 		Doc:     usageListSSHKeysDetails,
-		Aliases: []string{"list-ssh-keys", "ssh-key", "list-ssh-key"},
+		Aliases: []string{"list-ssh-keys"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.SSHKeysBase.SetFlags(f)
 	f.BoolVar(&c.showFullKey, "full", false, "Show full key instead of just the fingerprint")
 }
 

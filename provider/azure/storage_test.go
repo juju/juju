@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,8 +87,17 @@ func (s *storageSuite) accountsSender() *azuretesting.MockSender {
 }
 
 func (s *storageSuite) accountKeysSender() *azuretesting.MockSender {
-	keys := armstorage.AccountKeys{Key1: to.StringPtr(fakeStorageAccountKey), Key2: to.StringPtr("key2")}
-	keysSender := azuretesting.NewSenderWithValue(&keys)
+	keys := []armstorage.AccountKey{{
+		KeyName:     to.StringPtr(fakeStorageAccountKey + "-name"),
+		Value:       to.StringPtr(fakeStorageAccountKey),
+		Permissions: armstorage.FULL,
+	}, {
+		KeyName:     to.StringPtr("key2-name"),
+		Value:       to.StringPtr("key2"),
+		Permissions: armstorage.FULL,
+	}}
+	result := armstorage.AccountListKeysResult{Keys: &keys}
+	keysSender := azuretesting.NewSenderWithValue(&result)
 	keysSender.PathPattern = ".*/storageAccounts/.*/listKeys"
 	return keysSender
 }
@@ -122,11 +131,11 @@ func (s *storageSuite) TestScope(c *gc.C) {
 
 func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	// machine-1 has a single data disk with LUN 0.
-	machine1DataDisks := []compute.DataDisk{{Lun: to.IntPtr(0)}}
+	machine1DataDisks := []compute.DataDisk{{Lun: to.Int32Ptr(0)}}
 	// machine-2 has 32 data disks; no LUNs free.
 	machine2DataDisks := make([]compute.DataDisk, 32)
 	for i := range machine2DataDisks {
-		machine2DataDisks[i].Lun = to.IntPtr(i)
+		machine2DataDisks[i].Lun = to.Int32Ptr(int32(i))
 	}
 
 	// volume-0 and volume-2 are attached to machine-0
@@ -220,8 +229,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	c.Assert(s.requests[4].Method, gc.Equals, "PUT") // update machine-1
 
 	machine0DataDisks := []compute.DataDisk{{
-		Lun:        to.IntPtr(0),
-		DiskSizeGB: to.IntPtr(1),
+		Lun:        to.Int32Ptr(0),
+		DiskSizeGB: to.Int32Ptr(1),
 		Name:       to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
@@ -230,8 +239,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
 	}, {
-		Lun:        to.IntPtr(1),
-		DiskSizeGB: to.IntPtr(1),
+		Lun:        to.Int32Ptr(1),
+		DiskSizeGB: to.Int32Ptr(1),
 		Name:       to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
@@ -244,8 +253,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	assertRequestBody(c, s.requests[3], &virtualMachines[0])
 
 	machine1DataDisks = append(machine1DataDisks, compute.DataDisk{
-		Lun:        to.IntPtr(1),
-		DiskSizeGB: to.IntPtr(2),
+		Lun:        to.Int32Ptr(1),
+		DiskSizeGB: to.Int32Ptr(2),
 		Name:       to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
@@ -387,7 +396,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	// machine-1 has a single data disk with LUN 0.
 	machine1DataDisks := []compute.DataDisk{{
-		Lun:  to.IntPtr(0),
+		Lun:  to.Int32Ptr(0),
 		Name: to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
@@ -399,7 +408,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	// machine-2 has 32 data disks; no LUNs free.
 	machine2DataDisks := make([]compute.DataDisk, 32)
 	for i := range machine2DataDisks {
-		machine2DataDisks[i].Lun = to.IntPtr(i)
+		machine2DataDisks[i].Lun = to.Int32Ptr(int32(i))
 		machine2DataDisks[i].Name = to.StringPtr(fmt.Sprintf("volume-%d", i))
 		machine2DataDisks[i].Vhd = &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
@@ -492,7 +501,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
 
 	machine0DataDisks := []compute.DataDisk{{
-		Lun:  to.IntPtr(0),
+		Lun:  to.Int32Ptr(0),
 		Name: to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
@@ -501,7 +510,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Attach,
 	}, {
-		Lun:  to.IntPtr(1),
+		Lun:  to.Int32Ptr(1),
 		Name: to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
@@ -517,7 +526,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	// machine-0 has a three data disks: volume-0, volume-1 and volume-2
 	machine0DataDisks := []compute.DataDisk{{
-		Lun:  to.IntPtr(0),
+		Lun:  to.Int32Ptr(0),
 		Name: to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
@@ -526,7 +535,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 			)),
 		},
 	}, {
-		Lun:  to.IntPtr(1),
+		Lun:  to.Int32Ptr(1),
 		Name: to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
@@ -535,7 +544,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 			)),
 		},
 	}, {
-		Lun:  to.IntPtr(2),
+		Lun:  to.Int32Ptr(2),
 		Name: to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(

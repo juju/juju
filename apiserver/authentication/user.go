@@ -116,6 +116,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	}
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
+		logger.Debugf("entity %s not found", tag.String())
 		return nil, errors.Trace(common.ErrBadCreds)
 	} else if err != nil {
 		return nil, errors.Trace(err)

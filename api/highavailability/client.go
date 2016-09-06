@@ -26,10 +26,7 @@ type Client struct {
 
 // NewClient returns a new HighAvailability client.
 func NewClient(caller base.APICallCloser) *Client {
-	modelTag, err := caller.ModelTag()
-	if err != nil {
-		logger.Errorf("ignoring invalid model tag: %v", err)
-	}
+	modelTag, _ := caller.ModelTag()
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
 	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
 }
@@ -66,7 +63,12 @@ func (c *Client) EnableHA(
 // to shut down their mongo server.
 func (c *Client) MongoUpgradeMode(v mongo.Version) (params.MongoUpgradeResults, error) {
 	arg := params.UpgradeMongoParams{
-		Target: v,
+		Target: params.MongoVersion{
+			Major:         v.Major,
+			Minor:         v.Minor,
+			Patch:         v.Patch,
+			StorageEngine: string(v.StorageEngine),
+		},
 	}
 	results := params.MongoUpgradeResults{}
 	if err := c.facade.FacadeCall("StopHAReplicationForUpgrade", arg, &results); err != nil {

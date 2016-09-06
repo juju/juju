@@ -57,8 +57,7 @@ func deployBundle(
 	bundleFilePath string,
 	data *charm.BundleData,
 	channel csparams.Channel,
-	client *api.Client,
-	serviceDeployer *applicationDeployer,
+	apiRoot DeployAPI,
 	resolver *charmURLResolver,
 	log deploymentLogger,
 	bundleStorage map[string]map[string]storage.Constraints,
@@ -93,7 +92,7 @@ func deployBundle(
 	numChanges := len(changes)
 
 	// Initialize the unit status.
-	status, err := client.Status(nil)
+	status, err := apiRoot.Client().Status(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model status")
 	}
@@ -105,43 +104,23 @@ func deployBundle(
 	}
 
 	// Instantiate a watcher used to follow the deployment progress.
-	watcher, err := watchAll(client)
+	watcher, err := watchAll(apiRoot.Client())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot watch model")
 	}
 	defer watcher.Stop()
 
-	applicationClient, err := serviceDeployer.newApplicationAPIClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get application client")
-	}
-
-	modelConfigClient, err := serviceDeployer.newModelConfigAPIClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get model config client")
-	}
-
-	annotationsClient, err := serviceDeployer.newAnnotationsAPIClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get annotations client")
-	}
-
-	charmsClient, err := serviceDeployer.newCharmsAPIClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get charms client")
-	}
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
 		bundleDir:         bundleFilePath,
 		changes:           changes,
 		results:           make(map[string]string, numChanges),
 		channel:           channel,
-		client:            client,
-		modelConfigClient: modelConfigClient,
-		applicationClient: applicationClient,
-		annotationsClient: annotationsClient,
-		charmsClient:      charmsClient,
-		serviceDeployer:   serviceDeployer,
+		api:               apiRoot,
+		modelConfigClient: modelconfig.NewClient(apiRoot),
+		applicationClient: application.NewClient(apiRoot),
+		annotationsClient: apiannotations.NewClient(apiRoot),
+		charmsClient:      charms.NewClient(apiRoot),
 		bundleStorage:     bundleStorage,
 		resolver:          resolver,
 		log:               log,
@@ -177,7 +156,7 @@ func deployBundle(
 					Channel: channels[cURL],
 				}
 				csMac := csMacs[cURL]
-				err = h.addService(change.Id(), change.Params, chID, csMac)
+				err = h.addService(apiRoot, change.Id(), change.Params, chID, csMac)
 			}
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change.Id(), change.Params)
@@ -218,8 +197,8 @@ type bundleHandler struct {
 	// channel identifies the default channel to use for the bundle.
 	channel csparams.Channel
 
-	// client is used to interact with the environment.
-	client *api.Client
+	// api is used to interact with the environment.
+	api DeployAPI
 
 	// modelConfigClient is used to get model config information.
 	modelConfigClient *modelconfig.Client
@@ -232,9 +211,6 @@ type bundleHandler struct {
 
 	// annotationsClient is used to interact with annotations.
 	annotationsClient *apiannotations.Client
-
-	// serviceDeployer is used to deploy services.
-	serviceDeployer *applicationDeployer
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -293,7 +269,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 			return nil, noChannel, nil, errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
-			if curl, err = h.client.AddLocalCharm(curl, ch); err != nil {
+			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
 				return nil, noChannel, nil, err
 			}
 			h.log.Infof("added charm %s", curl)
@@ -315,7 +291,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 		return nil, channel, nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var csMac *macaroon.Macaroon
-	url, csMac, err = addCharmFromURL(h.client, url, channel, store.Client())
+	url, csMac, err = addCharmFromURL(h.api, url, channel, store.Client())
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -326,7 +302,13 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 
 // addService deploys or update an application with no units. Service options are
 // also set or updated.
-func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationParams, chID charmstore.CharmID, csMac *macaroon.Macaroon) error {
+func (h *bundleHandler) addService(
+	api DeployAPI,
+	id string,
+	p bundlechanges.AddApplicationParams,
+	chID charmstore.CharmID,
+	csMac *macaroon.Macaroon,
+) error {
 	h.results[id] = p.Application
 	ch := chID.URL.String()
 	// Handle application configuration.
@@ -370,7 +352,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	if err != nil {
 		return err
 	}
-	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Application, chID, csMac, charmInfo.Meta.Resources)
+	resNames2IDs, err := handleResources(api, resources, p.Application, chID, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -391,23 +373,23 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 		conf:            conf,
 		fromBundle:      true,
 	}
-	series, message, err := selector.charmSeries()
+	series, err := selector.charmSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Deploy the application.
-	if err := h.serviceDeployer.applicationDeploy(applicationDeployParams{
-		charmID:         chID,
-		applicationName: p.Application,
-		series:          series,
-		configYAML:      configYAML,
-		constraints:     cons,
-		storage:         storageConstraints,
-		spaceBindings:   p.EndpointBindings,
-		resources:       resNames2IDs,
+	if err := api.Deploy(application.DeployArgs{
+		CharmID:          chID,
+		Cons:             cons,
+		ApplicationName:  p.Application,
+		Series:           series,
+		ConfigYAML:       configYAML,
+		Storage:          storageConstraints,
+		Resources:        resNames2IDs,
+		EndpointBindings: p.EndpointBindings,
 	}); err == nil {
-		h.log.Infof("application %s deployed (charm %s %v)", p.Application, ch, fmt.Sprintf(message, series))
+		h.log.Infof("application %s deployed (charm %s)", p.Application, ch)
 		for resName := range resNames2IDs {
 			h.log.Infof("added resource %s", resName)
 		}
@@ -419,7 +401,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	// charm is compatible with the one declared in the bundle. If it is,
 	// reuse the existing application or upgrade to a specified revision.
 	// Exit with an error otherwise.
-	if err := h.upgradeCharm(p.Application, chID, csMac, resources); err != nil {
+	if err := h.upgradeCharm(api, p.Application, chID, csMac, resources); err != nil {
 		return errors.Annotatef(err, "cannot upgrade application %q", p.Application)
 	}
 	// Update application configuration.
@@ -512,7 +494,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 			}
 		}
 	}
-	r, err := h.client.AddMachines([]params.AddMachineParams{machineParams})
+	r, err := h.api.Client().AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create machine for holding %s", msg)
 	}
@@ -828,7 +810,13 @@ func resolve(placeholder string, results map[string]string) string {
 // If the application is already deployed using the given charm id, do nothing.
 // This function returns an error if the existing charm and the target one are
 // incompatible, meaning an upgrade from one to the other is not allowed.
-func (h *bundleHandler) upgradeCharm(applicationName string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources map[string]string) error {
+func (h *bundleHandler) upgradeCharm(
+	api DeployAPI,
+	applicationName string,
+	chID charmstore.CharmID,
+	csMac *macaroon.Macaroon,
+	resources map[string]string,
+) error {
 	id := chID.URL.String()
 	existing, err := h.applicationClient.GetCharmURL(applicationName)
 	if err != nil {
@@ -846,13 +834,13 @@ func (h *bundleHandler) upgradeCharm(applicationName string, chID charmstore.Cha
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	filtered, err := getUpgradeResources(h.serviceDeployer.api, applicationName, url, h.client, resources)
+	filtered, err := getUpgradeResources(api, applicationName, url, resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
-		resNames2IDs, err = handleResources(h.serviceDeployer.api, resources, applicationName, chID, csMac, filtered)
+		resNames2IDs, err = handleResources(api, resources, applicationName, chID, csMac, filtered)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -50,6 +50,7 @@ type JujuCommandBase struct {
 	apiContext  *APIContext
 	modelApi    ModelAPI
 	apiOpenFunc api.OpenFunc
+	authOpts    AuthOpts
 }
 
 // closeContext closes the command's API context
@@ -60,6 +61,11 @@ func (c *JujuCommandBase) closeContext() {
 			logger.Errorf("%v", err)
 		}
 	}
+}
+
+// SetFlags implements cmd.Command.SetFlags.
+func (c *JujuCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.authOpts.SetFlags(f)
 }
 
 // SetModelApi sets the api used to access model information.
@@ -228,12 +234,24 @@ func (c *JujuCommandBase) initAPIContext() error {
 	if c.apiContext != nil {
 		return nil
 	}
-	apiContext, err := NewAPIContext(c.cmdContext)
+	apiContext, err := NewAPIContext(c.cmdContext, &c.authOpts)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.apiContext = apiContext
 	return nil
+}
+
+// APIContext returns the API context used by the command.
+// It should only be called while the Run method is being called.
+//
+// The returned APIContext should not be closed (it will be
+// closed when the Run method completes).
+func (c *JujuCommandBase) APIContext() (*APIContext, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext, nil
 }
 
 func (c *JujuCommandBase) setCmdContext(ctx *cmd.Context) {
@@ -336,12 +354,6 @@ To log back in, run the following command:
 	}, nil
 }
 
-// NewGetBootstrapConfigFunc returns a function that, given a controller name,
-// returns the bootstrap config for that controller in the given client store.
-func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*config.Config, error) {
-	return bootstrapConfigGetter{store}.getBootstrapConfig
-}
-
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
 func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
@@ -406,19 +418,25 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
 
+	// TODO(wallyworld) - remove after beta18
+	controllerModelUUID := bootstrapConfig.ControllerModelUUID
+	if controllerModelUUID == "" {
+		controllerModelUUID = controllerDetails.ControllerUUID
+	}
+
+	bootstrapConfig.Config[config.UUIDKey] = controllerModelUUID
 	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return bootstrapConfig, &environs.PrepareConfigParams{
-		controllerDetails.ControllerUUID,
 		environs.CloudSpec{
 			bootstrapConfig.CloudType,
 			bootstrapConfig.Cloud,
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.CloudEndpoint,
+			bootstrapConfig.CloudIdentityEndpoint,
 			bootstrapConfig.CloudStorageEndpoint,
 			credential,
 		},

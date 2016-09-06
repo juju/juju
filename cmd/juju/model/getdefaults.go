@@ -6,16 +6,17 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -70,6 +71,7 @@ func (c *getDefaultsCommand) Info() *cmd.Info {
 }
 
 func (c *getDefaultsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -88,7 +90,7 @@ type modelDefaultsAPI interface {
 	Close() error
 
 	// ModelDefaults returns the default config values used when creating a new model.
-	ModelDefaults() (config.ConfigValues, error)
+	ModelDefaults() (config.ModelDefaultAttributes, error)
 }
 
 func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
@@ -105,7 +107,7 @@ func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
 
 	if c.key != "" {
 		if value, ok := attrs[c.key]; ok {
-			attrs = config.ConfigValues{
+			attrs = config.ModelDefaultAttributes{
 				c.key: value,
 			}
 		} else {
@@ -116,50 +118,62 @@ func (c *getDefaultsCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, attrs)
 }
 
-// formatConfigTabular returns a tabular summary of default config information.
-func formatDefaultConfigTabular(value interface{}) ([]byte, error) {
-	configValues, ok := value.(config.ConfigValues)
+// formatConfigTabular writes a tabular summary of default config information.
+func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
+	defaultValues, ok := value.(config.ModelDefaultAttributes)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", configValues, value)
+		return errors.Errorf("expected value of type %T, got %T", defaultValues, value)
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	p := func(values ...string) {
+	tw := output.TabWriter(writer)
+
+	ph := func(values ...string) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
 	}
+
+	p := func(name string, value config.AttributeDefaultValues) {
+		var c, d interface{}
+		switch value.Default {
+		case nil:
+			d = "-"
+		case "":
+			d = `""`
+		default:
+			d = value.Default
+		}
+		switch value.Controller {
+		case nil:
+			c = "-"
+		case "":
+			c = `""`
+		default:
+			c = value.Controller
+		}
+		row := fmt.Sprintf("%s\t%v\t%v", name, d, c)
+		fmt.Fprintln(tw, row)
+		for _, region := range value.Regions {
+			row := fmt.Sprintf("  %s\t%v\t-", region.Name, region.Value)
+			fmt.Fprintln(tw, row)
+		}
+	}
 	var valueNames []string
-	for name := range configValues {
+	for name := range defaultValues {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	p("ATTRIBUTE\tDEFAULT\tCONTROLLER")
+	ph("ATTRIBUTE\tDEFAULT\tCONTROLLER")
 
 	for _, name := range valueNames {
-		info := configValues[name]
-		val, err := cmd.FormatSmart(info.Value)
+		info := defaultValues[name]
+		out := &bytes.Buffer{}
+		err := cmd.FormatYaml(out, info)
 		if err != nil {
-			return nil, errors.Annotatef(err, "formatting value for %q", name)
+			return errors.Annotatef(err, "formatting value for %q", name)
 		}
-		d := "-"
-		c := "-"
-		if info.Source == "default" {
-			d = string(val)
-		} else {
-			c = string(val)
-		}
-		p(name, d, c)
+		p(name, info)
 	}
 
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }

@@ -117,7 +117,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Name:           e.Name,
 		Life:           multiwatcher.Life(e.Life.String()),
 		Owner:          e.Owner,
-		ControllerUUID: e.ServerUUID,
+		ControllerUUID: e.ControllerUUID,
 	})
 	return nil
 }

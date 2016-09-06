@@ -43,6 +43,7 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	s.authorizer.Tag = names.NewUserTag("igor")
+	s.authorizer.AdminTag = names.NewUserTag("igor")
 	facade, err := sshclient.New(s.backend, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
@@ -148,6 +149,10 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 type mockBackend struct {
 	stub     jujutesting.Stub
 	proxySSH bool
+}
+
+func (backend *mockBackend) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
 func (backend *mockBackend) ModelConfig() (*config.Config, error) {

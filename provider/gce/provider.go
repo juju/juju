@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -59,6 +60,18 @@ func (environProvider) Schema() environschema.Fields {
 	return fields
 }
 
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 // UpgradeModelConfig is specified in the ModelConfigUpgrader interface.
 func (environProvider) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
 	return configWithDefaults(cfg)
@@ -76,11 +89,6 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 	return cfg.Apply(defaults)
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{}
-}
-
 // Validate implements environs.EnvironProvider.Validate.
 func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := newConfig(cfg, old)
@@ -88,9 +96,4 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 		return nil, errors.Annotate(err, "invalid config")
 	}
 	return newCfg.config, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return map[string]string{}, nil
 }

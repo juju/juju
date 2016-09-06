@@ -7,11 +7,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -26,12 +24,17 @@ var _ = gc.Suite(&usermanagerSuite{})
 
 func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.usermanager = usermanager.NewClient(s.APIState)
+	s.usermanager = usermanager.NewClient(s.OpenControllerAPI(c))
 	c.Assert(s.usermanager, gc.NotNil)
 }
 
+func (s *usermanagerSuite) TearDownTest(c *gc.C) {
+	s.usermanager.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
-	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "")
+	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	user, err := s.State.User(tag)
@@ -41,42 +44,10 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.PasswordValid("password"), jc.IsTrue)
 }
 
-func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
-	sharedModelState := s.Factory.MakeModel(c, nil)
-	defer sharedModelState.Close()
-
-	foobarTag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read", sharedModelState.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	altAdminTag, _, err := s.usermanager.AddUser("altadmin", "Alt Admin", "password", "write", sharedModelState.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check model is shared with expected users.
-	sharedModel, err := sharedModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	users, err := sharedModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(users, gc.HasLen, 3)
-	var modelUserTags = make([]names.UserTag, len(users))
-	for i, u := range users {
-		modelUserTags[i] = u.UserTag
-		if u.UserTag.Name() == "foobar" {
-			c.Assert(u.Access, gc.Equals, description.ReadAccess)
-		} else {
-			c.Assert(u.Access, gc.Not(gc.Equals), description.ReadAccess)
-		}
-	}
-	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
-		foobarTag,
-		altAdminTag,
-		names.NewLocalUserTag("admin"),
-	})
-}
-
 func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "failed to create user: user already exists")
 }
 
@@ -86,7 +57,7 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
 			return errors.New("call error")
 		},
 	)
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "write")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "call error")
 }
 
@@ -100,12 +71,12 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 			return errors.New("wrong result type")
 		},
 	)
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
-	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password", "")
+	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the user exists.
@@ -174,6 +145,7 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 		{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
+			Access:      "login",
 			CreatedBy:   s.AdminUserTag(c).Name(),
 			DateCreated: user.DateCreated(),
 		},

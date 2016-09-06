@@ -186,7 +186,7 @@ func (s *syslogSuite) assertLogRecordForwarded(c *gc.C, received chan rfc5424tes
 	msg := s.popMessagesUntil(c, `something happened!`, received)
 	expected := `<11>1 2099-06-01T23:02:01.000000023Z machine-0.%s jujud-machine-agent-%s - - [origin enterpriseID="28978" sofware="jujud-machine-agent" swVersion="%s"][model@28978 controller-uuid="%s" model-uuid="%s"][log@28978 module="juju.featuretests.syslog" source="syslog_test.go:99999"] something happened!`
 	modelID := coretesting.ModelTag.Id()
-	ctlrID := modelID
+	ctlrID := coretesting.ControllerTag.Id()
 	c.Check(msg.Message, gc.Equals, fmt.Sprintf(expected, modelID, modelID[:28], version.Current, ctlrID, modelID))
 }
 

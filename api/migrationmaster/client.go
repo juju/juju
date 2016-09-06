@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -46,12 +47,12 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
-// GetMigrationStatus returns the details and progress of the latest
+// MigrationStatus returns the details and progress of the latest
 // model migration.
-func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
+func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
 	var status params.MasterMigrationStatus
-	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
+	err := c.caller.FacadeCall("MigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -77,6 +78,14 @@ func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 		return empty, errors.Annotatef(err, "unable to parse auth tag")
 	}
 
+	var mac *macaroon.Macaroon
+	if target.Macaroon != "" {
+		mac = new(macaroon.Macaroon)
+		if err := mac.UnmarshalJSON([]byte(target.Macaroon)); err != nil {
+			return empty, errors.Annotatef(err, "unmarshalling macaroon")
+		}
+	}
+
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
@@ -88,6 +97,7 @@ func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 			CACert:        target.CACert,
 			AuthTag:       authTag,
 			Password:      target.Password,
+			Macaroon:      mac,
 		},
 	}, nil
 }
@@ -107,6 +117,31 @@ func (c *Client) SetStatusMessage(message string) error {
 		Message: message,
 	}
 	return c.caller.FacadeCall("SetStatusMessage", args, nil)
+}
+
+// ModelInfo return basic information about the model to migrated.
+func (c *Client) ModelInfo() (migration.ModelInfo, error) {
+	var info params.MigrationModelInfo
+	err := c.caller.FacadeCall("ModelInfo", nil, &info)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
+	owner, err := names.ParseUserTag(info.OwnerTag)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
+	return migration.ModelInfo{
+		UUID:         info.UUID,
+		Name:         info.Name,
+		Owner:        owner,
+		AgentVersion: info.AgentVersion,
+	}, nil
+}
+
+// Prechecks verifies that the source controller and model are healthy
+// and able to participate in a migration.
+func (c *Client) Prechecks() error {
+	return c.caller.FacadeCall("Prechecks", nil, nil)
 }
 
 // Export returns a serialized representation of the model associated
@@ -156,13 +191,13 @@ func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
-// GetMinionReports returns details of the reports made by migration
+// MinionReports returns details of the reports made by migration
 // minions to the controller for the current migration phase.
-func (c *Client) GetMinionReports() (migration.MinionReports, error) {
+func (c *Client) MinionReports() (migration.MinionReports, error) {
 	var in params.MinionReports
 	var out migration.MinionReports
 
-	err := c.caller.FacadeCall("GetMinionReports", nil, &in)
+	err := c.caller.FacadeCall("MinionReports", nil, &in)
 	if err != nil {
 		return out, errors.Trace(err)
 	}

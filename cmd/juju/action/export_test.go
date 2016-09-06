@@ -76,13 +76,13 @@ func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Status
 func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListCommand) {
 	c := &listCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &ListCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ListCommand{c}
 }
 
 func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunCommand) {
 	c := &runCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &RunCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {

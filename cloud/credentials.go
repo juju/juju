@@ -33,6 +33,9 @@ type Credential struct {
 	authType   AuthType
 	attributes map[string]string
 
+	// Revoked is true if the credential has been revoked.
+	Revoked bool
+
 	// Label is optionally set to describe the credentials to a user.
 	Label string
 }

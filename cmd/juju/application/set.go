@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -71,12 +71,12 @@ func (c *setCommand) Info() *cmd.Info {
 		Args:    "<application name> <application key>=<value> ...",
 		Purpose: usageSetConfigSummary,
 		Doc:     usageSetConfigDetails,
-		Aliases: []string{"set-configs"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted application config")
 	f.BoolVar(&c.SetDefault, "to-default", false, "set application option values to default")
 }
@@ -158,7 +158,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 
 		if v[0] != '@' {
 			if !utf8.ValidString(v) {
-				return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
+				return errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 			}
 			settings[k] = v
 			continue
@@ -168,7 +168,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		if !utf8.ValidString(nv) {
-			return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
+			return errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 		}
 		settings[k] = nv
 	}
@@ -200,14 +200,14 @@ func readValue(ctx *cmd.Context, filename string) (string, error) {
 	absFilename := ctx.AbsPath(filename)
 	fi, err := os.Stat(absFilename)
 	if err != nil {
-		return "", fmt.Errorf("cannot read option from file %q: %v", filename, err)
+		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}
 	if fi.Size() > maxValueSize {
-		return "", fmt.Errorf("size of option file is larger than 5M")
+		return "", errors.Errorf("size of option file is larger than 5M")
 	}
 	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
 	if err != nil {
-		return "", fmt.Errorf("cannot read option from file %q: %v", filename, err)
+		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}
 	return string(content), nil
 }

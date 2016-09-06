@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -58,17 +57,12 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	baseConfig, err = baseConfig.Remove(controller.ControllerOnlyConfigAttributes)
-	c.Assert(err, jc.ErrorIsNil)
 	s.baseConfig = baseConfig
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	cloudSpec := environs.CloudSpec{Type: "fake"}
-	return s.creator.NewModelConfig(cloudSpec, coretesting.ModelTag.Id(), s.baseConfig, attrs)
+	return s.creator.NewModelConfig(cloudSpec, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
@@ -88,11 +82,10 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 
 	s.fake.Stub.CheckCallNames(c,
-		"RestrictedConfigAttributes",
 		"PrepareConfig",
 		"Validate",
 	)
-	validateCall := s.fake.Stub.Calls()[2]
+	validateCall := s.fake.Stub.Calls()[1]
 	c.Assert(validateCall.Args, gc.HasLen, 2)
 	c.Assert(validateCall.Args[0], gc.Equals, cfg)
 	c.Assert(validateCall.Args[1], gc.IsNil)
@@ -107,10 +100,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
 		key:      "type",
 		value:    "dummy",
 		errMatch: `specified type "dummy" does not match controller "fake"`,
-	}, {
-		key:      "restricted",
-		value:    51,
-		errMatch: `specified restricted "51" does not match controller "area51"`,
 	}} {
 		c.Logf("%d: %s", i, test.key)
 		_, err := s.newModelConfig(coretesting.Attrs(
@@ -216,22 +205,13 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		expected: []string{"type"},
 	}, {
 		provider: "maas",
-		expected: []string{
-			"type",
-			"maas-server",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "openstack",
-		expected: []string{
-			"type",
-			"region", "auth-url", "auth-mode",
-		},
+		expected: []string{"type"},
 	}, {
 		provider: "ec2",
-		expected: []string{
-			"type",
-			"vpc-id-force",
-		},
+		expected: []string{"type"},
 	}} {
 		c.Logf("%d: %s provider", i, test.provider)
 		provider, err := environs.Provider(test.provider)
@@ -246,11 +226,6 @@ type fakeProvider struct {
 	testing.Stub
 	environs.EnvironProvider
 	restrictedConfigAttributes []string
-}
-
-func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.MethodCall(p, "RestrictedConfigAttributes")
-	return p.restrictedConfigAttributes
 }
 
 func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {

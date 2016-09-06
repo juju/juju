@@ -17,7 +17,6 @@ import (
 
 var (
 	_ = gc.Suite(&remoteSuite{})
-	_ = gc.Suite(&remoteFunctionalSuite{})
 )
 
 type remoteSuite struct {
@@ -404,48 +403,6 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	id := remote.ID()
 
 	c.Check(id, gc.Equals, "local")
-}
-
-func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
-	remote := lxdclient.Remote{
-		Name:     "my-remote",
-		Host:     "some-host",
-		Protocol: lxdclient.LXDProtocol,
-		Cert:     s.Cert,
-	}
-	nonlocal, err := remote.UsingTCP("")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(nonlocal, jc.DeepEquals, remote)
-}
-
-type remoteFunctionalSuite struct {
-	lxdclient.BaseSuite
-}
-
-func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
-	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
-
-	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "",
-		Cert: nil,
-	}
-	nonlocal, err := remote.UsingTCP("lo")
-	c.Assert(err, jc.ErrorIsNil)
-
-	checkValidRemote(c, &nonlocal)
-	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
-		Name:     "my-remote",
-		Host:     nonlocal.Host,
-		Protocol: lxdclient.LXDProtocol,
-		Cert:     nonlocal.Cert,
-	})
-}
-
-func checkValidRemote(c *gc.C, remote *lxdclient.Remote) {
-	c.Check(remote.Host, jc.Satisfies, isValidAddr)
-	checkValidCert(c, remote.Cert)
 }
 
 func isValidAddr(value interface{}) bool {

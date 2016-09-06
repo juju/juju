@@ -291,6 +291,24 @@ func (st *State) Action(id string) (Action, error) {
 	return newAction(st, doc), nil
 }
 
+// AllActions returns all Actions.
+func (st *State) AllActions() ([]Action, error) {
+	actionLogger.Tracef("AllActions()")
+	actions, closer := st.getCollection(actionsC)
+	defer closer()
+
+	results := []Action{}
+	docs := []actionDoc{}
+	err := actions.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all actions")
+	}
+	for _, doc := range docs {
+		results = append(results, newAction(st, doc))
+	}
+	return results, nil
+}
+
 // ActionByTag returns an Action given an ActionTag.
 func (st *State) ActionByTag(tag names.ActionTag) (Action, error) {
 	return st.Action(tag.Id())

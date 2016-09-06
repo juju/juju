@@ -130,10 +130,7 @@ func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
 }
 
 // ProviderStateInstances extracts the instance IDs from provider-state.
-func ProviderStateInstances(
-	env environs.Environ,
-	stor storage.StorageReader,
-) ([]instance.Id, error) {
+func ProviderStateInstances(stor storage.StorageReader) ([]instance.Id, error) {
 	st, err := LoadState(stor)
 	if err != nil {
 		return nil, err

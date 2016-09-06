@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
@@ -78,7 +78,13 @@ func (c *runCommand) Info() *cmd.Info {
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+		// default is used to format a single result specially.
+		"default": cmd.FormatYaml,
+	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
@@ -88,23 +94,23 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *runCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no commands specified")
+		return errors.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 
 	if c.all {
 		if len(c.machines) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual machines")
+			return errors.Errorf("You cannot specify --all and individual machines")
 		}
 		if len(c.services) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual applications")
+			return errors.Errorf("You cannot specify --all and individual applications")
 		}
 		if len(c.units) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual units")
+			return errors.Errorf("You cannot specify --all and individual units")
 		}
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return fmt.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
+			return errors.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
 		}
 	}
 
@@ -125,7 +131,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 	}
 	if len(nameErrors) > 0 {
-		return fmt.Errorf("The following run targets are not valid:\n%s",
+		return errors.Errorf("The following run targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))
 	}
 
@@ -270,9 +276,9 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		<-afterFunc(1 * time.Second)
 	}
 
-	// If we are just dealing with one result, AND we are using the smart
+	// If we are just dealing with one result, AND we are using the default
 	// format, then pretend we were running it locally.
-	if len(values) == 1 && c.out.Name() == "smart" {
+	if len(values) == 1 && c.out.Name() == "default" {
 		result, ok := values[0].(map[string]interface{})
 		if !ok {
 			return errors.New("couldn't read action output")

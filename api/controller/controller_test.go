@@ -1,223 +1,145 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller_test
 
 import (
-	"fmt"
-	"time"
+	"errors"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/testing"
+	"github.com/juju/utils"
 )
 
-type controllerSuite struct {
-	jujutesting.JujuConnSuite
-	commontesting.BlockHelper
+type Suite struct {
+	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&controllerSuite{})
+var _ = gc.Suite(&Suite{})
 
-func (s *controllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
-	return controller.NewClient(s.APIState)
-}
-
-func (s *controllerSuite) TestAllModels(c *gc.C) {
-	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: owner}).Close()
-
-	sysManager := s.OpenAPI(c)
-	envs, err := sysManager.AllModels()
+func (s *Suite) TestInitiateMigration(c *gc.C) {
+	client, stub := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{{
+			MigrationId: "id",
+		}},
+	})
+	spec := makeSpec()
+	id, err := client.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envs, gc.HasLen, 3)
-
-	var obtained []string
-	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
-	}
-	expected := []string{
-		"admin@local/controller",
-		"user@remote/first",
-		"user@remote/second",
-	}
-	c.Assert(obtained, jc.SameContents, expected)
-}
-
-func (s *controllerSuite) TestModelConfig(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	cfg, err := sysManager.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["name"], gc.Equals, "controller")
-}
-
-func (s *controllerSuite) TestControllerConfig(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	cfg, err := sysManager.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(int(cfg["state-port"].(float64)), gc.Equals, cfgFromDB.StatePort())
-	c.Assert(int(cfg["api-port"].(float64)), gc.Equals, cfgFromDB.APIPort())
-}
-
-func (s *controllerSuite) TestDestroyController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
-	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
-	st.Close()
-
-	sysManager := s.OpenAPI(c)
-	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other models \(controller has hosted models\)`)
-}
-
-func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
-	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
-	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
-	c.Assert(err, jc.ErrorIsNil)
-
-	sysManager := s.OpenAPI(c)
-	results, err := sysManager.ListBlockedModels()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
-		{
-			Name:     "controller",
-			UUID:     s.State.ModelUUID(),
-			OwnerTag: s.AdminUserTag(c).String(),
-			Blocks: []string{
-				"BlockChange",
-				"BlockDestroy",
-			},
-		},
+	c.Check(id, gc.Equals, "id")
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
 	})
 }
 
-func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-
-	sysManager := s.OpenAPI(c)
-	err := sysManager.RemoveBlocks()
+func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+	client, stub := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{{
+			MigrationId: "id",
+		}},
+	})
+	spec := makeSpec()
+	spec.ExternalControl = true
+	_, err := client.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
-
-	blocks, err := s.State.AllBlocksForController()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocks, gc.HasLen, 0)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
+	})
 }
 
-func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
-	// The WatchAllModels infrastructure is comprehensively tested
-	// else. This test just ensure that the API calls work end-to-end.
-	sysManager := s.OpenAPI(c)
-
-	w, err := sysManager.WatchAllModels()
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := w.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	deltasC := make(chan []multiwatcher.Delta)
-	go func() {
-		deltas, err := w.Next()
-		c.Assert(err, jc.ErrorIsNil)
-		deltasC <- deltas
-	}()
-
-	select {
-	case deltas := <-deltasC:
-		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
-
-		env, err := s.State.Model()
-		c.Assert(err, jc.ErrorIsNil)
-
-		c.Assert(modelInfo.ModelUUID, gc.Equals, env.UUID())
-		c.Assert(modelInfo.Name, gc.Equals, env.Name())
-		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
-		c.Assert(modelInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(modelInfo.ControllerUUID, gc.Equals, env.ControllerUUID())
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
+func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
+	return params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
+			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
+			TargetInfo: params.MigrationTargetInfo{
+				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				Addrs:         spec.TargetAddrs,
+				CACert:        spec.TargetCACert,
+				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
+				Password:      spec.TargetPassword,
+				Macaroon:      spec.TargetMacaroon,
+			},
+			ExternalControl: spec.ExternalControl,
+		}},
 	}
 }
 
-func (s *controllerSuite) TestModelStatus(c *gc.C) {
-	controller := s.OpenAPI(c)
-	modelTag := s.State.ModelTag()
-	results, err := controller.ModelStatus(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               modelTag.Id(),
-		HostedMachineCount: 0,
-		ServiceCount:       0,
-		Owner:              "admin@local",
-		Life:               params.Alive,
-	}})
-}
-
-func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	_, err := st.LatestModelMigration()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-	spec := controller.ModelMigrationSpec{
-		ModelUUID:            st.ModelUUID(),
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetPassword:       "secret",
-	}
-
-	controller := s.OpenAPI(c)
-	id, err := controller.InitiateModelMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedId := st.ModelUUID() + ":0"
-	c.Check(id, gc.Equals, expectedId)
-
-	// Check database.
-	mig, err := st.LatestModelMigration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, expectedId)
-}
-
-func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
-	spec := controller.ModelMigrationSpec{
-		ModelUUID:            randomUUID(), // Model doesn't exist.
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetPassword:       "secret",
-	}
-
-	controller := s.OpenAPI(c)
-	id, err := controller.InitiateModelMigration(spec)
+func (s *Suite) TestInitiateMigrationError(c *gc.C) {
+	client, _ := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{{
+			Error: common.ServerError(errors.New("boom")),
+		}},
+	})
+	id, err := client.InitiateMigration(makeSpec())
 	c.Check(id, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
+func (s *Suite) TestInitiateMigrationResultMismatch(c *gc.C) {
+	client, _ := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{
+			{MigrationId: "id"},
+			{MigrationId: "wtf"},
+		},
+	})
+	id, err := client.InitiateMigration(makeSpec())
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "unexpected number of results returned")
+}
+
+func (s *Suite) TestInitiateMigrationCallError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+	client := controller.NewClient(apiCaller)
+	id, err := client.InitiateMigration(makeSpec())
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
+func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
+	client, stub := makeClient(params.InitiateMigrationResults{})
+	spec := makeSpec()
+	spec.ModelUUID = "not-a-uuid"
+	id, err := client.InitiateMigration(spec)
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "model UUID not valid")
+	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
+}
+
+func makeClient(results params.InitiateMigrationResults) (
+	*controller.Client, *jujutesting.Stub,
+) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			stub.AddCall(objType+"."+request, arg)
+			out := result.(*params.InitiateMigrationResults)
+			*out = results
+			return nil
+		},
+	)
+	client := controller.NewClient(apiCaller)
+	return client, &stub
+}
+
+func makeSpec() controller.MigrationSpec {
+	return controller.MigrationSpec{
+		ModelUUID:            randomUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+		TargetMacaroon:       "mac",
+	}
 }
 
 func randomUUID() string {

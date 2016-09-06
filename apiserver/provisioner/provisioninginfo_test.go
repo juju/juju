@@ -57,7 +57,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Series:           "quantal",
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},
@@ -68,7 +68,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Placement:        template.Placement,
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
@@ -77,7 +77,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
@@ -91,7 +91,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
@@ -145,7 +145,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				Placement:        template.Placement,
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				SubnetsToZones: map[string][]string{
@@ -213,7 +213,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 				Series:           "quantal",
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController:    coretesting.ModelTag.Id(),
+					tags.JujuController:    coretesting.ControllerTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
 					tags.JujuUnitsDeployed: wordpressUnit.Name(),
 				},
@@ -301,7 +301,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Placement:        template.Placement,
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
@@ -310,7 +310,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					Provider:   "static",
 					Attributes: nil,
 					Tags: map[string]string{
-						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
@@ -354,7 +354,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Series:           "quantal",
 				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},

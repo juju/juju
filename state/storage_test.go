@@ -524,7 +524,6 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			count[storageInstance.StorageName()]++
 			c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindBlock)
-			c.Assert(storageInstance.CharmURL(), gc.DeepEquals, ch.URL())
 		}
 		c.Assert(count, gc.DeepEquals, map[string]int{
 			"multi1to10": 1,

@@ -4,10 +4,8 @@
 package featuretests
 
 import (
-	"fmt"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -46,29 +44,37 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.ModelInfo {
-	modelManager := modelmanager.NewClient(s.APIState)
-	model, err := modelManager.CreateModel(modelname, s.AdminUserTag(c).Id(), "", "", map[string]interface{}{
-		"controller": isServer,
-	})
+	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer modelManager.Close()
+	model, err := modelManager.CreateModel(
+		modelname, s.AdminUserTag(c).Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
+			"controller": isServer,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return model
 }
 
 func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
 	s.run(c, "add-user", "test")
-	modelManager := modelmanager.NewClient(s.APIState)
-	_, err := modelManager.CreateModel(modelname, names.NewLocalUserTag("test").Id(), "", "", map[string]interface{}{
-		"authorized-keys": "ssh-key",
-		"controller":      isServer,
-	})
+	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
+	defer modelManager.Close()
+	_, err := modelManager.CreateModel(
+		modelname, names.NewLocalUserTag("test").Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
+			"authorized-keys": "ssh-key",
+			"controller":      isServer,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         CLOUD/REGION
-kontroll*   controller  admin@local  dummy
+CONTROLLER  MODEL       USER         ACCESS      CLOUD/REGION        VERSION
+kontroll*   controller  admin@local  superuser+  dummy/dummy-region  (unknown)+
+
++ these are the last known values, run with --refresh to see the latest information.
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -78,9 +84,11 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
-		"controller*  admin@local  available  just now\n"+
-		"new-model    admin@local  available  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL        OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
+		"controller*  admin@local  available  admin   just now\n"+
+		"new-model    admin@local  available  admin   never connected\n"+
 		"\n")
 }
 
@@ -88,9 +96,11 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL              OWNER        STATUS     LAST CONNECTION\n"+
-		"admin/controller*  admin@local  available  just now\n"+
-		"test/new-model     test@local   available  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL              OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
+		"admin/controller*  admin@local  available  admin   just now\n"+
+		"test/new-model     test@local   available          never connected\n"+
 		"\n")
 }
 
@@ -100,9 +110,11 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
+  controller-name: kontroll
   owner: admin@local
   cloud: dummy
+  region: dummy-region
   type: dummy
   life: alive
   status:
@@ -139,24 +151,35 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL        OWNER        STATUS      LAST CONNECTION\n"+
-		"controller*  admin@local  available   just now\n"+
-		"new-model    admin@local  destroying  never connected\n"+
+		"CONTROLLER: kontroll\n"+
+		"\n"+
+		"MODEL        OWNER        STATUS      ACCESS  LAST CONNECTION\n"+
+		"controller*  admin@local  available   admin   just now\n"+
+		"new-model    admin@local  destroying  admin   never connected\n"+
 		"\n")
 }
 
 func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
+	s.testAddModel(c)
+}
+
+func (s *cmdControllerSuite) TestAddModelWithCloudAndRegion(c *gc.C) {
+	s.testAddModel(c, "dummy/dummy-region")
+}
+
+func (s *cmdControllerSuite) testAddModel(c *gc.C, args ...string) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(
-		c, "add-model", "new-model",
+	args = append([]string{"add-model", "new-model"}, args...)
+	args = append(args,
 		"--config", "authorized-keys=fake-key",
 		"--config", "controller=false",
 	)
+	context := s.run(c, args...)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Added 'new-model' model with credential 'cred' for user 'admin'
+Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'admin'
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
@@ -189,6 +212,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
+		CloudRegion: "dummy-region",
 	})
 	defer st.Close()
 	factory.NewFactory(st).MakeApplication(c, nil)
@@ -240,7 +264,8 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 
 	destroyOp := (<-ops).(dummy.OpDestroy)
 	c.Assert(destroyOp.Env, gc.Equals, "controller")
-	c.Assert(destroyOp.Cloud, jc.DeepEquals, dummy.SampleCloudSpec())
+	c.Assert(destroyOp.Cloud, gc.Equals, "dummy")
+	c.Assert(destroyOp.CloudRegion, gc.Equals, "dummy-region")
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
@@ -260,7 +285,8 @@ func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 
 func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "foo",
+		Name:        "foo",
+		CloudRegion: "dummy-region",
 	})
 
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
@@ -271,18 +297,6 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-
-	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"controller","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
-		s.State.ModelUUID(), s.AdminUserTag(c).String())
-
-	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Check(strippedOut, gc.Equals, expected)
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {

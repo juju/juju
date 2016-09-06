@@ -18,7 +18,7 @@ To generate an initial config file, you simply need to run:
 
 This causes the file to be written to your %LOCALAPPDATA%\Juju directory if an environments.yaml file does not already exist. It will also create the %LOCALAPPDATA%\Juju directory if that does not exist.
 
-This file will contain sample profiles for different types of cloud services, but you will need to edit the files to provide specific information for your cloud provider. Sections are created for Amazon (AWS) services, HPCloud and a generic OpenStack instance. For more specifics on what needs to be changed, see https://juju.ubuntu.com/docs/getting-started.html
+This file will contain sample profiles for different types of cloud services, but you will need to edit the files to provide specific information for your cloud provider. Sections are created for Amazon (AWS) services, HPCloud and a generic OpenStack instance. For more specifics on what needs to be changed, see https://jujucharms.com/docs/getting-started.html
 
 Testing your setup
 
@@ -33,7 +33,7 @@ Note: If you have multiple models configured, you can choose which one to addres
 
 You may have to wait a few moments for this command to return, as it needs to perform various tasks and contact your cloud provider.
 
-Assuming it returns successfully (otherwise see common error messages and what to do about them - https://juju.ubuntu.com/docs/getting-started.html#errors), we can now deploy some services and explore the basic operations of Juju.
+Assuming it returns successfully (otherwise see common error messages and what to do about them - https://jujucharms.com/docs/getting-started.html#errors), we can now deploy some services and explore the basic operations of Juju.
 
 To start with, we will deploy Wordpress, by running this command:
 
@@ -53,7 +53,7 @@ Although we have deployed Wordpress and a MySQL database, they are not linked to
 
 > juju add-relation wordpress mysql
 
-This command uses information provided by the relevant charms to associate these services with each other in whatever way makes sense. There is much more to be said about linking services together which is covered in the juju command documentation, but for the moment, we just need to know that it will link these services together.  Juju command documentation: https://juju.ubuntu.com/docs/getting-started.html#add-relation
+This command uses information provided by the relevant charms to associate these services with each other in whatever way makes sense. There is much more to be said about linking services together which is covered in the juju command documentation, but for the moment, we just need to know that it will link these services together.  Juju command documentation: https://jujucharms.com/docs/getting-started.html#add-relation
 
 In order to make our Wordpress public, we now need to expose this service:
 
@@ -130,4 +130,4 @@ To remove all current deployments and clear up everything in your cloud, you can
 
 This will remove everything, including the bootstrap node.
 
-To learn more about charms, including configuring options and managing running systems, you should continue to read the charm documentation here: https://juju.ubuntu.com/docs/charms.html
+To learn more about charms, including configuring options and managing running systems, you should continue to read the charm documentation here: https://jujucharms.com/docs/charms.html

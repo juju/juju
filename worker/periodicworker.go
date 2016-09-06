@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 )
 
 // ErrKilled can be returned by the PeriodicWorkerCall to signify that

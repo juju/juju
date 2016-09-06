@@ -44,7 +44,7 @@ var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
 
-https://juju.ubuntu.com/
+https://jujucharms.com/
 
 The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
@@ -131,6 +131,8 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
+	logger.Debugf("jujud args: %v", args)
+	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
 	logCh, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)

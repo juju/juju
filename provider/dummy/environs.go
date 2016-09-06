@@ -16,16 +16,13 @@
 //
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
-//
-// To avoid enumerating all possible series and architectures,
-// any series or architecture with the prefix "unknown" is
-// treated as bad when starting a new instance.
 package dummy
 
 import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -77,13 +74,15 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
-	cred := cloud.NewEmptyCredential()
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
 	return environs.CloudSpec{
-		Type:            "dummy",
-		Name:            "dummy",
-		Endpoint:        "dummy-endpoint",
-		StorageEndpoint: "dummy-storage-endpoint",
-		Credential:      &cred,
+		Type:             "dummy",
+		Name:             "dummy",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &cred,
 	}
 }
 
@@ -147,9 +146,10 @@ type OpFinalizeBootstrap struct {
 }
 
 type OpDestroy struct {
-	Env   string
-	Cloud environs.CloudSpec
-	Error error
+	Env         string
+	Cloud       string
+	CloudRegion string
+	Error       error
 }
 
 type OpNetworkInterfaces struct {
@@ -215,6 +215,7 @@ type environProvider struct {
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
 	apiPort                int
+	controllerState        *environState
 	state                  map[string]*environState
 }
 
@@ -227,20 +228,20 @@ func ApiPort(p environs.EnvironProvider) int {
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	name            string
-	ops             chan<- Operation
-	newStatePolicy  state.NewPolicyFunc
-	mu              sync.Mutex
-	maxId           int // maximum instance id allocated so far.
-	maxAddr         int // maximum allocated address last byte
-	insts           map[instance.Id]*dummyInstance
-	globalPorts     map[network.PortRange]bool
-	bootstrapped    bool
-	apiListener     net.Listener
-	apiServer       *apiserver.Server
-	apiState        *state.State
-	apiStatePool    *state.StatePool
-	bootstrapConfig *config.Config
+	name           string
+	ops            chan<- Operation
+	newStatePolicy state.NewPolicyFunc
+	mu             sync.Mutex
+	maxId          int // maximum instance id allocated so far.
+	maxAddr        int // maximum allocated address last byte
+	insts          map[instance.Id]*dummyInstance
+	globalPorts    map[network.PortRange]bool
+	bootstrapped   bool
+	apiListener    net.Listener
+	apiServer      *apiserver.Server
+	apiState       *state.State
+	apiStatePool   *state.StatePool
+	creator        string
 }
 
 // environ represents a client's connection to a given environment's
@@ -288,6 +289,7 @@ func Reset(c *gc.C) {
 	dummy.mu.Lock()
 	dummy.ops = discardOperations
 	oldState := dummy.state
+	dummy.controllerState = nil
 	dummy.state = make(map[string]*environState)
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
@@ -393,12 +395,15 @@ func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
 
 // newState creates the state for a new environment with the given name.
 func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyFunc) *environState {
+	buf := make([]byte, 8192)
+	buf = buf[:runtime.Stack(buf, false)]
 	s := &environState{
 		name:           name,
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
 		insts:          make(map[instance.Id]*dummyInstance),
 		globalPorts:    make(map[network.PortRange]bool),
+		creator:        string(buf),
 	}
 	return s
 }
@@ -511,8 +516,34 @@ func (p *environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
+var _ config.ConfigSchemaSource = (*environProvider)(nil)
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
+func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.EmptyAuthType: {},
+		cloud.UserPassAuthType: {
+			{
+				"username", cloud.CredentialAttr{Description: "The username to authenticate with."},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			},
+		},
+	}
 }
 
 func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
@@ -566,72 +597,12 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p *environProvider) RestrictedConfigAttributes() []string {
-	return nil
-}
-
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	ecfg, err := p.newConfig(args.Config)
-	if err != nil {
+	if _, err := dummy.newConfig(args.Config); err != nil {
 		return nil, err
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	controllerUUID := args.ControllerUUID
-	if controllerUUID != args.Config.UUID() {
-		// NOTE: this check might appear redundant, but it's not: some tests
-		// (apiserver/modelmanager) inject a string value and determine that
-		// the config is validated later; validating here would render that
-		// test meaningless.
-		if args.Config.AllAttrs()["controller"] == true {
-			// NOTE: cfg.Apply *does* validate, but we're only adding a
-			// valid value so it doesn't matter.
-			return args.Config.Apply(map[string]interface{}{
-				"controller": false,
-			})
-		}
-		return args.Config, nil
-	}
-
-	envState, ok := p.state[controllerUUID]
-	if ok {
-		// PrepareConfig is expected to return the same result given
-		// the same input. We assume that the args are the same for a
-		// previously prepared/bootstrapped controller.
-		return envState.bootstrapConfig, nil
-	}
-
-	name := args.Config.Name()
-	if ecfg.controller() && len(p.state) != 0 {
-		for _, old := range p.state {
-			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
-		}
-	}
-
-	// The environment has not been prepared, so create it and record it.
-	// We don't start listening for State or API connections until
-	// PrepareForBootstrap has been called.
-	envState = newState(name, p.ops, p.newStatePolicy)
-	cfg := args.Config
-	if ecfg.controller() {
-		p.apiPort = envState.listenAPI()
-	}
-	envState.bootstrapConfig = cfg
-	p.state[controllerUUID] = envState
-	return cfg, nil
-}
-
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := dummy.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"secret": ecfg.secret(),
-	}, nil
+	return args.Config, nil
 }
 
 // Override for testing - the data directory with which the state api server is initialised.
@@ -664,11 +635,35 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 
 // Create is part of the Environ interface.
 func (e *environ) Create(args environs.CreateParams) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	dummy.state[e.modelUUID] = newState(e.name, dummy.ops, dummy.newStatePolicy)
 	return nil
 }
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	ecfg := e.ecfgUnlocked
+
+	if ecfg.controller() && dummy.controllerState != nil {
+		// Because of global variables, we can only have one dummy
+		// controller per process. Panic if there is an attempt to
+		// bootstrap while there is another active controller.
+		old := dummy.controllerState
+		panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q: %s", old.name, e.name, old.creator))
+	}
+
+	// The environment has not been prepared, so create it and record it.
+	// We don't start listening for State or API connections until
+	// Bootstrap has been called.
+	envState := newState(e.name, dummy.ops, dummy.newStatePolicy)
+	if ecfg.controller() {
+		dummy.apiPort = envState.listenAPI()
+		dummy.controllerState = envState
+	}
+	dummy.state[e.modelUUID] = envState
 	return nil
 }
 
@@ -685,7 +680,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, err
 	}
 	if _, ok := args.ControllerConfig.CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in controller configuration")
+		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -697,7 +692,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return nil, fmt.Errorf("model is already bootstrapped")
+		return nil, errors.New("model is already bootstrapped")
 	}
 
 	// Create an instance for the bootstrap node.
@@ -723,10 +718,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 
-			cloudCredentials := make(map[string]cloud.Credential)
-			if icfg.Bootstrap.ControllerCloudCredential != nil {
-				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
-					*icfg.Bootstrap.ControllerCloudCredential
+			adminUser := names.NewUserTag("admin@local")
+			var cloudCredentialTag names.CloudCredentialTag
+			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+					"%s/%s/%s",
+					icfg.Bootstrap.ControllerCloudName,
+					adminUser.Canonical(),
+					icfg.Bootstrap.ControllerCloudCredentialName,
+				))
+			}
+
+			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
 			info := stateInfo()
@@ -737,12 +742,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					Owner:                   names.NewUserTag("admin@local"),
+					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
 					CloudName:               icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
-					CloudCredential:         icfg.Bootstrap.ControllerCloudCredentialName,
+					CloudCredential:         cloudCredentialTag,
 					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
@@ -863,11 +868,13 @@ func (e *environ) Destroy() (res error) {
 		estate.mu.Lock()
 		ops := estate.ops
 		name := estate.name
+		delete(dummy.state, e.modelUUID)
 		estate.mu.Unlock()
 		ops <- OpDestroy{
-			Env:   name,
-			Cloud: e.cloud,
-			Error: res,
+			Env:         name,
+			Cloud:       e.cloud.Name,
+			CloudRegion: e.cloud.Region,
+			Error:       res,
 		}
 	}()
 	if err := e.checkBroken("Destroy"); err != nil {
@@ -885,7 +892,7 @@ func (e *environ) DestroyController(controllerUUID string) error {
 		return err
 	}
 	dummy.mu.Lock()
-	delete(dummy.state, e.modelUUID)
+	dummy.controllerState = nil
 	dummy.mu.Unlock()
 	return nil
 }
@@ -895,9 +902,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-	validator.RegisterVocabulary(constraints.Arch, []string{
-		arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64,
-	})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
 	return validator, nil
 }
 
@@ -1568,6 +1573,6 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }

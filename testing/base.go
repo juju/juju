@@ -33,7 +33,6 @@ var logger = loggo.GetLogger("juju.testing")
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
-	oldJujuXDGDataHome  string
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
@@ -55,7 +54,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
-	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome("")
+	os.Setenv(osenv.JujuXDGDataHomeEnvKey, c.MkDir())
 	err := utils.SetHome("")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -75,7 +74,6 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	}
 	err := utils.SetHome(s.oldHomeEnv)
 	c.Assert(err, jc.ErrorIsNil)
-	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 }
 
 // SkipIfPPC64EL skips the test if the arch is PPC64EL and the

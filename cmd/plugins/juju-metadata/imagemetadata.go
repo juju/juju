@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -203,7 +203,7 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 	}
 	err = imagemetadata.MergeAndWriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
-		return fmt.Errorf("image metadata files could not be created: %v", err)
+		return errors.Errorf("image metadata files could not be created: %v", err)
 	}
 	dir := context.AbsPath(c.Dir)
 	dest := filepath.Join(dir, storage.BaseImagesPath, "streams", "v1")

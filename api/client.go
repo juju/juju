@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -184,20 +185,21 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
+// ModelUUID returns the model UUID from the client connection
+// and reports whether it is valud.
+func (c *Client) ModelUUID() (string, bool) {
+	tag, ok := c.st.ModelTag()
+	if !ok {
+		return "", false
+	}
+	return tag.Id(), true
+}
+
 // ModelInfo returns details about the Juju model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	var info params.ModelInfo
 	err := c.facade.FacadeCall("ModelInfo", nil, &info)
 	return info, err
-}
-
-// ModelUUID returns the model UUID from the client connection.
-func (c *Client) ModelUUID() (string, error) {
-	tag, err := c.st.ModelTag()
-	if err != nil {
-		return "", errors.Annotate(err, "model tag not an model")
-	}
-	return tag.Id(), nil
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -593,19 +595,19 @@ func (args DebugLogParams) URLQuery() url.Values {
 	return attrs
 }
 
-// WatchDebugLog returns a ReadCloser that the caller can read the log
-// lines from. Only log lines that match the filtering specified in
-// the DebugLogParams are returned. It returns an error that satisfies
-// errors.IsNotImplemented when the API server does not support the
-// end-point.
-func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
-	// The websocket connection just hangs if the server doesn't have the log
-	// end point. So do a version check, as version was added at the same time
-	// as the remote end point.
-	_, err := c.AgentVersion()
-	if err != nil {
-		return nil, errors.NotSupportedf("WatchDebugLog")
-	}
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string
+	Timestamp time.Time
+	Severity  string
+	Module    string
+	Location  string
+	Message   string
+}
+
+// WatchDebugLog returns a channel of structured Log Messages. Only log entries
+// that match the filtering specified in the DebugLogParams are returned.
+func (c *Client) WatchDebugLog(args DebugLogParams) (<-chan LogMessage, error) {
 	// Prepare URL query attributes.
 	attrs := args.URLQuery()
 
@@ -613,5 +615,27 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return connection, nil
+
+	messages := make(chan LogMessage)
+	go func() {
+		defer close(messages)
+
+		for {
+			var msg params.LogMessage
+			err := connection.ReadJSON(&msg)
+			if err != nil {
+				return
+			}
+			messages <- LogMessage{
+				Entity:    msg.Entity,
+				Timestamp: msg.Timestamp,
+				Severity:  msg.Severity,
+				Module:    msg.Module,
+				Location:  msg.Location,
+				Message:   msg.Message,
+			}
+		}
+	}()
+
+	return messages, nil
 }

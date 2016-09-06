@@ -30,7 +30,10 @@ var providerInstance maasEnvironProvider
 
 func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
-	env, err := NewEnviron(args.Config)
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := NewEnviron(args.Cloud, args.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -40,43 +43,20 @@ func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, err
 var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"maas-server"}
-}
-
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	// For MAAS, the cloud endpoint may be either a full URL
-	// for the MAAS server, or just the IP/host.
-	if args.Cloud.Endpoint == "" {
-		return nil, errors.New("MAAS server not specified")
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	server := args.Cloud.Endpoint
-	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
-		server = fmt.Sprintf("http://%s/MAAS", args.Cloud.Endpoint)
-	}
-
-	attrs := map[string]interface{}{
-		"maas-server": server,
-	}
-	// Add the credentials.
-	switch authType := args.Cloud.Credential.AuthType(); authType {
-	case cloud.OAuth1AuthType:
-		credentialAttrs := args.Cloud.Credential.Attributes()
-		for k, v := range credentialAttrs {
-			attrs[k] = v
+	var attrs map[string]interface{}
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs = map[string]interface{}{
+			config.StorageDefaultBlockSourceKey: maasStorageProviderType,
 		}
-	default:
-		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-
-	// Set maas-agent-name; make sure it's not set by the user.
-	if _, ok := args.Config.UnknownAttrs()["maas-agent-name"]; ok {
-		return nil, errAgentNameAlreadySet
+	if len(attrs) == 0 {
+		return args.Config, nil
 	}
-	attrs["maas-agent-name"] = args.Config.UUID()
-
 	return args.Config.Apply(attrs)
 }
 
@@ -96,18 +76,42 @@ Please ensure the credentials are correct.`)
 	return nil
 }
 
-// SecretAttrs is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	secretAttrs := make(map[string]string)
-	maasCfg, err := prov.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
-	return secretAttrs, nil
-}
-
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
 func (p maasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := parseCloudEndpoint(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating endpoint")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := spec.Credential.AuthType(); authType != cloud.OAuth1AuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	if _, err := parseOAuthToken(*spec.Credential); err != nil {
+		return errors.Annotate(err, "validating MAAS OAuth token")
+	}
+	return nil
+}
+
+func parseCloudEndpoint(endpoint string) (server string, _ error) {
+	// For MAAS, the cloud endpoint may be either a full URL
+	// for the MAAS server, or just the IP/host.
+	if endpoint == "" {
+		return "", errors.New("MAAS server not specified")
+	}
+	server = endpoint
+	if url, err := url.Parse(server); err != nil || url.Scheme == "" {
+		server = fmt.Sprintf("http://%s/MAAS", endpoint)
+		if _, err := url.Parse(server); err != nil {
+			return "", errors.NotValidf("endpoint %q", endpoint)
+		}
+	}
+	return server, nil
 }

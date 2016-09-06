@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
@@ -48,7 +48,7 @@ type Server struct {
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	adminApiFactories map[int]adminApiFactory
+	adminAPIFactories map[int]adminAPIFactory
 	modelUUID         string
 	authCtxt          *authContext
 	lastConnectionID  uint64
@@ -228,8 +228,8 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		logDir:      cfg.LogDir,
 		limiter:     utils.NewLimiter(loginRateLimit),
 		validator:   cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			3: newAdminApiV3,
+		adminAPIFactories: map[int]adminAPIFactory{
+			3: newAdminAPIV3,
 		},
 	}
 	srv.authCtxt, err = newAuthContext(s)
@@ -398,6 +398,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
 		},
 	)
+	add("/api", mainAPIHandler)
+	// Serve the API at / (only) for backward compatiblity. Note that the
+	// pat muxer special-cases / so that it does not serve all
+	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
 	return endpoints
@@ -507,13 +511,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	h, err := srv.newAPIHandler(conn, modelUUID)
 	if err != nil {
-		conn.ServeFinder(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
-		adminApis := make(map[int]interface{})
-		for apiVersion, factory := range srv.adminApiFactories {
-			adminApis[apiVersion] = factory(srv, h, apiObserver)
+		adminAPIs := make(map[int]interface{})
+		for apiVersion, factory := range srv.adminAPIFactories {
+			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
 	conn.Start()
 	select {
@@ -538,7 +542,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newApiHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID)
 }
 
 func (srv *Server) mongoPinger() error {

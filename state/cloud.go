@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -19,19 +20,21 @@ func cloudGlobalKey(name string) string {
 
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
-	DocID           string                       `bson:"_id"`
-	Name            string                       `bson:"name"`
-	Type            string                       `bson:"type"`
-	AuthTypes       []string                     `bson:"auth-types"`
-	Endpoint        string                       `bson:"endpoint"`
-	StorageEndpoint string                       `bson:"storage-endpoint,omitempty"`
-	Regions         map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
+	DocID            string                       `bson:"_id"`
+	Name             string                       `bson:"name"`
+	Type             string                       `bson:"type"`
+	AuthTypes        []string                     `bson:"auth-types"`
+	Endpoint         string                       `bson:"endpoint"`
+	IdentityEndpoint string                       `bson:"identity-endpoint,omitempty"`
+	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
+	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
 type cloudRegionSubdoc struct {
-	Endpoint        string `bson:"endpoint,omitempty"`
-	StorageEndpoint string `bson:"storage-endpoint,omitempty"`
+	Endpoint         string `bson:"endpoint,omitempty"`
+	IdentityEndpoint string `bson:"identity-endpoint,omitempty"`
+	StorageEndpoint  string `bson:"storage-endpoint,omitempty"`
 }
 
 // createCloudOp returns a list of txn.Ops that will initialize
@@ -45,6 +48,7 @@ func createCloudOp(cloud cloud.Cloud, cloudName string) txn.Op {
 	for _, region := range cloud.Regions {
 		regions[region.Name] = cloudRegionSubdoc{
 			region.Endpoint,
+			region.IdentityEndpoint,
 			region.StorageEndpoint,
 		}
 	}
@@ -53,12 +57,13 @@ func createCloudOp(cloud cloud.Cloud, cloudName string) txn.Op {
 		Id:     cloudName,
 		Assert: txn.DocMissing,
 		Insert: &cloudDoc{
-			Name:            cloudName,
-			Type:            cloud.Type,
-			AuthTypes:       authTypes,
-			Endpoint:        cloud.Endpoint,
-			StorageEndpoint: cloud.StorageEndpoint,
-			Regions:         regions,
+			Name:             cloudName,
+			Type:             cloud.Type,
+			AuthTypes:        authTypes,
+			Endpoint:         cloud.Endpoint,
+			IdentityEndpoint: cloud.IdentityEndpoint,
+			StorageEndpoint:  cloud.StorageEndpoint,
+			Regions:          regions,
 		},
 	}
 }
@@ -78,17 +83,35 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		regions[i] = cloud.Region{
 			name,
 			region.Endpoint,
+			region.IdentityEndpoint,
 			region.StorageEndpoint,
 		}
 	}
 	return cloud.Cloud{
-		d.Type,
-		authTypes,
-		d.Endpoint,
-		d.StorageEndpoint,
-		regions,
-		nil, // Config is not stored, only relevant to bootstrap
+		Type:             d.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         d.Endpoint,
+		IdentityEndpoint: d.IdentityEndpoint,
+		StorageEndpoint:  d.StorageEndpoint,
+		Regions:          regions,
 	}
+}
+
+// Clouds returns the definitions for all clouds in the controller.
+func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	coll, cleanup := st.getCollection(cloudsC)
+	defer cleanup()
+
+	var doc cloudDoc
+	clouds := make(map[names.CloudTag]cloud.Cloud)
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "getting clouds")
+	}
+	return clouds, nil
 }
 
 // Cloud returns the controller's cloud definition.
@@ -136,4 +159,9 @@ func validateCloud(cloud cloud.Cloud) error {
 	// of the auth-types supported by the provider. To do that, we'll
 	// need a new "policy".
 	return nil
+}
+
+// regionSettingsGlobalKey concatenates the cloud a hash and the region string.
+func regionSettingsGlobalKey(cloud, region string) string {
+	return cloud + "#" + region
 }

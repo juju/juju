@@ -6,12 +6,16 @@ package maas
 import (
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
+)
+
+// Ensure MAAS provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*maasEnvironProvider)(nil)
 )
 
 type configSuite struct {
@@ -54,101 +58,11 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
-func (*configSuite) TestParsesMAASSettings(c *gc.C) {
-	server := "http://maas.testing.invalid/maas/"
-	oauth := "consumer-key:resource-token:resource-secret"
-	future := "futurama"
-
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server":     server,
-		"maas-oauth":      oauth,
-		"maas-agent-name": uuid.String(),
-		"future-key":      future,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ecfg.maasServer(), gc.Equals, server)
-	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
-	c.Check(ecfg.maasAgentName(), gc.Equals, uuid.String())
-	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
-}
-
-func (*configSuite) TestValidateUpdatesServer(c *gc.C) {
-	server := "maas.testing.invalid/maas/"
-	attrs := map[string]interface{}{
-		"maas-server": server,
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	}
-	oldCfg, err := newConfig(attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	newCfg, err := oldCfg.Apply(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
-	c.Assert(err, jc.ErrorIsNil)
-	newAttrs := result.AllAttrs()
-	c.Assert(newAttrs["maas-server"].(string), gc.Equals, "http://"+server)
-}
-
-func (*configSuite) TestInvalidServerURL(c *gc.C) {
-	// Note that as we add http:// as a prefix to invalid urls, the only
-	// thing we can now detect as invalid is an empty string.
-	server := ""
-	attrs := map[string]interface{}{
-		"maas-server": server,
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	}
-	_, err := newConfig(attrs)
-	c.Assert(err, gc.ErrorMatches, "malformed maas-server URL ''")
-}
-
-func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
-	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server": "http://maas.testing.invalid/maas/",
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ecfg.maasAgentName(), gc.Equals, "")
-}
-
-func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
-	_, err := newConfig(map[string]interface{}{
-		"maas-server": "This should have been a URL.",
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	})
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".*malformed maas-server.*")
-}
-
-func (*configSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
-	_, err := newConfig(map[string]interface{}{
-		"maas-server": "http://maas.testing.invalid/maas/",
-		"maas-oauth":  "This should have been a 3-part token.",
-	})
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
-}
-
-func (*configSuite) TestBlockStorageProviderDefault(c *gc.C) {
-	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server": "http://maas.testing.invalid/maas/",
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	src, _ := ecfg.StorageDefaultBlockSource()
-	c.Assert(src, gc.Equals, "maas")
-}
-
 func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
-	baseAttrs := map[string]interface{}{
-		"maas-server": "http://maas.testing.invalid/maas/",
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	}
-	oldCfg, err := newConfig(baseAttrs)
+	oldCfg, err := newConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	newName := oldCfg.Name() + "-but-different"
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
@@ -158,22 +72,6 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
-}
-
-func (*configSuite) TestValidateCannotChangeAgentName(c *gc.C) {
-	baseAttrs := map[string]interface{}{
-		"maas-server":     "http://maas.testing.invalid/maas/",
-		"maas-oauth":      "consumer-key:resource-token:resource-secret",
-		"maas-agent-name": "1234-5678",
-	}
-	oldCfg, err := newConfig(baseAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	newCfg, err := oldCfg.Apply(map[string]interface{}{
-		"maas-agent-name": "9876-5432",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
-	c.Assert(err, gc.ErrorMatches, "cannot change maas-agent-name")
 }
 
 func (*configSuite) TestSchema(c *gc.C) {

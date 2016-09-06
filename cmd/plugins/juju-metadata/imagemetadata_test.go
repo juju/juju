@@ -151,14 +151,15 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 		"name":            "ec2-latest-lts",
 		"type":            "ec2",
 		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
+		"controller-uuid": testing.ControllerTag.Id(),
 		"region":          "us-east-1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
-		Cloud:       "ec2",
-		CloudRegion: "us-east-1",
-		Config:      ec2Config.AllAttrs(),
+		ControllerConfig: testing.FakeControllerConfig(),
+		Cloud:            "ec2",
+		CloudRegion:      "us-east-1",
+		Config:           ec2Config.AllAttrs(),
 	}
 
 	ctx, err := runImageMetadata(c, s.store,

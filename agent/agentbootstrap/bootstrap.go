@@ -4,6 +4,8 @@
 package agentbootstrap
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -90,9 +92,16 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
-	cloudCredentials := make(map[string]cloud.Credential)
-	if args.ControllerCloudCredential != nil {
-		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
+		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+			"%s/%s/%s",
+			args.ControllerCloudName,
+			adminUser.Canonical(),
+			args.ControllerCloudCredentialName,
+		))
+		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
@@ -103,7 +112,7 @@ func InitializeState(
 			Constraints:             args.ModelConstraints,
 			CloudName:               args.ControllerCloudName,
 			CloudRegion:             args.ControllerCloudRegion,
-			CloudCredential:         args.ControllerCloudCredentialName,
+			CloudCredential:         cloudCredentialTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
 		},
 		CloudName:                 args.ControllerCloudName,
@@ -111,6 +120,7 @@ func InitializeState(
 		CloudCredentials:          cloudCredentials,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
+		RegionInheritedConfig:     args.RegionInheritedConfig,
 		MongoInfo:                 info,
 		MongoDialOpts:             dialOpts,
 		NewPolicy:                 newPolicy,
@@ -163,16 +173,10 @@ func InitializeState(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO(axw) we shouldn't be adding credentials to model config.
-	if args.ControllerCloudCredential != nil {
-		for k, v := range args.ControllerCloudCredential.Attributes() {
-			attrs[k] = v
-		}
-	}
 	controllerUUID := args.ControllerConfig.ControllerUUID()
 	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
 	hostedModelConfig, err := creator.NewModelConfig(
-		cloudSpec, controllerUUID, args.ControllerModelConfig, attrs,
+		cloudSpec, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
@@ -200,7 +204,7 @@ func InitializeState(
 		Constraints:             args.ModelConstraints,
 		CloudName:               args.ControllerCloudName,
 		CloudRegion:             args.ControllerCloudRegion,
-		CloudCredential:         args.ControllerCloudCredentialName,
+		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
 	})
 	if err != nil {

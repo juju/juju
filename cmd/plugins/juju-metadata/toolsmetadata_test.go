@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"text/template"
@@ -47,7 +48,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +136,7 @@ var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to 
 var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
 
 func (s *ToolsMetadataSuite) TestGenerateLegacyRelease(c *gc.C) {
-	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
@@ -307,6 +308,9 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
@@ -317,13 +321,16 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
 	currentVersion := jujuversion.Current
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})

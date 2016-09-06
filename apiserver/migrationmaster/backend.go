@@ -4,16 +4,23 @@
 package migrationmaster
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/version"
 )
 
 // Backend defines the state functionality required by the
 // migrationmaster facade.
 type Backend interface {
-	migration.StateExporter
-
-	WatchForModelMigration() state.NotifyWatcher
-	LatestModelMigration() (state.ModelMigration, error)
+	WatchForMigration() state.NotifyWatcher
+	LatestMigration() (state.ModelMigration, error)
+	ModelUUID() string
+	ModelName() (string, error)
+	ModelOwner() (names.UserTag, error)
+	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
+
+	migration.StateExporter
 }

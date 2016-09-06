@@ -5,11 +5,12 @@ package application
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/juju/block"
@@ -108,11 +109,13 @@ func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	}
 }
 
-func formatConstraints(value interface{}) ([]byte, error) {
-	return []byte(value.(constraints.Value).String()), nil
+func formatConstraints(writer io.Writer, value interface{}) error {
+	fmt.Fprint(writer, value.(constraints.Value).String())
+	return nil
 }
 
 func (c *serviceGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,
@@ -122,10 +125,10 @@ func (c *serviceGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *serviceGetConstraintsCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no application name specified")
+		return errors.Errorf("no application name specified")
 	}
 	if !names.IsValidApplication(args[0]) {
-		return fmt.Errorf("invalid application name %q", args[0])
+		return errors.Errorf("invalid application name %q", args[0])
 	}
 
 	c.ApplicationName, args = args[0], args[1:]
@@ -167,10 +170,10 @@ func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 
 func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no application name specified")
+		return errors.Errorf("no application name specified")
 	}
 	if !names.IsValidApplication(args[0]) {
-		return fmt.Errorf("invalid application name %q", args[0])
+		return errors.Errorf("invalid application name %q", args[0])
 	}
 
 	c.ApplicationName, args = args[0], args[1:]

@@ -16,7 +16,7 @@ import (
 	"syscall"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -94,7 +94,6 @@ func (c *PluginCommand) Init(args []string) error {
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
-		osenv.JujuXDGDataHomeEnvKey + "=" + osenv.JujuXDGDataHome(),
 		osenv.JujuModelEnvKey + "=" + c.ConnectionName()}...,
 	)
 

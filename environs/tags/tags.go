@@ -47,7 +47,7 @@ type ResourceTagger interface {
 
 // ResourceTags returns tags to set on an infrastructure resource
 // for the specified Juju environment.
-func ResourceTags(modelTag, controllerTag names.ModelTag, taggers ...ResourceTagger) map[string]string {
+func ResourceTags(modelTag names.ModelTag, controllerTag names.ControllerTag, taggers ...ResourceTagger) map[string]string {
 	allTags := make(map[string]string)
 	for _, tagger := range taggers {
 		tags, ok := tagger.ResourceTags()

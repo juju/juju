@@ -26,6 +26,9 @@ type CloudSpec struct {
 	// Endpoint is the endpoint for the cloud (region).
 	Endpoint string
 
+	// IdentityEndpoint is the identity endpoint for the cloud (region).
+	IdentityEndpoint string
+
 	// StorageEndpoint is the storage endpoint for the cloud (region).
 	StorageEndpoint string
 
@@ -51,12 +54,13 @@ func (cs CloudSpec) Validate() error {
 // Cloud, cloud and region names, and credential.
 func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
 	cloudSpec := CloudSpec{
-		Type:            cloud.Type,
-		Name:            cloudName,
-		Region:          cloudRegionName,
-		Endpoint:        cloud.Endpoint,
-		StorageEndpoint: cloud.StorageEndpoint,
-		Credential:      credential,
+		Type:             cloud.Type,
+		Name:             cloudName,
+		Region:           cloudRegionName,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Credential:       credential,
 	}
 	if cloudRegionName != "" {
 		cloudRegion, err := jujucloud.RegionByName(cloud.Regions, cloudRegionName)
@@ -64,7 +68,20 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, cre
 			return CloudSpec{}, errors.Annotate(err, "getting cloud region definition")
 		}
 		cloudSpec.Endpoint = cloudRegion.Endpoint
+		cloudSpec.IdentityEndpoint = cloudRegion.IdentityEndpoint
 		cloudSpec.StorageEndpoint = cloudRegion.StorageEndpoint
 	}
 	return cloudSpec, nil
+}
+
+// RegionSpec contains the information needed to lookup specific region
+// configuration. This is for use in calling
+// state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize
+// it.
+type RegionSpec struct {
+	// Cloud is the name of the cloud.
+	Cloud string
+
+	// Region is the name of the cloud region.
+	Region string
 }

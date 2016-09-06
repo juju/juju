@@ -183,25 +183,27 @@ func allCollections() collectionSchema {
 			indexes: bakerystorage.MongoIndexes(),
 		},
 
-		// -----------------
-
-		// Local collections
-		// =================
-
-		// This collection holds users related to a model and will be usde as one
-		// of the intersection axis of permissionsC
-		modelUsersC: {},
-
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
 		// given operation.
-		permissionsC: {},
+		permissionsC: {
+			global: true,
+		},
 
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
 			rawAccess: true,
 		},
+
+		// -----------------
+
+		// Local collections
+		// =================
+
+		// This collection holds users related to a model and will be used as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -249,8 +251,8 @@ func allCollections() collectionSchema {
 		assignUnitC: {},
 
 		// meterStatusC is the collection used to store meter status information.
-		meterStatusC:  {},
-		settingsrefsC: {},
+		meterStatusC: {},
+		refcountsC:   {},
 		relationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
@@ -268,6 +270,10 @@ func allCollections() collectionSchema {
 		machinesC:      {},
 		rebootC:        {},
 		sshHostKeysC:   {},
+
+		// This collection contains information from removed machines
+		// that needs to be cleaned up in the provider.
+		machineRemovalsC: {},
 
 		// -----
 
@@ -367,7 +373,9 @@ func allCollections() collectionSchema {
 		},
 
 		// This collection holds information about cloud image metadata.
-		cloudimagemetadataC: {},
+		cloudimagemetadataC: {
+			global: true,
+		},
 
 		// ----------------------
 
@@ -414,6 +422,7 @@ const (
 	instanceDataC            = "instanceData"
 	leasesC                  = "leases"
 	machinesC                = "machines"
+	machineRemovalsC         = "machineremovals"
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
@@ -438,7 +447,7 @@ const (
 	applicationsC            = "applications"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
-	settingsrefsC            = "settingsrefs"
+	refcountsC               = "refcounts"
 	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"

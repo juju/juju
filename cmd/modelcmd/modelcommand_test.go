@@ -114,7 +114,7 @@ func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 
 func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
-	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags)
+	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
 	args := []string{"-m", "testenv"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
@@ -198,7 +198,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
 		APIEndpoints:   apiInfo.Addrs,
-		ControllerUUID: apiInfo.ModelTag.Id(),
+		ControllerUUID: s.State.ControllerUUID(),
 		CACert:         apiInfo.CACert,
 	}
 	s.store.Accounts[s.controllerName] = jujuclient.AccountDetails{

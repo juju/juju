@@ -7,17 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
-)
-
-const (
-	HasSecrets = true
-	NoSecrets  = false
 )
 
 type ModelWatcherFacade interface {
@@ -26,19 +19,17 @@ type ModelWatcherFacade interface {
 }
 
 type ModelWatcherTests struct {
-	facade     ModelWatcherFacade
-	state      *state.State
-	hasSecrets bool
+	facade ModelWatcherFacade
+	state  *state.State
 }
 
 func NewModelWatcherTests(
 	facade ModelWatcherFacade,
 	st *state.State,
-	hasSecrets bool) *ModelWatcherTests {
+) *ModelWatcherTests {
 	return &ModelWatcherTests{
-		facade:     facade,
-		state:      st,
-		hasSecrets: hasSecrets,
+		facade: facade,
+		state:  st,
 	}
 }
 
@@ -48,21 +39,6 @@ func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
 
 	conf, err := s.facade.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// If the facade doesn't have secrets, we need to replace the config
-	// values in our model to compare against with the secrets replaced.
-	if !s.hasSecrets {
-		env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.state)
-		c.Assert(err, jc.ErrorIsNil)
-		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
-		c.Assert(err, jc.ErrorIsNil)
-		secrets := make(map[string]interface{})
-		for key := range secretAttrs {
-			secrets[key] = "not available"
-		}
-		envConfig, err = envConfig.Apply(secrets)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	c.Assert(conf, jc.DeepEquals, envConfig)
 }

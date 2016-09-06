@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -43,7 +44,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.Owner,
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
 	}
 }
 
@@ -77,6 +79,33 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
+}
+
+func (s *Suite) TestPrechecks(c *gc.C) {
+	api := s.mustNewAPI(c)
+	args := params.MigrationModelInfo{
+		UUID:         "uuid",
+		Name:         "some-model",
+		OwnerTag:     names.NewUserTag("someone").String(),
+		AgentVersion: s.controllerVersion(c),
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *Suite) TestPrechecksFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+
+	// Set the model version ahead of the controller.
+	modelVersion := controllerVersion
+	modelVersion.Minor++
+
+	api := s.mustNewAPI(c)
+	args := params.MigrationModelInfo{
+		AgentVersion: modelVersion,
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *Suite) TestImport(c *gc.C) {
@@ -135,7 +164,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	// The model should no longer exist.
 	model, err := s.State.GetModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {
@@ -185,4 +214,12 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	bytes, err := description.Serialize(model)
 	c.Assert(err, jc.ErrorIsNil)
 	return newUUID, bytes
+}
+
+func (s *Suite) controllerVersion(c *gc.C) version.Number {
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	return vers
 }

@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -24,8 +25,8 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 func NewDestroyCommand() cmd.Command {
 	return modelcmd.Wrap(
 		&destroyCommand{},
-		modelcmd.ModelSkipDefault,
-		modelcmd.ModelSkipFlags,
+		modelcmd.WrapSkipDefaultModel,
+		modelcmd.WrapSkipModelFlags,
 	)
 }
 
@@ -61,7 +62,7 @@ Continue [y/N]? `[1:]
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyModelAPI interface {
 	Close() error
-	DestroyModel() error
+	DestroyModel(names.ModelTag) error
 }
 
 // Info implements Command.Info.
@@ -76,6 +77,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
@@ -96,7 +98,7 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,7 +139,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Attempt to destroy the model.
-	err = api.DestroyModel()
+	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
 	if err != nil {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}

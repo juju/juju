@@ -82,7 +82,7 @@ type unsetModelDefaultsAPI interface {
 
 	// UnsetModelDefaults clears the default model
 	// configuration values.
-	UnsetModelDefaults(keys ...string) error
+	UnsetModelDefaults(cloud, region string, keys ...string) error
 }
 
 func (c *unsetDefaultsCommand) Run(ctx *cmd.Context) error {
@@ -92,5 +92,6 @@ func (c *unsetDefaultsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.UnsetModelDefaults(c.keys...), block.BlockChange)
+	// TODO(wallyworld) - call with cloud and region when that bit is done
+	return block.ProcessBlockedError(client.UnsetModelDefaults("", "", c.keys...), block.BlockChange)
 }

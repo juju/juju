@@ -33,7 +33,7 @@ func (s *imageSuite) SetUpTest(c *gc.C) {
 		stub: s.Stub,
 		url:  "https://match",
 		aliases: map[string]string{
-			"trusty": "deadbeef",
+			"trusty": "trusty-alias",
 		},
 	}
 	s.remoteWithNothing = &stubRemoteClient{
@@ -138,7 +138,6 @@ func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
 	}
 	err := client.EnsureImageExists("trusty", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.Stub.CheckCall(c, 0, "GetAlias", "ubuntu-trusty")
 }
 
 func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
@@ -158,10 +157,6 @@ func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{ // Check if we already have 'ubuntu-trusty' locally
-			FuncName: "GetAlias",
-			Args:     []interface{}{"ubuntu-trusty"},
-		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{"https://match"},
@@ -172,12 +167,12 @@ func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"deadbeef", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "deadbeef",
+		"ubuntu-trusty": "trusty",
 	})
 }
 
@@ -197,16 +192,12 @@ func (s *imageSuite) TestEnsureImageExistsUnableToConnect(c *gc.C) {
 		Protocol: SimplestreamsProtocol,
 	}
 	s.Stub.ResetCalls()
-	s.Stub.SetErrors(nil, errors.Errorf("unable-to-connect"))
+	s.Stub.SetErrors(errors.Errorf("unable-to-connect"))
 	remotes := []Remote{badRemote, s.remoteWithTrusty.AsRemote()}
 	err := client.EnsureImageExists("trusty", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{ // Check if we already have 'ubuntu-trusty' locally
-			FuncName: "GetAlias",
-			Args:     []interface{}{"ubuntu-trusty"},
-		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{"https://nosuch-remote.invalid"},
@@ -221,12 +212,12 @@ func (s *imageSuite) TestEnsureImageExistsUnableToConnect(c *gc.C) {
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"deadbeef", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "deadbeef",
+		"ubuntu-trusty": "trusty",
 	})
 }
 
@@ -247,10 +238,6 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{ // Check if we already have 'ubuntu-trusty' locally
-			FuncName: "GetAlias",
-			Args:     []interface{}{"ubuntu-trusty"},
-		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{s.remoteWithNothing.URL()},
@@ -269,12 +256,12 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"deadbeef", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "deadbeef",
+		"ubuntu-trusty": "trusty",
 	})
 }
 

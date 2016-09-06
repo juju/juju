@@ -82,6 +82,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
+			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +340,7 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
-	s.waitRemoved(c, container)
+	s.waitForRemovalMark(c, container)
 }
 
 func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {

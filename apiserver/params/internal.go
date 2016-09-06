@@ -111,18 +111,23 @@ type ModelCreateArgs struct {
 	// creation of the model.
 	Config map[string]interface{} `json:"config,omitempty"`
 
+	// CloudTag is the tag of the cloud to create the model in.
+	// If this is empty, the model will be created in the same
+	// cloud as the controller model.
+	CloudTag string `json:"cloud-tag,omitempty"`
+
 	// CloudRegion is the name of the cloud region to create the
 	// model in. If the cloud does not support regions, this must
-	// be empty. If this is empty, the model will be created in
-	// the same region as the controller model.
+	// be empty. If this is empty, and CloudTag is empty, the model
+	// will be created in the same region as the controller model.
 	CloudRegion string `json:"region,omitempty"`
 
-	// CloudCredential is the name of the cloud credential to use
+	// CloudCredentialTag is the tag of the cloud credential to use
 	// for managing the model's resources. If the cloud does not
 	// require credentials, this may be empty. If this is empty,
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
-	CloudCredential string `json:"credential,omitempty"`
+	CloudCredentialTag string `json:"credential,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID
@@ -706,4 +711,14 @@ type GUIArchiveResponse struct {
 type GUIVersionRequest struct {
 	// Version holds the Juju GUI version number.
 	Version version.Number `json:"version"`
+}
+
+// LogMessage is a structured logging entry.
+type LogMessage struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
 }

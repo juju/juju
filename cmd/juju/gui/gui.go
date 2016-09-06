@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/httprequest"
 	"github.com/juju/webbrowser"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -57,6 +57,7 @@ func (c *guiCommand) Info() *cmd.Info {
 
 // SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.showCreds, "show-credentials", false, "Show admin credentials to use for logging into the Juju GUI")
 	f.BoolVar(&c.noBrowser, "no-browser", false, "Do not try to open the web browser, just print the Juju GUI URL")
 }

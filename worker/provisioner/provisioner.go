@@ -69,6 +69,8 @@ type provisioner struct {
 
 // RetryStrategy defines the retry behavior when encountering a retryable
 // error during provisioning.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type RetryStrategy struct {
 	retryDelay time.Duration
 	retryCount int
@@ -147,10 +149,6 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
 
-	secureServerConnection := false
-	if info, ok := p.agentConfig.StateServingInfo(); ok {
-		secureServerConnection = info.CAPrivateKey != ""
-	}
 	task, err := NewProvisionerTask(
 		controllerCfg.ControllerUUID(),
 		machineTag,
@@ -162,7 +160,6 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.broker,
 		auth,
 		modelCfg.ImageStream(),
-		secureServerConnection,
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
 	if err != nil {

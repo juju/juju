@@ -24,7 +24,7 @@ func (s *PhaseSuite) TestUNKNOWN(c *gc.C) {
 }
 
 func (s *PhaseSuite) TestStringValid(c *gc.C) {
-	c.Check(migration.PRECHECK.String(), gc.Equals, "PRECHECK")
+	c.Check(migration.IMPORT.String(), gc.Equals, "IMPORT")
 	c.Check(migration.UNKNOWN.String(), gc.Equals, "UNKNOWN")
 	c.Check(migration.ABORT.String(), gc.Equals, "ABORT")
 }
@@ -74,8 +74,7 @@ func (s *PhaseSuite) TestIsRunning(c *gc.C) {
 func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.READONLY), jc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), jc.IsTrue)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), jc.IsFalse)
-
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), jc.IsFalse)
 }

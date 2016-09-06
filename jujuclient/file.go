@@ -108,7 +108,46 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	return nil, errors.NotFoundf("controller %s", name)
 }
 
-// UpdateController implements ControllersUpdater.
+// AddController implements ControllerUpdater.
+func (s *store) AddController(name string, details ControllerDetails) error {
+	if err := ValidateControllerName(name); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateControllerDetails(details); err != nil {
+		return errors.Trace(err)
+	}
+
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return errors.Annotatef(err, "cannot add controller %v", name)
+	}
+	defer releaser.Release()
+
+	all, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get controllers")
+	}
+
+	if len(all.Controllers) == 0 {
+		all.Controllers = make(map[string]ControllerDetails)
+	}
+
+	if _, ok := all.Controllers[name]; ok {
+		return errors.AlreadyExistsf("controller with name %s", name)
+	}
+
+	for k, v := range all.Controllers {
+		if v.ControllerUUID == details.ControllerUUID {
+			return errors.AlreadyExistsf("controller with UUID %s (%s)",
+				details.ControllerUUID, k)
+		}
+	}
+
+	all.Controllers[name] = details
+	return WriteControllersFile(all)
+}
+
+// UpdateController implements ControllerUpdater.
 func (s *store) UpdateController(name string, details ControllerDetails) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -129,14 +168,25 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 	}
 
 	if len(all.Controllers) == 0 {
-		all.Controllers = make(map[string]ControllerDetails)
+		return errors.NotFoundf("controllers")
+	}
+
+	for k, v := range all.Controllers {
+		if v.ControllerUUID == details.ControllerUUID && k != name {
+			return errors.AlreadyExistsf("controller %s with UUID %s",
+				k, v.ControllerUUID)
+		}
+	}
+
+	if _, ok := all.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %s", name)
 	}
 
 	all.Controllers[name] = details
 	return WriteControllersFile(all)
 }
 
-// SetCurrentController implements ControllersUpdater.
+// SetCurrentController implements ControllerUpdater.
 func (s *store) SetCurrentController(name string) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -489,6 +539,11 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 	}
 	if oldDetails, ok := accounts[controllerName]; ok && details == oldDetails {
 		return nil
+	} else {
+		// Only update last known access if it has a value.
+		if details.LastKnownAccess == "" {
+			details.LastKnownAccess = oldDetails.LastKnownAccess
+		}
 	}
 
 	accounts[controllerName] = details

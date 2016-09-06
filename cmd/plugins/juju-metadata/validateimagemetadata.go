@@ -4,16 +4,19 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -84,7 +87,7 @@ func (c *validateImageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -96,13 +99,13 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *validateImageMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.series == "" {
-			return fmt.Errorf("series required if provider type is specified")
+			return errors.Errorf("series required if provider type is specified")
 		}
 		if c.region == "" {
-			return fmt.Errorf("region required if provider type is specified")
+			return errors.Errorf("region required if provider type is specified")
 		}
 		if c.metadataDir == "" {
-			return fmt.Errorf("metadata directory required if provider type is specified")
+			return errors.Errorf("metadata directory required if provider type is specified")
 		}
 	}
 	return cmd.CheckEmpty(args)
@@ -127,7 +130,7 @@ func (oes *overrideEnvStream) Config() *config.Config {
 	newCfg, err := cfg.Apply(map[string]interface{}{"image-stream": oes.stream})
 	if err != nil {
 		// This should never happen.
-		panic(fmt.Errorf("unexpected error making override config: %v", err))
+		panic(errors.Errorf("unexpected error making override config: %v", err))
 	}
 	return newCfg
 }
@@ -144,8 +147,9 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 			metadata := map[string]interface{}{
 				"Resolve Metadata": *resolveInfo,
 			}
-			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
-				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			buff := &bytes.Buffer{}
+			if yamlErr := cmd.FormatYaml(buff, metadata); yamlErr == nil {
+				err = errors.Errorf("%v\n%v", err, buff.String())
 			}
 		}
 		return err
@@ -165,7 +169,7 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf(
+		return errors.Errorf(
 			"no matching image ids for region %s using sources:\n%s",
 			params.Region, strings.Join(sources, "\n"))
 	}
@@ -182,7 +186,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		}
 		mdLookup, ok := environ.(simplestreams.MetadataValidator)
 		if !ok {
-			return nil, fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
+			return nil, errors.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
@@ -200,7 +204,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		}
 		mdLookup, ok := prov.(simplestreams.MetadataValidator)
 		if !ok {
-			return nil, fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+			return nil, errors.Errorf("%s provider does not support image metadata validation", c.providerType)
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {

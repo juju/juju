@@ -6,12 +6,14 @@ package migrationtarget_test
 import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
 )
 
 type ClientSuite struct {
@@ -20,7 +22,7 @@ type ClientSuite struct {
 
 var _ = gc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) getClientAndStub(c *gc.C) (migrationtarget.Client, *jujutesting.Stub) {
+func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -28,6 +30,31 @@ func (s *ClientSuite) getClientAndStub(c *gc.C) (migrationtarget.Client, *jujute
 	})
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
+}
+
+func (s *ClientSuite) TestPrechecks(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+
+	ownerTag := names.NewUserTag("owner")
+	vers := version.MustParse("1.2.3")
+
+	err := client.Prechecks(coremigration.ModelInfo{
+		UUID:         "uuid",
+		Owner:        ownerTag,
+		Name:         "name",
+		AgentVersion: vers,
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+	expectedArg := params.MigrationModelInfo{
+		UUID:         "uuid",
+		Name:         "name",
+		OwnerTag:     ownerTag.String(),
+		AgentVersion: vers,
+	}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationTarget.Prechecks", []interface{}{"", expectedArg}},
+	})
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {

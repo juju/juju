@@ -85,6 +85,9 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
+	Actions() []Action
+	AddAction(ActionArgs) Action
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -93,6 +96,12 @@ type Model interface {
 
 	Filesystems() []Filesystem
 	AddFilesystem(FilesystemArgs) Filesystem
+
+	Storages() []Storage
+	AddStorage(StorageArgs) Storage
+
+	StoragePools() []StoragePool
+	AddStoragePool(StoragePoolArgs) StoragePool
 
 	Validate() error
 }
@@ -161,9 +170,6 @@ type Machine interface {
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
 
-	// TODO:
-	// Storage
-
 	BlockDevices() []BlockDevice
 	AddBlockDevice(BlockDeviceArgs) BlockDevice
 
@@ -174,10 +180,7 @@ type Machine interface {
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// reboot doc
-	// block devices
 	// port docs
-	// machine filesystems
 }
 
 // OpenedPorts represents a collection of port ranges that are open on a
@@ -254,12 +257,12 @@ type Application interface {
 	MinUnits() int
 
 	Settings() map[string]interface{}
-	SettingsRefCount() int
 
 	Leader() string
 	LeadershipSettings() map[string]interface{}
 
 	MetricsCredentials() []byte
+	StorageConstraints() map[string]StorageConstraint
 
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
@@ -284,8 +287,6 @@ type Unit interface {
 	MeterStatusCode() string
 	MeterStatusInfo() string
 
-	// TODO: storage
-
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
 
@@ -305,6 +306,9 @@ type Unit interface {
 
 	AgentStatusHistory() []Status
 	SetAgentStatusHistory([]StatusArgs)
+
+	AddPayload(PayloadArgs) Payload
+	Payloads() []Payload
 
 	Validate() error
 }
@@ -392,6 +396,20 @@ type SSHHostKey interface {
 	Keys() []string
 }
 
+// Action represents an IP action.
+type Action interface {
+	Id() string
+	Receiver() string
+	Name() string
+	Parameters() map[string]interface{}
+	Enqueued() time.Time
+	Started() time.Time
+	Completed() time.Time
+	Results() map[string]interface{}
+	Status() string
+	Message() string
+}
+
 // Volume represents a volume (disk, logical volume, etc.) in the model.
 type Volume interface {
 	HasStatus
@@ -452,4 +470,38 @@ type FilesystemAttachment interface {
 	Provisioned() bool
 	MountPoint() string
 	ReadOnly() bool
+}
+
+// Storage represents the state of a unit or application-wide storage instance
+// in the model.
+type Storage interface {
+	Tag() names.StorageTag
+	Kind() string
+	// Owner returns the tag of the application or unit that owns this storage
+	// instance.
+	Owner() (names.Tag, error)
+	Name() string
+
+	Attachments() []names.UnitTag
+
+	Validate() error
+}
+
+// StoragePool represents a named storage pool and its settings.
+type StoragePool interface {
+	Name() string
+	Provider() string
+	Attributes() map[string]interface{}
+}
+
+// StorageConstraint repressents the user-specified constraints for
+// provisioning storage instances for an application unit.
+type StorageConstraint interface {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instances.
+	Pool() string
+	// Size is the required size of the storage instances, in MiB.
+	Size() uint64
+	// Count is the required number of storage instances.
+	Count() uint64
 }

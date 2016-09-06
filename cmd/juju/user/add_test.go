@@ -60,15 +60,11 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		args:        []string{"foobar", "Foo Bar", "extra"},
 		errorString: `unrecognized args: \["extra"\]`,
 	}, {
-		args:   []string{"foobar", "--models", "foo,bar", "--acl=read"},
-		user:   "foobar",
-		models: "foo,bar",
-		acl:    "read",
+		args: []string{"foobar"},
+		user: "foobar",
 	}, {
-		args:   []string{"foobar", "--models", "baz", "--acl=write"},
-		user:   "foobar",
-		models: "baz",
-		acl:    "write",
+		args: []string{"foobar"},
+		user: "foobar",
 	}} {
 		c.Logf("test %d (%q)", i, test.args)
 		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelApi{})
@@ -77,12 +73,6 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.User, gc.Equals, test.user)
 			c.Check(command.DisplayName, gc.Equals, test.displayname)
-			if len(test.models) > 0 {
-				c.Check(command.ModelNames, gc.Equals, test.models)
-			}
-			if test.acl != "" {
-				c.Check(command.ModelAccess, gc.Equals, test.acl)
-			}
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}
@@ -94,26 +84,6 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
-	c.Assert(s.mockAPI.access, gc.Equals, "read")
-	c.Assert(s.mockAPI.models, gc.HasLen, 0)
-	expected := `
-User "foobar" added
-Please send this command to foobar:
-    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
-
-"foobar" has not been granted access to any models. You can use "juju grant" to grant access.
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-}
-
-func (s *UserAddCommandSuite) TestAddUserWithUsernameAndACL(c *gc.C) {
-	context, err := s.run(c, "--acl", "write", "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
-	c.Assert(s.mockAPI.displayname, gc.Equals, "")
-	c.Assert(s.mockAPI.access, gc.Equals, "write")
-	c.Assert(s.mockAPI.models, gc.HasLen, 0)
 	expected := `
 User "foobar" added
 Please send this command to foobar:
@@ -130,8 +100,6 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
-	c.Assert(s.mockAPI.access, gc.Equals, "read")
-	c.Assert(s.mockAPI.models, gc.HasLen, 0)
 	expected := `
 User "Foo Bar (foobar)" added
 Please send this command to foobar:
@@ -153,23 +121,6 @@ func (m *mockModelApi) Close() error {
 	return nil
 }
 
-func (s *UserAddCommandSuite) TestAddUserWithModelAccess(c *gc.C) {
-	context, err := s.run(c, "foobar", "--models", "model")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
-	c.Assert(s.mockAPI.displayname, gc.Equals, "")
-	c.Assert(s.mockAPI.access, gc.Equals, "read")
-	c.Assert(s.mockAPI.models, gc.DeepEquals, []string{"modeluuid"})
-	expected := `
-User "foobar" added
-User "foobar" granted read access to model "model"
-Please send this command to foobar:
-    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-}
-
 func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
 	// Block operation
 	s.mockAPI.blocked = true
@@ -177,7 +128,7 @@ func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*To enable changes.*")
 }
 
 func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {
@@ -194,19 +145,15 @@ type mockAddUserAPI struct {
 	username    string
 	displayname string
 	password    string
-	access      string
-	models      []string
 }
 
-func (m *mockAddUserAPI) AddUser(username, displayname, password, access string, models ...string) (names.UserTag, []byte, error) {
+func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, []byte, error) {
 	if m.blocked {
 		return names.UserTag{}, nil, common.OperationBlockedError("the operation has been blocked")
 	}
 	m.username = username
 	m.displayname = displayname
 	m.password = password
-	m.access = access
-	m.models = models
 	if m.failMessage != "" {
 		return names.UserTag{}, nil, errors.New(m.failMessage)
 	}

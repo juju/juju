@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 func NewShowOutputCommand() cmd.Command {
@@ -41,7 +42,8 @@ displayed.  This is also the behavior when any negative time is given.
 
 // Set up the output.
 func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.ActionCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
 }
 

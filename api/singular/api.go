@@ -22,9 +22,9 @@ func NewAPI(apiCaller base.APICaller, controllerTag names.MachineTag) (*API, err
 	if !names.IsValidMachine(controllerId) {
 		return nil, errors.NotValidf("controller tag")
 	}
-	modelTag, err := apiCaller.ModelTag()
-	if err != nil {
-		return nil, errors.Trace(err)
+	modelTag, ok := apiCaller.ModelTag()
+	if !ok {
+		return nil, errors.New("cannot use singular API on controller-only connection")
 	}
 	facadeCaller := base.NewFacadeCaller(apiCaller, "Singular")
 	return &API{

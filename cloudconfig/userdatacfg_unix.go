@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+var logger = loggo.GetLogger("juju.cloudconfig")
+
 const (
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
@@ -178,7 +180,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	if stdout, _ := w.conf.Output(cloudinit.OutAll); stdout == "" {
 		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLog, "")
 		w.conf.AddBootCmd(initProgressCmd)
-		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.icfg.CloudInitOutputLog))
+		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
 	}
 
 	w.conf.AddPackageCommands(
@@ -209,9 +211,6 @@ func (w *unixConfigure) ConfigureJuju() error {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
 		w.conf.AddRunTextFile(keyFile, w.icfg.Controller.PublicImageSigningKey, 0644)
 	}
-
-	// Write out the introspection helper bash functions in /etc/profile.d.
-	w.conf.AddRunTextFile("/etc/profile.d/juju-introspection.sh", introspectionWorkerBashFuncs, 0644)
 
 	// Make the lock dir and change the ownership of the lock dir itself to
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
@@ -307,7 +306,7 @@ func (w *unixConfigure) configureBootstrap() error {
 		loggingOption,
 		shquote(bootstrapParamsFile),
 	}
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
 
 	return nil
@@ -343,7 +342,8 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 			curlCommand += " --insecure"
 		}
 		curlCommand += " -o $bin/tools.tar.gz"
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s <%s>", curlCommand, urls))
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju agent version %s for %s", tools.Version.Number, tools.Version.Arch))
+		logger.Infof("Fetching agent: %s <%s>", curlCommand, urls)
 		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}
 
@@ -351,7 +351,7 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			tools.SHA256, tools.Version),
-		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
+		"tar zxf $bin/tools.tar.gz -C $bin",
 	)
 
 	toolsJson, err := json.Marshal(tools)
@@ -449,37 +449,3 @@ func base64yaml(attrs map[string]interface{}) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
-
-const introspectionWorkerBashFuncs = `
-jujuAgentCall () {
-  local agent=$1
-  shift
-  local path=
-  for i in "$@"; do
-    path="$path/$i"
-  done
-  echo -e "GET $path HTTP/1.0\r\n" | socat abstract-connect:jujud-$agent STDIO
-}
-
-jujuMachineAgentName () {
-  local machine=` + "`ls -d /var/lib/juju/agents/machine*`" + `
-  machine=` + "`basename $machine`" + `
-  echo $machine
-}
-
-juju-goroutines () {
-  if [ "$#" -gt 1 ]; then
-    echo "expected no args (for machine agent) or one (unit agent)"
-    return 1
-  fi
-  local agent=$(jujuMachineAgentName)
-  if [ "$#" -eq 1 ]; then
-    agent=$1
-  fi
-  jujuAgentCall $agent debug/pprof/goroutine?debug=1
-}
-
-export -f jujuAgentCall
-export -f jujuMachineAgentName
-export -f juju-goroutines
-`

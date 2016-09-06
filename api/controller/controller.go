@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -143,20 +144,78 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 	return results, nil
 }
 
-// ModelMigrationSpec holds the details required to start the
-// migration of a single model.
-type ModelMigrationSpec struct {
+// GrantController grants a user access to the controller.
+func (c *Client) GrantController(user, access string) error {
+	return c.modifyControllerUser(params.GrantControllerAccess, user, access)
+}
+
+// RevokeController revokes a user's access to the controller.
+func (c *Client) RevokeController(user, access string) error {
+	return c.modifyControllerUser(params.RevokeControllerAccess, user, access)
+}
+
+func (c *Client) modifyControllerUser(action params.ControllerAction, user, access string) error {
+	var args params.ModifyControllerAccessRequest
+
+	if !names.IsValidUser(user) {
+		return errors.Errorf("invalid username: %q", user)
+	}
+	userTag := names.NewUserTag(user)
+
+	args.Changes = []params.ModifyControllerAccess{{
+		UserTag: userTag.String(),
+		Action:  action,
+		Access:  access,
+	}}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ModifyControllerAccess", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
+
+	return result.Combine()
+}
+
+// GetControllerAccess returns the access level the user has on the controller.
+func (c *Client) GetControllerAccess(user string) (description.Access, error) {
+	if !names.IsValidUser(user) {
+		return "", errors.Errorf("invalid username: %q", user)
+	}
+	entities := params.Entities{Entities: []params.Entity{{names.NewUserTag(user).String()}}}
+	var results params.UserAccessResults
+	err := c.facade.FacadeCall("GetControllerAccess", entities, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	if err := results.Results[0].Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return description.Access(results.Results[0].Result.Access), nil
+}
+
+// MigrationSpec holds the details required to start the migration of
+// a single model.
+type MigrationSpec struct {
 	ModelUUID            string
+	ExternalControl      bool
 	TargetControllerUUID string
 	TargetAddrs          []string
 	TargetCACert         string
 	TargetUser           string
 	TargetPassword       string
+	TargetMacaroon       string
 }
 
 // Validate performs sanity checks on the migration configuration it
 // holds.
-func (s *ModelMigrationSpec) Validate() error {
+func (s *MigrationSpec) Validate() error {
 	if !names.IsValidModel(s.ModelUUID) {
 		return errors.NotValidf("model UUID")
 	}
@@ -172,36 +231,38 @@ func (s *ModelMigrationSpec) Validate() error {
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
 	}
-	if s.TargetPassword == "" {
-		return errors.NotValidf("empty target password")
+	if s.TargetPassword == "" && s.TargetMacaroon == "" {
+		return errors.NotValidf("missing authentication secrets")
 	}
 	return nil
 }
 
-// InitiateModelMigration attempts to start a migration for the
-// specified model, returning the migration's ID.
+// InitiateMigration attempts to start a migration for the specified
+// model, returning the migration's ID.
 //
 // The API server supports starting multiple migrations in one request
 // but we don't need that at the client side yet (and may never) so
 // this call just supports starting one migration at a time.
-func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error) {
+func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
-	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{{
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
-			TargetInfo: params.ModelMigrationTargetInfo{
+			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
+				Macaroon:      spec.TargetMacaroon,
 			},
+			ExternalControl: spec.ExternalControl,
 		}},
 	}
-	response := params.InitiateModelMigrationResults{}
-	if err := c.facade.FacadeCall("InitiateModelMigration", args, &response); err != nil {
+	response := params.InitiateMigrationResults{}
+	if err := c.facade.FacadeCall("InitiateMigration", args, &response); err != nil {
 		return "", errors.Trace(err)
 	}
 	if len(response.Results) != 1 {

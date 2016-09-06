@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
@@ -78,11 +79,9 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermis
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{
-			Username:        "foobar",
-			DisplayName:     "Foo Bar",
-			Password:        "password",
-			SharedModelTags: sharedModelTags,
-			ModelAccess:     access,
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+			Password:    "password",
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
@@ -135,40 +134,6 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestAddReadAccessUser(c *gc.C) {
-	s.addUserWithSharedModel(c, params.ModelReadAccess)
-}
-
-func (s *userManagerSuite) TestAddWriteAccessUser(c *gc.C) {
-	s.addUserWithSharedModel(c, params.ModelWriteAccess)
-}
-
-func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.UserAccessPermission) {
-	sharedModelState := s.Factory.MakeModel(c, nil)
-	defer sharedModelState.Close()
-
-	s.assertAddUser(c, access, []string{sharedModelState.ModelTag().String()})
-
-	// Check that the model has been shared.
-	sharedModel, err := sharedModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	users, err := sharedModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	var modelUserTags = make([]names.UserTag, len(users))
-	for i, u := range users {
-		modelUserTags[i] = u.UserTag
-		if u.UserName == "foobar" {
-			c.Assert(u.Access, gc.Equals, description.ReadAccess)
-		} else if u.UserName == "admin" {
-			c.Assert(u.Access, gc.Equals, description.AdminAccess)
-		}
-	}
-	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
-		names.NewLocalUserTag("foobar"),
-		names.NewLocalUserTag("admin"),
-	})
-}
-
 func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	args := params.AddUsers{
 		Users: []params.AddUser{{
@@ -203,14 +168,8 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	got, err := usermanager.AddUser(args)
-
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals,
-			&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.AddUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -359,12 +318,8 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	got, err := usermanager.DisableUser(args)
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.DisableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -382,12 +337,8 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	got, err := usermanager.EnableUser(args)
-	for _, result := range got.Results {
-		c.Check(errors.Cause(result.Error), jc.DeepEquals, &params.Error{Message: "permission denied", Code: "unauthorized access"})
-	}
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = usermanager.EnableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -397,6 +348,10 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+	err := controller.ChangeControllerAccess(
+		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
+		params.GrantControllerAccess, description.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
@@ -407,7 +362,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			}, {
 				Tag: names.NewLocalUserTag("ellie").String(),
 			}, {
-				Tag: names.NewUserTag("not@remote").String(),
+				Tag: names.NewUserTag("fred@external").String(),
 			}, {
 				Tag: "not-a-tag",
 			},
@@ -426,12 +381,14 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			info: &params.UserInfo{
 				Username:    "foobar",
 				DisplayName: "Foo Bar",
+				Access:      "login",
 			},
 		}, {
 			user: userBar,
 			info: &params.UserInfo{
 				Username:    "barfoo",
 				DisplayName: "Bar Foo",
+				Access:      "login",
 				Disabled:    true,
 			},
 		}, {
@@ -440,9 +397,9 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 				Code:    params.CodeUnauthorized,
 			},
 		}, {
-			err: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+			info: &params.UserInfo{
+				Username: "fred@external",
+				Access:   "addmodel",
 			},
 		}, {
 			err: &params.Error{
@@ -451,9 +408,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		},
 	} {
 		if r.info != nil {
-			r.info.DateCreated = r.user.DateCreated()
-			r.info.LastConnection = lastLoginPointer(c, r.user)
-			r.info.CreatedBy = s.adminName
+			if names.NewUserTag(r.info.Username).IsLocal() {
+				r.info.DateCreated = r.user.DateCreated()
+				r.info.LastConnection = lastLoginPointer(c, r.user)
+				r.info.CreatedBy = s.adminName
+			}
 		}
 		expected.Results = append(expected.Results, params.UserInfoResult{Result: r.info, Error: r.err})
 	}
@@ -479,6 +438,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 		info: &params.UserInfo{
 			Username:    "aardvark",
 			DisplayName: "Aard Vark",
+			Access:      "login",
 			Disabled:    true,
 		},
 	}, {
@@ -486,12 +446,14 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 		info: &params.UserInfo{
 			Username:    s.adminName,
 			DisplayName: admin.DisplayName(),
+			Access:      "superuser",
 		},
 	}, {
 		user: userFoo,
 		info: &params.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
+			Access:      "login",
 		},
 	}} {
 		r.info.CreatedBy = s.adminName
@@ -506,6 +468,70 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// Same results as before, but without the deactivated user
 	expected.Results = expected.Results[1:]
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userAardvark := s.Factory.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark"})
+
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag: userAardvark.Tag(),
+	}
+	usermanager, err := usermanager.NewUserManagerAPI(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.UserInfoRequest{Entities: []params.Entity{
+		{Tag: userAardvark.Tag().String()},
+		{Tag: names.NewUserTag("foobar").String()},
+	}}
+	results, err := usermanager.UserInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Non admin users can only see themselves.
+	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: &params.UserInfo{
+					Username:       "aardvark",
+					DisplayName:    "Aard Vark",
+					Access:         "login",
+					CreatedBy:      s.adminName,
+					DateCreated:    userAardvark.DateCreated(),
+					LastConnection: lastLoginPointer(c, userAardvark),
+				},
+			}, {
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    params.CodeUnauthorized,
+				},
+			},
+		},
+	})
+}
+
+func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
+	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag("everyone@external"),
+		Access:    description.AddModelAccess,
+		CreatedBy: s.AdminUserTag(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag("aardvark@external"),
+		Access:    description.LoginAccess,
+		CreatedBy: s.AdminUserTag(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.UserInfoRequest{Entities: []params.Entity{{Tag: names.NewUserTag("aardvark@external").String()}}}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Non admin users can only see themselves.
+	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
+		Results: []params.UserInfoResult{{Result: &params.UserInfo{
+			Username: "aardvark@external",
+			Access:   "addmodel",
+		}}},
+	})
 }
 
 func lastLoginPointer(c *gc.C, user *state.User) *time.Time {
@@ -685,12 +711,9 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove jjam as chuck and fail.
-	got, err := usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(got.Results, gc.HasLen, 1)
-	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
-		&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Make sure jjam is still around.
 	err = jjam.Refresh()
@@ -718,12 +741,9 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove the user as the user
-	got, err := usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Assert(got.Results, gc.HasLen, 1)
-	c.Check(errors.Cause(got.Results[0].Error), jc.DeepEquals,
-		&params.Error{Message: "permission denied", Code: "unauthorized access"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Check if deleted.
 	err = jjam.Refresh()

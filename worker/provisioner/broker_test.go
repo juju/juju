@@ -147,7 +147,7 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, "released", "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }

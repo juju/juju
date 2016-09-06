@@ -103,7 +103,8 @@ type AgentEntity interface {
 // about clouds and credentials.
 type CloudAccessor interface {
 	Cloud(cloud string) (cloud.Cloud, error)
-	CloudCredentials(user names.UserTag, cloud string) (map[string]cloud.Credential, error)
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
+	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 }
 
 // ModelAccessor defines the methods needed to watch for model

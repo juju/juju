@@ -13,6 +13,7 @@ type annotationAccess interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	GetAnnotations(entity state.GlobalEntity) (map[string]string, error)
 	SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error
+	ModelTag() names.ModelTag
 }
 
 type stateShim struct {
@@ -29,4 +30,8 @@ func (s stateShim) GetAnnotations(entity state.GlobalEntity) (map[string]string,
 
 func (s stateShim) SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error {
 	return s.state.SetAnnotations(entity, annotations)
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.state.ModelTag()
 }

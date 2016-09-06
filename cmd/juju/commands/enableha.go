@@ -4,14 +4,14 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
@@ -88,13 +88,11 @@ Examples:
 `
 
 // formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
-func formatSimple(value interface{}) ([]byte, error) {
+func formatSimple(writer io.Writer, value interface{}) error {
 	enableHAResult, ok := value.(availabilityInfo)
 	if !ok {
-		return nil, fmt.Errorf("unexpected result type for enable-ha call: %T", value)
+		return errors.Errorf("unexpected result type for enable-ha call: %T", value)
 	}
-
-	var buf bytes.Buffer
 
 	for _, machineList := range []struct {
 		message string
@@ -128,13 +126,13 @@ func formatSimple(value interface{}) ([]byte, error) {
 		if len(machineList.list) == 0 {
 			continue
 		}
-		_, err := fmt.Fprintf(&buf, machineList.message, strings.Join(machineList.list, ", "))
+		_, err := fmt.Fprintf(writer, machineList.message, strings.Join(machineList.list, ", "))
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
 func (c *enableHACommand) Info() *cmd.Info {
@@ -146,6 +144,7 @@ func (c *enableHACommand) Info() *cmd.Info {
 }
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "Additional machine constraints")
@@ -159,7 +158,7 @@ func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *enableHACommand) Init(args []string) error {
 	if c.NumControllers < 0 || (c.NumControllers%2 != 1 && c.NumControllers != 0) {
-		return fmt.Errorf("must specify a number of controllers odd and non-negative")
+		return errors.Errorf("must specify a number of controllers odd and non-negative")
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
@@ -175,7 +174,7 @@ func (c *enableHACommand) Init(args []string) error {
 				continue
 			}
 			if err != instance.ErrPlacementScopeMissing {
-				return fmt.Errorf("unsupported enable-ha placement directive %q", spec)
+				return errors.Errorf("unsupported enable-ha placement directive %q", spec)
 			}
 			c.Placement[i] = spec
 		}

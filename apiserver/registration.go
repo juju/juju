@@ -153,7 +153,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	}
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         st.CACert(),
-		ControllerUUID: st.ModelUUID(),
+		ControllerUUID: st.ControllerUUID(),
 		Macaroon:       mac,
 	}
 	return &payload, nil

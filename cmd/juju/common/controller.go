@@ -4,6 +4,7 @@
 package common
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -12,15 +13,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
+	"github.com/juju/version"
 )
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
@@ -28,10 +30,14 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 }
 
 // SetBootstrapEndpointAddress writes the API endpoint address of the
-// bootstrap server into the connection information. This should only be run
-// once directly after Bootstrap. It assumes that there is just one instance
-// in the environment - the bootstrap instance.
-func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerName string, apiPort int, environ environs.Environ) error {
+// bootstrap server, plus the agent version, into the connection information.
+// This should only be run once directly after Bootstrap. It assumes that
+// there is just one instance in the environment - the bootstrap instance.
+func SetBootstrapEndpointAddress(
+	store jujuclient.ControllerStore,
+	controllerName string, agentVersion version.Number,
+	apiPort int, environ environs.Environ,
+) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -52,7 +58,7 @@ func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerNam
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerAddresses(store, controllerName, nil, apiHostPorts...)
+	return juju.UpdateControllerDetailsFromLogin(store, controllerName, agentVersion.String(), nil, apiHostPorts...)
 }
 
 var (
@@ -61,13 +67,18 @@ var (
 	blockAPI                = getBlockAPI
 )
 
+type listBlocksAPI interface {
+	List() ([]params.Block, error)
+	Close() error
+}
+
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiblock.NewClient(root), nil
+	return block.NewClient(root), nil
 }
 
 // tryAPI attempts to open the API and makes a trivial call
@@ -87,7 +98,8 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error {
+func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error {
+	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
@@ -97,11 +109,24 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		err         error
 	)
 
+	// Make a best effort to find the new controller address so we can print it.
+	addressInfo := ""
+	controller, err := c.ClientStore().ControllerByName(controllerName)
+	if err == nil && len(controller.APIEndpoints) > 0 {
+		addr, err := network.ParseHostPort(controller.APIEndpoints[0])
+		if err == nil {
+			addressInfo = fmt.Sprintf(" at %s", addr.Address.Value)
+		}
+	}
+
+	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
 	apiAttempts = 1
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
 		if err == nil {
-			ctx.Infof("Bootstrap complete, %s now available.", controllerName)
+			ctx.Infof("Bootstrap complete, %q controller now available.", controllerName)
+			ctx.Infof("Controller machines are in the %q model.", bootstrap.ControllerModelName)
+			ctx.Infof("Initial model %q added.", hostedModelName)
 			break
 		}
 		// As the API server is coming up, it goes through a number of steps.
@@ -119,10 +144,10 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
-			ctx.Infof("Waiting for API to become available")
+			ctx.Verbosef("Still waiting for API to become available")
 			continue
 		case params.ErrCode(err) == params.CodeUpgradeInProgress:
-			ctx.Infof("Waiting for API to become available: %v", err)
+			ctx.Verbosef("Still waiting for API to become available: %v", err)
 			continue
 		}
 		break

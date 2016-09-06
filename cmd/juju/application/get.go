@@ -4,19 +4,25 @@
 package application
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var usageGetConfigSummary = `
 Displays configuration settings for a deployed application.`[1:]
 
 var usageGetConfigDetails = `
+By default, all configuration (keys, values, metadata) for the application are
+displayed if a key is not specified.
 Output includes the name of the charm used to deploy the application and a
 listing of the application-specific configuration settings.
 See `[1:] + "`juju status`" + ` for application names.
@@ -24,6 +30,7 @@ See `[1:] + "`juju status`" + ` for application names.
 Examples:
     juju get-config mysql
     juju get-config mysql-testing
+    juju get-config mysql wait-timeout
 
 See also: 
     set-config
@@ -38,7 +45,8 @@ func NewGetCommand() cmd.Command {
 // getCommand retrieves the configuration of an application.
 type getCommand struct {
 	modelcmd.ModelCommandBase
-	ApplicationName string
+	applicationName string
+	key             string
 	out             cmd.Output
 	api             getServiceAPI
 }
@@ -46,27 +54,27 @@ type getCommand struct {
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-config",
-		Args:    "<application name>",
+		Args:    "<application name> [attribute-key]",
 		Purpose: usageGetConfigSummary,
 		Doc:     usageGetConfigDetails,
-		Aliases: []string{"get-configs"},
 	}
 }
 
 func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO(dfc) add json formatting ?
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-	})
+	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 func (c *getCommand) Init(args []string) error {
-	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no application name specified")
 	}
-	c.ApplicationName = args[0]
-	return cmd.CheckEmpty(args[1:])
+	c.applicationName = args[0]
+	if len(args) == 1 {
+		return nil
+	}
+	c.key = args[1]
+	return cmd.CheckEmpty(args[2:])
 }
 
 // getServiceAPI defines the methods on the client API
@@ -96,9 +104,22 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	results, err := apiclient.Get(c.ApplicationName)
+	results, err := apiclient.Get(c.applicationName)
 	if err != nil {
 		return err
+	}
+	if c.key != "" {
+		info, found := results.Config[c.key].(map[string]interface{})
+		if !found {
+			return errors.Errorf("key %q not found in %q application settings.", c.key, c.applicationName)
+		}
+		out := &bytes.Buffer{}
+		err := cmd.FormatYaml(out, info["value"])
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(ctx.Stdout, out.String())
+		return nil
 	}
 
 	resultsMap := map[string]interface{}{

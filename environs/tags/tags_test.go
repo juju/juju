@@ -19,18 +19,18 @@ type tagsSuite struct {
 var _ = gc.Suite(&tagsSuite{})
 
 func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
-	testResourceTags(c, testing.ModelTag, names.NewModelTag(""), nil, map[string]string{
+	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{
+		"juju-model-uuid":      "",
+		"juju-controller-uuid": testing.ControllerTag.Id(),
+	})
+	testResourceTags(c, names.NewControllerTag(""), testing.ModelTag, nil, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": "",
-	})
-	testResourceTags(c, names.NewModelTag(""), testing.ModelTag, nil, map[string]string{
-		"juju-model-uuid":      "",
-		"juju-controller-uuid": testing.ModelTag.Id(),
 	})
 }
 
 func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
-	testResourceTags(c, testing.ModelTag, testing.ModelTag, []tags.ResourceTagger{
+	testResourceTags(c, testing.ControllerTag, testing.ModelTag, []tags.ResourceTagger{
 		resourceTagger(func() (map[string]string, bool) {
 			return map[string]string{
 				"over":   "ridden",
@@ -54,14 +54,14 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
 		}),
 	}, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
-		"juju-controller-uuid": testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
 		"froman":               "egg",
 		"over":                 "easy",
 		"extra":                "play",
 	})
 }
 
-func testResourceTags(c *gc.C, model, controller names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
+func testResourceTags(c *gc.C, controller names.ControllerTag, model names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
 	tags := tags.ResourceTags(model, controller, taggers...)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }

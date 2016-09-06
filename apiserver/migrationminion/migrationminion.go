@@ -59,11 +59,11 @@ func (api *API) Report(info params.MinionReport) error {
 		return errors.New("unable to parse phase")
 	}
 
-	mig, err := api.backend.ModelMigration(info.MigrationId)
+	mig, err := api.backend.Migration(info.MigrationId)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = mig.MinionReport(api.authorizer.GetAuthTag(), phase, info.Success)
+	err = mig.SubmitMinionReport(api.authorizer.GetAuthTag(), phase, info.Success)
 	return errors.Trace(err)
 }

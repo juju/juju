@@ -35,6 +35,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -75,6 +76,7 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -101,6 +103,7 @@ func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -127,6 +130,7 @@ func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -153,6 +157,7 @@ func (s *ModelUserSuite) TestDefaultAccessModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -170,6 +175,7 @@ func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -188,11 +194,13 @@ func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.State.AddModelUser(state.UserAccessSpec{
-		User:      names.NewUserTag("Bob@RandomProvider"),
-		CreatedBy: model.Owner(),
-		Access:    description.ReadAccess,
-	})
+	user, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
+		state.UserAccessSpec{
+			User:      names.NewUserTag("Bob@RandomProvider"),
+			CreatedBy: model.Owner(),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.UserName, gc.Equals, "Bob@RandomProvider")
 	c.Assert(user.UserID, gc.Equals, state.DocID(s.State, "bob@randomprovider"))
@@ -203,11 +211,13 @@ func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "Bob@ubuntuone"})
 
-	_, err = s.State.AddModelUser(state.UserAccessSpec{
-		User:      names.NewUserTag("boB@ubuntuone"),
-		CreatedBy: model.Owner(),
-		Access:    description.ReadAccess,
-	})
+	_, err = s.State.AddModelUser(
+		s.State.ModelUUID(),
+		state.UserAccessSpec{
+			User:      names.NewUserTag("boB@ubuntuone"),
+			CreatedBy: model.Owner(),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, gc.ErrorMatches, `user access "boB@ubuntuone" already exists`)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
@@ -253,19 +263,25 @@ func (s *ModelUserSuite) TestAddModelDisplayName(c *gc.C) {
 
 func (s *ModelUserSuite) TestAddModelNoUserFails(c *gc.C) {
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddModelUser(state.UserAccessSpec{
-		User:      names.NewLocalUserTag("validusername"),
-		CreatedBy: createdBy.UserTag(),
-		Access:    description.ReadAccess})
+	_, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
+		state.UserAccessSpec{
+			User:      names.NewLocalUserTag("validusername"),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
 func (s *ModelUserSuite) TestAddModelNoCreatedByUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	_, err := s.State.AddModelUser(state.UserAccessSpec{
-		User:      user.UserTag(),
-		CreatedBy: names.NewLocalUserTag("createdby"),
-		Access:    description.ReadAccess})
+	_, err := s.State.AddModelUser(
+		s.State.ModelUUID(),
+		state.UserAccessSpec{
+			User:      user.UserTag(),
+			CreatedBy: names.NewLocalUserTag("createdby"),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
@@ -314,10 +330,13 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	// Create a second model and add the same user to this.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	modelUser2, err := st2.AddModelUser(state.UserAccessSpec{
-		User:      user.UserTag(),
-		CreatedBy: createdBy.UserTag(),
-		Access:    description.ReadAccess})
+	modelUser2, err := st2.AddModelUser(
+		st2.ModelUUID(),
+		state.UserAccessSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now we have two model users with the same username. Ensure we get
@@ -384,7 +403,7 @@ func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserT
 		"uuid": uuid.String(),
 	})
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", Config: cfg, Owner: owner,
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -413,9 +432,12 @@ func (s *ModelUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag
 	newEnv, err := envState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = envState.AddModelUser(state.UserAccessSpec{
-		User: user, CreatedBy: newEnv.Owner(),
-		Access: description.ReadAccess})
+	_, err = envState.AddModelUser(
+		envState.ModelUUID(),
+		state.UserAccessSpec{
+			User: user, CreatedBy: newEnv.Owner(),
+			Access: description.ReadAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	return newEnv
 }
@@ -450,38 +472,38 @@ func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
 	}
 }
 
-func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
-	isAdmin, err := s.State.IsControllerAdministrator(s.Owner)
+func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
+	isAdmin, err := s.State.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
+	isAdmin, err = s.State.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: user.UserTag().Canonical()})
-	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), description.SuperuserAccess)
+	isAdmin, err = s.State.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
 	readonly := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
-	isAdmin, err = s.State.IsControllerAdministrator(readonly.UserTag)
+	isAdmin, err = s.State.IsControllerAdmin(readonly.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 }
 
-func (s *ModelUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
+func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
 	defer otherState.Close()
 
-	isAdmin, err := otherState.IsControllerAdministrator(user.UserTag())
+	isAdmin, err := otherState.IsControllerAdmin(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	isAdmin, err = otherState.IsControllerAdministrator(s.Owner)
+	isAdmin, err = otherState.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 }

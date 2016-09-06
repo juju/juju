@@ -19,10 +19,7 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
-	// RestrictedConfigAttributes are provider specific attributes stored in
-	// the config that really cannot or should not be changed across
-	// environments running inside a single juju server.
-	RestrictedConfigAttributes() []string
+	// TODO(wallyworld) - embed config.ConfigSchemaSource and make all providers implement it
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -37,11 +34,6 @@ type EnvironProvider interface {
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
 	Open(OpenParams) (Environ, error)
-
-	// SecretAttrs filters the supplied configuration returning only values
-	// which are considered sensitive. All of the values of these secret
-	// attributes need to be strings.
-	SecretAttrs(cfg *config.Config) (map[string]string, error)
 }
 
 // OpenParams contains the parameters for EnvironProvider.Open.
@@ -66,9 +58,6 @@ type ProviderSchema interface {
 
 // PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
 type PrepareConfigParams struct {
-	// ControllerUUID is the UUID of the controller to be bootstrapped.
-	ControllerUUID string
-
 	// Cloud is the cloud specification to use to connect to the cloud.
 	Cloud CloudSpec
 

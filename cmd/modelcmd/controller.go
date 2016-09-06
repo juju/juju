@@ -6,7 +6,7 @@ package modelcmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
@@ -180,25 +180,32 @@ func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error
 	return result, nil
 }
 
-// WrapControllerOption sets various parameters of the
-// ControllerCommand wrapper.
+// WrapControllerOption specifies an option to the WrapController function.
 type WrapControllerOption func(*sysCommandWrapper)
 
-// ControllerSkipFlags instructs the wrapper to skip -c
-// and --controller flag definition.
-func ControllerSkipFlags(w *sysCommandWrapper) {
-	w.setFlags = false
+// Options for the WrapController call.
+var (
+	// WrapControllerSkipControllerFlags specifies that the -c
+	// and --controller flag flags should not be defined.
+	WrapControllerSkipControllerFlags WrapControllerOption = wrapControllerSkipControllerFlags
+
+	// WrapSkipDefaultModel specifies that no default controller should
+	// be used.
+	WrapControllerSkipDefaultController WrapControllerOption = wrapControllerSkipDefaultController
+)
+
+func wrapControllerSkipControllerFlags(w *sysCommandWrapper) {
+	w.setControllerFlags = false
 }
 
-// ControllerSkipDefault instructs the wrapper not to
-// use the default controller name.
-func ControllerSkipDefault(w *sysCommandWrapper) {
-	w.useDefaultControllerName = false
+func wrapControllerSkipDefaultController(w *sysCommandWrapper) {
+	w.useDefaultController = false
 }
 
-// ControllerAPIOpener instructs the underlying controller command to use a
-// different APIOpener strategy.
-func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
+// WrapControllerAPIOpener specifies that the given APIOpener
+// should should be used to open the API connection when
+// NewAPIRoot or NewControllerAPIRoot are called.
+func WrapControllerAPIOpener(opener APIOpener) WrapControllerOption {
 	return func(w *sysCommandWrapper) {
 		w.ControllerCommand.SetAPIOpener(opener)
 	}
@@ -208,9 +215,9 @@ func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
 // that proxies to each of the ControllerCommand methods.
 func WrapController(c ControllerCommand, options ...WrapControllerOption) cmd.Command {
 	wrapper := &sysCommandWrapper{
-		ControllerCommand:        c,
-		setFlags:                 true,
-		useDefaultControllerName: true,
+		ControllerCommand:    c,
+		setControllerFlags:   true,
+		useDefaultController: true,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -220,14 +227,14 @@ func WrapController(c ControllerCommand, options ...WrapControllerOption) cmd.Co
 
 type sysCommandWrapper struct {
 	ControllerCommand
-	setFlags                 bool
-	useDefaultControllerName bool
-	controllerName           string
+	setControllerFlags   bool
+	useDefaultController bool
+	controllerName       string
 }
 
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
 func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	if w.setFlags {
+	if w.setControllerFlags {
 		f.StringVar(&w.controllerName, "c", "", "Controller to operate in")
 		f.StringVar(&w.controllerName, "controller", "", "")
 	}
@@ -242,8 +249,8 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	}
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
-	if w.setFlags {
-		if w.controllerName == "" && w.useDefaultControllerName {
+	if w.setControllerFlags {
+		if w.controllerName == "" && w.useDefaultController {
 			currentController, err := store.CurrentController()
 			if errors.IsNotFound(err) {
 				return ErrNoControllersDefined
@@ -253,7 +260,7 @@ func (w *sysCommandWrapper) Init(args []string) error {
 			}
 			w.controllerName = currentController
 		}
-		if w.controllerName == "" && !w.useDefaultControllerName {
+		if w.controllerName == "" && !w.useDefaultController {
 			return ErrNoControllersDefined
 		}
 	}

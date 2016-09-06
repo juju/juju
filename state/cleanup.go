@@ -185,9 +185,9 @@ func (st *State) cleanupModelsForDyingController() (err error) {
 	return nil
 }
 
-// cleanupMachinesForDyingModel sets all non-manager, non-manual
-// machines to Dying, if they are not already Dying or Dead. It's expected to
-// be used when a model is destroyed.
+// cleanupMachinesForDyingModel sets all non-manager machines to Dying,
+// if they are not already Dying or Dead. It's expected to be used when
+// a model is destroyed.
 func (st *State) cleanupMachinesForDyingModel() (err error) {
 	// This won't miss machines, because a Dying model cannot have
 	// machines added to it. But we do have to remove the machines themselves
@@ -205,12 +205,19 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 		}
 		manual, err := m.IsManual()
 		if err != nil {
-			return err
-		} else if manual {
-			continue
+			return errors.Trace(err)
 		}
-		err = m.ForceDestroy()
-		if err != nil {
+		destroy := m.ForceDestroy
+		if manual {
+			// Manually added machines should never be force-
+			// destroyed automatically. That should be a user-
+			// driven decision, since it may leak applications
+			// and resources on the machine. If something is
+			// stuck, then the user can still force-destroy
+			// the manual machines.
+			destroy = m.Destroy
+		}
+		if err := destroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}

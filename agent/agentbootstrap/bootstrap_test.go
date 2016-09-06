@@ -97,6 +97,7 @@ LXC_BRIDGE="ignored"`[1:])
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          testing.DefaultMongoPassword,
+		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	}
 	servingInfo := params.StateServingInfo{
@@ -148,8 +149,13 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
+		"no-proxy":   "value",
 	}
-
+	regionConfig := cloud.RegionConfig{
+		"some-region": cloud.Attrs{
+			"no-proxy": "a-value",
+		},
+	}
 	var envProvider fakeProvider
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
@@ -157,12 +163,13 @@ LXC_BRIDGE="ignored"`[1:])
 			BootstrapMachineInstanceId:              "i-bootstrap",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:   []cloud.Region{{Name: "some-region"}},
+				Type:         "dummy",
+				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+				Regions:      []cloud.Region{{Name: "dummy-region"}},
+				RegionConfig: regionConfig,
 			},
 			ControllerCloudName:       "dummy",
-			ControllerCloudRegion:     "some-region",
+			ControllerCloudRegion:     "dummy-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
 			ModelConstraints:          expectModelConstraints,
@@ -196,7 +203,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
-	s.assertCanLogInAsAdmin(c, modelTag, testing.DefaultMongoPassword)
+	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
+	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
 	user, err := st.User(model.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -205,7 +213,7 @@ LXC_BRIDGE="ignored"`[1:])
 	controllerCfg, err = st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
-		"controller-uuid":         testing.ModelTag.Id(),
+		"controller-uuid":         testing.ControllerTag.Id(),
 		"ca-cert":                 testing.CACert,
 		"state-port":              1234,
 		"api-port":                17777,
@@ -221,6 +229,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
+	expectedAttrs["no-proxy"] = "value"
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
@@ -239,7 +248,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -289,27 +298,26 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), nil)
+	st1, err := state.Open(newCfg.Model(), newCfg.Controller(), info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
 	// Make sure that the hosted model Environ's Create method is called.
 	envProvider.CheckCallNames(c,
-		"RestrictedConfigAttributes",
 		"PrepareConfig",
 		"Validate",
 		"Open",
 		"Create",
 	)
-	envProvider.CheckCall(c, 3, "Open", environs.OpenParams{
+	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
-			Region: "some-region",
+			Region: "dummy-region",
 		},
 		Config: hostedCfg,
 	})
-	envProvider.CheckCall(c, 4, "Create", environs.CreateParams{
+	envProvider.CheckCall(c, 3, "Create", environs.CreateParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 	})
 }
@@ -322,6 +330,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
+		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -348,6 +357,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          testing.DefaultMongoPassword,
+		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -432,7 +442,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -441,7 +451,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")
@@ -451,11 +461,6 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 type fakeProvider struct {
 	environs.EnvironProvider
 	gitjujutesting.Stub
-}
-
-func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.MethodCall(p, "RestrictedConfigAttributes")
-	return []string{}
 }
 
 func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

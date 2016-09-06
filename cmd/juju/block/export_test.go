@@ -10,53 +10,41 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var (
-	BlockClient   = &getBlockClientAPI
-	UnblockClient = &getUnblockClientAPI
-	ListClient    = &getBlockListAPI
-
-	NewDestroyCommand = newDestroyCommand
-	NewRemoveCommand  = newRemoveCommand
-	NewChangeCommand  = newChangeCommand
-	NewListCommand    = newListCommand
-)
-
-type MockBlockClient struct {
-	BlockType string
-	Msg       string
-}
-
-func (c *MockBlockClient) Close() error {
-	return nil
-}
-
-func (c *MockBlockClient) SwitchBlockOn(blockType, msg string) error {
-	c.BlockType = blockType
-	c.Msg = msg
-	return nil
-}
-
-func (c *MockBlockClient) SwitchBlockOff(blockType string) error {
-	c.BlockType = blockType
-	c.Msg = ""
-	return nil
-}
-
-func (c *MockBlockClient) List() ([]params.Block, error) {
-	if c.BlockType == "" {
-		return []params.Block{}, nil
-	}
-
-	return []params.Block{
-		params.Block{
-			Type:    c.BlockType,
-			Message: c.Msg,
+// NewDisableCommandForTest returns a new disable command with the
+// apiFunc specified to return the args.
+func NewDisableCommandForTest(api blockClientAPI, err error) cmd.Command {
+	return modelcmd.Wrap(&disableCommand{
+		apiFunc: func(_ newAPIRoot) (blockClientAPI, error) {
+			return api, err
 		},
-	}, nil
+	})
 }
 
-func NewUnblockCommandWithClient(client UnblockClientAPI) cmd.Command {
-	return modelcmd.Wrap(&unblockCommand{getClient: func() (UnblockClientAPI, error) {
-		return client, nil
-	}})
+// NewEnableCommandForTest returns a new enable command with the
+// apiFunc specified to return the args.
+func NewEnableCommandForTest(api unblockClientAPI, err error) cmd.Command {
+	return modelcmd.Wrap(&enableCommand{
+		apiFunc: func(_ newAPIRoot) (unblockClientAPI, error) {
+			return api, err
+		},
+	})
+}
+
+type listMockAPI interface {
+	blockListAPI
+	// Can't include two interfaces that specify the same method
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
+}
+
+// NewListCommandForTest returns a new list command with the
+// apiFunc specified to return the args.
+func NewListCommandForTest(api listMockAPI, err error) cmd.Command {
+	return modelcmd.Wrap(&listCommand{
+		apiFunc: func(_ newAPIRoot) (blockListAPI, error) {
+			return api, err
+		},
+		controllerAPIFunc: func(_ newControllerAPIRoot) (controllerListAPI, error) {
+			return api, err
+		},
+	})
 }

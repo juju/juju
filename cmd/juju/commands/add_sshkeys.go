@@ -63,7 +63,6 @@ func (c *addKeysCommand) Info() *cmd.Info {
 		Args:    "<ssh key> ...",
 		Purpose: usageAddSSHKeySummary,
 		Doc:     usageAddSSHKeyDetails,
-		Aliases: []string{"add-ssh-keys"},
 	}
 }
 

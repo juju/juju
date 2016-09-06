@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -144,7 +145,6 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		}}
 		return ops, nil
 	}
-
 	return st.run(buildTxn)
 }
 
@@ -171,7 +171,8 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 		names.NewUserTag(user.Name()),
 		user.Name(),
 		dateCreated,
-		defaultControllerPermission)
+		// first user is controller admin.
+		description.SuperuserAccess)
 
 	ops = append(ops, controllerUserOps...)
 	return ops

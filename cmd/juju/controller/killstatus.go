@@ -33,13 +33,13 @@ type modelData struct {
 
 // newTimedStatusUpdater returns a function which waits a given period of time
 // before querying the apiserver for updated data.
-func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid string) func(time.Duration) (ctrData, []modelData) {
+func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string) func(time.Duration) (ctrData, []modelData) {
 	return func(wait time.Duration) (ctrData, []modelData) {
 		time.Sleep(wait)
 
 		// If we hit an error, status.HostedModelCount will be 0, the polling
 		// loop will stop and we'll go directly to destroying the model.
-		ctrStatus, modelsStatus, err := newData(api, uuid)
+		ctrStatus, modelsStatus, err := newData(api, controllerModelUUID)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
@@ -48,7 +48,7 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid stri
 	}
 }
 
-func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
+func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []modelData, error) {
 	models, err := api.AllModels()
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
@@ -57,7 +57,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 		return ctrData{}, nil, errors.New("no models found")
 	}
 
-	status, err := api.ModelStatus(names.NewModelTag(ctrUUID))
+	status, err := api.ModelStatus(names.NewModelTag(controllerModelUUID))
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
@@ -71,7 +71,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 	modelName := map[string]string{}
 	var i int
 	for _, model := range models {
-		if model.UUID != ctrUUID {
+		if model.UUID != controllerModelUUID {
 			modelName[model.UUID] = model.Name
 			hostedTags[i] = names.NewModelTag(model.UUID)
 			i++
@@ -106,7 +106,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 	}
 
 	ctrFinalStatus := ctrData{
-		ctrUUID,
+		controllerModelUUID,
 		ctrStatus.Life,
 		aliveModelCount,
 		hostedMachinesCount,

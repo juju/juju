@@ -4,11 +4,16 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -25,6 +30,17 @@ Examples:
     
 See also: 
     controllers`[1:]
+
+type showControllerCommand struct {
+	modelcmd.JujuCommandBase
+
+	out   cmd.Output
+	store jujuclient.ClientStore
+	api   controllerAccessAPI
+
+	controllerNames []string
+	showPasswords   bool
+}
 
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
@@ -47,7 +63,6 @@ func (c *showControllerCommand) Info() *cmd.Info {
 		Args:    "[<controller name> ...]",
 		Purpose: usageShowControllerSummary,
 		Doc:     usageShowControllerDetails,
-		Aliases: []string{"show-controllers"},
 	}
 }
 
@@ -59,6 +74,24 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
+}
+
+// ControllerAccessAPI defines a subset of the api/controller/Client API.
+type controllerAccessAPI interface {
+	GetControllerAccess(user string) (description.Access, error)
+	ModelConfig() (map[string]interface{}, error)
+	Close() error
+}
+
+func (c *showControllerCommand) getAPI(controllerName string) (controllerAccessAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	return controller.NewClient(api), nil
 }
 
 // Run implements Command.Run
@@ -74,14 +107,61 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		controllerNames = []string{currentController}
 	}
 	controllers := make(map[string]ShowControllerDetails)
-	for _, name := range controllerNames {
-		one, err := c.store.ControllerByName(name)
+	for _, controllerName := range controllerNames {
+		one, err := c.store.ControllerByName(controllerName)
 		if err != nil {
 			return err
 		}
-		controllers[name] = c.convertControllerForShow(name, one)
+		var access string
+		accountDetails, err := c.store.AccountDetails(controllerName)
+		if err != nil {
+			fmt.Fprintln(ctx.Stderr, err)
+			access = "(error)"
+		} else {
+			client, err := c.getAPI(controllerName)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			access = c.userAccess(client, ctx, accountDetails.User)
+			one.AgentVersion = c.agentVersion(client, ctx)
+		}
+		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
 	}
 	return c.out.Write(ctx, controllers)
+}
+
+func (c *showControllerCommand) userAccess(client controllerAccessAPI, ctx *cmd.Context, user string) string {
+	var access string
+	userAccess, err := client.GetControllerAccess(user)
+	if err == nil {
+		access = string(userAccess)
+	} else {
+		code := params.ErrCode(err)
+		if code != "" {
+			access = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			access = "(error)"
+		}
+	}
+	return access
+}
+
+func (c *showControllerCommand) agentVersion(client controllerAccessAPI, ctx *cmd.Context) string {
+	var ver string
+	mc, err := client.ModelConfig()
+	if err != nil {
+		code := params.ErrCode(err)
+		if code != "" {
+			ver = fmt.Sprintf("(%s)", code)
+		} else {
+			fmt.Fprintln(ctx.Stderr, err)
+			ver = "(error)"
+		}
+		return ver
+	}
+	return mc["agent-version"].(string)
 }
 
 type ShowControllerDetails struct {
@@ -117,6 +197,12 @@ type ControllerDetails struct {
 
 	// CloudRegion is the name of the cloud region that this controller runs in.
 	CloudRegion string `yaml:"region,omitempty" json:"region,omitempty"`
+
+	// AgentVersion is the version of the agent running on this controller.
+	// AgentVersion need not always exist so we omitempty here. This struct is
+	// used in both list-controller and show-controller. show-controller
+	// displays the agent version where list-controller does not.
+	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -130,11 +216,14 @@ type AccountDetails struct {
 	// User is the username for the account.
 	User string `yaml:"user" json:"user"`
 
+	// Access is the level of access the user has on the controller.
+	Access string `yaml:"access,omitempty" json:"access,omitempty"`
+
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
-func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
+func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails, access string) ShowControllerDetails {
 	controller := ShowControllerDetails{
 		Details: ControllerDetails{
 			ControllerUUID: details.ControllerUUID,
@@ -142,14 +231,15 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			CACert:         details.CACert,
 			Cloud:          details.Cloud,
 			CloudRegion:    details.CloudRegion,
+			AgentVersion:   details.AgentVersion,
 		},
 	}
 	c.convertModelsForShow(controllerName, &controller)
-	c.convertAccountsForShow(controllerName, &controller)
+	c.convertAccountsForShow(controllerName, &controller, access)
 	return controller
 }
 
-func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails) {
+func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
 	storeDetails, err := c.store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
@@ -158,7 +248,8 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 		return
 	}
 	details := &AccountDetails{
-		User: storeDetails.User,
+		User:   storeDetails.User,
+		Access: access,
 	}
 	if c.showPasswords {
 		details.Password = storeDetails.Password
@@ -185,14 +276,4 @@ func (c *showControllerCommand) convertModelsForShow(controllerName string, cont
 		controller.Errors = append(controller.Errors, err.Error())
 		return
 	}
-}
-
-type showControllerCommand struct {
-	modelcmd.JujuCommandBase
-
-	out   cmd.Output
-	store jujuclient.ClientStore
-
-	controllerNames []string
-	showPasswords   bool
 }

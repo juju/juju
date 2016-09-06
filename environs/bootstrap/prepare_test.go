@@ -52,7 +52,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	controllerStore := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	controllerCfg := controller.Config{
-		controller.ControllerUUIDKey:       testing.ModelTag.Id(),
+		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),
 		controller.CACertKey:               testing.CACert,
 		controller.ApiPort:                 17777,
 		controller.StatePort:               1234,
@@ -70,7 +70,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	// Check that controller was cached
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
+	c.Assert(foundController.ControllerUUID, gc.DeepEquals, controllerCfg.ControllerUUID())
 	c.Assert(foundController.Cloud, gc.Equals, "dummy")
 
 	// Check that bootstrap config was written
@@ -95,10 +95,13 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"development":               false,
 			"test-mode":                 true,
 		},
-		Cloud:                "dummy",
-		CloudType:            "dummy",
-		CloudEndpoint:        "dummy-endpoint",
-		CloudStorageEndpoint: "dummy-storage-endpoint",
+		ControllerModelUUID:   cfg.UUID(),
+		Cloud:                 "dummy",
+		CloudRegion:           "dummy-region",
+		CloudType:             "dummy",
+		CloudEndpoint:         "dummy-endpoint",
+		CloudIdentityEndpoint: "dummy-identity-endpoint",
+		CloudStorageEndpoint:  "dummy-storage-endpoint",
 	})
 
 	// Check we cannot call Prepare again.

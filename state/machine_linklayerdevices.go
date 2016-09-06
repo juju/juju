@@ -80,6 +80,24 @@ func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFu
 	return errors.Trace(iter.Close())
 }
 
+// AllProviderInterfaceInfos returns the provider details for all of
+// the link layer devices belonging to this machine. These can be used
+// to identify the devices when interacting with the provider
+// directly (for example, releasing container addresses).
+func (m *Machine) AllProviderInterfaceInfos() ([]network.ProviderInterfaceInfo, error) {
+	devices, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]network.ProviderInterfaceInfo, len(devices))
+	for i, device := range devices {
+		result[i].InterfaceName = device.Name()
+		result[i].MACAddress = device.MACAddress()
+		result[i].ProviderId = device.ProviderID()
+	}
+	return result, nil
+}
+
 // RemoveAllLinkLayerDevices removes all existing link-layer devices of the
 // machine in a single transaction. No error is returned when some or all of the
 // devices were already removed.

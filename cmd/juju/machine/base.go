@@ -5,10 +5,11 @@ package machine
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/status"
@@ -29,15 +30,18 @@ type baselistMachinesCommand struct {
 	api           statusAPI
 	machineIds    []string
 	defaultFormat string
+	color         bool
 }
 
 // SetFlags sets utc and format flags based on user specified options.
 func (c *baselistMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 	c.out.AddFlags(f, c.defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": status.FormatMachineTabular,
+		"tabular": c.tabular,
 	})
 }
 
@@ -71,4 +75,8 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
 	formatted := formatter.MachineFormat(c.machineIds)
 	return c.out.Write(ctx, formatted)
+}
+
+func (c *baselistMachinesCommand) tabular(writer io.Writer, value interface{}) error {
+	return status.FormatMachineTabular(writer, c.color, value)
 }

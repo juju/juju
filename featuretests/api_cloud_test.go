@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/juju/testing"
 )
@@ -26,16 +27,48 @@ type CloudAPISuite struct {
 
 func (s *CloudAPISuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = apicloud.NewClient(s.APIState)
+	s.client = apicloud.NewClient(s.OpenControllerAPI(c))
+}
+
+func (s *CloudAPISuite) TearDownTest(c *gc.C) {
+	s.client.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 	result, err := s.client.Cloud(names.NewCloudTag("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
-		Type:            "dummy",
-		AuthTypes:       []cloud.AuthType{cloud.EmptyAuthType},
-		Endpoint:        "dummy-endpoint",
-		StorageEndpoint: "dummy-storage-endpoint",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions: []cloud.Region{
+			{
+				Name:             "dummy-region",
+				Endpoint:         "dummy-endpoint",
+				IdentityEndpoint: "dummy-identity-endpoint",
+				StorageEndpoint:  "dummy-storage-endpoint",
+			},
+		},
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		StorageEndpoint:  "dummy-storage-endpoint",
+	})
+}
+
+func (s *CloudAPISuite) TestCredentialsAPI(c *gc.C) {
+	tag := names.NewCloudCredentialTag("dummy/admin@local/default")
+	err := s.client.UpdateCredential(tag, cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"username": "fred", "password": "secret"},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.client.Credentials(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{
+		{Result: &params.CloudCredential{
+			AuthType:   "userpass",
+			Attributes: map[string]string{"username": "fred"},
+			Redacted:   []string{"password"},
+		}},
 	})
 }

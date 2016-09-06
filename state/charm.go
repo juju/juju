@@ -47,9 +47,8 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	DocID     string     `bson:"_id"`
-	URL       *charm.URL `bson:"url"` // DANGEROUS see below
-	ModelUUID string     `bson:"model-uuid"`
+	DocID string     `bson:"_id"`
+	URL   *charm.URL `bson:"url"` // DANGEROUS see below
 
 	// TODO(fwereade) 2015-06-18 lp:1467964
 	// DANGEROUS: our schema can change any time the charm package changes,
@@ -95,7 +94,6 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 	doc := charmDoc{
 		DocID:        info.ID.String(),
 		URL:          info.ID,
-		ModelUUID:    st.ModelTag().Id(),
 		Meta:         info.Charm.Meta(),
 		Config:       safeConfig(info.Charm),
 		Metrics:      info.Charm.Metrics(),
@@ -110,7 +108,7 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		}
 		doc.Macaroon = mac
 	}
-	return insertAnyCharmOps(&doc)
+	return insertAnyCharmOps(st, &doc)
 }
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
@@ -120,10 +118,9 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(&charmDoc{
+	return insertAnyCharmOps(st, &charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
-		ModelUUID:   st.ModelTag().Id(),
 		Placeholder: true,
 	})
 }
@@ -135,23 +132,34 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(&charmDoc{
+	return insertAnyCharmOps(st, &charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
-		ModelUUID:     st.ModelTag().Id(),
 		PendingUpload: true,
 	})
 }
 
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
-func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
-	return []txn.Op{{
+func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
+	charmOp := txn.Op{
 		C:      charmsC,
 		Id:     cdoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: cdoc,
-	}}, nil
+	}
+
+	refcounts, closer := st.getCollection(refcountsC)
+	defer closer()
+
+	charmKey := charmGlobalKey(cdoc.URL)
+	refOp, required, err := nsRefcounts.LazyCreateOp(refcounts, charmKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if required {
+		return []txn.Op{refOp, charmOp}, nil
+	}
+	return []txn.Op{charmOp}, nil
 }
 
 // updateCharmOps returns the txn operations necessary to update the charm
@@ -222,13 +230,22 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	refcounts, closer := st.getCollection(refcountsC)
+	defer closer()
+
 	var ops []txn.Op
 	for _, doc := range docs {
 		if doc.URL.Revision >= curl.Revision {
 			continue
 		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
+		key := charmGlobalKey(doc.URL)
+		refOp, err := nsRefcounts.RemoveOp(refcounts, key, 0)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, refOp, txn.Op{
+			C:      charms.Name(),
 			Id:     doc.DocID,
 			Assert: stillPlaceholder,
 			Remove: true,
@@ -331,15 +348,6 @@ func (c *Charm) Actions() *charm.Actions {
 // StoragePath returns the storage path of the charm bundle.
 func (c *Charm) StoragePath() string {
 	return c.doc.StoragePath
-}
-
-// BundleURL returns the url to the charm bundle in
-// the provider storage.
-//
-// DEPRECATED: this is only to be used for migrating
-// charm archives to model storage.
-func (c *Charm) BundleURL() *url.URL {
-	return c.doc.BundleURL
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
@@ -596,11 +604,10 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
-				ModelUUID:     st.ModelTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 			}
-			return insertAnyCharmOps(&uploadedCharm)
+			return insertAnyCharmOps(st, &uploadedCharm)
 		case err != nil:
 			return nil, errors.Trace(err)
 		case uploadedCharm.Placeholder:

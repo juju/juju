@@ -4,18 +4,18 @@
 package cloud
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -84,6 +84,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 }
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -175,11 +176,11 @@ func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *juju
 	return nil
 }
 
-// formatCredentialsTabular returns a tabular summary of cloud information.
-func formatCredentialsTabular(value interface{}) ([]byte, error) {
+// formatCredentialsTabular writes a tabular summary of cloud information.
+func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 	credentials, ok := value.(credentialsMap)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", credentials, value)
+		return errors.Errorf("expected value of type %T, got %T", credentials, value)
 	}
 
 	// For tabular we'll sort alphabetically by cloud, and then by credential name.
@@ -189,16 +190,7 @@ func formatCredentialsTabular(value interface{}) ([]byte, error) {
 	}
 	sort.Strings(cloudNames)
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	tw := output.TabWriter(writer)
 	p := func(values ...string) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
@@ -225,5 +217,5 @@ func formatCredentialsTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
@@ -20,7 +22,6 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -52,6 +53,11 @@ type ManifoldsConfig struct {
 	// AgentConfigChanged is set whenever the unit agent's config
 	// is updated.
 	AgentConfigChanged *voyeur.Value
+
+	// ValidateMigration is called by the migrationminion during the
+	// migration process to check that the agent will be ok when
+	// connected to the new target controller.
+	ValidateMigration func(base.APICaller) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -82,13 +88,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
 
-		// The introspection worker provides debugging information over
-		// an abstract domain socket - linux only (for now).
-		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
-			AgentName:  agentName,
-			WorkerFunc: introspection.NewWorker,
-		}),
-
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -105,7 +104,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
-			APIOpen:              apicaller.APIOpen,
+			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 		}),
@@ -141,16 +140,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			FortressName:  migrationFortressName,
-			NewFacade:     migrationminion.NewFacade,
-			NewWorker:     migrationminion.NewWorker,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FortressName:      migrationFortressName,
+			APIOpen:           api.Open,
+			ValidateMigration: config.ValidateMigration,
+			NewFacade:         migrationminion.NewFacade,
+			NewWorker:         migrationminion.NewWorker,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -274,7 +275,6 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	introspectionName        = "introspection"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"

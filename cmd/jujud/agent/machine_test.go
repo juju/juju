@@ -28,6 +28,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -35,6 +36,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -52,9 +54,11 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
@@ -1285,15 +1289,31 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	uuid := st.ModelUUID()
 
 	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
+
+	// Replace the real migrationmaster worker with a fake one which
+	// does nothing. This is required to make this test be reliable as
+	// the environment required for the migrationmaster to operate
+	// correctly is too involved to set up from here.
+	//
+	// TODO(mjs) - an alternative might be to provide a fake Facade
+	// and api.Open to the real migrationmaster but this test is
+	// awfully far away from the low level details of the worker.
+	origModelManifolds := modelManifolds
+	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
+		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
+			return &nullWorker{}, nil
+		}
+		return origModelManifolds(config)
+	}
+	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
 	s.PatchValue(&modelManifolds, instrumented)
 
 	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
-	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+	_, err := st.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: targetControllerTag,
-			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			Addrs:         []string{"1.2.3.4:5555"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
@@ -1386,4 +1406,17 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+}
+
+type nullWorker struct {
+	tomb tomb.Tomb
+}
+
+func (w *nullWorker) Kill() {
+	w.tomb.Kill(nil)
+	w.tomb.Done()
+}
+
+func (w *nullWorker) Wait() error {
+	return w.tomb.Wait()
 }

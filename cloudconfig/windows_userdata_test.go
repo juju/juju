@@ -734,6 +734,7 @@ cacert: |
   fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
   G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
   -----END CERTIFICATE-----
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
 model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 apiaddresses:
 - state-addr.testing.invalid:54321

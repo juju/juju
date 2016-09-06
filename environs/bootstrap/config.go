@@ -123,7 +123,7 @@ func (c Config) Validate() error {
 // in well-defined locations: $JUJU_DATA/ca-cert.pem, and
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
-func NewConfig(controllerUUID string, attrs map[string]interface{}) (Config, error) {
+func NewConfig(attrs map[string]interface{}) (Config, error) {
 	coerced, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return Config{}, errors.Trace(err)
@@ -191,9 +191,6 @@ func NewConfig(controllerUUID string, attrs map[string]interface{}) (Config, err
 // corresponding "-path" attribute is set, or otherwise from a default
 // path.
 func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (content string, userSpecified bool, _ error) {
-	if !osenv.IsJujuXDGDataHomeSet() {
-		return "", false, errors.Errorf("$JUJU_DATA is not set, cannot read %q", key)
-	}
 	path, ok := attrs[key+"-path"].(string)
 	if ok {
 		userSpecified = true

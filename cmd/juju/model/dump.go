@@ -6,22 +6,24 @@ package model
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewDumpCommand returns a fully constructed dump-model command.
 func NewDumpCommand() cmd.Command {
-	return modelcmd.Wrap(&dumpCommand{})
+	return modelcmd.WrapController(&dumpCommand{})
 }
 
 type dumpCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	out cmd.Output
 	api DumpModelAPI
+
+	model string
 }
 
 const dumpModelHelpDoc = `
@@ -31,7 +33,7 @@ resulting YAML to stdout.
 Examples:
 
     juju dump-model
-    juju dump-model -m mymodel
+    juju dump-model mymodel
 
 See also:
     models
@@ -41,6 +43,7 @@ See also:
 func (c *dumpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "dump-model",
+		Args:    "[model-name]",
 		Purpose: "Displays the database agnostic representation of the model.",
 		Doc:     dumpModelHelpDoc,
 	}
@@ -48,14 +51,16 @@ func (c *dumpCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	c.ControllerCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.
-func (c *dumpCommand) Init(args []string) (err error) {
+func (c *dumpCommand) Init(args []string) error {
+	if len(args) == 1 {
+		c.model = args[0]
+		return nil
+	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -69,11 +74,7 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelmanager.NewClient(root), nil
+	return c.NewModelManagerAPIClient()
 }
 
 // Run implements Command.
@@ -85,9 +86,16 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	store := c.ClientStore()
+	if c.model == "" {
+		c.model, err = store.CurrentModel(c.ControllerName())
+		if err != nil {
+			return err
+		}
+	}
+
 	modelDetails, err := store.ModelByName(
 		c.ControllerName(),
-		c.ModelName(),
+		c.model,
 	)
 	if err != nil {
 		return errors.Annotate(err, "getting model details")

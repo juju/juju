@@ -124,6 +124,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 			VirtType:        "",
 			RootStorageType: "",
 			Source:          "test",
+			Stream:          "released",
 		},
 		10,
 		"-999",
@@ -334,12 +335,11 @@ func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) waitMachine(c *gc.C, m *state.Machine, check func() bool) {
+func (s *CommonProvisionerSuite) waitForWatcher(c *gc.C, w state.NotifyWatcher, name string, check func() bool) {
 	// TODO(jam): We need to grow a new method on NotifyWatcherC
 	// that calls StartSync while waiting for changes, then
 	// waitMachine and waitHardwareCharacteristics can use that
 	// instead
-	w := m.Watch()
 	defer stop(c, w)
 	timeout := time.After(coretesting.LongWait)
 	resync := time.After(0)
@@ -353,40 +353,29 @@ func (s *CommonProvisionerSuite) waitMachine(c *gc.C, m *state.Machine, check fu
 			resync = time.After(coretesting.ShortWait)
 			s.BackingState.StartSync()
 		case <-timeout:
-			c.Fatalf("machine %v wait timed out", m)
+			c.Fatalf("%v wait timed out", name)
 		}
 	}
 }
 
 func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.Machine, check func() bool) {
 	w := m.WatchHardwareCharacteristics()
-	defer stop(c, w)
-	timeout := time.After(coretesting.LongWait)
-	resync := time.After(0)
-	for {
-		select {
-		case <-w.Changes():
-			if check() {
-				return
-			}
-		case <-resync:
-			resync = time.After(coretesting.ShortWait)
-			s.BackingState.StartSync()
-		case <-timeout:
-			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
-		}
-	}
+	name := fmt.Sprintf("hardware characteristics for machine %v", m)
+	s.waitForWatcher(c, w, name, check)
 }
 
-// waitRemoved waits for the supplied machine to be removed from state.
-func (s *CommonProvisionerSuite) waitRemoved(c *gc.C, m *state.Machine) {
-	s.waitMachine(c, m, func() bool {
-		err := m.Refresh()
-		if errors.IsNotFound(err) {
-			return true
-		}
+// waitForRemovalMark waits for the supplied machine to be marked for removal.
+func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *state.Machine) {
+	w := s.BackingState.WatchMachineRemovals()
+	name := fmt.Sprintf("machine %v marked for removal", m)
+	s.waitForWatcher(c, w, name, func() bool {
+		removals, err := s.BackingState.AllMachineRemovals()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("machine %v is still %s", m, m.Life())
+		for _, removal := range removals {
+			if removal == m.Id() {
+				return true
+			}
+		}
 		return false
 	})
 }
@@ -457,7 +446,7 @@ func (s *ProvisionerSuite) TestSimple(c *gc.C) {
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, instance)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
@@ -675,7 +664,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 	c.Assert(container.Remove(), gc.IsNil)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
@@ -703,7 +692,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 	c.Assert(container.Remove(), gc.IsNil)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 type MachineClassifySuite struct {
@@ -899,7 +888,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints(
@@ -1019,7 +1008,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {
@@ -1071,7 +1060,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
-	s.waitRemoved(c, m1)
+	s.waitForRemovalMark(c, m1)
 
 	// verify the other one's still fine
 	err = m0.Refresh()
@@ -1150,7 +1139,6 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,
-		true,
 		retryStrategy,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1199,7 +1187,7 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 	// When only harvesting unknown machines, only one of the machines
 	// is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i1}, []instance.Instance{i0})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
@@ -1225,7 +1213,7 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 	// When only harvesting destroyed machines, only one of the
 	// machines is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
@@ -1250,7 +1238,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 
 	// Everything must die!
 	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {

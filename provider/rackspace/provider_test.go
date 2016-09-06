@@ -32,7 +32,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 		"name":            "some-name",
 		"type":            "some-type",
 		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)
@@ -65,11 +65,6 @@ func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	return nil, nil
 }
 
-func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.MethodCall(p, "RestrictedConfigAttributes")
-	return nil
-}
-
 func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
 	return nil, nil
@@ -88,11 +83,6 @@ func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *c
 func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	p.MethodCall(p, "Validate", cfg, old)
 	return cfg, nil
-}
-
-func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	p.MethodCall(p, "SecretAttrs", cfg)
-	return nil, nil
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {

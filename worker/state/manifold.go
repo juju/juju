@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"

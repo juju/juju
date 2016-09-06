@@ -105,16 +105,12 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, applicationname string, curl *charm.URL) (int, error) {
-	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(applicationname, curl)
-	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
-		return doc.RefCount, nil
-	}
-	return 0, mgo.ErrNotFound
+	key := applicationSettingsKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -491,4 +487,25 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 		return nil, errors.Trace(err)
 	}
 	return client.Leases(), nil
+}
+
+func StorageAttachmentCount(instance StorageInstance) int {
+	internal, ok := instance.(*storageInstance)
+	if !ok {
+		return -1
+	}
+	return internal.doc.AttachmentCount
+}
+
+func ResetMigrationMode(c *gc.C, st *State) {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.M{
+			"$set": bson.M{"migration-mode": MigrationModeNone},
+		},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 }

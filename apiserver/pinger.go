@@ -4,10 +4,10 @@
 package apiserver
 
 import (
-	"errors"
 	"time"
 
-	"launchpad.net/tomb"
+	"github.com/juju/errors"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

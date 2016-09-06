@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -135,34 +136,48 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-// newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool, version Version, auth bool) common.Conf {
-	mongoCmd := mongoPath +
+// ConfigArgs holds the attributes of a service configuration for mongo.
+type ConfigArgs struct {
+	DataDir, DBDir, MongoPath string
+	Port, OplogSizeMB         int
+	WantNumaCtl               bool
+	Version                   Version
+	Auth                      bool
+	IPv6                      bool
+}
 
-		" --dbpath " + utils.ShQuote(dbDir) +
+// newConf returns the init system config for the mongo state service.
+func newConf(args ConfigArgs) common.Conf {
+	mongoCmd := args.MongoPath +
+
+		" --dbpath " + utils.ShQuote(args.DBDir) +
 		" --sslOnNormalPorts" +
-		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(args.DataDir)) +
 		// --sslPEMKeyPassword has to have its argument passed with = thanks to
 		// https://bugs.launchpad.net/juju-core/+bug/1581284.
 		" --sslPEMKeyPassword=ignored" +
-		" --port " + fmt.Sprint(port) +
+		" --port " + fmt.Sprint(args.Port) +
 		" --syslog" +
 		" --journal" +
 
 		" --replSet " + ReplicaSetName +
-		" --ipv6" +
 		" --quiet" +
-		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+		" --oplogSize " + strconv.Itoa(args.OplogSizeMB)
 
-	if auth {
+	if args.IPv6 {
+		mongoCmd = mongoCmd +
+			" --ipv6"
+	}
+
+	if args.Auth {
 		mongoCmd = mongoCmd +
 			" --auth" +
-			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+			" --keyFile " + utils.ShQuote(sharedSecretPath(args.DataDir))
 	} else {
 		mongoCmd = mongoCmd +
 			" --noauth"
 	}
-	if version.StorageEngine != WiredTiger {
+	if args.Version.StorageEngine != WiredTiger {
 		mongoCmd = mongoCmd +
 			" --noprealloc" +
 			" --smallfiles"
@@ -171,7 +186,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 			" --storageEngine wiredTiger"
 	}
 	extraScript := ""
-	if wantNumaCtl {
+	if args.WantNumaCtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
@@ -205,7 +220,17 @@ func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaC
 		}
 	}
 
-	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy, version, auth)
+	svcConf := newConf(ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongoPath,
+		Port:        statePort,
+		OplogSizeMB: oplogSizeMB,
+		WantNumaCtl: setNumaControlPolicy,
+		Version:     version,
+		Auth:        auth,
+		IPv6:        network.SupportsIPv6(),
+	})
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return errors.Trace(err)

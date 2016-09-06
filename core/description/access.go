@@ -70,7 +70,7 @@ func ValidateControllerAccess(access Access) error {
 	return errors.NotValidf("%q controller access", access)
 }
 
-// EqualOrGreaterAccessThan returns true if the provided access is equal or
+// EqualOrGreaterModelAccessThan returns true if the provided access is equal or
 // less than the current.
 func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
 	if a == access {
@@ -84,13 +84,15 @@ func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
 	case WriteAccess:
 		return access == ReadAccess ||
 			access == UndefinedAccess
-	case AdminAccess:
+	case AdminAccess, SuperuserAccess:
 		return access == ReadAccess ||
 			access == WriteAccess
 	}
 	return false
 }
 
+// EqualOrGreaterControllerAccessThan returns true if the provided access is equal or
+// less than the current.
 func (a Access) EqualOrGreaterControllerAccessThan(access Access) bool {
 	if a == access {
 		return true

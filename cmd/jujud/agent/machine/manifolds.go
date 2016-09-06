@@ -13,6 +13,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
-	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/logger"
@@ -55,6 +55,7 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
+
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -120,6 +121,11 @@ type ManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// ValidateMigration is called by the migrationminion during the
+	// migration process to check that the agent will be ok when
+	// connected to the new target controller.
+	ValidateMigration func(base.APICaller) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -156,13 +162,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
-
-		// The introspection worker provides debugging information over
-		// an abstract domain socket - linux only (for now).
-		introspectionName: introspection.Manifold(introspection.ManifoldConfig{
-			AgentName:  agentName,
-			WorkerFunc: introspection.NewWorker,
-		}),
 
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
@@ -220,7 +219,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
-			APIOpen:              apicaller.APIOpen,
+			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 		}),
@@ -291,16 +290,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			FortressName:  migrationFortressName,
-			NewFacade:     migrationminion.NewFacade,
-			NewWorker:     migrationminion.NewWorker,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FortressName:      migrationFortressName,
+			APIOpen:           api.Open,
+			ValidateMigration: config.ValidateMigration,
+			NewFacade:         migrationminion.NewFacade,
+			NewWorker:         migrationminion.NewWorker,
 		}),
 
 		// The serving-info-setter manifold sets grabs the state
@@ -487,7 +488,6 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	introspectionName        = "introspection"
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "unconverted-api-workers"
 	rebootName               = "reboot-executor"

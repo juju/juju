@@ -1,0 +1,24 @@
+name: juju
+version: 2.0-beta18
+summary: juju client
+description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
+confinement: devmode
+
+apps:
+  juju:
+    command: bin/juju
+    plugs: [network, network-bind, home]
+
+parts:
+  juju:
+    plugin: godeps
+    go-importpath: github.com/juju/juju
+    source: https://github.com/juju/juju.git
+    source-type: git
+    #If you want to grab a specific revision tag, include it here
+    #source-tag: juju-2.0-beta18
+    snap:
+    - -bin/filetoconst
+    - -bin/winuserdata
+    #If you are releasing a build with public streams, also remove the agent
+    #- -bin/jujud

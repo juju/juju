@@ -76,6 +76,8 @@ type LiveTests struct {
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	Attempt utils.AttemptStrategy
 
 	// CanOpenState should be true if the testing environment allows
@@ -121,7 +123,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
-	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -734,6 +736,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Bi
 	}
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 var waitAgent = utils.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
@@ -759,7 +762,7 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", true, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -767,7 +770,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
 	))
 	params := environs.StartInstanceParams{
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: coretesting.ControllerTag.Id(),
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 	}

@@ -5,18 +5,20 @@ package params
 
 // Cloud holds information about a cloud.
 type Cloud struct {
-	Type            string        `json:"type"`
-	AuthTypes       []string      `json:"auth-types,omitempty"`
-	Endpoint        string        `json:"endpoint,omitempty"`
-	StorageEndpoint string        `json:"storage-endpoint,omitempty"`
-	Regions         []CloudRegion `json:"regions,omitempty"`
+	Type             string        `json:"type"`
+	AuthTypes        []string      `json:"auth-types,omitempty"`
+	Endpoint         string        `json:"endpoint,omitempty"`
+	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string        `json:"storage-endpoint,omitempty"`
+	Regions          []CloudRegion `json:"regions,omitempty"`
 }
 
 // CloudRegion holds information about a cloud region.
 type CloudRegion struct {
-	Name            string `json:"name"`
-	Endpoint        string `json:"endpoint,omitempty"`
-	StorageEndpoint string `json:"storage-endpoint,omitempty"`
+	Name             string `json:"name"`
+	Endpoint         string `json:"endpoint,omitempty"`
+	IdentityEndpoint string `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string `json:"storage-endpoint,omitempty"`
 }
 
 // CloudResult contains a cloud definition or an error.
@@ -30,22 +32,34 @@ type CloudResults struct {
 	Results []CloudResult `json:"results,omitempty"`
 }
 
-// CloudCredential contains a cloud credential.
+// CloudsResult contains a set of Clouds.
+type CloudsResult struct {
+	// Clouds is a map of clouds, keyed by cloud tag.
+	Clouds map[string]Cloud `json:"clouds,omitempty"`
+}
+
+// CloudCredential contains a cloud credential
+// possibly with secrets redacted.
 type CloudCredential struct {
-	AuthType   string            `json:"auth-type"`
+	// AuthType is the authentication type.
+	AuthType string `json:"auth-type"`
+
+	// Attributes contains non-secret credential values.
 	Attributes map[string]string `json:"attrs,omitempty"`
+
+	// Redacted is a list of redacted attributes
+	Redacted []string `json:"redacted,omitempty"`
 }
 
-// CloudCredentialsResult contains a set of credentials for a user and cloud,
-// or an error.
-type CloudCredentialsResult struct {
-	Error       *Error                     `json:"error,omitempty"`
-	Credentials map[string]CloudCredential `json:"credentials,omitempty"`
+// CloudCredentialResult contains a CloudCredential or an error.
+type CloudCredentialResult struct {
+	Result *CloudCredential `json:"result,omitempty"`
+	Error  *Error           `json:"error,omitempty"`
 }
 
-// CloudCredentialsResults contains a set of CloudCredentialsResults.
-type CloudCredentialsResults struct {
-	Results []CloudCredentialsResult `json:"results,omitempty"`
+// CloudCredentialResults contains a set of CloudCredentialResults.
+type CloudCredentialResults struct {
+	Results []CloudCredentialResult `json:"results,omitempty"`
 }
 
 // UserCloud contains a user/cloud tag pair, typically used for identifying
@@ -55,50 +69,32 @@ type UserCloud struct {
 	CloudTag string `json:"cloud-tag"`
 }
 
-// UserClouds contains a set of USerClouds.
+// UserClouds contains a set of UserClouds.
 type UserClouds struct {
 	UserClouds []UserCloud `json:"user-clouds,omitempty"`
 }
 
-// UserCloudCredentials contains a user's credentials for a cloud.
-type UserCloudCredentials struct {
-	UserTag     string                     `json:"user-tag"`
-	CloudTag    string                     `json:"cloud-tag"`
-	Credentials map[string]CloudCredential `json:"credentials"`
+// UpdateCloudCredentials contains a set of tagged cloud credentials.
+type UpdateCloudCredentials struct {
+	Credentials []UpdateCloudCredential `json:"credentials,omitempty"`
 }
 
-// UsersCloudCredentials contains a set of UserCloudCredentials.
-type UsersCloudCredentials struct {
-	Users []UserCloudCredentials `json:"users"`
-}
-
-// CloudDefaults contains defaults for cloud name, region, and
-// credential for a user.
-type CloudDefaults struct {
-	CloudTag        string `json:"cloud-tag"`
-	CloudRegion     string `json:"region,omitempty"`
-	CloudCredential string `json:"credential,omitempty"`
-}
-
-// CloudDefaultsResult contains a CloudDefaults or an error.
-type CloudDefaultsResult struct {
-	Result *CloudDefaults `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
-}
-
-// CloudDefaultsResults contains a set of CloudDefaultsResults.
-type CloudDefaultsResults struct {
-	Results []CloudDefaultsResult `json:"results,omitempty"`
+// UpdateCloudCredential contains a cloud credential and its tag,
+// for updating in state.
+type UpdateCloudCredential struct {
+	Tag        string          `json:"tag"`
+	Credential CloudCredential `json:"credential"`
 }
 
 // CloudSpec holds a cloud specification.
 type CloudSpec struct {
-	Type            string           `json:"type"`
-	Name            string           `json:"name"`
-	Region          string           `json:"region,omitempty"`
-	Endpoint        string           `json:"endpoint,omitempty"`
-	StorageEndpoint string           `json:"storage-endpoint,omitempty"`
-	Credential      *CloudCredential `json:"credential,omitempty"`
+	Type             string           `json:"type"`
+	Name             string           `json:"name"`
+	Region           string           `json:"region,omitempty"`
+	Endpoint         string           `json:"endpoint,omitempty"`
+	IdentityEndpoint string           `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string           `json:"storage-endpoint,omitempty"`
+	Credential       *CloudCredential `json:"credential,omitempty"`
 }
 
 // CloudSpecResult contains a CloudSpec or an error.

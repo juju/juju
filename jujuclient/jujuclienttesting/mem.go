@@ -68,6 +68,29 @@ func (c *MemStore) SetCurrentController(name string) error {
 	return nil
 }
 
+// AddController implements ControllerUpdater.AddController
+func (c *MemStore) AddController(name string, one jujuclient.ControllerDetails) error {
+	if err := jujuclient.ValidateControllerName(name); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateControllerDetails(one); err != nil {
+		return err
+	}
+
+	if _, ok := c.Controllers[name]; ok {
+		return errors.AlreadyExistsf("controller with name %s", name)
+	}
+
+	for k, v := range c.Controllers {
+		if v.ControllerUUID == one.ControllerUUID {
+			return errors.AlreadyExistsf("controller with UUID %s (%s)",
+				one.ControllerUUID, k)
+		}
+	}
+	c.Controllers[name] = one
+	return nil
+}
+
 // UpdateController implements ControllerUpdater.UpdateController
 func (c *MemStore) UpdateController(name string, one jujuclient.ControllerDetails) error {
 	if err := jujuclient.ValidateControllerName(name); err != nil {
@@ -76,6 +99,22 @@ func (c *MemStore) UpdateController(name string, one jujuclient.ControllerDetail
 	if err := jujuclient.ValidateControllerDetails(one); err != nil {
 		return err
 	}
+
+	if len(c.Controllers) == 0 {
+		return errors.NotFoundf("controllers")
+	}
+
+	for k, v := range c.Controllers {
+		if v.ControllerUUID == one.ControllerUUID && k != name {
+			return errors.AlreadyExistsf("controller %s with UUID %s",
+				k, v.ControllerUUID)
+		}
+	}
+
+	if _, ok := c.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %s", name)
+	}
+
 	c.Controllers[name] = one
 	return nil
 }
@@ -221,6 +260,11 @@ func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.Accou
 	}
 	if err := jujuclient.ValidateAccountDetails(details); err != nil {
 		return err
+	}
+	oldDetails := c.Accounts[controllerName]
+	// Only update last known access if it has a value.
+	if details.LastKnownAccess == "" {
+		details.LastKnownAccess = oldDetails.LastKnownAccess
 	}
 	c.Accounts[controllerName] = details
 	return nil

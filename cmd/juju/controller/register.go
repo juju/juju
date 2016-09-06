@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -60,23 +62,24 @@ var usageRegisterSummary = `
 Registers a Juju user to a controller.`[1:]
 
 var usageRegisterDetails = `
-Connects to a controller and completes the user registration process that
-began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
-that is referred to in Usage.
-The user will be prompted for a password, which, once set, causes the 
-registration string to be voided. In order to start using Juju the user 
-can now either add a model or wait for a model to be shared with them.
-Some machine providers will require the user to be in possession of 
-certain credentials in order to add a model.
+Connects to a controller and completes the user registration process that began
+with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string' that is
+referred to in Usage.
+
+The user will be prompted for a password, which, once set, causes the
+registration string to be voided. In order to start using Juju the user can now
+either add a model or wait for a model to be shared with them.  Some machine
+providers will require the user to be in possession of certain credentials in
+order to add a model.
 
 Examples:
 
-    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
-    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
 See also: 
     add-user
-    change-user-password`
+    change-user-password
+    unregister`
 
 // Info implements Command.Info
 // `register` may seem generic, but is seen as simple and without potential
@@ -162,7 +165,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
-	if err := store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+	if err := store.AddController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
 	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
@@ -170,8 +173,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "marshalling temporary credential to JSON")
 	}
 	accountDetails := jujuclient.AccountDetails{
-		User:     registrationParams.userTag.Canonical(),
-		Macaroon: string(macaroonJSON),
+		User:            registrationParams.userTag.Canonical(),
+		Macaroon:        string(macaroonJSON),
+		LastKnownAccess: string(description.LoginAccess),
 	}
 	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
@@ -246,7 +250,7 @@ one of them:
 				continue
 			}
 			owner := names.NewUserTag(model.Owner)
-			modelName := ownerQualifiedModelName(model.Name, owner, user)
+			modelName := common.OwnerQualifiedModelName(model.Name, owner, user)
 			otherModelNames.Add(modelName)
 		}
 		for _, modelName := range ownerModelNames.SortedValues() {
@@ -393,8 +397,7 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-const errControllerConflicts = `WARNING: The controller proposed %q which clashes with an existing` +
-	` controller. The two controllers are entirely different.
+const errControllerConflicts = `WARNING: You already have a controller registered with the name %q. Please choose a different name for the new controller.
 
 `
 

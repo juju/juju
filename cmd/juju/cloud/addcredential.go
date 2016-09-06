@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"golang.org/x/crypto/ssh/terminal"
-	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -99,6 +99,7 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite existing credential information")
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
 }

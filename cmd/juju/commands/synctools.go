@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
@@ -79,6 +79,7 @@ func (c *syncToolsCommand) Info() *cmd.Info {
 }
 
 func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "Copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")

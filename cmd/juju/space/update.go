@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -31,10 +30,6 @@ Replaces the list of associated subnets of the space. Since subnets
 can only be part of a single space, all specified subnets (using their
 CIDRs) "leave" their current space and "enter" the one we're updating.
 `
-
-func (c *updateCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SpaceCommandBase.SetFlags(f)
-}
 
 // Info is defined on the cmd.Command interface.
 func (c *updateCommand) Info() *cmd.Info {

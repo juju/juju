@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
@@ -27,11 +26,6 @@ type joyentEnviron struct {
 	name    string
 	cloud   environs.CloudSpec
 	compute *joyentCompute
-
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	archLock               sync.Mutex
-	supportedArchitectures []string
 
 	lock sync.Mutex // protects ecfg
 	ecfg *environConfig
@@ -81,27 +75,6 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 		}
 	}
 	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
-}
-
-func (env *joyentEnviron) getSupportedArchitectures() ([]string, error) {
-	env.archLock.Lock()
-	defer env.archLock.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
-	}
-	cfg := env.Ecfg()
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec := simplestreams.CloudSpec{
-		Region:   env.cloud.Region,
-		Endpoint: env.cloud.Endpoint,
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    cfg.ImageStream(),
-	})
-	var err error
-	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
-	return env.supportedArchitectures, err
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
@@ -186,10 +159,9 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 		region = env.cloud.Region
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(env.Ecfg()),
-		Region:        region,
-		Endpoint:      env.cloud.Endpoint,
-		Architectures: []string{"amd64", "armhf"},
+		Series:   config.PreferredSeries(env.Ecfg()),
+		Region:   region,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 

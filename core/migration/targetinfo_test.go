@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
@@ -62,30 +63,34 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"empty AuthTag not valid",
 	}, {
-		"Password",
+		"Password & Macaroon",
+		func(info *migration.TargetInfo) {
+			info.Password = ""
+			info.Macaroon = nil
+		},
+		"missing Password & Macaroon not valid",
+	}, {
+		"Success - empty Password",
 		func(info *migration.TargetInfo) {
 			info.Password = ""
 		},
-		"empty Password not valid",
+		"",
 	}, {
-		"Success",
+		"Success - empty Macaroon",
+		func(info *migration.TargetInfo) {
+			info.Macaroon = nil
+		},
+		"",
+	}, {
+		"Success - all set",
 		func(*migration.TargetInfo) {},
 		"",
 	}}
 
-	modelTag := names.NewModelTag(utils.MustNewUUID().String())
 	for _, test := range tests {
 		c.Logf("---- %s -----------", test.label)
-
-		info := migration.TargetInfo{
-			ControllerTag: modelTag,
-			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("user"),
-			Password:      "password",
-		}
+		info := makeValidTargetInfo(c)
 		test.tweakInfo(&info)
-
 		err := info.Validate()
 		if test.errorPattern == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -93,5 +98,19 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 			c.Check(errors.IsNotValid(err), jc.IsTrue)
 			c.Check(err, gc.ErrorMatches, test.errorPattern)
 		}
+	}
+}
+
+func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
+	modelTag := names.NewModelTag(utils.MustNewUUID().String())
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	return migration.TargetInfo{
+		ControllerTag: modelTag,
+		Addrs:         []string{"1.2.3.4:5555"},
+		CACert:        "cert",
+		AuthTag:       names.NewUserTag("user"),
+		Password:      "password",
+		Macaroon:      mac,
 	}
 }

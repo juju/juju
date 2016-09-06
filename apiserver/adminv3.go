@@ -11,12 +11,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-type adminApiV3 struct {
+type adminAPIV3 struct {
 	*admin
 }
 
-func newAdminApiV3(srv *Server, root *apiHandler, apiObserver observer.Observer) interface{} {
-	return &adminApiV3{
+func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer) interface{} {
+	return &adminAPIV3{
 		&admin{
 			srv:         srv,
 			root:        root,
@@ -27,7 +27,7 @@ func newAdminApiV3(srv *Server, root *apiHandler, apiObserver observer.Observer)
 
 // Admin returns an object that provides API access to methods that can be
 // called even when not authenticated.
-func (r *adminApiV3) Admin(id string) (*adminApiV3, error) {
+func (r *adminAPIV3) Admin(id string) (*adminAPIV3, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
@@ -37,13 +37,13 @@ func (r *adminApiV3) Admin(id string) (*adminApiV3, error) {
 
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
-func (a *adminApiV3) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req, 3)
+func (a *adminAPIV3) Login(req params.LoginRequest) (params.LoginResult, error) {
+	return a.login(req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.
 // In Juju it always returns an error because the Juju controller
 // does not multiplex controllers.
-func (a *adminApiV3) RedirectInfo() (params.RedirectInfoResult, error) {
+func (a *adminAPIV3) RedirectInfo() (params.RedirectInfoResult, error) {
 	return params.RedirectInfoResult{}, fmt.Errorf("not redirected")
 }

@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/common"
@@ -69,68 +68,6 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 		FuncName: "SetPassword",
 		Args:     []interface{}{entity, "new"},
 	}})
-}
-
-func (*ScaryConnectSuite) TestModelTagCannotChangeConfig(c *gc.C) {
-	stub := checkModelTagUpdate(c, errors.New("oh noes"))
-	stub.CheckCallNames(c,
-		"ChangeConfig",
-		"Life", "SetPassword",
-	)
-}
-
-func (*ScaryConnectSuite) TestModelTagCannotGetTag(c *gc.C) {
-	stub := checkModelTagUpdate(c, nil, errors.New("oh noes"))
-	stub.CheckCallNames(c,
-		"ChangeConfig", "ModelTag",
-		"Life", "SetPassword",
-	)
-}
-
-func (*ScaryConnectSuite) TestModelTagCannotMigrate(c *gc.C) {
-	stub := checkModelTagUpdate(c, nil, nil, errors.New("oh noes"))
-	stub.CheckCallNames(c,
-		"ChangeConfig", "ModelTag", "Migrate",
-		"Life", "SetPassword",
-	)
-	c.Check(stub.Calls()[2].Args, jc.DeepEquals, []interface{}{
-		agent.MigrateParams{Model: coretesting.ModelTag},
-	})
-}
-
-func (*ScaryConnectSuite) TestModelTagSuccess(c *gc.C) {
-	stub := checkModelTagUpdate(c)
-	stub.CheckCallNames(c,
-		"ChangeConfig", "ModelTag", "Migrate",
-		"Life", "SetPassword",
-	)
-	c.Check(stub.Calls()[2].Args, jc.DeepEquals, []interface{}{
-		agent.MigrateParams{Model: coretesting.ModelTag},
-	})
-}
-
-func checkModelTagUpdate(c *gc.C, errs ...error) *testing.Stub {
-	// success case; just a little failure we don't mind, otherwise
-	// equivalent to testEntityFine.
-	stub := &testing.Stub{}
-	stub.SetErrors(errs...) // from ChangeConfig
-	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return expectConn, nil
-	}
-
-	entity := names.NewApplicationTag("omg")
-	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
-			stub: stub,
-			// no model set; triggers ChangeConfig
-			entity: entity,
-		}, apiOpen)
-	}
-	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
-	c.Check(conn, gc.Equals, expectConn)
-	c.Check(err, jc.ErrorIsNil)
-	return stub
 }
 
 func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {

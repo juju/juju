@@ -608,12 +608,9 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 
 func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-
-	cfg, err := env.Config().Apply(map[string]interface{}{"controller-uuid": "7e386e08-cba7-44a4-a76e-7c1633584210"})
-	c.Assert(err, jc.ErrorIsNil)
-	env, err = environs.New(environs.OpenParams{
+	hostedEnv, err := environs.New(environs.OpenParams{
 		Cloud:  t.CloudSpec(),
-		Config: cfg,
+		Config: env.Config(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -623,7 +620,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 	) error {
 		return errors.New(msg)
 	})
-	err = env.Destroy()
+	err = hostedEnv.Destroy()
 	c.Assert(err, gc.ErrorMatches, "cannot delete environment security groups: cannot delete default security group: "+msg)
 }
 
@@ -631,13 +628,17 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	controllerEnv := t.prepareAndBootstrap(c)
 
 	// Create a hosted model environment with an instance and a volume.
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
-		"uuid":          "7e386e08-cba7-44a4-a76e-7c1633584210",
+		"uuid":          hostedModelUUID,
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{t.CloudSpec(), cfg})
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -651,7 +652,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		Provider: ec2.EBS_ProviderType,
 		ResourceTags: map[string]string{
 			tags.JujuController: t.ControllerUUID,
-			tags.JujuModel:      "7e386e08-cba7-44a4-a76e-7c1633584210",
+			tags.JujuModel:      hostedModelUUID,
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -691,10 +692,10 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	assertVolumes(volumeResults[0].Volume.VolumeId)
 	assertGroups(
 		"default",
-		"juju-"+t.ControllerUUID,
-		"juju-"+t.ControllerUUID+"-0",
-		"juju-7e386e08-cba7-44a4-a76e-7c1633584210",
-		"juju-7e386e08-cba7-44a4-a76e-7c1633584210-global",
+		"juju-"+controllerEnv.Config().UUID(),
+		"juju-"+controllerEnv.Config().UUID()+"-0",
+		"juju-"+hostedModelUUID,
+		"juju-"+hostedModelUUID+"-global",
 	)
 
 	// Destroy the controller resources. This should destroy the hosted
@@ -1159,10 +1160,7 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=ppc64el")
-	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 i386\\]")
-	cons = constraints.MustParse("instance-type=foo")
+	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

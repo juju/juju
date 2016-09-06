@@ -65,7 +65,7 @@ func (s *grantRevokeSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *grantRevokeSuite) TestPassesValues(c *gc.C) {
 	user := "sam"
 	models := []string{fooModelUUID, barModelUUID, bazModelUUID}
-	_, err := s.run(c, "sam", "foo", "bar", "baz")
+	_, err := s.run(c, "sam", "read", "foo", "bar", "baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.user, jc.DeepEquals, user)
 	c.Assert(s.fake.modelUUIDs, jc.DeepEquals, models)
@@ -74,7 +74,7 @@ func (s *grantRevokeSuite) TestPassesValues(c *gc.C) {
 
 func (s *grantRevokeSuite) TestAccess(c *gc.C) {
 	sam := "sam"
-	_, err := s.run(c, "--acl", "write", "sam", "model1", "model2")
+	_, err := s.run(c, "sam", "write", "model1", "model2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.user, jc.DeepEquals, sam)
 	c.Assert(s.fake.modelUUIDs, jc.DeepEquals, []string{model1ModelUUID, model2ModelUUID})
@@ -83,9 +83,9 @@ func (s *grantRevokeSuite) TestAccess(c *gc.C) {
 
 func (s *grantRevokeSuite) TestBlockGrant(c *gc.C) {
 	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
-	_, err := s.run(c, "sam", "foo")
+	_, err := s.run(c, "sam", "read", "foo")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Check(c.GetTestLog(), jc.Contains, "To unblock changes")
+	c.Check(c.GetTestLog(), jc.Contains, "To enable changes")
 }
 
 type grantSuite struct {
@@ -107,7 +107,7 @@ func (s *grantSuite) TestInit(c *gc.C) {
 	err := testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "model1", "model2"})
+	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
@@ -115,9 +115,6 @@ func (s *grantSuite) TestInit(c *gc.C) {
 
 	err = testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
-
-	err = testing.InitCommand(wrappedCmd, []string{"nomodel"})
-	c.Assert(err, gc.ErrorMatches, `no model specified`)
 }
 
 type revokeSuite struct {
@@ -139,7 +136,7 @@ func (s *revokeSuite) TestInit(c *gc.C) {
 	err := testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "model1", "model2"})
+	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(revokeCmd.User, gc.Equals, "bob")
@@ -148,8 +145,6 @@ func (s *revokeSuite) TestInit(c *gc.C) {
 	err = testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
 
-	err = testing.InitCommand(wrappedCmd, []string{"nomodel"})
-	c.Assert(err, gc.ErrorMatches, `no model specified`)
 }
 
 type fakeGrantRevokeAPI struct {

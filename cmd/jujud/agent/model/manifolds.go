@@ -6,10 +6,12 @@ package model
 import (
 	"time"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
@@ -29,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/machineundertaker"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
@@ -88,6 +91,10 @@ type ManifoldsConfig struct {
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc environs.NewEnvironFunc
+
+	// NewMigrationMaster is called to create a new migrationmaster
+	// worker.
+	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
 }
 
 // Manifolds returns a set of interdependent dependency manifolds that will
@@ -108,8 +115,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
-			APIOpen:       apicaller.APIOpen,
+			APIOpen:       api.Open,
 			NewConnection: apicaller.OnlyConnect,
+			Filter:        apiConnectFilter,
 		}),
 
 		// The spaces-imported gate will be unlocked when space
@@ -165,7 +173,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationFortressName: ifNotDead(fortress.Manifold()),
 		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         migrationflag.IsNone,
+			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		})),
@@ -175,7 +183,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			FortressName:  migrationFortressName,
 			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
-			NewWorker:     migrationmaster.NewWorker,
+			NewWorker:     config.NewMigrationMaster,
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -277,6 +285,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
+		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			NewWorker:     machineundertaker.NewWorker,
+		})),
 	}
 }
 
@@ -288,6 +301,16 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 		},
 		Output: engine.ValueWorkerOutput,
 	}
+}
+
+func apiConnectFilter(err error) error {
+	// If the model is no longer there, then convert to ErrRemoved so
+	// that the dependency engine for the model is stopped.
+	// See http://pad.lv/1614809
+	if params.IsCodeModelNotFound(err) {
+		return ErrRemoved
+	}
+	return err
 }
 
 var (
@@ -359,4 +382,5 @@ const (
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
+	machineUndertakerName    = "machine-undertaker"
 )

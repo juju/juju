@@ -8,48 +8,46 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
 )
 
-// Client describes the client side API for the MigrationTarget
-// facade. It is called by the migration master worker to talk to the
-// target controller during a migration.
-type Client interface {
-	// Import takes a serialized model and imports it into the target
-	// controller.
-	Import([]byte) error
-
-	// Abort removes all data relating to a previously imported
-	// model.
-	Abort(string) error
-
-	// Activate marks a migrated model as being ready to use.
-	Activate(string) error
-}
-
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) Client {
-	return &client{base.NewFacadeCaller(caller, "MigrationTarget")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MigrationTarget")}
 }
 
-// client implements Client.
-type client struct {
+// Client is the client-side API for the MigrationTarget facade. It is
+// used by the migrationmaster worker when talking to the target
+// controller during a migration.
+type Client struct {
 	caller base.FacadeCaller
 }
 
-// Import implements Client.
-func (c *client) Import(bytes []byte) error {
+func (c *Client) Prechecks(model coremigration.ModelInfo) error {
+	args := params.MigrationModelInfo{
+		UUID:         model.UUID,
+		Name:         model.Name,
+		OwnerTag:     model.Owner.String(),
+		AgentVersion: model.AgentVersion,
+	}
+	return c.caller.FacadeCall("Prechecks", args, nil)
+}
+
+// Import takes a serialized model and imports it into the target
+// controller.
+func (c *Client) Import(bytes []byte) error {
 	serialized := params.SerializedModel{Bytes: bytes}
 	return c.caller.FacadeCall("Import", serialized, nil)
 }
 
-// Abort implements Client.
-func (c *client) Abort(modelUUID string) error {
+// Abort removes all data relating to a previously imported model.
+func (c *Client) Abort(modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	return c.caller.FacadeCall("Abort", args, nil)
 }
 
-// Activate implements Client.
-func (c *client) Activate(modelUUID string) error {
+// Activate marks a migrated model as being ready to use.
+func (c *Client) Activate(modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	return c.caller.FacadeCall("Activate", args, nil)
 }

@@ -4,20 +4,20 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"text/tabwriter"
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -51,9 +51,10 @@ Examples:
     juju models
     juju models --user bob
 
-See also: add-model
-          share-model
-          unshare-model
+See also:
+    add-model
+    share-model
+    unshare-model
 `
 
 // ModelManagerAPI defines the methods on the model manager API that
@@ -97,6 +98,7 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
 	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
@@ -160,6 +162,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		model.ControllerName = c.ControllerName()
 		modelInfo = append(modelInfo, model)
 	}
 
@@ -174,7 +177,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		userForListing := names.NewUserTag(c.user)
 		unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
 		if err == nil {
-			modelSet.CurrentModel = ownerQualifiedModelName(
+			modelSet.CurrentModel = common.OwnerQualifiedModelName(
 				unqualifiedModelName, owner, userForListing,
 			)
 		}
@@ -246,10 +249,10 @@ func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error {
 	modelSet, ok := value.(ModelSet)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", modelSet, value)
+		return errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
 
 	// We need the tag of the user for which we're listing models,
@@ -263,28 +266,23 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		userForLastConn = userForListing
 	}
 
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "MODEL")
+	tw := output.TabWriter(writer)
+	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
+	fmt.Fprint(tw, "\n")
+	fmt.Fprint(tw, "MODEL")
 	if c.listUUID {
-		fmt.Fprintf(tw, "\tMODEL UUID")
+		fmt.Fprint(tw, "\tUUID")
 	}
-	fmt.Fprintf(tw, "\tOWNER\tSTATUS\tLAST CONNECTION\n")
+	fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
-		name := ownerQualifiedModelName(model.Name, owner, userForListing)
+		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
 			name += "*"
+			output.CurrentHighlight.Fprintf(tw, "%s", name)
+		} else {
+			fmt.Fprintf(tw, "%s", name)
 		}
-		fmt.Fprintf(tw, "%s", name)
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
@@ -292,24 +290,13 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		if lastConnection == "" {
 			lastConnection = "never connected"
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, lastConnection)
+		userForAccess := loggedInUser
+		if c.user != "" {
+			userForAccess = names.NewUserTag(c.user)
+		}
+		access := model.Users[userForAccess.Canonical()].Access
+		fmt.Fprintf(tw, "\t%s\t%s\t%s\t%s\n", model.Owner, model.Status.Current, access, lastConnection)
 	}
 	tw.Flush()
-	return out.Bytes(), nil
-}
-
-// ownerQualifiedModelName returns the model name qualified with the
-// model owner if the owner is not the same as the given canonical
-// user name. If the owner is a local user, we omit the domain.
-func ownerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Canonical() == user.Canonical() {
-		return modelName
-	}
-	var ownerName string
-	if owner.IsLocal() {
-		ownerName = owner.Name()
-	} else {
-		ownerName = owner.Canonical()
-	}
-	return fmt.Sprintf("%s/%s", ownerName, modelName)
+	return nil
 }

@@ -185,6 +185,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			},
 			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
+			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
 			Nonce:             "dummyNonce",
@@ -262,7 +263,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil, nil)
+	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil, nil, nil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
@@ -271,7 +272,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	) state.NewPolicyFunc {
 		return nil
 	})
-	st, err = newStateConnection(st.ModelTag(), statetesting.NewMongoInfo())
+	st, err = newStateConnection(st.ControllerTag(), st.ModelTag(), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

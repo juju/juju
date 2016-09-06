@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -34,27 +35,36 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
-	st, err := open(tag, info, opts, newPolicy)
+func Open(
+	controllerModelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	info *mongo.MongoInfo, opts mongo.DialOpts,
+	newPolicy NewPolicyFunc,
+) (*State, error) {
+	st, err := open(controllerModelTag, info, opts, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("closing State for %s: %v", tag, err)
+			logger.Errorf("closing State for %s: %v", controllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
+		return nil, errors.Annotatef(err, "cannot read model %s", controllerModelTag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForModel.
-	if err := st.start(tag); err != nil {
+	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPolicy NewPolicyFunc) (*State, error) {
+func open(
+	controllerModelTag names.ModelTag,
+	info *mongo.MongoInfo, opts mongo.DialOpts,
+	newPolicy NewPolicyFunc,
+) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -70,21 +80,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, newPol
 	}
 	logger.Debugf("mongodb login successful")
 
-	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
-	// model UUID available. In that case we need to infer what it might be;
-	// we depend on the assumption that this is the only circumstance in which
-	// the the UUID might not be known.
-	if tag.Id() == "" {
-		logger.Warningf("creating state without model tag; inferring bootstrap model")
-		ssInfo, err := readRawControllerInfo(session)
-		if err != nil {
-			session.Close()
-			return nil, errors.Trace(err)
-		}
-		tag = ssInfo.ModelTag
-	}
-
-	st, err := newState(tag, session, info, newPolicy)
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,7 +118,7 @@ type InitializeParams struct {
 
 	// CloudCredentials contains the credentials for the owner of
 	// the controller model to store in the controller.
-	CloudCredentials map[string]cloud.Credential
+	CloudCredentials map[names.CloudCredentialTag]cloud.Credential
 
 	// ControllerConfig contains config attributes for
 	// the controller.
@@ -131,6 +127,10 @@ type InitializeParams struct {
 	// ControllerInheritedConfig contains default config attributes for
 	// models on the specified cloud.
 	ControllerInheritedConfig map[string]interface{}
+
+	// RegionInheritedConfig contains region specific configuration for
+	// models running on specific cloud regions.
+	RegionInheritedConfig cloud.RegionConfig
 
 	// NewPolicy is a function that returns the set of state policies
 	// to apply.
@@ -150,13 +150,13 @@ func (p InitializeParams) Validate() error {
 	if err := p.ControllerModelArgs.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if p.ControllerModelArgs.MigrationMode != MigrationModeActive {
+	if p.ControllerModelArgs.MigrationMode != MigrationModeNone {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
 	controllerUUID := p.ControllerConfig.ControllerUUID()
-	if uuid != controllerUUID {
-		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
+	if uuid == controllerUUID {
+		return errors.NotValidf("same controller model uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
 	if p.MongoInfo == nil {
 		return errors.NotValidf("nil MongoInfo")
@@ -181,7 +181,6 @@ func (p InitializeParams) Validate() error {
 		p.CloudName,
 		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
-		p.ControllerModelArgs.Owner,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
 	}
@@ -210,7 +209,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			}
 		}
 	}()
-	st.controllerTag = modelTag
+	st.controllerModelTag = modelTag
 
 	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -223,7 +222,13 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
+	modelOps, err := st.modelSetupOps(
+		args.ControllerConfig.ControllerUUID(),
+		args.ControllerModelArgs,
+		&lineage{
+			ControllerConfig: args.ControllerInheritedConfig,
+			RegionConfig:     args.RegionInheritedConfig,
+		})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -232,7 +237,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := createInitialUserOps(st.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	ops := createInitialUserOps(args.ControllerConfig.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
 	ops = append(ops,
 
 		txn.Op{
@@ -266,35 +271,47 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
 	)
-	for credName, cred := range args.CloudCredentials {
-		ops = append(ops, createCloudCredentialOp(
-			args.ControllerModelArgs.Owner,
-			args.CloudName,
-			credName,
-			cred,
-		))
+	for k, v := range args.Cloud.RegionConfig {
+		// Create an entry keyed on cloudname#<key>, value for each region in
+		// region-config. The values here are themselves
+		// map[string]interface{}.
+		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
+	}
+
+	for tag, cred := range args.CloudCredentials {
+		ops = append(ops, createCloudCredentialOp(tag, cred))
 	}
 	ops = append(ops, modelOps...)
 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(modelTag); err != nil {
+	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
+	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
+// lineage is a composite of inheritable properties for the extent of
+// passing them into modelSetupOps.
+type lineage struct {
+	ControllerConfig map[string]interface{}
+	RegionConfig     cloud.RegionConfig
+}
+
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkControllerInheritedConfig(controllerInheritedConfig); err != nil {
-		return nil, errors.Trace(err)
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+	if inherited != nil {
+		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerUUID := st.controllerTag.Id()
+	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
@@ -306,10 +323,6 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 		Status: status.StatusAvailable,
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
-	isHostedModel := controllerUUID != modelUUID
-
 	modelUserOps := createModelUserOps(
 		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
 	)
@@ -317,7 +330,8 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, args.Constraints),
 	}
-	if isHostedModel {
+	// Inc ref count for hosted models.
+	if controllerModelUUID != modelUUID {
 		ops = append(ops, incHostedModelCountOp())
 	}
 
@@ -333,7 +347,7 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(controllerInheritedConfig) > 0 {
+	if inherited != nil {
 		configSources = []modelConfigSource{
 			{
 				name: config.JujuDefaultSource,
@@ -343,10 +357,18 @@ func (st *State) modelSetupOps(args ModelArgs, controllerInheritedConfig map[str
 			{
 				name: config.JujuControllerSource,
 				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					return controllerInheritedConfig, nil
-				})}}
+					return inherited.ControllerConfig, nil
+				})},
+			{
+				name: config.JujuRegionSource,
+				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
+					// We return the values specific to this region for this model.
+					return attrValues(inherited.RegionConfig[args.CloudRegion]), nil
+				})},
+		}
 	} else {
-		configSources = modelConfigSources(st)
+		rspec := &environs.RegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
@@ -428,7 +450,11 @@ func isUnauthorized(err error) bool {
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, newPolicy NewPolicyFunc) (_ *State, err error) {
+func newState(
+	modelTag, controllerModelTag names.ModelTag,
+	session *mgo.Session, mongoInfo *mongo.MongoInfo,
+	newPolicy NewPolicyFunc,
+) (_ *State, err error) {
 
 	defer func() {
 		if err != nil {
@@ -448,11 +474,12 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 
 	// Create State.
 	st := &State{
-		modelTag:  modelTag,
-		mongoInfo: mongoInfo,
-		session:   session,
-		database:  database,
-		newPolicy: newPolicy,
+		modelTag:           modelTag,
+		controllerModelTag: controllerModelTag,
+		mongoInfo:          mongoInfo,
+		session:            session,
+		database:           database,
+		newPolicy:          newPolicy,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

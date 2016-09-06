@@ -11,12 +11,16 @@ import (
 )
 
 type Backend interface {
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	Cloud(cloudName string) (cloud.Cloud, error)
-	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
+	CloudCredentials(user names.UserTag, cloudName string) (map[names.CloudCredentialTag]cloud.Credential, error)
 	ControllerModel() (Model, error)
-	UpdateCloudCredentials(user names.UserTag, cloudName string, credentials map[string]cloud.Credential) error
+	ControllerTag() names.ControllerTag
+	ModelTag() names.ModelTag
+	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
+	RemoveCloudCredential(names.CloudCredentialTag) error
 
-	IsControllerAdministrator(names.UserTag) (bool, error)
+	IsControllerAdmin(names.UserTag) (bool, error)
 
 	Close() error
 }
@@ -39,6 +43,6 @@ func (s stateShim) ControllerModel() (Model, error) {
 
 type Model interface {
 	Cloud() string
-	CloudCredential() string
+	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 }

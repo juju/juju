@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/api/modelconfig"
@@ -114,11 +114,11 @@ func (c *addCommand) Info() *cmd.Info {
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
-		Aliases: []string{"add-machines"},
 	}
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "The charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Additional machine constraints")
@@ -127,7 +127,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *addCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
-		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
+		return errors.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
 	placement, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
@@ -151,7 +151,7 @@ type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	ModelUUID() (string, error)
+	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -263,9 +263,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		uuid, err := client.ModelUUID()
-		if err != nil {
-			return errors.Trace(err)
+		uuid, ok := client.ModelUUID()
+		if !ok {
+			return errors.New("API connection is controller-only (should never happen)")
 		}
 		c.Placement.Scope = uuid
 	}

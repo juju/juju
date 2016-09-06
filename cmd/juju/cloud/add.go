@@ -6,7 +6,7 @@ package cloud
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cloud"
 )
@@ -64,6 +64,7 @@ func (c *addCloudCommand) Info() *cmd.Info {
 }
 
 func (c *addCloudCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
 }
 

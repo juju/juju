@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
@@ -177,8 +179,10 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	pkgs := cfg.Packages()
+	if len(pkgs) > 0 {
+		cmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgs, ", ")))}, cmds...)
+	}
 	for _, pkg := range pkgs {
-		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
 		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.InstallCmd(pkg))
 	}
 	return cmds, nil
@@ -209,6 +213,9 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 		"cloud-utils",
 		"nmap-ncat",
 		"tmux",
+	}
+	if featureflag.Enabled(feature.DeveloperMode) {
+		packages = append(packages, "socat")
 	}
 
 	// The required packages need to come from the correct repo.

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -42,43 +42,43 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 	return client, nil
 }
 
+func (c *ModelConfigAPI) checkCanWrite() error {
+	canWrite, err := c.auth.HasPermission(description.WriteAccess, c.backend.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (c *ModelConfigAPI) isAdmin() error {
+	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hasAccess {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // ModelGet implements the server-side part of the
 // get-model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	values, err := c.backend.ModelConfigValues()
-	if err != nil {
-		return result, err
+	if err := c.checkCanWrite(); err != nil {
+		return result, errors.Trace(err)
 	}
 
-	// TODO(wallyworld) - this can be removed once credentials are properly
-	// managed outside of model config.
-	// Strip out any model config attributes that are credential attributes.
-	provider, err := environs.Provider(values[config.TypeKey].Value.(string))
+	values, err := c.backend.ModelConfigValues()
 	if err != nil {
-		return result, err
-	}
-	credSchemas := provider.CredentialSchemas()
-	var allCredentialAttributes []string
-	for _, schema := range credSchemas {
-		for _, attr := range schema {
-			allCredentialAttributes = append(allCredentialAttributes, attr.Name)
-		}
-	}
-	isCredentialAttribute := func(attr string) bool {
-		for _, a := range allCredentialAttributes {
-			if a == attr {
-				return true
-			}
-		}
-		return false
+		return result, errors.Trace(err)
 	}
 
 	result.Config = make(map[string]params.ConfigValue)
 	for attr, val := range values {
-		if isCredentialAttribute(attr) {
-			continue
-		}
 		// Authorized keys are able to be listed using
 		// juju ssh-keys and including them here just
 		// clutters everything.
@@ -96,6 +96,10 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 // ModelSet implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -117,6 +121,9 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 // ModelUnset implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -124,24 +131,53 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // ModelDefaults returns the default config values used when creating a new model.
-func (c *ModelConfigAPI) ModelDefaults() (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
+func (c *ModelConfigAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+	result := params.ModelDefaultsResult{}
+	if err := c.isAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	values, err := c.backend.ModelConfigDefaultValues()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
-	result.Config = make(map[string]params.ConfigValue)
+	result.Config = make(map[string]params.ModelDefaults)
 	for attr, val := range values {
-		result.Config[attr] = params.ConfigValue{
-			Value:  val.Value,
-			Source: val.Source,
+		settings := params.ModelDefaults{
+			Controller: val.Controller,
+			Default:    val.Default,
 		}
+		for _, v := range val.Regions {
+			settings.Regions = append(
+				settings.Regions, params.RegionDefaults{
+					RegionName: v.Name,
+					Value:      v.Value})
+		}
+		result.Config[attr] = settings
 	}
 	return result, nil
 }
 
 // SetModelDefaults writes new values for the specified default model settings.
-func (c *ModelConfigAPI) SetModelDefaults(args params.ModelSet) error {
+func (c *ModelConfigAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Config {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.setModelDefaults(arg),
+		)
+	}
+	return results, nil
+}
+
+func (c *ModelConfigAPI) setModelDefaults(args params.ModelDefaultValues) error {
+	if err := c.isAdmin(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -153,9 +189,20 @@ func (c *ModelConfigAPI) SetModelDefaults(args params.ModelSet) error {
 }
 
 // UnsetModelDefaults removes the specified default model settings.
-func (c *ModelConfigAPI) UnsetModelDefaults(args params.ModelUnset) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
+func (c *ModelConfigAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
+	if err := c.isAdmin(); err != nil {
+		return results, err
 	}
-	return c.backend.UpdateModelConfigDefaultValues(nil, args.Keys)
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Keys {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.backend.UpdateModelConfigDefaultValues(nil, arg.Keys),
+		)
+	}
+	return results, nil
 }

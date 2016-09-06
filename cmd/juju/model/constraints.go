@@ -4,8 +4,11 @@
 package model
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -100,11 +103,13 @@ func (c *modelGetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	return c.NewAPIClient()
 }
 
-func formatConstraints(value interface{}) ([]byte, error) {
-	return []byte(value.(constraints.Value).String()), nil
+func formatConstraints(writer io.Writer, value interface{}) error {
+	fmt.Fprint(writer, value.(constraints.Value).String())
+	return nil
 }
 
 func (c *modelGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,

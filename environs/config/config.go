@@ -125,6 +125,10 @@ const (
 	// automatically retry a hook that has failed
 	AutomaticallyRetryHooks = "automatically-retry-hooks"
 
+	// TransmitVendorMetricsKey is the key for whether the controller sends
+	// metrics collected in this model for anonymized aggregate analytics.
+	TransmitVendorMetricsKey = "transmit-vendor-metrics"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -290,6 +294,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":        true,
 	"development":              false,
 	"test-mode":                false,
+	TransmitVendorMetricsKey:   true,
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -763,6 +768,16 @@ func (c *Config) AutomaticallyRetryHooks() bool {
 	}
 }
 
+// TransmitVendorMetrics returns whether the controller sends charm-collected metrics
+// in this model for anonymized aggregate analytics. By default this should be true.
+func (c *Config) TransmitVendorMetrics() bool {
+	if val, ok := c.defined[TransmitVendorMetricsKey].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -956,6 +971,7 @@ var alwaysOptional = schema.Defaults{
 	IgnoreMachineAddresses:       schema.Omit,
 	AutomaticallyRetryHooks:      schema.Omit,
 	"test-mode":                  schema.Omit,
+	TransmitVendorMetricsKey:     schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1017,7 +1033,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		if fields[name] == nil {
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Errorf("unknown config field %q", name)
+				logger.Warningf("unknown config field %q", name)
 			}
 			result[name] = value
 		}
@@ -1303,6 +1319,11 @@ data of the store. (default false)`,
 	},
 	AutomaticallyRetryHooks: {
 		Description: "Determines whether the uniter should automatically retry failed hooks",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	TransmitVendorMetricsKey: {
+		Description: "Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},

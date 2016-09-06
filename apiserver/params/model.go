@@ -22,6 +22,26 @@ type ModelConfigResults struct {
 	Config map[string]ConfigValue `json:"config"`
 }
 
+// ModelDefaultsResult contains the result of client API calls to get the
+// model default values.
+type ModelDefaultsResult struct {
+	Config map[string]ModelDefaults `json:"config"`
+}
+
+// ModelDefaults holds the settings for a given ModelDefaultsResult config
+// attribute.
+type ModelDefaults struct {
+	Default    interface{}      `json:"default,omitempty"`
+	Controller interface{}      `json:"controller,omitempty"`
+	Regions    []RegionDefaults `json:"regions,omitempty"`
+}
+
+// RegionDefaults contains the settings for regions in a ModelDefaults.
+type RegionDefaults struct {
+	RegionName string      `json:"region-name"`
+	Value      interface{} `json:"value"`
+}
+
 // ModelSet contains the arguments for ModelSet client API
 // call.
 type ModelSet struct {
@@ -34,6 +54,34 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// SetModelDefaults contains the arguments for SetModelDefaults
+// client API call.
+type SetModelDefaults struct {
+	Config []ModelDefaultValues `json:"config"`
+}
+
+// ModelDefaultValues contains the default model values for
+// a cloud/region.
+type ModelDefaultValues struct {
+	CloudTag    string                 `json:"cloud-tag,omitempty"`
+	CloudRegion string                 `json:"cloud-region,omitempty"`
+	Config      map[string]interface{} `json:"config"`
+}
+
+// ModelUnsetKeys contains the config keys to unset for
+// a cloud/region.
+type ModelUnsetKeys struct {
+	CloudTag    string   `json:"cloud-tag,omitempty"`
+	CloudRegion string   `json:"cloud-region,omitempty"`
+	Keys        []string `json:"keys"`
+}
+
+// UnsetModelDefaults contains the arguments for UnsetModelDefaults
+// client API call.
+type UnsetModelDefaults struct {
+	Keys []ModelUnsetKeys `json:"keys"`
+}
+
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
@@ -42,17 +90,14 @@ type SetModelAgentVersion struct {
 
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
-	// The json names for the fields below are as per the older
-	// field names for backward compatibility. New fields are
-	// camel-cased for consistency within this type only.
-	Name            string `json:"name"`
-	UUID            string `json:"uuid"`
-	ControllerUUID  string `json:"controller-uuid"`
-	ProviderType    string `json:"provider-type"`
-	DefaultSeries   string `json:"default-series"`
-	Cloud           string `json:"cloud"`
-	CloudRegion     string `json:"cloud-region,omitempty"`
-	CloudCredential string `json:"cloud-credential,omitempty"`
+	Name               string `json:"name"`
+	UUID               string `json:"uuid"`
+	ControllerUUID     string `json:"controller-uuid"`
+	ProviderType       string `json:"provider-type"`
+	DefaultSeries      string `json:"default-series"`
+	Cloud              string `json:"cloud"`
+	CloudRegion        string `json:"cloud-region,omitempty"`
+	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"owner-tag"`

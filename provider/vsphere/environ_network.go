@@ -18,12 +18,22 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return false, errors.NotSupportedf("spaces")
 }
 
-// Subnets implements environs.Environ.
+// SupportsSpaceDiscovery implements environs.Networking.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, errors.NotSupportedf("spaces")
+}
+
+// Spaces implements environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// Subnets implements environs.Networking.
 func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
 	return env.client.Subnets(inst, ids)
 }
 
-// NetworkInterfaces implements environs.Environ.
+// NetworkInterfaces implements environs.Networking.
 func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
 	return env.client.GetNetworkInterfaces(inst, env.ecfg)
 }
@@ -55,6 +65,6 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 }
 
 // ReleaseContainerAddresses implements environs.Networking.
-func (e *environ) ReleaseContainerAddresses(interfaces []network.InterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }

@@ -7,16 +7,13 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -34,7 +31,6 @@ credentials in order to create a model.
 Examples:
     juju add-user bob
     juju add-user --controller mycontroller bob
-    juju add-user --models=mymodel --acl=read bob
 
 See also: 
     register
@@ -48,7 +44,7 @@ See also:
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
-	AddUser(username, displayName, password, access string, modelUUIDs ...string) (names.UserTag, []byte, error)
+	AddUser(username, displayName, password string) (names.UserTag, []byte, error)
 	Close() error
 }
 
@@ -62,13 +58,6 @@ type addCommand struct {
 	api         AddUserAPI
 	User        string
 	DisplayName string
-	ModelNames  string
-	ModelAccess string
-}
-
-func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelNames, "models", "", "Models the new user is granted access to")
-	f.StringVar(&c.ModelAccess, "acl", "read", "Access controls")
 }
 
 // Info implements Command.Info.
@@ -84,12 +73,7 @@ func (c *addCommand) Info() *cmd.Info {
 // Init implements Command.Init.
 func (c *addCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no username supplied")
-	}
-
-	_, err := permission.ParseModelAccess(c.ModelAccess)
-	if err != nil {
-		return err
+		return errors.Errorf("no username supplied")
 	}
 
 	c.User, args = args[0], args[1:]
@@ -111,24 +95,10 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		defer api.Close()
 	}
 
-	var modelNames []string
-	for _, modelArg := range strings.Split(c.ModelNames, ",") {
-		modelArg = strings.TrimSpace(modelArg)
-		if len(modelArg) > 0 {
-			modelNames = append(modelNames, modelArg)
-		}
-	}
-
-	// If we need to share a model, look up the model UUIDs from the supplied names.
-	modelUUIDs, err := c.ModelUUIDs(modelNames)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Add a user without a password. This will generate a temporary
 	// secret key, which we'll print out for the user to supply to
 	// "juju register".
-	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", c.ModelAccess, modelUUIDs...)
+	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "")
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -172,18 +142,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	)
 
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
-	for _, modelName := range modelNames {
-		fmt.Fprintf(ctx.Stdout, "User %q granted %s access to model %q\n", displayName, c.ModelAccess, modelName)
-	}
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
 		base64RegistrationData,
 	)
-	if len(modelNames) == 0 {
-		fmt.Fprintf(ctx.Stdout, `
+	fmt.Fprintf(ctx.Stdout, `
 %q has not been granted access to any models. You can use "juju grant" to grant access.
 `, displayName)
-	}
 
 	return nil
 }

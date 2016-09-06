@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"strings"
 	"testing"
@@ -122,6 +123,10 @@ func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM s
 	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
 	c.Assert(srvCert.IsCA, jc.IsFalse)
 	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+	c.Assert(srvCert.SerialNumber, gc.NotNil)
+	if srvCert.SerialNumber.Cmp(big.NewInt(0)) == 0 {
+		c.Fatalf("zero serial number")
+	}
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
 }

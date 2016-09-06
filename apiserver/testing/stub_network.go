@@ -371,10 +371,11 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 	sb.EnvConfig = coretesting.CustomModelConfig(c, extraAttrs)
 	sb.Cloud = environs.CloudSpec{
-		Type:            StubProviderType,
-		Name:            "cloud-name",
-		Endpoint:        "endpoint",
-		StorageEndpoint: "storage-endpoint",
+		Type:             StubProviderType,
+		Name:             "cloud-name",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
 	}
 	sb.Zones = []providercommon.AvailabilityZone{}
 	if withZones {
@@ -432,6 +433,10 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return sb.EnvConfig, nil
+}
+
+func (sb *StubBacking) ModelTag() names.ModelTag {
+	return names.NewModelTag("dbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
 func (sb *StubBacking) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {

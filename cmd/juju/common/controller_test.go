@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -29,7 +29,7 @@ type controllerSuite struct {
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.mockBlockClient = &mockBlockClient{}
-	s.PatchValue(&blockAPI, func(*modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+	s.PatchValue(&blockAPI, func(*modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 		err := s.mockBlockClient.loginError
 		if err != nil {
 			s.mockBlockClient.loginError = nil
@@ -93,7 +93,9 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 	} {
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
-		err := WaitForAgentInitialisation(cmdtesting.NullContext(c), nil, "controller")
+		cmd := &modelcmd.ModelCommandBase{}
+		cmd.SetClientStore(jujuclienttesting.NewMemStore())
+		err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 		c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
@@ -109,7 +111,9 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 
 func (s *controllerSuite) TestWaitForAgentAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	s.mockBlockClient.discoveringSpacesError = 2
-	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), nil, "controller")
+	cmd := &modelcmd.ModelCommandBase{}
+	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
 }
@@ -118,7 +122,9 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C)
 	s.mockBlockClient.numRetries = 0
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = io.EOF
-	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), nil, "controller")
+	cmd := &modelcmd.ModelCommandBase{}
+	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 1)
@@ -128,7 +134,9 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	s.mockBlockClient.numRetries = 0
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
-	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), nil, "controller")
+	cmd := &modelcmd.ModelCommandBase{}
+	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)

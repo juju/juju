@@ -15,65 +15,45 @@ import (
 
 type restrictedRootSuite struct {
 	testing.BaseSuite
-
-	root rpc.MethodFinder
+	root rpc.Root
 }
-
-var _ = gc.Suite(&restrictedRootSuite{})
 
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
-	r.root = apiserver.TestingRestrictedApiHandler(nil)
+	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
+		if facade == "Client" && method == "FullStatus" {
+			return errors.New("blam")
+		}
+		return nil
+	})
 }
 
-func (r *restrictedRootSuite) assertMethodAllowed(c *gc.C, rootName string, version int, method string) {
-	caller, err := r.root.FindMethod(rootName, version, method)
+func (r *restrictedRootSuite) TestAllowedMethod(c *gc.C) {
+	caller, err := r.root.FindMethod("Client", 1, "WatchAll")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(caller, gc.NotNil)
 }
 
-func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
-	r.assertMethodAllowed(c, "AllModelWatcher", 2, "Next")
-	r.assertMethodAllowed(c, "AllModelWatcher", 2, "Stop")
-
-	r.assertMethodAllowed(c, "ModelManager", 2, "CreateModel")
-	r.assertMethodAllowed(c, "ModelManager", 2, "ListModels")
-
-	r.assertMethodAllowed(c, "UserManager", 1, "AddUser")
-	r.assertMethodAllowed(c, "UserManager", 1, "SetPassword")
-	r.assertMethodAllowed(c, "UserManager", 1, "UserInfo")
-
-	r.assertMethodAllowed(c, "Controller", 3, "AllModels")
-	r.assertMethodAllowed(c, "Controller", 3, "DestroyController")
-	r.assertMethodAllowed(c, "Controller", 3, "ModelConfig")
-	r.assertMethodAllowed(c, "Controller", 3, "ListBlockedModels")
+func (r *restrictedRootSuite) TestDisallowedMethod(c *gc.C) {
+	caller, err := r.root.FindMethod("Client", 1, "FullStatus")
+	c.Assert(err, gc.ErrorMatches, "blam")
+	c.Assert(caller, gc.IsNil)
 }
 
-func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 1, "FullStatus")
-
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+func (r *restrictedRootSuite) TestMethodNonExistentVersion(c *gc.C) {
+	caller, err := r.root.FindMethod("Client", 99999999, "WatchAll")
+	c.Assert(err, gc.ErrorMatches, `unknown version .+`)
 	c.Assert(caller, gc.IsNil)
 }
 
 func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
-
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "SomeFacade" not supported`)
+	c.Assert(err, gc.ErrorMatches, `unknown object type "SomeFacade"`)
 	c.Assert(caller, gc.IsNil)
 }
 
-func (r *restrictedRootSuite) TestFindNonExistentMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("ModelManager", 2, "Bar")
-
-	c.Assert(err, gc.ErrorMatches, `no such request - method ModelManager\(2\).Bar is not implemented`)
-	c.Assert(caller, gc.IsNil)
-}
-
-func (r *restrictedRootSuite) TestFindMethodNonExistentVersion(c *gc.C) {
-	caller, err := r.root.FindMethod("UserManager", 99999999, "AddUser")
-
-	c.Assert(err, gc.ErrorMatches, `unknown version \(99999999\) of interface "UserManager"`)
+func (r *restrictedRootSuite) TestNonExistentMethod(c *gc.C) {
+	caller, err := r.root.FindMethod("Client", 1, "Bar")
+	c.Assert(err, gc.ErrorMatches, `no such request.+`)
 	c.Assert(caller, gc.IsNil)
 }

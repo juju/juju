@@ -42,7 +42,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {

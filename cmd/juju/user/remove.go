@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -84,7 +84,7 @@ func (c *removeCommand) Info() *cmd.Info {
 // Init implements Command.Init.
 func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no username supplied")
+		return errors.Errorf("no username supplied")
 	}
 	c.UserName = args[0]
 	return cmd.CheckEmpty(args[1:])

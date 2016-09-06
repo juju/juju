@@ -32,7 +32,8 @@ var _ = gc.Suite(&modelconfigSuite{})
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("bruce@local"),
+		Tag:      names.NewUserTag("bruce@local"),
+		AdminTag: names.NewUserTag("bruce@local"),
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
@@ -41,9 +42,19 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
 		},
-		cfgDefaults: config.ConfigValues{
-			"attr":  {Value: "val", Source: "controller"},
-			"attr2": {Value: "val2", Source: "controller"},
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{config.RegionDefaultValue{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{config.RegionDefaultValue{
+					Name:  "left",
+					Value: "spam"}}},
 		},
 	}
 	var err error
@@ -159,61 +170,150 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	result, err := s.api.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedValues := map[string]params.ConfigValue{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
+	expectedValues := map[string]params.ModelDefaults{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []params.RegionDefaults{{
+				RegionName: "dummy",
+				Value:      "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []params.RegionDefaults{{
+				RegionName: "left",
+				Value:      "spam"}}},
 	}
 	c.Assert(result.Config, jc.DeepEquals, expectedValues)
 }
 
 func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
-	params := params.ModelSet{
-		Config: map[string]interface{}{
-			"attr3": "val3",
-			"attr4": "val4"},
-	}
-	err := s.api.SetModelDefaults(params)
+	params := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"attr3": "val3",
+				"attr4": "val4"},
+		}}}
+	result, err := s.api.SetModelDefaults(params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr":  {Value: "val", Source: "controller"},
-		"attr2": {Value: "val2", Source: "controller"},
-		"attr3": {Value: "val3", Source: "controller"},
-		"attr4": {Value: "val4", Source: "controller"},
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "dummy",
+				Value: "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+		"attr3": {Controller: "val3"},
+		"attr4": {Controller: "val4"},
 	})
 }
 
 func (s *modelconfigSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
 	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
-	err := s.api.SetModelDefaults(params.ModelSet{})
+	_, err := s.api.SetModelDefaults(params.SetModelDefaults{})
 	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
 }
 
 func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
-	args := params.ModelUnset{[]string{"attr"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ConfigValues{
-		"attr2": {Value: "val2", Source: "controller"},
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.backend.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
 	})
 }
 
 func (s *modelconfigSuite) TestBlockUnsetModelDefaults(c *gc.C) {
 	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
-	args := params.ModelUnset{[]string{"abc"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"abc"},
+		}}}
+	_, err := s.api.UnsetModelDefaults(args)
 	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
 }
 
 func (s *modelconfigSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
-	args := params.ModelUnset{[]string{"not_there"}}
-	err := s.api.UnsetModelDefaults(args)
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"not there"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *modelconfigSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.ModelDefaults()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ModelDefaultsResult{})
+}
+
+func (s *modelconfigSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.SetModelDefaults(params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"ftp-proxy": "http://charlie",
+			}}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    "unauthorized access"}}}})
+
+	// Make sure it didn't change.
+	cfg, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Value.(string), jc.DeepEquals, "http://proxy")
+}
+
+func (s *modelconfigSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
+	mc, err := modelconfig.NewModelConfigAPI(s.backend, apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("charlie@local")})
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := mc.UnsetModelDefaults(params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"ftp-proxy"}}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: nil}}})
+
+	// Make sure it didn't change.
+	cfg, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Value.(string), jc.DeepEquals, "http://proxy")
 }
 
 type mockBackend struct {
 	cfg         config.ConfigValues
-	cfgDefaults config.ConfigValues
+	cfgDefaults config.ModelDefaultAttributes
 	old         *config.Config
 	b           state.BlockType
 	msg         string
@@ -223,7 +323,7 @@ func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
 }
 
-func (m *mockBackend) ModelConfigDefaultValues() (config.ConfigValues, error) {
+func (m *mockBackend) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	return m.cfgDefaults, nil
 }
 
@@ -245,7 +345,7 @@ func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []
 
 func (m *mockBackend) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
 	for k, v := range update {
-		m.cfgDefaults[k] = config.ConfigValue{v, "controller"}
+		m.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
 	}
 	for _, n := range remove {
 		delete(m.cfgDefaults, n)
@@ -259,6 +359,14 @@ func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, err
 	} else {
 		return nil, false, nil
 	}
+}
+
+func (m *mockBackend) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+}
+
+func (m *mockBackend) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
 }
 
 type mockBlock struct {

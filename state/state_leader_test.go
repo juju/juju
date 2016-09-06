@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -19,7 +20,7 @@ import (
 
 type LeadershipSuite struct {
 	ConnSuite
-	clock   *coretesting.Clock
+	clock   *jujutesting.Clock
 	checker leadership.Checker
 	claimer leadership.Claimer
 }
@@ -34,7 +35,7 @@ func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *LeadershipSuite) SetUpTest(c *gc.C) {
-	s.clock = coretesting.NewClock(time.Now())
+	s.clock = jujutesting.NewClock(time.Now())
 	s.ConnSuite.SetUpTest(c)
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()

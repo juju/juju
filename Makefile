@@ -36,7 +36,7 @@ ifeq ($(CURDIR),$(PROJECT_DIR))
 
 ifeq ($(JUJU_MAKE_GODEPS),true)
 $(GOPATH)/bin/godeps:
-	go get launchpad.net/godeps
+	go get github.com/rogpeppe/godeps
 
 godeps: $(GOPATH)/bin/godeps
 	$(GOPATH)/bin/godeps -u dependencies.tsv
@@ -94,7 +94,7 @@ endif
 	@echo Installing dependencies
 	@sudo apt-get --yes install --no-install-recommends \
 	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+	$(shell apt-cache madison juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 # Install bash_completion
 install-etc:

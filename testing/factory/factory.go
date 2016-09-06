@@ -126,7 +126,7 @@ type ModelParams struct {
 	ConfigAttrs             testing.Attrs
 	CloudName               string
 	CloudRegion             string
-	CloudCredential         string
+	CloudCredential         names.CloudCredentialTag
 	StorageProviderRegistry storage.ProviderRegistry
 }
 
@@ -189,7 +189,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoModelUser {
-		_, err := factory.st.AddModelUser(state.UserAccessSpec{
+		_, err := factory.st.AddModelUser(factory.st.ModelUUID(), state.UserAccessSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -228,7 +228,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) descript
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := factory.st.AddModelUser(state.UserAccessSpec{
+	modelUser, err := factory.st.AddModelUser(factory.st.ModelUUID(), state.UserAccessSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
@@ -316,6 +316,28 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 // The machine and its password are returned.
 func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
+	return factory.makeMachineReturningPassword(c, params, true)
+}
+
+// MakeUnprovisionedMachineReturningPassword will add a machine with values
+// defined in params. For some values in params, if they are missing, some
+// meaningful empty values will be set. If params is not specified, defaults
+// are used. The machine and its password are returned; the machine will not
+// be provisioned.
+func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
+	if params != nil {
+		c.Assert(params.Nonce, gc.Equals, "")
+		c.Assert(params.InstanceId, gc.Equals, instance.Id(""))
+		c.Assert(params.Characteristics, gc.IsNil)
+	}
+	params = factory.paramsFillDefaults(c, params)
+	params.Nonce = ""
+	params.InstanceId = ""
+	params.Characteristics = nil
+	return factory.makeMachineReturningPassword(c, params, false)
+}
+
+func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
 		Series:      params.Series,
 		Jobs:        params.Jobs,
@@ -325,8 +347,10 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
-	c.Assert(err, jc.ErrorIsNil)
+	if setProvisioned {
+		err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
@@ -574,6 +598,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	}
 	if params.CloudName == "" {
 		params.CloudName = "dummy"
+	}
+	if params.CloudRegion == "" {
+		params.CloudRegion = "dummy-region"
 	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()

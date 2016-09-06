@@ -8,19 +8,20 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 const showModelCommandDoc = `Show information about the current or specified model`
 
 func NewShowCommand() cmd.Command {
-	return modelcmd.Wrap(&showModelCommand{})
+	return modelcmd.Wrap(&showModelCommand{}, modelcmd.WrapSkipModelFlags)
 }
 
 // showModelCommand shows all the users with access to the current model.
@@ -41,7 +42,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	api, err := c.NewAPIRoot()
+	api, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,6 +53,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 func (c *showModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-model",
+		Args:    "<model name>",
 		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
 	}
@@ -59,10 +61,27 @@ func (c *showModelCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *showModelCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+}
+
+// Init implements Command.Init.
+func (c *showModelCommand) Init(args []string) error {
+	if len(args) > 0 {
+		c.SetModelName(args[0])
+		args = args[1:]
+	}
+	if err := c.ModelCommandBase.Init(args); err != nil {
+		return err
+	}
+	if c.ModelName() == "" {
+		defaultModel, err := modelcmd.GetCurrentModel(c.ClientStore())
+		if err != nil {
+			return err
+		}
+		c.SetModelName(defaultModel)
+	}
+	return nil
 }
 
 // Run implements Command.Run.
@@ -106,6 +125,7 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		out.ControllerName = c.ControllerName()
 		output[out.Name] = out
 	}
 	return output, nil

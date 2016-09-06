@@ -5,7 +5,6 @@ package commands
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,11 +14,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -65,6 +64,8 @@ func (t *resolvedTarget) isAgent() bool {
 }
 
 // attemptStarter is an interface corresponding to utils.AttemptStrategy
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type attemptStarter interface {
 	Start() attempt
 }
@@ -73,9 +74,11 @@ type attempt interface {
 	Next() bool
 }
 
+// TODO(katco): 2016-08-09: lp:1611427
 type attemptStrategy utils.AttemptStrategy
 
 func (s attemptStrategy) Start() attempt {
+	// TODO(katco): 2016-08-09: lp:1611427
 	return utils.AttemptStrategy(s).Start()
 }
 
@@ -85,6 +88,7 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
 	f.BoolVar(&c.pty, "pty", true, "Enable pseudo-tty allocation")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
@@ -227,11 +231,11 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
 	if err != nil {
-		return fmt.Errorf("failed to get proxy address: %v", err)
+		return errors.Errorf("failed to get proxy address: %v", err)
 	}
 	juju, err := getJujuExecutable()
 	if err != nil {
-		return fmt.Errorf("failed to get juju executable path: %v", err)
+		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the

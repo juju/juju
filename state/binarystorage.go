@@ -24,7 +24,11 @@ func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 	// This is a hosted model. Hosted models have their own tools
 	// catalogue, which we combine with the controller's.
 
-	controllerSt, err := st.ForModel(st.controllerTag)
+	controllerModel, err := st.ControllerModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerSt, err := st.ForModel(controllerModel.ModelTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,11 +54,15 @@ func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 // GUIStorage returns a new binarystorage.StorageCloser that stores GUI archive
 // metadata in the "juju" database "guimetadata" collection.
 func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
-	return st.newBinaryStorageCloser(guimetadataC, st.controllerTag.Id()), nil
+	controllerModel, err := st.ControllerModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.newBinaryStorageCloser(guimetadataC, controllerModel.UUID()), nil
 }
 
 func (st *State) newBinaryStorageCloser(collectionName, uuid string) binarystorage.StorageCloser {
-	db, closer1 := st.database.CopySession()
+	db, closer1 := st.database.Copy()
 	metadataCollection, closer2 := db.GetCollection(collectionName)
 	txnRunner, closer3 := db.TransactionRunner()
 	closer := func() {

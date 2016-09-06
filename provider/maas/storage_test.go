@@ -388,22 +388,11 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 }
 
 func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
-	sstor := NewStorage(s.makeEnviron())
+	env := s.makeEnviron()
+	sstor := NewStorage(env)
 	stor := sstor.(*maas1Storage)
-	agentName := stor.environ.ecfg().maasAgentName()
-	c.Assert(agentName, gc.Not(gc.Equals), "")
-	expectedPrefix := agentName + "-"
+	expectedPrefix := env.Config().UUID() + "-"
 	const name = "myname"
 	expectedResult := expectedPrefix + name
 	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, expectedResult)
-}
-
-func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
-	sstor := NewStorage(s.makeEnviron())
-	stor := sstor.(*maas1Storage)
-	ecfg := stor.environ.ecfg()
-	ecfg.attrs["maas-agent-name"] = ""
-
-	const name = "myname"
-	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)
 }

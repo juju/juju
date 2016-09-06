@@ -4,8 +4,6 @@
 package controller_test
 
 import (
-	"errors"
-
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/network"
 	"gopkg.in/juju/names.v2"
@@ -17,7 +15,7 @@ type mockAPIConnection struct {
 	opts          api.DialOpts
 	addr          string
 	apiHostPorts  [][]network.HostPort
-	controllerTag names.ModelTag
+	controllerTag names.ControllerTag
 	username      string
 	password      string
 }
@@ -34,11 +32,8 @@ func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	return m.apiHostPorts
 }
 
-func (m *mockAPIConnection) ControllerTag() (names.ModelTag, error) {
-	if m.controllerTag.Id() == "" {
-		return m.controllerTag, errors.New("no server tag")
-	}
-	return m.controllerTag, nil
+func (m *mockAPIConnection) ControllerTag() names.ControllerTag {
+	return m.controllerTag
 }
 
 func (m *mockAPIConnection) SetPassword(username, password string) error {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -34,7 +33,7 @@ func (r *pingSuite) TestPingTimeout(c *gc.C) {
 	action := func() {
 		close(triggered)
 	}
-	clock := testing.NewClock(time.Now())
+	clock := jujutesting.NewClock(time.Now())
 	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
 		waitAlarm(c, clock)
@@ -63,7 +62,7 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 	action := func() {
 		close(triggered)
 	}
-	clock := testing.NewClock(time.Now())
+	clock := jujutesting.NewClock(time.Now())
 	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
 
 	waitAlarm(c, clock)
@@ -78,7 +77,7 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 	}
 }
 
-func waitAlarm(c *gc.C, clock *testing.Clock) {
+func waitAlarm(c *gc.C, clock *jujutesting.Clock) {
 	select {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("alarm never set")
@@ -119,7 +118,7 @@ type rootSuite struct {
 var _ = gc.Suite(&rootSuite{})
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	root := apiserver.TestingApiRoot(nil)
+	root := apiserver.TestingAPIRoot(nil)
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
@@ -127,7 +126,7 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	myGoodFacade := func(
 		*state.State, facade.Resources, facade.Authorizer,
@@ -144,7 +143,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	defer common.Facades.Discard("my-testing-facade", 1)
 	defer common.Facades.Discard("my-testing-facade", 2)
@@ -207,7 +206,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 }
 
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	defer common.Facades.Discard("my-counting-facade", 1)
 	var count int64
@@ -243,7 +242,7 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
@@ -275,7 +274,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	newIdCounter := func(context facade.Context) (facade.Facade, error) {
@@ -326,7 +325,7 @@ func (*secondImpl) OneMethod() stringVar {
 }
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-interface-facade", 0)
 	defer common.Facades.Discard("my-interface-facade", 1)
 	common.RegisterStandardFacade("my-interface-facade", 0, func(
@@ -388,7 +387,7 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 
 	entity := &stubStateEntity{tag}
 
-	apiHandler := apiserver.ApiHandlerWithEntity(entity)
+	apiHandler := apiserver.APIHandlerWithEntity(entity)
 	authorized := apiHandler.AuthOwner(tag)
 
 	c.Check(authorized, jc.IsTrue)
@@ -401,112 +400,4 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 	authorized = apiHandler.AuthOwner(incorrectTag)
 
 	c.Check(authorized, jc.IsFalse)
-}
-
-type fakeUserAccess struct {
-	subjects []names.UserTag
-	objects  []names.Tag
-	user     description.UserAccess
-	err      error
-}
-
-func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
-	f.subjects = append(f.subjects, subject)
-	f.objects = append(f.objects, object)
-	return f.user, f.err
-}
-
-func (r *rootSuite) TestNoUserTagLacksPermission(c *gc.C) {
-	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
-	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
-	hasPermission, err := apiserver.HasPermission((&fakeUserAccess{}).call, nonUser, description.ReadAccess, target)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "obtaining permission for subject kind \"model\" not valid")
-}
-
-func (r *rootSuite) TestHasPermission(c *gc.C) {
-	testCases := []struct {
-		title            string
-		userGetterAccess description.Access
-		user             names.UserTag
-		target           names.Tag
-		access           description.Access
-		expected         bool
-	}{
-		{
-			title:            "user has lesser permissions than required",
-			userGetterAccess: description.ReadAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
-			expected:         false,
-		},
-		{
-			title:            "user has equal permission than required",
-			userGetterAccess: description.WriteAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
-			expected:         true,
-		},
-		{
-			title:            "user has greater permission than required",
-			userGetterAccess: description.AdminAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
-			expected:         true,
-		},
-		{
-			title:            "user requests model permission on controller",
-			userGetterAccess: description.AdminAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
-			expected:         false,
-		},
-		{
-			title:            "user requests controller permission on model",
-			userGetterAccess: description.AdminAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AdminAccess, // notice user has this permission for model.
-			expected:         false,
-		},
-		{
-			title:            "controller permissions also work",
-			userGetterAccess: description.AddModelAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
-			expected:         true,
-		},
-	}
-	for i, t := range testCases {
-		userGetter := &fakeUserAccess{
-			user: description.UserAccess{
-				Access: t.userGetterAccess,
-			}}
-		c.Logf("HasPermission test n %d: %s", i, t.title)
-		hasPermission, err := apiserver.HasPermission(userGetter.call, t.user, t.access, t.target)
-		c.Assert(hasPermission, gc.Equals, t.expected)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-}
-
-func (r *rootSuite) TestUserGetterErrorReturns(c *gc.C) {
-	user := names.NewUserTag("validuser")
-	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
-	userGetter := &fakeUserAccess{
-		user: description.UserAccess{},
-		err:  errors.NotFoundf("a user"),
-	}
-	hasPermission, err := apiserver.HasPermission(userGetter.call, user, description.ReadAccess, target)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, gc.ErrorMatches, "while obtaining model user: a user not found")
-	c.Assert(userGetter.subjects, gc.HasLen, 1)
-	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
-	c.Assert(userGetter.objects, gc.HasLen, 1)
-	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
 }

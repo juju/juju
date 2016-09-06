@@ -414,7 +414,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
+	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -490,6 +490,7 @@ func makeBumpedCurrentVersion() version.Binary {
 const maxUpgradeRetries = 3
 
 func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
+	// TODO(katco): 2016-08-09: lp:1611427
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
 		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{

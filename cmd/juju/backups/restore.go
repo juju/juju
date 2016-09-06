@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
@@ -52,13 +52,13 @@ type restoreCommand struct {
 	filename    string
 	backupId    string
 	bootstrap   bool
-	uploadTools bool
+	buildAgent  bool
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
 	getRebootstrapParamsFunc func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
 	getArchiveFunc           func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
-	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
+	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error
 }
 
 // RestoreAPI is used to invoke various API calls.
@@ -111,7 +111,7 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
-	f.BoolVar(&c.uploadTools, "upload-tools", false, "Upload tools if bootstraping a new machine")
+	f.BoolVar(&c.buildAgent, "build-agent", false, "Build binary agent if bootstraping a new machine")
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -125,6 +125,7 @@ func (c *restoreCommand) Init(args []string) error {
 	if c.backupId != "" && c.bootstrap {
 		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
 	}
+
 	var err error
 	if c.filename != "" {
 		c.filename, err = filepath.Abs(c.filename)
@@ -155,6 +156,10 @@ func (c *restoreCommand) getRebootstrapParams(
 	// things like the admin-secret, controller certificate etc with the
 	// backup.
 	store := c.ClientStore()
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -199,7 +204,7 @@ func (c *restoreCommand) getRebootstrapParams(
 	for k, v := range config.ControllerConfig {
 		controllerCfg[k] = v
 	}
-	controllerCfg[controller.ControllerUUIDKey] = params.ControllerUUID
+	controllerCfg[controller.ControllerUUIDKey] = controllerDetails.ControllerUUID
 	controllerCfg[controller.CACertKey] = meta.CACert
 
 	return &restoreBootstrapParams{
@@ -316,8 +321,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		CloudCredentialName: params.CredentialName,
 		CloudCredential:     params.Cloud.Credential,
 		ModelConstraints:    c.constraints,
-		UploadTools:         c.uploadTools,
-		BuildToolsTarball:   sync.BuildToolsTarball,
+		BuildAgent:          c.buildAgent,
+		BuildAgentTarball:   sync.BuildAgentTarball,
 		ControllerConfig:    params.ControllerConfig,
 		HostedModelConfig:   hostedModelConfig,
 		BootstrapSeries:     meta.Series,
@@ -337,7 +342,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
 	apiPort := params.ControllerConfig.APIPort()
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), apiPort, env)
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), bootVers, apiPort, env)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -345,7 +350,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName())
+	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName(), "default")
 }
 
 func (c *restoreCommand) newClient() (*backups.Client, error) {

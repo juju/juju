@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -292,7 +292,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if len(args.CustomImageMetadata) > 0 {
-		if err := c.saveCustomImageMetadata(st, args.CustomImageMetadata); err != nil {
+		if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
 			return err
 		}
 	}
@@ -451,16 +451,17 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata stores the custom image metadata to the database,
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, imageMetadata []*imagemetadata.ImageMetadata) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ, imageMetadata []*imagemetadata.ImageMetadata) error {
 	logger.Debugf("saving custom image metadata")
-	return storeImageMetadataInState(st, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
+	return storeImageMetadataInState(st, env, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
+func storeImageMetadataInState(st *state.State, env environs.Environ, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
+	cfg := env.Config()
 	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
 	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
@@ -471,6 +472,7 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
 				Source:          source,
+				Version:         one.Version,
 			},
 			priority,
 			one.Id,
@@ -480,6 +482,12 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
+		if m.Stream == "" {
+			m.Stream = cfg.ImageStream()
+		}
+		if m.Source == "" {
+			m.Source = "custom"
+		}
 		metadataState[i] = m
 	}
 	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {

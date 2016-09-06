@@ -130,3 +130,22 @@ func (*WorkerSuite) TestNoRelevantPhaseChange(c *gc.C) {
 	workertest.CleanKill(c, worker)
 	checkCalls(c, stub, "Phase", "Watch", "Phase", "Phase", "Phase")
 }
+
+func (*WorkerSuite) TestIsTerminal(c *gc.C) {
+	tests := []struct {
+		phase    migration.Phase
+		expected bool
+	}{
+		{migration.QUIESCE, false},
+		{migration.SUCCESS, false},
+		{migration.ABORT, false},
+		{migration.NONE, true},
+		{migration.UNKNOWN, true},
+		{migration.ABORTDONE, true},
+		{migration.DONE, true},
+	}
+	for _, t := range tests {
+		c.Check(migrationflag.IsTerminal(t.phase), gc.Equals, t.expected,
+			gc.Commentf("for %s", t.phase))
+	}
+}

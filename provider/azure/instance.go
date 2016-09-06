@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
@@ -42,6 +42,10 @@ func (inst *azureInstance) Status() instance.InstanceStatus {
 	// delivered when explicitly requested, and you can only request it
 	// when querying a single VM. This means the results of AllInstances
 	// or Instances would have the instance view missing.
+	//
+	// TODO(axw) if the provisioning state is "Failed", then
+	// we should query the operation status and report the error
+	// here.
 	return instance.InstanceStatus{
 		Status:  status.StatusEmpty,
 		Message: to.String(inst.Properties.ProvisioningState),
@@ -149,14 +153,10 @@ func (inst *azureInstance) Addresses() ([]jujunetwork.Address, error) {
 	return addresses, nil
 }
 
-// internalNetworkAddress returns the instance's jujunetwork.Address for the
-// internal virtual network. This address is used to identify the machine in
+// primaryNetworkAddress returns the instance's primary jujunetwork.Address for
+// the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error) {
-	subscriptionId := inst.env.subscriptionId
-	resourceGroup := inst.env.resourceGroup
-	internalSubnetId := internalSubnetId(resourceGroup, subscriptionId)
-
+func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.Properties.IPConfigurations == nil {
 			continue
@@ -165,7 +165,7 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 			if ipConfiguration.Properties.Subnet == nil {
 				continue
 			}
-			if strings.ToLower(to.String(ipConfiguration.Properties.Subnet.ID)) != strings.ToLower(internalSubnetId) {
+			if !to.Bool(ipConfiguration.Properties.Primary) {
 				continue
 			}
 			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
@@ -185,7 +185,7 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortRange) error {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	internalNetworkAddress, err := inst.internalNetworkAddress()
+	primaryNetworkAddress, err := inst.primaryNetworkAddress()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -194,7 +194,7 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 	var nsg network.SecurityGroup
 	if err := inst.env.callAPI(func() (autorest.Response, error) {
 		var err error
-		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName, "")
 		return nsg.Response, err
 	}); err != nil {
 		return errors.Annotate(err, "querying network security group")
@@ -258,17 +258,17 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr(portRange),
 				SourceAddressPrefix:      to.StringPtr("*"),
-				DestinationAddressPrefix: to.StringPtr(internalNetworkAddress.Value),
+				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
 				Access:    network.Allow,
-				Priority:  to.IntPtr(priority),
+				Priority:  to.Int32Ptr(priority),
 				Direction: network.Inbound,
 			},
 		}
 		if err := inst.env.callAPI(func() (autorest.Response, error) {
-			result, err := securityRuleClient.CreateOrUpdate(
+			return securityRuleClient.CreateOrUpdate(
 				inst.env.resourceGroup, securityGroupName, ruleName, rule,
+				nil, // abort channel
 			)
-			return result.Response, err
 		}); err != nil {
 			return errors.Annotatef(err, "creating security rule for %s", ports)
 		}
@@ -294,6 +294,7 @@ func (inst *azureInstance) ClosePorts(machineId string, ports []jujunetwork.Port
 			var err error
 			result, err = securityRuleClient.Delete(
 				inst.env.resourceGroup, securityGroupName, ruleName,
+				nil, // abort channel
 			)
 			return result, err
 		}); err != nil {
@@ -312,7 +313,7 @@ func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRang
 	var nsg network.SecurityGroup
 	if err := inst.env.callAPI(func() (autorest.Response, error) {
 		var err error
-		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName, "")
 		return nsg.Response, err
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying network security group")
@@ -330,7 +331,7 @@ func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRang
 		if rule.Properties.Access != network.Allow {
 			continue
 		}
-		if to.Int(rule.Properties.Priority) <= securityRuleInternalMax {
+		if to.Int32(rule.Properties.Priority) <= securityRuleInternalMax {
 			continue
 		}
 		if !strings.HasPrefix(to.String(rule.Name), prefix) {
@@ -385,7 +386,7 @@ func deleteInstanceNetworkSecurityRules(
 	var nsg network.SecurityGroup
 	if err := callAPI(func() (autorest.Response, error) {
 		var err error
-		nsg, err = nsgClient.Get(resourceGroup, internalSecurityGroupName)
+		nsg, err = nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
 		return nsg.Response, err
 	}); err != nil {
 		return errors.Annotate(err, "querying network security group")
@@ -399,11 +400,17 @@ func deleteInstanceNetworkSecurityRules(
 		if !strings.HasPrefix(ruleName, prefix) {
 			continue
 		}
-		result, err := securityRuleClient.Delete(
-			resourceGroup,
-			internalSecurityGroupName,
-			ruleName,
-		)
+		var result autorest.Response
+		err := callAPI(func() (autorest.Response, error) {
+			var err error
+			result, err = securityRuleClient.Delete(
+				resourceGroup,
+				internalSecurityGroupName,
+				ruleName,
+				nil, // abort channel
+			)
+			return result, err
+		})
 		if err != nil {
 			if result.Response == nil || result.StatusCode != http.StatusNotFound {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)

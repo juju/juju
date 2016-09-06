@@ -4,11 +4,10 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -34,6 +33,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 }
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Retry, "r", false, "Re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
@@ -42,11 +42,11 @@ func (c *resolvedCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsValidUnit(c.UnitName) {
-			return fmt.Errorf("invalid unit name %q", c.UnitName)
+			return errors.Errorf("invalid unit name %q", c.UnitName)
 		}
 		args = args[1:]
 	} else {
-		return fmt.Errorf("no unit specified")
+		return errors.Errorf("no unit specified")
 	}
 	return cmd.CheckEmpty(args)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
@@ -38,15 +39,19 @@ const (
 )
 
 var (
-	logger                                       = loggo.GetLogger("juju.provider.manual")
-	manualCheckProvisioned                       = manual.CheckProvisioned
-	manualDetectSeriesAndHardwareCharacteristics = manual.DetectSeriesAndHardwareCharacteristics
+	logger                 = loggo.GetLogger("juju.provider.manual")
+	manualCheckProvisioned = manual.CheckProvisioned
 )
 
 type manualEnviron struct {
-	host     string
-	cfgmutex sync.Mutex
-	cfg      *environConfig
+	host string
+	user string
+	mu   sync.Mutex
+	cfg  *environConfig
+	// hw and series are detected by running a script on the
+	// target machine. We cache these, as they should not change.
+	hw     *instance.HardwareCharacteristics
+	series string
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -70,9 +75,9 @@ func (e *manualEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *manualEnviron) envConfig() (cfg *environConfig) {
-	e.cfgmutex.Lock()
+	e.mu.Lock()
 	cfg = e.cfg
-	e.cfgmutex.Unlock()
+	e.mu.Unlock()
 	return cfg
 }
 
@@ -82,7 +87,7 @@ func (e *manualEnviron) Config() *config.Config {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.envConfig()); err != nil {
+	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, e.envConfig()); err != nil {
 		return err
 	}
 	return nil
@@ -102,13 +107,13 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	if provisioned {
 		return nil, manual.ErrProvisioned
 	}
-	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(e.host)
+	hw, series, err := e.seriesAndHardwareCharacteristics()
 	if err != nil {
 		return nil, err
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
-		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = &hc
+		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = hw
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
@@ -116,7 +121,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	}
 
 	result := &environs.BootstrapResult{
-		Arch:     *hc.Arch,
+		Arch:     *hw.Arch,
 		Series:   series,
 		Finalize: finalize,
 	}
@@ -125,8 +130,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 // ControllerInstances is specified in the Environ interface.
 func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	arg0 := filepath.Base(os.Args[0])
-	if arg0 != names.Jujud {
+	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
 		if err := e.verifyBootstrapHost(); err != nil {
@@ -168,8 +172,8 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 }
 
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
-	e.cfgmutex.Lock()
-	defer e.cfgmutex.Unlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
@@ -215,13 +219,35 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 	return stdoutBuf.String(), nil
 }
 
+// Destroy implements the Environ interface.
 func (e *manualEnviron) Destroy() error {
+	// There is nothing we can do for manual environments,
+	// except when destroying the controller as a whole
+	// (see DestroyController below).
+	return nil
+}
+
+// DestroyController implements the Environ interface.
+func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
 set -x
 touch %s
-pkill -%d jujud && exit
+# If jujud is running, we then wait for a while for it to stop.
+if pkill -%d jujud; then
+   for i in ` + "`seq 1 30`" + `; do
+	 if pgrep jujud > /dev/null ; then
+	   sleep 1
+	 else
+	   echo "jujud stopped"
+	   break
+	 fi
+   done
+fi
+# If jujud didn't stop nicely, we kill it hard here.
+pkill -9 jujud
 stop %s
 rm -f /etc/init/juju*
+rm -f /etc/systemd/system/juju*
 rm -fr %s %s
 exit 0
 `
@@ -239,16 +265,13 @@ exit 0
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
-	_, err := runSSHCommand(
+	logger.Tracef("destroy controller script: %s", script)
+	stdout, err := runSSHCommand(
 		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
+	logger.Debugf("script output: %q", stdout)
 	return err
-}
-
-// DestroyController implements the Environ interface.
-func (e *manualEnviron) DestroyController(controllerUUID string) error {
-	return e.Destroy()
 }
 
 func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {
@@ -266,7 +289,32 @@ var unsupportedConstraints = []string{
 func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
+	if isRunningController() {
+		validator.UpdateVocabulary(constraints.Arch, []string{arch.HostArch()})
+	} else {
+		// We're running outside of the Juju controller, so we must
+		// SSH to the machine and detect its architecture.
+		hw, _, err := e.seriesAndHardwareCharacteristics()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		validator.UpdateVocabulary(constraints.Arch, []string{*hw.Arch})
+	}
 	return validator, nil
+}
+
+func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.HardwareCharacteristics, series string, _ error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.hw != nil {
+		return e.hw, e.series, nil
+	}
+	hw, series, err := manual.DetectSeriesAndHardwareCharacteristics(e.host)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	e.hw, e.series = &hw, series
+	return e.hw, e.series, nil
 }
 
 func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
@@ -283,4 +331,8 @@ func (e *manualEnviron) Ports() ([]network.PortRange, error) {
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
 	return manualProvider{}
+}
+
+func isRunningController() bool {
+	return filepath.Base(os.Args[0]) == names.Jujud
 }

@@ -9,13 +9,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
@@ -36,8 +35,8 @@ func NewDestroyCommand() cmd.Command {
 	// controller environment anyway.
 	return modelcmd.WrapController(
 		&destroyCommand{},
-		modelcmd.ControllerSkipFlags,
-		modelcmd.ControllerSkipDefault,
+		modelcmd.WrapControllerSkipControllerFlags,
+		modelcmd.WrapControllerSkipDefaultController,
 	)
 }
 
@@ -59,7 +58,8 @@ Examples:
     juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-    kill-controller`
+    kill-controller
+    unregister`
 
 var usageSummary = `
 Destroys a controller.`[1:]
@@ -102,21 +102,16 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 }
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -151,7 +146,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 		ctrStatus, modelsStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
@@ -218,15 +213,20 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		logger.Errorf(destroyControllerBlockedMsg)
 		if api != nil {
 			models, err := api.ListBlockedModels()
-			var bytes []byte
+			out := &bytes.Buffer{}
 			if err == nil {
-				bytes, err = formatTabularBlockedModels(models)
+				var info interface{}
+				info, err = block.FormatModelBlockInfo(models)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				err = block.FormatTabularBlockedModels(out, info)
 			}
 			if err != nil {
 				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
 			}
-			ctx.Infof(string(bytes))
+			ctx.Infof(out.String())
 		}
 		return cmd.ErrSilent
 	}
@@ -258,41 +258,6 @@ to be cleaned up.
 
 `
 
-func formatTabularBlockedModels(value interface{}) ([]byte, error) {
-	models, ok := value.([]params.ModelBlockInfo)
-	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", models, value)
-	}
-
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tMODEL UUID\tOWNER\tBLOCKS\n")
-	for _, model := range models {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", model.Name, model.UUID, model.OwnerTag, blocksToStr(model.Blocks))
-	}
-	tw.Flush()
-	return out.Bytes(), nil
-}
-
-func blocksToStr(blocks []string) string {
-	result := ""
-	sep := ""
-	for _, blk := range blocks {
-		result = result + sep + block.OperationFromType(blk)
-		sep = ","
-	}
-
-	return result
-}
-
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
@@ -319,6 +284,7 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }

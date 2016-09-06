@@ -16,7 +16,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 )
@@ -92,6 +91,10 @@ func (r *charmURLResolver) resolve(url *charm.URL) (*charm.URL, csparams.Channel
 	if url.Series == "" {
 		if s, ok := r.conf.DefaultSeries(); ok {
 			defaultedSeries = true
+			// TODO(katco): Don't update the value passed in. Not only
+			// is there no indication that this method will do so, we
+			// return a charm.URL which signals to the developer that
+			// we don't modify the original.
 			url.Series = s
 		}
 	}
@@ -120,7 +123,7 @@ func (r *charmURLResolver) resolve(url *charm.URL) (*charm.URL, csparams.Channel
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client *api.Client, curl *charm.URL, channel csparams.Channel, csClient *csclient.Client) (*charm.URL, *macaroon.Macaroon, error) {
+func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channel, csClient *csclient.Client) (*charm.URL, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
 	if err := client.AddCharm(curl, channel); err != nil {
 		if !params.IsCodeUnauthorized(err) {

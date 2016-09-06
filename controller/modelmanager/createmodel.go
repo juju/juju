@@ -48,7 +48,6 @@ type ModelConfigCreator struct {
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
 	cloud environs.CloudSpec,
-	controllerUUID string,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -89,7 +88,7 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(provider, cloud, controllerUUID, attrs)
+	cfg, err := finalizeConfig(provider, cloud, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,7 +175,6 @@ func RestrictedProviderFields(provider environs.EnvironProvider) ([]string, erro
 	var fields []string
 	// For now, all models in a controller must be of the same type.
 	fields = append(fields, config.TypeKey)
-	fields = append(fields, provider.RestrictedConfigAttributes()...)
 	return fields, nil
 }
 
@@ -185,7 +183,6 @@ func RestrictedProviderFields(provider environs.EnvironProvider) ([]string, erro
 func finalizeConfig(
 	provider environs.EnvironProvider,
 	cloud environs.CloudSpec,
-	controllerUUID string,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -193,9 +190,8 @@ func finalizeConfig(
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
 	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
-		ControllerUUID: controllerUUID,
-		Cloud:          cloud,
-		Config:         cfg,
+		Cloud:  cloud,
+		Config: cfg,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "provider config preparation failed")

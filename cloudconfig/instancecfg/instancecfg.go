@@ -63,6 +63,9 @@ type InstanceConfig struct {
 	// or be empty when starting a controller.
 	APIInfo *api.Info
 
+	// ControllerTag identifies the controller.
+	ControllerTag names.ControllerTag
+
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
@@ -219,6 +222,11 @@ type StateInitializationParams struct {
 	// models managed by this controller.
 	ControllerInheritedConfig map[string]interface{}
 
+	// RegionInheritedConfig holds region specific configuration attributes to
+	// be shared across all models in the same controller on a particular
+	// cloud.
+	RegionInheritedConfig cloud.RegionConfig
+
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
 	// initial hosted model config.
@@ -249,6 +257,7 @@ type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
+	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
@@ -276,6 +285,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
 		p.ControllerInheritedConfig,
+		p.RegionInheritedConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
@@ -314,6 +324,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
+		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
@@ -383,6 +394,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		APIAddresses:      cfg.ApiHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
+		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
 	}
 	if cfg.Bootstrap == nil {
@@ -635,11 +647,11 @@ const DefaultBridgeName = DefaultBridgePrefix + "eth0"
 // but this takes care of the fixed entries and the ones that are
 // always needed.
 func NewInstanceConfig(
+	controllerTag names.ControllerTag,
 	machineID,
 	machineNonce,
 	imageStream,
 	series string,
-	secureServerConnections bool,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -667,10 +679,11 @@ func NewInstanceConfig(
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
-		MachineId:    machineID,
-		MachineNonce: machineNonce,
-		APIInfo:      apiInfo,
-		ImageStream:  imageStream,
+		ControllerTag: controllerTag,
+		MachineId:     machineID,
+		MachineNonce:  machineNonce,
+		APIInfo:       apiInfo,
+		ImageStream:   imageStream,
 	}
 	return icfg, nil
 }
@@ -685,7 +698,7 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil)
+	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -778,7 +791,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
 	instanceTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
-		names.NewModelTag(controllerUUID),
+		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {

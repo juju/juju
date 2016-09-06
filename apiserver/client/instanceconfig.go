@@ -93,14 +93,8 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	// Figure out if secure connections are supported.
-	info, err := st.StateServingInfo()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state serving info")
-	}
-	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, modelConfig.ImageStream(), machine.Series(),
-		secureServerConnection, apiInfo,
+	icfg, err := instancecfg.NewInstanceConfig(st.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
+		machine.Series(), apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

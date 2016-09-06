@@ -35,7 +35,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 
 	// Define the source controller in the config and set it as the default.
-	err := s.store.UpdateController("source", jujuclient.ControllerDetails{
+	err := s.store.AddController("source", jujuclient.ControllerDetails{
 		ControllerUUID: "eeeeeeee-0bad-400d-8000-4b1d0d06f00d",
 		CACert:         "somecert",
 	})
@@ -57,13 +57,16 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target@local",
+		User: "target@local",
+		// It's unlikely that both will actually be set for a single
+		// account but it's fine for the tests.
 		Password: "secret",
+		Macaroon: "macaroon",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the target controller in the config.
-	err = s.store.UpdateController("target", jujuclient.ControllerDetails{
+	err = s.store.AddController("target", jujuclient.ControllerDetails{
 		ControllerUUID: targetControllerUUID,
 		APIEndpoints:   []string{"1.2.3.4:5"},
 		CACert:         "cert",
@@ -93,13 +96,14 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
-	c.Check(s.api.specSeen, jc.DeepEquals, &controller.ModelMigrationSpec{
+	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
 		TargetUser:           "target@local",
 		TargetPassword:       "secret",
+		TargetMacaroon:       "macaroon",
 	})
 }
 
@@ -142,10 +146,10 @@ func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.C
 }
 
 type fakeMigrateAPI struct {
-	specSeen *controller.ModelMigrationSpec
+	specSeen *controller.MigrationSpec
 }
 
-func (a *fakeMigrateAPI) InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error) {
+func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
 }

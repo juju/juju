@@ -53,9 +53,15 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 	switch usernames[0] {
 	case "current-user@local":
 		info.Username = "current-user"
+		info.Access = "addmodel"
 	case "foobar":
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
+		info.Access = "login"
+	case "fred@external":
+		info.Username = "fred@external"
+		info.DisplayName = "Fred External"
+		info.Access = "addmodel"
 	default:
 		return nil, common.ErrPerm
 	}
@@ -66,7 +72,7 @@ func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
+access: addmodel
 date-created: 1981-02-27
 last-connection: 2014-01-01
 `)
@@ -76,7 +82,7 @@ func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
+access: addmodel
 date-created: 1981-02-27 16:10:05 +0000 UTC
 last-connection: 2014-01-01 00:00:00 +0000 UTC
 `)
@@ -87,8 +93,18 @@ func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: foobar
 display-name: Foo Bar
+access: login
 date-created: 1981-02-27
 last-connection: 2014-01-01
+`)
+}
+
+func (s *UserInfoCommandSuite) TestUserInfoExternalUser(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: fred@external
+display-name: Fred External
+access: addmodel
 `)
 }
 
@@ -101,7 +117,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"current-user","display-name":"","date-created":"1981-02-27","last-connection":"2014-01-01"}
+{"user-name":"current-user","access":"addmodel","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
@@ -109,7 +125,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"foobar","display-name":"Foo Bar","date-created":"1981-02-27","last-connection":"2014-01-01"}
+{"user-name":"foobar","display-name":"Foo Bar","access":"login","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
@@ -117,7 +133,7 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
-display-name: ""
+access: addmodel
 date-created: 1981-02-27
 last-connection: 2014-01-01
 `)

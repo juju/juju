@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
@@ -71,6 +72,16 @@ func NewAPI(
 // given filter.
 // Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ListCloudImageMetadataResult{}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ListCloudImageMetadataResult{}, common.ServerError(common.ErrPerm)
+		}
+	}
+
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
 		Series:          filter.Series,
@@ -102,6 +113,15 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ErrorResults{Results: all}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ErrorResults{Results: all}, common.ServerError(common.ErrPerm)
+		}
+	}
 	if len(metadata.Metadata) == 0 {
 		return params.ErrorResults{Results: all}, nil
 	}
@@ -109,17 +129,9 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 	if err != nil {
 		return params.ErrorResults{}, errors.Annotatef(err, "getting model config")
 	}
-	model, err := api.metadata.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "getting model")
-	}
 	for i, one := range metadata.Metadata {
-		md, err := api.parseMetadataListFromParams(one, modelCfg, model.CloudRegion())
-		if err != nil {
-			all[i] = params.ErrorResult{Error: common.ServerError(err)}
-			continue
-		}
-		err = api.metadata.SaveMetadata(md)
+		md := api.parseMetadataListFromParams(one, modelCfg)
+		err := api.metadata.SaveMetadata(md)
 		all[i] = params.ErrorResult{Error: common.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
@@ -129,6 +141,15 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 // It supports bulk calls.
 func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(images.Ids))
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return params.ErrorResults{Results: all}, errors.Trace(err)
+		}
+		if !admin {
+			return params.ErrorResults{Results: all}, common.ServerError(common.ErrPerm)
+		}
+	}
 	for i, imageId := range images.Ids {
 		err := api.metadata.DeleteMetadata(imageId)
 		all[i] = params.ErrorResult{common.ServerError(err)}
@@ -153,59 +174,46 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 	return result
 }
 
-func (api *API) parseMetadataListFromParams(
-	p params.CloudImageMetadataList, cfg *config.Config, cloudRegion string,
-) ([]cloudimagemetadata.Metadata, error) {
+func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Config) []cloudimagemetadata.Metadata {
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
-		result, err := api.parseMetadataFromParams(metadata, cfg, cloudRegion)
-		if err != nil {
-			return nil, errors.Trace(err)
+		results[i] = cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Stream:          metadata.Stream,
+				Region:          metadata.Region,
+				Version:         metadata.Version,
+				Series:          metadata.Series,
+				Arch:            metadata.Arch,
+				VirtType:        metadata.VirtType,
+				RootStorageType: metadata.RootStorageType,
+				RootStorageSize: metadata.RootStorageSize,
+				Source:          metadata.Source,
+			},
+			metadata.Priority,
+			metadata.ImageId,
 		}
-		results[i] = result
+		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
+		// Once correct value is read from simplestreams, this needs to go.
+		// Bug# 1616295
+		if results[i].Stream == "" {
+			results[i].Stream = cfg.ImageStream()
+		}
 	}
-	return results, nil
-}
-
-func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, cfg *config.Config, cloudRegion string) (cloudimagemetadata.Metadata, error) {
-	result := cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
-			Stream:          p.Stream,
-			Region:          p.Region,
-			Version:         p.Version,
-			Series:          p.Series,
-			Arch:            p.Arch,
-			VirtType:        p.VirtType,
-			RootStorageType: p.RootStorageType,
-			RootStorageSize: p.RootStorageSize,
-			Source:          p.Source,
-		},
-		p.Priority,
-		p.ImageId,
-	}
-
-	// Fill in any required default values.
-	if p.Stream == "" {
-		result.Stream = cfg.ImageStream()
-	}
-	if p.Source == "" {
-		result.Source = "custom"
-	}
-	if result.Arch == "" {
-		result.Arch = "amd64"
-	}
-	if result.Series == "" {
-		result.Series = config.PreferredSeries(cfg)
-	}
-	if result.Region == "" {
-		result.Region = cloudRegion
-	}
-	return result, nil
+	return results
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !admin {
+			return common.ServerError(common.ErrPerm)
+		}
+	}
 	return api.retrievePublished()
 }
 

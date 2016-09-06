@@ -91,6 +91,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"name":            "mymodel",
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
+			"controller-name": "testing",
 			"owner":           "admin@local",
 			"cloud":           "some-cloud",
 			"region":          "some-region",
@@ -149,6 +150,6 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "-m", "admin", "whoops")
+	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

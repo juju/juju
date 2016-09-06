@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -254,7 +255,8 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 		ConvertActionResults(unitResult, unitQuery),
 	}
 
-	jsonFormatted, err := cmd.FormatJson(unformatted)
+	buff := &bytes.Buffer{}
+	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, newRunCommand(),
@@ -262,7 +264,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
+	c.Check(testing.Stdout(context), gc.Equals, buff.String())
 }
 
 func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
@@ -275,7 +277,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestAllMachines(c *gc.C) {
@@ -316,13 +318,14 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 		},
 	}
 
-	jsonFormatted, err := cmd.FormatJson(unformatted)
+	buff := &bytes.Buffer{}
+	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
+	c.Check(testing.Stdout(context), gc.Equals, buff.String())
 	c.Check(testing.Stderr(context), gc.Equals, "")
 }
 
@@ -334,7 +337,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestSingleResponse(c *gc.C) {
@@ -358,10 +361,12 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		ConvertActionResults(machineResult, query),
 	}
 
-	jsonFormatted, err := cmd.FormatJson(unformatted)
+	jsonFormatted := &bytes.Buffer{}
+	err := cmd.FormatJson(jsonFormatted, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	yamlFormatted, err := cmd.FormatYaml(unformatted)
+	yamlFormatted := &bytes.Buffer{}
+	err = cmd.FormatYaml(yamlFormatted, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
@@ -378,11 +383,11 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	}, {
 		message: "yaml output",
 		format:  "yaml",
-		stdout:  string(yamlFormatted) + "\n",
+		stdout:  yamlFormatted.String(),
 	}, {
 		message: "json output",
 		format:  "json",
-		stdout:  string(jsonFormatted) + "\n",
+		stdout:  jsonFormatted.String(),
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		args := []string{}

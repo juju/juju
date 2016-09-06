@@ -4,9 +4,11 @@
 package storage
 
 import (
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -120,22 +122,19 @@ func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (
 	return output, nil
 }
 
-func formatListTabular(value interface{}) ([]byte, error) {
+func formatListTabular(writer io.Writer, value interface{}) error {
 
 	switch value.(type) {
 	case map[string]StorageInfo:
-		output, err := formatStorageListTabular(value)
-		return output, err
+		return formatStorageListTabular(writer, value)
 
 	case map[string]FilesystemInfo:
-		output, err := formatFilesystemListTabular(value)
-		return output, err
+		return formatFilesystemListTabular(writer, value)
 
 	case map[string]VolumeInfo:
-		output, err := formatVolumeListTabular(value)
-		return output, err
+		return formatVolumeListTabular(writer, value)
 
 	default:
-		return nil, errors.Errorf("unexpected value of type %T", value)
+		return errors.Errorf("unexpected value of type %T", value)
 	}
 }

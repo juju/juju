@@ -19,6 +19,7 @@ import (
 	"github.com/juju/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -38,17 +39,24 @@ type client struct {
 	recurser   *list.Recurser
 }
 
-var newClient = func(ecfg *environConfig) (*client, error) {
-	url, err := ecfg.url()
-	if err != nil {
-		return nil, err
+var newClient = func(cloud environs.CloudSpec) (*client, error) {
+
+	credAttrs := cloud.Credential.Attributes()
+	username := credAttrs[credAttrUser]
+	password := credAttrs[credAttrPassword]
+	connURL := &url.URL{
+		Scheme: "https",
+		User:   url.UserPassword(username, password),
+		Host:   cloud.Endpoint,
+		Path:   "/sdk",
 	}
-	connection, err := newConnection(url)
+
+	connection, err := newConnection(connURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	finder := find.NewFinder(connection.Client, true)
-	datacenter, err := finder.Datacenter(context.TODO(), ecfg.datacenter())
+	datacenter, err := finder.Datacenter(context.TODO(), cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

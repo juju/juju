@@ -108,7 +108,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) {
 	store := jujuclienttesting.NewStubStore()
 	store.AccountDetailsFunc = func(string) (*jujuclient.AccountDetails, error) {
-		return &jujuclient.AccountDetails{"user", "old-password", ""}, nil
+		return &jujuclient.AccountDetails{"user", "old-password", "", ""}, nil
 	}
 	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
 		return &jujuclient.ControllerDetails{}, nil

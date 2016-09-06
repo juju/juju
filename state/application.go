@@ -90,8 +90,8 @@ func (s *Application) globalKey() string {
 	return applicationGlobalKey(s.doc.Name)
 }
 
-func applicationSettingsKey(applicationname string, curl *charm.URL) string {
-	return fmt.Sprintf("a#%s#%s", applicationname, curl)
+func applicationSettingsKey(appName string, curl *charm.URL) string {
+	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
 // settingsKey returns the charm-version-specific settings collection
@@ -246,7 +246,6 @@ func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the application document.
 func (s *Application) removeOps(asserts bson.D) []txn.Op {
-	settingsDocID := s.st.docID(s.settingsKey())
 	ops := []txn.Op{
 		{
 			C:      applicationsC,
@@ -254,14 +253,11 @@ func (s *Application) removeOps(asserts bson.D) []txn.Op {
 			Assert: asserts,
 			Remove: true,
 		}, {
-			C:      settingsrefsC,
-			Id:     settingsDocID,
-			Remove: true,
-		}, {
 			C:      settingsC,
-			Id:     settingsDocID,
+			Id:     s.settingsKey(),
 			Remove: true,
 		},
+		nsRefcounts.JustRemoveOp(refcountsC, s.settingsKey(), -1),
 		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
@@ -622,15 +618,16 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 		}
 	}
 
-	// Add or create a reference to the new settings doc.
-	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
+	// Add or create a reference to the new charm and settings docs.
+	incOps, err := charmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var decOps []txn.Op
-	// Drop the reference to the old settings doc (if they exist).
+	// Drop the references to the old settings and charm docs (if
+	// the refs actually exist yet).
 	if oldSettings != nil {
-		decOps, err = settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+		decOps, err = charmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -643,11 +640,10 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 		// Old settings shouldn't change (when they exist).
 		ops = append(ops, oldSettings.assertUnchangedOp())
 	}
+	ops = append(ops, incOps...)
 	ops = append(ops, []txn.Op{
 		// Create or replace new settings.
 		settingsOp,
-		// Increment the ref count.
-		incOp,
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:      applicationsC,
@@ -724,7 +720,7 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 	}
 	ops = append(ops, storageOps...)
 
-	// And finally, decrement the old settings.
+	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
 }
 
@@ -1046,13 +1042,16 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Updated: now.UnixNano(),
 	}
 
-	ops := addUnitOps(s.st, addUnitOpsArgs{
+	ops, err := addUnitOps(s.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
 		meterStatusDoc:     &meterStatusDoc{Code: MeterNotSet.String()},
 	})
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
 
 	ops = append(ops, storageOps...)
 
@@ -1102,11 +1101,10 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 		return nil, -1, err
 	}
 	meta := charm.Meta()
-	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, numStorageAttachments, err = createStorageOps(
-		s.st, tag, meta, url, cons,
+		s.st, tag, meta, cons,
 		s.doc.Series,
 		false, // unit is not assigned yet; don't create machine storage
 	)
@@ -1179,7 +1177,7 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
-		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
+		decOps, err := charmDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {
@@ -1506,94 +1504,6 @@ func (s *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return readStorageConstraints(s.st, s.globalKey())
 }
 
-// settingsIncRefOp returns an operation that increments the ref count
-// of the application settings identified by applicationname and curl. If
-// canCreate is false, a missing document will be treated as an error;
-// otherwise, it will be created with a ref count of 1.
-func settingsIncRefOp(st *State, applicationname string, curl *charm.URL, canCreate bool) (txn.Op, error) {
-	settingsrefs, closer := st.getCollection(settingsrefsC)
-	defer closer()
-
-	key := applicationSettingsKey(applicationname, curl)
-	if count, err := settingsrefs.FindId(key).Count(); err != nil {
-		return txn.Op{}, err
-	} else if count == 0 {
-		if !canCreate {
-			return txn.Op{}, errors.NotFoundf("application %q settings for charm %q", applicationname, curl)
-		}
-		return txn.Op{
-			C:      settingsrefsC,
-			Id:     st.docID(key),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, nil
-	}
-	return txn.Op{
-		C:      settingsrefsC,
-		Id:     st.docID(key),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
-	}, nil
-}
-
-// settingsDecRefOps returns a list of operations that decrement the
-// ref count of the application settings identified by applicationname and
-// curl. If the ref count is set to zero, the appropriate setting and
-// ref count documents will both be deleted.
-func settingsDecRefOps(st *State, applicationname string, curl *charm.URL) ([]txn.Op, error) {
-	settingsrefs, closer := st.getCollection(settingsrefsC)
-	defer closer()
-
-	key := applicationSettingsKey(applicationname, curl)
-	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("application %q settings for charm %q", applicationname, curl)
-	} else if err != nil {
-		return nil, err
-	}
-	docID := st.docID(key)
-	if doc.RefCount == 1 {
-		return []txn.Op{{
-			C:      settingsrefsC,
-			Id:     docID,
-			Assert: bson.D{{"refcount", 1}},
-			Remove: true,
-		}, {
-			C:      settingsC,
-			Id:     docID,
-			Remove: true,
-		}}, nil
-	}
-	return []txn.Op{{
-		C:      settingsrefsC,
-		Id:     docID,
-		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},
-		Update: bson.D{{"$inc", bson.D{{"refcount", -1}}}},
-	}}, nil
-}
-
-// settingsRefsDoc holds the number of units and services using the
-// settings document identified by the document's id. Every time a
-// application upgrades its charm the settings doc ref count for the new
-// charm url is incremented, and the old settings is ref count is
-// decremented. When a unit upgrades to the new charm, the old service
-// settings ref count is decremented and the ref count of the new
-// charm settings is incremented. The last unit upgrading to the new
-// charm is responsible for deleting the old charm's settings doc.
-//
-// Note: We're not using the settingsDoc for this because changing
-// just the ref count is not considered a change worth reporting
-// to watchers and firing config-changed hooks.
-//
-// There is an implicit _id field here, which mongo creates, which is
-// always the same as the settingsDoc's id.
-type settingsRefsDoc struct {
-	RefCount  int
-	ModelUUID string `bson:"model-uuid"`
-}
-
 // Status returns the status of the service.
 // Only unit leaders are allowed to set the status of the service.
 // If no status is recorded, then there are no unit leaders and the
@@ -1708,12 +1618,11 @@ var statusServerities = map[status.Status]int{
 }
 
 type addApplicationOpsArgs struct {
-	applicationDoc   *applicationDoc
-	statusDoc        statusDoc
-	constraints      constraints.Value
-	storage          map[string]StorageConstraints
-	settings         map[string]interface{}
-	settingsRefCount int
+	applicationDoc *applicationDoc
+	statusDoc      statusDoc
+	constraints    constraints.Value
+	storage        map[string]StorageConstraints
+	settings       map[string]interface{}
 	// These are nil when adding a new service, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
@@ -1723,32 +1632,32 @@ type addApplicationOpsArgs struct {
 // services collection, along with all the associated expected other service
 // entries. This method is used by both the *State.AddService method and the
 // migration import code.
-func addApplicationOps(st *State, args addApplicationOpsArgs) []txn.Op {
+func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
 	svc := newApplication(st, args.applicationDoc)
+
+	charmRefOps, err := charmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	globalKey := svc.globalKey()
 	settingsKey := svc.settingsKey()
 	leadershipKey := leadershipSettingsKey(svc.Name())
 
-	return []txn.Op{
+	ops := []txn.Op{
 		createConstraintsOp(st, globalKey, args.constraints),
 		createStorageConstraintsOp(globalKey, args.storage),
 		createSettingsOp(settingsC, settingsKey, args.settings),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),
 		addModelServiceRefOp(st, svc.Name()),
-		{
-			C:      settingsrefsC,
-			Id:     settingsKey,
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount: args.settingsRefCount,
-			},
-		}, {
-			C:      applicationsC,
-			Id:     svc.Name(),
-			Assert: txn.DocMissing,
-			Insert: args.applicationDoc,
-		},
 	}
+	ops = append(ops, charmRefOps...)
+	ops = append(ops, txn.Op{
+		C:      applicationsC,
+		Id:     svc.Name(),
+		Assert: txn.DocMissing,
+		Insert: args.applicationDoc,
+	})
+	return ops, nil
 }

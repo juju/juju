@@ -196,7 +196,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, dialOpts, nil)
+	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, dialOpts, nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -291,18 +291,25 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
-	// we expose the API at '/' for compatibility, and at '/ModelUUID/api'
-	// for the correct location, but other Paths should fail.
+	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
+	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
-	// '/' should be fine
-	conn, err := dialWebsocket(c, addr, "/", 0)
+
+	// '/api' should be fine
+	conn, err := dialWebsocket(c, addr, "/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
+
+	// '/`' should be fine
+	conn, err = dialWebsocket(c, addr, "/", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	conn.Close()
+
 	// '/model/MODELUUID/api' should be fine
 	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -444,10 +451,10 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 	return u, ctag
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionLogin(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
@@ -455,11 +462,11 @@ func (s *serverSuite) TestApiHandlerHasPermissionLogin(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionAdmodel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, description.AddModelAccess)
@@ -471,11 +478,11 @@ func (s *serverSuite) TestApiHandlerHasPermissionAdmodel(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestApiHandlerHasPermissionSuperUser(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingApiHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, description.SuperuserAccess)
@@ -487,18 +494,25 @@ func (s *serverSuite) TestApiHandlerHasPermissionSuperUser(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, true)
 }
 
-func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
-	s.checkApiHandlerTeardown(c, s.State, s.State)
+func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {
+	s.checkAPIHandlerTeardown(c, s.State, s.State)
 }
 
-func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	s.checkApiHandlerTeardown(c, s.State, otherState)
+	s.checkAPIHandlerTeardown(c, s.State, otherState)
 }
 
-func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
-	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
+func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
+}
+
+func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
+	handler, resources := apiserver.TestingAPIHandler(c, srvSt, st)
 	resource := new(fakeResource)
 	resources.Register(resource)
 

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -48,7 +47,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
-		coretesting.NewClock(time.Time{}),
+		testing.NewClock(time.Time{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
@@ -210,7 +209,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
-		coretesting.NewClock(time.Time{}),
+		testing.NewClock(time.Time{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{

@@ -74,8 +74,8 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 		var paramsCloudCredential *params.CloudCredential
 		if spec.Credential != nil && spec.Credential.AuthType() != "" {
 			paramsCloudCredential = &params.CloudCredential{
-				string(spec.Credential.AuthType()),
-				spec.Credential.Attributes(),
+				AuthType:   string(spec.Credential.AuthType()),
+				Attributes: spec.Credential.Attributes(),
 			}
 		}
 		results.Results[i].Result = &params.CloudSpec{
@@ -83,6 +83,7 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 			spec.Name,
 			spec.Region,
 			spec.Endpoint,
+			spec.IdentityEndpoint,
 			spec.StorageEndpoint,
 			paramsCloudCredential,
 		}

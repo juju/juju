@@ -139,10 +139,12 @@ func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ModelDefaults")
 			c.Check(a, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResults{})
-			results := result.(*params.ModelConfigResults)
-			results.Config = map[string]params.ConfigValue{
-				"foo": {"bar", "model"},
+			c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultsResult{})
+			results := result.(*params.ModelDefaultsResult)
+			results.Config = map[string]params.ModelDefaults{
+				"foo": {"bar", "model", []params.RegionDefaults{{
+					"dummy-region",
+					"dummy-value"}}},
 			}
 			return nil
 		},
@@ -150,8 +152,11 @@ func (s *modelconfigSuite) TestModelDefaults(c *gc.C) {
 	client := modelconfig.NewClient(apiCaller)
 	result, err := client.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, config.ConfigValues{
-		"foo": {"bar", "model"},
+
+	c.Assert(result, jc.DeepEquals, config.ModelDefaultAttributes{
+		"foo": {"bar", "model", []config.RegionDefaultValue{{
+			"dummy-region",
+			"dummy-value"}}},
 	})
 }
 
@@ -166,18 +171,25 @@ func (s *modelconfigSuite) TestSetModelDefaults(c *gc.C) {
 			c.Check(objType, gc.Equals, "ModelConfig")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "SetModelDefaults")
-			c.Check(a, jc.DeepEquals, params.ModelSet{
-				Config: map[string]interface{}{
-					"some-name":  "value",
-					"other-name": true,
-				},
-			})
+			c.Check(a, jc.DeepEquals, params.SetModelDefaults{
+				Config: []params.ModelDefaultValues{{
+					CloudTag:    "cloud-mycloud",
+					CloudRegion: "region",
+					Config: map[string]interface{}{
+						"some-name":  "value",
+						"other-name": true,
+					},
+				}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: nil}},
+			}
 			called = true
 			return nil
 		},
 	)
 	client := modelconfig.NewClient(apiCaller)
-	err := client.SetModelDefaults(map[string]interface{}{
+	err := client.SetModelDefaults("mycloud", "region", map[string]interface{}{
 		"some-name":  "value",
 		"other-name": true,
 	})
@@ -196,15 +208,22 @@ func (s *modelconfigSuite) TestUnsetModelDefaults(c *gc.C) {
 			c.Check(objType, gc.Equals, "ModelConfig")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "UnsetModelDefaults")
-			c.Check(a, jc.DeepEquals, params.ModelUnset{
-				Keys: []string{"foo", "bar"},
-			})
+			c.Check(a, jc.DeepEquals, params.UnsetModelDefaults{
+				Keys: []params.ModelUnsetKeys{{
+					CloudTag:    "cloud-mycloud",
+					CloudRegion: "region",
+					Keys:        []string{"foo", "bar"},
+				}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: nil}},
+			}
 			called = true
 			return nil
 		},
 	)
 	client := modelconfig.NewClient(apiCaller)
-	err := client.UnsetModelDefaults("foo", "bar")
+	err := client.UnsetModelDefaults("mycloud", "region", "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

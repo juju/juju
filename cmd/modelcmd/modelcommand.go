@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -173,27 +173,14 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewAPIRoot returns a new connection to the API server for the environment.
+// NewAPIRoot returns a new connection to the API server for the environment
+// directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
-	if c.controllerName == "" {
-		controllers, err := c.store.AllControllers()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllersDefined)
-		}
-		return nil, errors.Trace(ErrNotLoggedInToController)
-	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	opener := c.opener
-	if opener == nil {
-		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
 	_, err := c.store.ModelByName(c.controllerName, c.modelName)
 	if err != nil {
@@ -206,7 +193,35 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
-	return opener.Open(c.store, c.controllerName, c.modelName)
+	return c.newAPIRoot(c.modelName)
+}
+
+// NewControllerAPIRoot returns a new connection to the API server for the environment
+// directed to the controller specified on the command line.
+// This is for the use of model-centered commands that still want
+// to talk to controller-only APIs.
+func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
+	return c.newAPIRoot("")
+}
+
+// newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
+// if modelName is empty, it makes a controller-only connection.
+func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
+	if c.controllerName == "" {
+		controllers, err := c.store.AllControllers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(controllers) == 0 {
+			return nil, errors.Trace(ErrNoControllersDefined)
+		}
+		return nil, errors.Trace(ErrNotLoggedInToController)
+	}
+	opener := c.opener
+	if opener == nil {
+		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
+	}
+	return opener.Open(c.store, c.controllerName, modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -217,19 +232,25 @@ func (c *ModelCommandBase) ConnectionName() string {
 	return c.modelName
 }
 
-// WrapControllerOption sets various parameters of the
-// ModelCommand wrapper.
-type WrapEnvOption func(*modelCommandWrapper)
+// WrapOption specifies an option to the Wrap function.
+type WrapOption func(*modelCommandWrapper)
 
-// ModelSkipFlags instructs the wrapper to skip --m and
-// --model flag definition.
-func ModelSkipFlags(w *modelCommandWrapper) {
-	w.skipFlags = true
+// Options for the Wrap function.
+var (
+	// WrapSkipModelFlags specifies that the -m and --model flags
+	// should not be defined.
+	WrapSkipModelFlags WrapOption = wrapSkipModelFlags
+
+	// WrapSkipDefaultModel specifies that no default model should
+	// be used.
+	WrapSkipDefaultModel WrapOption = wrapSkipDefaultModel
+)
+
+func wrapSkipModelFlags(w *modelCommandWrapper) {
+	w.skipModelFlags = true
 }
 
-// ModelSkipDefault instructs the wrapper not to
-// use the default model.
-func ModelSkipDefault(w *modelCommandWrapper) {
+func wrapSkipDefaultModel(w *modelCommandWrapper) {
 	w.useDefaultModel = false
 }
 
@@ -237,12 +258,11 @@ func ModelSkipDefault(w *modelCommandWrapper) {
 // that proxies to each of the ModelCommand methods.
 // Any provided options are applied to the wrapped command
 // before it is returned.
-func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
+func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
 	wrapper := &modelCommandWrapper{
 		ModelCommand:    c,
-		skipFlags:       false,
+		skipModelFlags:  false,
 		useDefaultModel: true,
-		allowEmptyEnv:   false,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -253,9 +273,8 @@ func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 type modelCommandWrapper struct {
 	ModelCommand
 
-	skipFlags       bool
+	skipModelFlags  bool
 	useDefaultModel bool
-	allowEmptyEnv   bool
 	modelName       string
 }
 
@@ -264,7 +283,7 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	if !w.skipFlags {
+	if !w.skipModelFlags {
 		f.StringVar(&w.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
 		f.StringVar(&w.modelName, "model", "", "")
 	}
@@ -278,7 +297,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	}
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
-	if !w.skipFlags {
+	if !w.skipModelFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
 			defaultModel, err := GetCurrentModel(store)
@@ -288,11 +307,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			w.modelName = defaultModel
 		}
 		if w.modelName == "" && !w.useDefaultModel {
-			if w.allowEmptyEnv {
-				return w.ModelCommand.Init(args)
-			} else {
-				return errors.Trace(ErrNoModelSpecified)
-			}
+			return errors.Trace(ErrNoModelSpecified)
 		}
 	}
 	if w.modelName != "" {
