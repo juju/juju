@@ -43,6 +43,11 @@ func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
 	return out, nil
 }
 
+// IsMigrationActive implements PrecheckBackend.
+func (s *precheckShim) IsMigrationActive(modelUUID string) (bool, error) {
+	return state.IsMigrationActive(s.State, modelUUID)
+}
+
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
 	cfg, err := s.State.ModelConfig()

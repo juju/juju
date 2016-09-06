@@ -753,12 +753,19 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	}, nil
 }
 
-// IsMigrationActive return true if a migration is in progress for
+// IsMigrationActive returns true if a migration is in progress for
 // the model associated with the State.
 func (st *State) IsMigrationActive() (bool, error) {
+	return IsMigrationActive(st, st.ModelUUID())
+}
+
+// IsMigrationActive returns true if a migration is in progress for
+// the model with the given UUID. The State provided need not be for
+// the model in question.
+func IsMigrationActive(st *State, modelUUID string) (bool, error) {
 	active, closer := st.getCollection(migrationsActiveC)
 	defer closer()
-	n, err := active.FindId(st.ModelUUID()).Count()
+	n, err := active.FindId(modelUUID).Count()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

@@ -341,6 +341,18 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
 }
 
+func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
+	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, gc.ErrorMatches, "checking for active migration: boom")
+}
+
+func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
+	backend := &fakeBackend{migrationActive: true}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
+}
+
 func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, s.runPrecheck)
 }
@@ -513,6 +525,9 @@ type fakeBackend struct {
 	isUpgrading    bool
 	isUpgradingErr error
 
+	migrationActive    bool
+	migrationActiveErr error
+
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
 
@@ -540,6 +555,10 @@ func (b *fakeBackend) AgentVersion() (version.Number, error) {
 
 func (b *fakeBackend) IsUpgrading() (bool, error) {
 	return b.isUpgrading, b.isUpgradingErr
+}
+
+func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
+	return b.migrationActive, b.migrationActiveErr
 }
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {

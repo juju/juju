@@ -26,6 +26,7 @@ type PrecheckBackend interface {
 	Model() (PrecheckModel, error)
 	AllModels() ([]PrecheckModel, error)
 	IsUpgrading() (bool, error)
+	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
@@ -127,6 +128,19 @@ func checkModel(backend PrecheckBackend) error {
 func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
+	}
+
+	// This check is necessary because there is a window between the
+	// REAP phase and then end of the DONE phase where a model's
+	// documents have been deleted but the migration isn't quite done
+	// yet. Migrating a model back into the controller during this
+	// window can upset the migrationmaster worker.
+	//
+	// See also https://lpad.tv/1611391
+	if migrating, err := backend.IsMigrationActive(modelInfo.UUID); err != nil {
+		return errors.Annotate(err, "checking for active migration")
+	} else if migrating {
+		return errors.New("model is being migrated out of target controller")
 	}
 
 	controllerVersion, err := backend.AgentVersion()
