@@ -16,7 +16,7 @@ The `go test` command is used to run the tests.  Juju uses the `gocheck` package
 ("gopkg.in/check.v1") to provide a checkers and assert methods for the test
 writers.  The use of gocheck replaces the standard `testing` library.
 
-Across all of the tests in juju-core, the gocheck package is imported
+Across all of the tests in juju, the gocheck package is imported
 with a shorter alias, because it is used a lot.
 
 ```go

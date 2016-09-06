@@ -154,7 +154,7 @@ func newConf(args ConfigArgs) common.Conf {
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(args.DataDir)) +
 		// --sslPEMKeyPassword has to have its argument passed with = thanks to
-		// https://bugs.launchpad.net/juju-core/+bug/1581284.
+		// https://bugs.launchpad.net/juju/+bug/1581284.
 		" --sslPEMKeyPassword=ignored" +
 		" --port " + fmt.Sprint(args.Port) +
 		" --syslog" +

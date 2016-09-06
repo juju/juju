@@ -11,7 +11,7 @@ Contents
 Quick links
 ===========
 
-* issue tracker: https://launchpad.net/juju-core
+* issue tracker: https://launchpad.net/juju
 * continuous integration: http://juju-ci.vapour.ws:8080/
 * code review: http://reviews.vapour.ws/
 
@@ -398,13 +398,14 @@ http://juju-ci.vapour.ws:8080/
 
 The bot runs the test suite after `$$merge$$` but before it actually
 merges the pull request into master.
+CONTRIBUTING.md:[issue tracker](https://launchpad.net/juju).
 
 Community
 =========
 
 The juju community is growing and you have a number of options for
 interacting beyond the workflow and the
-[issue tracker](https://launchpad.net/juju-core).
+[issue tracker](https://launchpad.net/juju).
 
 Take a look at the community page:
 
