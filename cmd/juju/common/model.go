@@ -85,8 +85,8 @@ func ModelMachineInfoFromParams(machines []params.ModelMachineInfo) map[string]M
 	output := make(map[string]ModelMachineInfo, len(machines))
 	for _, info := range machines {
 		mInfo := ModelMachineInfo{}
-		if info.Cores != nil {
-			mInfo.Cores = *info.Cores
+		if info.Hardware != nil && info.Hardware.Cores != nil {
+			mInfo.Cores = *info.Hardware.Cores
 		}
 		output[info.Id] = mInfo
 	}

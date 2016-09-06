@@ -6,6 +6,7 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -51,13 +52,22 @@ mark-test-prodstack  -         admin@local  (unknown)+  prodstack           (unk
 }
 
 type mockConnection struct {
+	mu sync.Mutex
 	api.Connection
 	closed int
 }
 
 func (c *mockConnection) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.closed++
 	return nil
+}
+
+func (c *mockConnection) ClosedClount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.closed
 }
 
 func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
@@ -66,7 +76,7 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 	_, err := testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, refreshCloser), "--refresh")
 	c.Assert(err, jc.ErrorIsNil)
 	// 3 controllers, so 3 calls to api.
-	c.Assert(refreshCloser.closed, gc.Equals, 3)
+	c.Assert(refreshCloser.ClosedClount(), gc.Equals, 3)
 }
 
 func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {

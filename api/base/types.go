@@ -24,6 +24,8 @@ type ModelStatus struct {
 	UUID               string
 	Life               params.Life
 	Owner              string
+	TotalMachineCount  int
+	CoreCount          int
 	HostedMachineCount int
 	ServiceCount       int
 }

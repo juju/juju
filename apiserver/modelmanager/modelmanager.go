@@ -635,7 +635,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 	if canSeeMachines {
-		if info.Machines, err = common.MachineHardwareInfo(st); err != nil {
+		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
 			return params.ModelInfo{}, err
 		}
 	}

@@ -150,7 +150,12 @@ type ModelInfoListResults struct {
 
 // ModelMachineInfo holds information about a machine in a model.
 type ModelMachineInfo struct {
-	Id               string    `json:"id"`
+	Id       string           `json:"id"`
+	Hardware *MachineHardware `json:"hardware,omitempty"`
+}
+
+// MachineHardware holds information about a machine's hardware characteristics.
+type MachineHardware struct {
 	Arch             *string   `json:"arch,omitempty"`
 	Mem              *uint64   `json:"mem,omitempty"`
 	RootDisk         *uint64   `json:"root-disk,omitempty"`

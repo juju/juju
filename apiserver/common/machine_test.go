@@ -6,6 +6,7 @@ package common_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -99,15 +100,17 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 			"3": {life: state.Dying},
 		},
 	}
-	info, err := common.MachineHardwareInfo(&st)
+	info, err := common.ModelMachineInfo(&st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id:       "1",
-			Arch:     &amd64,
-			Mem:      &gig,
-			Cores:    &one,
-			CpuPower: &one,
+			Id: "1",
+			Hardware: &params.MachineHardware{
+				Arch:     &amd64,
+				Mem:      &gig,
+				Cores:    &one,
+				CpuPower: &one,
+			},
 		}, {
 			Id: "2",
 		},
@@ -127,8 +130,14 @@ func (st *mockState) Machine(id string) (common.Machine, error) {
 }
 
 func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
-	for _, m := range st.machines {
-		machines = append(machines, m)
+	// Ensure we get machines in id order.
+	var ids []string
+	for id := range st.machines {
+		ids = append(ids, id)
+	}
+	utils.SortStringsNaturally(ids)
+	for _, id := range ids {
+		machines = append(machines, st.machines[id])
 	}
 	return machines, nil
 }

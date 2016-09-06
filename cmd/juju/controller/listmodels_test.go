@@ -84,7 +84,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				if f.inclMachines {
 					one := uint64(1)
 					result.Machines = []params.ModelMachineInfo{
-						{Id: "0", Cores: &one}, {Id: "1"},
+						{Id: "0", Hardware: &params.MachineHardware{Cores: &one}}, {Id: "1"},
 					}
 				}
 			case "test-model2":

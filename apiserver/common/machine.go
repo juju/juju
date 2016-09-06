@@ -88,9 +88,9 @@ func destroyMachines(st stateInterface, force bool, ids ...string) error {
 	return DestroyErr("machines", ids, errs)
 }
 
-// MachineHardwareInfo returns information about machine hardware for
-// alive physical machines (not containers).
-func MachineHardwareInfo(st ModelManagerBackend) (machineInfo []params.ModelMachineInfo, _ error) {
+// ModelMachineInfo returns information about machine hardware for
+// alive top level machines (not containers).
+func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachineInfo, _ error) {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -109,14 +109,17 @@ func MachineHardwareInfo(st ModelManagerBackend) (machineInfo []params.ModelMach
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		if hw != nil && hw.CpuCores != nil {
-			mInfo.Cores = hw.CpuCores
-			mInfo.Arch = hw.Arch
-			mInfo.Mem = hw.Mem
-			mInfo.RootDisk = hw.RootDisk
-			mInfo.CpuPower = hw.CpuPower
-			mInfo.Tags = hw.Tags
-			mInfo.AvailabilityZone = hw.AvailabilityZone
+		if hw != nil && hw.String() != "" {
+			hwParams := &params.MachineHardware{
+				Cores:            hw.CpuCores,
+				Arch:             hw.Arch,
+				Mem:              hw.Mem,
+				RootDisk:         hw.RootDisk,
+				CpuPower:         hw.CpuPower,
+				Tags:             hw.Tags,
+				AvailabilityZone: hw.AvailabilityZone,
+			}
+			mInfo.Hardware = hwParams
 		}
 		machineInfo = append(machineInfo, mInfo)
 	}

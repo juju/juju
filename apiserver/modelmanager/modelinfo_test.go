@@ -37,6 +37,10 @@ type modelInfoSuite struct {
 	modelmanager *modelmanager.ModelManagerAPI
 }
 
+func pUint64(v uint64) *uint64 {
+	return &v
+}
+
 var _ = gc.Suite(&modelInfoSuite{})
 
 func (s *modelInfoSuite) SetUpTest(c *gc.C) {
@@ -69,7 +73,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 
-	one := uint64(1)
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
@@ -101,7 +104,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			id:            "1",
 			containerType: "none",
 			life:          state.Alive,
-			hw:            &instance.HardwareCharacteristics{CpuCores: &one},
+			hw:            &instance.HardwareCharacteristics{CpuCores: pUint64(1)},
 		},
 		&mockMachine{
 			id:            "2",
@@ -121,14 +124,13 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
+	var err error
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelmanager = modelmanager
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	info := s.getModelInfo(c)
-	one := uint64(1)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
@@ -165,8 +167,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Access:         params.ModelWriteAccess,
 		}},
 		Machines: []params.ModelMachineInfo{{
-			Id:    "1",
-			Cores: &one,
+			Id:       "1",
+			Hardware: &params.MachineHardware{Cores: pUint64(1)},
 		}, {
 			Id: "2",
 		}},

@@ -267,11 +267,12 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	}
 
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
-	fmt.Fprint(tw, "\n")
-	fmt.Fprint(tw, "MODEL")
+	w := output.Wrapper{tw}
+	w.Println("CONTROLLER: " + c.ControllerName())
+	w.Println()
+	w.Print("MODEL")
 	if c.listUUID {
-		fmt.Fprint(tw, "\tUUID")
+		w.Print("UUID")
 	}
 	// Only owners, or users with write access or above get to see machines and cores.
 	haveMachineInfo := false
@@ -281,21 +282,21 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		}
 	}
 	if haveMachineInfo {
-		fmt.Fprint(tw, "\tOWNER\tSTATUS\tMACHINES\tCORES\tACCESS\tLAST CONNECTION\n")
+		w.Println("OWNER", "STATUS", "MACHINES", "CORES", "ACCESS", "LAST CONNECTION")
 	} else {
-		fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
+		w.Println("OWNER", "STATUS", "ACCESS", "LAST CONNECTION")
 	}
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
 		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
 			name += "*"
-			output.CurrentHighlight.Fprintf(tw, "%s", name)
+			w.PrintColor(output.CurrentHighlight, name)
 		} else {
-			fmt.Fprintf(tw, "%s", name)
+			w.Print(name)
 		}
 		if c.listUUID {
-			fmt.Fprintf(tw, "\t%s", model.UUID)
+			w.Print(model.UUID)
 		}
 		lastConnection := model.Users[userForLastConn.Canonical()].LastConnection
 		if lastConnection == "" {
@@ -306,7 +307,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 			userForAccess = names.NewUserTag(c.user)
 		}
 		access := model.Users[userForAccess.Canonical()].Access
-		fmt.Fprintf(tw, "\t%s\t%s", model.Owner, model.Status.Current)
+		w.Print(model.Owner, model.Status.Current)
 		if haveMachineInfo {
 			machineInfo := "-"
 			if len(model.Machines) > 0 {
@@ -320,9 +321,9 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 			if cores > 0 {
 				coresInfo = fmt.Sprintf("%d", cores)
 			}
-			fmt.Fprintf(tw, "\t%s\t%s", machineInfo, coresInfo)
+			w.Print(machineInfo, coresInfo)
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\n", access, lastConnection)
+		w.Println(access, lastConnection)
 	}
 	tw.Flush()
 	return nil
