@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
@@ -152,7 +154,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		utils.ShQuote(agentsDir),
 		noAgentDir,
 	)
-	out, err := runSSHCommand(
+	out, _, err := runSSHCommand(
 		"ubuntu@"+e.host,
 		[]string{"/bin/bash"},
 		stdin,
@@ -204,7 +206,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 	return instances, err
 }
 
-var runSSHCommand = func(host string, command []string, stdin string) (stdout string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (stdout, stderr string, err error) {
 	cmd := ssh.Command(host, command, nil)
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdoutBuf, stderrBuf bytes.Buffer
@@ -214,9 +216,9 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 		if stderr := strings.TrimSpace(stderrBuf.String()); len(stderr) > 0 {
 			err = errors.Annotate(err, stderr)
 		}
-		return "", err
+		return "", "", err
 	}
-	return stdoutBuf.String(), nil
+	return stdoutBuf.String(), stderrBuf.String(), nil
 }
 
 // Destroy implements the Environ interface.
@@ -233,24 +235,37 @@ func (e *manualEnviron) DestroyController(controllerUUID string) error {
 set -x
 touch %s
 # If jujud is running, we then wait for a while for it to stop.
+stopped=0
 if pkill -%d jujud; then
-   for i in ` + "`seq 1 30`" + `; do
-	 if pgrep jujud > /dev/null ; then
-	   sleep 1
-	 else
-	   echo "jujud stopped"
-	   break
-	 fi
-   done
+    for i in ` + "`seq 1 30`" + `; do
+        if pgrep jujud > /dev/null ; then
+            sleep 1
+        else
+            echo "jujud stopped"
+            stopped=1
+            break
+        fi
+    done
 fi
-# If jujud didn't stop nicely, we kill it hard here.
-pkill -9 jujud
-stop %s
+if [ $stopped -ne 1 ]; then
+    # If jujud didn't stop nicely, we kill it hard here.
+    %spkill -9 jujud
+    service %s stop
+fi
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system/juju*
 rm -fr %s %s
 exit 0
 `
+	var diagnostics string
+	if featureflag.Enabled(feature.DeveloperMode) {
+		diagnostics = `
+    echo "Dump engine report and goroutines for stuck jujud"
+    source /etc/profile.d/juju-introspection.sh
+    juju-engine-report
+    juju-goroutines
+`
+	}
 	script = fmt.Sprintf(
 		script,
 		// WARNING: this is linked with the use of uninstallFile in
@@ -261,16 +276,18 @@ exit 0
 			agent.UninstallFile,
 		)),
 		terminationworker.TerminationSignal,
+		diagnostics,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
 	logger.Tracef("destroy controller script: %s", script)
-	stdout, err := runSSHCommand(
+	stdout, stderr, err := runSSHCommand(
 		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
-	logger.Debugf("script output: %q", stdout)
+	logger.Debugf("script stdout: \n%s", stdout)
+	logger.Debugf("script stderr: \n%s", stderr)
 	return err
 }
 
