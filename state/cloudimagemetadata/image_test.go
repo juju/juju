@@ -68,6 +68,23 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, added...)
 }
 
+func (s *cloudImageMetadataSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		Source:          "test",
+	}
+	now := time.Now().UnixNano()
+	metadata := cloudimagemetadata.Metadata{attrs, 0, "1", now}
+	s.assertRecordMetadata(c, metadata)
+	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata)
+}
+
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	s.assertNoMetadata(c)
 
