@@ -281,12 +281,12 @@ def aws_directory_test_details(user, tmp_dir, client, credential_details=None):
     access_key = credential_details['access_key']
     secret_key = credential_details['secret_key']
     expected_details = get_aws_expected_details_dict(
-        'default', access_key, secret_key)
+        user, access_key, secret_key)
 
-    write_aws_config_file(tmp_dir, access_key, secret_key)
+    write_aws_config_file(user, tmp_dir, access_key, secret_key)
 
     answers = ExpectAnswers(
-        cloud_listing='aws credential "{}"'.format('default'),
+        cloud_listing='aws credential "{}"'.format(user),
         save_name='aws')
 
     env_var_changes = dict(HOME=tmp_dir)
@@ -317,7 +317,7 @@ def get_aws_environment(user, access_key, secret_key):
         AWS_SECRET_ACCESS_KEY=secret_key)
 
 
-def write_aws_config_file(tmp_dir, access_key, secret_key):
+def write_aws_config_file(user, tmp_dir, access_key, secret_key):
     """Write aws credentials file to tmp_dir
 
     :return: String path of created credentials file.
@@ -328,10 +328,10 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
     ensure_dir(config_dir)
 
     config_contents = dedent("""\
-    [default]
+    [{}]
     aws_access_key_id={}
     aws_secret_access_key={}
-    """.format(access_key, secret_key))
+    """.format(user, access_key, secret_key))
 
     with open(config_file, 'w') as f:
         f.write(config_contents)

@@ -160,7 +160,7 @@ class TestAWSHelpers(TestCase):
             cloud_details.expected_details, {
                 'credentials': {
                     'aws': {
-                        'default': {
+                        username: {
                             'auth-type': 'access-key',
                             'access-key': access_key,
                             'secret-key': secret_key,
@@ -181,12 +181,13 @@ class TestAWSHelpers(TestCase):
 
     def test_write_aws_config_file_writes_credentials_file(self):
         """Ensure the file created contains the correct details."""
+        user = 'different-user'
         access_key = 'access_key'
         secret_key = 'secret_key'
 
         with temp_dir() as tmp_dir:
             credentials_file = aac.write_aws_config_file(
-                tmp_dir, access_key, secret_key)
+                user, tmp_dir, access_key, secret_key)
             credentials = ConfigParser.ConfigParser()
             with open(credentials_file, 'r') as f:
                 credentials.readfp(f)
@@ -195,9 +196,9 @@ class TestAWSHelpers(TestCase):
             ('aws_access_key_id', access_key),
             ('aws_secret_access_key', secret_key)]
 
-        self.assertEqual(credentials.sections(), ['default'])
+        self.assertEqual(credentials.sections(), [user])
         self.assertEqual(
-            credentials.items('default'), expected_items)
+            credentials.items(user), expected_items)
 
 
 class TestOpenStackHelpers(TestCase):
