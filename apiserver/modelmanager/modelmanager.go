@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -636,45 +635,11 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 	if canSeeMachines {
-		if err := fillMachineHardwareInfo(&info, st); err != nil {
+		if info.Machines, err = common.MachineHardwareInfo(st); err != nil {
 			return params.ModelInfo{}, err
 		}
 	}
 	return info, nil
-}
-
-func fillMachineHardwareInfo(info *params.ModelInfo, st common.ModelManagerBackend) error {
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info.Machines = make([]params.ModelMachineInfo, 0, len(machines))
-	for _, m := range machines {
-		if m.Life() != state.Alive {
-			continue
-		}
-		mInfo := params.ModelMachineInfo{Id: m.Id()}
-		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
-			info.Machines = append(info.Machines, mInfo)
-			continue
-		}
-		// Only include cores for physical machines.
-		hw, err := m.HardwareCharacteristics()
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if hw != nil && hw.CpuCores != nil {
-			mInfo.Cores = hw.CpuCores
-			mInfo.Arch = hw.Arch
-			mInfo.Mem = hw.Mem
-			mInfo.RootDisk = hw.RootDisk
-			mInfo.CpuPower = hw.CpuPower
-			mInfo.Tags = hw.Tags
-			mInfo.AvailabilityZone = hw.AvailabilityZone
-		}
-		info.Machines = append(info.Machines, mInfo)
-	}
-	return nil
 }
 
 // ModifyModelAccess changes the model access granted to users.

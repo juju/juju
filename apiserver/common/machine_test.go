@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -80,8 +82,40 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
+	one := uint64(1)
+	amd64 := "amd64"
+	gig := uint64(1024)
+	st := mockState{
+		machines: map[string]*mockMachine{
+			"1": {id: "1", life: state.Alive, containerType: instance.NONE,
+				hw: &instance.HardwareCharacteristics{
+					Arch:     &amd64,
+					Mem:      &gig,
+					CpuCores: &one,
+					CpuPower: &one,
+				}},
+			"2": {id: "2", life: state.Alive, containerType: instance.LXD},
+			"3": {life: state.Dying},
+		},
+	}
+	info, err := common.MachineHardwareInfo(&st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+		{
+			Id:       "1",
+			Arch:     &amd64,
+			Mem:      &gig,
+			Cores:    &one,
+			CpuPower: &one,
+		}, {
+			Id: "2",
+		},
+	})
+}
+
 type mockState struct {
-	state.State
+	common.ModelManagerBackend
 	machines map[string]*mockMachine
 }
 
@@ -92,17 +126,35 @@ func (st *mockState) Machine(id string) (common.Machine, error) {
 	return nil, errors.Errorf("machine %s does not exist", id)
 }
 
+func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
+	for _, m := range st.machines {
+		machines = append(machines, m)
+	}
+	return machines, nil
+}
+
 type mockMachine struct {
 	state.Machine
+	id                 string
 	life               state.Life
+	containerType      instance.ContainerType
+	hw                 *instance.HardwareCharacteristics
 	destroyErr         error
 	forceDestroyErr    error
 	forceDestroyCalled bool
 	destroyCalled      bool
 }
 
+func (m *mockMachine) Id() string {
+	return m.id
+}
+
 func (m *mockMachine) Life() state.Life {
 	return m.life
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	return m.hw, nil
 }
 
 func (m *mockMachine) ForceDestroy() error {

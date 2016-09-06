@@ -6,6 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -85,4 +86,39 @@ func destroyMachines(st stateInterface, force bool, ids ...string) error {
 		}
 	}
 	return DestroyErr("machines", ids, errs)
+}
+
+// MachineHardwareInfo returns information about machine hardware for
+// alive physical machines (not containers).
+func MachineHardwareInfo(st ModelManagerBackend) (machineInfo []params.ModelMachineInfo, _ error) {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, m := range machines {
+		if m.Life() != state.Alive {
+			continue
+		}
+		mInfo := params.ModelMachineInfo{Id: m.Id()}
+		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
+			machineInfo = append(machineInfo, mInfo)
+			continue
+		}
+		// Only include cores for physical machines.
+		hw, err := m.HardwareCharacteristics()
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if hw != nil && hw.CpuCores != nil {
+			mInfo.Cores = hw.CpuCores
+			mInfo.Arch = hw.Arch
+			mInfo.Mem = hw.Mem
+			mInfo.RootDisk = hw.RootDisk
+			mInfo.CpuPower = hw.CpuPower
+			mInfo.Tags = hw.Tags
+			mInfo.AvailabilityZone = hw.AvailabilityZone
+		}
+		machineInfo = append(machineInfo, mInfo)
+	}
+	return machineInfo, nil
 }
