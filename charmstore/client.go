@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.charmstore")
 
 // TODO(natefinch): Ideally, this whole package would live in the
 // charmstore-client repo, so as to keep it near the API it wraps (and make it
-// more available to tools outside juju-core).
+// more available to tools outside juju).
 
 // MacaroonCache represents a value that can store and retrieve macaroons for
 // charms.  It is used when we are requesting data from the charmstore for

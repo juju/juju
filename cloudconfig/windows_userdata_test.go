@@ -698,8 +698,8 @@ if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir
 rm "$binDir\tools.tar*"
 Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64","sha256":"1234","size":10}'
-New-Item -Path 'HKLM:\SOFTWARE\juju-core'
-$acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
+New-Item -Path 'HKLM:\SOFTWARE\juju'
+$acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju'
 $acl.SetAccessRuleProtection($true, $false)
 $adminPerm = "$adminsGroup", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.RegistryAccessRule $adminPerm
@@ -707,9 +707,9 @@ $acl.AddAccessRule($rule)
 $jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.RegistryAccessRule $jujudPerm
 $acl.AddAccessRule($rule)
-Set-Acl -Path 'HKLM:\SOFTWARE\juju-core' -AclObject $acl
-New-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS'
-Set-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS' -Value ''
+Set-Acl -Path 'HKLM:\SOFTWARE\juju' -AclObject $acl
+New-ItemProperty -Path 'HKLM:\SOFTWARE\juju' -Name 'JUJU_DEV_FEATURE_FLAGS'
+Set-ItemProperty -Path 'HKLM:\SOFTWARE\juju' -Name 'JUJU_DEV_FEATURE_FLAGS' -Value ''
 mkdir 'C:\Juju\lib\juju\agents\machine-10'
 Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
 # format 2.0

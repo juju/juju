@@ -1,12 +1,12 @@
 Introduction
 ------------
 
-This document outlines the steps for producing a juju-core release.
+This document outlines the steps for producing a juju release.
 
 Step 1. Prepare release notes
 =============================
 
-The release notes are prepared in Google document form, for easlier colaboration with juju-core and provider authors. A sample release note document is here
+The release notes are prepared in Google document form, for easlier colaboration with juju and provider authors. A sample release note document is here
 
 https://docs.google.com/a/canonical.com/document/d/1Vnf2_sDtxZYaFRE7B0hY_f9FHxAOgximUj6UaJ5NyuE/edit#
 
@@ -20,14 +20,14 @@ Leankit cards in the Merged lane should be documented in the release notes if ap
 
 LP Bugs marked fixed comitted should be similarly documented and moved to fixed released. Bugs in progress should be moved to the next milestone (and milestone created if necessary).
 
-note: this process does admit the real possiblity that commits which have no leankit card or LP bug, will be missed. 
+note: this process does admit the real possiblity that commits which have no leankit card or LP bug, will be missed.
 
 Step 2. Tag the release
 =======================
 
-Most juju-core components do not have tags, but goose and juju-core do. 
+Most juju components do not have tags, but goose and juju do.
 
-Tag the juju-core and goose repos with `juju-x.y.z` tag, if you don't have permission to tag directly on the repo talk to jam who runs the bot.
+Tag the juju and goose repos with `juju-x.y.z` tag, if you don't have permission to tag directly on the repo talk to jam who runs the bot.
 
 Don't try to submit a merge proposal with a tag, it doesn't work.
 
@@ -40,7 +40,7 @@ For development releases (x.y.z, where y is odd) they are packaged via a launchp
 
 https://code.launchpad.net/~dave-cheney/+recipe/juju-core
 
-Update the tag on juju-core and goose to match the tag produced in step 2 then kick off the build.
+Update the tag on juju and goose to match the tag produced in step 2 then kick off the build.
 
 Step 4. Build release tarball
 =============================
@@ -52,7 +52,7 @@ For stable release, the server team will feed this to the saucy release process 
 Step 5. Update the version
 ==========================
 
-Once a release has been built againsts a version you must update the version number in 
+Once a release has been built againsts a version you must update the version number in
 
 version/version.go
 
@@ -68,7 +68,7 @@ This setup requires credentials for the s3 bucket and the s3up tool (available o
 Step 7. TEST!
 =============
 
-apt-get update && apt-get install juju-core should install the latest release on your system. 
+apt-get update && apt-get install juju should install the latest release on your system.
 
 Test this release by bootstrapping a model in ec2 (and hp cloud if you have access), and do a basic wordpress + mysql deployment. If you can relate wordpress and mysql, expose wordpress and get to the public address on the wordpress setup screen, this release is a success.
 

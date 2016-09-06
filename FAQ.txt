@@ -17,7 +17,7 @@ A: Read the docs.  They're not complete (feel free to contribute), but
 
 
 
-Q: How do I find out what's going on currently?  How does the juju-core 
+Q: How do I find out what's going on currently?  How does the juju
    team communicate regularly?
 A: IRC.  Mailing Lists.  Code Reviews.
 
