@@ -32,12 +32,12 @@ import (
 )
 
 const (
-	defaultPeriod     = 5 * time.Minute
 	defaultSocketName = "metrics-collect.socket"
 )
 
 var (
-	logger = loggo.GetLogger("juju.worker.metrics.collect")
+	logger        = loggo.GetLogger("juju.worker.metrics.collect")
+	defaultPeriod = 5 * time.Minute
 
 	// errMetricsNotDefined is returned when the charm the uniter is running does
 	// not declared any metrics.
