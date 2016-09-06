@@ -5,6 +5,7 @@ package cloudimagemetadata_test
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
