@@ -419,7 +419,7 @@ def main(args):
     for s in stanzas:
         if s.is_logical_interface and s.iface.is_bonded:
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
-            print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
+            print("working around https://bugs.launchpad.net/juju/+bug/1594855")
             print_shell_cmd("sleep 3")
             break
 

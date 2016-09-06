@@ -1,4 +1,4 @@
-Hacking the juju-core/state package
+Hacking the juju/state package
 ===================================
 
 This document remains a work in progress; it's an attempt to capture

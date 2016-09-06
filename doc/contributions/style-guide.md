@@ -1,6 +1,6 @@
 # Style Guide
 
-This document is a guide to aid juju-core reviewers.
+This document is a guide to aid juju reviewers.
 
 ## Contents
 

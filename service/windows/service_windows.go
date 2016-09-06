@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	// https://bugs.launchpad.net/juju-core/+bug/1470820
+	// https://bugs.launchpad.net/juju/+bug/1470820
 	"github.com/gabriel-samfira/sys/windows"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
