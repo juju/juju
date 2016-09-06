@@ -100,18 +100,18 @@ def client_credentials_to_details(client):
     cloud = client.env.credentials['credentials'][client.env.get_cloud()]
     credentials = cloud['credentials']
     if 'ec2' == provider:
-        return { 'secret_key': credentials['secret-key'],
-                 'access_key': credentials['access-key'],
-               }
+        return {'secret_key': credentials['secret-key'],
+                'access_key': credentials['access-key'],
+                }
     if 'gce' == provider:
-        return { 'client_id': credentials['client-id'],
-                 'client_email': credentials['client-email'],
-                 'private_key': credentials['private-key'],
-               }
+        return {'client_id': credentials['client-id'],
+                'client_email': credentials['client-email'],
+                'private_key': credentials['private-key'],
+                }
     if 'openstack' == provider:
-        return { 'os_tenant_name': credentials['tenant-name'],
-                 'os_password': credentials['password'],
-               }
+        return {'os_tenant_name': credentials['tenant-name'],
+                'os_password': credentials['password'],
+                }
 
 
 @contextmanager
@@ -198,7 +198,8 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
     """Ensure we can bootstrap after autoloading credentials."""
 
     user = 'testing-user'
-    with begin_autoload_test(bs_manager.client) as (client_na, tmp_scratch_dir):
+    with begin_autoload_test(bs_manager.client) as (client_na,
+                                                    tmp_scratch_dir):
         cloud_details = cloud_details_fn(user, tmp_scratch_dir,
                                          bs_manager.client, real_credentials)
 
@@ -206,7 +207,8 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
 
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(
-                    machines, omit_config=bs_manager.client.bootstrap_replaces):
+                    machines,
+                    omit_config=bs_manager.client.bootstrap_replaces):
                 run_autoload_credentials(
                     bs_manager.client,
                     cloud_details.env_var_changes,
