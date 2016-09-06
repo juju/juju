@@ -19,6 +19,9 @@ if [[ -d $DUMMY_DIR ]]; then
     sudo rm -r $DUMMY_DIR
 fi
 
+# Juju always leaves logs behind for debuging, and they are already collected.
+sudo rm /var/log/juju/*.log || true
+
 # Juju must cleanup these procs.
 if ps -f -C jujud; then
     DIRTY=1
