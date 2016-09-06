@@ -26,6 +26,7 @@ const (
 	setconfig
 )
 
+// NewConfigCommand wraps configCommand with sane model settings.
 func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
@@ -40,11 +41,11 @@ type configCommand struct {
 	keys   []string
 	values attributes
 	out    cmd.Output
-	reset  bool // if we are resetting the keys provided.
-	action int  //
+	reset  bool // Flag denoting whether we are resetting the keys provided.
+	action int  // The action which we want to handle, set in cmd.Init.
 }
 
-const modelConfigSummary = "Displays or sets configuration attributes on a model."
+const modelConfigSummary = "Displays or sets configuration values on a model."
 const modelConfigHelpDoc = `
 By default, all configuration (keys, source, and values) for the current model
 are displayed.
@@ -54,21 +55,21 @@ will set the supplied key to the supplied value, this can be repeated for
 multiple keys.
 
 Examples
-	juju model-config default-series
-	juju model-config -m mycontroller:mymodel 
-	juju model-config ftp-proxy=10.0.0.1:8000
-	juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
-	juju model-config --reset default-series test-mode
+    juju model-config default-series
+    juju model-config -m mycontroller:mymodel
+    juju model-config ftp-proxy=10.0.0.1:8000
+    juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
+    juju model-config --reset default-series test-mode
 
 See also:
-	models
-	model-defaults
+    models
+    model-defaults
 `
 
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Args:    "[<model-key>[<=value>]]",
+		Args:    "[<model-key>[<=value>] ...]",
 		Doc:     modelConfigHelpDoc,
 		Name:    "model-config",
 		Purpose: modelConfigSummary,
@@ -93,6 +94,11 @@ func (c *configCommand) Init(args []string) error {
 		// We're doing resetConfig.
 		if len(args) == 0 {
 			return errors.New("no keys specified")
+		}
+		for _, k := range args {
+			if k == "agent-version" {
+				return errors.Errorf("agent-version cannot be reset")
+			}
 		}
 		c.action = resetConfig
 		c.keys = args
@@ -192,6 +198,11 @@ func (c *configCommand) resetConfig() error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
+			// TODO(ro) This error used to be a false positive. Now, if it is
+			// printed, there really is a problem or misspelling. Ian would like to
+			// do some further testing and look at making this situation a fatal
+			// error, not just a warning. I think it's ok to leave for now, but
+			// with a todo.
 			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
 		}
 

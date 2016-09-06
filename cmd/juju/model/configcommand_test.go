@@ -23,45 +23,57 @@ func (s *ConfigCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) 
 	return testing.RunCommand(c, command, args...)
 }
 
-func (s *ConfigCommandSuite) TestInitGet(c *gc.C) {
-	// zero or one args is fine.
-	err := testing.InitCommand(model.NewConfigCommandForTest(s.fake), nil)
-	c.Check(err, jc.ErrorIsNil)
-	err = testing.InitCommand(model.NewConfigCommandForTest(s.fake), []string{"one"})
-	c.Check(err, jc.ErrorIsNil)
-	// More than one is not allowed.
-	err = testing.InitCommand(model.NewConfigCommandForTest(s.fake), []string{"one", "two"})
-	c.Check(err, gc.ErrorMatches, `unrecognized args: \["two"\]`)
-}
-
-func (s *ConfigCommandSuite) TestInitSet(c *gc.C) {
+func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
 		args       []string
 		errorMatch string
+		nilErr     bool
 	}{
-		{
+		{ // Test set
+			// 0
 			args:       []string{"special=extra", "special=other"},
 			errorMatch: `key "special" specified more than once`,
 		}, {
+			// 1
 			args:       []string{"agent-version=2.0.0"},
 			errorMatch: `agent-version must be set via "upgrade-juju"`,
+		}, {
+			// Test reset
+			// 2
+			args:       []string{"--reset"},
+			errorMatch: "no keys specified",
+		}, {
+			// 3
+			args:   []string{"--reset", "something", "weird"},
+			nilErr: true,
+		}, {
+			// 4
+			args:       []string{"--reset", "agent-version"},
+			errorMatch: "agent-version cannot be reset",
+		}, {
+			// Test get
+			// 5
+			args:   nil,
+			nilErr: true,
+		}, {
+			// 6
+			args:   []string{"one"},
+			nilErr: true,
+		}, {
+			// 7
+			args:       []string{"one", "two"},
+			errorMatch: `unrecognized args: \["two"\]`,
 		},
 	} {
 		c.Logf("test %d", i)
-		setCmd := model.NewConfigCommandForTest(s.fake)
-		err := testing.InitCommand(setCmd, test.args)
+		cmd := model.NewConfigCommandForTest(s.fake)
+		err := testing.InitCommand(cmd, test.args)
+		if test.nilErr {
+			c.Check(err, jc.ErrorIsNil)
+			continue
+		}
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
-}
-
-func (s *ConfigCommandSuite) TestInitReset(c *gc.C) {
-	resetCmd := model.NewConfigCommandForTest(s.fake)
-	// Only empty is a problem.
-	err := testing.InitCommand(resetCmd, []string{"--reset"})
-	c.Assert(err, gc.ErrorMatches, "no keys specified")
-	// Everything else is fine.
-	err = testing.InitCommand(resetCmd, []string{"--reset", "something", "weird"})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ConfigCommandSuite) TestSingleValue(c *gc.C) {
