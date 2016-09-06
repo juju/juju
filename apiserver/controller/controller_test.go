@@ -333,6 +333,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					AuthTag:       names.NewUserTag("admin2").String(),
 					Macaroon:      string(macJSON),
 				},
+				ExternalControl: true,
 			},
 		},
 	}
@@ -356,6 +357,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+		c.Check(mig.ExternalControl(), gc.Equals, args.Specs[i].ExternalControl)
 
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)

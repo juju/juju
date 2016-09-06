@@ -430,8 +430,9 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 
 	// Trigger the migration.
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
-		InitiatedBy: c.apiUser,
-		TargetInfo:  targetInfo,
+		InitiatedBy:     c.apiUser,
+		TargetInfo:      targetInfo,
+		ExternalControl: spec.ExternalControl,
 	})
 	if err != nil {
 		return "", errors.Trace(err)

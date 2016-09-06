@@ -18,8 +18,9 @@ type InitiateMigrationArgs struct {
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
-	ModelTag   string              `json:"model-tag"`
-	TargetInfo MigrationTargetInfo `json:"target-info"`
+	ModelTag        string              `json:"model-tag"`
+	TargetInfo      MigrationTargetInfo `json:"target-info"`
+	ExternalControl bool                `json:"external-control"`
 }
 
 // MigrationTargetInfo holds the details required to connect to and
