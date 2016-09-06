@@ -100,6 +100,7 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 				Password:      target.Password,
 				Macaroons:     string(macsJSON),
 			},
+			ExternalControl: mig.ExternalControl(),
 		},
 		MigrationId:      mig.Id(),
 		Phase:            phase.String(),
