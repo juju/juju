@@ -4,10 +4,8 @@
 package featuretests
 
 import (
-	"fmt"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -299,18 +297,6 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-
-	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"controller","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
-		s.State.ModelUUID(), s.AdminUserTag(c).String())
-
-	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Check(strippedOut, gc.Equals, expected)
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {

@@ -51,9 +51,10 @@ Examples:
     juju models
     juju models --user bob
 
-See also: add-model
-          share-model
-          unshare-model
+See also:
+    add-model
+    share-model
+    unshare-model
 `
 
 // ModelManagerAPI defines the methods on the model manager API that

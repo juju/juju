@@ -277,7 +277,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestAllMachines(c *gc.C) {
@@ -337,7 +337,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestSingleResponse(c *gc.C) {

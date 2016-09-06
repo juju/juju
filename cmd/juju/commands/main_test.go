@@ -23,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -50,10 +49,6 @@ func setconfigHelpText() string {
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
-}
-
-func blockHelpText() string {
-	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -132,18 +127,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
-	}, {
-		summary: "check block command registered properly",
-		args:    []string{"block", "-h"},
-		code:    0,
-		out:     blockHelpText(),
-	}, {
-		summary: "check unblock command registered properly",
-		args:    []string{"unblock"},
-		code:    0,
-		out:     "error: must specify one of [destroy-model | remove-object | all-changes] to unblock\n",
-	},
-	} {
+	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, gc.Equals, t.out)
@@ -418,8 +402,6 @@ var commandNames = []string{
 	"allocate",
 	"autoload-credentials",
 	"backups",
-	"block",
-	"blocks",
 	"bootstrap",
 	"budgets",
 	"cached-images",
@@ -438,9 +420,12 @@ var commandNames = []string{
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
+	"disable-command",
 	"disable-user",
+	"disabled-commands",
 	"download-backup",
 	"enable-ha",
+	"enable-command",
 	"enable-user",
 	"expose",
 	"get-config",
@@ -456,14 +441,13 @@ var commandNames = []string{
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-all-blocks",
 	"list-backups",
-	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
 	"list-credentials",
+	"list-disabled-commands",
 	"list-machines",
 	"list-models",
 	"list-plans",
@@ -533,7 +517,6 @@ var commandNames = []string{
 	"subnets",
 	"switch",
 	"sync-tools",
-	"unblock",
 	"unexpose",
 	"update-allocation",
 	"upload-backup",

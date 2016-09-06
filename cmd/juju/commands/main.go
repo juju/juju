@@ -342,8 +342,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
-	r.Register(block.NewSuperBlockCommand())
-	r.Register(block.NewUnblockCommand())
+	r.Register(block.NewDisableCommand())
+	r.Register(block.NewListCommand())
+	r.Register(block.NewEnableCommand())
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
@@ -375,7 +376,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
-	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
 	r.Register(controller.NewRemoveBlocksCommand())

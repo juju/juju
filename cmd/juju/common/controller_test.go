@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -30,7 +29,7 @@ type controllerSuite struct {
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.mockBlockClient = &mockBlockClient{}
-	s.PatchValue(&blockAPI, func(*modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+	s.PatchValue(&blockAPI, func(*modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 		err := s.mockBlockClient.loginError
 		if err != nil {
 			s.mockBlockClient.loginError = nil

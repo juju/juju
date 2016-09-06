@@ -13,9 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -68,13 +67,18 @@ var (
 	blockAPI                = getBlockAPI
 )
 
+type listBlocksAPI interface {
+	List() ([]params.Block, error)
+	Close() error
+}
+
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiblock.NewClient(root), nil
+	return block.NewClient(root), nil
 }
 
 // tryAPI attempts to open the API and makes a trivial call

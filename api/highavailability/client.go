@@ -63,7 +63,12 @@ func (c *Client) EnableHA(
 // to shut down their mongo server.
 func (c *Client) MongoUpgradeMode(v mongo.Version) (params.MongoUpgradeResults, error) {
 	arg := params.UpgradeMongoParams{
-		Target: v,
+		Target: params.MongoVersion{
+			Major:         v.Major,
+			Minor:         v.Minor,
+			Patch:         v.Patch,
+			StorageEngine: string(v.StorageEngine),
+		},
 	}
 	results := params.MongoUpgradeResults{}
 	if err := c.facade.FacadeCall("StopHAReplicationForUpgrade", arg, &results); err != nil {
