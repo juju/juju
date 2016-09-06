@@ -714,7 +714,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	_, err = s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
-			Created:  now,
+			Created:  now.Add(time.Second),
 			CharmURL: s.meteredCharm.URL().String(),
 			Metrics:  []state.Metric{m2},
 			Unit:     newUnit.UnitTag(),
