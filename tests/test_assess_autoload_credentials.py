@@ -8,7 +8,10 @@ import os
 import StringIO
 from textwrap import dedent
 
+import yaml
+
 import assess_autoload_credentials as aac
+from deploy_stack import BootstrapManager
 from tests import (
     TestCase,
     parse_error,
@@ -379,3 +382,47 @@ class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):
     def test_overwrite_existing(self):
             aac.ensure_autoload_credentials_overwrite_existing(
                 bogus_credentials(), aac.openstack_envvar_test_details)
+
+
+class TestAutoloadAndBootstrap(TestCase):
+
+    def test_autoload_and_bootstrap(self):
+
+        def cloud_details_fn(user, tmp_dir, client, credential_details):
+            return aac.CloudDetails(credential_details, None, None)
+
+        client = fake_juju_client()
+        upload_tools = False
+        real_credential_details = {'cloud-username': 'user',
+                                   'cloud-password': 'password'
+                                   }
+        credential_file_details = {'credentials': {'cloud': {
+                                   'credentials': real_credential_details
+                                   }}}
+
+        def write_credentials(*args, **kwargs):
+            file_name = os.path.join(client.env.juju_home, 'credentials.yaml')
+            with open(file_name, 'w') as write_file:
+                yaml.safe_dump(credential_file_details, write_file)
+
+        def credential_check(*args, **kwargs):
+            self.assertEqual(client.env.credentials, credential_file_details)
+
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'env', client, client, None, [], None, None, None, None,
+                log_dir, False, True, True)
+            with patch('assess_autoload_credentials.run_autoload_credentials',
+                       autospec=True,
+                       side_effect=write_credentials) as run_autoload_mock:
+                with patch.object(
+                        bs_manager.client, 'bootstrap',
+                        autospec=True,
+                        side_effect=credential_check) as bootstrap_mock:
+                    aac.autoload_and_bootstrap(bs_manager, upload_tools,
+                                               real_credential_details,
+                                               cloud_details_fn)
+        run_autoload_mock.assert_called_once_with(
+            client, real_credential_details, None)
+        bootstrap_mock.assert_called_once_with(False, bootstrap_series=None,
+                                               credential='testing-user')

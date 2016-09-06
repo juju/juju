@@ -89,7 +89,9 @@ def assess_autoload_credentials(args):
         ensure_autoload_credentials_overwrite_existing(
             client, scenario_setup)
 
-    autoload_and_bootstrap(args, real_credential_details, scenario_setup)
+    bs_manager = BootstrapManager.from_args(args)
+    autoload_and_bootstrap(bs_manager, args.upload_tools,
+                           real_credential_details, scenario_setup)
 
 
 def client_credentials_to_details(client):
@@ -114,7 +116,7 @@ def client_credentials_to_details(client):
 
 @contextmanager
 def begin_autoload_test(client_base):
-    client = client_base.clone()
+    client = client_base.clone(env=client_base.env.clone())
     with temp_dir() as tmp_dir:
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
@@ -133,7 +135,7 @@ def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
       comparison of the result.
 
     """
-    user = 'testing_user'
+    user = 'testing-user'
     with begin_autoload_test(client_base) as (client, tmp_scratch_dir):
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
 
@@ -160,7 +162,7 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
       comparison of the result.
 
     """
-    user = 'testing_user'
+    user = 'testing-user'
     with begin_autoload_test(client_base) as (client, tmp_scratch_dir):
         initial_details = cloud_details_fn(
             user, tmp_scratch_dir, client)
@@ -191,14 +193,16 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
             overwrite_details.expected_details)
 
 
-def autoload_and_bootstrap(args, real_credentials, cloud_details_fn):
+def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
+                           cloud_details_fn):
     """Ensure we can bootstrap after autoloading credentials."""
 
-    bs_manager = BootstrapManager.from_args(args)
-    user = 'test_user'
+    user = 'testing-user'
     with begin_autoload_test(bs_manager.client) as (client_na, tmp_scratch_dir):
         cloud_details = cloud_details_fn(user, tmp_scratch_dir,
                                          bs_manager.client, real_credentials)
+
+        bs_manager.client.env.credentials = {}
 
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(
@@ -210,7 +214,8 @@ def autoload_and_bootstrap(args, real_credentials, cloud_details_fn):
                 bs_manager.client.env.load_yaml()
 
                 bs_manager.client.bootstrap(
-                    args.upload_tools, bootstrap_series=bs_manager.series)
+                    upload_tools, bootstrap_series=bs_manager.series,
+                    credential=user)
                 bs_manager.client.kill_controller()
 
 
