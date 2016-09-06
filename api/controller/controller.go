@@ -204,6 +204,7 @@ func (c *Client) GetControllerAccess(user string) (description.Access, error) {
 // a single model.
 type MigrationSpec struct {
 	ModelUUID            string
+	ExternalControl      bool
 	TargetControllerUUID string
 	TargetAddrs          []string
 	TargetCACert         string
@@ -257,6 +258,7 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				Password:      spec.TargetPassword,
 				Macaroon:      spec.TargetMacaroon,
 			},
+			ExternalControl: spec.ExternalControl,
 		}},
 	}
 	response := params.InitiateMigrationResults{}

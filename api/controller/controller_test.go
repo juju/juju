@@ -34,24 +34,41 @@ func (s *Suite) TestInitiateMigration(c *gc.C) {
 	id, err := client.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(id, gc.Equals, "id")
-	stub.CheckCalls(c, []jujutesting.StubCall{{
-		"Controller.InitiateMigration",
-		[]interface{}{
-			params.InitiateMigrationArgs{
-				Specs: []params.MigrationSpec{{
-					ModelTag: names.NewModelTag(spec.ModelUUID).String(),
-					TargetInfo: params.MigrationTargetInfo{
-						ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
-						Addrs:         spec.TargetAddrs,
-						CACert:        spec.TargetCACert,
-						AuthTag:       names.NewUserTag(spec.TargetUser).String(),
-						Password:      spec.TargetPassword,
-						Macaroon:      spec.TargetMacaroon,
-					},
-				}},
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
+	})
+}
+
+func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+	client, stub := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{{
+			MigrationId: "id",
+		}},
+	})
+	spec := makeSpec()
+	spec.ExternalControl = true
+	_, err := client.InitiateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
+	})
+}
+
+func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
+	return params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{{
+			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
+			TargetInfo: params.MigrationTargetInfo{
+				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				Addrs:         spec.TargetAddrs,
+				CACert:        spec.TargetCACert,
+				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
+				Password:      spec.TargetPassword,
+				Macaroon:      spec.TargetMacaroon,
 			},
-		},
-	}})
+			ExternalControl: spec.ExternalControl,
+		}},
+	}
 }
 
 func (s *Suite) TestInitiateMigrationError(c *gc.C) {
