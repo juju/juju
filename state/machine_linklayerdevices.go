@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
@@ -922,9 +923,17 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	bridgeDeviceNames := make([]string, 0, len(allDevices))
 
 	for _, hostDevice := range allDevices {
-		if hostDevice.Type() == BridgeDevice {
-			bridgeDevicesByName[hostDevice.Name()] = hostDevice
-			bridgeDeviceNames = append(bridgeDeviceNames, hostDevice.Name())
+		deviceType, name := hostDevice.Type(), hostDevice.Name()
+		// Only use bridges, but not the default bridges per container type,
+		// which should only be used for fallback config.
+		if deviceType == BridgeDevice {
+			switch name {
+			case container.DefaultLxdBridge, container.DefaultKvmBridge:
+				logger.Debugf("skipping host bridge %q", name)
+				continue
+			}
+			bridgeDevicesByName[name] = hostDevice
+			bridgeDeviceNames = append(bridgeDeviceNames, name)
 		}
 	}
 
