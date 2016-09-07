@@ -250,9 +250,10 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
-	macsJSON, err := json.Marshal(spec.TargetMacaroons)
+
+	macsJSON, err := macaroonsToJSON(spec.TargetMacaroons)
 	if err != nil {
-		return "", errors.Annotate(err, "marshalling macaroons")
+		return "", errors.Trace(err)
 	}
 
 	args := params.InitiateMigrationArgs{
@@ -281,4 +282,15 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 		return "", errors.Trace(result.Error)
 	}
 	return result.MigrationId, nil
+}
+
+func macaroonsToJSON(macs []macaroon.Slice) (string, error) {
+	if len(macs) == 0 {
+		return "", nil
+	}
+	out, err := json.Marshal(macs)
+	if err != nil {
+		return "", errors.Annotate(err, "marshalling macaroons")
+	}
+	return string(out), nil
 }

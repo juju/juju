@@ -674,6 +674,9 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 }
 
 func macaroonsToJSON(m []macaroon.Slice) (string, error) {
+	if len(m) == 0 {
+		return "", nil
+	}
 	j, err := json.Marshal(m)
 	if err != nil {
 		return "", errors.Annotate(err, "marshalling macaroons")
@@ -682,6 +685,9 @@ func macaroonsToJSON(m []macaroon.Slice) (string, error) {
 }
 
 func jsonToMacaroons(raw string) ([]macaroon.Slice, error) {
+	if raw == "" {
+		return nil, nil
+	}
 	var macs []macaroon.Slice
 	if err := json.Unmarshal([]byte(raw), &macs); err != nil {
 		return nil, errors.Annotate(err, "unmarshalling macaroon")
