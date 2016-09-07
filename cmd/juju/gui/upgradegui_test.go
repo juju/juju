@@ -21,7 +21,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
 	envgui "github.com/juju/juju/environs/gui"
@@ -48,7 +48,7 @@ type calledFunc func() bool
 
 func (s *upgradeGUISuite) patchClientGUIArchives(c *gc.C, returnedVersions []params.GUIArchiveVersion, returnedErr error) calledFunc {
 	var called bool
-	f := func(client *api.Client) ([]params.GUIArchiveVersion, error) {
+	f := func(client *controller.Client) ([]params.GUIArchiveVersion, error) {
 		called = true
 		return returnedVersions, returnedErr
 	}
@@ -60,7 +60,7 @@ func (s *upgradeGUISuite) patchClientGUIArchives(c *gc.C, returnedVersions []par
 
 func (s *upgradeGUISuite) patchClientSelectGUIVersion(c *gc.C, expectedVers string, returnedErr error) calledFunc {
 	var called bool
-	f := func(client *api.Client, vers version.Number) error {
+	f := func(client *controller.Client, vers version.Number) error {
 		called = true
 		c.Assert(vers.String(), gc.Equals, expectedVers)
 		return returnedErr
@@ -73,7 +73,7 @@ func (s *upgradeGUISuite) patchClientSelectGUIVersion(c *gc.C, expectedVers stri
 
 func (s *upgradeGUISuite) patchClientUploadGUIArchive(c *gc.C, expectedHash string, expectedSize int64, expectedVers string, returnedIsCurrent bool, returnedErr error) calledFunc {
 	var called bool
-	f := func(client *api.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
+	f := func(client *controller.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
 		called = true
 		c.Assert(hash, gc.Equals, expectedHash)
 		c.Assert(size, gc.Equals, expectedSize)

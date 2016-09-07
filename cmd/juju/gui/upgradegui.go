@@ -19,7 +19,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -28,12 +28,12 @@ import (
 
 // NewUpgradeGUICommand creates and returns a new upgrade-gui command.
 func NewUpgradeGUICommand() cmd.Command {
-	return modelcmd.Wrap(&upgradeGUICommand{})
+	return modelcmd.WrapController(&upgradeGUICommand{})
 }
 
 // upgradeGUICommand upgrades to a new Juju GUI version in the controller.
 type upgradeGUICommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 
 	versOrPath string
 	list       bool
@@ -68,7 +68,7 @@ func (c *upgradeGUICommand) Info() *cmd.Info {
 
 // SetFlags implements the cmd.Command interface.
 func (c *upgradeGUICommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.list, "list", false, "List available Juju GUI release versions without upgrading")
 }
 
@@ -105,7 +105,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 	defer archive.r.Close()
 
 	// Open the Juju API client.
-	client, err := c.NewAPIClient()
+	client, err := c.NewControllerAPIClient()
 	if err != nil {
 		return errors.Annotate(err, "cannot establish API connection")
 	}
@@ -302,7 +302,7 @@ func hashAndSize(r io.Reader) (hash string, size int64, err error) {
 // given version and reports whether that's the current version served by the
 // controller. If the given version is not present in the server, an empty
 // hash is returned.
-func existingVersionInfo(client *api.Client, vers version.Number) (hash string, current bool, err error) {
+func existingVersionInfo(client *controller.Client, vers version.Number) (hash string, current bool, err error) {
 	versions, err := clientGUIArchives(client)
 	if err != nil {
 		return "", false, errors.Annotate(err, "cannot retrieve GUI versions from the controller")
@@ -350,17 +350,17 @@ func (f deleteOnCloseFile) Close() error {
 }
 
 // clientGUIArchives is defined for testing purposes.
-var clientGUIArchives = func(client *api.Client) ([]params.GUIArchiveVersion, error) {
+var clientGUIArchives = func(client *controller.Client) ([]params.GUIArchiveVersion, error) {
 	return client.GUIArchives()
 }
 
 // clientSelectGUIVersion is defined for testing purposes.
-var clientSelectGUIVersion = func(client *api.Client, vers version.Number) error {
+var clientSelectGUIVersion = func(client *controller.Client, vers version.Number) error {
 	return client.SelectGUIVersion(vers)
 }
 
 // clientUploadGUIArchive is defined for testing purposes.
-var clientUploadGUIArchive = func(client *api.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
+var clientUploadGUIArchive = func(client *controller.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
 	return client.UploadGUIArchive(r, hash, size, vers)
 }
 
