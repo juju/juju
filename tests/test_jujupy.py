@@ -5166,7 +5166,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=given_output) as mock:
             output = client.ssh_keys()
         self.assertEqual(output, given_output)
-        mock.assert_called_once_with('authorized-keys', 'list')
+        mock.assert_called_once_with('authorized-keys list')
 
     def test_ssh_keys_full(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5175,7 +5175,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=given_output) as mock:
             output = client.ssh_keys(full=True)
         self.assertEqual(output, given_output)
-        mock.assert_called_once_with('authorized-keys', 'list', '--full')
+        mock.assert_called_once_with('authorized-keys list', '--full')
 
     def test_add_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5184,7 +5184,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.add_ssh_key('ak', 'bk')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'add', 'ak', 'bk', merge_stderr=True)
+            'authorized-keys add', 'ak', 'bk', merge_stderr=True)
 
     def test_remove_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5193,7 +5193,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.remove_ssh_key('ak', 'bk')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'delete', 'ak', 'bk', merge_stderr=True)
+            'authorized-keys delete', 'ak', 'bk', merge_stderr=True)
 
     def test_import_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5202,7 +5202,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.import_ssh_key('gh:au', 'lp:bu')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'import', 'gh:au', 'lp:bu', merge_stderr=True)
+            'authorized-keys import', 'gh:au', 'lp:bu', merge_stderr=True)
 
 
 class TestUniquifyLocal(TestCase):

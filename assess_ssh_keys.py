@@ -47,17 +47,18 @@ class SSHKey:
             self.__class__.__name__, self.fingerprint, self.comment)
 
 
-_SSH_KEYS_LEAD = "Keys used in model: "
+_KEYS_LEAD_MODEL = "Keys used in model: "
+_KEYS_LEAD_ADMIN = "Keys for user admin:"
 
 
 def parse_ssh_keys_output(output, expected_model):
     """Parse and validate output from `juju ssh-keys` command."""
-    if not output.startswith(_SSH_KEYS_LEAD):
+    if not output.startswith((_KEYS_LEAD_MODEL, _KEYS_LEAD_ADMIN)):
         raise AssertionError("Invalid ssh-keys output: {!r}".format(output))
     lines = output.splitlines()
-    model = lines[0][len(_SSH_KEYS_LEAD):]
-    if expected_model != model:
-        log.warning("Expected keys for model: {} got: {}".format(
+    model = lines[0].split(_KEYS_LEAD_MODEL, 1)[-1]
+    if model != _KEYS_LEAD_ADMIN and expected_model != model:
+        raise AssertionError("Expected keys for model: {} got: {}".format(
             expected_model, model))
     return [SSHKey.from_fingerprint_line(line) for line in lines[1:]]
 
@@ -116,6 +117,11 @@ def assert_has_key_matching_comment(client, comment_pattern):
                 comment_pattern, "\n".join(map(str, keys))))
 
 
+def _assess_remove_internal_key(client, name):
+    pattern = r'^cannot remove key id "{0}": may not delete internal key: {0}$'
+    expect_juju_failure(pattern.format(name), client.remove_ssh_key, name)
+
+
 def assess_ssh_keys(client):
     initial_keys_output = client.ssh_keys()
     initial_keys = parse_ssh_keys_output(
@@ -145,16 +151,17 @@ def assess_ssh_keys(client):
     assert_has_key_matching_comment(client, r'.*lp:go-bot')
 
     log.info("Testing expected error when removing a non-existent key")
-    pattern = (
-        r'^cannot remove key id "no-such-key": invalid ssh key: no-such-key$'
-    )
+    pattern = r'^cannot {0} key id "{1}": invalid ssh key: {1}$'.format(
+        "delete" if client.is_juju1x() else "remove", "no-such-key")
     expect_juju_failure(pattern, client.remove_ssh_key, "no-such-key")
 
-    log.info("Testing CURRENTLY KNOWN ERROR with removing the juju-client-key")
-    pattern = r'^cannot remove key id "juju-client-key": .*: juju-client-key$'
-    expect_juju_failure(pattern, client.remove_ssh_key, "juju-client-key")
+    log.info("Testing expected error removing the juju internal keys")
+    if client.is_juju1x():
+        log.info("...skipped on juju version %s", client.version)
+    else:
+        _assess_remove_internal_key(client, "juju-client-key")
+        _assess_remove_internal_key(client, "juju-system-key")
 
-    log.info("TODO test expected error removing the juju-system-key")
     log.info("TODO test behavior when multiple models are involved")
     log.info("TODO test removing keys by both comment and fingerprint")
 

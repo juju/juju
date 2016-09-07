@@ -263,13 +263,22 @@ class FakeEnvironmentState:
         return '\n'.join(errors)
 
     def remove_ssh_key(self, keys_to_remove):
+        errors = []
+        for i in reversed(range(len(keys_to_remove))):
+            key = keys_to_remove[i]
+            if key in ('juju-client-key', 'juju-system-key'):
+                keys_to_remove = keys_to_remove[:i] + keys_to_remove[i+1:]
+                errors.append(
+                    'cannot remove key id "{0}": may not delete internal key:'
+                    ' {0}'.format(key))
         for i in range(len(self.ssh_keys)):
             if self.ssh_keys[i] in keys_to_remove:
                 keys_to_remove.remove(self.ssh_keys[i])
                 del self.ssh_keys[i]
-        return '\n'.join(
+        errors.extend(
             'cannot remove key id "{0}": invalid ssh key: {0}'.format(key)
             for key in keys_to_remove)
+        return '\n'.join(errors)
 
     def import_ssh_key(self, names_to_add):
         for name in names_to_add:

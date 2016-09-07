@@ -2577,21 +2577,21 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         args = []
         if full:
             args.append('--full')
-        return self.get_juju_output('authorized-keys', 'list', *args)
+        return self.get_juju_output('authorized-keys list', *args)
 
     def add_ssh_key(self, *keys):
         """Add one or more ssh keys to the current model."""
-        return self.get_juju_output('authorized-keys', 'add', *keys,
+        return self.get_juju_output('authorized-keys add', *keys,
                                     merge_stderr=True)
 
     def remove_ssh_key(self, *keys):
         """Remove one or more ssh keys from the current model."""
-        return self.get_juju_output('authorized-keys', 'delete', *keys,
+        return self.get_juju_output('authorized-keys delete', *keys,
                                     merge_stderr=True)
 
     def import_ssh_key(self, *keys):
         """Import ssh keys from one or more identities to the current model."""
-        return self.get_juju_output('authorized-keys', 'import', *keys,
+        return self.get_juju_output('authorized-keys import', *keys,
                                     merge_stderr=True)
 
 
