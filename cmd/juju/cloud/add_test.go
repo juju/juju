@@ -47,6 +47,14 @@ clouds:
 	sourceFile := filepath.Join(sourceDir, "someclouds.yaml")
 	source := `
 clouds:
+  aws:
+    type: ec2
+    auth-types: [ access-key ]
+    regions:
+      us-east-1:
+        endpoint: https://us-east-1.aws.amazon.com/v1.2/
+  localhost:
+    type: lxd
   homestack:
     type: openstack
     auth-types: [userpass, access-key]
@@ -82,7 +90,7 @@ func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 func (s *addSuite) TestAddExisting(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "homestack", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `cloud called \"homestack\" already exists; use --replace to replace this existing cloud`)
+	c.Assert(err, gc.ErrorMatches, `\"homestack\" already exists; use --replace to replace this existing cloud`)
 }
 
 func (s *addSuite) TestAddExistingReplace(c *gc.C) {
@@ -101,6 +109,41 @@ clouds:
         endpoint: http://london/1.0
       new-york:
         endpoint: http://newyork/1.0
+`[1:])
+}
+
+func (s *addSuite) TestAddExistingPublic(c *gc.C) {
+	sourceFile := s.createTestCloudData(c)
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "aws", sourceFile)
+	c.Assert(err, gc.ErrorMatches, `\"aws\" is the name of a public cloud; use --replace to use your cloud definition instead`)
+}
+
+func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
+	sourceFile := s.createTestCloudData(c)
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "localhost", sourceFile)
+	c.Assert(err, gc.ErrorMatches, `\"localhost\" is the name of a built-in cloud; use --replace to use your cloud definition instead`)
+}
+
+func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
+	sourceFile := s.createTestCloudData(c)
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "aws", sourceFile, "--replace")
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  aws:
+    type: ec2
+    auth-types: [access-key]
+    regions:
+      us-east-1:
+        endpoint: https://us-east-1.aws.amazon.com/v1.2/
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
 `[1:])
 }
 
