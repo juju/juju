@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
@@ -21,6 +22,7 @@ type MigrateSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeMigrateAPI
 	store *jujuclienttesting.MemStore
+	mac   *macaroon.Macaroon
 }
 
 var _ = gc.Suite(&MigrateSuite{})
@@ -56,12 +58,17 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the account for the target controller.
+	s.mac, err = macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	macJSON, err := s.mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
 		User: "target@local",
 		// It's unlikely that both will actually be set for a single
 		// account but it's fine for the tests.
 		Password: "secret",
-		Macaroon: "macaroon",
+		Macaroon: string(macJSON),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -103,7 +110,7 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetCACert:         "cert",
 		TargetUser:           "target@local",
 		TargetPassword:       "secret",
-		TargetMacaroon:       "macaroon",
+		TargetMacaroons:      []macaroon.Slice{{s.mac}},
 	})
 }
 
