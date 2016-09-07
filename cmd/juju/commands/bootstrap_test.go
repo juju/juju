@@ -120,8 +120,30 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 }
 
+// bootstrapCommandWrapper wraps the bootstrap command. The wrapped command has
+// the ability to disable fetching GUI information from simplestreams, so that
+// it is possible to test the bootstrap process without connecting to the
+// network. This ability can be turned on by setting disableGUI to true.
+type bootstrapCommandWrapper struct {
+	bootstrapCommand
+	disableGUI bool
+}
+
+func (c *bootstrapCommandWrapper) Run(ctx *cmd.Context) error {
+	if c.disableGUI {
+		c.bootstrapCommand.noGUI = true
+	}
+	return c.bootstrapCommand.Run(ctx)
+}
+
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
-	c := &bootstrapCommand{}
+	return s.newBootstrapCommandWrapper(true)
+}
+
+func (s *BootstrapSuite) newBootstrapCommandWrapper(disableGUI bool) cmd.Command {
+	c := &bootstrapCommandWrapper{
+		disableGUI: disableGUI,
+	}
 	c.SetClientStore(s.store)
 	return modelcmd.Wrap(c)
 }
@@ -526,7 +548,7 @@ func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
 	})
-	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	coretesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "devcontroller", "dummy")
 	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
 }
 
@@ -539,7 +561,7 @@ func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
 		return &bootstrap
 	})
 
-	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	coretesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "devcontroller", "dummy")
 	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
 }
 
@@ -550,7 +572,7 @@ func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
 	})
-	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--no-gui")
+	coretesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "devcontroller", "dummy", "--no-gui")
 	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "")
 }
 
