@@ -45,6 +45,10 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
+	s.AddCleanup(func(*gc.C) {
+		s.handler.Close()
+		s.srv.Close()
+	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
@@ -53,12 +57,6 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 			BakeryClient: bakeryClient,
 		})
 	})
-}
-
-func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
-	s.srv.Close()
-	s.RepoSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
