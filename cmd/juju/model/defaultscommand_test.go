@@ -84,9 +84,8 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}
 }
 
-func (s *DefaultsCommandSuite) TestInitResetUnknownValueLogs(c *gc.C) {
-	cmd := model.NewDefaultsCommandForTest(s.fake)
-	err := testing.InitCommand(cmd, []string{"--reset", "attr", "weird"})
+func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
+	_, err := s.run(c, "--reset", "attr", "weird")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
@@ -111,9 +110,8 @@ func (s *DefaultsCommandSuite) TestResetBlockedError(c *gc.C) {
 	c.Check(c.GetTestLog(), jc.Contains, "TestBlockedError")
 }
 
-func (s *DefaultsCommandSuite) TestInitSetUnknownValueLogs(c *gc.C) {
-	cmd := model.NewDefaultsCommandForTest(s.fake)
-	err := testing.InitCommand(cmd, []string{"weird=foo"})
+func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *gc.C) {
+	_, err := s.run(c, "weird=foo")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)

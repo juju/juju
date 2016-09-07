@@ -67,6 +67,9 @@ type defaultsCommandAPI interface {
 	// Close closes the api connection.
 	Close() error
 
+	// ModelConfig returns all known configuration attributes and values.
+	ModelGet() (map[string]interface{}, error)
+
 	// ModelDefaults returns the default config values used when creating a new model.
 	ModelDefaults() (config.ModelDefaultAttributes, error)
 
@@ -115,14 +118,6 @@ func (c *defaultsCommand) Init(args []string) error {
 		}
 		c.keys = args
 
-		for _, key := range c.keys {
-			// check if the key exists in the known config
-			// and warn the user if the key is not defined
-			if _, exists := config.ConfigDefaults()[key]; !exists {
-				logger.Warningf(
-					"key %q is not defined in the known model configuration: possible misspelling", key)
-			}
-		}
 		c.action = c.resetDefaults
 		return nil
 	}
@@ -139,15 +134,6 @@ func (c *defaultsCommand) Init(args []string) error {
 				return errors.Errorf(`%q must be set via "upgrade-juju"`, config.AgentVersionKey)
 			}
 			c.values[k] = v
-		}
-
-		for key := range c.values {
-			// check if the key exists in the known config
-			// and warn the user if the key is not defined
-			if _, exists := config.ConfigDefaults()[key]; !exists {
-				logger.Warningf(
-					"key %q is not defined in the known model configuration: possible misspelling", key)
-			}
 		}
 
 		c.action = c.setDefaults
@@ -215,17 +201,49 @@ func (c *defaultsCommand) getDefaults(ctx *cmd.Context) error {
 
 func (c *defaultsCommand) setDefaults(ctx *cmd.Context) error {
 	// ctx unused in this method.
-
+	if err := c.verifyKnownKeys(); err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(wallyworld) - call with cloud and region when that bit is done
 	return block.ProcessBlockedError(c.api.SetModelDefaults("", "", c.values), block.BlockChange)
 }
 
 func (c *defaultsCommand) resetDefaults(ctx *cmd.Context) error {
 	// ctx unused in this method.
-
+	if err := c.verifyKnownKeys(); err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(wallyworld) - call with cloud and region when that bit is done
 	return block.ProcessBlockedError(c.api.UnsetModelDefaults("", "", c.keys...), block.BlockChange)
 
+}
+
+// verifyKnownKeys is a helper to validate the keys we are operating with
+// against the set of known attributes from the model.
+func (c *defaultsCommand) verifyKnownKeys() error {
+	known, err := c.api.ModelGet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	keys := func() []string {
+		if c.keys != nil {
+			return c.keys
+		}
+		keys := []string{}
+		for k, _ := range c.values {
+			keys = append(keys, k)
+		}
+		return keys
+	}
+	for _, key := range keys() {
+		// check if the key exists in the known config
+		// and warn the user if the key is not defined
+		if _, exists := known[key]; !exists {
+			logger.Warningf(
+				"key %q is not defined in the known model configuration: possible misspelling", key)
+		}
+	}
+	return nil
 }
 
 // formatConfigTabular writes a tabular summary of default config information.
