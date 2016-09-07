@@ -859,6 +859,8 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
+    disable_command = 'disable-command'
+    enable_command = 'enable-command'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
@@ -2058,6 +2060,9 @@ class EnvJujuClient:
 
 
 class EnvJujuClient2B9(EnvJujuClient):
+
+    disable_command = 'block'
+    enable_command = 'unblock'
 
     def update_user_name(self):
         return
