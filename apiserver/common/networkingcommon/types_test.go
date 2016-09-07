@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -76,12 +77,6 @@ var exampleObservedInterfaces = []net.Interface{{
 	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
 	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 }, {
-	Index:        3,
-	MTU:          1500,
-	Name:         "eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
 	Index:        10,
 	MTU:          1500,
 	Name:         "br-eth0",
@@ -91,6 +86,12 @@ var exampleObservedInterfaces = []net.Interface{{
 	Index:        11,
 	MTU:          1500,
 	Name:         "br-eth1",
+	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
+	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
+}, {
+	Index:        3,
+	MTU:          1500,
+	Name:         "eth1",
 	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
 	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 }, {
@@ -997,28 +998,28 @@ func (s *TypesSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C
 }
 
 func (s *TypesSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth0
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth1
 	s.stubConfigSource.interfaceAddrs = make(map[string][]net.Addr)
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth0", "bridge")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge", "") // no ports
 
 	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   10,
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		DeviceIndex:   11,
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		MTU:           1500,
-		InterfaceName: "br-eth0",
+		InterfaceName: "br-eth1",
 		InterfaceType: "bridge",
 		ConfigType:    "manual",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "SysClassNetPath", "Interfaces", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "br-eth0")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "br-eth1")
 }
 
 func (s *TypesSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[0:1] // only lo
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "lo", "")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "lo", "", "")
 
 	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, jc.ErrorIsNil)
@@ -1050,7 +1051,7 @@ func (s *TypesSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
 			fakeAddr("10.100.19.123/24"),
 		},
 	}
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan", "")
 
 	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, jc.ErrorIsNil)
@@ -1078,7 +1079,7 @@ func (s *TypesSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
 
 func (s *TypesSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "", "")
 
 	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, jc.ErrorIsNil)
@@ -1095,9 +1096,88 @@ func (s *TypesSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
 	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
 }
 
+func (s *TypesSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:5] // eth0, br-eth0, br-eth1, eth1
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth0", "bridge", "eth0,bar")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge", "eth1,foo")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:         2,
+		MACAddress:          "aa:bb:cc:dd:ee:f0",
+		MTU:                 1500,
+		InterfaceName:       "eth0",
+		InterfaceType:       "ethernet",
+		ParentInterfaceName: "br-eth0",
+		ConfigType:          "manual",
+	}, {
+		DeviceIndex:   10,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.100",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   10,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.123",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   10,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}, {
+		DeviceIndex:   11,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.105",
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		MTU:           1500,
+		InterfaceName: "br-eth1",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   11,
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		MTU:           1500,
+		InterfaceName: "br-eth1",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}, {
+		DeviceIndex:         3,
+		MACAddress:          "aa:bb:cc:dd:ee:f1",
+		MTU:                 1500,
+		InterfaceName:       "eth1",
+		InterfaceType:       "ethernet",
+		ParentInterfaceName: "br-eth1",
+		ConfigType:          "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c,
+		"SysClassNetPath", "Interfaces",
+		"InterfaceAddresses", // eth0
+		"InterfaceAddresses", // br-eth0
+		"InterfaceAddresses", // br-eth1
+		"InterfaceAddresses", // eth1
+	)
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "br-eth0")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "eth1")
+}
+
 func (s *TypesSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "", "")
 	// Simluate running on Windows, where net.InterfaceAddrs() returns
 	// non-CIDR-formatted addresses.
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
@@ -1122,7 +1202,7 @@ func (s *TypesSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C)
 
 func (s *TypesSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "", "")
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
 		"eth0": []net.Addr{fakeAddr("")},
 	}
@@ -1144,7 +1224,7 @@ func (s *TypesSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 
 func (s *TypesSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "", "")
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
 		"eth0": []net.Addr{fakeAddr("invalid")},
 	}
@@ -1165,9 +1245,11 @@ type stubNetworkConfigSource struct {
 	interfaceAddrs      map[string][]net.Addr
 }
 
-// makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
-// and a uevent file there with the given devtype set.
-func (s *stubNetworkConfigSource) makeSysClassNetInterfacePath(c *gc.C, interfaceName, devType string) {
+// makeSysClassNetInterfacePath creates a subdir for the given interfaceName, a
+// uevent file there with the given devtype set. When devType == "bridge",
+// bridgePorts can be a comma-delimited list of port names to also populate in
+// the fake SYSFS location, so network.GetBridgePorts() can use it.
+func (s *stubNetworkConfigSource) makeSysClassNetInterfacePath(c *gc.C, interfaceName, devType, bridgePorts string) {
 	interfacePath := filepath.Join(s.fakeSysClassNetPath, interfaceName)
 	err := os.Mkdir(interfacePath, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1188,6 +1270,19 @@ DEVTYPE=%s
 	ueventPath := filepath.Join(interfacePath, "uevent")
 	err = ioutil.WriteFile(ueventPath, []byte(contents), 0644)
 	c.Assert(err, jc.ErrorIsNil)
+
+	if devType == "bridge" && bridgePorts != "" {
+		ports := strings.Split(bridgePorts, ",")
+		brifPath := filepath.Join(interfacePath, "brif")
+		err = os.Mkdir(brifPath, 0755)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, portName := range ports {
+			portPath := filepath.Join(brifPath, portName)
+			err = ioutil.WriteFile(portPath, []byte("#empty"), 0644)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
 }
 
 // SysClassNetPath implements NetworkConfigSource.

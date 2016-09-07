@@ -429,10 +429,27 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		return nil, errors.Annotate(err, "cannot get network interfaces")
 	}
 
-	var observedConfig []params.NetworkConfig
+	var namesOrder []string
+	nameToConfigs := make(map[string][]params.NetworkConfig)
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
 		nicConfig := interfaceToNetworkConfig(nic, nicType)
+
+		maybeSetParentForBridgePorts(nicType, nic.Name, sysClassNetPath, nameToConfigs)
+
+		seenSoFar := false
+		if existing, ok := nameToConfigs[nic.Name]; ok {
+			nicConfig.ParentInterfaceName = existing[0].ParentInterfaceName
+			// If only ParentInterfaceName was set in a previous iteration (e.g.
+			// if the bridge appeared before the port), treat the interface as
+			// not yet seen.
+			seenSoFar = existing[0].InterfaceName != ""
+		}
+
+		if !seenSoFar {
+			nameToConfigs[nic.Name] = []params.NetworkConfig(nil)
+			namesOrder = append(namesOrder, nic.Name)
+		}
 
 		addrs, err := source.InterfaceAddresses(nic.Name)
 		if err != nil {
@@ -440,8 +457,8 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		}
 
 		if len(addrs) == 0 {
-			observedConfig = append(observedConfig, nicConfig)
 			logger.Infof("no addresses observed on interface %q", nic.Name)
+			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfig)
 			continue
 		}
 
@@ -451,13 +468,21 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 				return nil, errors.Trace(err)
 			}
 
-			nicConfig.Address = addressConfig.Address
-			nicConfig.CIDR = addressConfig.CIDR
-			nicConfig.ConfigType = addressConfig.ConfigType
-			observedConfig = append(observedConfig, nicConfig)
+			// Need to copy nicConfig so only the fields relevant for the
+			// current address are updated.
+			nicConfigCopy := nicConfig
+			nicConfigCopy.Address = addressConfig.Address
+			nicConfigCopy.CIDR = addressConfig.CIDR
+			nicConfigCopy.ConfigType = addressConfig.ConfigType
+			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfigCopy)
 		}
 	}
 
+	// Return all interfaces configs in input order.
+	var observedConfig []params.NetworkConfig
+	for _, name := range namesOrder {
+		observedConfig = append(observedConfig, nameToConfigs[name]...)
+	}
 	logger.Tracef("observed network config: %+v", observedConfig)
 	return observedConfig, nil
 }
@@ -485,6 +510,26 @@ func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) 
 		InterfaceType: string(nicType),
 		NoAutoStart:   !isUp,
 		Disabled:      !isUp,
+	}
+}
+
+func maybeSetParentForBridgePorts(nicType network.InterfaceType, nicName, sysClassNetPath string, nameToConfigs map[string][]params.NetworkConfig) {
+	// For bridges, we can discover the ports and pre-populate
+	// ParentInterfaceName for them.
+	if nicType != network.BridgeInterface {
+		return
+	}
+
+	bridgeName := nicName
+	ports := network.GetBridgePorts(sysClassNetPath, bridgeName)
+	for _, portName := range ports {
+		portConfigs, ok := nameToConfigs[portName]
+		if ok {
+			portConfigs[0].ParentInterfaceName = bridgeName
+		} else {
+			portConfigs = []params.NetworkConfig{{ParentInterfaceName: bridgeName}}
+		}
+		nameToConfigs[portName] = portConfigs
 	}
 }
 
