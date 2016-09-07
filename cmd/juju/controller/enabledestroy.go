@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller
@@ -26,25 +26,25 @@ type removeBlocksAPI interface {
 	RemoveBlocks() error
 }
 
-var removeBlocksDoc = `
-Any model in the controller that has disabled-commands will block a controller
+var enableDestroyDoc = `
+Any model in the controller that has disabled commands will block a controller
 from being destroyed.
 
 A controller administrator is able to enable all the commands across all the models
-in a Juju controller.
+in a Juju controller so that the controller can be destoyed if desired.
 
-See Also:
-    juju disable-command
-    juju disabled-commands
-    juju enable-command
+See also:
+    disable-command
+    disabled-commands
+    enable-command
 `
 
 // Info implements Command.Info
 func (c *enableDestroyController) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "enable-destroy-controller",
-		Purpose: "Enable all commands on all models in the controller.",
-		Doc:     removeBlocksDoc,
+		Purpose: "Enable destroy-controller by removing disabled commands in the controller.",
+		Doc:     enableDestroyDoc,
 	}
 }
 

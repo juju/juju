@@ -239,7 +239,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 
 const destroyControllerBlockedMsg = `there are models with disabled commands preventing controller destruction
 
-To enable all commands in the controller, please run:
+To enable controller destruction, please run:
 
     juju enable-destroy-controller
 

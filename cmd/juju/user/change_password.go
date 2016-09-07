@@ -31,7 +31,8 @@ Examples:
     juju change-user-password
     juju change-user-password bob
 
-See also: add-user
+See also:
+    add-user
 
 `
 

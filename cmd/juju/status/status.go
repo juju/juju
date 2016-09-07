@@ -78,11 +78,11 @@ Examples:
     juju show-status mysql
     juju show-status nova-*
 
-See Also:
-    juju show-model
-    juju show-status-log
-    juju machines
-    juju storage
+See also:
+    machines
+    show-model
+    show-status-log
+    storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
