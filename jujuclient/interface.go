@@ -39,6 +39,16 @@ type ControllerDetails struct {
 	// While this isn't strictly needed to connect to a controller, it is used
 	// in formatting show-controller output where this struct is also used.
 	AgentVersion string `yaml:"agent-version,omitempty"`
+
+	// ModelCount is the number of models to which a user has access.
+	// It is cached here so under normal usage list-controllers
+	// does not need to hit the server.
+	ModelCount *int `yaml:"model-count,omitempty"`
+
+	// MachineCount is the number of machines in all models to
+	// which a user has access. It is cached here so under normal
+	// usage list-controllers does not need to hit the server.
+	MachineCount *int `yaml:"machine-count,omitempty"`
 }
 
 // ModelDetails holds details of a model.

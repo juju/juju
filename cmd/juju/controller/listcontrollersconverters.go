@@ -32,6 +32,8 @@ type ControllerItem struct {
 	Cloud          string   `yaml:"cloud" json:"cloud"`
 	CloudRegion    string   `yaml:"region,omitempty" json:"region,omitempty"`
 	AgentVersion   string   `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
+	ModelCount     *int     `yaml:"model-count,omitempty" json:"model-count,omitempty"`
+	MachineCount   *int     `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -98,6 +100,8 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			CACert:         details.CACert,
 			Cloud:          details.Cloud,
 			CloudRegion:    details.CloudRegion,
+			ModelCount:     details.ModelCount,
+			MachineCount:   details.MachineCount,
 			AgentVersion:   details.AgentVersion,
 		}
 	}

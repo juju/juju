@@ -15,7 +15,7 @@ import (
 
 // NewListControllersCommandForTest returns a listControllersCommand with the clientstore provided
 // as specified.
-func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api api.Connection) *listControllersCommand {
+func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api func(string) ControllerAccessAPI) *listControllersCommand {
 	return &listControllersCommand{
 		store: testStore,
 		api:   api,

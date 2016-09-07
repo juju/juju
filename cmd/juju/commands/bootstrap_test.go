@@ -426,6 +426,20 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(modelName, gc.Equals, "admin@local/default")
 }
 
+func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	details, err := s.store.ControllerByName(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*details.ModelCount, gc.Equals, 2)
+	c.Assert(*details.MachineCount, gc.Equals, 1)
+	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
+}
+
 func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 

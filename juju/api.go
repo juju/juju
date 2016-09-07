@@ -113,7 +113,12 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	if v, ok := st.ServerVersion(); ok {
 		agentVersion = v.String()
 	}
-	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, agentVersion, hostPorts, addrConnectedTo)
+	params := UpdateControllerParams{
+		AgentVersion:     agentVersion,
+		AddrConnectedTo:  []network.HostPort{addrConnectedTo},
+		CurrentHostPorts: hostPorts,
+	}
+	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, params)
 	if err != nil {
 		logger.Errorf("cannot cache API addresses: %v", err)
 	}
@@ -313,34 +318,48 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
+// UpdateControllerParams holds values used to update a controller details
+// after bootstrap or a login operation.
+type UpdateControllerParams struct {
+	// AgentVersion is the version of the controller agent.
+	AgentVersion string
+
+	// CurrentHostPorts are the available api addresses.
+	CurrentHostPorts [][]network.HostPort
+
+	// AddrConnectedTo are the previously known api addresses.
+	AddrConnectedTo []network.HostPort
+
+	// ModelCount (when set) is the number of models visible to the user.
+	ModelCount *int
+
+	// MachineCount (when set) is the total number of machines in the models.
+	MachineCount *int
+}
+
 // UpdateControllerDetailsFromLogin writes any new api addresses and other relevant details
 // to the client controller file.
 // Controller may be specified by a UUID or name, and must already exist.
 func UpdateControllerDetailsFromLogin(
-	store jujuclient.ControllerStore, controllerName, agentVersion string,
-	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+	store jujuclient.ControllerStore, controllerName string,
+	params UpdateControllerParams,
 ) error {
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return updateControllerDetailsFromLogin(
-		store, controllerName, controllerDetails,
-		agentVersion,
-		currentHostPorts, addrConnectedTo...,
-	)
+	return updateControllerDetailsFromLogin(store, controllerName, controllerDetails, params)
 }
 
 func updateControllerDetailsFromLogin(
 	store jujuclient.ControllerStore,
 	controllerName string, controllerDetails *jujuclient.ControllerDetails,
-	agentVersion string,
-	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+	params UpdateControllerParams,
 ) error {
 	// Get the new endpoint addresses.
-	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
-	otherDataChanged := agentVersion != controllerDetails.AgentVersion
-	if !addrsChanged && !otherDataChanged {
+	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, params.CurrentHostPorts, params.AddrConnectedTo...)
+	agentChanged := params.AgentVersion != controllerDetails.AgentVersion
+	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil {
 		return nil
 	}
 
@@ -349,8 +368,14 @@ func updateControllerDetailsFromLogin(
 		controllerDetails.APIEndpoints = addrs
 		controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
 	}
-	if otherDataChanged {
-		controllerDetails.AgentVersion = agentVersion
+	if agentChanged {
+		controllerDetails.AgentVersion = params.AgentVersion
+	}
+	if params.ModelCount != nil {
+		controllerDetails.ModelCount = params.ModelCount
+	}
+	if params.MachineCount != nil {
+		controllerDetails.MachineCount = params.MachineCount
 	}
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)

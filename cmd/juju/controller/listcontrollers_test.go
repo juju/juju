@@ -6,14 +6,12 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -21,13 +19,14 @@ import (
 
 type ListControllersSuite struct {
 	baseControllerSuite
+	api func(string) controller.ControllerAccessAPI
 }
 
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  VERSION
+CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
 
 `[1:]
 
@@ -37,10 +36,10 @@ CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  VERSION
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER           MODEL     USER         ACCESS      CLOUD/REGION        VERSION
-aws-test             admin     -            -           aws/us-east-1       2.0.1+
-mallards*            my-model  admin@local  superuser+  mallards/mallards1  (unknown)+
-mark-test-prodstack  -         admin@local  (unknown)+  prodstack           (unknown)+
+CONTROLLER           MODEL     USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
+aws-test             admin     -            -           aws/us-east-1       2+      5+        2.0.1+      
+mallards*            my-model  admin@local  superuser+  mallards/mallards1  -       -         (unknown)+  
+mark-test-prodstack  -         admin@local  (unknown)+  prodstack           -       -         (unknown)+  
 
 + these are the last known values, run with --refresh to see the latest information.
 
@@ -51,32 +50,28 @@ mark-test-prodstack  -         admin@local  (unknown)+  prodstack           (unk
 	s.assertListControllers(c)
 }
 
-type mockConnection struct {
-	mu sync.Mutex
-	api.Connection
-	closed int
-}
-
-func (c *mockConnection) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.closed++
-	return nil
-}
-
-func (c *mockConnection) ClosedClount() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.closed
-}
-
 func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 	s.createTestClientStore(c)
-	refreshCloser := &mockConnection{}
-	_, err := testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, refreshCloser), "--refresh")
-	c.Assert(err, jc.ErrorIsNil)
-	// 3 controllers, so 3 calls to api.
-	c.Assert(refreshCloser.ClosedClount(), gc.Equals, 3)
+	s.api = func(controllerNamee string) controller.ControllerAccessAPI {
+		fakeController := &fakeController{
+			controllerName: controllerNamee,
+			modelNames: map[string]string{
+				"abc": "admin",
+				"def": "my-model",
+				"ghi": "admin",
+			},
+			store: s.store,
+		}
+		return fakeController
+	}
+	s.expectedOutput = `
+CONTROLLER           MODEL     USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
+aws-test             admin     admin@local  (unknown)  aws/us-east-1       1       2         2.0.1      
+mallards*            my-model  admin@local  superuser  mallards/mallards1  2       4         (unknown)  
+mark-test-prodstack  -         admin@local  (unknown)  prodstack           0       0         (unknown)  
+
+`[1:]
+	s.assertListControllers(c, "--refresh")
 }
 
 func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
@@ -92,6 +87,8 @@ controllers:
     cloud: aws
     region: us-east-1
     agent-version: 2.0.1
+    model-count: 2
+    machine-count: 5
   mallards:
     current-model: my-model
     user: admin@local
@@ -116,6 +113,10 @@ current-controller: mallards
 	s.assertListControllers(c, "--format", "yaml")
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 	s.expectedOutput = ""
 	s.createTestClientStore(c)
@@ -135,6 +136,8 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				Cloud:          "aws",
 				CloudRegion:    "us-east-1",
 				AgentVersion:   "2.0.1",
+				ModelCount:     intPtr(2),
+				MachineCount:   intPtr(5),
 			},
 			"mallards": {
 				ControllerUUID: "this-is-another-uuid",
@@ -189,7 +192,7 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, nil), args...)
+	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
