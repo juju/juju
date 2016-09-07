@@ -44,7 +44,7 @@ func (s *SetDefaultsSuite) TestInitKeyArgs(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		setCmd := model.NewSetCommandForTest(s.fake)
+		setCmd := model.NewSetDefaultsCommandForTest(s.fake)
 		err := testing.InitCommand(setCmd, test.args)
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
