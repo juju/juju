@@ -4,8 +4,11 @@
 package controller
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -210,7 +213,7 @@ type MigrationSpec struct {
 	TargetCACert         string
 	TargetUser           string
 	TargetPassword       string
-	TargetMacaroon       string
+	TargetMacaroons      []macaroon.Slice
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -231,7 +234,7 @@ func (s *MigrationSpec) Validate() error {
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
 	}
-	if s.TargetPassword == "" && s.TargetMacaroon == "" {
+	if s.TargetPassword == "" && len(s.TargetMacaroons) == 0 {
 		return errors.NotValidf("missing authentication secrets")
 	}
 	return nil
@@ -247,6 +250,11 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
+	macsJSON, err := json.Marshal(spec.TargetMacaroons)
+	if err != nil {
+		return "", errors.Annotate(err, "marshalling macaroons")
+	}
+
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
@@ -256,7 +264,7 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
-				Macaroon:      spec.TargetMacaroon,
+				Macaroons:     string(macsJSON),
 			},
 			ExternalControl: spec.ExternalControl,
 		}},
