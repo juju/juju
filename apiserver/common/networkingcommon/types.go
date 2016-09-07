@@ -586,6 +586,132 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 // MergeProviderAndObservedNetworkConfigs returns the effective, sorted, network
 // configs after merging providerConfig with observedConfig.
 func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) ([]params.NetworkConfig, error) {
+	providerConfigsByNameThenAddress := mapNetworkConfigsByNameThenAddress(providerConfigs, "provider")
+	observedConfigsByNameThenAddress := mapNetworkConfigsByNameThenAddress(observedConfigs, "observed")
+
+	var results []params.NetworkConfig
+	for name, observedAddressConfigs := range observedConfigsByNameThenAddress {
+
+		providerAddressConfigs, known := providerConfigsByNameThenAddress[name]
+		if !known {
+			logger.Debugf("interface %q has no provider config (using observed: %+v)", name, observedAddressConfigs)
+			for _, observed := range observedAddressConfigs {
+				results = append(results, observed)
+			}
+			continue
+		}
+
+		logger.Debugf(
+			"merging interface %q observed (%+v) and provider (%+v) configs",
+			name, observedAddressConfigs, providerAddressConfigs,
+		)
+
+		for observedAddress, observedConfig := range observedAddressConfigs {
+			parentName := observedConfig.ParentInterfaceName
+			providerConfig, known := providerAddressConfigs[observedAddress]
+			if !known && observedAddress == "" && parentName != "" {
+				// This is an interface that got bridged and the parent bridge
+				// took its address(es).
+				logger.Debugf(
+					"interface %q has no observed address and parent interface %s",
+					name, parentName,
+				)
+				for parentAddress, _ := range observedConfigsByNameThenAddress[parentName] {
+					providerConfig, known = providerAddressConfigs[parentAddress]
+					if known {
+						logger.Debugf(
+							"interface %q's parent %q has observed address %q and matching provider config: %+v",
+							name, parentName, parentAddress, providerConfig,
+						)
+						break
+					}
+
+					logger.Debugf(
+						"interface %q's parent %q has observed address %q and no matching provider config",
+						name, parentName, parentAddress,
+					)
+				}
+			}
+
+			mergedConfig := mergeSingleObservedWithProviderConfig(observedConfig, providerConfig)
+			results = append(results, mergedConfig)
+
+			logger.Debugf(
+				"interface %q has observed address %q, observed config (%+v), matching provider config (%+v), and merged config: %+v",
+				name, observedAddress, observedConfig, providerConfig, mergedConfig,
+			)
+		}
+	}
+
+	return results, nil
+}
+
+// mapNetworkConfigsByNameThenAddress translates input to a nested map, first by
+// name, then by address.
+func mapNetworkConfigsByNameThenAddress(input []params.NetworkConfig, configName string) map[string]map[string]params.NetworkConfig {
+	configsByNameThenAddress := make(map[string]map[string]params.NetworkConfig, len(input))
+	for _, config := range input {
+		name, nicType := config.InterfaceName, config.InterfaceType
+
+		address := ""
+		switch netAddress := network.NewAddress(config.Address); netAddress.Type {
+		case network.IPv6Address:
+			// TODO(dimitern): Handle IPv6 addresses here when we can.
+			logger.Debugf(
+				"ignoring IPv6 %s address %q on %s interface %q - not yet supported",
+				configName, netAddress.Value, nicType, name,
+			)
+		default:
+			address = netAddress.Value
+		}
+
+		logger.Debugf("%s interface %q has %s address %q", nicType, name, configName, address)
+
+		nicConfig, nicKnown := configsByNameThenAddress[name]
+		if !nicKnown {
+			nicConfig = make(map[string]params.NetworkConfig)
+		}
+
+		// Already seen this interface, and since we don't expect duplicates
+		// in input, log them if they occur to simplify debugging.
+		if _, addressKnown := nicConfig[address]; addressKnown {
+			logger.Warningf("duplicate %s address %q on %s interface %q", configName, address, nicType, name)
+		}
+
+		// Add a new address for already known interface.
+		nicConfig[address] = config
+		configsByNameThenAddress[name] = nicConfig
+	}
+
+	return configsByNameThenAddress
+}
+
+func mergeSingleObservedWithProviderConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
+	// Prefer observed config values over provider config values, except in
+	// a few cases there the latter is a better source.
+	mergedConfig := observedConfig
+
+	if observedConfig.InterfaceType == "" {
+		mergedConfig.InterfaceType = providerConfig.InterfaceType
+	}
+	if observedConfig.ParentInterfaceName == "" {
+		mergedConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
+	}
+	if observedConfig.VLANTag == 0 {
+		mergedConfig.VLANTag = providerConfig.VLANTag
+	}
+
+	// The following values are only known by the provider.
+	mergedConfig.ProviderId = providerConfig.ProviderId
+	mergedConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
+	mergedConfig.ProviderSpaceId = providerConfig.ProviderSpaceId
+	mergedConfig.ProviderAddressId = providerConfig.ProviderAddressId
+	mergedConfig.ProviderVLANId = providerConfig.ProviderVLANId
+
+	return mergedConfig
+}
+
+func oldMergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) ([]params.NetworkConfig, error) {
 	providerConfigsByName := make(map[string][]params.NetworkConfig)
 	sortedProviderConfigs := SortNetworkConfigsByParents(providerConfigs)
 	for _, config := range sortedProviderConfigs {
