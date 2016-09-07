@@ -402,7 +402,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/register",
 		&registerUserHandler{
 			httpCtxt,
-			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
+			// NOTE(axw) the string we pass in at the moment is
+			// unimportant, as it is not used in the branch. In
+			// the next branch, we won't need to do this.
+			srv.authCtxt.authenticator("").localUserAuth().CreateLocalLoginMacaroon,
 		},
 	)
 	add("/api", mainAPIHandler)
@@ -515,7 +518,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
-			if err := srv.serveConn(conn, modelUUID, apiObserver); err != nil {
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -523,12 +526,12 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	h, err := srv.newAPIHandler(conn, modelUUID)
+	h, err := srv.newAPIHandler(conn, modelUUID, host)
 	if err != nil {
 		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
@@ -546,7 +549,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID, serverHost string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
@@ -561,7 +564,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID, serverHost)
 }
 
 func (srv *Server) mongoPinger() error {
