@@ -166,7 +166,7 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	// account and model.
 	store := jujuclient.NewFileClientStore()
 	err := store.AddController("myctrl", jujuclient.ControllerDetails{
-		ControllerUUID: testing.ModelTag.Id(),
+		ControllerUUID: testing.ControllerTag.Id(),
 		CACert:         "fake",
 	})
 	c.Assert(err, jc.ErrorIsNil)

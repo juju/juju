@@ -89,8 +89,8 @@ func (s *Suite) TestWatch(c *gc.C) {
 }
 
 func (s *Suite) TestMigrationStatus(c *gc.C) {
-	var expectedMacaroon = `
-{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}`[1:]
+	var expectedMacaroons = `
+[[{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}]]`[1:]
 
 	api := s.mustMakeAPI(c)
 	status, err := api.MigrationStatus()
@@ -105,7 +105,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      "secret",
-				Macaroon:      expectedMacaroon,
+				Macaroons:     expectedMacaroons,
 			},
 		},
 		MigrationId:      "id",
@@ -120,6 +120,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.UUID, gc.Equals, "model-uuid")
 	c.Assert(model.Name, gc.Equals, "model-name")
+	c.Assert(model.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
 	c.Assert(model.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
 }
 
@@ -182,7 +183,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 func (s *Suite) TestPrechecks(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	err := api.Prechecks()
-	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
+	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
 func (s *Suite) TestExport(c *gc.C) {
@@ -338,6 +339,10 @@ func (b *stubBackend) ModelName() (string, error) {
 	return "model-name", nil
 }
 
+func (b *stubBackend) ModelOwner() (names.UserTag, error) {
+	return names.NewUserTag("owner"), nil
+}
+
 func (b *stubBackend) AgentVersion() (version.Number, error) {
 	return version.MustParse("1.2.3"), nil
 }
@@ -394,7 +399,7 @@ func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
-		Macaroon:      mac,
+		Macaroons:     []macaroon.Slice{{mac}},
 	}, nil
 }
 
@@ -435,6 +440,6 @@ type failingPrecheckBackend struct {
 	migration.PrecheckBackend
 }
 
-func (b *failingPrecheckBackend) AgentVersion() (version.Number, error) {
-	return version.Number{}, errors.New("boom")
+func (b *failingPrecheckBackend) Model() (migration.PrecheckModel, error) {
+	return nil, errors.New("boom")
 }

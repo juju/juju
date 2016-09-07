@@ -113,6 +113,14 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	return common.ErrPerm
 }
 
+func (s *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, modelTag)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
+}
+
 // ConfigSource describes a type that is able to provide config.
 // Abstracted primarily for testing.
 type ConfigSource interface {
@@ -620,6 +628,17 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, common.ErrPerm
 	}
 
+	canSeeMachines := authorizedOwner
+	if !canSeeMachines {
+		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+	}
+	if canSeeMachines {
+		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
+			return params.ModelInfo{}, err
+		}
+	}
 	return info, nil
 }
 

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -36,6 +37,10 @@ type modelInfoSuite struct {
 	modelmanager *modelmanager.ModelManagerAPI
 }
 
+func pUint64(v uint64) *uint64 {
+	return &v
+}
+
 var _ = gc.Suite(&modelInfoSuite{})
 
 func (s *modelInfoSuite) SetUpTest(c *gc.C) {
@@ -44,7 +49,8 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin@local"),
 	}
 	s.st = &mockState{
-		uuid: coretesting.ModelTag.Id(),
+		modelUUID:      coretesting.ModelTag.Id(),
+		controllerUUID: coretesting.ControllerTag.Id(),
 		cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -87,8 +93,30 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
 			access:      description.ReadAccess,
+		}, {
+			userName:    "mary@local",
+			displayName: "Mary",
+			access:      description.WriteAccess,
 		}},
 	}
+	s.st.machines = []common.Machine{
+		&mockMachine{
+			id:            "1",
+			containerType: "none",
+			life:          state.Alive,
+			hw:            &instance.HardwareCharacteristics{CpuCores: pUint64(1)},
+		},
+		&mockMachine{
+			id:            "2",
+			life:          state.Alive,
+			containerType: "lxc",
+		},
+		&mockMachine{
+			id:   "3",
+			life: state.Dead,
+		},
+	}
+
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,9 +124,9 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
+	var err error
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelmanager = modelmanager
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
@@ -106,7 +134,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
-		ControllerUUID:     "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		OwnerTag:           "user-bob@local",
 		ProviderType:       "someprovider",
 		Cloud:              "some-cloud",
@@ -132,6 +160,17 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			DisplayName:    "Charlotte",
 			LastConnection: &time.Time{},
 			Access:         params.ModelReadAccess,
+		}, {
+			UserName:       "mary@local",
+			DisplayName:    "Mary",
+			LastConnection: &time.Time{},
+			Access:         params.ModelWriteAccess,
+		}},
+		Machines: []params.ModelMachineInfo{{
+			Id:       "1",
+			Hardware: &params.MachineHardware{Cores: pUint64(1)},
+		}, {
+			Id: "2",
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
@@ -143,11 +182,14 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
+		{"AllMachines", nil},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
 		{"Users", nil},
+		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"ModelTag", nil},
@@ -163,7 +205,18 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("bob@local"))
 	info := s.getModelInfo(c)
-	c.Assert(info.Users, gc.HasLen, 3)
+	c.Assert(info.Users, gc.HasLen, 4)
+	c.Assert(info.Machines, gc.HasLen, 2)
+}
+
+func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
+	mary := names.NewUserTag("mary@local")
+	s.authorizer.HasWriteTag = mary
+	s.setAPIUser(c, mary)
+	info := s.getModelInfo(c)
+	c.Assert(info.Users, gc.HasLen, 1)
+	c.Assert(info.Users[0].UserName, gc.Equals, "mary@local")
+	c.Assert(info.Machines, gc.HasLen, 2)
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
@@ -171,6 +224,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte@local")
+	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
 func (s *modelInfoSuite) getModelInfo(c *gc.C) params.ModelInfo {
@@ -239,13 +293,15 @@ type mockState struct {
 	metricsender.MetricsSenderBackend
 	unitRetriever
 
-	uuid            string
+	modelUUID       string
+	controllerUUID  string
 	cloud           cloud.Cloud
 	clouds          map[names.CloudTag]cloud.Cloud
 	model           *mockModel
 	controllerModel *mockModel
 	users           []description.UserAccess
 	cred            cloud.Credential
+	machines        []common.Machine
 }
 
 type fakeModelDescription struct {
@@ -255,12 +311,12 @@ type fakeModelDescription struct {
 }
 
 func (st *mockState) Export() (description.Model, error) {
-	return &fakeModelDescription{UUID: st.uuid}, nil
+	return &fakeModelDescription{UUID: st.modelUUID}, nil
 }
 
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
-	return st.uuid
+	return st.modelUUID
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -302,7 +358,7 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
-	return names.NewControllerTag(st.controllerModel.tag.Id())
+	return names.NewControllerTag(st.controllerUUID)
 }
 
 func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
@@ -317,13 +373,13 @@ func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, reg
 
 func (st *mockState) ControllerUUID() string {
 	st.MethodCall(st, "ControllerUUID")
-	return st.uuid
+	return st.controllerUUID
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{
-		controller.ControllerUUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()
 }
 
@@ -350,6 +406,11 @@ func (st *mockState) ModelTag() names.ModelTag {
 func (st *mockState) AllModels() ([]common.Model, error) {
 	st.MethodCall(st, "AllModels")
 	return []common.Model{st.model}, st.NextErr()
+}
+
+func (st *mockState) AllMachines() ([]common.Machine, error) {
+	st.MethodCall(st, "AllMachines")
+	return st.machines, st.NextErr()
 }
 
 func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
@@ -412,6 +473,30 @@ func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"models": "lots of data",
 	}, st.NextErr()
+}
+
+type mockMachine struct {
+	common.Machine
+	id            string
+	life          state.Life
+	containerType instance.ContainerType
+	hw            *instance.HardwareCharacteristics
+}
+
+func (m *mockMachine) Id() string {
+	return m.id
+}
+
+func (m *mockMachine) Life() state.Life {
+	return m.life
+}
+
+func (m *mockMachine) ContainerType() instance.ContainerType {
+	return m.containerType
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	return m.hw, nil
 }
 
 type mockModel struct {

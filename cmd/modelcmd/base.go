@@ -354,12 +354,6 @@ To log back in, run the following command:
 	}, nil
 }
 
-// NewGetBootstrapConfigFunc returns a function that, given a controller name,
-// returns the bootstrap config for that controller in the given client store.
-func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*config.Config, error) {
-	return bootstrapConfigGetter{store}.getBootstrapConfig
-}
-
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
 func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
@@ -424,8 +418,14 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
 
+	// TODO(wallyworld) - remove after beta18
+	controllerModelUUID := bootstrapConfig.ControllerModelUUID
+	if controllerModelUUID == "" {
+		controllerModelUUID = controllerDetails.ControllerUUID
+	}
+
+	bootstrapConfig.Config[config.UUIDKey] = controllerModelUUID
 	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

@@ -193,5 +193,5 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
 	s.runDestroyCommand(c, "test2", "-y")
-	c.Check(c.GetTestLog(), jc.Contains, "To remove the block")
+	c.Check(c.GetTestLog(), jc.Contains, "To enable the command")
 }

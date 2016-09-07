@@ -148,8 +148,6 @@ func connectFallback(
 //
 //   * returns ErrConnectImpossible if the agent entity is dead or
 //     unauthorized for all known passwords;
-//   * if the agent's config does not specify a model, tries to record the
-//     model we just connected to;
 //   * replaces insecure credentials with freshly (locally) generated ones
 //     (and returns ErrPasswordChanged, expecting to be reinvoked);
 //   * unconditionally resets the remote-state password to its current value
@@ -193,14 +191,6 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 			}
 		}
 	}()
-
-	// Update the agent config if necessary; this should just read the
-	// conn's properties, rather than making api calls, so we don't
-	// need to think about facades yet.
-	if err := maybeSetAgentModelTag(a, conn); err != nil {
-		// apperently it's fine for this to fail
-		logger.Errorf("maybeSetAgentModelTag failed: %v", err)
-	}
 
 	// newConnFacade is patched out in export_test, because exhaustion.
 	// proper config/params struct would be better.
@@ -250,26 +240,6 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		return nil, errors.Annotate(err, "can't reset agent password")
 	}
 	return conn, nil
-}
-
-// maybeSetAgentModelTag tries to update the agent configuration if
-// it's missing a model tag. It doesn't *really* matter if it fails,
-// because we can demonstrably connect without it, so we log any
-// errors encountered and never return any to the client.
-func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) error {
-	if a.CurrentConfig().Model().Id() == "" {
-		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-			modelTag, ok := conn.ModelTag()
-			if !ok {
-				return errors.New("API connection is controller-only (should never happen)")
-			}
-			return setter.Migrate(agent.MigrateParams{
-				Model: modelTag,
-			})
-		})
-		return errors.Annotate(err, "unable to save model uuid")
-	}
-	return nil
 }
 
 // changePassword generates a new random password and records it in

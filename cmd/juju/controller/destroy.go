@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -111,13 +110,8 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	controllerDetails, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -152,7 +146,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
 		ctrStatus, modelsStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
@@ -221,7 +215,12 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 			models, err := api.ListBlockedModels()
 			out := &bytes.Buffer{}
 			if err == nil {
-				err = formatTabularBlockedModels(out, models)
+				var info interface{}
+				info, err = block.FormatModelBlockInfo(models)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				err = block.FormatTabularBlockedModels(out, info)
 			}
 			if err != nil {
 				logger.Errorf("Unable to list blocked models: %s", err)
@@ -258,32 +257,6 @@ your cloud provider console for any resources that need
 to be cleaned up.
 
 `
-
-func formatTabularBlockedModels(writer io.Writer, value interface{}) error {
-	models, ok := value.([]params.ModelBlockInfo)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", models, value)
-	}
-
-	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "NAME\tMODEL UUID\tOWNER\tBLOCKS\n")
-	for _, model := range models {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", model.Name, model.UUID, model.OwnerTag, blocksToStr(model.Blocks))
-	}
-	tw.Flush()
-	return nil
-}
-
-func blocksToStr(blocks []string) string {
-	result := ""
-	sep := ""
-	for _, blk := range blocks {
-		result = result + sep + block.OperationFromType(blk)
-		sep = ","
-	}
-
-	return result
-}
 
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.

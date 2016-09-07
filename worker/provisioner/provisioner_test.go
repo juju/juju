@@ -1139,7 +1139,6 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,
-		true,
 		retryStrategy,
 	)
 	c.Assert(err, jc.ErrorIsNil)

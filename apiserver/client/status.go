@@ -654,7 +654,13 @@ func (context *statusContext) processApplication(service *state.Application) par
 			processedStatus.Err = err
 			return processedStatus
 		}
-		versions = append(versions, statuses[0])
+		// Even though we fully expect there to be historical values there,
+		// even the first should be the empty string, the status history
+		// collection is not added to in a transactional manner, so it may be
+		// not there even though we'd really like it to be. Such is mongo.
+		if len(statuses) > 0 {
+			versions = append(versions, statuses[0])
+		}
 	}
 	if len(versions) > 0 {
 		sort.Sort(bySinceDescending(versions))

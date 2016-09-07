@@ -190,7 +190,7 @@ type machineAgentCmd struct {
 func (a *machineAgentCmd) Init(args []string) error {
 
 	if !names.IsValidMachine(a.machineId) {
-		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
+		return errors.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
 		return err
@@ -391,7 +391,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
-		return fmt.Errorf("cannot read agent configuration: %v", err)
+		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
@@ -483,7 +483,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			Engine:     engine,
 			WorkerFunc: introspection.NewWorker,
 		}); err != nil {
-			return nil, errors.Trace(err)
+			// If the introspection worker failed to start, we just log error
+			// but continue. It is very unlikely to happen in the real world
+			// as the only issue is connecting to the abstract domain socket
+			// and the agent is controlled by by the OS to only have one.
+			logger.Errorf("failed to start introspection worker: %v", err)
 		}
 		return engine, nil
 	}
@@ -676,7 +680,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
 			return nil, worker.ErrTerminateAgent
 		}
-		return nil, fmt.Errorf("setting up container support: %v", err)
+		return nil, errors.Errorf("setting up container support: %v", err)
 	}
 
 	if isModelManager {
@@ -759,8 +763,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(
-		agentConfig.Model(), info, mongo.DefaultDialOpts(),
+	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, mongo.DefaultDialOpts(),
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -892,9 +895,10 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
 				w, err := modelworkermanager.New(modelworkermanager.Config{
-					Backend:    st,
-					NewWorker:  a.startModelWorkers,
-					ErrorDelay: worker.RestartDelay,
+					ControllerUUID: st.ControllerUUID(),
+					Backend:        st,
+					NewWorker:      a.startModelWorkers,
+					ErrorDelay:     worker.RestartDelay,
 				})
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start model worker manager")
@@ -979,8 +983,8 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller.
-func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
-	modelAgent, err := model.WrapAgent(a, uuid)
+func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (worker.Worker, error) {
+	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1293,9 +1297,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, nil, fmt.Errorf("no state info available")
+		return nil, nil, errors.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), info, dialOpts,
+	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, dialOpts,
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1455,9 +1459,9 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {
-			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		} else if err := svc.Remove(); err != nil {
-			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 
@@ -1485,7 +1489,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errs)
+	return errors.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

@@ -109,17 +109,6 @@ func (c *listCredentialsCommand) personalClouds() (map[string]jujucloud.Cloud, e
 	return c.personalCloudsFunc()
 }
 
-// displayCloudName returns the provided cloud name prefixed
-// with "local:" if it is a local cloud.
-func displayCloudName(cloudName string, personalCloudNames []string) string {
-	for _, name := range personalCloudNames {
-		if cloudName == name {
-			return localPrefix + cloudName
-		}
-	}
-	return cloudName
-}
-
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var credentials map[string]jujucloud.CloudCredential
 	credentials, err := c.store.AllCredentials()
@@ -151,7 +140,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 				return errors.Annotatef(err, "removing secrets from credentials for cloud %v", cloudName)
 			}
 		}
-		displayCredentials[displayCloudName(cloudName, personalCloudNames)] = cred
+		displayCredentials[cloudName] = cred
 	}
 	return c.out.Write(ctxt, credentialsMap{displayCredentials})
 }

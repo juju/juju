@@ -157,9 +157,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		multiwatcher.JobHostUnits,
 	}
 	cfg := &instancecfg.InstanceConfig{
-		MachineId:    "10",
-		MachineNonce: "5432",
-		Series:       series,
+		ControllerTag: testing.ControllerTag,
+		MachineId:     "10",
+		MachineNonce:  "5432",
+		Series:        series,
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
@@ -296,6 +297,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := instancecfg.InstanceConfig{
+		ControllerTag:    testing.ControllerTag,
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		Series:           series,

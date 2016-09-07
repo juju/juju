@@ -7,69 +7,37 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
+
 	"github.com/juju/juju/cmd/output"
+	jujuversion "github.com/juju/juju/version"
 )
 
-const noValueDisplay = "-"
+const (
+	noValueDisplay  = "-"
+	notKnownDisplay = "(unknown)"
+	refresh         = "+"
+)
 
-func formatControllersListTabular(writer io.Writer, value interface{}) error {
+func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, value interface{}) error {
 	controllers, ok := value.(ControllerSet)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", controllers, value)
 	}
-	return formatControllersTabular(writer, controllers, false)
-}
-
-func formatShowControllersTabular(writer io.Writer, value interface{}) error {
-	controllers, ok := value.(map[string]ShowControllerDetails)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", controllers, value)
-	}
-	controllerSet := ControllerSet{
-		Controllers: make(map[string]ControllerItem, len(controllers)),
-	}
-	for name, details := range controllers {
-		serverName := ""
-		// The most recently connected-to address
-		// is the first in the list.
-		if len(details.Details.APIEndpoints) > 0 {
-			serverName = details.Details.APIEndpoints[0]
-		}
-		controllerSet.Controllers[name] = ControllerItem{
-			ControllerUUID: details.Details.ControllerUUID,
-			Server:         serverName,
-			ModelName:      details.CurrentModel,
-			Cloud:          details.Details.Cloud,
-			CloudRegion:    details.Details.CloudRegion,
-			APIEndpoints:   details.Details.APIEndpoints,
-			CACert:         details.Details.CACert,
-			User:           details.Account.User,
-			Access:         details.Account.Access,
-			AgentVersion:   details.Details.AgentVersion,
-		}
-	}
-	return formatControllersTabular(writer, controllerSet, true)
+	return formatControllersTabular(writer, controllers, !c.refresh)
 }
 
 // formatControllersTabular returns a tabular summary of controller/model items
 // sorted by controller name alphabetically.
-func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bool) error {
+func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
-	print := func(values ...string) {
-		fmt.Fprintln(tw, strings.Join(values, "\t"))
-	}
-
-	if withAccess {
-		print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
-	} else {
-		print("CONTROLLER", "MODEL", "USER", "CLOUD/REGION")
-	}
+	w := output.Wrapper{tw}
+	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
 
 	names := []string{}
-	for name, _ := range set.Controllers {
+	for name := range set.Controllers {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -84,27 +52,60 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, withAccess bo
 		access := noValueDisplay
 		if c.User != "" {
 			userName = c.User
+			access = notKnownDisplay
 			if c.Access != "" {
 				access = c.Access
+			}
+			if promptRefresh {
+				access += refresh
 			}
 		}
 		if name == set.CurrentController {
 			name += "*"
-			output.CurrentHighlight.Fprintf(tw, "%s\t", name)
+			w.PrintColor(output.CurrentHighlight, name)
 		} else {
-			fmt.Fprintf(tw, "%s\t", name)
+			w.Print(name)
 		}
 		cloudRegion := c.Cloud
 		if c.CloudRegion != "" {
 			cloudRegion += "/" + c.CloudRegion
 		}
-		if withAccess {
-			print(modelName, userName, access, cloudRegion, c.AgentVersion)
+		agentVersion := c.AgentVersion
+		staleVersion := false
+		if agentVersion == "" {
+			agentVersion = notKnownDisplay
 		} else {
-			print(modelName, userName, cloudRegion)
+			agentVersionNum, err := version.Parse(agentVersion)
+			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
+		if promptRefresh {
+			agentVersion += refresh
+		}
+		machineCount := noValueDisplay
+		if c.MachineCount != nil {
+			machineCount = fmt.Sprintf("%d", *c.MachineCount)
+			if promptRefresh {
+				machineCount += refresh
+			}
+		}
+		modelCount := noValueDisplay
+		if c.ModelCount != nil {
+			modelCount = fmt.Sprintf("%d", *c.ModelCount)
+			if promptRefresh {
+				modelCount += refresh
+			}
+		}
+		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
+		if staleVersion {
+			w.PrintColor(output.WarningHighlight, agentVersion)
+		} else {
+			w.Print(agentVersion)
+		}
+		w.Println()
 	}
 	tw.Flush()
-
+	if promptRefresh && len(names) > 0 {
+		fmt.Fprintln(writer, "\n+ these are the last known values, run with --refresh to see the latest information.")
+	}
 	return nil
 }

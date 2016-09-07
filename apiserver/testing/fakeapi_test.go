@@ -54,7 +54,7 @@ func (f facade) Login(req params.LoginRequest) (params.LoginResult, error) {
 	f.r.calledMethods = append(f.r.calledMethods, "Login")
 	return params.LoginResult{
 		ModelTag:      names.NewModelTag(fakeUUID).String(),
-		ControllerTag: names.NewModelTag(fakeUUID).String(),
+		ControllerTag: names.NewControllerTag(fakeUUID).String(),
 		UserInfo: &params.AuthUserInfo{
 			DisplayName: "foo",
 			Identity:    "user-bar",

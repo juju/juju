@@ -6,6 +6,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/juju/errors"
@@ -15,12 +16,15 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -84,23 +88,6 @@ func NewControllerAPI(
 		apiUser:             apiUser,
 		resources:           resources,
 	}, nil
-}
-
-func (s *ControllerAPI) hasReadAccess() (bool, error) {
-	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
-func (s *ControllerAPI) hasWriteAccess() (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canWrite, err
 }
 
 func (s *ControllerAPI) checkHasAdmin() error {
@@ -387,47 +374,48 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.Annotate(err, "unable to read model")
 	}
 
-	// Get State for model.
 	hostedState, err := c.state.ForModel(modelTag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer hostedState.Close()
 
-	// Start the migration.
-	targetInfo := spec.TargetInfo
-
-	controllerTag, err := names.ParseModelTag(targetInfo.ControllerTag)
+	// Construct target info.
+	specTarget := spec.TargetInfo
+	controllerTag, err := names.ParseModelTag(specTarget.ControllerTag)
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
-
-	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
+	authTag, err := names.ParseUserTag(specTarget.AuthTag)
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
-
-	var mac *macaroon.Macaroon
-	if targetInfo.Macaroon != "" {
-		mac = new(macaroon.Macaroon)
-		err := mac.UnmarshalJSON([]byte(targetInfo.Macaroon))
-		if err != nil {
-			return "", errors.Annotate(err, "invalid macaroon")
+	var macs []macaroon.Slice
+	if specTarget.Macaroons != "" {
+		if err := json.Unmarshal([]byte(specTarget.Macaroons), &macs); err != nil {
+			return "", errors.Annotate(err, "invalid macaroons")
 		}
 	}
-
-	args := state.MigrationSpec{
-		InitiatedBy: c.apiUser,
-		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         targetInfo.Addrs,
-			CACert:        targetInfo.CACert,
-			AuthTag:       authTag,
-			Password:      targetInfo.Password,
-			Macaroon:      mac,
-		},
+	targetInfo := coremigration.TargetInfo{
+		ControllerTag: controllerTag,
+		Addrs:         specTarget.Addrs,
+		CACert:        specTarget.CACert,
+		AuthTag:       authTag,
+		Password:      specTarget.Password,
+		Macaroons:     macs,
 	}
-	mig, err := hostedState.CreateMigration(args)
+
+	// Check if the migration is likely to succeed.
+	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Trigger the migration.
+	mig, err := hostedState.CreateMigration(state.MigrationSpec{
+		InitiatedBy:     c.apiUser,
+		TargetInfo:      targetInfo,
+		ExternalControl: spec.ExternalControl,
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -458,25 +446,31 @@ func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	modelMachines, err := common.ModelMachineInfo(common.NewModelManagerBackend(st))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
 	return params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           env.Owner().String(),
-		Life:               params.Life(env.Life().String()),
+		OwnerTag:           model.Owner().String(),
+		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(services),
+		ApplicationCount:   len(applications),
+		Machines:           modelMachines,
 	}, nil
 }
 
@@ -516,6 +510,56 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
 	}
 	return result, nil
+}
+
+var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.TargetInfo) error {
+	// Check model and source controller.
+	if err := migration.SourcePrecheck(migration.PrecheckShim(st)); err != nil {
+		return errors.Annotate(err, "source prechecks failed")
+	}
+
+	// Check target controller.
+	conn, err := api.Open(targetToAPIInfo(targetInfo), api.DialOpts{})
+	if err != nil {
+		return errors.Annotate(err, "connect to target controller")
+	}
+	defer conn.Close()
+	modelInfo, err := makeModelInfo(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = migrationtarget.NewClient(conn).Prechecks(modelInfo)
+	return errors.Annotate(err, "target prechecks failed")
+}
+
+func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
+	var empty coremigration.ModelInfo
+
+	model, err := st.Model()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	conf, err := st.ModelConfig()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	agentVersion, _ := conf.AgentVersion()
+	return coremigration.ModelInfo{
+		UUID:         model.UUID(),
+		Name:         model.Name(),
+		Owner:        model.Owner(),
+		AgentVersion: agentVersion,
+	}, nil
+}
+
+func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
+	return &api.Info{
+		Addrs:     ti.Addrs,
+		CACert:    ti.CACert,
+		Tag:       ti.AuthTag,
+		Password:  ti.Password,
+		Macaroons: ti.Macaroons,
+	}
 }
 
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {

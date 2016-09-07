@@ -60,6 +60,9 @@ controllers:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
+    model-count: 2
+    machine-count: 5
+    agent-version: 2.0.1
   mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
@@ -101,4 +104,5 @@ controllers:
   mallards:
     user: admin@local
     password: hunter2
+    last-known-access: superuser
 `

@@ -34,7 +34,11 @@ func NewMemStore() *MemStore {
 
 // AllController implements ControllerGetter.AllController
 func (c *MemStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
-	return c.Controllers, nil
+	result := make(map[string]jujuclient.ControllerDetails)
+	for name, details := range c.Controllers {
+		result[name] = details
+	}
+	return result, nil
 }
 
 // ControllerByName implements ControllerGetter.ControllerByName
@@ -260,6 +264,11 @@ func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.Accou
 	}
 	if err := jujuclient.ValidateAccountDetails(details); err != nil {
 		return err
+	}
+	oldDetails := c.Accounts[controllerName]
+	// Only update last known access if it has a value.
+	if details.LastKnownAccess == "" {
+		details.LastKnownAccess = oldDetails.LastKnownAccess
 	}
 	c.Accounts[controllerName] = details
 	return nil

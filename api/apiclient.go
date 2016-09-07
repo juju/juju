@@ -72,8 +72,8 @@ type state struct {
 	// It is empty if there is no model tag associated with the connection.
 	modelTag names.ModelTag
 
-	// controllerTag holds the controller model's tag once we're connected.
-	controllerTag names.ModelTag
+	// controllerTag holds the controller's tag once we're connected.
+	controllerTag names.ControllerTag
 
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
@@ -96,9 +96,11 @@ type state struct {
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
 
-	// readOnly holds whether the user has read-only access for the
-	// connected model.
-	readOnly bool
+	// mpdelAccess holds the access level of the user to the connected model.
+	modelAccess string
+
+	// controllerAccess holds the access level of the user to the connected controller.
+	controllerAccess string
 
 	// broken is a channel that gets closed when the connection is
 	// broken.
@@ -643,7 +645,7 @@ func (s *state) ModelTag() (names.ModelTag, bool) {
 }
 
 // ControllerTag implements base.APICaller.ControllerTag.
-func (s *state) ControllerTag() names.ModelTag {
+func (s *state) ControllerTag() names.ControllerTag {
 	return s.controllerTag
 }
 

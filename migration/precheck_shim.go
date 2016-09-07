@@ -21,9 +21,36 @@ type precheckShim struct {
 	*state.State
 }
 
+// Model implements PrecheckBackend.
+func (s *precheckShim) Model() (PrecheckModel, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return model, nil
+}
+
+// AllModels implements PrecheckBackend.
+func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
+	models, err := s.State.AllModels()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckModel, 0, len(models))
+	for _, model := range models {
+		out = append(out, model)
+	}
+	return out, nil
+}
+
+// IsMigrationActive implements PrecheckBackend.
+func (s *precheckShim) IsMigrationActive(modelUUID string) (bool, error) {
+	return state.IsMigrationActive(s.State, modelUUID)
+}
+
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.ModelConfig()
+	cfg, err := s.State.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -47,6 +74,19 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	return out, nil
 }
 
+// AllApplications implements PrecheckBackend.
+func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
+	apps, err := s.State.AllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckApplication, 0, len(apps))
+	for _, app := range apps {
+		out = append(out, &precheckAppShim{app})
+	}
+	return out, nil
+}
+
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	model, err := s.State.ControllerModel()
@@ -58,4 +98,22 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	return PrecheckShim(st), nil
+}
+
+// precheckAppShim implements PrecheckApplication.
+type precheckAppShim struct {
+	*state.Application
+}
+
+// AllUnits implements PrecheckApplication.
+func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
+	units, err := s.Application.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckUnit, 0, len(units))
+	for _, unit := range units {
+		out = append(out, unit)
+	}
+	return out, nil
 }

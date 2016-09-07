@@ -4,10 +4,8 @@
 package featuretests
 
 import (
-	"fmt"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -22,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -73,8 +72,10 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         CLOUD/REGION
-kontroll*   controller  admin@local  dummy/dummy-region
+CONTROLLER  MODEL       USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
+kontroll*   controller  admin@local  superuser+  dummy/dummy-region  -       -         (unknown)+  
+
++ these are the last known values, run with --refresh to see the latest information.
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -105,12 +106,15 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	two := uint64(2)
+	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
 	context := s.run(c, "list-models", "--format=yaml")
 	c.Assert(testing.Stdout(context), gc.Matches, `
 models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
   owner: admin@local
   cloud: dummy
@@ -125,6 +129,11 @@ models:
       display-name: admin
       access: admin
       last-connection: just now
+  machines:
+    "0":
+      cores: 0
+    "1":
+      cores: 2
 current-model: controller
 `[1:])
 }
@@ -297,18 +306,6 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-
-	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"controller","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
-		s.State.ModelUUID(), s.AdminUserTag(c).String())
-
-	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Check(strippedOut, gc.Equals, expected)
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {

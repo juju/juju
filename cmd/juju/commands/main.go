@@ -301,12 +301,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewShowMachineCommand())
 
 	// Manage model
-	r.Register(model.NewGetCommand())
+	r.Register(model.NewConfigCommand())
 	r.Register(model.NewModelDefaultsCommand())
 	r.Register(model.NewSetModelDefaultsCommand())
 	r.Register(model.NewUnsetModelDefaultsCommand())
-	r.Register(model.NewSetCommand())
-	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
 	r.Register(model.NewUsersCommand())
@@ -342,8 +340,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
-	r.Register(block.NewSuperBlockCommand())
-	r.Register(block.NewUnblockCommand())
+	r.Register(block.NewDisableCommand())
+	r.Register(block.NewListCommand())
+	r.Register(block.NewEnableCommand())
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
@@ -375,7 +374,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
-	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
 	r.Register(controller.NewRemoveBlocksCommand())

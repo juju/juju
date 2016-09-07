@@ -4,13 +4,11 @@
 package featuretests
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/block"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 type blockSuite struct {
@@ -31,9 +29,4 @@ func (s *blockSuite) TestBlockFacadeCall(c *gc.C) {
 	found, err := s.blockClient.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 0)
-}
-
-func (s *blockSuite) TestBlockFacadeCallGettingErrors(c *gc.C) {
-	err := s.blockClient.SwitchBlockOff(state.DestroyBlock.String())
-	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*is already OFF.*`)
 }

@@ -185,7 +185,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	s.Metadata = map[string]string{ // userdata
 		tags.JujuIsController: "true",
-		tags.JujuController:   testing.ModelTag.Id(),
+		tags.JujuController:   testing.ControllerTag.Id(),
 		tags.JujuModel:        s.Config.UUID(),
 		metadataKeyCloudInit:  string(userData),
 	}

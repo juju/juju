@@ -47,6 +47,7 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	st, err := state.Open(
 		modelTag,
+		testing.ControllerTag,
 		statetesting.NewMongoInfo(),
 		mongotest.DialOpts(),
 		state.NewPolicyFunc(nil),
@@ -90,7 +91,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		emptyCredentialTag:    emptyCredential,
 	}
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -179,7 +179,6 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/borken")
 	_, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -216,7 +215,6 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -268,7 +266,6 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = cfg.UUID()
 
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -326,7 +323,6 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = good.UUID()
 
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -378,7 +374,6 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -419,7 +414,6 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -477,7 +471,6 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
@@ -531,7 +524,6 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = uuid
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,

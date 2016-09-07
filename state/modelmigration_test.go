@@ -56,7 +56,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
-			Macaroon:      mac,
+			Macaroons:     []macaroon.Slice{{mac}},
 		},
 	}
 }
@@ -77,6 +77,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "starting")
 	c.Check(mig.InitiatedBy(), gc.Equals, "admin")
+	c.Check(mig.ExternalControl(), jc.IsFalse)
 
 	info, err := mig.TargetInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,6 +90,34 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Check(model.MigrationMode(), gc.Equals, state.MigrationModeExporting)
+}
+
+func (s *MigrationSuite) TestCreateExternalControl(c *gc.C) {
+	spec := s.stdSpec
+	spec.ExternalControl = true
+	mig, err := s.State2.CreateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
+	c.Check(mig.ExternalControl(), jc.IsTrue)
+}
+
+func (s *MigrationSuite) TestIsMigrationActive(c *gc.C) {
+	check := func(expected bool) {
+		isActive, err := s.State2.IsMigrationActive()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(isActive, gc.Equals, expected)
+
+		isActive2, err := state.IsMigrationActive(s.State, s.State2.ModelUUID())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(isActive2, gc.Equals, expected)
+	}
+
+	check(false)
+
+	_, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	check(true)
 }
 
 func (s *MigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {

@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 
@@ -40,6 +39,7 @@ type format_2_0Serialization struct {
 	StateAddresses []string `yaml:"stateaddresses,omitempty"`
 	StatePassword  string   `yaml:"statepassword,omitempty"`
 
+	Controller   string   `yaml:"controller,omitempty"`
 	Model        string   `yaml:"model,omitempty"`
 	APIAddresses []string `yaml:"apiaddresses,omitempty"`
 	APIPassword  string   `yaml:"apipassword,omitempty"`
@@ -77,12 +77,13 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelTag names.ModelTag
-	if format.Model != "" {
-		modelTag, err = names.ParseModelTag(format.Model)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	controllerTag, err := names.ParseControllerTag(format.Controller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(format.Model)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	config := &configInternal{
 		tag: tag,
@@ -94,6 +95,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
+		controller:        controllerTag,
 		model:             modelTag,
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
@@ -124,7 +126,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		// If private key is not present, infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 {
 			if len(format.StateAddresses) == 0 {
-				return nil, fmt.Errorf("server key found but no state port")
+				return nil, errors.New("server key found but no state port")
 			}
 
 			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
@@ -153,10 +155,8 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 }
 
 func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
-	var modelTag string
-	if config.model.Id() != "" {
-		modelTag = config.model.String()
-	}
+	controllerTag := config.controller.String()
+	modelTag := config.model.String()
 	format := &format_2_0Serialization{
 		Tag:               config.tag.String(),
 		DataDir:           config.paths.DataDir,
@@ -165,6 +165,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,
+		Controller:        controllerTag,
 		Model:             modelTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,

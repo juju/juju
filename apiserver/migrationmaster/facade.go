@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -75,25 +77,18 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model migration")
 	}
-
 	target, err := mig.TargetInfo()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving target info")
 	}
-
 	phase, err := mig.Phase()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving phase")
 	}
-
-	var macJSON []byte
-	if target.Macaroon != nil {
-		macJSON, err = target.Macaroon.MarshalJSON()
-		if err != nil {
-			return empty, errors.Annotate(err, "marshalling macaroon")
-		}
+	macsJSON, err := json.Marshal(target.Macaroons)
+	if err != nil {
+		return empty, errors.Annotate(err, "marshalling macaroons")
 	}
-
 	return params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
@@ -103,7 +98,7 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 				CACert:        target.CACert,
 				AuthTag:       target.AuthTag.String(),
 				Password:      target.Password,
-				Macaroon:      string(macJSON),
+				Macaroons:     string(macsJSON),
 			},
 		},
 		MigrationId:      mig.Id(),
@@ -122,6 +117,11 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 		return empty, errors.Annotate(err, "retrieving model name")
 	}
 
+	owner, err := api.backend.ModelOwner()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model owner")
+	}
+
 	vers, err := api.backend.AgentVersion()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving agent version")
@@ -130,6 +130,7 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 	return params.MigrationModelInfo{
 		UUID:         api.backend.ModelUUID(),
 		Name:         name,
+		OwnerTag:     owner.String(),
 		AgentVersion: vers,
 	}, nil
 }

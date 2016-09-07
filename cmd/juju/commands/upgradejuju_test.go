@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -44,7 +43,7 @@ type UpgradeJujuSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
-	cmdcommon.CmdBlockHelper
+	coretesting.CmdBlockHelper
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -54,7 +53,7 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -435,7 +434,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -460,7 +459,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
 		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		agentVersion:   "1.99.99.1",
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
@@ -482,7 +481,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C)
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
 		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		agentVersion:   "1.99.99",
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
@@ -505,7 +504,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
 		uuid:           "deadbeef-0000-400d-8000-4b1d0d06f00d",
-		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		agentVersion:   "1.99.99.1",
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
@@ -534,7 +533,7 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
 		uuid:           "deadbeef-0000-400d-8000-4b1d0d06f00d",
-		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		agentVersion:   "1.99.99",
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
@@ -821,7 +820,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
-	s.AssertBlocked(c, err, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
@@ -922,6 +921,19 @@ func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
 	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
 		return a, nil
 	})
+	s.PatchValue(&getControllerAPI, func(*upgradeJujuCommand) (controllerAPI, error) {
+		return a, nil
+	})
+}
+
+func (a *fakeUpgradeJujuAPI) ModelConfig() (map[string]interface{}, error) {
+	controllerModel, err := a.st.ControllerModel()
+	if err != nil {
+		return make(map[string]interface{}), err
+	}
+	return map[string]interface{}{
+		"uuid": controllerModel.UUID(),
+	}, nil
 }
 
 func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {

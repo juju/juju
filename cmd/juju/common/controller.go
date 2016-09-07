@@ -13,9 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
+	"github.com/juju/version"
 )
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
@@ -30,10 +30,14 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 }
 
 // SetBootstrapEndpointAddress writes the API endpoint address of the
-// bootstrap server into the connection information. This should only be run
-// once directly after Bootstrap. It assumes that there is just one instance
-// in the environment - the bootstrap instance.
-func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerName string, apiPort int, environ environs.Environ) error {
+// bootstrap server, plus the agent version, into the connection information.
+// This should only be run once directly after Bootstrap. It assumes that
+// there is just one instance in the environment - the bootstrap instance.
+func SetBootstrapEndpointAddress(
+	store jujuclient.ControllerStore,
+	controllerName string, agentVersion version.Number,
+	apiPort int, environ environs.Environ,
+) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -54,7 +58,15 @@ func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerNam
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerAddresses(store, controllerName, nil, apiHostPorts...)
+	// At bootstrap we have 2 models, the controller model and the default.
+	two := 2
+	params := juju.UpdateControllerParams{
+		AgentVersion:    agentVersion.String(),
+		AddrConnectedTo: apiHostPorts,
+		MachineCount:    &length,
+		ModelCount:      &two,
+	}
+	return juju.UpdateControllerDetailsFromLogin(store, controllerName, params)
 }
 
 var (
@@ -63,13 +75,18 @@ var (
 	blockAPI                = getBlockAPI
 )
 
+type listBlocksAPI interface {
+	List() ([]params.Block, error)
+	Close() error
+}
+
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiblock.NewClient(root), nil
+	return block.NewClient(root), nil
 }
 
 // tryAPI attempts to open the API and makes a trivial call

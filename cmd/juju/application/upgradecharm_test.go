@@ -21,7 +21,6 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -46,6 +45,10 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
+	s.AddCleanup(func(*gc.C) {
+		s.handler.Close()
+		s.srv.Close()
+	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
@@ -54,12 +57,6 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 			BakeryClient: bakeryClient,
 		})
 	})
-}
-
-func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
-	s.srv.Close()
-	s.RepoSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
@@ -136,7 +133,7 @@ type BaseUpgradeCharmSuite struct{}
 type UpgradeCharmSuccessSuite struct {
 	BaseUpgradeCharmSuite
 	jujutesting.RepoSuite
-	common.CmdBlockHelper
+	testing.CmdBlockHelper
 	path string
 	riak *state.Application
 }
@@ -165,7 +162,7 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }

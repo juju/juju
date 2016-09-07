@@ -69,8 +69,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = mockState{
-		uuid:  coretesting.ModelTag.Id(),
-		cloud: dummyCloud,
+		modelUUID: coretesting.ModelTag.Id(),
+		cloud:     dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
@@ -164,6 +164,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerConfig",
 		"LastModelConnection",
 		"LastModelConnection",
+		"AllMachines",
 		"Close",
 		"Close",
 	)
@@ -635,10 +636,10 @@ func (s *modelManagerStateSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, env params.Model, expected *state.Model) {
-	c.Check(env.Name, gc.Equals, expected.Name())
-	c.Check(env.UUID, gc.Equals, expected.UUID())
-	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
+func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 func (s *modelManagerStateSuite) TestListModelsAdminSelf(c *gc.C) {

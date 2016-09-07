@@ -48,7 +48,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)

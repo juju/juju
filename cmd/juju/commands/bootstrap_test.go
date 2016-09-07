@@ -175,18 +175,19 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()
 	}
+	bootstrapVersion := v100p64
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", series.LatestLts(), 1)
-		v := version.MustParseBinary(useVersion)
-		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
-		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
-		v.Build = 1
+		bootstrapVersion = version.MustParseBinary(useVersion)
+		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
-			v.Number = uploadVers.Number
+			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &v.Number)))
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -246,10 +247,16 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.UnresolvedAPIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
+	// We don't care about build numbers here.
+	bootstrapVers := bootstrapVersion.Number
+	bootstrapVers.Build = 0
+	controllerVers := version.MustParse(controller.AgentVersion)
+	controllerVers.Build = 0
+	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
+	c.Assert(utils.IsValidUUIDString(controllerModel.ModelUUID), jc.IsTrue)
 
 	// Bootstrap config should have been saved, and should only contain
 	// the type, name, and any user-supplied configuration.
@@ -417,6 +424,20 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelName, gc.Equals, "admin@local/default")
+}
+
+func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	details, err := s.store.ControllerByName(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*details.ModelCount, gc.Equals, 2)
+	c.Assert(*details.MachineCount, gc.Equals, 1)
+	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {

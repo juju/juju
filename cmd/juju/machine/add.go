@@ -114,7 +114,6 @@ func (c *addCommand) Info() *cmd.Info {
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
-		Aliases: []string{"add-machines"},
 	}
 }
 

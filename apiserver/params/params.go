@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -619,9 +618,10 @@ type AuthUserInfo struct {
 	// the client, if any.
 	Credentials *string `json:"credentials,omitempty"`
 
-	// ReadOnly holds whether the user has read-only access for the
-	// connected model.
-	ReadOnly bool `json:"read-only"`
+	// ControllerAccess holds the access the user has to the connected controller.
+	ControllerAccess string `json:"controller-access"`
+	// ModelAccess holds the access the user has to the connected model.
+	ModelAccess string `json:"model-access"`
 }
 
 // LoginResult holds the result of an Admin Login call.
@@ -646,9 +646,8 @@ type LoginResult struct {
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the model that holds the API servers.
-	// This is the initial model created when bootstrapping juju.
-	ControllerTag string `json:"server-tag,omitempty"`
+	// ControllerTag is the tag for the controller that runs the API servers.
+	ControllerTag string `json:"controller-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
@@ -811,10 +810,17 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
+type MongoVersion struct {
+	Major         int    `json:"major"`
+	Minor         int    `json:"minor"`
+	Patch         string `json:"patch"`
+	StorageEngine string `json:"engine"`
+}
+
 // UpgradeMongoParams holds the arguments required to
 // enter upgrade mongo mode.
 type UpgradeMongoParams struct {
-	Target mongo.Version `json:"target"`
+	Target MongoVersion `json:"target"`
 }
 
 // HAMember holds information that identifies one member

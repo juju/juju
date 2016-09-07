@@ -63,12 +63,12 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"empty AuthTag not valid",
 	}, {
-		"Password & Macaroon",
+		"Password & Macaroons",
 		func(info *migration.TargetInfo) {
 			info.Password = ""
-			info.Macaroon = nil
+			info.Macaroons = nil
 		},
-		"missing Password & Macaroon not valid",
+		"missing Password & Macaroons not valid",
 	}, {
 		"Success - empty Password",
 		func(info *migration.TargetInfo) {
@@ -76,9 +76,9 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"",
 	}, {
-		"Success - empty Macaroon",
+		"Success - empty Macaroons",
 		func(info *migration.TargetInfo) {
-			info.Macaroon = nil
+			info.Macaroons = nil
 		},
 		"",
 	}, {
@@ -87,29 +87,30 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		"",
 	}}
 
-	modelTag := names.NewModelTag(utils.MustNewUUID().String())
 	for _, test := range tests {
 		c.Logf("---- %s -----------", test.label)
-
-		mac, err := macaroon.New([]byte("secret"), "id", "location")
-		c.Assert(err, jc.ErrorIsNil)
-
-		info := migration.TargetInfo{
-			ControllerTag: modelTag,
-			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("user"),
-			Password:      "password",
-			Macaroon:      mac,
-		}
+		info := makeValidTargetInfo(c)
 		test.tweakInfo(&info)
-
-		err = info.Validate()
+		err := info.Validate()
 		if test.errorPattern == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(errors.IsNotValid(err), jc.IsTrue)
 			c.Check(err, gc.ErrorMatches, test.errorPattern)
 		}
+	}
+}
+
+func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
+	modelTag := names.NewModelTag(utils.MustNewUUID().String())
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	c.Assert(err, jc.ErrorIsNil)
+	return migration.TargetInfo{
+		ControllerTag: modelTag,
+		Addrs:         []string{"1.2.3.4:5555"},
+		CACert:        "cert",
+		AuthTag:       names.NewUserTag("user"),
+		Password:      "password",
+		Macaroons:     []macaroon.Slice{{mac}},
 	}
 }

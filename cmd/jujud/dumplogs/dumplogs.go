@@ -108,7 +108,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), nil)
+	st0, err := state.Open(config.Model(), config.Controller(), info, mongo.DefaultDialOpts(), nil)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}

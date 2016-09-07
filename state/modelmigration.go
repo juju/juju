@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,6 +33,10 @@ type ModelMigration interface {
 
 	// ModelUUID returns the UUID for the model being migrated.
 	ModelUUID() string
+
+	// ExternalControl returns true if the model migration should be
+	// managed by an external process.
+	ExternalControl() bool
 
 	// Attempt returns the migration attempt identifier. This
 	// increments for each migration attempt for the model.
@@ -126,6 +131,10 @@ type modelMigDoc struct {
 	// migration. It should be in "user@domain" format.
 	InitiatedBy string `bson:"initiated-by"`
 
+	// ExternalControl is true if the migration will be controlled by
+	// an external process, instead of the migrationmaster worker.
+	ExternalControl bool `bson:"external-control"`
+
 	// TargetController holds the UUID of the target controller.
 	TargetController string `bson:"target-controller"`
 
@@ -145,9 +154,9 @@ type modelMigDoc struct {
 	// when authenticating.
 	TargetPassword string `bson:"target-password,omitempty"`
 
-	// TargetMacaroon holds the macaroon to use with TargetAuthTag
+	// TargetMacaroons holds the macaroons to use with TargetAuthTag
 	// when authenticating.
-	TargetMacaroon string `bson:"target-macaroon,omitempty"`
+	TargetMacaroons string `bson:"target-macaroons,omitempty"`
 }
 
 // modelMigStatusDoc tracks the progress of a migration attempt for a
@@ -207,6 +216,11 @@ func (mig *modelMigration) ModelUUID() string {
 	return mig.doc.ModelUUID
 }
 
+// ExternalControl implements ModelMigration.
+func (mig *modelMigration) ExternalControl() bool {
+	return mig.doc.ExternalControl
+}
+
 // Attempt implements ModelMigration.
 func (mig *modelMigration) Attempt() (int, error) {
 	attempt, err := strconv.Atoi(mig.st.localID(mig.doc.Id))
@@ -262,22 +276,17 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var mac *macaroon.Macaroon
-	if mig.doc.TargetMacaroon != "" {
-		mac = new(macaroon.Macaroon)
-		if err := mac.UnmarshalJSON([]byte(mig.doc.TargetMacaroon)); err != nil {
-			return nil, errors.Annotate(err, "unmarshalling macaroon")
-		}
+	macs, err := jsonToMacaroons(mig.doc.TargetMacaroons)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	return &migration.TargetInfo{
 		ControllerTag: names.NewModelTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
 		AuthTag:       authTag,
 		Password:      mig.doc.TargetPassword,
-		Macaroon:      mac,
+		Macaroons:     macs,
 	}, nil
 }
 
@@ -551,8 +560,9 @@ func (mig *modelMigration) Refresh() error {
 // MigrationSpec holds the information required to create a
 // ModelMigration instance.
 type MigrationSpec struct {
-	InitiatedBy names.UserTag
-	TargetInfo  migration.TargetInfo
+	InitiatedBy     names.UserTag
+	TargetInfo      migration.TargetInfo
+	ExternalControl bool
 }
 
 // Validate returns an error if the MigrationSpec contains bad
@@ -597,7 +607,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.New("already in progress")
 		}
 
-		macaroonJSON, err := macaroonToJSON(spec.TargetInfo.Macaroon)
+		macsJSON, err := macaroonsToJSON(spec.TargetInfo.Macaroons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -612,12 +622,13 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			Id:               id,
 			ModelUUID:        modelUUID,
 			InitiatedBy:      spec.InitiatedBy.Id(),
+			ExternalControl:  spec.ExternalControl,
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
 			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
-			TargetMacaroon:   macaroonJSON,
+			TargetMacaroons:  macsJSON,
 		}
 		statusDoc = modelMigStatusDoc{
 			Id:               id,
@@ -662,15 +673,26 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	}, nil
 }
 
-func macaroonToJSON(m *macaroon.Macaroon) (string, error) {
-	if m == nil {
+func macaroonsToJSON(m []macaroon.Slice) (string, error) {
+	if len(m) == 0 {
 		return "", nil
 	}
-	json, err := m.MarshalJSON()
+	j, err := json.Marshal(m)
 	if err != nil {
-		return "", errors.Annotate(err, "marshalling macaroon")
+		return "", errors.Annotate(err, "marshalling macaroons")
 	}
-	return string(json), nil
+	return string(j), nil
+}
+
+func jsonToMacaroons(raw string) ([]macaroon.Slice, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var macs []macaroon.Slice
+	if err := json.Unmarshal([]byte(raw), &macs); err != nil {
+		return nil, errors.Annotate(err, "unmarshalling macaroon")
+	}
+	return macs, nil
 }
 
 func checkTargetController(st *State, targetControllerTag names.ModelTag) error {
@@ -753,12 +775,19 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	}, nil
 }
 
-// IsMigrationActive return true if a migration is in progress for
+// IsMigrationActive returns true if a migration is in progress for
 // the model associated with the State.
 func (st *State) IsMigrationActive() (bool, error) {
+	return IsMigrationActive(st, st.ModelUUID())
+}
+
+// IsMigrationActive returns true if a migration is in progress for
+// the model with the given UUID. The State provided need not be for
+// the model in question.
+func IsMigrationActive(st *State, modelUUID string) (bool, error) {
 	active, closer := st.getCollection(migrationsActiveC)
 	defer closer()
-	n, err := active.FindId(st.ModelUUID()).Count()
+	n, err := active.FindId(modelUUID).Count()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

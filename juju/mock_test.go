@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
+	"github.com/juju/version"
 )
 
 type mockAPIState struct {
@@ -59,7 +61,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	return &mockAPIState{
 		apiHostPorts:  apiHostPorts,
 		modelTag:      modelTag,
-		controllerTag: modelTag,
+		controllerTag: testing.ControllerTag.Id(),
 		addr:          addr,
 	}
 }
@@ -69,6 +71,10 @@ func (s *mockAPIState) Close() error {
 		return s.close(s)
 	}
 	return nil
+}
+
+func (s *mockAPIState) ServerVersion() (version.Number, bool) {
+	return version.MustParse("1.2.3"), true
 }
 
 func (s *mockAPIState) Addr() string {
@@ -90,12 +96,20 @@ func (s *mockAPIState) ModelTag() (names.ModelTag, bool) {
 	return t, true
 }
 
-func (s *mockAPIState) ControllerTag() names.ModelTag {
-	t, err := names.ParseModelTag(s.controllerTag)
+func (s *mockAPIState) ControllerTag() names.ControllerTag {
+	t, err := names.ParseControllerTag(s.controllerTag)
 	if err != nil {
 		panic("bad controller tag")
 	}
 	return t
+}
+
+func (s *mockAPIState) AuthTag() names.Tag {
+	return names.NewUserTag("admin")
+}
+
+func (s *mockAPIState) ControllerAccess() string {
+	return "superuser"
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

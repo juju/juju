@@ -433,6 +433,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return cmd.ErrSilent
 	}
 
+	controllerModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
@@ -447,7 +451,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	modelConfigAttrs := map[string]interface{}{
 		"type":         cloud.Type,
 		"name":         bootstrap.ControllerModelName,
-		config.UUIDKey: controllerUUID.String(),
+		config.UUIDKey: controllerModelUUID.String(),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -506,7 +510,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			delete(modelConfigAttrs, k)
 		}
 	}
-	bootstrapConfig, err := bootstrap.NewConfig(controllerUUID.String(), bootstrapConfigAttrs)
+	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "constructing bootstrap config")
 	}
@@ -738,7 +742,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Trace(err)
 	}
 
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerConfig.APIPort(), environ)
+	agentVersion := jujuversion.Current
+	if c.AgentVersion != nil {
+		agentVersion = *c.AgentVersion
+	}
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, controllerConfig.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}

@@ -47,6 +47,7 @@ type ModelManagerBackend interface {
 	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
+	AllMachines() (machines []Machine, err error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
@@ -158,4 +159,20 @@ func (m modelShim) Users() ([]description.UserAccess, error) {
 		users[i] = user
 	}
 	return users, nil
+}
+
+type machineShim struct {
+	*state.Machine
+}
+
+func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
+	allStateMachines, err := st.State.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	all := make([]Machine, len(allStateMachines))
+	for i, m := range allStateMachines {
+		all[i] = machineShim{m}
+	}
+	return all, nil
 }

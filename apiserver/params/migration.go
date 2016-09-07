@@ -18,8 +18,9 @@ type InitiateMigrationArgs struct {
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
-	ModelTag   string              `json:"model-tag"`
-	TargetInfo MigrationTargetInfo `json:"target-info"`
+	ModelTag        string              `json:"model-tag"`
+	TargetInfo      MigrationTargetInfo `json:"target-info"`
+	ExternalControl bool                `json:"external-control"`
 }
 
 // MigrationTargetInfo holds the details required to connect to and
@@ -30,7 +31,7 @@ type MigrationTargetInfo struct {
 	CACert        string   `json:"ca-cert"`
 	AuthTag       string   `json:"auth-tag"`
 	Password      string   `json:"password,omitempty"`
-	Macaroon      string   `json:"macaroon,omitempty"`
+	Macaroons     string   `json:"macaroons,omitempty"`
 }
 
 // InitiateMigrationResults is used to return the result of one or
@@ -99,6 +100,7 @@ type MasterMigrationStatus struct {
 type MigrationModelInfo struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
+	OwnerTag     string         `json:"owner-tag"`
 	AgentVersion version.Number `json:"agent-version"`
 }
 
@@ -169,11 +171,4 @@ type MinionReports struct {
 	// Failed contains the tags of all agents which have reported a
 	// failed to complete a given migration phase.
 	Failed []string `json:"failed"`
-}
-
-// TargetPrechecksArgs details regarding pre-migration checks to
-// MigrationTarget.Prechecks.
-type TargetPrechecksArgs struct {
-	// AgentVersion is the tools version of the model to be migrated.
-	AgentVersion version.Number `json:"agent-version"`
 }

@@ -23,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -50,10 +49,6 @@ func setconfigHelpText() string {
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
-}
-
-func blockHelpText() string {
-	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -132,18 +127,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
-	}, {
-		summary: "check block command registered properly",
-		args:    []string{"block", "-h"},
-		code:    0,
-		out:     blockHelpText(),
-	}, {
-		summary: "check unblock command registered properly",
-		args:    []string{"unblock"},
-		code:    0,
-		out:     "error: must specify one of [destroy-model | remove-object | all-changes] to unblock\n",
-	},
-	} {
+	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, gc.Equals, t.out)
@@ -405,24 +389,19 @@ var commandNames = []string{
 	"add-cloud",
 	"add-credential",
 	"add-machine",
-	"add-machines",
 	"add-model",
 	"add-relation",
 	"add-space",
 	"add-ssh-key",
-	"add-ssh-keys",
 	"add-storage",
 	"add-subnet",
 	"add-unit",
-	"add-units",
 	"add-user",
 	"agree",
 	"agreements",
 	"allocate",
 	"autoload-credentials",
 	"backups",
-	"block",
-	"blocks",
 	"bootstrap",
 	"budgets",
 	"cached-images",
@@ -441,43 +420,37 @@ var commandNames = []string{
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
-	"destroy-relation",
-	"destroy-application",
-	"destroy-unit",
+	"disable-command",
 	"disable-user",
+	"disabled-commands",
 	"download-backup",
 	"enable-ha",
+	"enable-command",
 	"enable-user",
 	"expose",
 	"get-config",
-	"get-configs",
 	"get-constraints",
 	"get-controller-config",
-	"get-model-config",
 	"get-model-constraints",
 	"grant",
 	"gui",
 	"help",
 	"help-tool",
 	"import-ssh-key",
-	"import-ssh-keys",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-all-blocks",
 	"list-backups",
-	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
 	"list-credentials",
-	"list-machine",
+	"list-disabled-commands",
 	"list-machines",
 	"list-models",
 	"list-plans",
 	"list-shares",
-	"list-ssh-key",
 	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
@@ -486,7 +459,6 @@ var commandNames = []string{
 	"list-users",
 	"login",
 	"logout",
-	"machine",
 	"machines",
 	"metrics",
 	"model-config",
@@ -496,17 +468,15 @@ var commandNames = []string{
 	"register",
 	"relate", //alias for add-relation
 	"remove-all-blocks",
-	"remove-application", // alias for destroy-application
+	"remove-application",
 	"remove-backup",
 	"remove-cached-images",
 	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
-	"remove-machines",
-	"remove-relation", // alias for destroy-relation
+	"remove-relation",
 	"remove-ssh-key",
-	"remove-ssh-keys",
-	"remove-unit", // alias for destroy-unit
+	"remove-unit",
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
@@ -516,17 +486,13 @@ var commandNames = []string{
 	"scp",
 	"set-budget",
 	"set-config",
-	"set-configs",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
 	"set-meter-status",
-	"set-model-config",
 	"set-model-constraints",
 	"set-model-default",
 	"set-plan",
-	"ssh-key",
-	"ssh-keys",
 	"shares",
 	"show-action-output",
 	"show-action-status",
@@ -535,26 +501,24 @@ var commandNames = []string{
 	"show-cloud",
 	"show-controller",
 	"show-machine",
-	"show-machines",
 	"show-model",
 	"show-status",
+	"show-status-log",
 	"show-storage",
 	"show-user",
 	"spaces",
 	"ssh",
+	"ssh-keys",
 	"status",
-	"status-history",
 	"storage",
 	"storage-pools",
 	"subnets",
 	"switch",
 	"sync-tools",
-	"unblock",
 	"unexpose",
 	"update-allocation",
 	"upload-backup",
 	"unregister",
-	"unset-model-config",
 	"unset-model-default",
 	"update-clouds",
 	"upgrade-charm",

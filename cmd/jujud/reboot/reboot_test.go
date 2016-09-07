@@ -73,6 +73,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            coretesting.CACert,
 		Password:          "fake",
+		Controller:        s.State.ControllerTag(),
 		Model:             s.State.ModelTag(),
 		MongoVersion:      mongo.Mongo24,
 	}

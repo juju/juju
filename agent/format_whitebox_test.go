@@ -38,6 +38,7 @@ var agentParams = AgentConfigParams{
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
 	Model:             testing.ModelTag,
+	Controller:        testing.ControllerTag,
 }
 
 func newTestConfig(c *gc.C) *configInternal {

@@ -26,7 +26,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"127.0.0.1:12345"},
 		CACert:         testing.CACert,
-		ControllerUUID: testing.ModelTag.Id(),
+		ControllerUUID: testing.ControllerTag.Id(),
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "current-user@local",
@@ -34,11 +34,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseSuite) assertStorePassword(c *gc.C, user, pass string) {
+func (s *BaseSuite) assertStorePassword(c *gc.C, user, pass, access string) {
 	details, err := s.store.AccountDetails("testing")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.User, gc.Equals, user)
 	c.Assert(details.Password, gc.Equals, pass)
+	c.Assert(details.LastKnownAccess, gc.Equals, access)
 }
 
 func (s *BaseSuite) assertStoreMacaroon(c *gc.C, user string, mac *macaroon.Macaroon) {

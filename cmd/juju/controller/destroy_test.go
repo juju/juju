@@ -31,6 +31,10 @@ const (
 	test1UUID = "1871299e-1370-4f3e-83ab-1849ed7b1076"
 	test2UUID = "c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004"
 	test3UUID = "82bf9738-764b-49c1-9c19-18f6ee155854"
+
+	test1ControllerUUID = "2371299e-1370-4f3e-83ab-1849ed7b1076"
+	test2ControllerUUID = "f89d0e3b-5bd7-9867-b1b9-f1ef8a0bb004"
+	test3ControllerUUID = "cfbf9738-764b-49c1-9c19-18f6ee155854"
 )
 
 type DestroySuite struct {
@@ -55,7 +59,7 @@ type fakeDestroyAPI struct {
 	destroyAll bool
 	blocks     []params.ModelBlockInfo
 	envStatus  map[string]base.ModelStatus
-	allEnvs    []base.UserModel
+	allModels  []base.UserModel
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -101,7 +105,7 @@ func (f *fakeDestroyAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 
 func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 	f.MethodCall(f, "AllModels")
-	return f.allEnvs, f.NextErr()
+	return f.allModels, f.NextErr()
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -151,42 +155,42 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
 		CACert:         testing.CACert,
-		ControllerUUID: test1UUID,
+		ControllerUUID: test1ControllerUUID,
 	}
 	s.store.Controllers["test3"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
 		CACert:         testing.CACert,
-		ControllerUUID: test3UUID,
+		ControllerUUID: test3ControllerUUID,
 	}
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
 		User: "admin@local",
 	}
 
 	var modelList = []struct {
-		name         string
-		serverUUID   string
-		modelUUID    string
-		bootstrapCfg map[string]interface{}
+		name           string
+		controllerUUID string
+		modelUUID      string
+		bootstrapCfg   map[string]interface{}
 	}{
 		{
-			name:         "test1:admin",
-			serverUUID:   test1UUID,
-			modelUUID:    test1UUID,
-			bootstrapCfg: createBootstrapInfo(c, "admin"),
+			name:           "test1:admin",
+			controllerUUID: test1ControllerUUID,
+			modelUUID:      test1UUID,
+			bootstrapCfg:   createBootstrapInfo(c, "admin"),
 		}, {
-			name:       "test2:test2",
-			serverUUID: test1UUID,
-			modelUUID:  test2UUID,
+			name:           "test2:test2",
+			controllerUUID: test2ControllerUUID,
+			modelUUID:      test2UUID,
 		}, {
-			name:       "test3:admin",
-			serverUUID: test3UUID,
-			modelUUID:  test3UUID,
+			name:           "test3:admin",
+			controllerUUID: test3ControllerUUID,
+			modelUUID:      test3UUID,
 		},
 	}
 	for _, model := range modelList {
 		controllerName, modelName := modelcmd.SplitModelName(model.name)
 		s.store.UpdateController(controllerName, jujuclient.ControllerDetails{
-			ControllerUUID: model.serverUUID,
+			ControllerUUID: model.controllerUUID,
 			APIEndpoints:   []string{"localhost"},
 			CACert:         testing.CACert,
 		})
@@ -195,13 +199,14 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 		if model.bootstrapCfg != nil {
 			s.store.BootstrapConfig[controllerName] = jujuclient.BootstrapConfig{
-				Config:    createBootstrapInfo(c, "admin"),
-				CloudType: "dummy",
+				ControllerModelUUID: model.modelUUID,
+				Config:              createBootstrapInfo(c, "admin"),
+				CloudType:           "dummy",
 			}
 		}
 
 		uuid := model.modelUUID
-		s.api.allEnvs = append(s.api.allEnvs, base.UserModel{
+		s.api.allModels = append(s.api.allModels, base.UserModel{
 			Name:  model.name,
 			UUID:  uuid,
 			Owner: owner.Canonical(),
@@ -286,7 +291,7 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
-func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
+func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
@@ -363,8 +368,9 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		User: "admin@local",
 	}
 	s.store.BootstrapConfig["test1"] = jujuclient.BootstrapConfig{
-		Config:    createBootstrapInfo(c, "admin"),
-		CloudType: "dummy",
+		ControllerModelUUID: test1UUID,
+		Config:              createBootstrapInfo(c, "admin"),
+		CloudType:           "dummy",
 	}
 }
 
@@ -443,7 +449,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test1",
 			UUID:     test1UUID,
-			OwnerTag: "cheryl@local",
+			OwnerTag: "user-cheryl@local",
 			Blocks: []string{
 				"BlockDestroy",
 			},
@@ -451,7 +457,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test2",
 			UUID:     test2UUID,
-			OwnerTag: "bob@local",
+			OwnerTag: "user-bob@local",
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -460,7 +466,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
-		"NAME   MODEL UUID                            OWNER         BLOCKS\n"+
+		"NAME   MODEL UUID                            OWNER         DISABLED COMMANDS\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl@local  destroy-model\n"+
-		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     destroy-model,all-changes\n")
+		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     all, destroy-model\n")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

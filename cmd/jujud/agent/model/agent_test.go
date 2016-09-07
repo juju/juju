@@ -23,19 +23,27 @@ type WrapAgentSuite struct {
 
 var _ = gc.Suite(&WrapAgentSuite{})
 
-func (s *WrapAgentSuite) TestRequiresUUID(c *gc.C) {
-	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope")
+func (s *WrapAgentSuite) TestRequiresControllerUUID(c *gc.C) {
+	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope", coretesting.ModelTag.Id())
+	c.Check(err, gc.ErrorMatches, `controller uuid "lol-nope-no-hope" not valid`)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(agent, gc.IsNil)
+}
+
+func (s *WrapAgentSuite) TestRequiresModelUUID(c *gc.C) {
+	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ControllerTag.Id(), "lol-nope-no-hope")
 	c.Check(err, gc.ErrorMatches, `model uuid "lol-nope-no-hope" not valid`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(agent, gc.IsNil)
 }
 
 func (s *WrapAgentSuite) TestWraps(c *gc.C) {
-	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ModelTag.Id())
+	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ControllerTag.Id(), coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	config := agent.CurrentConfig()
 
 	c.Check(config.Model(), gc.Equals, coretesting.ModelTag)
+	c.Check(config.Controller(), gc.Equals, coretesting.ControllerTag)
 	c.Check(config.OldPassword(), gc.Equals, "")
 
 	apiInfo, ok := config.APIInfo()
@@ -60,6 +68,10 @@ type mockConfig struct{ agent.Config }
 
 func (mock *mockConfig) Model() names.ModelTag {
 	return names.NewModelTag("mock-model-uuid")
+}
+
+func (mock *mockConfig) Controller() names.ControllerTag {
+	return names.NewControllerTag("mock-controller-uuid")
 }
 
 func (mock *mockConfig) APIInfo() (*api.Info, bool) {
