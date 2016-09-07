@@ -127,12 +127,11 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 // ListCharmResources implements CharmResourceLister by getting the charmstore client
 // from the command's ModelCommandBase.
 func (c *ListCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][]charmresource.Resource, error) {
-	apiContext, err := c.APIContext()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We use the default for URL.
-	client, err := charmstore.NewCustomClient(apiContext.BakeryClient, nil)
+	client, err := charmstore.NewCustomClient(bakeryClient, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
