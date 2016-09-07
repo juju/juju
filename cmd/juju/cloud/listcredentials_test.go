@@ -107,11 +107,11 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 func (s *listCredentialsSuite) TestListCredentialsTabular(c *gc.C) {
 	out := s.listCredentials(c)
 	c.Assert(out, gc.Equals, `
-CLOUD          CREDENTIALS
-aws            down*, bob
-azure          azhja
-google         default
-local:mycloud  me
+CLOUD    CREDENTIALS
+aws      down*, bob
+azure    azhja
+google   default
+mycloud  me
 
 `[1:])
 }
@@ -153,7 +153,7 @@ credentials:
       client-email: email
       client-id: id
       private-key: key
-  local:mycloud:
+  mycloud:
     me:
       auth-type: access-key
       access-key: key
@@ -185,7 +185,7 @@ credentials:
       auth-type: oauth2
       client-email: email
       client-id: id
-  local:mycloud:
+  mycloud:
     me:
       auth-type: access-key
       access-key: key
