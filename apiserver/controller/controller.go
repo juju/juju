@@ -89,23 +89,6 @@ func NewControllerAPI(
 	}, nil
 }
 
-func (s *ControllerAPI) hasReadAccess() (bool, error) {
-	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
-func (s *ControllerAPI) hasWriteAccess() (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canWrite, err
-}
-
 func (s *ControllerAPI) checkHasAdmin() error {
 	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
 	if err != nil {
@@ -464,25 +447,31 @@ func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	modelMachines, err := common.ModelMachineInfo(common.NewModelManagerBackend(st))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
 	return params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           env.Owner().String(),
-		Life:               params.Life(env.Life().String()),
+		OwnerTag:           model.Owner().String(),
+		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(services),
+		ApplicationCount:   len(applications),
+		Machines:           modelMachines,
 	}, nil
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -261,7 +262,11 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
+	eight := uint64(8)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs:            []state.MachineJob{state.JobManageModel},
+		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
+	})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
@@ -282,18 +287,33 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}
 	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := "amd64"
+	mem := uint64(64 * 1024 * 1024 * 1024)
+	stdHw := &params.MachineHardware{
+		Arch: &arch,
+		Mem:  &mem,
+	}
 	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}},
+			{Id: "1", Hardware: stdHw},
+		},
 	}, {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ApplicationCount:   1,
 		OwnerTag:           otherEnvOwner.UserTag.String(),
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: stdHw},
+			{Id: "1", Hardware: stdHw},
+		},
 	}})
 }
 

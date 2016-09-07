@@ -138,8 +138,14 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,
 			ServiceCount:       r.ApplicationCount,
+			TotalMachineCount:  len(r.Machines),
 		}
-
+		// For now, we just care about core count.
+		for _, mm := range r.Machines {
+			if mm.Hardware != nil && mm.Hardware.Cores != nil {
+				results[i].CoreCount += int(*mm.Hardware.Cores)
+			}
+		}
 	}
 	return results, nil
 }
