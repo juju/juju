@@ -89,8 +89,8 @@ func (s *Suite) TestWatch(c *gc.C) {
 }
 
 func (s *Suite) TestMigrationStatus(c *gc.C) {
-	var expectedMacaroon = `
-{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}`[1:]
+	var expectedMacaroons = `
+[[{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}]]`[1:]
 
 	api := s.mustMakeAPI(c)
 	status, err := api.MigrationStatus()
@@ -105,7 +105,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      "secret",
-				Macaroon:      expectedMacaroon,
+				Macaroons:     expectedMacaroons,
 			},
 		},
 		MigrationId:      "id",
@@ -399,7 +399,7 @@ func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
-		Macaroon:      mac,
+		Macaroons:     []macaroon.Slice{{mac}},
 	}, nil
 }
 
