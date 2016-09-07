@@ -6,6 +6,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/juju/errors"
@@ -389,12 +390,10 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
-	var mac *macaroon.Macaroon
-	if specTarget.Macaroon != "" {
-		mac = new(macaroon.Macaroon)
-		err := mac.UnmarshalJSON([]byte(specTarget.Macaroon))
-		if err != nil {
-			return "", errors.Annotate(err, "invalid macaroon")
+	var macs []macaroon.Slice
+	if specTarget.Macaroons != "" {
+		if err := json.Unmarshal([]byte(specTarget.Macaroons), &macs); err != nil {
+			return "", errors.Annotate(err, "invalid macaroons")
 		}
 	}
 	targetInfo := coremigration.TargetInfo{
@@ -403,7 +402,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		CACert:        specTarget.CACert,
 		AuthTag:       authTag,
 		Password:      specTarget.Password,
-		Macaroon:      mac,
+		Macaroons:     macs,
 	}
 
 	// Check if the migration is likely to succeed.
@@ -554,16 +553,13 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 }
 
 func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
-	out := &api.Info{
-		Addrs:    ti.Addrs,
-		CACert:   ti.CACert,
-		Tag:      ti.AuthTag,
-		Password: ti.Password,
+	return &api.Info{
+		Addrs:     ti.Addrs,
+		CACert:    ti.CACert,
+		Tag:       ti.AuthTag,
+		Password:  ti.Password,
+		Macaroons: ti.Macaroons,
 	}
-	if ti.Macaroon != nil {
-		out.Macaroons = []macaroon.Slice{{ti.Macaroon}}
-	}
-	return out
 }
 
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {

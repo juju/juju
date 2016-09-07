@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationtarget"
@@ -633,14 +632,12 @@ func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connectio
 
 func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
 	apiInfo := &api.Info{
-		Addrs:    targetInfo.Addrs,
-		CACert:   targetInfo.CACert,
-		Tag:      targetInfo.AuthTag,
-		Password: targetInfo.Password,
-		ModelTag: names.NewModelTag(modelUUID),
-	}
-	if targetInfo.Macaroon != nil {
-		apiInfo.Macaroons = []macaroon.Slice{{targetInfo.Macaroon}}
+		Addrs:     targetInfo.Addrs,
+		CACert:    targetInfo.CACert,
+		Tag:       targetInfo.AuthTag,
+		Password:  targetInfo.Password,
+		ModelTag:  names.NewModelTag(modelUUID),
+		Macaroons: targetInfo.Macaroons,
 	}
 
 	// Use zero DialOpts (no retries) because the worker must stay

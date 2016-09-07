@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"regexp"
 	"time"
 
@@ -327,7 +328,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
+	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	controller.SetPrecheckResult(s, nil)
@@ -351,7 +352,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
-					Macaroon:      string(macJSON),
+					Macaroons:     string(macsJSON),
 				},
 				ExternalControl: true,
 			},
@@ -363,10 +364,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	states := []*state.State{st1, st2}
 	for i, spec := range args.Specs {
+		c.Log(i)
 		st := states[i]
 		result := out.Results[i]
 
-		c.Check(result.Error, gc.IsNil)
+		c.Assert(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
 		expectedId := st.ModelUUID() + ":0"
 		c.Check(result.MigrationId, gc.Equals, expectedId)
@@ -387,12 +389,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
 
-		var macJSONdb []byte
-		if targetInfo.Macaroon != nil {
-			macJSONdb, err = targetInfo.Macaroon.MarshalJSON()
+		if spec.TargetInfo.Macaroons != "" {
+			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroons)
 		}
-		c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroon)
 	}
 }
 
@@ -449,7 +450,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -462,7 +463,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
-					Macaroon:      "BLAH",
+					Macaroons:     "BLAH",
 				},
 			},
 		},
@@ -472,7 +473,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
+	c.Check(result.Error, gc.ErrorMatches, "invalid macaroons: .+")
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {

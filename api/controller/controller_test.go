@@ -4,11 +4,13 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
@@ -55,6 +57,14 @@ func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
 }
 
 func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
+	var macsJSON []byte
+	if len(spec.TargetMacaroons) > 0 {
+		var err error
+		macsJSON, err = json.Marshal(spec.TargetMacaroons)
+		if err != nil {
+			panic(err)
+		}
+	}
 	return params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
@@ -64,7 +74,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
-				Macaroon:      spec.TargetMacaroon,
+				Macaroons:     string(macsJSON),
 			},
 			ExternalControl: spec.ExternalControl,
 		}},
@@ -131,6 +141,10 @@ func makeClient(results params.InitiateMigrationResults) (
 }
 
 func makeSpec() controller.MigrationSpec {
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	if err != nil {
+		panic(err)
+	}
 	return controller.MigrationSpec{
 		ModelUUID:            randomUUID(),
 		TargetControllerUUID: randomUUID(),
@@ -138,7 +152,7 @@ func makeSpec() controller.MigrationSpec {
 		TargetCACert:         "cert",
 		TargetUser:           "someone",
 		TargetPassword:       "secret",
-		TargetMacaroon:       "mac",
+		TargetMacaroons:      []macaroon.Slice{{mac}},
 	}
 }
 

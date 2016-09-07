@@ -31,7 +31,7 @@ type MigrationTargetInfo struct {
 	CACert        string   `json:"ca-cert"`
 	AuthTag       string   `json:"auth-tag"`
 	Password      string   `json:"password,omitempty"`
-	Macaroon      string   `json:"macaroon,omitempty"`
+	Macaroons     string   `json:"macaroons,omitempty"`
 }
 
 // InitiateMigrationResults is used to return the result of one or

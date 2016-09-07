@@ -63,12 +63,12 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"empty AuthTag not valid",
 	}, {
-		"Password & Macaroon",
+		"Password & Macaroons",
 		func(info *migration.TargetInfo) {
 			info.Password = ""
-			info.Macaroon = nil
+			info.Macaroons = nil
 		},
-		"missing Password & Macaroon not valid",
+		"missing Password & Macaroons not valid",
 	}, {
 		"Success - empty Password",
 		func(info *migration.TargetInfo) {
@@ -76,9 +76,9 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"",
 	}, {
-		"Success - empty Macaroon",
+		"Success - empty Macaroons",
 		func(info *migration.TargetInfo) {
-			info.Macaroon = nil
+			info.Macaroons = nil
 		},
 		"",
 	}, {
@@ -111,6 +111,6 @@ func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
 		CACert:        "cert",
 		AuthTag:       names.NewUserTag("user"),
 		Password:      "password",
-		Macaroon:      mac,
+		Macaroons:     []macaroon.Slice{{mac}},
 	}
 }

@@ -6,6 +6,7 @@ package commands
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -103,6 +104,15 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 		return nil, err
 	}
 
+	var macs []macaroon.Slice
+	if accountInfo.Macaroon != "" {
+		mac := new(macaroon.Macaroon)
+		if err := mac.UnmarshalJSON([]byte(accountInfo.Macaroon)); err != nil {
+			return nil, errors.Annotate(err, "unmarshalling macaroon")
+		}
+		macs = []macaroon.Slice{{mac}}
+	}
+
 	return &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
@@ -110,7 +120,7 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 		TargetCACert:         controllerInfo.CACert,
 		TargetUser:           accountInfo.User,
 		TargetPassword:       accountInfo.Password,
-		TargetMacaroon:       accountInfo.Macaroon,
+		TargetMacaroons:      macs,
 	}, nil
 }
 
