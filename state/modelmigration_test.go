@@ -56,7 +56,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
-			Macaroon:      mac,
+			Macaroons:     []macaroon.Slice{{mac}},
 		},
 	}
 }
