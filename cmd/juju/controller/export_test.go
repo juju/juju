@@ -73,10 +73,10 @@ func NewRegisterCommandForTest(apiOpen api.OpenFunc, listModels func(jujuclient.
 	return &registerCommand{apiOpen: apiOpen, listModelsFunc: listModels, store: store}
 }
 
-// NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
+// NewEnableDestroyControllerCommandForTest returns a enableDestroyController with the
 // function used to open the API connection mocked out.
-func NewRemoveBlocksCommandForTest(api removeBlocksAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &removeBlocksCommand{
+func NewEnableDestroyControllerCommandForTest(api removeBlocksAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &enableDestroyController{
 		api: api,
 	}
 	c.SetClientStore(store)

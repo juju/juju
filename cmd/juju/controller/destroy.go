@@ -223,7 +223,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 				err = block.FormatTabularBlockedModels(out, info)
 			}
 			if err != nil {
-				logger.Errorf("Unable to list blocked models: %s", err)
+				logger.Errorf("Unable to list models: %s", err)
 				return cmd.ErrSilent
 			}
 			ctx.Infof(out.String())
@@ -237,10 +237,11 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	return destroyErr
 }
 
-const destroyControllerBlockedMsg = `there are blocks preventing controller destruction
-To remove all blocks in the controller, please run:
+const destroyControllerBlockedMsg = `there are models with disabled commands preventing controller destruction
 
-    juju controller remove-blocks
+To enable all commands in the controller, please run:
+
+    juju enable-destroy-controller
 
 `
 

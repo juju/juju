@@ -85,7 +85,7 @@ Examples:
     juju enable-command remove-object
 
     # To allow changes to the model:
-    juju enable-command all-changes
+    juju enable-command all
 
 See Also:
     juju disable-command
