@@ -267,6 +267,8 @@ type MachinerStateSuite struct {
 	machinerState *apimachiner.State
 	machine       *state.Machine
 	apiMachine    *apimachiner.Machine
+
+	getObservedNetworkConfigError error
 }
 
 var _ = gc.Suite(&MachinerStateSuite{})
@@ -292,8 +294,9 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
+	s.getObservedNetworkConfigError = nil
 	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
+		return nil, s.getObservedNetworkConfigError
 	})
 }
 
@@ -428,7 +431,19 @@ func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(bool(machineDead), jc.IsTrue)
+}
 
+func (s *MachinerStateSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
+	s.getObservedNetworkConfigError = errors.New("no config!")
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(c, false, machineDead.machineDead)
+	defer worker.Stop(mr)
+	s.State.StartSync()
+
+	c.Assert(mr.Wait(), gc.ErrorMatches, "cannot discover observed network config: no config!")
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
+	c.Assert(bool(machineDead), jc.IsFalse)
 }
 
 func (s *MachinerStateSuite) setupSetMachineAddresses(c *gc.C, ignore bool) {

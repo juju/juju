@@ -377,8 +377,16 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 // NetworkConfigSource defines the necessary calls to obtain the network
 // configuration of a machine.
 type NetworkConfigSource interface {
+	// SysClassNetPath returns the Linux kernel userspace SYSFS path used by
+	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
 	SysClassNetPath() string
+
+	// Interfaces returns all interfaces from the source as []net.Interface or
+	// an error.
 	Interfaces() ([]net.Interface, error)
+
+	// InterfaceAddresses returns all addresses of the interface with the given
+	// name from the source.
 	InterfaceAddresses(name string) ([]net.Addr, error)
 }
 
@@ -409,7 +417,7 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 	return &netPackageConfigSource{}
 }
 
-// GetObservedNetworkConfig discovers what network interfaces exist on using the
+// GetObservedNetworkConfig discovers what network interfaces exist using the
 // given source, transforms and returns the result as []params.NetworkConfig.
 func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
 	logger.Tracef("discovering observed machine network config...")
@@ -450,12 +458,12 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		}
 	}
 
-	logger.Tracef("about to update network config with observed: %+v", observedConfig)
+	logger.Tracef("observed network config: %+v", observedConfig)
 	return observedConfig, nil
 }
 
 func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) params.NetworkConfig {
-	configType := network.ConfigUnknown
+	configType := network.ConfigManual // assume manual initially, until we parse the address.
 	isUp := nic.Flags&net.FlagUp > 0
 	isLoopback := nic.Flags&net.FlagLoopback > 0
 	isUnknown := nicType == network.UnknownInterface
@@ -466,9 +474,6 @@ func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) 
 		configType = network.ConfigLoopback
 	case isUnknown:
 		nicType = network.EthernetInterface
-		fallthrough
-	default:
-		configType = network.ConfigManual // assume manual unless we have address.
 	}
 
 	return params.NetworkConfig{
@@ -504,8 +509,8 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 	}
 	if ip.To4() == nil {
 		logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, interfaceName)
-		// Treat IPv6 addresses as empty until we can handle them
-		// reliably.
+		// TODO(dimitern): Treat IPv6 addresses as empty until we can handle
+		// them reliably.
 		return config, nil
 	}
 
