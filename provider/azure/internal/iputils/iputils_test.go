@@ -47,6 +47,16 @@ func (*iputilsSuite) TestNextSubnetIPErrors(c *gc.C) {
 	)
 }
 
+func (*iputilsSuite) TestNthSubnetIP(c *gc.C) {
+	assertNthSubnetIP(c, "10.0.0.0/8", 0, "10.0.0.4")
+	assertNthSubnetIP(c, "10.0.0.0/8", 1, "10.0.0.5")
+	assertNthSubnetIP(c, "10.0.0.0/29", 0, "10.0.0.4")
+	assertNthSubnetIP(c, "10.0.0.0/29", 1, "10.0.0.5")
+	assertNthSubnetIP(c, "10.0.0.0/29", 2, "10.0.0.6")
+	assertNthSubnetIP(c, "10.0.0.0/29", 3, "") // all bits set, broadcast
+	assertNthSubnetIP(c, "10.1.2.0/30", 0, "")
+}
+
 func assertNextSubnetIP(c *gc.C, ipnetString string, inuseStrings []string, expectedString string) {
 	ipnet := parseIPNet(c, ipnetString)
 	inuse := parseIPs(c, inuseStrings...)
@@ -60,6 +70,17 @@ func assertNextSubnetIPError(c *gc.C, ipnetString string, inuseStrings []string,
 	inuse := parseIPs(c, inuseStrings...)
 	_, err := iputils.NextSubnetIP(ipnet, inuse)
 	c.Assert(err, gc.ErrorMatches, expect)
+}
+
+func assertNthSubnetIP(c *gc.C, ipnetString string, n int, expectedString string) {
+	ipnet := parseIPNet(c, ipnetString)
+	ip := iputils.NthSubnetIP(ipnet, n)
+	if expectedString == "" {
+		c.Assert(ip, gc.IsNil)
+	} else {
+		c.Assert(ip, gc.NotNil)
+		c.Assert(ip.String(), gc.Equals, expectedString)
+	}
 }
 
 func parseIPs(c *gc.C, ipStrings ...string) []net.IP {

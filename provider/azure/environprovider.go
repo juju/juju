@@ -33,12 +33,12 @@ type ProviderConfig struct {
 	// clients.
 	NewStorageClient azurestorage.NewClientFunc
 
-	// StorageAccountNameGenerator is a function returning storage
-	// account names.
-	StorageAccountNameGenerator func() string
-
 	// RetryClock is used when retrying API calls due to rate-limiting.
 	RetryClock clock.Clock
+
+	// RandomWindowsAdminPassword is a function used to generate
+	// a random password for the Windows admin user.
+	RandomWindowsAdminPassword func() string
 }
 
 // Validate validates the Azure provider configuration.
@@ -46,11 +46,11 @@ func (cfg ProviderConfig) Validate() error {
 	if cfg.NewStorageClient == nil {
 		return errors.NotValidf("nil NewStorageClient")
 	}
-	if cfg.StorageAccountNameGenerator == nil {
-		return errors.NotValidf("nil StorageAccountNameGenerator")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
+	}
+	if cfg.RandomWindowsAdminPassword == nil {
+		return errors.NotValidf("nil RandomWindowsAdminPassword")
 	}
 	return nil
 }

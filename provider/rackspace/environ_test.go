@@ -51,7 +51,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
-	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.Addresser, timeout environs.BootstrapDialOpts) (addr string, err error) {
+	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.InstanceRefresher, timeout environs.BootstrapDialOpts) (addr string, err error) {
 		addresses, err := inst.Addresses()
 		if err != nil {
 			return "", err
