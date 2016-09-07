@@ -70,7 +70,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		}, {
 			// 8
 			args:       []string{"one", "two"},
-			errorMatch: `unrecognized args: \["two"\]`,
+			errorMatch: "can only retrieve a single value, or all values",
 		},
 	} {
 		c.Logf("test %d", i)
@@ -141,22 +141,24 @@ func (s *DefaultsCommandSuite) TestBlockedErrorOnSet(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
-	context, err := s.run(c, "attr")
+	context, err := s.run(c, "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"ATTRIBUTE  DEFAULT  CONTROLLER\n" +
-		"attr       foo      -"
+		"ATTRIBUTE       DEFAULT      CONTROLLER\n" +
+		"attr2           -            bar\n" +
+		"  dummy-region  dummy-value  -"
 	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *DefaultsCommandSuite) TestGetSingleValueJSON(c *gc.C) {
-	context, err := s.run(c, "--format=json", "attr")
+	context, err := s.run(c, "--format=json", "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, `{"attr":{"default":"foo"}}`)
+	c.Assert(output, gc.Equals,
+		`{"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"}]}}`)
 }
 
 func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *gc.C) {

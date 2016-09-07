@@ -12,26 +12,26 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/keyvalues"
+
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/utils/keyvalues"
 )
 
 const (
-	agentVersionKey      = "agent-version"
 	modelDefaultsSummary = `Displays or sets default configuration settings for a model.`
 	modelDefaultsHelpDoc = `
 By default, all default configuration (keys and values) are
-displayed if a key is not specified. Supplying key=value will set the 
+displayed if a key is not specified. Supplying key=value will set the
 supplied key to the supplied value. This can be repeated for multiple keys.
 By default, the model is the current model.
 
 
 Examples:
-    juju model-defaults 
+    juju model-defaults
     juju model-defaults http-proxy
     juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
@@ -109,8 +109,8 @@ func (c *defaultsCommand) Init(args []string) error {
 			return errors.New("no keys specified")
 		}
 		for _, k := range args {
-			if k == agentVersionKey {
-				return errors.Errorf("%q cannot be reset", agentVersionKey)
+			if k == config.AgentVersionKey {
+				return errors.Errorf("%q cannot be reset", config.AgentVersionKey)
 			}
 		}
 		c.keys = args
@@ -135,8 +135,8 @@ func (c *defaultsCommand) Init(args []string) error {
 		}
 		c.values = make(attributes)
 		for k, v := range options {
-			if k == agentVersionKey {
-				return errors.Errorf(`%q must be set via "upgrade-juju"`, agentVersionKey)
+			if k == config.AgentVersionKey {
+				return errors.Errorf(`%q must be set via "upgrade-juju"`, config.AgentVersionKey)
 			}
 			c.values[k] = v
 		}
@@ -157,7 +157,7 @@ func (c *defaultsCommand) Init(args []string) error {
 	// We're getting defaults.
 	val, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.New("can only retrieve a single value, or all values")
 	}
 	if val != "" {
 		c.keys = []string{val}
@@ -236,11 +236,7 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-
-	ph := func(values ...string) {
-		text := strings.Join(values, "\t")
-		fmt.Fprintln(tw, text)
-	}
+	ph := output.TabWriterPrintln(tw)
 
 	p := func(name string, value config.AttributeDefaultValues) {
 		var c, d interface{}
@@ -272,7 +268,8 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	ph("ATTRIBUTE\tDEFAULT\tCONTROLLER")
+
+	ph("ATTRIBUTE", "DEFAULT", "CONTROLLER")
 
 	for _, name := range valueNames {
 		info := defaultValues[name]
