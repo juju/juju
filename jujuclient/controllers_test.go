@@ -28,13 +28,12 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewFileClientStore()
 	s.controllerName = "test.controller"
 	s.controller = jujuclient.ControllerDetails{
-		[]string{"test.server.hostname"},
-		"test.uuid",
-		[]string{"test.api.endpoint"},
-		"test.ca.cert",
-		"aws",
-		"southeastasia",
-		"",
+		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
+		ControllerUUID:         "test.uuid",
+		APIEndpoints:           []string{"test.api.endpoint"},
+		CACert:                 "test.ca.cert",
+		Cloud:                  "aws",
+		CloudRegion:            "southeastasia",
 	}
 }
 
