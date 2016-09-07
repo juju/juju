@@ -5,9 +5,9 @@ package apiserver_test
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -22,9 +22,9 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/usermanager"
+	apiauthentication "github.com/juju/juju/api/authentication"
+	apitesting "github.com/juju/juju/api/testing"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -505,37 +505,48 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 }
 
 func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
-	// Create a new user, and a local login macaroon for it.
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
-	conn := s.OpenControllerAPIAs(c, user.Tag(), "hunter2")
-	defer conn.Close()
-	mac, err := usermanager.NewClient(conn).CreateLocalLoginMacaroon(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
+	// Create a new local user that we can log in as
+	// using macaroon authentication.
+	const password = "hunter2"
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
-	checkCount := 0
-	s.DischargerLogin = func() string {
-		checkCount++
-		return user.UserTag().Id()
-	}
-	do := func(req *http.Request) (*http.Response, error) {
-		data, err := json.Marshal(macaroon.Slice{mac})
-		if err != nil {
-			return nil, err
+	// Install a "web-page" visitor that deals with the interaction
+	// method that Juju controllers support for authenticating local
+	// users. Note: the use of httpbakery.NewMultiVisitor is necessary
+	// to trigger httpbakery to query the authentication methods and
+	// bypass browser authentication.
+	var prompted bool
+	jar := apitesting.NewClearableCookieJar()
+	client := utils.GetNonValidatingHTTPClient()
+	client.Jar = jar
+	bakeryClient := httpbakery.NewClient()
+	bakeryClient.Client = client
+	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(apiauthentication.NewVisitor(
+		user.UserTag().Canonical(),
+		func(username string) (string, error) {
+			c.Assert(username, gc.Equals, user.UserTag().Canonical())
+			prompted = true
+			return password, nil
+		},
+	))
+	bakeryDo := func(req *http.Request) (*http.Response, error) {
+		var body io.ReadSeeker
+		if req.Body != nil {
+			body = req.Body.(io.ReadSeeker)
+			req.Body = nil
 		}
-		req.Header.Add(httpbakery.MacaroonsHeader, base64.StdEncoding.EncodeToString(data))
-		return utils.GetNonValidatingHTTPClient().Do(req)
+		return bakeryClient.DoWithBodyAndCustomError(req, body, bakeryGetError)
 	}
-	// send without using bakeryDo, so we don't pass any macaroon cookies
-	// along.
+
 	resp := s.sendRequest(c, httpRequestParams{
 		method:   "POST",
 		url:      s.toolsURI(c, ""),
 		tag:      user.UserTag().String(),
 		password: "", // no password forces macaroon usage
-		do:       do,
+		do:       bakeryDo,
 	})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
-	c.Assert(checkCount, gc.Equals, 0)
+	c.Assert(prompted, jc.IsTrue)
 }
 
 // doer returns a Do function that can make a bakery request

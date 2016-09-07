@@ -20,8 +20,8 @@ import (
 // APIContext holds the context required for making connections to
 // APIs used by juju.
 type APIContext struct {
-	Jar          *cookiejar.Jar
-	BakeryClient *httpbakery.Client
+	Jar            *cookiejar.Jar
+	WebPageVisitor httpbakery.Visitor
 }
 
 // AuthOpts holds flags relating to authentication.
@@ -52,10 +52,7 @@ func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client := httpbakery.NewClient()
-	client.Jar = jar
 	var visitors []httpbakery.Visitor
-
 	if ctxt != nil && opts != nil && opts.NoBrowser {
 		filler := &form.IOFiller{
 			In:  ctxt.Stdin,
@@ -65,11 +62,18 @@ func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	} else {
 		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
-	client.WebPageVisitor = httpbakery.NewMultiVisitor(visitors...)
+	webPageVisitor := httpbakery.NewMultiVisitor(visitors...)
 	return &APIContext{
-		Jar:          jar,
-		BakeryClient: client,
+		Jar:            jar,
+		WebPageVisitor: webPageVisitor,
 	}, nil
+}
+
+func (ctx *APIContext) NewBakeryClient() *httpbakery.Client {
+	client := httpbakery.NewClient()
+	client.Jar = ctx.Jar
+	client.WebPageVisitor = ctx.WebPageVisitor
+	return client
 }
 
 // cookieFile returns the path to the cookie used to store authorization

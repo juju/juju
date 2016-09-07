@@ -15,12 +15,19 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/observer"
@@ -287,6 +294,12 @@ func (srv *Server) run() {
 		srv.tomb.Kill(srv.mongoPinger())
 	}()
 
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.expireLocalLoginInteractions())
+	}()
+
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -394,8 +407,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/register",
 		&registerUserHandler{
-			httpCtxt,
-			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
+			ctxt: httpCtxt,
 		},
 	)
 	add("/api", mainAPIHandler)
@@ -404,7 +416,190 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
+	// Add HTTP handlers for local-user macaroon authentication.
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		srv.authCtxt.localUserThirdPartyBakeryService,
+		srv.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(localUserIdentityLocationPath+"/login", mkHandler(handleJSON(srv.serveLogin)))
+	dischargeMux.Handle(localUserIdentityLocationPath+"/wait", mkHandler(handleJSON(srv.serveWait)))
+	add(localUserIdentityLocationPath+"/discharge", dischargeMux)
+	add(localUserIdentityLocationPath+"/publickey", dischargeMux)
+	add(localUserIdentityLocationPath+"/login", dischargeMux)
+	add(localUserIdentityLocationPath+"/wait", dischargeMux)
+
 	return endpoints
+}
+
+var (
+	errorMapper httprequest.ErrorMapper = httpbakery.ErrorToResponse
+	handleJSON                          = errorMapper.HandleJSON
+)
+
+func mkHandler(h httprouter.Handle) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		h(w, req, nil)
+	})
+}
+
+func (srv *Server) serveLogin(p httprequest.Params) (interface{}, error) {
+	if err := p.Request.ParseForm(); err != nil {
+		return nil, err
+	}
+	switch p.Request.Method {
+	case "POST":
+		waitId := p.Request.Form.Get("waitid")
+		if waitId == "" {
+			return nil, errors.NotValidf("missing waitid")
+		}
+		username := p.Request.Form.Get("user")
+		password := p.Request.Form.Get("password")
+		if !names.IsValidUser(username) {
+			return nil, errors.NotValidf("username %q", username)
+		}
+		userTag := names.NewUserTag(username)
+		if !userTag.IsLocal() {
+			return nil, errors.NotValidf("non-local username %q", username)
+		}
+
+		authenticator := srv.authCtxt.authenticator(p.Request.Host)
+		if _, err := authenticator.Authenticate(srv.state, userTag, params.LoginRequest{
+			Credentials: password,
+		}); err != nil {
+			// Mark the interaction as done (but failed),
+			// unblocking a pending "/auth/wait" request.
+			if err := srv.authCtxt.localUserInteractions.Done(waitId, userTag, err); err != nil {
+				if !errors.IsNotFound(err) {
+					logger.Warningf(
+						"failed to record completion of interaction %q for %q",
+						waitId, userTag.Id(),
+					)
+				}
+			}
+			return nil, errors.Trace(err)
+		}
+
+		// Provide the client with a macaroon that they can use to
+		// prove that they have logged in, and obtain a discharge
+		// macaroon.
+		m, err := srv.authCtxt.CreateLocalLoginMacaroon(userTag)
+		if err != nil {
+			return nil, err
+		}
+		cookie, err := httpbakery.NewCookie(macaroon.Slice{m})
+		if err != nil {
+			return nil, err
+		}
+		http.SetCookie(p.Response, cookie)
+
+		// Mark the interaction as done, unblocking a pending
+		// "/auth/wait" request.
+		if err := srv.authCtxt.localUserInteractions.Done(
+			waitId, userTag, nil,
+		); err != nil {
+			if errors.IsNotFound(err) {
+				err = errors.New("login timed out")
+			}
+			return nil, err
+		}
+		return nil, nil
+	case "GET":
+		if p.Request.Header.Get("Accept") == "application/json" {
+			// The application/json content-type is used to
+			// inform the client of the supported auth methods.
+			return map[string]string{
+				"juju_userpass": p.Request.URL.String(),
+			}, nil
+		}
+		// TODO(axw) return an HTML form. If waitid is supplied,
+		// it should be passed through so we can unblock a request
+		// on the /auth/wait endpoint. We should also support logging
+		// in when not specifically directed to the login page.
+		return nil, errors.NotImplementedf("GET")
+	default:
+		return nil, errors.Errorf("unsupported method %q", p.Request.Method)
+	}
+}
+
+func (srv *Server) serveWait(p httprequest.Params) (interface{}, error) {
+	if err := p.Request.ParseForm(); err != nil {
+		return nil, err
+	}
+	if p.Request.Method != "GET" {
+		return nil, errors.Errorf("unsupported method %q", p.Request.Method)
+	}
+	waitId := p.Request.Form.Get("waitid")
+	if waitId == "" {
+		return nil, errors.NotValidf("missing waitid")
+	}
+	interaction, err := srv.authCtxt.localUserInteractions.Wait(waitId, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if interaction.LoginError != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx := macaroonAuthContext{
+		authContext: srv.authCtxt,
+		req:         p.Request,
+	}
+	macaroon, err := srv.authCtxt.localUserThirdPartyBakeryService.Discharge(
+		&ctx, interaction.CaveatId,
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "discharging macaroon")
+	}
+	return httpbakery.WaitResponse{macaroon}, nil
+}
+
+func (srv *Server) expireLocalLoginInteractions() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.authCtxt.clock.Now()
+			srv.authCtxt.localUserInteractions.Expire(now)
+		}
+	}
+}
+
+func (srv *Server) checkThirdPartyCaveat(req *http.Request, cavId, cav string) ([]checkers.Caveat, error) {
+	ctx := &macaroonAuthContext{authContext: srv.authCtxt, req: req}
+	return ctx.CheckThirdPartyCaveat(cavId, cav)
+}
+
+type macaroonAuthContext struct {
+	*authContext
+	req *http.Request
+}
+
+// CheckThirdPartyCaveat is part of the bakery.ThirdPartyChecker interface.
+func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavId, cav string) ([]checkers.Caveat, error) {
+	tag, err := ctx.CheckLocalLoginCaveat(cav)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	firstPartyCaveats, err := ctx.CheckLocalLoginRequest(ctx.req, tag)
+	if err != nil {
+		if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
+			waitId, err := ctx.localUserInteractions.Start(
+				cavId,
+				ctx.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitId
+			waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitId
+			return nil, httpbakery.NewInteractionRequiredError(visitURL, waitURL, nil, ctx.req)
+		}
+		return nil, errors.Trace(err)
+	}
+	return firstPartyCaveats, nil
 }
 
 func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
@@ -496,7 +691,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
-			if err := srv.serveConn(conn, modelUUID, apiObserver); err != nil {
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -504,12 +699,12 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	h, err := srv.newAPIHandler(conn, modelUUID)
+	h, err := srv.newAPIHandler(conn, modelUUID, host)
 	if err != nil {
 		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
@@ -527,7 +722,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
@@ -542,7 +737,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID, serverHost)
 }
 
 func (srv *Server) mongoPinger() error {

@@ -63,7 +63,7 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
-password: 
+password for test@local on kontroll: 
 You are now logged in to "kontroll" as "test@local".
 `[1:])
 
@@ -72,7 +72,6 @@ You are now logged in to "kontroll" as "test@local".
 	accountDetails, err := store.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accountDetails.Password, gc.Equals, "")
-	c.Assert(accountDetails.Macaroon, gc.Not(gc.Equals), "")
 
 	// We should be able to login with the macaroon.
 	s.run(c, nil, "status")
