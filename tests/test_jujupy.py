@@ -927,6 +927,19 @@ class TestEnvJujuClient(ClientTest):
                     'foo/baz', '--config', config_file.name,
                     '--default-model', 'foo'), include_e=False)
 
+    def test_bootstrap_credential(self):
+        env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with observable_temp_file() as config_file:
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap(credential='credential_name')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo',
+                'foo/baz', '--config', config_file.name,
+                '--default-model', 'foo', '--agent-version', '2.0',
+                '--credential', 'credential_name'), include_e=False)
+
     def test_bootstrap_args(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)

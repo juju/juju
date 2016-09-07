@@ -1072,7 +1072,7 @@ class EnvJujuClient:
         return '{}/{}'.format(cloud, region)
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None):
+                           bootstrap_series=None, credential=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1091,6 +1091,10 @@ class EnvJujuClient:
 
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
+
+        if credential is not None:
+            args.extend(['--credential', credential])
+
         return tuple(args)
 
     def add_model(self, env):
@@ -1151,12 +1155,13 @@ class EnvJujuClient:
     def update_user_name(self):
         self.env.user_name = 'admin@local'
 
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+    def bootstrap(self, upload_tools=False, bootstrap_series=None,
+                  credential=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series)
+                upload_tools, config_filename, bootstrap_series, credential)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
@@ -2158,7 +2163,7 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
 class EnvJujuClient2B2(EnvJujuClient2B3):
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None):
+                           bootstrap_series=None, credential=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -2176,6 +2181,10 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
 
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
+
+        if credential is not None:
+            args.extend(['--credential', credential])
+
         return tuple(args)
 
     def get_controller_client(self):
@@ -2228,8 +2237,12 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             log.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
+                           credential=None):
         """Return the bootstrap arguments for the substrate."""
+        if credential is not None:
+            raise ValueError(
+                '--credential is not supported by this juju version.')
         constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints,
                 '--agent-version', self.get_matching_agent_version())
@@ -2430,8 +2443,12 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         else:
             return unqualified_model_name(self.model_name)
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
+                           credential=None):
         """Return the bootstrap arguments for the substrate."""
+        if credential is not None:
+            raise ValueError(
+                '--credential is not supported by this juju version.')
         constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints)
         if upload_tools:
