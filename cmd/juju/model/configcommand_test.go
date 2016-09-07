@@ -62,7 +62,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		}, {
 			// 7
 			args:       []string{"one", "two"},
-			errorMatch: `unrecognized args: \["two"\]`,
+			errorMatch: "can only retrieve a single value, or all values",
 		},
 	} {
 		c.Logf("test %d", i)
@@ -88,8 +88,22 @@ func (s *ConfigCommandSuite) TestSingleValueJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json", "special")
 	c.Assert(err, jc.ErrorIsNil)
 
+	want := "{\"special\":{\"Value\":\"special value\",\"Source\":\"model\"}}\n"
 	output := testing.Stdout(context)
-	c.Assert(output, gc.Equals, "special value\n")
+	c.Assert(output, gc.Equals, want)
+}
+
+func (s *ConfigCommandSuite) TestSingleValueYAML(c *gc.C) {
+	context, err := s.run(c, "--format=yaml", "special")
+	c.Assert(err, jc.ErrorIsNil)
+
+	want := "" +
+		"special:\n" +
+		"  value: special value\n" +
+		"  source: model\n"
+
+	output := testing.Stdout(context)
+	c.Assert(output, gc.Equals, want)
 }
 
 func (s *ConfigCommandSuite) TestAllValuesYAML(c *gc.C) {

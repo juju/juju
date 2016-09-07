@@ -21,32 +21,8 @@ import (
 )
 
 const (
-	getConfig = iota
-	resetConfig
-	setconfig
-)
-
-// NewConfigCommand wraps configCommand with sane model settings.
-func NewConfigCommand() cmd.Command {
-	return modelcmd.Wrap(&configCommand{})
-}
-
-type attributes map[string]interface{}
-
-// modelConfigCommand is the simplified command for accessing and setting
-// attributes related to model configuration.
-type configCommand struct {
-	modelcmd.ModelCommandBase
-	api    configCommandAPI
-	keys   []string
-	values attributes
-	out    cmd.Output
-	reset  bool // Flag denoting whether we are resetting the keys provided.
-	action int  // The action which we want to handle, set in cmd.Init.
-}
-
-const modelConfigSummary = "Displays or sets configuration values on a model."
-const modelConfigHelpDoc = `
+	modelConfigSummary = "Displays or sets configuration values on a model."
+	modelConfigHelpDoc = `
 By default, all configuration (keys, source, and values) for the current model
 are displayed.
 
@@ -65,6 +41,27 @@ See also:
     models
     model-defaults
 `
+)
+
+// NewConfigCommand wraps configCommand with sane model settings.
+func NewConfigCommand() cmd.Command {
+	return modelcmd.Wrap(&configCommand{})
+}
+
+type attributes map[string]interface{}
+
+// configCommand is the simplified command for accessing and setting
+// attributes related to model configuration.
+type configCommand struct {
+	api configCommandAPI
+	modelcmd.ModelCommandBase
+	out cmd.Output
+
+	action func(*cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys   []string
+	reset  bool // Flag denoting whether we are resetting the keys provided.
+	values attributes
+}
 
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
@@ -100,14 +97,13 @@ func (c *configCommand) Init(args []string) error {
 				return errors.Errorf("agent-version cannot be reset")
 			}
 		}
-		c.action = resetConfig
 		c.keys = args
+		c.action = c.resetConfig
 		return nil
 	}
 
 	if len(args) > 0 && strings.Contains(args[0], "=") {
 		// We're setting values.
-		c.action = setconfig
 		options, err := keyvalues.Parse(args, true)
 		if err != nil {
 			return errors.Trace(err)
@@ -119,18 +115,21 @@ func (c *configCommand) Init(args []string) error {
 			}
 			c.values[k] = v
 		}
+
+		c.action = c.setConfig
 		return nil
 	}
 
 	val, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
-		return err
+		return errors.New("can only retrieve a single value, or all values")
 	}
 
 	// We're doing getConfig.
 	if val != "" {
 		c.keys = []string{val}
 	}
+	c.action = c.getConfig
 	return nil
 }
 
@@ -153,7 +152,7 @@ func (c *configCommand) isModelAttrbute(attr string) bool {
 	return false
 }
 
-// getAPI returns the API. This allows passing in a test ModelCommandAPI
+// getAPI returns the API. This allows passing in a test configCommandAPI
 // implementation.
 func (c *configCommand) getAPI() error {
 	if c.api != nil {
@@ -176,18 +175,13 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.api.Close()
 
-	switch c.action {
-	case resetConfig:
-		return c.resetConfig()
-	case setconfig:
-		return c.setConfig()
-	default: // getConfig
-		return c.getConfig(ctx)
-	}
+	return c.action(ctx)
 }
 
 // reset unsets the keys provided to the command.
-func (c *configCommand) resetConfig() error {
+func (c *configCommand) resetConfig(ctx *cmd.Context) error {
+	// ctx unused in this method
+
 	// extra call to the API to retrieve env config
 	envAttrs, err := c.api.ModelGet()
 	if err != nil {
@@ -211,7 +205,8 @@ func (c *configCommand) resetConfig() error {
 }
 
 // set sets the provided key/value pairs on the model.
-func (c *configCommand) setConfig() error {
+func (c *configCommand) setConfig(ctx *cmd.Context) error {
+	// ctx unused in this method.
 	envAttrs, err := c.api.ModelGet()
 	if err != nil {
 		return err
@@ -243,17 +238,20 @@ func (c *configCommand) getConfig(ctx *cmd.Context) error {
 	if len(c.keys) == 1 {
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
-			err := cmd.FormatYaml(ctx.Stdout, value.Value)
-			if err != nil {
-				return err
+			if c.out.Name() == "tabular" {
+				return cmd.FormatYaml(ctx.Stdout, value.Value)
 			}
-			return nil
+			attrs = config.ConfigValues{
+				key: config.ConfigValue{
+					Source: value.Source,
+					Value:  value.Value,
+				},
+			}
+		} else {
+			return errors.Errorf("key %q not found in %q model.", key, attrs["name"])
 		}
-		return errors.Errorf("key %q not found in %q model.", key, attrs["name"])
 	}
-	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
-
 }
 
 // formatConfigTabular writes a tabular summary of config information.
