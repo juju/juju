@@ -711,8 +711,9 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 	// Set up macaroon based auth to the target.
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
+	macs := []macaroon.Slice{{mac}}
 	s.masterFacade.status.TargetInfo.Password = ""
-	s.masterFacade.status.TargetInfo.Macaroon = mac
+	s.masterFacade.status.TargetInfo.Macaroons = macs
 
 	// Use ABORT because it involves an API connection to the target
 	// and is convenient.
@@ -735,7 +736,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 						Addrs:     []string{"1.2.3.4:5"},
 						CACert:    "cert",
 						Tag:       names.NewUserTag("admin"),
-						Macaroons: []macaroon.Slice{{mac}}, // <----
+						Macaroons: macs, // <---
 					},
 					api.DialOpts{},
 				},
