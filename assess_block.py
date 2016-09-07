@@ -41,7 +41,7 @@ class DisableCommandTypes:
     all = 'all'
 
 
-def make_block_list(client, disabled_commands):
+def make_block_list(disabled_commands):
     """Return a manually made list of blocks and their status
 
     :param disabled_commands: list of DisableCommandTypes elements to include
@@ -77,8 +77,7 @@ def assess_block_destroy_model(client, charm_series):
     """
     client.juju(client.disable_command, (client.destroy_model_command))
     block_list = get_block_list(client)
-    expected = [DisableCommandTypes.destroy_mode]
-    if block_list != make_block_list(client, expected):
+    if block_list != make_block_list([DisableCommandTypes.destroy_mode]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -96,8 +95,7 @@ def assess_block_remove_object(client, charm_series):
     """
     client.juju(client.disable_command, (DisableCommandTypes.remove_object))
     block_list = get_block_list(client)
-    expected = [DisableCommandTypes.remove_object]
-    if block_list != make_block_list(client, expected):
+    if block_list != make_block_list([DisableCommandTypes.remove_object]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -114,8 +112,7 @@ def assess_block_all_changes(client, charm_series):
     client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
     client.juju(client.disable_command, (DisableCommandTypes.all))
     block_list = get_block_list(client)
-    expected = [DisableCommandTypes.all]
-    if block_list != make_block_list(client, expected):
+    if block_list != make_block_list([DisableCommandTypes.all]):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
@@ -139,7 +136,7 @@ def assess_unblock(client, type):
     unblock destroy-model/remove-object/all-changes."""
     client.juju(client.enable_command, (type))
     block_list = get_block_list(client)
-    if block_list != make_block_list(client, []):
+    if block_list != make_block_list([]):
         raise JujuAssertionError(block_list)
     if type == client.destroy_model_command:
         client.remove_service('dummy-source')
@@ -154,7 +151,7 @@ def assess_block(client, charm_series):
     """
     block_list = get_block_list(client)
     client.wait_for_started()
-    expected_none_blocked = make_block_list(client, [])
+    expected_none_blocked = make_block_list([])
     if block_list != expected_none_blocked:
         raise JujuAssertionError(block_list)
     assess_block_destroy_model(client, charm_series)
