@@ -924,8 +924,10 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 
 	for _, hostDevice := range allDevices {
 		deviceType, name := hostDevice.Type(), hostDevice.Name()
-		// Only use bridges, but not the default bridges per container type,
-		// which should only be used for fallback config.
+		// Since the default bridges (for each container type) are
+		// machine-local, and there's neither a way (at least not yet) nor any
+		// point in allocating addresses from the (machine-local) subnets
+		// configured on those bridges, we need to ignore them below.
 		if deviceType == BridgeDevice {
 			switch name {
 			case container.DefaultLxdBridge, container.DefaultKvmBridge:

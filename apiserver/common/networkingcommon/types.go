@@ -381,12 +381,12 @@ type NetworkConfigSource interface {
 	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
 	SysClassNetPath() string
 
-	// Interfaces returns all interfaces from the source as []net.Interface or
-	// an error.
+	// Interfaces returns information about all network interfaces on the
+	// machine as []net.Interface.
 	Interfaces() ([]net.Interface, error)
 
-	// InterfaceAddresses returns all addresses of the interface with the given
-	// name from the source.
+	// InterfaceAddresses returns information about all addresses assigned to
+	// the network interface with the given name.
 	InterfaceAddresses(name string) ([]net.Addr, error)
 }
 
@@ -417,12 +417,26 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 	return &netPackageConfigSource{}
 }
 
-// GetObservedNetworkConfig discovers what network interfaces exist using the
-// given source, transforms and returns the result as []params.NetworkConfig.
+// GetObservedNetworkConfig uses the given source to find all available network
+// interfaces and their assigned addresses, and returns the result as
+// []params.NetworkConfig. In addition to what the source returns, a few
+// additional transformations are done:
+//
+// * On any OS, the state (UP/DOWN) of each interface and the DeviceIndex field,
+//   will be correctly populated. Loopback interfaces are also properly detected
+//   and will have InterfaceType set LoopbackInterface.
+// * On Linux only, the InterfaceType field will be reliably detected for a few
+//   types: BondInterface, BridgeInterface, VLAN_8021QInterface.
+// * Also on Linux, for interfaces that are discovered to be ports on a bridge,
+//   the ParentInterfaceName will be populated with the name of the bridge.
+// * ConfigType fields will be set to ConfigManual when no address is detected,
+//   or ConfigStatic when it is.
+// * TODO: any IPv6 addresses found will be ignored and treated as empty ATM.
+//
+// Result entries will be grouped by InterfaceName, in the same order they are
+// returned by the given source.
 func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
 	logger.Tracef("discovering observed machine network config...")
-
-	sysClassNetPath := source.SysClassNetPath()
 
 	interfaces, err := source.Interfaces()
 	if err != nil {
@@ -431,11 +445,14 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 
 	var namesOrder []string
 	nameToConfigs := make(map[string][]params.NetworkConfig)
+	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
 		nicConfig := interfaceToNetworkConfig(nic, nicType)
 
-		maybeSetParentForBridgePorts(nicType, nic.Name, sysClassNetPath, nameToConfigs)
+		if nicType == network.BridgeInterface {
+			updateParentForBridgePorts(nic.Name, sysClassNetPath, nameToConfigs)
+		}
 
 		seenSoFar := false
 		if existing, ok := nameToConfigs[nic.Name]; ok {
@@ -513,14 +530,7 @@ func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) 
 	}
 }
 
-func maybeSetParentForBridgePorts(nicType network.InterfaceType, nicName, sysClassNetPath string, nameToConfigs map[string][]params.NetworkConfig) {
-	// For bridges, we can discover the ports and pre-populate
-	// ParentInterfaceName for them.
-	if nicType != network.BridgeInterface {
-		return
-	}
-
-	bridgeName := nicName
+func updateParentForBridgePorts(bridgeName, sysClassNetPath string, nameToConfigs map[string][]params.NetworkConfig) {
 	ports := network.GetBridgePorts(sysClassNetPath, bridgeName)
 	for _, portName := range ports {
 		portConfigs, ok := nameToConfigs[portName]
@@ -545,9 +555,9 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 
 	ip, ipNet, err := net.ParseCIDR(cidrAddress)
 	if err != nil {
-		logger.Infof("cannot parse interface %q address %q as CIDR, trying as IP address: %v", interfaceName, cidrAddress, err)
+		logger.Infof("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
 		if ip = net.ParseIP(cidrAddress); ip == nil {
-			return config, errors.Errorf("cannot parse interface %q IP address %q", interfaceName, cidrAddress)
+			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
 		} else {
 			ipNet = &net.IPNet{IP: ip}
 		}
