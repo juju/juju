@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
@@ -64,7 +65,8 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
+	macs := []macaroon.Slice{{mac}}
+	macsJSON, err := json.Marshal(macs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUUID := utils.MustNewUUID().String()
@@ -81,7 +83,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
 					Password:      "secret",
-					Macaroon:      string(macJSON),
+					Macaroons:     string(macsJSON),
 				},
 			},
 			MigrationId:      "id",
@@ -105,7 +107,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
-			Macaroon:      mac,
+			Macaroons:     macs,
 		},
 	})
 }
