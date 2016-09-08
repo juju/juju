@@ -371,10 +371,8 @@ class JujuData(SimpleEnvironment):
             yaml.safe_dump(self.clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
-        log.info("start find_endpoint_cloud")
         #log.info("clouds {}".format(self.clouds))
         log.info("clouds {}".format(self.clouds))
-        self.config['type']
         #for cloud, cloud_config in self.clouds['clouds'].items():
         #log.info("cloud {}, cloud_config {}".format(cloud, cloud_config))
         #if cloud_config['type'] != cloud_type:
@@ -401,9 +399,7 @@ class JujuData(SimpleEnvironment):
         if provider == 'maas':
             endpoint = self.config['maas-server']
         elif provider == 'openstack':
-            log.info("setting endpoint")
             endpoint = self.config['auth-url']
-            log.info("endpoint set")
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_region(self):
