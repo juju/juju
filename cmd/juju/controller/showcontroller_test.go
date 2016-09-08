@@ -32,9 +32,17 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{
 		modelNames: map[string]string{
-			"abc": "admin",
+			"abc": "controller",
 			"def": "my-model",
-			"ghi": "admin",
+			"ghi": "controller",
+		},
+		machines: map[string][]base.Machine{
+			"ghi": {
+				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
+				{Id: "1", InstanceId: "id-1", HasVote: false, WantsVote: true, Status: "down"},
+				{Id: "2", InstanceId: "id-2", HasVote: true, WantsVote: true, Status: "active"},
+				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
+			},
 		},
 	}
 	s.api = func(controllerNamee string) controller.ControllerAccessAPI {
@@ -63,7 +71,7 @@ mallards:
     cloud: mallards
     agent-version: 999.99.99
   models:
-    admin:
+    controller:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -100,7 +108,7 @@ mallards:
     cloud: mallards
     agent-version: 999.99.99
   models:
-    admin:
+    controller:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -131,7 +139,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 	store := s.createTestClientStore(c)
 	store.BootstrapConfig["mallards"] = jujuclient.BootstrapConfig{
 		Config: map[string]interface{}{
-			"name":  "admin",
+			"name":  "controller",
 			"type":  "maas",
 			"extra": "value",
 		},
@@ -153,7 +161,7 @@ mallards:
     region: mallards1
     agent-version: 999.99.99
   models:
-    admin:
+    controller:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -182,12 +190,22 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+  controller-machines:
+    "0":
+      instance-id: id-0
+      ha-status: ha-pending
+    "1":
+      instance-id: id-1
+      ha-status: down, lost connection
+    "2":
+      instance-id: id-2
+      ha-status: ha-enabled
   models:
-    admin:
+    controller:
       uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: admin
+  current-model: controller
   account:
     user: admin@local
     access: superuser
@@ -206,12 +224,22 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+  controller-machines:
+    "0":
+      instance-id: id-0
+      ha-status: ha-pending
+    "1":
+      instance-id: id-1
+      ha-status: down, lost connection
+    "2":
+      instance-id: id-2
+      ha-status: ha-enabled
   models:
-    admin:
+    controller:
       uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: admin
+  current-model: controller
   account:
     user: admin@local
     access: superuser
@@ -234,7 +262,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.fakeController.store = s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -243,7 +271,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.fakeController.store = s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin@local","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -266,7 +294,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	s.fakeController.store = store
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"models":{"admin":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin","account":{"user":"admin@local","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin@local","access":"superuser"}}}
 `[1:]
 	store.CurrentControllerName = "aws-test"
 	s.assertShowController(c, "--format", "json")
@@ -315,6 +343,7 @@ type fakeController struct {
 	controllerName string
 	store          jujuclient.ClientStore
 	modelNames     map[string]string
+	machines       map[string][]base.Machine
 }
 
 func (*fakeController) GetControllerAccess(user string) (description.Access, error) {
@@ -331,6 +360,7 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 			UUID:              mtag.Id(),
 			TotalMachineCount: 2,
 			CoreCount:         4,
+			Machines:          c.machines[mtag.Id()],
 		})
 	}
 	return result, nil

@@ -22,18 +22,19 @@ type ControllerSet struct {
 
 // ControllerItem defines the serialization behaviour of controller information.
 type ControllerItem struct {
-	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
-	Access         string   `yaml:"access,omitempty" json:"access,omitempty"`
-	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
-	ControllerUUID string   `yaml:"uuid" json:"uuid"`
-	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
-	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
-	Cloud          string   `yaml:"cloud" json:"cloud"`
-	CloudRegion    string   `yaml:"region,omitempty" json:"region,omitempty"`
-	AgentVersion   string   `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
-	ModelCount     *int     `yaml:"model-count,omitempty" json:"model-count,omitempty"`
-	MachineCount   *int     `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
+	ModelName          string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+	User               string   `yaml:"user,omitempty" json:"user,omitempty"`
+	Access             string   `yaml:"access,omitempty" json:"access,omitempty"`
+	Server             string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
+	ControllerUUID     string   `yaml:"uuid" json:"uuid"`
+	APIEndpoints       []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
+	CACert             string   `yaml:"ca-cert" json:"ca-cert"`
+	Cloud              string   `yaml:"cloud" json:"cloud"`
+	CloudRegion        string   `yaml:"region,omitempty" json:"region,omitempty"`
+	AgentVersion       string   `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
+	ModelCount         *int     `yaml:"model-count,omitempty" json:"model-count,omitempty"`
+	MachineCount       *int     `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
+	ControllerMachines string   `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -91,18 +92,19 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		}
 
 		controllers[controllerName] = ControllerItem{
-			ModelName:      modelName,
-			User:           userName,
-			Access:         access,
-			Server:         serverName,
-			APIEndpoints:   details.APIEndpoints,
-			ControllerUUID: details.ControllerUUID,
-			CACert:         details.CACert,
-			Cloud:          details.Cloud,
-			CloudRegion:    details.CloudRegion,
-			ModelCount:     details.ModelCount,
-			MachineCount:   details.MachineCount,
-			AgentVersion:   details.AgentVersion,
+			ModelName:          modelName,
+			User:               userName,
+			Access:             access,
+			Server:             serverName,
+			APIEndpoints:       details.APIEndpoints,
+			ControllerUUID:     details.ControllerUUID,
+			CACert:             details.CACert,
+			Cloud:              details.Cloud,
+			CloudRegion:        details.CloudRegion,
+			ModelCount:         details.ModelCount,
+			MachineCount:       details.MachineCount,
+			AgentVersion:       details.AgentVersion,
+			ControllerMachines: details.ControllerMachines,
 		}
 	}
 	return controllers, errs
