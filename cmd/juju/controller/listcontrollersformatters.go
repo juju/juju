@@ -34,7 +34,20 @@ func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, 
 func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
+
+	// See if we need the HA column.
+	showHA := false
+	for _, c := range set.Controllers {
+		if c.ControllerMachines != "" {
+			showHA = true
+			break
+		}
+	}
+	if showHA {
+		w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
+	} else {
+		w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
+	}
 
 	names := []string{}
 	for name := range set.Controllers {
@@ -96,6 +109,13 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			}
 		}
 		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
+		if showHA {
+			controllerMachineInfo := c.ControllerMachines
+			if promptRefresh {
+				controllerMachineInfo += refresh
+			}
+			w.Print(controllerMachineInfo)
+		}
 		if staleVersion {
 			w.PrintColor(output.WarningHighlight, agentVersion)
 		} else {

@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -36,10 +37,10 @@ CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER           MODEL     USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             admin     -            -           aws/us-east-1       2+      5+        2.0.1+      
-mallards*            my-model  admin@local  superuser+  mallards/mallards1  -       -         (unknown)+  
-mark-test-prodstack  -         admin@local  (unknown)+  prodstack           -       -         (unknown)+  
+CONTROLLER           MODEL       USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
+aws-test             controller  -            -           aws/us-east-1       2+      5+        2.0.1+      
+mallards*            my-model    admin@local  superuser+  mallards/mallards1  -       -         (unknown)+  
+mark-test-prodstack  -           admin@local  (unknown)+  prodstack           -       -         (unknown)+  
 
 + these are the last known values, run with --refresh to see the latest information.
 
@@ -56,19 +57,52 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		fakeController := &fakeController{
 			controllerName: controllerNamee,
 			modelNames: map[string]string{
-				"abc": "admin",
+				"abc": "controller",
 				"def": "my-model",
-				"ghi": "admin",
+				"ghi": "controller",
 			},
 			store: s.store,
 		}
 		return fakeController
 	}
 	s.expectedOutput = `
-CONTROLLER           MODEL     USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             admin     admin@local  (unknown)  aws/us-east-1       1       2         2.0.1      
-mallards*            my-model  admin@local  superuser  mallards/mallards1  2       4         (unknown)  
-mark-test-prodstack  -         admin@local  (unknown)  prodstack           0       0         (unknown)  
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
+aws-test             controller  admin@local  (unknown)  aws/us-east-1       1       2         2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1  2       4         (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack           0       0         (unknown)  
+
+`[1:]
+	s.assertListControllers(c, "--refresh")
+}
+
+func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
+	s.createTestClientStore(c)
+	s.api = func(controllerName string) controller.ControllerAccessAPI {
+		fakeController := &fakeController{
+			controllerName: controllerName,
+			modelNames: map[string]string{
+				"abc": "controller",
+				"def": "my-model",
+				"ghi": "controller",
+			},
+			store: s.store,
+		}
+		if controllerName == "aws-test" {
+			fakeController.machines = map[string][]base.Machine{
+				"ghi": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+					{Id: "2", HasVote: true, WantsVote: true, Status: "down"},
+					{Id: "3", HasVote: false, WantsVote: true, Status: "active"},
+				},
+			}
+		}
+		return fakeController
+	}
+	s.expectedOutput = `
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA   VERSION
+aws-test             controller  admin@local  (unknown)  aws/us-east-1       1       2         1/3  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1  2       4              (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack           0       0              (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -78,7 +112,7 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
 controllers:
   aws-test:
-    current-model: admin
+    current-model: controller
     user: admin@local
     recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
@@ -128,7 +162,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 		Controllers: map[string]controller.ControllerItem{
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
-				ModelName:      "admin",
+				ModelName:      "controller",
 				User:           "admin@local",
 				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},

@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/status"
 )
 
 var helpControllersSummary = `
@@ -94,7 +96,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 				}
 				defer client.Close()
 				if err := c.refreshControllerDetails(client, name); err != nil {
-					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v", name, err)
+					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v\n", name, err)
 				}
 			}()
 		}
@@ -129,9 +131,13 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 	if err != nil {
 		return err
 	}
+	var controllerModelUUID string
 	modelTags := make([]names.ModelTag, len(allModels))
 	for i, m := range allModels {
 		modelTags[i] = names.NewModelTag(m.UUID)
+		if m.Name == bootstrap.ControllerModelName {
+			controllerModelUUID = m.UUID
+		}
 	}
 	modelStatus, err = client.ModelStatus(modelTags...)
 	if err != nil {
@@ -153,7 +159,37 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
+	details.ControllerMachines = controllerMachineStatus(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
+}
+
+func controllerMachineStatus(controllerModelUUID string, modelStatus []base.ModelStatus) string {
+	controllerMachineStatus := ""
+	for _, s := range modelStatus {
+		if s.UUID != controllerModelUUID {
+			continue
+		}
+		controllerMachineCount := 0
+		haokControllerMachineCount := 0
+		for _, m := range s.Machines {
+			if !m.WantsVote {
+				continue
+			}
+			controllerMachineCount++
+			if m.Status != string(status.StatusDown) && m.HasVote {
+				haokControllerMachineCount++
+			}
+		}
+		if controllerMachineCount < 2 {
+			// If we don't have an HA cluster, we don't show HA info.
+			return ""
+		}
+		controllerMachineStatus = fmt.Sprintf("%d", controllerMachineCount)
+		if haokControllerMachineCount < controllerMachineCount {
+			controllerMachineStatus = fmt.Sprintf("%d/%d", haokControllerMachineCount, controllerMachineCount)
+		}
+	}
+	return controllerMachineStatus
 }
 
 type listControllersCommand struct {

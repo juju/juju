@@ -499,6 +499,22 @@ func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristi
 	return m.hw, nil
 }
 
+func (m *mockMachine) InstanceId() (instance.Id, error) {
+	return "", nil
+}
+
+func (m *mockMachine) WantsVote() bool {
+	return false
+}
+
+func (m *mockMachine) HasVote() bool {
+	return false
+}
+
+func (m *mockMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{}, nil
+}
+
 type mockModel struct {
 	gitjujutesting.Stub
 	owner  names.UserTag

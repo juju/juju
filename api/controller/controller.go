@@ -143,10 +143,17 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 			ServiceCount:       r.ApplicationCount,
 			TotalMachineCount:  len(r.Machines),
 		}
-		// For now, we just care about core count.
-		for _, mm := range r.Machines {
+		results[i].Machines = make([]base.Machine, len(r.Machines))
+		for j, mm := range r.Machines {
 			if mm.Hardware != nil && mm.Hardware.Cores != nil {
 				results[i].CoreCount += int(*mm.Hardware.Cores)
+			}
+			results[i].Machines[j] = base.Machine{
+				Id:         mm.Id,
+				InstanceId: mm.InstanceId,
+				HasVote:    mm.HasVote,
+				WantsVote:  mm.WantsVote,
+				Status:     mm.Status,
 			}
 		}
 	}

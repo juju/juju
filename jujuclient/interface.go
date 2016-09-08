@@ -40,6 +40,13 @@ type ControllerDetails struct {
 	// in formatting show-controller output where this struct is also used.
 	AgentVersion string `yaml:"agent-version,omitempty"`
 
+	// ControllerMachines represents the number of controller machines
+	// and which ones are active in the HA cluster.
+	// Either: #active/#total or #total (if all machines are active)
+	// It is cached here so under normal usage list-controllers
+	// does not need to hit the server.
+	ControllerMachines string `yaml:"controller-machines,omitempty"`
+
 	// ModelCount is the number of models to which a user has access.
 	// It is cached here so under normal usage list-controllers
 	// does not need to hit the server.
