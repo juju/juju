@@ -47,10 +47,11 @@ action.
 
 Examples:
 
-      juju destroy-model test
-      juju destroy-model -y mymodel
+    juju destroy-model test
+    juju destroy-model -y mymodel
 
-See also: destroy-controller
+See also:
+    destroy-controller
 `
 var destroyEnvMsg = `
 WARNING! This command will destroy the %q model.

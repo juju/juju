@@ -68,8 +68,8 @@ Examples:
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
-See Also:
-    juju remove-machine
+See also:
+    remove-machine
 `
 
 func init() {

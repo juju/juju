@@ -281,11 +281,11 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *cmdControllerSuite) TestEnableDestroyController(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	s.run(c, "remove-all-blocks")
+	s.run(c, "enable-destroy-controller")
 
 	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)

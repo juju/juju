@@ -89,7 +89,7 @@ Examples:
     # To prevent changes to the model:
     juju disable-command all "Model locked down"
 
-See Also:
-    juju disabled-commands
-    juju enable-command
+See also:
+    disabled-commands
+    enable-command
 `

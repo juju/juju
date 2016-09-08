@@ -26,9 +26,10 @@ Examples:
 
     juju login bob
 
-See also: enable-user
-          disable-user
-          logout
+See also:
+    disable-user
+    enable-user
+    logout
 
 `
 

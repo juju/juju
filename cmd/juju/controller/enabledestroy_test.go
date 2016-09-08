@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller_test
@@ -15,15 +15,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type removeBlocksSuite struct {
+type enableDestroyControllerSuite struct {
 	baseControllerSuite
 	api   *fakeRemoveBlocksAPI
 	store *jujuclienttesting.MemStore
 }
 
-var _ = gc.Suite(&removeBlocksSuite{})
+var _ = gc.Suite(&enableDestroyControllerSuite{})
 
-func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
+func (s *enableDestroyControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 
 	s.api = &fakeRemoveBlocksAPI{}
@@ -32,26 +32,26 @@ func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 }
 
-func (s *removeBlocksSuite) newCommand() cmd.Command {
-	return controller.NewRemoveBlocksCommandForTest(s.api, s.store)
+func (s *enableDestroyControllerSuite) newCommand() cmd.Command {
+	return controller.NewEnableDestroyControllerCommandForTest(s.api, s.store)
 }
 
-func (s *removeBlocksSuite) TestRemove(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestRemove(c *gc.C) {
 	_, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.called, jc.IsTrue)
 }
 
-func (s *removeBlocksSuite) TestUnrecognizedArg(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *gc.C) {
 	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 	c.Assert(s.api.called, jc.IsFalse)
 }
 
-func (s *removeBlocksSuite) TestEnvironmentsError(c *gc.C) {
+func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := testing.RunCommand(c, s.newCommand())
-	c.Assert(err, gc.ErrorMatches, "cannot remove blocks: permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 type fakeRemoveBlocksAPI struct {

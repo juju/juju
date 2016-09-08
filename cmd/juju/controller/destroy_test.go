@@ -427,8 +427,8 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
-	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
+	c.Check(testLog, jc.Contains, "To enable controller destruction, please run:")
+	c.Check(testLog, jc.Contains, "juju enable-destroy-controller")
 }
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
@@ -438,9 +438,9 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 	)
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
-	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
-	c.Check(testLog, jc.Contains, "Unable to list blocked models: unexpected api error")
+	c.Check(testLog, jc.Contains, "To enable controller destruction, please run:")
+	c.Check(testLog, jc.Contains, "juju enable-destroy-controller")
+	c.Check(testLog, jc.Contains, "Unable to list models: unexpected api error")
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {

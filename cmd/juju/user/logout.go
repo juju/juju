@@ -29,9 +29,9 @@ By default, the controller is the current controller.
 Examples:
     juju logout
 
-See Also:
-    juju change-user-password
-    juju login
+See also:
+    change-user-password
+    login
 
 `
 

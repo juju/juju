@@ -426,6 +426,7 @@ var commandNames = []string{
 	"download-backup",
 	"enable-ha",
 	"enable-command",
+	"enable-destroy-controller",
 	"enable-user",
 	"expose",
 	"get-config",
@@ -467,7 +468,6 @@ var commandNames = []string{
 	"plans",
 	"register",
 	"relate", //alias for add-relation
-	"remove-all-blocks",
 	"remove-application",
 	"remove-backup",
 	"remove-cached-images",

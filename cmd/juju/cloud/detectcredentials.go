@@ -69,7 +69,7 @@ OpenStack
 Example:
     juju autoload-credentials
    
-See Also:
+See also:
     list-credentials
     remove-credential
     set-default-credential
