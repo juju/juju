@@ -38,9 +38,9 @@ CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 CONTROLLER           MODEL       USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             controller  -            -           aws/us-east-1       2+      5+        2.0.1+      
-mallards*            my-model    admin@local  superuser+  mallards/mallards1  -       -         (unknown)+  
-mark-test-prodstack  -           admin@local  (unknown)+  prodstack           -       -         (unknown)+  
+aws-test             controller  -            -           aws/us-east-1           2+        5+  2.0.1+      
+mallards*            my-model    admin@local  superuser+  mallards/mallards1       -         -  (unknown)+  
+mark-test-prodstack  -           admin@local  (unknown)+  prodstack                -         -  (unknown)+  
 
 + these are the last known values, run with --refresh to see the latest information.
 
@@ -67,9 +67,9 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 	}
 	s.expectedOutput = `
 CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1       1       2         2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1  2       4         (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack           0       0         (unknown)  
+aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                0         0  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -99,10 +99,10 @@ func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA   VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1       1       2         1/3  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1  2       4              (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack           0       0              (unknown)  
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES   HA  VERSION
+aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  1/3  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4    1  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                0         0    1  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")

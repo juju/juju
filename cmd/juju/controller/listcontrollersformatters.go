@@ -45,8 +45,13 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 	}
 	if showHA {
 		w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
+		tw.SetColumnAlignRight(5)
+		tw.SetColumnAlignRight(6)
+		tw.SetColumnAlignRight(7)
 	} else {
 		w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
+		tw.SetColumnAlignRight(5)
+		tw.SetColumnAlignRight(6)
 	}
 
 	names := []string{}
@@ -111,6 +116,9 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
 		if showHA {
 			controllerMachineInfo := c.ControllerMachines
+			if controllerMachineInfo == "" {
+				controllerMachineInfo = "1"
+			}
 			if promptRefresh {
 				controllerMachineInfo += refresh
 			}
