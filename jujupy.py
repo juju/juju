@@ -371,14 +371,23 @@ class JujuData(SimpleEnvironment):
             yaml.safe_dump(self.clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
-        for cloud, cloud_config in self.clouds['clouds'].items():
-            if cloud_config['type'] != cloud_type:
-                continue
-            if cloud_config['endpoint'] == endpoint:
-                return cloud
+        log.info("start find_endpoint_cloud")
+        #log.info("clouds {}".format(self.clouds))
+        log.info("clouds {}".format(self.clouds))
+        self.config['type']
+        #for cloud, cloud_config in self.clouds['clouds'].items():
+        #log.info("cloud {}, cloud_config {}".format(cloud, cloud_config))
+        #if cloud_config['type'] != cloud_type:
+        #     continue
+        #if self.config['endpoint'] == endpoint:
+        #    return self.config['type']
+        #I added
+        if self.config['auth-url'] == endpoint:
+            return self.config['type']
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
+        log.info("getting cloud")
         provider = self.config['type']
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
@@ -392,7 +401,9 @@ class JujuData(SimpleEnvironment):
         if provider == 'maas':
             endpoint = self.config['maas-server']
         elif provider == 'openstack':
+            log.info("setting endpoint")
             endpoint = self.config['auth-url']
+            log.info("endpoint set")
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_region(self):

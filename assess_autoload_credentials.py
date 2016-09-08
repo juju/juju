@@ -75,8 +75,11 @@ def assess_autoload_credentials(args):
         }
 
     client = client_from_config(args.env, args.juju_bin, False)
+    log.info("client {}".format(client))
     client.env.load_yaml()
+    log.info("loading creds")
     real_credential_details = client_credentials_to_details(client)
+    log.info("creds {}".format(real_credential_details))
     provider = client.env.config['type']
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
@@ -89,16 +92,22 @@ def assess_autoload_credentials(args):
         ensure_autoload_credentials_overwrite_existing(
             client, scenario_setup)
 
-    bs_manager = BootstrapManager.from_args(args)
-    autoload_and_bootstrap(bs_manager, args.upload_tools,
-                           real_credential_details, scenario_setup)
+    #bs_manager = BootstrapManager.from_args(args)
+    #autoload_and_bootstrap(bs_manager, args.upload_tools,
+    #                       real_credential_details, scenario_setup)
 
 
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
     provider = client.env.config['type']
-    cloud = client.env.credentials['credentials'][client.env.get_cloud()]
+    log.info("provider {}".format(provider))
+    cloud_type = client.env.get_cloud()
+    log.info("cloud_type {}".format(cloud_type))
+    log.info("env creds {}".format(client.env.credentials))
+    cloud = client.env.credentials['credentials'][cloud_type]
+    log.info("cloud {}".format(cloud))
     credentials = cloud['credentials']
+    log.info("{}, {}, {}".format(provider, cloud, credentials))
     if 'ec2' == provider:
         return {'secret_key': credentials['secret-key'],
                 'access_key': credentials['access-key'],
