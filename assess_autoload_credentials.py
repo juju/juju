@@ -120,6 +120,11 @@ def client_credentials_to_details(client):
     if 'openstack' == provider:
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
+                # XXX These values are not listed in the credentials file,
+                # but that my be a juju 1 thing?
+                'auth_url':
+                    'https://keystone.canonistack.canonical.com:443/v2.0/',
+                'region': 'lcy02'
                 }
 
 
@@ -382,9 +387,8 @@ def get_openstack_envvar_changes(user, credential_details):
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],
-        # Temperary Hard Codes
-        OS_AUTH_URL="https://keystone.canonistack.canonical.com:443/v2.0/",
-        OS_REGION_NAME="lcy02"
+        OS_AUTH_URL=credential_details['auth_url'],
+        OS_REGIOR_NAME=credential_details['region'],
         )
 
 
@@ -423,12 +427,14 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
-        export OS_AUTH_URL="https://keystone.canonistack.canonical.com:443/v2.0/"
-        export OS_REGION_NAME="lcy02"
+        export OS_AUTH_URL={auth_url}
+        export OS_REGION_NAME={region}
         """.format(
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
+            auth_url=credential_details['auth_url'],
+            region=credential_details['region'],
             ))
         f.write(credentials)
     return credentials_file
@@ -472,7 +478,11 @@ def openstack_credential_dict_generator():
     creds = 'openstack-credentials-{}'.format(call_id)
     return dict(
         os_tenant_name=creds,
-        os_password=creds)
+        os_password=creds,
+        # XXX Right now there are fixed, they shouldn't be if possible.
+        auth_url='https://keystone.canonistack.canonical.com:443/v2.0/',
+        region='lcy02'
+        )
 
 
 def gce_envvar_with_file_test_details(
