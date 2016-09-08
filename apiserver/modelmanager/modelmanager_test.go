@@ -44,7 +44,7 @@ type modelManagerBaseSuite struct {
 
 type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
-	st         mockState
+	st         *mockState
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 }
@@ -68,7 +68,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.st = mockState{
+	s.st = &mockState{
 		modelUUID: coretesting.ModelTag.Id(),
 		cloud:     dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
@@ -108,20 +108,34 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			}},
 		},
 		cred: cloud.NewEmptyCredential(),
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "left",
+					Value: "spam"}}},
+		},
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
+	api, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = modelmanager
+	s.api = mm
 }
 
 func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
@@ -298,6 +312,159 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
+}
+
+func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
+	result, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := map[string]params.ModelDefaults{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []params.RegionDefaults{{
+				RegionName: "dummy",
+				Value:      "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []params.RegionDefaults{{
+				RegionName: "left",
+				Value:      "spam"}}},
+	}
+	c.Assert(result.Config, jc.DeepEquals, expectedValues)
+}
+
+func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
+	params := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"attr3": "val3",
+				"attr4": "val4"},
+		}}}
+	result, err := s.api.SetModelDefaults(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.st.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "dummy",
+				Value: "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+		"attr3": {Controller: "val3"},
+		"attr4": {Controller: "val4"},
+	})
+}
+
+func (s *modelManagerSuite) blockAllChanges(c *gc.C, msg string) {
+	s.st.blockMsg = msg
+	s.st.block = state.ChangeBlock
+}
+
+func (s *modelManagerSuite) assertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
+	_, err := s.api.SetModelDefaults(params.SetModelDefaults{})
+	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.st.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+	})
+}
+
+func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"abc"},
+		}}}
+	_, err := s.api.UnsetModelDefaults(args)
+	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"not there"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.ModelDefaults()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ModelDefaultsResult{})
+}
+
+func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.SetModelDefaults(params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"ftp-proxy": "http://charlie",
+			}}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    "unauthorized access"}}}})
+
+	// Make sure it didn't change.
+	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	cfg, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Controller, gc.IsNil)
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.UnsetModelDefaults(params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr2"}}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: nil}}})
+
+	// Make sure it didn't change.
+	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	cfg, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["attr2"].Controller.(string), gc.Equals, "val3")
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {

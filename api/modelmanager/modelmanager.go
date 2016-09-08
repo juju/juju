@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
 )
 
@@ -255,4 +256,70 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 		}
 	}
 	return result.Combine()
+}
+
+// ModelDefaults returns the default values for various sources used when
+// creating a new model.
+func (c *Client) ModelDefaults() (config.ModelDefaultAttributes, error) {
+	result := params.ModelDefaultsResult{}
+	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	values := make(config.ModelDefaultAttributes)
+	for name, val := range result.Config {
+		setting := config.AttributeDefaultValues{
+			Default:    val.Default,
+			Controller: val.Controller,
+		}
+		for _, region := range val.Regions {
+			setting.Regions = append(setting.Regions, config.RegionDefaultValue{
+				Name:  region.RegionName,
+				Value: region.Value})
+		}
+		values[name] = setting
+	}
+	return values, nil
+}
+
+// SetModelDefaults updates the specified default model config values.
+func (c *Client) SetModelDefaults(cloud, region string, config map[string]interface{}) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config:      config,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("SetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// UnsetModelDefaults removes the specified default model config values.
+func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys:        keys,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("UnsetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

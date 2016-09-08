@@ -13,7 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 
-	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -45,13 +45,13 @@ See also:
 
 // NewDefaultsCommand wraps defaultsCommand with sane model settings.
 func NewDefaultsCommand() cmd.Command {
-	return modelcmd.Wrap(&defaultsCommand{})
+	return modelcmd.WrapController(&defaultsCommand{})
 }
 
 // defaultsCommand is compound command for accessing and setting attributes
 // related to default model configuration.
 type defaultsCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	api defaultsCommandAPI
 	out cmd.Output
 
@@ -65,9 +65,6 @@ type defaultsCommand struct {
 type defaultsCommandAPI interface {
 	// Close closes the api connection.
 	Close() error
-
-	// ModelConfig returns all known configuration attributes and values.
-	ModelGet() (map[string]interface{}, error)
 
 	// ModelDefaults returns the default config values used when creating a new model.
 	ModelDefaults() (config.ModelDefaultAttributes, error)
@@ -93,7 +90,7 @@ func (c *defaultsCommand) Info() *cmd.Info {
 
 // SetFlags implements part of the cmd.Command interface.
 func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.ControllerCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -162,7 +159,7 @@ func (c *defaultsCommand) getAPI() (func(), error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}
-	c.api = modelconfig.NewClient(api)
+	c.api = modelmanager.NewClient(api)
 
 	return func() { c.api.Close() }, nil
 }
@@ -220,7 +217,7 @@ func (c *defaultsCommand) resetDefaults(ctx *cmd.Context) error {
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
 func (c *defaultsCommand) verifyKnownKeys() error {
-	known, err := c.api.ModelGet()
+	known, err := c.api.ModelDefaults()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -55,6 +55,20 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "left",
+					Value: "spam"}}},
+		},
 	}
 	s.st.controllerModel = &mockModel{
 		owner: names.NewUserTag("admin@local"),
@@ -302,6 +316,9 @@ type mockState struct {
 	users           []description.UserAccess
 	cred            cloud.Credential
 	machines        []common.Machine
+	cfgDefaults     config.ModelDefaultAttributes
+	blockMsg        string
+	block           state.BlockType
 }
 
 type fakeModelDescription struct {
@@ -468,12 +485,53 @@ func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, acce
 	return description.UserAccess{}, st.NextErr()
 }
 
+func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	st.MethodCall(st, "ModelConfigDefaultValues")
+	return st.cfgDefaults, nil
+}
+
+func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
+	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove)
+	for k, v := range update {
+		st.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
+	}
+	for _, n := range remove {
+		delete(st.cfgDefaults, n)
+	}
+	return nil
+}
+
+func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	st.MethodCall(st, "GetBlockForType", t)
+	if st.block == t {
+		return &mockBlock{t: t, m: st.blockMsg}, true, nil
+	} else {
+		return nil, false, nil
+	}
+}
+
 func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	st.MethodCall(st, "DumpAll")
 	return map[string]interface{}{
 		"models": "lots of data",
 	}, st.NextErr()
 }
+
+type mockBlock struct {
+	state.Block
+	t state.BlockType
+	m string
+}
+
+func (m mockBlock) Id() string { return "" }
+
+func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
+
+func (m mockBlock) Type() state.BlockType { return m.t }
+
+func (m mockBlock) Message() string { return m.m }
+
+func (m mockBlock) ModelUUID() string { return "" }
 
 type mockMachine struct {
 	common.Machine
