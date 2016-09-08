@@ -40,21 +40,6 @@ func (s *TypesSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *TypesSuite) TestCopyNetworkConfig(c *gc.C) {
-	inputAndExpectedOutput := []params.NetworkConfig{{
-		InterfaceName: "foo",
-		DNSServers:    []string{"bar", "baz"},
-		Address:       "0.1.2.3",
-	}, {
-		DeviceIndex:         124,
-		ParentInterfaceName: "parent",
-		ProviderId:          "nic-id",
-	}}
-
-	output := networkingcommon.CopyNetworkConfigs(inputAndExpectedOutput)
-	c.Assert(output, jc.DeepEquals, inputAndExpectedOutput)
-}
-
 func mustParseMAC(value string) net.HardwareAddr {
 	parsedMAC, err := net.ParseMAC(value)
 	if err != nil {
@@ -210,6 +195,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   10,
 	InterfaceName: "br-eth0",
@@ -218,6 +204,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.123",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   12,
 	InterfaceName: "br-eth0.100",
@@ -234,6 +221,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.250.19.0/24",
 	Address:       "10.250.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   16,
 	InterfaceName: "br-eth0.50",
@@ -242,6 +230,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.50.19.0/24",
 	Address:       "10.50.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:         2,
 	InterfaceName:       "eth0",
@@ -249,6 +238,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.EthernetInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         13,
 	InterfaceName:       "eth0.100",
@@ -256,6 +246,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         15,
 	InterfaceName:       "eth0.250",
@@ -263,6 +254,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         17,
 	InterfaceName:       "eth0.50",
@@ -270,6 +262,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:   11,
 	InterfaceName: "br-eth1",
@@ -278,6 +271,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.105",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   18,
 	InterfaceName: "br-eth1.11",
@@ -286,6 +280,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.11.19.0/24",
 	Address:       "10.11.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   20,
 	InterfaceName: "br-eth1.12",
@@ -294,6 +289,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.12.19.0/24",
 	Address:       "10.12.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   22,
 	InterfaceName: "br-eth1.13",
@@ -302,6 +298,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.13.19.0/24",
 	Address:       "10.13.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:         3,
 	InterfaceName:       "eth1",
@@ -309,6 +306,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.EthernetInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         19,
 	InterfaceName:       "eth1.11",
@@ -316,6 +314,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         21,
 	InterfaceName:       "eth1.12",
@@ -323,6 +322,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:         23,
 	InterfaceName:       "eth1.13",
@@ -330,6 +330,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceType:       string(network.VLAN_8021QInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }}
 
 var expectedSortedProviderNetworkConfigs = []params.NetworkConfig{{
@@ -506,7 +507,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.100.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "6",
 	ProviderVLANId:      "5005",
 	VLANTag:             100,
@@ -520,7 +521,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.250.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "8",
 	ProviderVLANId:      "5008",
 	VLANTag:             250,
@@ -534,7 +535,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.50.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "5",
 	ProviderVLANId:      "5004",
 	VLANTag:             50,
@@ -610,7 +611,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.11.19.101",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "9",
 	ProviderVLANId:      "5013",
 	VLANTag:             11,
@@ -624,7 +625,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.12.19.101",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "10",
 	ProviderVLANId:      "5014",
 	VLANTag:             12,
@@ -637,7 +638,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:                "10.13.19.0/24",
 	Address:             "10.13.19.101",
 	MTU:                 1500,
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ConfigType:          string(network.ConfigStatic),
 	ProviderSubnetId:    "11",
 	ProviderVLANId:      "5015",
@@ -693,23 +694,6 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	VLANTag:             13,
 }}
 
-var expectedSortedNetworkConfigsByInterfaceName = []params.NetworkConfig{
-	{InterfaceName: "br-eth0"},
-	{InterfaceName: "br-eth0.12"},
-	{InterfaceName: "br-eth0.34"},
-	{InterfaceName: "br-eth1"},
-	{InterfaceName: "br-eth1.100"},
-	{InterfaceName: "br-eth1.250"},
-	{InterfaceName: "br-eth1.50"},
-	{InterfaceName: "eth0"},
-	{InterfaceName: "eth0.12"},
-	{InterfaceName: "eth0.34"},
-	{InterfaceName: "eth1"},
-	{InterfaceName: "eth1.100"},
-	{InterfaceName: "eth1.250"},
-	{InterfaceName: "eth1.50"},
-}
-
 var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDeviceArgs{{
 	Name:        "lo",
 	MTU:         65536,
@@ -730,7 +714,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "br-eth0.250",
 	MTU:         1500,
@@ -738,7 +722,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "br-eth0.50",
 	MTU:         1500,
@@ -746,7 +730,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "eth0",
 	MTU:         1500,
@@ -797,7 +781,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "br-eth1.12",
 	MTU:         1500,
@@ -805,7 +789,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "br-eth1.13",
 	MTU:         1500,
@@ -813,7 +797,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "eth1",
 	MTU:         1500,
@@ -903,61 +887,6 @@ var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDe
 	ProviderID:   "1302",
 }}
 
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithObservedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedObservedNetworkConfigs)
-}
-
-func (s *TypesSuite) checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c *gc.C, expectedOutput []params.NetworkConfig) {
-	expectedLength := len(expectedOutput)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedOutput)
-	for i := 0; i < expectedLength; i++ {
-		shuffledInput := shuffleNetworkConfigs(expectedOutput)
-		result := networkingcommon.SortNetworkConfigsByParents(shuffledInput)
-		c.Assert(result, gc.HasLen, expectedLength)
-		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, gc.Equals, jsonExpected)
-	}
-}
-
-func (s *TypesSuite) networkConfigsAsJSON(c *gc.C, input []params.NetworkConfig) string {
-	asJSON, err := networkingcommon.NetworkConfigsToIndentedJSON(input)
-	c.Assert(err, jc.ErrorIsNil)
-	return asJSON
-}
-
-func shuffleNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
-	return input
-	/*
-		inputLength := len(input)
-		output := make([]params.NetworkConfig, inputLength)
-		shuffled := rand.Perm(inputLength)
-		for i, j := range shuffled {
-			output[i] = input[j]
-		}
-		return output
-	*/
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithProviderConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedProviderNetworkConfigs)
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithMergedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedMergedNetworkConfigs)
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByInterfaceName(c *gc.C) {
-	expectedLength := len(expectedSortedNetworkConfigsByInterfaceName)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedNetworkConfigsByInterfaceName)
-	for i := 0; i < expectedLength; i++ {
-		shuffledInput := shuffleNetworkConfigs(expectedSortedNetworkConfigsByInterfaceName)
-		result := networkingcommon.SortNetworkConfigsByInterfaceName(shuffledInput)
-		c.Assert(result, gc.HasLen, expectedLength)
-		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, gc.Equals, jsonExpected)
-	}
-}
-
 func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
 	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
 
@@ -965,22 +894,28 @@ func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
 	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
 }
 
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsBothNil(c *gc.C) {
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, nil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilObservedConfigs(c *gc.C) {
+	input := expectedSortedProviderNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(input, nil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilProviderConfigs(c *gc.C) {
+	input := expectedSortedObservedNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, input)
+	c.Check(result, jc.DeepEquals, input)
+}
+
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
-	observedConfigsLength := 1 //len(expectedSortedObservedNetworkConfigs)
-	providerConfigsLength := 1 //len(expectedSortedProviderNetworkConfigs)
-
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedMergedNetworkConfigs)
-	for i := 0; i < observedConfigsLength; i++ {
-		shuffledObservedConfigs := shuffleNetworkConfigs(expectedSortedObservedNetworkConfigs)
-		for j := 0; j < providerConfigsLength; j++ {
-			shuffledProviderConfigs := shuffleNetworkConfigs(expectedSortedProviderNetworkConfigs)
-
-			mergedConfigs, err := networkingcommon.MergeProviderAndObservedNetworkConfigs(shuffledProviderConfigs, shuffledObservedConfigs)
-			c.Assert(err, jc.ErrorIsNil)
-			jsonResult := s.networkConfigsAsJSON(c, mergedConfigs)
-			c.Check(jsonResult, gc.Equals, jsonExpected)
-		}
-	}
+	observedConfig := expectedSortedObservedNetworkConfigs
+	providerConfig := expectedSortedProviderNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	c.Check(result, jc.DeepEquals, expectedSortedMergedNetworkConfigs)
 }
 
 func (s *TypesSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
