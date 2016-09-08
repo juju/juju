@@ -75,8 +75,11 @@ def assess_autoload_credentials(args):
         }
 
     client = client_from_config(args.env, args.juju_bin, False)
+    log.info("client {}".format(client))
     client.env.load_yaml()
+    log.info("loading creds")
     real_credential_details = client_credentials_to_details(client)
+    log.info("creds {}".format(real_credential_details))
     provider = client.env.config['type']
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
@@ -89,16 +92,22 @@ def assess_autoload_credentials(args):
         ensure_autoload_credentials_overwrite_existing(
             client, scenario_setup)
 
-    bs_manager = BootstrapManager.from_args(args)
-    autoload_and_bootstrap(bs_manager, args.upload_tools,
-                           real_credential_details, scenario_setup)
+    #bs_manager = BootstrapManager.from_args(args)
+    #autoload_and_bootstrap(bs_manager, args.upload_tools,
+    #                       real_credential_details, scenario_setup)
 
 
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
     provider = client.env.config['type']
-    cloud = client.env.credentials['credentials'][client.env.get_cloud()]
+    log.info("provider {}".format(provider))
+    cloud_type = client.env.get_cloud()
+    log.info("cloud_type {}".format(cloud_type))
+    log.info("env creds {}".format(client.env.credentials))
+    cloud = client.env.credentials['credentials'][cloud_type]
+    log.info("cloud {}".format(cloud))
     credentials = cloud['credentials']
+    log.info("{}, {}, {}".format(provider, cloud, credentials))
     if 'ec2' == provider:
         return {'secret_key': credentials['secret-key'],
                 'access_key': credentials['access-key'],
@@ -111,6 +120,11 @@ def client_credentials_to_details(client):
     if 'openstack' == provider:
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
+                # XXX These values are not listed in the credentials file,
+                # but that my be a juju 1 thing?
+                'auth_url':
+                    'https://keystone.canonistack.canonical.com:443/v2.0/',
+                'region': 'lcy02'
                 }
 
 
@@ -372,7 +386,10 @@ def get_openstack_envvar_changes(user, credential_details):
         USER=user,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
-        OS_TENANT_NAME=credential_details['os_tenant_name'])
+        OS_TENANT_NAME=credential_details['os_tenant_name'],
+        OS_AUTH_URL=credential_details['auth_url'],
+        OS_REGIOR_NAME=credential_details['region'],
+        )
 
 
 def openstack_directory_test_details(
@@ -398,7 +415,7 @@ def setup_basic_openstack_test_details(client, user, credential_details):
         cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
             credential_details['os_tenant_name'],
             user),
-        save_name='testing_openstack')
+        save_name='teststack')
 
     return expected_details, answers
 
@@ -410,10 +427,14 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
+        export OS_AUTH_URL={auth_url}
+        export OS_REGION_NAME={region}
         """.format(
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
+            auth_url=credential_details['auth_url'],
+            region=credential_details['region'],
             ))
         f.write(credentials)
     return credentials_file
@@ -421,13 +442,13 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 def ensure_openstack_personal_cloud_exists(client):
     os_cloud = {
-        'testing_openstack': {
+        'teststack': {
             'type': 'openstack',
+            'auth-types': ['userpass'],
+            'endpoint': 'https://keystone.canonistack.canonical.com:443/v2.0/',
             'regions': {
-                'test1': {
-                    'endpoint': 'https://example.com',
-                    'auth-types': ['access-key', 'userpass']
-                    }
+                'lcy01': {},
+                'lcy02': {}
                 }
             }
         }
@@ -438,7 +459,8 @@ def ensure_openstack_personal_cloud_exists(client):
 def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
-            'testing_openstack': {
+            'teststack': {
+                'default-region': 'lcy02',
                 user: {
                     'auth-type': 'userpass',
                     'domain-name': '',
@@ -456,7 +478,11 @@ def openstack_credential_dict_generator():
     creds = 'openstack-credentials-{}'.format(call_id)
     return dict(
         os_tenant_name=creds,
-        os_password=creds)
+        os_password=creds,
+        # XXX Right now there are fixed, they shouldn't be if possible.
+        auth_url='https://keystone.canonistack.canonical.com:443/v2.0/',
+        region='lcy02'
+        )
 
 
 def gce_envvar_with_file_test_details(
