@@ -72,8 +72,7 @@ func (ctxt *authContext) authenticatorForTag(tag names.Tag) (authentication.Enti
 	if tag == nil {
 		auth, err := ctxt.macaroonAuth()
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
-			// Make a friendlier error message.
-			err = errors.New("no credentials provided")
+			err = errors.Trace(common.ErrNoCreds)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
