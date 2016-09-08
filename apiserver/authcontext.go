@@ -106,8 +106,7 @@ func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Entity
 	if tag == nil {
 		auth, err := a.ctxt.externalMacaroonAuth()
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
-			// Make a friendlier error message.
-			err = errors.New("no credentials provided")
+			err = errors.Trace(common.ErrNoCreds)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)

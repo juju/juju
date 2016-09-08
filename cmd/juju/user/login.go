@@ -12,6 +12,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -81,6 +82,7 @@ type LoginAPI interface {
 
 // ConnectionAPI provides relevant API methods off the underlying connection.
 type ConnectionAPI interface {
+	AuthTag() names.Tag
 	ControllerAccess() string
 }
 
@@ -88,11 +90,39 @@ type ConnectionAPI interface {
 func (c *loginCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
 
 	user := c.User
+	if user == "" && accountDetails == nil {
+		// The username has not been specified, and there
+		// is no current account. See if the user can log
+		// in with macaroons.
+		args, err := c.NewAPIConnectionParams(
+			store, controllerName, "",
+			&jujuclient.AccountDetails{},
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		api, conn, err := c.newLoginAPI(args)
+		if err == nil {
+			authTag := conn.AuthTag()
+			api.Close()
+			ctx.Infof("You are now logged in to %q as %q.", controllerName, authTag.Id())
+			return nil
+		}
+		if !params.IsCodeNoCreds(err) {
+			return errors.Annotate(err, "creating API connection")
+		}
+		// CodeNoCreds was returned, which means that external
+		// users are not supported. Fall back to prompting the
+		// user for their username and password.
+	}
+
 	if user == "" {
-		// TODO(rog) Try macaroon login first before
-		// falling back to prompting for username.
 		// The username has not been specified, so prompt for it.
 		fmt.Fprint(ctx.Stderr, "username: ")
 		var err error
@@ -112,10 +142,6 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	// Make sure that the client is not already logged in,
 	// or if it is, that it is logged in as the specified
 	// user.
-	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
 	if accountDetails != nil && accountDetails.User != userTag.Canonical() {
 		return errors.New(`already logged in
 

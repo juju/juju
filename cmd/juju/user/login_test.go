@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -20,7 +21,8 @@ import (
 
 type LoginCommandSuite struct {
 	BaseSuite
-	mockAPI *mockLoginAPI
+	mockAPI  *mockLoginAPI
+	loginErr error
 }
 
 var _ = gc.Suite(&LoginCommandSuite{})
@@ -28,6 +30,7 @@ var _ = gc.Suite(&LoginCommandSuite{})
 func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockLoginAPI{}
+	s.loginErr = nil
 }
 
 func (s *LoginCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Context, juju.NewAPIConnectionParams, error) {
@@ -37,6 +40,11 @@ func (s *LoginCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Con
 		// The account details are modified in place, so take a copy.
 		accountDetails := *argsOut.AccountDetails
 		argsOut.AccountDetails = &accountDetails
+		if s.loginErr != nil {
+			err := s.loginErr
+			s.loginErr = nil
+			return nil, nil, err
+		}
 		return s.mockAPI, s.mockAPI, nil
 	}, s.store)
 	ctx := coretesting.Context(c)
@@ -139,8 +147,39 @@ func (s *LoginCommandSuite) TestLoginFail(c *gc.C) {
 	s.assertStoreMacaroon(c, "current-user@local", nil)
 }
 
+func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
+	err := s.store.RemoveAccount("testing")
+	c.Assert(err, jc.ErrorIsNil)
+	context, args, err := s.run(c, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stdout(context), gc.Equals, "")
+	c.Assert(coretesting.Stderr(context), gc.Equals, `
+You are now logged in to "testing" as "user@external".
+`[1:],
+	)
+	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
+}
+
+func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
+	err := s.store.RemoveAccount("testing")
+	c.Assert(err, jc.ErrorIsNil)
+	s.loginErr = &params.Error{Code: params.CodeNoCreds, Message: "barf"}
+	context, _, err := s.run(c, "new-user\nsekrit\n")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stdout(context), gc.Equals, "")
+	c.Assert(coretesting.Stderr(context), gc.Equals, `
+username: password: 
+You are now logged in to "testing" as "new-user@local".
+`[1:],
+	)
+}
+
 type mockLoginAPI struct {
 	mockChangePasswordAPI
+}
+
+func (*mockLoginAPI) AuthTag() names.Tag {
+	return names.NewUserTag("user@external")
 }
 
 func (*mockLoginAPI) ControllerAccess() string {

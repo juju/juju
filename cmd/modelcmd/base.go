@@ -341,10 +341,12 @@ func newAPIConnectionParams(
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
 
-	bakery.WebPageVisitor = httpbakery.NewMultiVisitor(
-		authentication.NewVisitor(accountDetails.User, getPassword),
-		bakery.WebPageVisitor,
-	)
+	if accountDetails != nil {
+		bakery.WebPageVisitor = httpbakery.NewMultiVisitor(
+			authentication.NewVisitor(accountDetails.User, getPassword),
+			bakery.WebPageVisitor,
+		)
+	}
 
 	return juju.NewAPIConnectionParams{
 		Store:          store,
