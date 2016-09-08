@@ -35,6 +35,10 @@ type UserAuthenticator struct {
 const (
 	usernameKey = "username"
 
+	// LocalLoginInteractionTimeout is how long a user has to complete
+	// an interactive login before it is expired.
+	LocalLoginInteractionTimeout = 2 * time.Minute
+
 	// TODO(axw) make this configurable via model config.
 	localLoginExpiryTime = 24 * time.Hour
 

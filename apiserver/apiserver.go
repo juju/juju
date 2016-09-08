@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/observer"
@@ -287,6 +288,12 @@ func (srv *Server) run() {
 		srv.tomb.Kill(srv.mongoPinger())
 	}()
 
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.expireLocalLoginInteractions())
+	}()
+
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -405,6 +412,18 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/", mainAPIHandler)
 
 	return endpoints
+}
+
+func (srv *Server) expireLocalLoginInteractions() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.authCtxt.clock.Now()
+			srv.authCtxt.localUserInteractions.Expire(now)
+		}
+	}
 }
 
 func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {

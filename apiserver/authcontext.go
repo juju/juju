@@ -26,8 +26,13 @@ import (
 type authContext struct {
 	st *state.State
 
+	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
 	userAuth  authentication.UserAuthenticator
+
+	// localUserInteractions maintains a set of in-progress local user
+	// authentication interactions.
+	localUserInteractions *authentication.Interactions
 
 	// macaroonAuthOnce guards the fields below it.
 	macaroonAuthOnce   sync.Once
@@ -37,7 +42,12 @@ type authContext struct {
 
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(st *state.State) (*authContext, error) {
-	ctxt := &authContext{st: st}
+	ctxt := &authContext{
+		st: st,
+		// TODO(fwereade) 2016-07-21 there should be a clock parameter
+		clock: clock.WallClock,
+		localUserInteractions: authentication.NewInteractions(),
+	}
 	store, err := st.NewBakeryStorage()
 	if err != nil {
 		return nil, errors.Trace(err)
