@@ -30,10 +30,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -310,7 +312,17 @@ func Reset(c *gc.C) {
 		s.destroy()
 	}
 	if mongoAlive() {
-		err := gitjujutesting.MgoServer.Reset()
+		err := retry.Call(retry.CallArgs{
+			Func: gitjujutesting.MgoServer.Reset,
+			// Only interested in retrying the intermittent
+			// 'unexpected message'.
+			IsFatalError: func(err error) bool {
+				return !strings.HasSuffix(err.Error(), "unexpected message")
+			},
+			Delay:    time.Millisecond,
+			Clock:    clock.WallClock,
+			Attempts: 5,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
