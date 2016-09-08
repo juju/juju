@@ -283,6 +283,12 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	}
 	if haveMachineInfo {
 		w.Println("OWNER", "STATUS", "MACHINES", "CORES", "ACCESS", "LAST CONNECTION")
+		offset := 0
+		if c.listUUID {
+			offset++
+		}
+		tw.SetColumnAlignRight(3 + offset)
+		tw.SetColumnAlignRight(4 + offset)
 	} else {
 		w.Println("OWNER", "STATUS", "ACCESS", "LAST CONNECTION")
 	}
@@ -309,10 +315,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		access := model.Users[userForAccess.Canonical()].Access
 		w.Print(model.Owner, model.Status.Current)
 		if haveMachineInfo {
-			machineInfo := "-"
-			if len(model.Machines) > 0 {
-				machineInfo = fmt.Sprintf("%d", len(model.Machines))
-			}
+			machineInfo := fmt.Sprintf("%d", len(model.Machines))
 			cores := uint64(0)
 			for _, m := range model.Machines {
 				cores += m.Cores

@@ -201,16 +201,17 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
+	s.api.inclMachines = true
 	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: fake\n"+
 		"\n"+
-		"MODEL                        UUID              OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
-		"test-model1*                 test-model1-UUID  admin@local      active      read    2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  carlotta@local   active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying          never connected\n"+
+		"MODEL                        UUID              OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
+		"test-model1*                 test-model1-UUID  admin@local      active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         test-model2-UUID  carlotta@local   active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying         0      -          never connected\n"+
 		"\n")
 }
 
@@ -223,9 +224,9 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 		"CONTROLLER: fake\n"+
 		"\n"+
 		"MODEL                        OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
-		"test-model1*                 admin@local      active      2         1      read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta@local   active      -         -      write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying  -         -              never connected\n"+
+		"test-model1*                 admin@local      active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying         0      -          never connected\n"+
 		"\n")
 }
 
