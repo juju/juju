@@ -262,14 +262,14 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	p := output.TabWriterPrintln(tw)
+	w := output.Wrapper{tw}
 
 	var valueNames []string
 	for name := range configValues {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	p("ATTRIBUTE", "FROM", "VALUE")
+	w.Println("ATTRIBUTE", "FROM", "VALUE")
 
 	for _, name := range valueNames {
 		info := configValues[name]
@@ -281,7 +281,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 		// Some attribute values have a newline appended
 		// which makes the output messy.
 		valString := strings.TrimSuffix(out.String(), "\n")
-		p(name, info.Source, valString)
+		w.Println(name, info.Source, valString)
 	}
 
 	tw.Flush()
