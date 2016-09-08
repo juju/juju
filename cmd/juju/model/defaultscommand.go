@@ -4,7 +4,6 @@ package model
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -254,7 +253,7 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	ph := output.TabWriterPrintln(tw)
+	w := output.Wrapper{tw}
 
 	p := func(name string, value config.AttributeDefaultValues) {
 		var c, d interface{}
@@ -274,11 +273,9 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 		default:
 			c = value.Controller
 		}
-		row := fmt.Sprintf("%s\t%v\t%v", name, d, c)
-		fmt.Fprintln(tw, row)
+		w.Println(name, d, c)
 		for _, region := range value.Regions {
-			row := fmt.Sprintf("  %s\t%v\t-", region.Name, region.Value)
-			fmt.Fprintln(tw, row)
+			w.Println("  "+region.Name, region.Value, "-")
 		}
 	}
 	var valueNames []string
@@ -287,7 +284,7 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 	sort.Strings(valueNames)
 
-	ph("ATTRIBUTE", "DEFAULT", "CONTROLLER")
+	w.Println("ATTRIBUTE", "DEFAULT", "CONTROLLER")
 
 	for _, name := range valueNames {
 		info := defaultValues[name]
