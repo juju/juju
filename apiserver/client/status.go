@@ -632,18 +632,18 @@ func (context *statusContext) processApplication(service *state.Application) par
 	units := context.units[service.Name()]
 	if service.IsPrincipal() {
 		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
-		applicationStatus, err := service.Status()
-		if err != nil {
-			processedStatus.Err = err
-			return processedStatus
-		}
-		processedStatus.Status.Status = applicationStatus.Status.String()
-		processedStatus.Status.Info = applicationStatus.Message
-		processedStatus.Status.Data = applicationStatus.Data
-		processedStatus.Status.Since = applicationStatus.Since
-
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
+	applicationStatus, err := service.Status()
+	if err != nil {
+		processedStatus.Err = err
+		return processedStatus
+	}
+	processedStatus.Status.Status = applicationStatus.Status.String()
+	processedStatus.Status.Info = applicationStatus.Message
+	processedStatus.Status.Data = applicationStatus.Data
+	processedStatus.Status.Since = applicationStatus.Since
+
+	processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {

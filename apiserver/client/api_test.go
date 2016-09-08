@@ -225,7 +225,11 @@ var scenarioStatus = &params.FullStatus{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
-			// TODO(fwereade): why does the subordinate have no service status?
+			Status: params.DetailedStatus{
+				Status: "unknown",
+				Info:   "Waiting for agent initialization to finish",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
