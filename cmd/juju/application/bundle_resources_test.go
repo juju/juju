@@ -46,21 +46,16 @@ func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
 
 	lines := strings.Split(output, "\n")
 	expectedLines := strings.Split(strings.TrimSpace(`
-added charm cs:trusty/starsay-42
-application starsay deployed (charm cs:trusty/starsay-42)
+Deploying charm "cs:trusty/starsay-42"
 added resource install-resource
 added resource store-resource
 added resource upload-resource
-added starsay/0 unit to new machine
-deployment of bundle "local:bundle/example-0" completed
+Deploy of bundle completed.
     `), "\n")
 	c.Check(lines, gc.HasLen, len(expectedLines))
 	c.Check(lines[0], gc.Equals, expectedLines[0])
-	c.Check(lines[1], gc.Equals, expectedLines[1])
 	// The "added resource" lines are checked after we sort since
 	// the ordering of those lines is unknown.
-	c.Check(lines[5], gc.Equals, expectedLines[5])
-	c.Check(lines[6], gc.Equals, expectedLines[6])
 	sort.Strings(lines)
 	sort.Strings(expectedLines)
 	c.Check(lines, jc.DeepEquals, expectedLines)
