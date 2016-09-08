@@ -20,11 +20,12 @@ func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 }
 
 // NewDefaultsCommandForTest returns a defaultsCommand with the api provided as specified.
-func NewDefaultsCommandForTest(api defaultsCommandAPI) cmd.Command {
+func NewDefaultsCommandForTest(api defaultsCommandAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &defaultsCommand{
 		api: api,
 	}
-	return modelcmd.Wrap(cmd)
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd)
 }
 
 // NewRetryProvisioningCommandForTest returns a RetryProvisioningCommand with the api provided as specified.

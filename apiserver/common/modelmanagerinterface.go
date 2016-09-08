@@ -39,6 +39,8 @@ type ModelManagerBackend interface {
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
+	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
+	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)

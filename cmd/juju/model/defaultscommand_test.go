@@ -12,17 +12,27 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type DefaultsCommandSuite struct {
 	fakeModelDefaultEnvSuite
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&DefaultsCommandSuite{})
 
+func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
+	s.fakeModelDefaultEnvSuite.SetUpTest(c)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "controller"
+	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
+}
+
 func (s *DefaultsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := model.NewDefaultsCommandForTest(s.fake)
+	command := model.NewDefaultsCommandForTest(s.fake, s.store)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -74,7 +84,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		cmd := model.NewDefaultsCommandForTest(s.fake)
+		cmd := model.NewDefaultsCommandForTest(s.fake, s.store)
 		err := testing.InitCommand(cmd, test.args)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
