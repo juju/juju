@@ -163,9 +163,7 @@ def get_assert_regex(raw_uuid, message=None):
 
 
 def enable_log_forwarding(client):
-    client.juju(
-        'set-model-config',
-        ('-m', 'controller', 'logforward-enabled=true'), include_e=False)
+    client.get_controller_client().set_env_option('logforward-enabled', 'true')
 
 
 def update_client_config(client, rsyslog_details):

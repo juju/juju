@@ -1256,22 +1256,22 @@ class EnvJujuClient:
         return self.juju('set-model-constraints', constraint_strings)
 
     def get_model_config(self):
-        """Return the value of the environment's configured option."""
+        """Return the value of the environment's configured options."""
         return yaml.safe_load(
-            self.get_juju_output('get-model-config', '--format', 'yaml'))
+            self.get_juju_output('model-config', '--format', 'yaml'))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-model-config', option)
+        return self.get_juju_output('model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('set-model-config', (option_value,))
+        return self.juju('model-config', (option_value,))
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('unset-model-config', (option,))
+        return self.juju('model-config', ('--reset', option,))
 
     def get_agent_metadata_url(self):
         return self.get_env_option(self.agent_metadata_url)
@@ -2114,6 +2114,24 @@ class EnvJujuClient2B9(EnvJujuClient):
         args = (username, models, '--acl', permissions)
 
         self.controller_juju('revoke', args)
+
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(
+            self.get_juju_output('get-model-config', '--format', 'yaml'))
+
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-model-config', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-model-config', (option_value,))
+
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):

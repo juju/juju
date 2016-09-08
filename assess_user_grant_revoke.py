@@ -129,23 +129,21 @@ def assert_write_model(client, permission, has_permission):
     log.info('Checking write model acl {}'.format(client.env.user_name))
     if has_permission:
         try:
-            tags = 'resource-tags="{}={}"'.format(
-                client.env.user_name, permission)
-            client.juju('set-model-config', (tags))
+            tags = '"{}={}"'.format(client.env.user_name, permission)
+            client.set_env_option('resource-tags', tags)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
                 'FAIL {} could not set-model-config with {} permission'.format(
                     client.env.user_name, permission))
     else:
         try:
-            tags = 'resource-tags="{}=no-{}"'.format(
-                client.env.user_name, permission)
-            client.juju('set-model-config', (tags))
+            tags = '"{}=no-{}"'.format(client.env.user_name, permission)
+            client.set_env_option('resource-tags', tags)
         except subprocess.CalledProcessError:
             pass
         else:
             raise JujuAssertionError(
-                'FAIL User set-model-config without {} permission'.format(
+                'FAIL User set model-config without {} permission'.format(
                     permission))
     log.info('PASS {} write model acl'.format(client.env.user_name))
 
