@@ -372,7 +372,11 @@ def get_openstack_envvar_changes(user, credential_details):
         USER=user,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
-        OS_TENANT_NAME=credential_details['os_tenant_name'])
+        OS_TENANT_NAME=credential_details['os_tenant_name'],
+        # Temperary Hard Codes
+        OS_AUTH_URL="https://keystone.canonistack.canonical.com:443/v2.0/",
+        OS_REGION_NAME="lcy02"
+        )
 
 
 def openstack_directory_test_details(
@@ -398,7 +402,7 @@ def setup_basic_openstack_test_details(client, user, credential_details):
         cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
             credential_details['os_tenant_name'],
             user),
-        save_name='testing_openstack')
+        save_name='teststack')
 
     return expected_details, answers
 
@@ -410,6 +414,8 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
+        export OS_AUTH_URL="https://keystone.canonistack.canonical.com:443/v2.0/"
+        export OS_REGION_NAME="lcy02"
         """.format(
             user=user,
             password=credential_details['os_password'],
@@ -421,13 +427,13 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 def ensure_openstack_personal_cloud_exists(client):
     os_cloud = {
-        'testing_openstack': {
+        'teststack': {
             'type': 'openstack',
+            'auth-types': ['userpass'],
+            'endpoint': 'https://keystone.canonistack.canonical.com:443/v2.0/',
             'regions': {
-                'test1': {
-                    'endpoint': 'https://example.com',
-                    'auth-types': ['access-key', 'userpass']
-                    }
+                'lcy01': {},
+                'lcy02': {}
                 }
             }
         }
@@ -438,7 +444,8 @@ def ensure_openstack_personal_cloud_exists(client):
 def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
-            'testing_openstack': {
+            'teststack': {
+                'default-region': 'lcy02',
                 user: {
                     'auth-type': 'userpass',
                     'domain-name': '',
