@@ -9,8 +9,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -83,13 +85,20 @@ of a model to grant access to that model with "juju grant".
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: cookiejar.DefaultCookieFile(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.BakeryClient = httpbakery.NewClient()
+	dialOpts.BakeryClient.Jar = jar
 	accountDetails, err := s.ControllerStore.AccountDetails("bob-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:          s.ControllerStore,
 		ControllerName: "bob-controller",
 		AccountDetails: accountDetails,
-		DialOpts:       api.DefaultDialOpts(),
+		DialOpts:       dialOpts,
 		OpenAPI:        api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
