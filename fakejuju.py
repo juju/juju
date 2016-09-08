@@ -407,7 +407,7 @@ class FakeBackend:
         cloud_region = parsed.cloud_name_region.split('/', 1)
         cloud = cloud_region[0]
         # Although they are specified with specific arguments instead of as
-        # config, these values are listed by get-model-config:
+        # config, these values are listed by model-config:
         # name, region, type (from cloud).
         config['type'] = cloud
         if len(cloud_region) > 1:
@@ -652,7 +652,7 @@ class FakeBackend:
         if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
             return 'Codename:\t{}\n'.format(
                 model_state.model_config['default-series'])
-        if command == 'get-model-config':
+        if command in ('model-config', 'get-model-config'):
             return yaml.safe_dump(model_state.model_config)
         if command == 'restore-backup':
             model_state.restore_backup()

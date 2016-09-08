@@ -1077,7 +1077,7 @@ class TestTestUpgrade(FakeHomeTestCase):
     STATUS = (
         'juju', '--show-log', 'show-status', '-m', 'foo:foo',
         '--format', 'yaml')
-    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
+    GET_ENV = ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
                'agent-metadata-url')
 
     @classmethod
@@ -1085,7 +1085,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '2.0-alpha3'}},
+                'agent-version': '2.0-beta18'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
@@ -1107,7 +1107,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
                                    side_effect=lambda cls:
-                                   '2.0-alpha3-arch-series'):
+                                   '2.0-beta18-arch-series'):
                             yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
@@ -1118,7 +1118,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-alpha3'), 0)
+            '2.0-beta18'), 0)
         self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
@@ -1131,11 +1131,11 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_called_once_with('2.0-alpha3', 600)
+            wfv_mock.assert_called_once_with('2.0-beta18', 600)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_called_once_with('2.0-alpha3', 1200)
+        wfv_mock.assert_called_once_with('2.0-beta18', 1200)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
