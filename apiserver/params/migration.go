@@ -109,7 +109,7 @@ type MigrationStatus struct {
 	MigrationId     string `json:"migration-id"`
 	Attempt         int    `json:"attempt"`
 	Phase           string `json:"phase"`
-	ExternalControl bool   `json:"external-control`
+	ExternalControl bool   `json:"external-control"`
 
 	// TODO(mjs): I'm not convinced these Source fields will get used.
 	SourceAPIAddrs []string `json:"source-api-addrs"`
