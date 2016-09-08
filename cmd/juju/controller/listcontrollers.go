@@ -91,7 +91,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 				defer wg.Done()
 				client, err := c.getAPI(name)
 				if err != nil {
-					fmt.Fprintf(ctx.GetStderr(), "error connecting to api for %q: %v", name, err)
+					fmt.Fprintf(ctx.GetStderr(), "error connecting to api for %q: %v\n", name, err)
 					return
 				}
 				defer client.Close()
