@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/version"
 )
 
 const jujuMetadataHTTPHeader = "Juju-Metadata"
@@ -17,13 +19,19 @@ const jujuMetadataHTTPHeader = "Juju-Metadata"
 // the macaroon has been updated. This updated macaroon should be stored for
 // use in any further requests.  Note that this map may be non-empty even if
 // this method returns an error (and the macaroons should be stored).
-func LatestCharmInfo(client Client, charms []CharmID, modelUUID string) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string) ([]CharmInfoResult, error) {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now().UTC()
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(charms))
 	revResults, err := client.LatestRevisions(charms, map[string][]string{
-		jujuMetadataHTTPHeader: []string{"environment_uuid=" + modelUUID},
+		jujuMetadataHTTPHeader: []string{
+			"environment_uuid=" + metadata["environment_uuid"],
+			"cloud=" + metadata["cloud"],
+			"cloud_region=" + metadata["cloud_region"],
+			"provider=" + metadata["provider"],
+			"controller_version=" + version.Current.String(),
+		},
 	})
 	if err != nil {
 		err = errors.Annotate(err, "while getting latest charm revision info")
