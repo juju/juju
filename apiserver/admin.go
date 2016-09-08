@@ -92,7 +92,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	controllerOnlyLogin := a.root.modelUUID == ""
 	controllerMachineLogin := false
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
+	entity, lastConnection, err := a.checkCreds(req, isUser)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResult{
@@ -241,8 +241,16 @@ func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
 	return out
 }
 
+func (a *admin) checkCreds(req params.LoginRequest, lookForModelUser bool) (state.Entity, *time.Time, error) {
+	return doCheckCreds(a.root.state, req, lookForModelUser, a.authenticator())
+}
+
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.state, req, a.srv.authCtxt)
+	return checkControllerMachineCreds(a.srv.state, req, a.authenticator())
+}
+
+func (a *admin) authenticator() authentication.EntityAuthenticator {
+	return a.srv.authCtxt.authenticator(a.root.serverHost)
 }
 
 func (a *admin) maintenanceInProgress() bool {
