@@ -48,6 +48,12 @@ func (s *CharmSuite) remove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *CharmSuite) checkRemoved(c *gc.C) {
+	_, err := s.State.Charm(s.curl)
+	c.Check(err, gc.ErrorMatches, `charm ".*" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CharmSuite) TestAliveCharm(c *gc.C) {
 	s.testCharm(c)
 }
@@ -100,9 +106,7 @@ func (s *CharmSuite) testCharm(c *gc.C) {
 
 func (s *CharmSuite) TestRemovedCharmNotFound(c *gc.C) {
 	s.remove(c)
-	_, err := s.State.Charm(s.curl)
-	c.Check(err, gc.ErrorMatches, `charm ".*" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.checkRemoved(c)
 }
 
 func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
@@ -224,6 +228,48 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 
 	err = s.charm.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	// set app charm to something different
+	info := s.dummyCharm(c, "cs:quantal/dummy-2")
+	newCh, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// unit should still reference original charm until updated
+	err = s.charm.Destroy()
+	c.Assert(err, gc.ErrorMatches, "charm in use")
+	err = unit.SetCharmURL(info.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.charm.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	removeUnit(c, unit)
+
+	assertCleanupCount(c, s.State, 1)
+	s.checkRemoved(c)
 }
 
 func (s *CharmSuite) TestAddCharm(c *gc.C) {

@@ -49,10 +49,16 @@ type charmDoc struct {
 	DocID string     `bson:"_id"`
 	URL   *charm.URL `bson:"url"` // DANGEROUS see charm.* fields below
 
-	// Life should only be used for local charms; a value of Dead is
-	// used to indicate that the charm no longer exists, but the doc
-	// itself needs to stick around so we don't accidentally reuse
-	// charm URLs (which must be unique within a model).
+	// Life manages charm lifetime in the usual way, but only local
+	// charms can actually be "destroyed"; store charms are
+	// immortal. When a local charm is removed, its document is left
+	// in place, with Life set to Dead, to ensure we don't
+	// accidentally reuse the charm URL, which must be unique within
+	// a model.
+	//
+	// Note that this aligns with the existing contract implied by
+	// Dead: that most clients should see it as not existing at all.
+	// Nothing strictly obliges us to clean up the doc.
 	Life Life `bson:"life"`
 
 	// These fields are flags; if any of them is set, the charm
@@ -368,12 +374,19 @@ func (c *Charm) Destroy() error {
 // inaccessible to future clients. It will fail unless the charm is
 // already Dying (indicating that someone has called Destroy).
 func (c *Charm) Remove() error {
-	if c.doc.Life == Alive {
+	switch c.doc.Life {
+	case Alive:
 		return errors.New("still alive")
+	case Dead:
+		return nil
 	}
 
-	err := c.st.deleteCharmArchive(c.doc.URL, c.doc.StoragePath)
-	if err != nil {
+	stor := storage.NewStorage(c.st.ModelUUID(), c.st.MongoSession())
+	err := stor.Remove(c.doc.StoragePath)
+	if errors.IsNotFound(err) {
+		// Not a problem, but we might still need to run the
+		// transaction further down to complete the process.
+	} else if err != nil {
 		return errors.Annotate(err, "deleting archive")
 	}
 
@@ -393,7 +406,6 @@ func (c *Charm) Remove() error {
 	}
 	c.doc.Life = Dead
 	return nil
-
 }
 
 // charmGlobalKey returns the global database key for the charm
@@ -494,18 +506,6 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 		return errors.Trace(err)
 	}
 	if err := c.st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// deleteCharmArchive deletes a charm archive from blob storage.
-func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
-	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
-	err := stor.Remove(storagePath)
-	if errors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return nil

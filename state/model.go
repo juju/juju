@@ -846,7 +846,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
 	if m.isControllerModel() {
-		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, modelUUID)
+		cleanupOp := newCleanupOp(cleanupModelsForDyingController, modelUUID)
 		ops = append(ops, cleanupOp)
 	}
 	if !isEmpty {
@@ -856,8 +856,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
-		cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, modelUUID)
+		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
+		cleanupServicesOp := newCleanupOp(cleanupServicesForDyingModel, modelUUID)
 		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
 	}
 	return append(prereqOps, ops...), nil

@@ -20,7 +20,7 @@ const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
 	cleanupUnitsForDyingService          cleanupKind = "units"
-	cleanupCharmForDyingService          cleanupKind = "charm"
+	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupServicesForDyingModel         cleanupKind = "applications"
@@ -33,23 +33,22 @@ const (
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
 )
 
-// cleanupDoc represents a potentially large set of documents that should be
-// removed.
+// cleanupDoc originally represented a set of documents that should be
+// removed, but the Prefix field no longer means anything more than
+// "what will be passed to the cleanup func".
 type cleanupDoc struct {
-	DocID     string `bson:"_id"`
-	ModelUUID string `bson:"model-uuid"`
-	Kind      cleanupKind
-	Prefix    string
+	DocID  string      `bson:"_id"`
+	Kind   cleanupKind `bson:"kind"`
+	Prefix string      `bson:"prefix"`
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
+func newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
-		DocID:     st.docID(fmt.Sprint(bson.NewObjectId())),
-		ModelUUID: st.ModelUUID(),
-		Kind:      kind,
-		Prefix:    prefix,
+		DocID:  fmt.Sprint(bson.NewObjectId()),
+		Kind:   kind,
+		Prefix: prefix,
 	}
 	return txn.Op{
 		C:      cleanupsC,
@@ -84,8 +83,8 @@ func (st *State) Cleanup() (err error) {
 		switch doc.Kind {
 		case cleanupRelationSettings:
 			err = st.cleanupRelationSettings(doc.Prefix)
-		case cleanupCharmForDyingService:
-			err = st.cleanupCharmForDyingService(doc.Prefix)
+		case cleanupCharm:
+			err = st.cleanupCharm(doc.Prefix)
 		case cleanupUnitsForDyingService:
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
@@ -267,21 +266,39 @@ func (st *State) cleanupUnitsForDyingService(applicationname string) (err error)
 	return nil
 }
 
-func (st *State) cleanupCharmForDyingService(charmURL string) error {
+// cleanupCharm is speculative: it can abort without error for many
+// reasons, because it's triggered somewhat overenthusiastically for
+// simplicity's sake.
+func (st *State) cleanupCharm(charmURL string) error {
 	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
 	}
+	if curl.Schema != "local" {
+		// No cleanup necessary or possible.
+		return nil
+	}
+
 	ch, err := st.Charm(curl)
 	if errors.IsNotFound(err) {
 		// Charm already removed.
 		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "reading charm")
 	}
-	if err != nil {
-		return errors.Annotate(err, "cannot read charm record from state")
+
+	err = ch.Destroy()
+	switch errors.Cause(err) {
+	case nil:
+	case errCharmInUse:
+		// No cleanup necessary at this time.
+		return nil
+	default:
+		return errors.Annotate(err, "destroying charm")
 	}
-	if err := st.deleteCharmArchive(curl, ch.StoragePath()); err != nil && !errors.IsNotFound(err) {
-		return errors.Annotate(err, "cannot remove charm archive from storage")
+
+	if err := ch.Remove(); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

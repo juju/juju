@@ -268,7 +268,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 	}
 	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	ops := []txn.Op{
-		st.newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
+		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
 		{
 			C:      storageInstancesC,
 			Id:     s.doc.Id,

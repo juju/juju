@@ -57,7 +57,9 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 // appCharmDecRefOps returns the operations necessary to delete a
 // reference to a charm and its per-application settings document. If no
 // references to a given (app, charm) pair remain, the operations
-// returned will also remove the settings document for that pair.
+// returned will also remove the settings document for that pair, and
+// schedule a cleanup to see if the charm itself is now unreferenced and
+// can be tidied away itself.
 func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.Op, error) {
 
 	refcounts, closer := st.getCollection(refcountsC)
@@ -77,13 +79,27 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 
 	ops := []txn.Op{settingsOp, charmOp}
 	if isFinal {
-		ops = append(ops, txn.Op{
-			C:      settingsC,
-			Id:     settingsKey,
-			Remove: true,
-		})
+		// XXX(fwereade): this construction, in common with ~all
+		// our refcount logic, is safe in parallel but not in
+		// serial. If this logic is used twice while composing a
+		// single transaction, the removal won't be triggered.
+		// see `Application.removeOps` for the workaround.
+		ops = append(ops, finalAppCharmRemoveOps(appName, curl)...)
 	}
 	return ops, nil
+}
+
+// finalAppCharmRemoveOps returns operations to delete the settings
+// document and queue a charm cleanup.
+func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
+	settingsKey := applicationSettingsKey(appName, curl)
+	removeOp := txn.Op{
+		C:      settingsC,
+		Id:     settingsKey,
+		Remove: true,
+	}
+	cleanupOp := newCleanupOp(cleanupCharm, curl.String())
+	return []txn.Op{removeOp, cleanupOp}
 }
 
 // charmDestroyOps implements the logic of charm.Destroy.
