@@ -536,7 +536,7 @@ def get_args(argv=None):
         '--debfullname', default=os.environ.get("DEBFULLNAME"),
         help="Your full name; Environment: DEBFULLNAME.")
     src_parser.add_argument(
-        '--epoch', default=None, help="The epoch for package version")
+        '--epoch', default='1', help="The epoch for package version")
     src_parser.add_argument(
         '--gpgcmd', default=None,
         help="Path to a gpg signing command to make signed packages.")

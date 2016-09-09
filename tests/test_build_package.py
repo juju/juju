@@ -654,9 +654,8 @@ class GetArgsTests(TestWithScenarios):
             if self.revid:
                 args_list.append('--revid')
                 args_list.append(self.revid)
-            if self.epoch:
-                args_list.append('--epoch')
-                args_list.append(self.epoch)
+            args_list.append('--epoch')
+            args_list.append(self.epoch)
             code = main(args_list)
         self.assertEqual(0, code)
         bs_mock.assert_called_with(
