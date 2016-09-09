@@ -298,9 +298,14 @@ def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
     log_files = []
     for r, ds, fs in os.walk(log_dir):
-        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
+        log_files.extend(os.path.join(r, f) for f in fs if is_log(f))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
+
+
+def is_log(file_name):
+    """Check to see if the given file name is the name of a log file."""
+    return file_name.endswith('.log') or file_name.endswith('syslog')
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
