@@ -60,6 +60,7 @@ func (r *actionsResolver) NextOp(
 			return opFactory.NewSkipHook(*localState.Hook)
 		} else {
 			logger.Infof("%q hook is nil", operation.RunAction)
+			return opFactory.NewFailAction(*localState.ActionId, "action terminated")
 		}
 	case operation.Continue:
 		return opFactory.NewAction(nextAction)
