@@ -89,8 +89,8 @@ func (s *Suite) TestWatch(c *gc.C) {
 }
 
 func (s *Suite) TestMigrationStatus(c *gc.C) {
-	var expectedMacaroon = `
-{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}`[1:]
+	var expectedMacaroons = `
+[[{"caveats":[],"location":"location","identifier":"id","signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}]]`[1:]
 
 	api := s.mustMakeAPI(c)
 	status, err := api.MigrationStatus()
@@ -105,13 +105,20 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      "secret",
-				Macaroon:      expectedMacaroon,
+				Macaroons:     expectedMacaroons,
 			},
 		},
 		MigrationId:      "id",
 		Phase:            "IMPORT",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
+}
+
+func (s *Suite) TestMigrationStatusExternalControl(c *gc.C) {
+	s.backend.migration.externalControl = true
+	status, err := s.mustMakeAPI(c).MigrationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status.Spec.ExternalControl, jc.IsTrue)
 }
 
 func (s *Suite) TestModelInfo(c *gc.C) {
@@ -360,12 +367,13 @@ func (b *stubBackend) Export() (description.Model, error) {
 type stubMigration struct {
 	state.ModelMigration
 
-	stub          *testing.Stub
-	setPhaseErr   error
-	phaseSet      coremigration.Phase
-	setMessageErr error
-	messageSet    string
-	minionReports *state.MinionReports
+	stub            *testing.Stub
+	setPhaseErr     error
+	phaseSet        coremigration.Phase
+	setMessageErr   error
+	messageSet      string
+	minionReports   *state.MinionReports
+	externalControl bool
 }
 
 func (m *stubMigration) Id() string {
@@ -388,6 +396,10 @@ func (m *stubMigration) ModelUUID() string {
 	return modelUUID
 }
 
+func (m *stubMigration) ExternalControl() bool {
+	return m.externalControl
+}
+
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	if err != nil {
@@ -399,7 +411,7 @@ func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
-		Macaroon:      mac,
+		Macaroons:     []macaroon.Slice{{mac}},
 	}, nil
 }
 

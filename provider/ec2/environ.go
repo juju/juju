@@ -1365,7 +1365,6 @@ type SecurityGroupCleaner interface {
 }
 
 var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.SecurityGroup, clock clock.Clock) error {
-	var lastErr error
 	err := retry.Call(retry.CallArgs{
 		Attempts:    30,
 		Delay:       time.Second,
@@ -1375,17 +1374,17 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		Func: func() error {
 			_, err := inst.DeleteSecurityGroup(group)
 			if err == nil || isNotFoundError(err) {
+				logger.Debugf("deleting security group %q", group.Name)
 				return nil
 			}
 			return errors.Trace(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			lastErr = err
-			logger.Infof(fmt.Sprintf("deleting security group %q, attempt %d", group.Name, attempt))
+			logger.Debugf("deleting security group %q, attempt %d", group.Name, attempt)
 		},
 	})
 	if err != nil {
-		return errors.Annotatef(lastErr, "cannot delete security group %q: consider deleting it manually", group.Name)
+		return errors.Annotatef(err, "cannot delete security group %q: consider deleting it manually", group.Name)
 	}
 	return nil
 }

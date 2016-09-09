@@ -133,7 +133,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			hist []params.DetailedStatus
 		)
 		kind := status.HistoryKind(request.Kind)
-		err = errors.NotValidf("%q requires a unit, got %t", kind, request.Tag)
+		err = errors.NotValidf("%q requires a unit, got %T", kind, request.Tag)
 		switch kind {
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
@@ -632,18 +632,18 @@ func (context *statusContext) processApplication(service *state.Application) par
 	units := context.units[service.Name()]
 	if service.IsPrincipal() {
 		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
-		applicationStatus, err := service.Status()
-		if err != nil {
-			processedStatus.Err = err
-			return processedStatus
-		}
-		processedStatus.Status.Status = applicationStatus.Status.String()
-		processedStatus.Status.Info = applicationStatus.Message
-		processedStatus.Status.Data = applicationStatus.Data
-		processedStatus.Status.Since = applicationStatus.Since
-
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
+	applicationStatus, err := service.Status()
+	if err != nil {
+		processedStatus.Err = err
+		return processedStatus
+	}
+	processedStatus.Status.Status = applicationStatus.Status.String()
+	processedStatus.Status.Info = applicationStatus.Message
+	processedStatus.Status.Data = applicationStatus.Data
+	processedStatus.Status.Since = applicationStatus.Since
+
+	processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {

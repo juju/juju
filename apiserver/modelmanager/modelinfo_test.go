@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -34,6 +35,10 @@ type modelInfoSuite struct {
 	authorizer   apiservertesting.FakeAuthorizer
 	st           *mockState
 	modelmanager *modelmanager.ModelManagerAPI
+}
+
+func pUint64(v uint64) *uint64 {
+	return &v
 }
 
 var _ = gc.Suite(&modelInfoSuite{})
@@ -49,6 +54,20 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "left",
+					Value: "spam"}}},
 		},
 	}
 	s.st.controllerModel = &mockModel{
@@ -88,8 +107,30 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
 			access:      description.ReadAccess,
+		}, {
+			userName:    "mary@local",
+			displayName: "Mary",
+			access:      description.WriteAccess,
 		}},
 	}
+	s.st.machines = []common.Machine{
+		&mockMachine{
+			id:            "1",
+			containerType: "none",
+			life:          state.Alive,
+			hw:            &instance.HardwareCharacteristics{CpuCores: pUint64(1)},
+		},
+		&mockMachine{
+			id:            "2",
+			life:          state.Alive,
+			containerType: "lxc",
+		},
+		&mockMachine{
+			id:   "3",
+			life: state.Dead,
+		},
+	}
+
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,9 +138,9 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
+	var err error
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelmanager = modelmanager
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
@@ -133,6 +174,17 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			DisplayName:    "Charlotte",
 			LastConnection: &time.Time{},
 			Access:         params.ModelReadAccess,
+		}, {
+			UserName:       "mary@local",
+			DisplayName:    "Mary",
+			LastConnection: &time.Time{},
+			Access:         params.ModelWriteAccess,
+		}},
+		Machines: []params.ModelMachineInfo{{
+			Id:       "1",
+			Hardware: &params.MachineHardware{Cores: pUint64(1)},
+		}, {
+			Id: "2",
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
@@ -144,11 +196,14 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
+		{"AllMachines", nil},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
 		{"Users", nil},
+		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"ModelTag", nil},
@@ -164,7 +219,18 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("bob@local"))
 	info := s.getModelInfo(c)
-	c.Assert(info.Users, gc.HasLen, 3)
+	c.Assert(info.Users, gc.HasLen, 4)
+	c.Assert(info.Machines, gc.HasLen, 2)
+}
+
+func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
+	mary := names.NewUserTag("mary@local")
+	s.authorizer.HasWriteTag = mary
+	s.setAPIUser(c, mary)
+	info := s.getModelInfo(c)
+	c.Assert(info.Users, gc.HasLen, 1)
+	c.Assert(info.Users[0].UserName, gc.Equals, "mary@local")
+	c.Assert(info.Machines, gc.HasLen, 2)
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
@@ -172,6 +238,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte@local")
+	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
 func (s *modelInfoSuite) getModelInfo(c *gc.C) params.ModelInfo {
@@ -248,6 +315,10 @@ type mockState struct {
 	controllerModel *mockModel
 	users           []description.UserAccess
 	cred            cloud.Credential
+	machines        []common.Machine
+	cfgDefaults     config.ModelDefaultAttributes
+	blockMsg        string
+	block           state.BlockType
 }
 
 type fakeModelDescription struct {
@@ -354,6 +425,11 @@ func (st *mockState) AllModels() ([]common.Model, error) {
 	return []common.Model{st.model}, st.NextErr()
 }
 
+func (st *mockState) AllMachines() ([]common.Machine, error) {
+	st.MethodCall(st, "AllMachines")
+	return st.machines, st.NextErr()
+}
+
 func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	st.MethodCall(st, "Clouds")
 	return st.clouds, st.NextErr()
@@ -409,11 +485,92 @@ func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, acce
 	return description.UserAccess{}, st.NextErr()
 }
 
+func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	st.MethodCall(st, "ModelConfigDefaultValues")
+	return st.cfgDefaults, nil
+}
+
+func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
+	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove)
+	for k, v := range update {
+		st.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
+	}
+	for _, n := range remove {
+		delete(st.cfgDefaults, n)
+	}
+	return nil
+}
+
+func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	st.MethodCall(st, "GetBlockForType", t)
+	if st.block == t {
+		return &mockBlock{t: t, m: st.blockMsg}, true, nil
+	} else {
+		return nil, false, nil
+	}
+}
+
 func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	st.MethodCall(st, "DumpAll")
 	return map[string]interface{}{
 		"models": "lots of data",
 	}, st.NextErr()
+}
+
+type mockBlock struct {
+	state.Block
+	t state.BlockType
+	m string
+}
+
+func (m mockBlock) Id() string { return "" }
+
+func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
+
+func (m mockBlock) Type() state.BlockType { return m.t }
+
+func (m mockBlock) Message() string { return m.m }
+
+func (m mockBlock) ModelUUID() string { return "" }
+
+type mockMachine struct {
+	common.Machine
+	id            string
+	life          state.Life
+	containerType instance.ContainerType
+	hw            *instance.HardwareCharacteristics
+}
+
+func (m *mockMachine) Id() string {
+	return m.id
+}
+
+func (m *mockMachine) Life() state.Life {
+	return m.life
+}
+
+func (m *mockMachine) ContainerType() instance.ContainerType {
+	return m.containerType
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	return m.hw, nil
+}
+
+func (m *mockMachine) InstanceId() (instance.Id, error) {
+	return "", nil
+}
+
+func (m *mockMachine) WantsVote() bool {
+	return false
+}
+
+func (m *mockMachine) HasVote() bool {
+	return false
+}
+
+func (m *mockMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{}, nil
 }
 
 type mockModel struct {

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 type charmVersionSuite struct {
@@ -153,7 +154,7 @@ func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
+func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
@@ -183,5 +184,16 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(header.Get(charmrepo.JujuMetadataHTTPHeader), gc.Equals, "environment_uuid="+env.UUID())
+	cloud, err := s.State.Cloud(env.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	expected_header := []string{
+		"environment_uuid=" + env.UUID(),
+		"cloud=" + env.Cloud(),
+		"cloud_region=" + env.CloudRegion(),
+		"provider=" + cloud.Type,
+		"controller_version=" + version.Current.String(),
+	}
+	for i, expected := range expected_header {
+		c.Assert(header[charmrepo.JujuMetadataHTTPHeader][i], gc.Equals, expected)
+	}
 }

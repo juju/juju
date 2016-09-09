@@ -42,7 +42,8 @@ Examples:
 
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
 
-See also: remove-service
+See also:
+    remove-service
 `
 
 func (c *removeUnitCommand) Info() *cmd.Info {

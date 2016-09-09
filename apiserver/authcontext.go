@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -21,13 +24,31 @@ import (
 	"github.com/juju/juju/state/bakerystorage"
 )
 
+const (
+	localUserIdentityLocationPath = "/auth"
+)
+
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
 	st *state.State
 
+	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
-	userAuth  authentication.UserAuthenticator
+
+	// localUserBakeryService is the bakery.Service used by the controller
+	// for authenticating local users. In time, we may want to use this for
+	// both local and external users. Note that this service does not
+	// discharge the third-party caveats.
+	localUserBakeryService *expirableStorageBakeryService
+
+	// localUserThirdPartyBakeryService is the bakery.Service used by the
+	// controller for discharging third-party caveats for local users.
+	localUserThirdPartyBakeryService *bakery.Service
+
+	// localUserInteractions maintains a set of in-progress local user
+	// authentication interactions.
+	localUserInteractions *authentication.Interactions
 
 	// macaroonAuthOnce guards the fields below it.
 	macaroonAuthOnce   sync.Once
@@ -37,29 +58,97 @@ type authContext struct {
 
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(st *state.State) (*authContext, error) {
-	ctxt := &authContext{st: st}
+	ctxt := &authContext{
+		st: st,
+		// TODO(fwereade) 2016-07-21 there should be a clock parameter
+		clock: clock.WallClock,
+		localUserInteractions: authentication.NewInteractions(),
+	}
+
+	// Create a bakery service for discharging third-party caveats for
+	// local user authentication. This service does not persist keys;
+	// its macaroons should be very short-lived.
+	localUserThirdPartyBakeryService, _, err := newBakeryService(st, nil, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctxt.localUserThirdPartyBakeryService = localUserThirdPartyBakeryService
+
+	// Create a bakery service for local user authentication. This service
+	// persists keys into MongoDB in a TTL collection.
 	store, err := st.NewBakeryStorage()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We use a non-nil, but empty key, because we don't use the
-	// key, and don't want to incur the overhead of generating one
-	// each time we create a service.
-	bakeryService, key, err := newBakeryService(st, store, nil)
+	locator := bakeryServicePublicKeyLocator{ctxt.localUserThirdPartyBakeryService}
+	localUserBakeryService, localUserBakeryServiceKey, err := newBakeryService(
+		st, store, locator,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctxt.userAuth.Service = &expirableStorageBakeryService{bakeryService, key, store, nil}
-	// TODO(fwereade) 2016-07-21 there should be a clock parameter
-	ctxt.userAuth.Clock = clock.WallClock
+	ctxt.localUserBakeryService = &expirableStorageBakeryService{
+		localUserBakeryService, localUserBakeryServiceKey, store, locator,
+	}
 	return ctxt, nil
+}
+
+type bakeryServicePublicKeyLocator struct {
+	service *bakery.Service
+}
+
+// PublicKeyForLocation implements bakery.PublicKeyLocator.
+func (b bakeryServicePublicKeyLocator) PublicKeyForLocation(string) (*bakery.PublicKey, error) {
+	return b.service.PublicKey(), nil
+}
+
+// CreateLocalLoginMacaroon creates a macaroon that may be provided to a user
+// as proof that they have logged in with a valid username and password. This
+// macaroon may then be used to obtain a discharge macaroon so that the user
+// can log in without presenting their password for a set amount of time.
+func (ctxt *authContext) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	return authentication.CreateLocalLoginMacaroon(tag, ctxt.localUserThirdPartyBakeryService, ctxt.clock)
+}
+
+// CheckLocalLoginCaveat parses and checks that the given caveat string is
+// valid for a local login request, and returns the tag of the local user
+// that the caveat asserts is logged in. checkers.ErrCaveatNotRecognized will
+// be returned if the caveat is not recognised.
+func (ctxt *authContext) CheckLocalLoginCaveat(caveat string) (names.UserTag, error) {
+	return authentication.CheckLocalLoginCaveat(caveat)
+}
+
+// CheckLocalLoginRequest checks that the given HTTP request contains at least
+// one valid local login macaroon minted using CreateLocalLoginMacaroon. It
+// returns an error with a *bakery.VerificationError cause if the macaroon
+// verification failed. If the macaroon is valid, CheckLocalLoginRequest returns
+// a list of caveats to add to the discharge macaroon.
+func (ctxt *authContext) CheckLocalLoginRequest(req *http.Request, tag names.UserTag) ([]checkers.Caveat, error) {
+	return authentication.CheckLocalLoginRequest(ctxt.localUserThirdPartyBakeryService, req, tag, ctxt.clock)
+}
+
+// authenticator returns an authenticator.EntityAuthenticator for the API
+// connection associated with the specified API server host.
+func (ctxt *authContext) authenticator(serverHost string) authenticator {
+	return authenticator{ctxt: ctxt, serverHost: serverHost}
+}
+
+// authenticator implements authenticator.EntityAuthenticator, delegating
+// to the appropriate authenticator based on the tag kind.
+type authenticator struct {
+	ctxt       *authContext
+	serverHost string
 }
 
 // Authenticate implements authentication.EntityAuthenticator
 // by choosing the right kind of authentication for the given
 // tag.
-func (ctxt *authContext) Authenticate(entityFinder authentication.EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
-	auth, err := ctxt.authenticatorForTag(tag)
+func (a authenticator) Authenticate(
+	entityFinder authentication.EntityFinder,
+	tag names.Tag,
+	req params.LoginRequest,
+) (state.Entity, error) {
+	auth, err := a.authenticatorForTag(tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,12 +157,11 @@ func (ctxt *authContext) Authenticate(entityFinder authentication.EntityFinder, 
 
 // authenticatorForTag returns the authenticator appropriate
 // to use for a login with the given possibly-nil tag.
-func (ctxt *authContext) authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
+func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
 	if tag == nil {
-		auth, err := ctxt.macaroonAuth()
+		auth, err := a.ctxt.externalMacaroonAuth()
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
-			// Make a friendlier error message.
-			err = errors.New("no credentials provided")
+			err = errors.Trace(common.ErrNoCreds)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -82,17 +170,32 @@ func (ctxt *authContext) authenticatorForTag(tag names.Tag) (authentication.Enti
 	}
 	switch tag.Kind() {
 	case names.UnitTagKind, names.MachineTagKind:
-		return &ctxt.agentAuth, nil
+		return &a.ctxt.agentAuth, nil
 	case names.UserTagKind:
-		return &ctxt.userAuth, nil
+		return a.localUserAuth(), nil
 	default:
 		return nil, errors.Annotatef(common.ErrBadRequest, "unexpected login entity tag")
 	}
 }
 
-// macaroonAuth returns an authenticator that can authenticate macaroon-based
-// logins. If it fails once, it will always fail.
-func (ctxt *authContext) macaroonAuth() (authentication.EntityAuthenticator, error) {
+// localUserAuth returns an authenticator that can authenticate logins for
+// local users with either passwords or macaroons.
+func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
+	localUserIdentityLocation := url.URL{
+		Scheme: "https",
+		Host:   a.serverHost,
+		Path:   localUserIdentityLocationPath,
+	}
+	return &authentication.UserAuthenticator{
+		Service: a.ctxt.localUserBakeryService,
+		Clock:   a.ctxt.clock,
+		LocalUserIdentityLocation: localUserIdentityLocation.String(),
+	}
+}
+
+// externalMacaroonAuth returns an authenticator that can authenticate macaroon-based
+// logins for external users. If it fails once, it will always fail.
+func (ctxt *authContext) externalMacaroonAuth() (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
 		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st)
 	})
@@ -106,7 +209,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
-// for authCtxt.macaroonAuth.
+// for authCtxt.externalMacaroonAuth.
 func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {

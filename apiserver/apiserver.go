@@ -19,8 +19,10 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/observer"
@@ -287,6 +289,12 @@ func (srv *Server) run() {
 		srv.tomb.Kill(srv.mongoPinger())
 	}()
 
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.expireLocalLoginInteractions())
+	}()
+
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -394,8 +402,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/register",
 		&registerUserHandler{
-			httpCtxt,
-			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
+			ctxt: httpCtxt,
 		},
 	)
 	add("/api", mainAPIHandler)
@@ -404,7 +411,41 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
+	// Add HTTP handlers for local-user macaroon authentication.
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		localLoginHandlers.authCtxt.localUserThirdPartyBakeryService,
+		localLoginHandlers.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/login",
+		makeHandler(handleJSON(localLoginHandlers.serveLogin)),
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/wait",
+		makeHandler(handleJSON(localLoginHandlers.serveWait)),
+	)
+	add(localUserIdentityLocationPath+"/discharge", dischargeMux)
+	add(localUserIdentityLocationPath+"/publickey", dischargeMux)
+	add(localUserIdentityLocationPath+"/login", dischargeMux)
+	add(localUserIdentityLocationPath+"/wait", dischargeMux)
+
 	return endpoints
+}
+
+func (srv *Server) expireLocalLoginInteractions() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.authCtxt.clock.Now()
+			srv.authCtxt.localUserInteractions.Expire(now)
+		}
+	}
 }
 
 func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
@@ -496,7 +537,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
-			if err := srv.serveConn(conn, modelUUID, apiObserver); err != nil {
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -504,12 +545,12 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	h, err := srv.newAPIHandler(conn, modelUUID)
+	h, err := srv.newAPIHandler(conn, modelUUID, host)
 	if err != nil {
 		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
@@ -527,7 +568,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID, serverHost string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
@@ -542,7 +583,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID, serverHost)
 }
 
 func (srv *Server) mongoPinger() error {

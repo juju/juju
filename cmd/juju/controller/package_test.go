@@ -60,6 +60,8 @@ controllers:
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
+    model-count: 2
+    machine-count: 5
     agent-version: 2.0.1
   mallards:
     uuid: this-is-another-uuid
@@ -79,12 +81,12 @@ const testModelsYaml = `
 controllers:
   aws-test:
     models:
-      admin:
+      controller:
         uuid: ghi
-    current-model: admin
+    current-model: controller
   mallards:
     models:
-      admin:
+      controller:
         uuid: abc
       my-model:
         uuid: def

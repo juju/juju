@@ -17,8 +17,6 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
-	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(map[string]interface{}, []string) error
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 }
 

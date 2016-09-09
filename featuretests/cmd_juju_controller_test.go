@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -71,8 +72,8 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         ACCESS      CLOUD/REGION        VERSION
-kontroll*   controller  admin@local  superuser+  dummy/dummy-region  (unknown)+
+CONTROLLER  MODEL       USER         ACCESS+    CLOUD/REGION        MODELS+  MACHINES+  VERSION+
+kontroll*   controller  admin@local  superuser  dummy/dummy-region        -          -  (unknown)  
 
 + these are the last known values, run with --refresh to see the latest information.
 
@@ -105,6 +106,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	two := uint64(2)
+	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
 	context := s.run(c, "list-models", "--format=yaml")
 	c.Assert(testing.Stdout(context), gc.Matches, `
 models:
@@ -125,6 +129,11 @@ models:
       display-name: admin
       access: admin
       last-connection: just now
+  machines:
+    "0":
+      cores: 0
+    "1":
+      cores: 2
 current-model: controller
 `[1:])
 }
@@ -272,11 +281,11 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *cmdControllerSuite) TestEnableDestroyController(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	s.run(c, "remove-all-blocks")
+	s.run(c, "enable-destroy-controller")
 
 	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)

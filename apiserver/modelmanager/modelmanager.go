@@ -54,6 +54,7 @@ type ModelManager interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	state       common.ModelManagerBackend
+	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
@@ -89,6 +90,7 @@ func NewModelManagerAPI(
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
 		state:       st,
+		check:       common.NewBlockChecker(st),
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(configGetter, st, urlGetter),
 		apiUser:     apiUser,
@@ -111,6 +113,14 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 		return nil
 	}
 	return common.ErrPerm
+}
+
+func (s *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, modelTag)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -620,6 +630,17 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, common.ErrPerm
 	}
 
+	canSeeMachines := authorizedOwner
+	if !canSeeMachines {
+		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+	}
+	if canSeeMachines {
+		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
+			return params.ModelInfo{}, err
+		}
+	}
 	return info, nil
 }
 
@@ -805,4 +826,81 @@ func FromModelAccessParam(paramAccess params.UserAccessPermission) (permission.M
 		return permission.ModelAdminAccess, nil
 	}
 	return fail, errors.Errorf("invalid model access permission %q", paramAccess)
+}
+
+// ModelDefaults returns the default config values used when creating a new model.
+func (c *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+	result := params.ModelDefaultsResult{}
+	if !c.isAdmin {
+		return result, common.ErrPerm
+	}
+
+	values, err := c.state.ModelConfigDefaultValues()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Config = make(map[string]params.ModelDefaults)
+	for attr, val := range values {
+		settings := params.ModelDefaults{
+			Controller: val.Controller,
+			Default:    val.Default,
+		}
+		for _, v := range val.Regions {
+			settings.Regions = append(
+				settings.Regions, params.RegionDefaults{
+					RegionName: v.Name,
+					Value:      v.Value})
+		}
+		result.Config[attr] = settings
+	}
+	return result, nil
+}
+
+// SetModelDefaults writes new values for the specified default model settings.
+func (c *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Config {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.setModelDefaults(arg),
+		)
+	}
+	return results, nil
+}
+
+func (c *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
+	if !c.isAdmin {
+		return common.ErrPerm
+	}
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	// Make sure we don't allow changing agent-version.
+	if _, found := args.Config["agent-version"]; found {
+		return errors.New("agent-version cannot have a default value")
+	}
+	return c.state.UpdateModelConfigDefaultValues(args.Config, nil)
+}
+
+// UnsetModelDefaults removes the specified default model settings.
+func (c *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
+	if !c.isAdmin {
+		return results, common.ErrPerm
+	}
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Keys {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.state.UpdateModelConfigDefaultValues(nil, arg.Keys),
+		)
+	}
+	return results, nil
 }

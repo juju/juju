@@ -121,6 +121,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("APP", "VERSION", "STATUS", "SCALE", "CHARM", "STORE", "REV", "OS", "NOTES")
+	tw.SetColumnAlignRight(3)
+	tw.SetColumnAlignRight(6)
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
@@ -135,8 +137,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
-		p(fs.applicationScale(appName),
-			app.CharmName,
+		scale, warn := fs.applicationScale(appName)
+		if warn {
+			w.PrintColor(output.WarningHighlight, scale)
+		} else {
+			w.Print(scale)
+		}
+		p(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
 			app.OS,

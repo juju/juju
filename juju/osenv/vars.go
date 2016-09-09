@@ -28,7 +28,7 @@ const (
 	JujuStartupLoggingConfigEnvKey = "JUJU_STARTUP_LOGGING_CONFIG"
 
 	// Registry key containing juju related information
-	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
+	JujuRegistryKey = `HKLM:\SOFTWARE\juju`
 
 	// Registry value where the jujud password resides
 	JujuRegistryPasswordKey = `jujud-password`

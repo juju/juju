@@ -65,8 +65,8 @@ Examples:
     # Get locally available software to the model:
     juju sync-tools --debug --source=/home/ubuntu/sync-tools
 
-See Also:
-    juju upgrade-juju
+See also:
+    upgrade-juju
 
 `
 

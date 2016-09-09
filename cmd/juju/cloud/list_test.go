@@ -54,8 +54,30 @@ clouds:
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	// local: clouds are last.
-	c.Assert(out, jc.Contains, `local:homestack  openstack   london`)
+	// local clouds are last.
+	// homestack should abut localhost and hence come last in the output.
+	c.Assert(out, jc.Contains, `localhosthomestack    openstack   london`)
+}
+
+func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {
+	data := `
+clouds:
+  aws:
+    type: ec2
+    auth-types: [access-key]
+    endpoint: http://custom
+`[1:]
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	// Just check a snippet of the output to make sure it looks ok.
+	// local clouds are last.
+	c.Assert(out, gc.Not(gc.Matches), `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: local[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {

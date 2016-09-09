@@ -37,9 +37,9 @@ func NewListCommand() cmd.Command {
 const listCommandDoc = `
 List disabled commands for the model.
 ` + commandSets + `
-See Also:
-    juju disable-command
-    juju enable-command
+See also:
+    disable-command
+    enable-command
 `
 
 // listCommand list blocks.

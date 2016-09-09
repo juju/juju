@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"regexp"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -261,15 +263,21 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
+	eight := uint64(8)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs:            []state.MachineJob{state.JobManageModel},
+		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
+		InstanceId:      "id-4",
+	})
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits}, InstanceId: "id-5"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
 	otherFactory := factory.NewFactory(otherSt)
-	otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
@@ -282,18 +290,33 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}
 	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+
+	arch := "amd64"
+	mem := uint64(64 * 1024 * 1024 * 1024)
+	stdHw := &params.MachineHardware{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
+		},
 	}, {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ApplicationCount:   1,
 		OwnerTag:           otherEnvOwner.UserTag.String(),
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
+		},
 	}})
 }
 
@@ -307,7 +330,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
+	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	controller.SetPrecheckResult(s, nil)
@@ -331,7 +354,8 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
-					Macaroon:      string(macJSON),
+					Macaroons:     string(macsJSON),
+					Password:      "secret2",
 				},
 				ExternalControl: true,
 			},
@@ -343,10 +367,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	states := []*state.State{st1, st2}
 	for i, spec := range args.Specs {
+		c.Log(i)
 		st := states[i]
 		result := out.Results[i]
 
-		c.Check(result.Error, gc.IsNil)
+		c.Assert(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
 		expectedId := st.ModelUUID() + ":0"
 		c.Check(result.MigrationId, gc.Equals, expectedId)
@@ -367,12 +392,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
 
-		var macJSONdb []byte
-		if targetInfo.Macaroon != nil {
-			macJSONdb, err = targetInfo.Macaroon.MarshalJSON()
+		if spec.TargetInfo.Macaroons != "" {
+			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroons)
 		}
-		c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroon)
 	}
 }
 
@@ -429,7 +453,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -442,7 +466,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
-					Macaroon:      "BLAH",
+					Macaroons:     "BLAH",
 				},
 			},
 		},
@@ -452,7 +476,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
+	c.Check(result.Error, gc.ErrorMatches, "invalid macaroons: .+")
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {

@@ -15,6 +15,7 @@ type FakeAuthorizer struct {
 	EnvironManager bool
 	ModelUUID      string
 	AdminTag       names.UserTag
+	HasWriteTag    names.UserTag
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -58,6 +59,9 @@ func (fa FakeAuthorizer) HasPermission(operation description.Access, target name
 		}
 		emptyTag := names.UserTag{}
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
+			return true, nil
+		}
+		if operation == description.WriteAccess && ut == fa.HasWriteTag {
 			return true, nil
 		}
 		return false, nil

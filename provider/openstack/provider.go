@@ -154,6 +154,7 @@ type Environ struct {
 	ecfgUnlocked *environConfig
 	client       client.AuthenticatingClient
 	novaUnlocked *nova.Client
+	volumeURL    *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -648,6 +649,15 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	}
 	e.client = client
 	e.novaUnlocked = nova.New(e.client)
+
+	if url, err := getVolumeEndpointURL(client, e.cloud.Region); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	} else {
+		e.volumeURL = url
+	}
+
 	return nil
 }
 

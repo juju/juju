@@ -22,19 +22,47 @@ fi
 
 
 echo "checking: go vet ..."
+
+# Define additional Printf style functions to check. These add to the
+# default list of standard library functions that go vet already has.
+logging_prints="\
+Tracef
+Debugf
+Infof
+Warningf
+Errorf
+Criticalf
+"
+
+error_prints="\
+AlreadyExistsf
+BadRequestf
+MethodNotAllowedf
+NotAssignedf
+NotFoundf
+NotImplementedf
+NotProvisionedf
+NotSupportedf
+NotValidf
+Unauthorizedf
+UserNotFoundf
+"
+
+# Under Go 1.6, the vet docs say that -printfuncs takes each print
+# function in "name:N" format. This has changed in Go 1.7 and doesn't
+# actually seem to make a difference under 1.6 either don't bother.
+all_prints=`echo $logging_prints $error_prints | tr " " ,`
+
 go tool vet \
-    -methods \
-    -printf \
-    -rangeloops \
-    -printfuncs 'ErrorContextf:1,notFoundf:0,badReqErrorf:0,Commitf:0,Snapshotf:0,Debugf:0,Infof:0,Warningf:0,Errorf:0,Criticalf:0,Tracef:0' \
+   -all \
+   -composites=false \
+   -copylocks=false \
+   -printfuncs=$all_prints \
     . || [ -n "$IGNORE_VET_WARNINGS" ]
 
 
 echo "checking: go build ..."
-# check this branch builds cleanly
 go build github.com/juju/juju/...
 
 echo "checking: tests are wired up ..."
-# check that all tests are wired up
 ./scripts/checktesting.bash
-

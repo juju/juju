@@ -15,7 +15,7 @@ import (
 
 // NewListControllersCommandForTest returns a listControllersCommand with the clientstore provided
 // as specified.
-func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api api.Connection) *listControllersCommand {
+func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api func(string) ControllerAccessAPI) *listControllersCommand {
 	return &listControllersCommand{
 		store: testStore,
 		api:   api,
@@ -24,7 +24,7 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api api.
 
 // NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
 // as specified.
-func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api controllerAccessAPI) *showControllerCommand {
+func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api func(string) ControllerAccessAPI) *showControllerCommand {
 	return &showControllerCommand{
 		store: testStore,
 		api:   api,
@@ -73,10 +73,10 @@ func NewRegisterCommandForTest(apiOpen api.OpenFunc, listModels func(jujuclient.
 	return &registerCommand{apiOpen: apiOpen, listModelsFunc: listModels, store: store}
 }
 
-// NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
+// NewEnableDestroyControllerCommandForTest returns a enableDestroyController with the
 // function used to open the API connection mocked out.
-func NewRemoveBlocksCommandForTest(api removeBlocksAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &removeBlocksCommand{
+func NewEnableDestroyControllerCommandForTest(api removeBlocksAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &enableDestroyController{
 		api: api,
 	}
 	c.SetClientStore(store)

@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package controller
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ const (
 // GUIArchives retrieves information about Juju GUI archives currently present
 // in the Juju controller.
 func (c *Client) GUIArchives() ([]params.GUIArchiveVersion, error) {
-	httpClient, err := c.st.RootHTTPClient()
+	httpClient, err := c.facade.RawAPICaller().HTTPClient()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
@@ -50,7 +50,7 @@ func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers
 	req.ContentLength = size
 
 	// Retrieve a client and send the request.
-	httpClient, err := c.st.RootHTTPClient()
+	httpClient, err := c.facade.RawAPICaller().HTTPClient()
 	if err != nil {
 		return false, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
@@ -78,7 +78,7 @@ func (c *Client) SelectGUIVersion(vers version.Number) error {
 	}
 
 	// Retrieve a client and send the request.
-	httpClient, err := c.st.RootHTTPClient()
+	httpClient, err := c.facade.RawAPICaller().HTTPClient()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve HTTP client")
 	}

@@ -4,10 +4,18 @@
 package commands
 
 import (
+	"net/http"
+	"net/url"
+	"time"
+
 	"github.com/juju/cmd"
+	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -19,8 +27,10 @@ import (
 
 type MigrateSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api   *fakeMigrateAPI
-	store *jujuclienttesting.MemStore
+	api                 *fakeMigrateAPI
+	targetControllerAPI *fakeTargetControllerAPI
+	store               *jujuclienttesting.MemStore
+	password            string
 }
 
 var _ = gc.Suite(&MigrateSuite{})
@@ -57,11 +67,8 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User: "target@local",
-		// It's unlikely that both will actually be set for a single
-		// account but it's fine for the tests.
+		User:     "target@local",
 		Password: "secret",
-		Macaroon: "macaroon",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,6 +81,41 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api = &fakeMigrateAPI{}
+
+	mac0, err := macaroon.New([]byte("secret0"), "id0", "location0")
+	c.Assert(err, jc.ErrorIsNil)
+	mac1, err := macaroon.New([]byte("secret1"), "id1", "location1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: cookiejar.DefaultCookieFile(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.targetControllerAPI = &fakeTargetControllerAPI{
+		cookieURL: &url.URL{
+			Scheme: "https",
+			Host:   "testing.invalid",
+			Path:   "/",
+		},
+		macaroons: []macaroon.Slice{{mac0}},
+	}
+	addCookie(c, jar, mac0, s.targetControllerAPI.cookieURL)
+	addCookie(c, jar, mac1, &url.URL{
+		Scheme: "https",
+		Host:   "tasting.invalid",
+		Path:   "/",
+	})
+
+	err = jar.Save()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func addCookie(c *gc.C, jar *cookiejar.Jar, mac *macaroon.Macaroon, url *url.URL) {
+	cookie, err := httpbakery.NewCookie(macaroon.Slice{mac})
+	c.Assert(err, jc.ErrorIsNil)
+	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
+	jar.SetCookies(url, []*http.Cookie{cookie})
 }
 
 func (s *MigrateSuite) TestMissingModel(c *gc.C) {
@@ -103,7 +145,27 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetCACert:         "cert",
 		TargetUser:           "target@local",
 		TargetPassword:       "secret",
-		TargetMacaroon:       "macaroon",
+	})
+}
+
+func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
+	err := s.store.UpdateAccount("target", jujuclient.AccountDetails{
+		User:     "target@local",
+		Password: "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.makeAndRun(c, "model", "target")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
+		ModelUUID:            modelUUID,
+		TargetControllerUUID: targetControllerUUID,
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "target@local",
+		TargetMacaroons:      s.targetControllerAPI.macaroons,
 	})
 }
 
@@ -136,6 +198,9 @@ func (s *MigrateSuite) makeAndRun(c *gc.C, args ...string) (*cmd.Context, error)
 func (s *MigrateSuite) makeCommand() *migrateCommand {
 	cmd := &migrateCommand{
 		api: s.api,
+		newAPIRoot: func(jujuclient.ClientStore, string, string) (api.Connection, error) {
+			return s.targetControllerAPI, nil
+		},
 	}
 	cmd.SetClientStore(s.store)
 	return cmd
@@ -170,5 +235,19 @@ func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
 }
 
 func (m *fakeModelAPI) Close() error {
+	return nil
+}
+
+type fakeTargetControllerAPI struct {
+	api.Connection
+	cookieURL *url.URL
+	macaroons []macaroon.Slice
+}
+
+func (a *fakeTargetControllerAPI) CookieURL() *url.URL {
+	return a.cookieURL
+}
+
+func (a *fakeTargetControllerAPI) Close() error {
 	return nil
 }

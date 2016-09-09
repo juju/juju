@@ -109,12 +109,12 @@ func (s *cmdModelSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "get-model-config", "special")
+	context := s.run(c, "model-config", "special")
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
 func (s *cmdModelSuite) TestSet(c *gc.C) {
-	s.run(c, "set-model-config", "special=known")
+	s.run(c, "model-config", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
@@ -122,7 +122,7 @@ func (s *cmdModelSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "unset-model-config", "special")
+	s.run(c, "model-config", "--reset", "special")
 	s.assertEnvValueMissing(c, "special")
 }
 

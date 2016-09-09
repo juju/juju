@@ -375,7 +375,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 	// https://jira.mongodb.org/browse/TOOLS-939 -- not guaranteed
 	// to *help* with lp:1605653, but observed not to hurt.
 	//
-	// The value of 100 was chosen because it's more pessimistic
+	// The value of 10 was chosen because it's more pessimistic
 	// than the "1000" that many report success using in the bug.
 	options := []string{
 		"--ssl",
@@ -385,7 +385,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 		"--password", md.Password,
 		"--drop",
 		"--oplogReplay",
-		"--batchSize", "100",
+		"--batchSize", "10",
 		dumpDir,
 	}
 	return options

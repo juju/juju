@@ -34,7 +34,11 @@ func NewMemStore() *MemStore {
 
 // AllController implements ControllerGetter.AllController
 func (c *MemStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
-	return c.Controllers, nil
+	result := make(map[string]jujuclient.ControllerDetails)
+	for name, details := range c.Controllers {
+		result[name] = details
+	}
+	return result, nil
 }
 
 // ControllerByName implements ControllerGetter.ControllerByName

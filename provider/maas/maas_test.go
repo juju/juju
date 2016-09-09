@@ -120,6 +120,9 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 var maasEnvAttrs = coretesting.Attrs{
 	"name": "test-env",
 	"type": "maas",
+	config.ResourceTagsKey: map[string]string{
+		"claude": "rains",
+	},
 }
 
 // makeEnviron creates a functional maasEnviron for a test.

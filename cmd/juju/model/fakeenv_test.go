@@ -57,6 +57,16 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 	return result, nil
 }
 
+func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
+	f.values = config
+	return f.err
+}
+
+func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
+	f.keys = keys
+	return f.err
+}
+
 // ModelDefaults related fake environment for testing.
 
 type fakeModelDefaultEnvSuite struct {

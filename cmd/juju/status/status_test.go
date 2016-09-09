@@ -310,14 +310,18 @@ var (
 		"exposed": true,
 	})
 	loggingCharm = M{
-		"charm":              "cs:quantal/logging-1",
-		"charm-origin":       "jujucharms",
-		"charm-name":         "logging",
-		"charm-rev":          1,
-		"series":             "quantal",
-		"os":                 "ubuntu",
-		"exposed":            true,
-		"application-status": M{},
+		"charm":        "cs:quantal/logging-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "logging",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      true,
+		"application-status": M{
+			"current": "error",
+			"message": "somehow lost in all those logs",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 		"relations": M{
 			"logging-directory": L{"wordpress"},
 			"info":              L{"mysql"},
@@ -3494,9 +3498,9 @@ MODEL       CONTROLLER  CLOUD/REGION        VERSION  NOTES
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
 APP        VERSION  STATUS       SCALE  CHARM      STORE       REV  OS      NOTES
-logging    a bi...               2/2    logging    jujucharms  1    ubuntu  exposed
-mysql      5.7.13   maintenance  1/1    mysql      jujucharms  1    ubuntu  exposed
-wordpress  4.5.3    active       1/1    wordpress  jujucharms  3    ubuntu  exposed
+logging    a bi...  error            2  logging    jujucharms    1  ubuntu  exposed
+mysql      5.7.13   maintenance      1  mysql      jujucharms    1  ubuntu  exposed
+wordpress  4.5.3    active           1  wordpress  jujucharms    3  ubuntu  exposed
 
 RELATION           PROVIDES   CONSUMES   TYPE
 juju-info          logging    mysql      regular
@@ -3561,7 +3565,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
 APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
-foo                   2/2                  0        
+foo                       2                  0      
 
 UNIT   WORKLOAD     AGENT      MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -3655,7 +3659,7 @@ MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
 APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
-foo                   0/2                  0        
+foo                     0/2                  0      
 
 UNIT   WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
 foo/0                                                   

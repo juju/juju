@@ -6,6 +6,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/juju/errors"
@@ -87,23 +88,6 @@ func NewControllerAPI(
 		apiUser:             apiUser,
 		resources:           resources,
 	}, nil
-}
-
-func (s *ControllerAPI) hasReadAccess() (bool, error) {
-	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
-func (s *ControllerAPI) hasWriteAccess() (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canWrite, err
 }
 
 func (s *ControllerAPI) checkHasAdmin() error {
@@ -406,12 +390,10 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
-	var mac *macaroon.Macaroon
-	if specTarget.Macaroon != "" {
-		mac = new(macaroon.Macaroon)
-		err := mac.UnmarshalJSON([]byte(specTarget.Macaroon))
-		if err != nil {
-			return "", errors.Annotate(err, "invalid macaroon")
+	var macs []macaroon.Slice
+	if specTarget.Macaroons != "" {
+		if err := json.Unmarshal([]byte(specTarget.Macaroons), &macs); err != nil {
+			return "", errors.Annotate(err, "invalid macaroons")
 		}
 	}
 	targetInfo := coremigration.TargetInfo{
@@ -420,7 +402,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		CACert:        specTarget.CACert,
 		AuthTag:       authTag,
 		Password:      specTarget.Password,
-		Macaroon:      mac,
+		Macaroons:     macs,
 	}
 
 	// Check if the migration is likely to succeed.
@@ -464,25 +446,31 @@ func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	modelMachines, err := common.ModelMachineInfo(common.NewModelManagerBackend(st))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
 	return params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           env.Owner().String(),
-		Life:               params.Life(env.Life().String()),
+		OwnerTag:           model.Owner().String(),
+		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(services),
+		ApplicationCount:   len(applications),
+		Machines:           modelMachines,
 	}, nil
 }
 
@@ -565,16 +553,13 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 }
 
 func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
-	out := &api.Info{
-		Addrs:    ti.Addrs,
-		CACert:   ti.CACert,
-		Tag:      ti.AuthTag,
-		Password: ti.Password,
+	return &api.Info{
+		Addrs:     ti.Addrs,
+		CACert:    ti.CACert,
+		Tag:       ti.AuthTag,
+		Password:  ti.Password,
+		Macaroons: ti.Macaroons,
 	}
-	if ti.Macaroon != nil {
-		out.Macaroons = []macaroon.Slice{{ti.Macaroon}}
-	}
-	return out
 }
 
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {

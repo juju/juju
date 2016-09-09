@@ -229,6 +229,11 @@ func (m *fakeMachine) Tags() []string {
 	return m.tags
 }
 
+func (m *fakeMachine) SetOwnerData(data map[string]string) error {
+	m.MethodCall(m, "SetOwnerData", data)
+	return m.NextErr()
+}
+
 func (m *fakeMachine) CPUCount() int {
 	return m.cpuCount
 }

@@ -62,6 +62,7 @@ const (
 	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
+	CodeNoCreds                   = "no credentials provided"
 	CodeCannotEnterScope          = "cannot enter scope"
 	CodeCannotEnterScopeYet       = "cannot enter scope yet"
 	CodeExcessiveContention       = "excessive contention"
@@ -124,6 +125,10 @@ func IsCodeModelNotFound(err error) bool {
 
 func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
+}
+
+func IsCodeNoCreds(err error) bool {
+	return ErrCode(err) == CodeNoCreds
 }
 
 func IsCodeLoginExpired(err error) bool {

@@ -41,9 +41,10 @@ Examples:
 
     juju clouds
 
-See also: show-cloud
-          update-clouds
-          add-cloud
+See also:
+    add-cloud
+    show-cloud
+    update-clouds
 `
 
 // NewListCloudsCommand returns a command to list cloud information.
@@ -68,8 +69,6 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatCloudsTabular,
 	})
 }
-
-const localPrefix = "local:"
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	details, err := listCloudDetails()
@@ -146,10 +145,12 @@ func listCloudDetails() (*cloudList, error) {
 		return nil, err
 	}
 	for name, cloud := range personalClouds {
-		// Add to result with "local:" prefix.
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "local"
-		details.personal[localPrefix+name] = cloudDetails
+		details.personal[name] = cloudDetails
+		// Delete any built-in or public clouds with same name.
+		delete(details.builtin, name)
+		delete(details.public, name)
 	}
 
 	return details, nil

@@ -301,12 +301,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewShowMachineCommand())
 
 	// Manage model
-	r.Register(model.NewGetCommand())
-	r.Register(model.NewModelDefaultsCommand())
-	r.Register(model.NewSetModelDefaultsCommand())
-	r.Register(model.NewUnsetModelDefaultsCommand())
-	r.Register(model.NewSetCommand())
-	r.Register(model.NewUnsetCommand())
+	r.Register(model.NewConfigCommand())
+	r.Register(model.NewDefaultsCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
 	r.Register(model.NewUsersCommand())
@@ -378,7 +374,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
-	r.Register(controller.NewRemoveBlocksCommand())
+	r.Register(controller.NewEnableDestroyControllerCommand())
 	r.Register(controller.NewShowControllerCommand())
 	r.Register(controller.NewGetConfigCommand())
 

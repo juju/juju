@@ -44,23 +44,6 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseCommandSuite) TestLoginExpiry(c *gc.C) {
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
-		return nil, &params.Error{Code: params.CodeLoginExpired, Message: "meep"}
-	}
-	var cmd modelcmd.JujuCommandBase
-	cmd.SetAPIOpen(apiOpen)
-	conn, err := cmd.NewAPIRoot(s.store, "foo", "")
-	c.Assert(conn, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `login expired
-
-Your login for the "foo" controller has expired.
-To log back in, run the following command:
-
-    juju login bar
-`)
-}
-
 func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent string) {
 	s.store.Models["foo"].CurrentModel = current
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {

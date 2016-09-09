@@ -85,6 +85,10 @@ func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
 	return nil
 }
 
+func (dummyHookContext) Component(name string) (jujuc.ContextComponent, error) {
+	return nil, nil
+}
+
 func newHelpToolCommand() cmd.Command {
 	return &helpToolCommand{}
 }

@@ -39,6 +39,27 @@ type ControllerDetails struct {
 	// While this isn't strictly needed to connect to a controller, it is used
 	// in formatting show-controller output where this struct is also used.
 	AgentVersion string `yaml:"agent-version,omitempty"`
+
+	// ControllerMachineCount represents the number of controller machines
+	// It is cached here so under normal usage list-controllers
+	// does not need to hit the server.
+	ControllerMachineCount int `yaml:"controller-machine-count"`
+
+	// ActiveControllerMachineCount represents the number of controller machines
+	// and which are active in the HA cluster.
+	// It is cached here so under normal usage list-controllers
+	// does not need to hit the server.
+	ActiveControllerMachineCount int `yaml:"active-controller-machine-count"`
+
+	// ModelCount is the number of models to which a user has access.
+	// It is cached here so under normal usage list-controllers
+	// does not need to hit the server.
+	ModelCount *int `yaml:"model-count,omitempty"`
+
+	// MachineCount is the number of machines in all models to
+	// which a user has access. It is cached here so under normal
+	// usage list-controllers does not need to hit the server.
+	MachineCount *int `yaml:"machine-count,omitempty"`
 }
 
 // ModelDetails holds details of a model.
@@ -54,11 +75,6 @@ type AccountDetails struct {
 
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty"`
-
-	// Macaroon is a time-limited macaroon that may be
-	// used to log in. This string is the JSON-encoding
-	// of a gopkg.in/macaroon.v1.Macaroon.
-	Macaroon string `yaml:"macaroon,omitempty"`
 
 	// LastKnownAccess is the last known access level for the account.
 	LastKnownAccess string `yaml:"last-known-access,omitempty"`
