@@ -159,37 +159,26 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ControllerMachines = controllerMachineStatus(controllerModelUUID, modelStatus)
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = controllerMachineCounts(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
 }
 
-func controllerMachineStatus(controllerModelUUID string, modelStatus []base.ModelStatus) string {
-	controllerMachineStatus := ""
+func controllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
 	for _, s := range modelStatus {
 		if s.UUID != controllerModelUUID {
 			continue
 		}
-		controllerMachineCount := 0
-		haokControllerMachineCount := 0
 		for _, m := range s.Machines {
 			if !m.WantsVote {
 				continue
 			}
-			controllerMachineCount++
+			totalCount++
 			if m.Status != string(status.StatusDown) && m.HasVote {
-				haokControllerMachineCount++
+				activeCount++
 			}
 		}
-		if controllerMachineCount < 2 {
-			// If we don't have an HA cluster, we don't show HA info.
-			return ""
-		}
-		controllerMachineStatus = fmt.Sprintf("%d", controllerMachineCount)
-		if haokControllerMachineCount < controllerMachineCount {
-			controllerMachineStatus = fmt.Sprintf("%d/%d", haokControllerMachineCount, controllerMachineCount)
-		}
 	}
-	return controllerMachineStatus
+	return activeCount, totalCount
 }
 
 type listControllersCommand struct {

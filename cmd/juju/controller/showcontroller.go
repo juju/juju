@@ -360,6 +360,13 @@ func (c *showControllerCommand) convertMachinesForShow(
 	controllerModel base.ModelStatus,
 ) {
 	controller.Machines = make(map[string]MachineDetails)
+	numControllers := 0
+	for _, m := range controllerModel.Machines {
+		if !m.WantsVote {
+			continue
+		}
+		numControllers++
+	}
 	for _, m := range controllerModel.Machines {
 		if !m.WantsVote {
 			// Skip non controller machines.
@@ -370,7 +377,7 @@ func (c *showControllerCommand) convertMachinesForShow(
 			instId = "(unprovisioned)"
 		}
 		details := MachineDetails{InstanceID: instId}
-		if len(controllerModel.Machines) > 1 {
+		if numControllers > 1 {
 			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
 		}
 		controller.Machines[m.Id] = details
