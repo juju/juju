@@ -117,7 +117,73 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+
+	for i, unit := range testUnits {
+		u, err := service.AddUnit()
+		testUnits[i].unitName = u.Name()
+		c.Assert(err, jc.ErrorIsNil)
+		if unit.setStatus != nil {
+			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Applications[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
+	for _, unit := range testUnits {
+		unitStatus, ok := serviceStatus.MeterStatuses[unit.unitName]
+
+		if unit.expectedStatus != nil {
+			c.Assert(ok, gc.Equals, true)
+			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
+		} else {
+			c.Assert(ok, gc.Equals, false)
+		}
+	}
+}
+
+func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
 	service := s.Factory.MakeApplication(c, nil)
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+
+	for i, unit := range testUnits {
+		u, err := service.AddUnit()
+		testUnits[i].unitName = u.Name()
+		c.Assert(err, jc.ErrorIsNil)
+		if unit.setStatus != nil {
+			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Applications[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, 0)
+}
+
+func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
+	service := s.Factory.MakeApplication(c, nil)
+	c.Assert(service.SetMetricCredentials([]byte("magic-ticket")), jc.ErrorIsNil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
