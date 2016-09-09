@@ -114,6 +114,13 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 	})
 }
 
+func (s *Suite) TestMigrationStatusExternalControl(c *gc.C) {
+	s.backend.migration.externalControl = true
+	status, err := s.mustMakeAPI(c).MigrationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status.Spec.ExternalControl, jc.IsTrue)
+}
+
 func (s *Suite) TestModelInfo(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	model, err := api.ModelInfo()
@@ -360,12 +367,13 @@ func (b *stubBackend) Export() (description.Model, error) {
 type stubMigration struct {
 	state.ModelMigration
 
-	stub          *testing.Stub
-	setPhaseErr   error
-	phaseSet      coremigration.Phase
-	setMessageErr error
-	messageSet    string
-	minionReports *state.MinionReports
+	stub            *testing.Stub
+	setPhaseErr     error
+	phaseSet        coremigration.Phase
+	setMessageErr   error
+	messageSet      string
+	minionReports   *state.MinionReports
+	externalControl bool
 }
 
 func (m *stubMigration) Id() string {
@@ -386,6 +394,10 @@ func (m *stubMigration) Attempt() (int, error) {
 
 func (m *stubMigration) ModelUUID() string {
 	return modelUUID
+}
+
+func (m *stubMigration) ExternalControl() bool {
+	return m.externalControl
 }
 
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
