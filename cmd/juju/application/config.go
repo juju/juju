@@ -92,7 +92,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
-	f.BoolVar(&c.reset, "reset", false, "Reset the proveded keys to be empty")
+	f.BoolVar(&c.reset, "reset", false, "Reset the provided keys to be empty")
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
