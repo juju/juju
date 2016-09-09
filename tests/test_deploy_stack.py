@@ -496,7 +496,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
-    def test_archine_logs_syslog(self):
+    def test_archive_logs_syslog(self):
         with temp_dir() as log_dir:
             log_path = os.path.join(log_dir, 'syslog')
             with open(log_path, 'w') as f:
@@ -535,9 +535,12 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             log_paths.append(os.path.join(subdir, 'syslog'))
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 archive_logs(log_dir)
-            # The ordering of the log_paths could change.
-            cc_mock.assert_called_once_with(
-                ['gzip', '--best', '-f'] + log_paths)
+            self.assertEqual(1, cc_mock.call_count)
+            call_args, call_kwargs = cc_mock.call_args
+            gzip_args = call_args[0]
+            self.assertEqual(0, len(call_kwargs))
+            self.assertEqual(gzip_args[:3], ['gzip', '--best', '-f'])
+            self.assertEqual(set(gzip_args[3:]), set(log_paths))
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
