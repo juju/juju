@@ -133,7 +133,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			hist []params.DetailedStatus
 		)
 		kind := status.HistoryKind(request.Kind)
-		err = errors.NotValidf("%q requires a unit, got %t", kind, request.Tag)
+		err = errors.NotValidf("%q requires a unit, got %T", kind, request.Tag)
 		switch kind {
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag

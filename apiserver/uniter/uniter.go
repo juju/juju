@@ -571,7 +571,7 @@ func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.T
 			return -1, err
 		}
 	default:
-		return -1, errors.BadRequestf("type %t does not have a CharmModifiedVersion", entity)
+		return -1, errors.BadRequestf("type %T does not have a CharmModifiedVersion", entity)
 	}
 	return service.CharmModifiedVersion(), nil
 }
