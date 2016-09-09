@@ -461,10 +461,10 @@ class CreateSourcePackageTests(TestWithScenarios):
     scenarios = [
         ('release',
             {'date': None,
-             'epoch': None,
+             'epoch': '1',
              'build': None,
              'revid': None,
-             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
              }),
 
         ('daily',
@@ -472,14 +472,14 @@ class CreateSourcePackageTests(TestWithScenarios):
              'epoch': '2',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '1.2.3-20160502+3065+4bbce805~14.04'
+             'ubuntu_version': '2:1.2.3~20160502+3065+4bbce805~14.04'
              }),
         ('broken_daily',
             {'date': None,
-             'epoch': None,
+             'epoch': '1',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
              })
     ]
 
