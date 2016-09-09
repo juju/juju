@@ -22,3 +22,5 @@ func (s *stubHookContext) Download(name string) (string, error) {
 
 	return s.ReturnDownload, nil
 }
+
+func (s *stubHookContext) Flush() error { return nil }
