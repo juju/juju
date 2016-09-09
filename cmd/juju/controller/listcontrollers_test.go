@@ -37,10 +37,10 @@ CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS      CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             controller  -            -           aws/us-east-1           2+        5+  2.0.1+      
-mallards*            my-model    admin@local  superuser+  mallards/mallards1       -         -  (unknown)+  
-mark-test-prodstack  -           admin@local  (unknown)+  prodstack                -         -  (unknown)+  
+CONTROLLER           MODEL       USER         ACCESS+    CLOUD/REGION        MODELS+  MACHINES+  VERSION+
+aws-test             controller  -            -          aws/us-east-1             2          5  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1        -          -  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                 -          -  (unknown)  
 
 + these are the last known values, run with --refresh to see the latest information.
 
@@ -69,14 +69,13 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
 aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  2.0.1      
 mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                0         0  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
 }
 
-func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
-	s.createTestClientStore(c)
+func (s *ListControllersSuite) setupAPIForControllerMachines() {
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
 		fakeController := &fakeController{
 			controllerName: controllerName,
@@ -87,22 +86,40 @@ func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
 			},
 			store: s.store,
 		}
-		if controllerName == "aws-test" {
+		switch controllerName {
+		case "aws-test":
 			fakeController.machines = map[string][]base.Machine{
 				"ghi": {
 					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
 					{Id: "2", HasVote: true, WantsVote: true, Status: "down"},
 					{Id: "3", HasVote: false, WantsVote: true, Status: "active"},
 				},
+				"abc": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
+				"def": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
+			}
+		case "mallards":
+			fakeController.machines = map[string][]base.Machine{
+				"abc": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
 			}
 		}
 		return fakeController
 	}
+}
+
+func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
+	s.createTestClientStore(c)
+	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
 CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES   HA  VERSION
 aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  1/3  2.0.1      
 mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4    1  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                0         0    1  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -    -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -121,8 +138,11 @@ controllers:
     cloud: aws
     region: us-east-1
     agent-version: 2.0.1
-    model-count: 2
-    machine-count: 5
+    model-count: 1
+    machine-count: 2
+    controller-machines:
+      active: 1
+      total: 3
   mallards:
     current-model: my-model
     user: admin@local
@@ -133,6 +153,11 @@ controllers:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     region: mallards1
+    model-count: 2
+    machine-count: 4
+    controller-machines:
+      active: 1
+      total: 1
   mark-test-prodstack:
     user: admin@local
     recent-server: this-is-one-of-many-api-endpoints
@@ -144,7 +169,8 @@ current-controller: mallards
 `[1:]
 
 	s.createTestClientStore(c)
-	s.assertListControllers(c, "--format", "yaml")
+	s.setupAPIForControllerMachines()
+	s.assertListControllers(c, "--format", "yaml", "--refresh")
 }
 
 func intPtr(i int) *int {
