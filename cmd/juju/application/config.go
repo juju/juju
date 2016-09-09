@@ -62,9 +62,9 @@ type configCommand struct {
 	action          func(*cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
 	configFile      cmd.FileVar
-	useFile         bool
 	keys            []string
 	reset           bool
+	useFile         bool
 	values          attributes
 }
 
@@ -186,20 +186,24 @@ func (c *configCommand) resetConfig(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(c.api.Unset(c.applicationName, c.keys), block.BlockChange)
 }
 
-// setConfig is the run action when we are setting new attribute values as args
-// or as a file passed in.
-func (c *configCommand) setConfig(ctx *cmd.Context) error {
-	if c.useFile {
-		b, err := c.configFile.Read(ctx)
-		if err != nil {
-			return err
-		}
-		return block.ProcessBlockedError(
-			c.api.Update(
-				params.ApplicationUpdate{
-					ApplicationName: c.applicationName,
-					SettingsYAML:    string(b)}), block.BlockChange)
+// setConfigFromFile sets the application configuration from settings passed
+// in a YAML file.
+func (c *configCommand) setConfigFromFile(ctx *cmd.Context) error {
+	b, err := c.configFile.Read(ctx)
+	if err != nil {
+		return err
 	}
+	return block.ProcessBlockedError(
+		c.api.Update(
+			params.ApplicationUpdate{
+				ApplicationName: c.applicationName,
+				SettingsYAML:    string(b)}), block.BlockChange)
+
+}
+
+// validateValues reads the values provided as args and validates that they are
+// valid UTF-8.
+func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
 	settings := map[string]string{}
 	for k, v := range c.values {
 		//empty string is also valid as a setting value
@@ -210,19 +214,34 @@ func (c *configCommand) setConfig(ctx *cmd.Context) error {
 
 		if v[0] != '@' {
 			if !utf8.ValidString(v) {
-				return errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
+				return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 			}
 			settings[k] = v
 			continue
 		}
 		nv, err := readValue(ctx, v[1:])
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !utf8.ValidString(nv) {
-			return errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
+			return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 		}
 		settings[k] = nv
+	}
+	return settings, nil
+
+}
+
+// setConfig is the run action when we are setting new attribute values as args
+// or as a file passed in.
+func (c *configCommand) setConfig(ctx *cmd.Context) error {
+	if c.useFile {
+		return c.setConfigFromFile(ctx)
+	}
+
+	settings, err := c.validateValues(ctx)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	result, err := c.api.Get(c.applicationName)
