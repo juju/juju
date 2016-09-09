@@ -4,3 +4,4 @@ Look a commit!
 Commit #2, still likely fail
 Commit #3 is lucky!
 Commit #4 will get through
+Commit $5 is a full test run. Are you ready?
