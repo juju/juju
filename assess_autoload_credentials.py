@@ -439,9 +439,9 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 
 def ensure_openstack_personal_cloud_exists(client):
-    if client.env.juju_home.endswith('/cloud-city'):
-        raise ValueError(
-            'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
+    juju_home = client.env.juju_home
+    if not juju_home.startswith('/tmp'):
+        raise ValueError('JUJU_HOME is wrongly set to: {}'.format(juju_home))
     if client.env.clouds['clouds']:
         cloud_name = client.env.get_cloud()
         regions = client.env.clouds['clouds'][cloud_name]['regions']
@@ -456,7 +456,7 @@ def ensure_openstack_personal_cloud_exists(client):
             }
         }
     client.env.clouds['clouds'] = os_cloud
-    client.env.dump_yaml(client.env.juju_home, config=None)
+    client.env.dump_yaml(juju_home, config=None)
 
 
 def get_openstack_expected_details_dict(user, credential_details):
