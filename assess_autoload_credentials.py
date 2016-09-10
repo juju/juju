@@ -117,7 +117,7 @@ def client_credentials_to_details(client):
     if 'openstack' == provider:
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
-                'region': client.env.config['region'],
+                'os_region': client.env.config['region'],
                 }
 
 
@@ -391,7 +391,7 @@ def get_openstack_envvar_changes(user, credential_details):
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],
         OS_AUTH_URL=credential_details['auth_url'],
-        OS_REGION_NAME=credential_details['region'],
+        OS_REGION_NAME=credential_details['os_region'],
         )
 
 
@@ -440,7 +440,7 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
             auth_url=credential_details['auth_url'],
-            region=credential_details['region'],
+            region=credential_details['os_region'],
             ))
         f.write(credentials)
     return credentials_file
@@ -470,7 +470,7 @@ def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
             'openstack': {
-                'default-region': credential_details['region'],
+                'default-region': credential_details['os_region'],
                 'testing-user': {
                     'auth-type': 'userpass',
                     'domain-name': '',
@@ -490,7 +490,7 @@ def openstack_credential_dict_generator(region):
         os_tenant_name=creds,
         os_password=creds,
         auth_url='https://keystone.example.com:443/v2.0/',
-        region=region
+        os_region=region
         )
 
 
