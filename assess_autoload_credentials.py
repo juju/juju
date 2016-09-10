@@ -372,11 +372,10 @@ def aws_credential_dict_generator():
 def openstack_envvar_test_details(
         user, tmp_dir, client, credential_details=None):
     if credential_details is None:
-        log.info("Generating credential_details for openstack")
         region = client.env.config['region']
+        log.info(
+            'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)
-    else:
-        log.info("Updating credential_details for openstack")
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
@@ -398,8 +397,9 @@ def get_openstack_envvar_changes(user, credential_details):
 def openstack_directory_test_details(user, tmp_dir, client,
                                      credential_details=None):
     if credential_details is None:
-        log.info("Generating credential_details for openstack")
         region = client.env.config['region']
+        log.info(
+            'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)
 
     expected_details, answers = setup_basic_openstack_test_details(
