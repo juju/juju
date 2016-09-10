@@ -208,31 +208,36 @@ class TestOpenStackHelpers(TestCase):
 
     def test_credential_dict_generator_returns_different_details(self):
         """Each call must return uniquie details each time."""
-        first_details = aac.openstack_credential_dict_generator()
-        second_details = aac.openstack_credential_dict_generator()
+        first_details = aac.openstack_credential_dict_generator('region1')
+        second_details = aac.openstack_credential_dict_generator('region1')
 
         self.assertNotEqual(first_details, second_details)
 
     def test_expected_details_dict_returns_correct_values(self):
-        user = 'username'
+        os_username = 'username'
         os_password = 'password'
         os_tenant_name = 'tenant name'
+        os_auth_url = 'url',
+        os_region_name = 'region'
         expected_details = aac.get_openstack_expected_details_dict(
-            user, {
+            os_username, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
+                'os_auth_url': os_auth_url,
+                'os_region_name': os_region_name,
+                'os_user_name': os_username,
                 })
-
         self.assertEqual(
             expected_details, {
                 'credentials': {
-                    'testing_openstack': {
-                        user: {
+                    'testing-openstack': {
+                        'default-region': 'region',
+                        os_username: {
                             'auth-type': 'userpass',
                             'domain-name': '',
                             'password': os_password,
                             'tenant-name': os_tenant_name,
-                            'username': user
+                            'username': os_username
                             }
                         }
                     }
@@ -242,10 +247,14 @@ class TestOpenStackHelpers(TestCase):
         user = 'username'
         os_password = 'password'
         os_tenant_name = 'tenant name'
+        os_auth_url = 'url',
+        os_region_name = 'region'
         env_var_changes = aac.get_openstack_envvar_changes(
             user, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
+                'os_auth_url': os_auth_url,
+                'os_region_name': os_region_name,
                 })
 
         self.assertEqual(
@@ -254,13 +263,17 @@ class TestOpenStackHelpers(TestCase):
                 'OS_USERNAME': user,
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
+                'OS_AUTH_URL': os_auth_url,
+                'OS_REGION_NAME': os_region_name,
                 })
 
     def test_write_openstack_config_file_writes_credentials_file(self):
         """Ensure the file created contains the correct details."""
         credential_details = dict(
             os_tenant_name='tenant_name',
-            os_password='password')
+            os_password='password',
+            os_auth_url='url',
+            os_region_name='region')
         user = 'username'
 
         with temp_dir() as tmp_dir:
@@ -273,10 +286,14 @@ class TestOpenStackHelpers(TestCase):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
+        export OS_AUTH_URL={auth_url}
+        export OS_REGION_NAME={region}
         """.format(
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
+            auth_url=credential_details['os_auth_url'],
+            region=credential_details['os_region_name'],
             ))
 
         self.assertEqual(credential_contents, expected)
@@ -365,6 +382,9 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
 
 def bogus_credentials():
     client = fake_juju_client()
+    client.env.clouds = {'clouds': {'foo': {'regions': {'r1': {}}}}}
+    client.env.config['auth-url'] = 'url'
+    client.env.config['region'] = 'region'
     client.env.credentials = {
         'credentials': {'bogus': {}}}
     return client
@@ -373,8 +393,10 @@ def bogus_credentials():
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
 
     def test_existing_credentials_openstack(self):
+            client = bogus_credentials()
+            client.env.config['pdb'] = False
             aac.ensure_autoload_credentials_stores_details(
-                bogus_credentials(), aac.openstack_envvar_test_details)
+                client, aac.openstack_envvar_test_details)
 
 
 class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):

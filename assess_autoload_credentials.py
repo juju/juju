@@ -115,7 +115,7 @@ def client_credentials_to_details(client):
         os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
-                'os_region': client.env.config['region'],
+                'os_region_name': client.env.config['region'],
                 'os_auth_url': os_cloud['endpoint'],
                 }
 
@@ -205,7 +205,7 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
     real_clouds = bs_manager.client.env.clouds
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
-        # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city.
+        # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city dir.
         client_na.env.clouds = real_clouds
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
@@ -387,7 +387,7 @@ def get_openstack_envvar_changes(user, credential_details):
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],
         OS_AUTH_URL=credential_details['os_auth_url'],
-        OS_REGION_NAME=credential_details['os_region'],
+        OS_REGION_NAME=credential_details['os_region_name'],
         )
 
 
@@ -434,7 +434,7 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
             auth_url=credential_details['os_auth_url'],
-            region=credential_details['os_region'],
+            region=credential_details['os_region_name'],
             ))
         f.write(credentials)
     return credentials_file
@@ -466,8 +466,8 @@ def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
             'testing-openstack': {
-                'default-region': credential_details['os_region'],
-                'testing-user': {
+                'default-region': credential_details['os_region_name'],
+                user: {
                     'auth-type': 'userpass',
                     'domain-name': '',
                     'password': credential_details['os_password'],
@@ -486,7 +486,7 @@ def openstack_credential_dict_generator(region):
         os_tenant_name=creds,
         os_password=creds,
         os_auth_url='https://keystone.example.com:443/v2.0/',
-        os_region=region
+        os_region_name=region
         )
 
 
