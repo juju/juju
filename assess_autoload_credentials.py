@@ -115,9 +115,11 @@ def client_credentials_to_details(client):
                 'private_key': credentials['private-key'],
                 }
     if 'openstack' == provider:
+        os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
                 'os_region': client.env.config['region'],
+                'os_auth_url': os_cloud['endpoint'],
                 }
 
 
@@ -208,13 +210,13 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         # Do not overwrite JUJU_DATA/JUJU_HOME/cloud-city.
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
-        # Create the cloud and credentials and save to JUJU_DATA.
+        # Create the cloud yaml and save to JUJU_DATA.
         client_na.env.dump_yaml(client_na.env.juju_home, config=None)
         # Openstack needs the real username.
         user = client_na.env.config.get('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
-        # Reset the client.
+        # Reset the client's credentials before autoload.
         bs_manager.client.env.credentials = {}
 
         with bs_manager.top_context() as machines:
@@ -375,7 +377,6 @@ def openstack_envvar_test_details(
         credential_details = openstack_credential_dict_generator(region)
     else:
         log.info("Updating credential_details for openstack")
-        credential_details['auth_url'] = client.env.config['auth-url']
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
@@ -389,7 +390,7 @@ def get_openstack_envvar_changes(user, credential_details):
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],
-        OS_AUTH_URL=credential_details['auth_url'],
+        OS_AUTH_URL=credential_details['os_auth_url'],
         OS_REGION_NAME=credential_details['os_region'],
         )
 
@@ -400,9 +401,6 @@ def openstack_directory_test_details(user, tmp_dir, client,
         log.info("Generating credential_details for openstack")
         region = client.env.config['region']
         credential_details = openstack_credential_dict_generator(region)
-    else:
-        log.info("Updating credential_details for openstack")
-        credential_details['auth_url'] = client.env.config['auth-url']
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
@@ -438,7 +436,7 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
-            auth_url=credential_details['auth_url'],
+            auth_url=credential_details['os_auth_url'],
             region=credential_details['os_region'],
             ))
         f.write(credentials)
@@ -488,7 +486,7 @@ def openstack_credential_dict_generator(region):
     return dict(
         os_tenant_name=creds,
         os_password=creds,
-        auth_url='https://keystone.example.com:443/v2.0/',
+        os_auth_url='https://keystone.example.com:443/v2.0/',
         os_region=region
         )
 
