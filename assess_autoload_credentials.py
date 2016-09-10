@@ -100,9 +100,6 @@ def client_credentials_to_details(client):
     log.info("provider: {}".format(provider))
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))
-    # credentials.<cloud-name>.<identity>.
-    # identity is bogus in cloud-city because "credentials" is used instead
-    # of "bob" or "qa-team" or "report-bot".
     cloud = client.env.credentials['credentials'][cloud_name]
     credentials = cloud['credentials']
     if 'ec2' == provider:
@@ -205,9 +202,11 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
 def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                            cloud_details_fn):
     """Ensure we can bootstrap after autoloading credentials."""
+    real_clouds = bs_manager.client.env.clouds
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
         # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city.
+        client_na.env.clouds = real_clouds
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
         # Openstack needs the real username.
@@ -445,15 +444,17 @@ def ensure_openstack_personal_cloud_exists(client):
     if client.env.juju_home.endswith('/cloud-city'):
         raise ValueError(
             'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
+    if client.env.clouds['clouds']:
+        cloud_name = client.env.get_cloud()
+        regions = client.env.clouds['clouds'][cloud_name]['regions']
+    else:
+        regions = {'region1': {}}
     os_cloud = {
         'testing-openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
             'endpoint': client.env.config['auth-url'],
-            'regions': {
-                'lcy01': {},
-                'lcy02': {}
-                }
+            'regions': regions
             }
         }
     client.env.clouds['clouds'] = os_cloud
