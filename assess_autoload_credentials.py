@@ -208,14 +208,13 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         # Do not overwrite JUJU_DATA/JUJU_HOME/cloud-city.
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
-
         # Create the cloud and credentials and save to JUJU_DATA.
+        client_na.env.dump_yaml(client_na.env.juju_home, config=None)
         # Openstack needs the real username.
         user = client_na.env.config.get('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
-        bs_manager.client.env.credentials = cloud_details.expected_details
-        client_na.env.dump_yaml(client_na.env.juju_home, config=None)
+        # Reset the client.
         bs_manager.client.env.credentials = {}
 
         with bs_manager.top_context() as machines:
