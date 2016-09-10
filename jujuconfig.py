@@ -16,10 +16,7 @@ def get_selected_environment(selected, allow_jenv=True):
         jenv_config = get_jenv_config(get_juju_home(), selected)
         if jenv_config is not None:
             return jenv_config, selected
-    print("Found {} config".format(jenv_config))
     environments = get_environments()
-    for env in environments:
-        print("Found {} env".format(env))
     env = environments.get(selected)
     if env is None:
         raise NoSuchEnvironment(

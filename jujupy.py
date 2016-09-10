@@ -379,7 +379,6 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
-        log.info("getting cloud")
         provider = self.config['type']
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
