@@ -381,8 +381,12 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
 
 
 def bogus_credentials():
+    """return an client with unusable crednetials.
+
+    It uses an openstack config to match the fake_juju.AutoloadCredentials.
+    """
     client = fake_juju_client()
-    client.env.clouds = {'clouds': {'foo': {'regions': {'r1': {}}}}}
+    client.env.config['type'] = 'openstack'
     client.env.config['auth-url'] = 'url'
     client.env.config['region'] = 'region'
     client.env.credentials = {
@@ -393,10 +397,9 @@ def bogus_credentials():
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
 
     def test_existing_credentials_openstack(self):
-            client = bogus_credentials()
-            client.env.config['pdb'] = False
+
             aac.ensure_autoload_credentials_stores_details(
-                client, aac.openstack_envvar_test_details)
+                bogus_credentials(), aac.openstack_envvar_test_details)
 
 
 class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):
