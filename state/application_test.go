@@ -1055,7 +1055,7 @@ func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
 
 	err = unit.SetCharmURL(oldCh.URL())
-	c.Check(err, gc.ErrorMatches, "refcount does not exist")
+	c.Check(err, gc.ErrorMatches, "settings reference: does not exist")
 }
 
 func (s *ServiceSuite) TestSettingsRefRemoveRace(c *gc.C) {

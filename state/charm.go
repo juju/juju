@@ -4,7 +4,6 @@
 package state
 
 import (
-	"net/url"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -48,7 +47,26 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
 	DocID string     `bson:"_id"`
-	URL   *charm.URL `bson:"url"` // DANGEROUS see below
+	URL   *charm.URL `bson:"url"` // DANGEROUS see charm.* fields below
+
+	// Life should only be used for local charms; a value of Dead is
+	// used to indicate that the charm no longer exists, but the doc
+	// itself needs to stick around so we don't accidentally reuse
+	// charm URLs (which must be unique within a model).
+	Life Life `bson:"life"`
+
+	// These fields are flags; if any of them is set, the charm
+	// cannot actually be safely used for anything.
+	PendingUpload bool `bson:"pendingupload"`
+	Placeholder   bool `bson:"placeholder"`
+
+	// These fields control access to the charm archive.
+	BundleSha256 string `bson:"bundlesha256"`
+	StoragePath  string `bson:"storagepath"`
+	Macaroon     []byte `bson:"macaroon"`
+
+	// The remaining fields hold data sufficient to define a
+	// charm.Charm.
 
 	// TODO(fwereade) 2015-06-18 lp:1467964
 	// DANGEROUS: our schema can change any time the charm package changes,
@@ -62,17 +80,6 @@ type charmDoc struct {
 	Config  *charm.Config  `bson:"config"`
 	Actions *charm.Actions `bson:"actions"`
 	Metrics *charm.Metrics `bson:"metrics"`
-
-	// DEPRECATED: BundleURL is deprecated, and exists here
-	// only for migration purposes. We should remove this
-	// when migrations are no longer necessary.
-	BundleURL *url.URL `bson:"bundleurl,omitempty"`
-
-	BundleSha256  string `bson:"bundlesha256"`
-	StoragePath   string `bson:"storagepath"`
-	PendingUpload bool   `bson:"pendingupload"`
-	Placeholder   bool   `bson:"placeholder"`
-	Macaroon      []byte `bson:"macaroon"`
 }
 
 // CharmInfo contains all the data necessary to store a charm's metadata.
@@ -142,6 +149,20 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
+
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	life, err := nsLife.read(charms, cdoc.DocID)
+	if errors.IsNotFound(err) {
+		// everything is as it should be
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if life == Dead {
+		return nil, errors.New("url already consumed")
+	} else {
+		return nil, errors.New("already exists")
+	}
 	charmOp := txn.Op{
 		C:      charmsC,
 		Id:     cdoc.DocID,
@@ -166,8 +187,22 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 // document with the supplied data, so long as the supplied assert still holds
 // true.
 func updateCharmOps(
-	st *State, info CharmInfo, assert interface{},
+	st *State, info CharmInfo, assert bson.D,
 ) ([]txn.Op, error) {
+
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	charmKey := info.ID.String()
+	op, err := nsLife.aliveOp(charms, charmKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "charm")
+	}
+	lifeAssert, ok := op.Assert.(bson.D)
+	if !ok {
+		return nil, errors.Errorf("expected bson.D, got %#v", op.Assert)
+	}
+	op.Assert = append(lifeAssert, assert...)
 
 	data := bson.D{
 		{"meta", info.Charm.Meta()},
@@ -179,7 +214,6 @@ func updateCharmOps(
 		{"pendingupload", false},
 		{"placeholder", false},
 	}
-
 	if len(info.Macaroon) > 0 {
 		mac, err := info.Macaroon.MarshalBinary()
 		if err != nil {
@@ -188,13 +222,8 @@ func updateCharmOps(
 		data = append(data, bson.DocElem{"macaroon", mac})
 	}
 
-	updateFields := bson.D{{"$set", data}}
-	return []txn.Op{{
-		C:      charmsC,
-		Id:     info.ID.String(),
-		Assert: assert,
-		Update: updateFields,
-	}}, nil
+	op.Update = bson.D{{"$set", data}}
+	return []txn.Op{op}, nil
 }
 
 // convertPlaceholderCharmOps returns the txn operations necessary to convert
@@ -297,6 +326,76 @@ func (c *Charm) Tag() names.Tag {
 	return names.NewCharmTag(c.URL().String())
 }
 
+// Life returns the charm's life state.
+func (c *Charm) Life() Life {
+	return c.doc.Life
+}
+
+// Refresh loads fresh charm data from the database. In practice, the
+// only observable change should be to its Life value.
+func (c *Charm) Refresh() error {
+	ch, err := c.st.Charm(c.doc.URL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.doc = ch.doc
+	return nil
+}
+
+// Destroy sets the charm to Dying and prevents it from being used by
+// applications or units. It only works on local charms, and only when
+// the charm is not referenced by any application.
+func (c *Charm) Destroy() error {
+	buildTxn := func(_ int) ([]txn.Op, error) {
+		ops, err := charmDestroyOps(c.st, c.doc.URL)
+		switch errors.Cause(err) {
+		case nil:
+		case errNotAlive:
+			return nil, jujutxn.ErrNoOperations
+		default:
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	if err := c.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	c.doc.Life = Dying
+	return nil
+}
+
+// Remove will delete the charm's stored archive and render the charm
+// inaccessible to future clients. It will fail unless the charm is
+// already Dying (indicating that someone has called Destroy).
+func (c *Charm) Remove() error {
+	if c.doc.Life == Alive {
+		return errors.New("still alive")
+	}
+
+	err := c.st.deleteCharmArchive(c.doc.URL, c.doc.StoragePath)
+	if err != nil {
+		return errors.Annotate(err, "deleting archive")
+	}
+
+	buildTxn := func(_ int) ([]txn.Op, error) {
+		ops, err := charmRemoveOps(c.st, c.doc.URL)
+		switch errors.Cause(err) {
+		case nil:
+		case errAlreadyDead:
+			return nil, jujutxn.ErrNoOperations
+		default:
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	if err := c.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	c.doc.Life = Dead
+	return nil
+
+}
+
 // charmGlobalKey returns the global database key for the charm
 // with the given url.
 func charmGlobalKey(charmURL *charm.URL) string {
@@ -390,7 +489,7 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 		SHA256:      c.BundleSha256(),
 		Macaroon:    m,
 	}
-	ops, err := updateCharmOps(c.st, info, txn.DocExists)
+	ops, err := updateCharmOps(c.st, info, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -403,8 +502,11 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 // deleteCharmArchive deletes a charm archive from blob storage.
 func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
-	if err := stor.Remove(storagePath); err != nil {
-		return errors.Annotate(err, "cannot delete charm from storage")
+	err := stor.Remove(storagePath)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -461,7 +563,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	defer closer()
 	var cdoc charmDoc
 	var charms []*Charm
-	iter := charmsCollection.Find(nil).Iter()
+	iter := charmsCollection.Find(nsLife.notDead()).Iter()
 	for iter.Next(&cdoc) {
 		ch := newCharm(st, &cdoc)
 		charms = append(charms, ch)
@@ -481,6 +583,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		{"placeholder", bson.D{{"$ne", true}}},
 		{"pendingupload", bson.D{{"$ne", true}}},
 	}
+	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
