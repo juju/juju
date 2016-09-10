@@ -205,8 +205,6 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
         # Do not overwrite JUJU_DATA/JUJU_HOME/cloud-city.
-        original_client = bs_manager.client
-        original_teardown_client = bs_manager.tear_down_client
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
 
@@ -233,8 +231,6 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                     upload_tools, bootstrap_series=bs_manager.series,
                     credential=user)
                 bs_manager.client.kill_controller()
-        bs_manager.client = original_client
-        bs_manager.tear_down_client = original_teardown_client
 
 
 def assert_credentials_contains_expected_results(credentials, expected):
@@ -384,9 +380,6 @@ def openstack_envvar_test_details(
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
     env_var_changes = get_openstack_envvar_changes(user, credential_details)
-    log.debug('expected_details: {}'.format(expected_details))
-    log.debug('answers: {}'.format(answers))
-    log.debug('env_var_changes: {}'.format(env_var_changes))
     return CloudDetails(env_var_changes, expected_details, answers)
 
 
@@ -453,14 +446,14 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 
 def ensure_openstack_personal_cloud_exists(client):
-    if client.env.juju_home.endswith('ccloud-city'):
+    if client.env.juju_home.endswith('/cloud-city'):
         raise ValueError(
             'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
     os_cloud = {
         'openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
-            'endpoint': 'https://keystone.canonistack.canonical.com:443/v2.0/',
+            'endpoint': client.env.config['auth-url'],
             'regions': {
                 'lcy01': {},
                 'lcy02': {}
@@ -496,7 +489,7 @@ def openstack_credential_dict_generator():
         os_tenant_name=creds,
         os_password=creds,
         # XXX Right now there are fixed, they shouldn't be if possible.
-        auth_url='https://keystone.canonistack.canonical.com:443/v2.0/',
+        auth_url='https://keystone.example.com:443/v2.0/',
         region='lcy02'
         )
 
