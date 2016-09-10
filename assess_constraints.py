@@ -31,17 +31,25 @@ log = logging.getLogger("assess_constraints")
 VIRT_TYPES = ['lxd']
 
 
-def deploy_constraint(client, charm, series, charm_repo,
-                      memory=None, cpu_cores=None, virt_type=None):
-    """Test deploying charm with constraints."""
+def form_constraint(constraint_name, constraint_value):
+    """Form a contraint and return a tuple containing what is used."""
+    if constraint_value is not None:
+        return (constraint_name + '={}'.format(constraint_value),)
+    else:
+        return ()
+
+
+def make_constraints(memory=None, cpu_cores=None, virt_type=None):
+    """Construct a contraints argument string from contraint values."""
     args = ()
-    if memory:
-        args += ("mem={}".format(memory),)
-    if cpu_cores:
-        args += ("cpu-cores={}".format(cpu_cores),)
-    if virt_type:
-        args += ("virt-type={}".format(virt_type),)
-    constraints = " ".join(args)
+    args += form_constraint('mem', memory)
+    args += form_constraint('cpu-cores', cpu_cores)
+    args += form_constraint('virt-type', virt_type)
+    return ' '.join(args)
+
+
+def deploy_constraint(client, charm, series, charm_repo, constraints):
+    """Test deploying charm with constraints."""
     client.deploy(charm, series=series, repository=charm_repo,
                   constraints=constraints)
     client.wait_for_workloads()
@@ -51,6 +59,7 @@ def assess_virt_type(client, virt_type):
     """Assess the virt-type option for constraints"""
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
+    constraints = make_constraints(virt_type=virt_type)
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
@@ -65,7 +74,7 @@ def assess_virt_type(client, virt_type):
                                  repository=os.path.dirname(charm_root),
                                  platform=platform)
         deploy_constraint(client, charm, charm_series,
-                          charm_dir, virt_type=virt_type)
+                          charm_dir, constraints)
 
 
 def assess_constraints(client, test_kvm=False):
