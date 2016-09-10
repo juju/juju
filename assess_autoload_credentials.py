@@ -457,7 +457,6 @@ def ensure_openstack_personal_cloud_exists(client):
         }
     client.env.clouds['clouds'] = os_cloud
     client.env.dump_yaml(client.env.juju_home, config=None)
-    log.info('clouds.yaml written to {}'.format(client.env.juju_home))
 
 
 def get_openstack_expected_details_dict(user, credential_details):
@@ -484,8 +483,7 @@ def openstack_credential_dict_generator(region):
         os_tenant_name=creds,
         os_password=creds,
         os_auth_url='https://keystone.example.com:443/v2.0/',
-        os_region_name=region
-        )
+        os_region_name=region)
 
 
 def gce_envvar_with_file_test_details(user, tmp_dir, client,
@@ -529,7 +527,7 @@ def gce_file_test_details(user, tmp_dir, client, credential_details=None):
 
 
 def write_gce_config_file(tmp_dir, credential_details, filename=None):
-    """Write a valid example of a gce json file."""
+
     details = dict(
         type='service_account',
         client_id=credential_details['client_id'],
