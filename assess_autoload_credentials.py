@@ -207,11 +207,9 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
     """Ensure we can bootstrap after autoloading credentials."""
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
-        # Do not overwrite JUJU_DATA/JUJU_HOME/cloud-city.
+        # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city.
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
-        # Create the cloud yaml and save to JUJU_DATA.
-        client_na.env.dump_yaml(client_na.env.juju_home, config=None)
         # Openstack needs the real username.
         user = client_na.env.config.get('username', 'testing-user')
         cloud_details = cloud_details_fn(
@@ -418,7 +416,7 @@ def setup_basic_openstack_test_details(client, user, credential_details):
         cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
             credential_details['os_tenant_name'],
             user),
-        save_name='openstack')
+        save_name='testing-openstack')
 
     return expected_details, answers
 
@@ -448,7 +446,7 @@ def ensure_openstack_personal_cloud_exists(client):
         raise ValueError(
             'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
     os_cloud = {
-        'openstack': {
+        'testing-openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
             'endpoint': client.env.config['auth-url'],
@@ -466,7 +464,7 @@ def ensure_openstack_personal_cloud_exists(client):
 def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
-            'openstack': {
+            'testing-openstack': {
                 'default-region': credential_details['os_region'],
                 'testing-user': {
                     'auth-type': 'userpass',
