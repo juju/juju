@@ -75,11 +75,8 @@ def assess_autoload_credentials(args):
         }
 
     client = client_from_config(args.env, args.juju_bin, False)
-    log.info("client {}".format(client))
     client.env.load_yaml()
-    log.info("loading creds")
     real_credential_details = client_credentials_to_details(client)
-    log.info("Real creds {}".format(real_credential_details))
     provider = client.env.config['type']
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
@@ -100,22 +97,14 @@ def assess_autoload_credentials(args):
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
     provider = client.env.config['type']
-    log.info("provider {}".format(provider))
-    cloud_type = client.env.get_cloud()
-    if cloud_type in ('openstack', 'maas'):
-        # openstack and maas, are not a cloud, but a cloud implementation
-        clouds = client.env.clouds['clouds']
-        for name, cloud in clouds.items():
-            if cloud.get('endpoint') == client.env.config['auth-url']:
-                cloud_type = name
-                break
-    log.info("cloud_type {}".format(cloud_type))
+    log.info("provider: {}".format(provider))
+    cloud_name = client.env.get_cloud()
+    log.info("cloud_name: {}".format(cloud_name))
     # credentials.<cloud-name>.<identity>.
     # identity is bogus in cloud-city because "credentials" is used instead
-    # of "bob" or "qateam" or "reportbot".
-    cloud = client.env.credentials['credentials'][cloud_type]
+    # of "bob" or "qa-team" or "report-bot".
+    cloud = client.env.credentials['credentials'][cloud_name]
     credentials = cloud['credentials']
-    log.info("{}, {}, {}".format(provider, cloud, credentials))
     if 'ec2' == provider:
         return {'secret_key': credentials['secret-key'],
                 'access_key': credentials['access-key'],
@@ -221,21 +210,14 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         bs_manager.client = client_na
         bs_manager.tear_down_client = client_na
 
-        log.info('Env Config: {}'.format(client_na.env.config))
+        # Create the cloud and credentials and save to JUJU_DATA.
+        # Openstack needs the real username.
         user = client_na.env.config.get('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
         bs_manager.client.env.credentials = cloud_details.expected_details
         client_na.env.dump_yaml(client_na.env.juju_home, config=None)
-        with open('{}/clouds.yaml'.format(client_na.env.juju_home), 'r') as f:
-            log.info('clouds.yaml:')
-            log.info(f.read())
-        with open('{}/credentials.yaml'.format(
-                client_na.env.juju_home), 'r') as f:
-            log.info('credentials.yaml:')
-            log.info(f.read())
-
-        # bs_manager.client.env.credentials = {}
+        bs_manager.client.env.credentials = {}
 
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(
@@ -394,18 +376,16 @@ def openstack_envvar_test_details(
         log.info("Generating credential_details for openstack")
         credential_details = openstack_credential_dict_generator()
     else:
+        log.info("Updating credential_details for openstack")
         credential_details['auth_url'] = client.env.config['auth-url']
         credential_details['region'] = client.env.config['region']
-    log.info('credential_details: {}'.format(credential_details))
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
-    log.info('expected_details: {}'.format(expected_details))
-    log.info('answers: {}'.format(answers))
-
     env_var_changes = get_openstack_envvar_changes(user, credential_details)
-    log.info('env_var_changes: {}'.format(env_var_changes))
-
+    log.debug('expected_details: {}'.format(expected_details))
+    log.debug('answers: {}'.format(answers))
+    log.debug('env_var_changes: {}'.format(env_var_changes))
     return CloudDetails(env_var_changes, expected_details, answers)
 
 
@@ -420,18 +400,18 @@ def get_openstack_envvar_changes(user, credential_details):
         )
 
 
-def openstack_directory_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+def openstack_directory_test_details(user, tmp_dir, client,
+                                     credential_details=None):
     if credential_details is None:
+        log.info("Generating credential_details for openstack")
         credential_details = openstack_credential_dict_generator()
     else:
+        log.info("Updating credential_details for openstack")
         credential_details['auth_url'] = client.env.config['auth-url']
         credential_details['region'] = client.env.config['region']
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
-
     write_openstack_config_file(tmp_dir, user, credential_details)
     env_var_changes = dict(HOME=tmp_dir)
 
@@ -472,6 +452,9 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 
 def ensure_openstack_personal_cloud_exists(client):
+    if client.env.juju_home.endswith('ccloud-city'):
+        raise ValueError(
+            'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
     os_cloud = {
         'openstack': {
             'type': 'openstack',
@@ -484,9 +467,6 @@ def ensure_openstack_personal_cloud_exists(client):
             }
         }
     client.env.clouds['clouds'] = os_cloud
-    if 'curtis/Work/cloud-city' in client.env.juju_home:
-        raise AssertionError(
-            'JUJU_HOME is wrongly set to: {}'.format(client.env.juju_home))
     client.env.dump_yaml(client.env.juju_home, config=None)
     log.info('clouds.yaml written to {}'.format(client.env.juju_home))
 
