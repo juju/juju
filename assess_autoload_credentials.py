@@ -117,6 +117,7 @@ def client_credentials_to_details(client):
     if 'openstack' == provider:
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
+                'region': client.env.config['region'],
                 }
 
 
@@ -371,11 +372,11 @@ def openstack_envvar_test_details(
         user, tmp_dir, client, credential_details=None):
     if credential_details is None:
         log.info("Generating credential_details for openstack")
-        credential_details = openstack_credential_dict_generator()
+        region = client.env.config['region']
+        credential_details = openstack_credential_dict_generator(region)
     else:
         log.info("Updating credential_details for openstack")
         credential_details['auth_url'] = client.env.config['auth-url']
-        credential_details['region'] = client.env.config['region']
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
@@ -398,11 +399,11 @@ def openstack_directory_test_details(user, tmp_dir, client,
                                      credential_details=None):
     if credential_details is None:
         log.info("Generating credential_details for openstack")
-        credential_details = openstack_credential_dict_generator()
+        region = client.env.config['region']
+        credential_details = openstack_credential_dict_generator(region)
     else:
         log.info("Updating credential_details for openstack")
         credential_details['auth_url'] = client.env.config['auth-url']
-        credential_details['region'] = client.env.config['region']
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
@@ -469,7 +470,7 @@ def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
             'openstack': {
-                'default-region': 'lcy02',
+                'default-region': credential_details['region'],
                 'testing-user': {
                     'auth-type': 'userpass',
                     'domain-name': '',
@@ -482,15 +483,14 @@ def get_openstack_expected_details_dict(user, credential_details):
         }
 
 
-def openstack_credential_dict_generator():
+def openstack_credential_dict_generator(region):
     call_id = CredentialIdCounter.id('openstack')
     creds = 'openstack-credentials-{}'.format(call_id)
     return dict(
         os_tenant_name=creds,
         os_password=creds,
-        # XXX Right now there are fixed, they shouldn't be if possible.
         auth_url='https://keystone.example.com:443/v2.0/',
-        region='lcy02'
+        region=region
         )
 
 
