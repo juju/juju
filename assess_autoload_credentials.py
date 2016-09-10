@@ -202,13 +202,11 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
 def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                            cloud_details_fn):
     """Ensure we can bootstrap after autoloading credentials."""
-    real_clouds = bs_manager.client.env.clouds
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
         # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city dir.
-        client_na.env.clouds = real_clouds
-        bs_manager.client = client_na
-        bs_manager.tear_down_client = client_na
+        bs_manager.client.env.juju_home = client_na.env.juju_home
+        bs_manager.tear_down_client.env.juju_home = client_na.env.juju_home
         # Openstack needs the real username.
         user = client_na.env.config.get('username', 'testing-user')
         cloud_details = cloud_details_fn(
