@@ -32,7 +32,7 @@ VIRT_TYPES = ['lxd']
 
 
 def form_constraint(constraint_name, constraint_value):
-    """Form a contraint and return a tuple containing what is used."""
+    """Form a constraint and return a tuple containing what is used."""
     if constraint_value is not None:
         return (constraint_name + '={}'.format(constraint_value),)
     else:
@@ -77,8 +77,8 @@ def assess_virt_type(client, virt_type):
                           charm_dir, constraints)
 
 
-def assess_constraints(client, test_kvm=False):
-    """Assess deployment with constraints"""
+def assess_virt_type_constraints(client, test_kvm=False):
+    """Assess deployment with virt-type constraints."""
     if test_kvm:
         VIRT_TYPES.append("kvm")
     for virt_type in VIRT_TYPES:
@@ -91,6 +91,11 @@ def assess_constraints(client, test_kvm=False):
         raise JujuAssertionError("FAIL: Client deployed with virt-type aws")
     if test_kvm:
         VIRT_TYPES.remove("kvm")
+
+
+def assess_constraints(client, test_kvm=False):
+    """Assess deployment with constraints."""
+    assess_virt_type_constraints(client, test_kvm)
 
 
 def parse_args(argv):
