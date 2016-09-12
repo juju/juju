@@ -234,10 +234,10 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
 	data := s.setupImageMetadata(c)
 	env := s.setupProviderWithSomeSupportedArches(c)
-	// Even though test provider does not explicitly support i386 as an architecture,
-	// the fact that we have i386 image, adds this architecture to provider supported.
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
 	// Bootstrap should succeed with no failures as constraints validator used internally
-	// would have both providr supported architectures and architectures retrieved from images metadata.
+	// would have both provider supported architectures and architectures retrieved from images metadata.
 	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
@@ -249,7 +249,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 		MetadataDir:          data.metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertBootstrapSucceeds(c, env.bootstrapEnviron, data, bootstrapCons)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
 }
 
 type testImageMetadata struct {
@@ -260,7 +260,7 @@ type testImageMetadata struct {
 
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
-	testArch := arch.I386
+	testArch := arch.S390X
 	s.PatchValue(&series.HostSeries, func() string { return "precise" })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
@@ -272,7 +272,7 @@ func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	return testImageMetadata{testArch, metadataDir, metadata}
 }
 
-func (s *bootstrapSuite) assertBootstrapSucceeds(c *gc.C, env *bootstrapEnviron, testData testImageMetadata, bootstrapCons constraints.Value) {
+func (s *bootstrapSuite) assertBootstrapImageMetadata(c *gc.C, env *bootstrapEnviron, testData testImageMetadata, bootstrapCons constraints.Value) {
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.ImageMetadata, gc.HasLen, 1)
 	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
@@ -313,10 +313,10 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupportedArches(c *gc.C) {
 	data := s.setupImageMetadata(c)
 	env := s.setupProviderWithNoSupportedArches(c)
-	// Even though test provider does not explicitly support i386 as an architecture,
-	// the fact that we have i386 image, adds this architecture to provider supported.
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
 	// Bootstrap should succeed with no failures as constraints validator used internally
-	// would have both providr supported architectures and architectures retrieved from images metadata.
+	// would have both provider supported architectures and architectures retrieved from images metadata.
 	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
@@ -328,7 +328,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 		MetadataDir:          data.metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertBootstrapSucceeds(c, env.bootstrapEnviron, data, bootstrapCons)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
 }
 
 func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEnvironNoExplicitArchitectures {
