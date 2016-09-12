@@ -31,20 +31,18 @@ log = logging.getLogger("assess_constraints")
 VIRT_TYPES = ['lxd']
 
 
-def form_constraint(constraint_name, constraint_value):
-    """Form a constraint and return a tuple containing what is used."""
+def append_constraint(list, constraint_name, constraint_value):
+    """Append a constraint to a list of constraints if it is used."""
     if constraint_value is not None:
-        return (constraint_name + '={}'.format(constraint_value),)
-    else:
-        return ()
+        list.append('{}={}'.format(constraint_name, constraint_value))
 
 
 def make_constraints(memory=None, cpu_cores=None, virt_type=None):
     """Construct a contraints argument string from contraint values."""
-    args = ()
-    args += form_constraint('mem', memory)
-    args += form_constraint('cpu-cores', cpu_cores)
-    args += form_constraint('virt-type', virt_type)
+    args = []
+    append_constraint(args, 'mem', memory)
+    append_constraint(args, 'cpu-cores', cpu_cores)
+    append_constraint(args, 'virt-type', virt_type)
     return ' '.join(args)
 
 

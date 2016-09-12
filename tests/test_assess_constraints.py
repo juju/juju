@@ -5,7 +5,7 @@ from mock import Mock, patch
 import StringIO
 
 from assess_constraints import (
-    form_constraint,
+    append_constraint,
     make_constraints,
     assess_virt_type_constraints,
     parse_args,
@@ -38,15 +38,15 @@ class TestParseArgs(TestCase):
 
 class TestMakeConstraints(TestCase):
 
-    def test_form_constraint_none(self):
-        args = ()
-        args += form_constraint('name', None)
-        self.assertEqual((), args)
+    def test_append_constraint_none(self):
+        args = []
+        append_constraint(args, 'name', None)
+        self.assertEqual([], args)
 
-    def test_form_constraint_string(self):
-        args = ('inital=True',)
-        args += form_constraint('name', 'value')
-        self.assertEqual(('inital=True', 'name=value'), args)
+    def test_append_constraint_string(self):
+        args = ['inital=True']
+        append_constraint(args, 'name', 'value')
+        self.assertEqual(['inital=True', 'name=value'], args)
 
     def test_make_constraints_empty(self):
         constraints = make_constraints()
