@@ -406,8 +406,10 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-		return "", errors.Trace(err)
+	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
+		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	// Trigger the migration.
