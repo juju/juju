@@ -71,6 +71,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
+	controllerTag := names.NewControllerTag(controllerUUID)
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
 		out := result.(*params.MasterMigrationStatus)
@@ -78,7 +79,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			Spec: params.MigrationSpec{
 				ModelTag: names.NewModelTag(modelUUID).String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: names.NewModelTag(controllerUUID).String(),
+					ControllerTag: controllerTag.String(),
 					Addrs:         []string{"2.2.2.2:2"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
@@ -104,7 +105,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		PhaseChangedTime: timestamp,
 		ExternalControl:  true,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(controllerUUID),
+			ControllerTag: controllerTag,
 			Addrs:         []string{"2.2.2.2:2"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
