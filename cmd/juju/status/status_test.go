@@ -3256,7 +3256,7 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	mig, err := hostedSt.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
