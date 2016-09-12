@@ -1244,10 +1244,31 @@ func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedEr
 
 type DeployUnitTestSuite struct {
 	jujutesting.IsolationSuite
+	jujutesting.FakeHomeSuite
 	DeployAPI
 }
 
 var _ = gc.Suite(&DeployUnitTestSuite{})
+
+func (s *DeployUnitTestSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+	s.FakeHomeSuite.SetUpSuite(c)
+}
+
+func (s *DeployUnitTestSuite) TearDownSuite(c *gc.C) {
+	s.FakeHomeSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
+}
+
+func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
+}
+
+func (s *DeployUnitTestSuite) TearDownTest(c *gc.C) {
+	s.FakeHomeSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
+}
 
 func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc.C) {
 	// Copy dummy charm to path where we can deploy it from

@@ -46,7 +46,7 @@ func (s *MachineStatusSuite) TestErrors(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestDown(c *gc.C) {
-	s.machine.presenceDead = true
+	s.machine.agentDead = true
 	agent, err := common.MachineStatus(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
@@ -56,21 +56,21 @@ func (s *MachineStatusSuite) TestDown(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
-	s.machine.presenceDead = true
+	s.machine.agentDead = true
 	s.machine.life = state.Dead
 	// Status is untouched if unit is Dead.
 	s.checkUntouched(c)
 }
 
 func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
-	s.machine.presenceDead = true
+	s.machine.agentDead = true
 	s.machine.presenceErr = errors.New("boom")
 	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
 
 func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
-	s.machine.presenceDead = true
+	s.machine.agentDead = true
 	s.machine.status = status.StatusPending
 	s.checkUntouched(c)
 }

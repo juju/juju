@@ -176,7 +176,7 @@ type mockMachine struct {
 	forceDestroyErr    error
 	forceDestroyCalled bool
 	destroyCalled      bool
-	presenceDead       bool
+	agentDead          bool
 	presenceErr        error
 }
 
@@ -211,7 +211,7 @@ func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristi
 }
 
 func (m *mockMachine) AgentPresence() (bool, error) {
-	return !m.presenceDead, m.presenceErr
+	return !m.agentDead, m.presenceErr
 }
 
 func (m *mockMachine) ForceDestroy() error {
