@@ -231,6 +231,129 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
 }
 
+func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
+	data := s.setupImageMetadata(c)
+	env := s.setupProviderWithSomeSupportedArches(c)
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
+	// Bootstrap should succeed with no failures as constraints validator used internally
+	// would have both provider supported architectures and architectures retrieved from images metadata.
+	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          data.metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+}
+
+type testImageMetadata struct {
+	architecture string
+	metadataDir  string
+	metadata     []*imagemetadata.ImageMetadata
+}
+
+// setupImageMetadata returns architecture for which metadata was setup
+func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
+	testArch := arch.S390X
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&arch.HostArch, func() string { return testArch })
+
+	metadataDir, metadata := createImageMetadataForArch(c, testArch)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	return testImageMetadata{testArch, metadataDir, metadata}
+}
+
+func (s *bootstrapSuite) assertBootstrapImageMetadata(c *gc.C, env *bootstrapEnviron, testData testImageMetadata, bootstrapCons constraints.Value) {
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.ImageMetadata, gc.HasLen, 1)
+	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+		Id:         "img-id",
+		Arch:       testData.architecture,
+		Version:    "12.04",
+		RegionName: "nether",
+		Endpoint:   "hearnoretheir",
+		Stream:     "released",
+	})
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 2)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, testData.metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
+
+}
+func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrapEnvironWithRegion {
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "nether",
+			Endpoint: "hearnoretheir",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	// test provider constraints only has amd64 and arm64 as supported architectures
+	consBefore, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	desiredArch := constraints.MustParse("arch=i386")
+	unsupported, err := consBefore.Validate(desiredArch)
+	c.Assert(err.Error(), jc.Contains, `invalid constraint value: arch=i386`)
+	c.Assert(unsupported, gc.HasLen, 0)
+
+	return env
+}
+
+func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupportedArches(c *gc.C) {
+	data := s.setupImageMetadata(c)
+	env := s.setupProviderWithNoSupportedArches(c)
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
+	// Bootstrap should succeed with no failures as constraints validator used internally
+	// would have both provider supported architectures and architectures retrieved from images metadata.
+	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          data.metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+}
+
+func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEnvironNoExplicitArchitectures {
+	env := bootstrapEnvironNoExplicitArchitectures{
+		&bootstrapEnvironWithRegion{
+			newEnviron("foo", useDefaultKeys, nil),
+			simplestreams.CloudSpec{
+				Region:   "nether",
+				Endpoint: "hearnoretheir",
+			},
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	consBefore, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	// test provider constraints only has amd64 and arm64 as supported architectures
+	desiredArch := constraints.MustParse("arch=i386")
+	unsupported, err := consBefore.Validate(desiredArch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, gc.HasLen, 0)
+
+	return env
+}
+
 // TestBootstrapImageMetadataFromAllSources tests that we are looking for
 // image metadata in all data sources available to environment.
 // Abandoning look up too soon led to misleading bootstrap failures:
@@ -644,10 +767,16 @@ func makeGUIArchive(c *gc.C, dir string) string {
 
 // createImageMetadata creates some image metadata in a local directory.
 func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
+	return createImageMetadataForArch(c, "amd64")
+}
+
+// createImageMetadataForArch creates some image metadata in a local directory for
+// specified arch.
+func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemetadata.ImageMetadata) {
 	// Generate some image metadata.
 	im := []*imagemetadata.ImageMetadata{{
 		Id:         "1234",
-		Arch:       "amd64",
+		Arch:       arch,
 		Version:    "13.04",
 		RegionName: "region",
 		Endpoint:   "endpoint",
@@ -1045,4 +1174,14 @@ type bootstrapEnvironWithRegion struct {
 
 func (e bootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
 	return e.region, nil
+}
+
+type bootstrapEnvironNoExplicitArchitectures struct {
+	*bootstrapEnvironWithRegion
+}
+
+func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator() (constraints.Validator, error) {
+	e.constraintsValidatorCount++
+	v := constraints.NewValidator()
+	return v, nil
 }
