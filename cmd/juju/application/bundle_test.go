@@ -546,7 +546,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
         applications:
             wordpress:
                 charm: wordpress
-                constraints: mem=4G cpu-cores=2
+                constraints: mem=4G cores=2
             customized:
                 charm: precise/dummy-0
                 num_units: 1
@@ -561,7 +561,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
 		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
-			constraints: constraints.MustParse("mem=4G cpu-cores=2"),
+			constraints: constraints.MustParse("mem=4G cores=2"),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -598,7 +598,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                 num_units: 1
                 options:
                     blog-title: new title
-                constraints: spaces=new cpu-cores=8
+                constraints: spaces=new cores=8
             up:
                 charm: vivid/upgrade-2
                 num_units: 1
@@ -610,7 +610,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
 			config:      charm.Settings{"blog-title": "new title"},
-			constraints: constraints.MustParse("spaces=new cpu-cores=8"),
+			constraints: constraints.MustParse("spaces=new cores=8"),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -897,7 +897,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
         machines:
             1:
                 series: xenial
-                constraints: "cpu-cores=4 mem=4G"
+                constraints: "cores=4 mem=4G"
                 annotations:
                     foo: bar
     `)
@@ -915,7 +915,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 	c.Assert(m.Series(), gc.Equals, "xenial")
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedCons, err := constraints.Parse("cpu-cores=4 mem=4G")
+	expectedCons, err := constraints.Parse("cores=4 mem=4G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, expectedCons)
 	ann, err := s.State.Annotations(m)

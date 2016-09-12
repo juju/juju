@@ -1279,7 +1279,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress",
-					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+					Constraints: constraints.MustParse("mem=99M cores=2 cpu-power=4"),
 				}},
 				change: watcher.Change{
 					C:  "constraints",
@@ -2275,7 +2275,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress",
-					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+					Constraints: constraints.MustParse("mem=99M cores=2 cpu-power=4"),
 				}},
 				change: watcher.Change{
 					C:  "constraints",

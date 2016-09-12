@@ -617,7 +617,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 
 func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -630,7 +630,7 @@ func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -642,7 +642,7 @@ func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	s.AssertBlocked(c, err, msg)
@@ -665,7 +665,7 @@ func (s *clientSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) TestClientGetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)

@@ -451,7 +451,7 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{
 			constraints.Mem,
-			constraints.CpuCores,
+			constraints.Cores,
 			constraints.Arch,
 		},
 	)

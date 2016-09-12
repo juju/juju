@@ -107,7 +107,7 @@ var _ = gc.Suite(&ProvisionerSuite{})
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G")
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
@@ -453,7 +453,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2 root-disk=10G")
+	cons := constraints.MustParse("mem=8G arch=amd64 cores=2 root-disk=10G")
 	err = m.SetConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 

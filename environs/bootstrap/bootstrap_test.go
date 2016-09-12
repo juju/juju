@@ -136,8 +136,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
-	modelCons := constraints.MustParse("cpu-cores=2 mem=4G")
+	bootstrapCons := constraints.MustParse("cores=3 mem=7G")
+	modelCons := constraints.MustParse("cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AdminSecret:          "admin-secret",

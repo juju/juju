@@ -1549,7 +1549,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	instance, hc := jujutesting.AssertStartInstance(c, env, suite.controllerUUID, "1")
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
-	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
 
 	node1.Stub.CheckCallNames(c, "Start", "SetOwnerData")
 	startArgs, ok := node1.Stub.Calls()[0].Args[0].(gomaasapi.StartArgs)

@@ -1354,7 +1354,7 @@ func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ApplicationUpdate{
 		ApplicationName: "dummy",
@@ -1379,7 +1379,7 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 
 	// Update all the service attributes.
 	minUnits := 3
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
@@ -2323,7 +2323,7 @@ func (s *serviceSuite) TestClientSetServiceConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2337,7 +2337,7 @@ func (s *serviceSuite) TestClientSetServiceConstraints(c *gc.C) {
 func (s *serviceSuite) setupSetServiceConstraints(c *gc.C) (*state.Application, constraints.Value) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Update constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	return application, cons
 }
@@ -2378,7 +2378,7 @@ func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
