@@ -45,13 +45,12 @@ var (
 	targetControllerTag = names.NewControllerTag("controller-uuid")
 	modelUUID           = "model-uuid"
 	modelTag            = names.NewModelTag(modelUUID)
-	modelTagString      = modelTag.String()
 	modelName           = "model-name"
 	ownerTag            = names.NewUserTag("owner")
 	modelVersion        = version.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
-	apiOpenCallController = jujutesting.StubCall{
+	apiOpenControllerCall = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -63,7 +62,7 @@ var (
 			migration.ControllerDialOpts(),
 		},
 	}
-	apiOpenCallModel = jujutesting.StubCall{
+	apiOpenModelCall = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -85,14 +84,14 @@ var (
 	activateCall = jujutesting.StubCall{
 		"MigrationTarget.Activate",
 		[]interface{}{
-			params.ModelArgs{ModelTag: modelTagString},
+			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	connCloseCall = jujutesting.StubCall{"Connection.Close", nil}
-	abortCall     = jujutesting.StubCall{
+	apiCloseCall = jujutesting.StubCall{"Connection.Close", nil}
+	abortCall    = jujutesting.StubCall{
 		"MigrationTarget.Abort",
 		[]interface{}{
-			params.ModelArgs{ModelTag: modelTagString},
+			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	watchStatusLockdownCalls = []jujutesting.StubCall{
@@ -103,20 +102,20 @@ var (
 	prechecksCalls = []jujutesting.StubCall{
 		{"facade.Prechecks", nil},
 		{"facade.ModelInfo", nil},
-		apiOpenCallController,
+		apiOpenControllerCall,
 		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
 			OwnerTag:     ownerTag.String(),
 			AgentVersion: modelVersion,
 		}}},
-		connCloseCall,
+		apiCloseCall,
 	}
 	abortCalls = []jujutesting.StubCall{
 		{"facade.SetPhase", []interface{}{coremigration.ABORT}},
-		apiOpenCallController,
+		apiOpenControllerCall,
 		abortCall,
-		connCloseCall,
+		apiCloseCall,
 		{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	}
 )
@@ -197,9 +196,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 			//IMPORT
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			importCall,
-			apiOpenCallModel,
+			apiOpenModelCall,
 			{"UploadBinaries", []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmDownloader,
@@ -208,16 +207,16 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				},
 				fakeToolsDownloader,
 			}},
-			connCloseCall, // for target model
-			connCloseCall, // for target controller
+			apiCloseCall, // for target model
+			apiCloseCall, // for target controller
 			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
 
 			// VALIDATION
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			activateCall,
-			connCloseCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.SUCCESS}},
 
 			// SUCCESS
@@ -371,8 +370,8 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.Prechecks", nil},
 			{"facade.ModelInfo", nil},
-			apiOpenCallController,
-			connCloseCall,
+			apiOpenControllerCall,
+			apiCloseCall,
 		},
 		abortCalls,
 	))
@@ -440,9 +439,9 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORT}},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 		},
 	))
@@ -457,9 +456,9 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			importCall,
-			connCloseCall,
+			apiCloseCall,
 		},
 		abortCalls,
 	))
@@ -639,7 +638,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 				},
 			},
 			abortCall,
-			connCloseCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 		},
 	))
