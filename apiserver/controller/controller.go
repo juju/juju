@@ -382,7 +382,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
-	controllerTag, err := names.ParseModelTag(specTarget.ControllerTag)
+	controllerTag, err := names.ParseControllerTag(specTarget.ControllerTag)
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
