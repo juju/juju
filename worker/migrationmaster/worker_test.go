@@ -159,7 +159,7 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 		Phase:            phase,
 		PhaseChangedTime: s.clock.Now(),
 		TargetInfo: coremigration.TargetInfo{
-			ControllerTag: names.NewModelTag("controller-uuid"),
+			ControllerTag: names.NewControllerTag("controller-uuid"),
 			Addrs:         []string{"1.2.3.4:5"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
