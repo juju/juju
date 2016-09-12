@@ -5,7 +5,9 @@ from mock import Mock, patch
 import StringIO
 
 from assess_constraints import (
-    assess_constraints,
+    append_constraint,
+    make_constraints,
+    assess_virt_type_constraints,
     parse_args,
     main,
 )
@@ -34,6 +36,30 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
 
 
+class TestMakeConstraints(TestCase):
+
+    def test_append_constraint_none(self):
+        args = []
+        append_constraint(args, 'name', None)
+        self.assertEqual([], args)
+
+    def test_append_constraint_string(self):
+        args = ['inital=True']
+        append_constraint(args, 'name', 'value')
+        self.assertEqual(['inital=True', 'name=value'], args)
+
+    def test_make_constraints_empty(self):
+        constraints = make_constraints()
+        self.assertEqual('', constraints)
+
+    def test_make_constraints(self):
+        constraints = make_constraints(memory='20GB', virt_type='test')
+        if 'm' == constraints[0]:
+            self.assertEqual('mem=20GB virt-type=test', constraints)
+        else:
+            self.assertEqual('virt-type=test mem=20GB', constraints)
+
+
 class TestMain(TestCase):
 
     def test_main(self):
@@ -45,8 +71,9 @@ class TestMain(TestCase):
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_c:
-                    with patch("assess_constraints.assess_constraints",
-                               autospec=True) as mock_assess:
+                    with patch(
+                            "assess_constraints.assess_virt_type_constraints",
+                            autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
@@ -56,7 +83,7 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_constraints_with_kvm(self):
+    def test_virt_type_constraints_with_kvm(self):
         # Using fake_client means that deploy and get_status have plausible
         # results.  Wrapping it in a Mock causes every call to be recorded, and
         # allows assertions to be made about calls.  Mocks and the fake client
@@ -67,13 +94,13 @@ class TestAssess(TestCase):
         deploy = patch('jujupy.EnvJujuClient.deploy',
                        autospec=True)
         with deploy as deploy_mock:
-            assess_constraints(fake_client, True)
+            assess_virt_type_constraints(fake_client, True)
         constraints_calls = [
             call[1]["constraints"] for call in
             deploy_mock.call_args_list]
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
-    def test_constraints_without_kvm(self):
+    def test_virt_type_constraints_without_kvm(self):
         # Using fake_client means that deploy and get_status have plausible
         # results.  Wrapping it in a Mock causes every call to be recorded, and
         # allows assertions to be made about calls.  Mocks and the fake client
@@ -84,7 +111,7 @@ class TestAssess(TestCase):
         deploy = patch('jujupy.EnvJujuClient.deploy',
                        autospec=True)
         with deploy as deploy_mock:
-            assess_constraints(fake_client, False)
+            assess_virt_type_constraints(fake_client, False)
         constraints_calls = [
             call[1]["constraints"] for call in
             deploy_mock.call_args_list]

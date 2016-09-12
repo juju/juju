@@ -10,17 +10,17 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from jujucharm import (
     Charm,
     local_charm_path,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
     temp_dir,
-)
+    )
 
 
 __metaclass__ = type
@@ -31,28 +31,30 @@ log = logging.getLogger("assess_constraints")
 VIRT_TYPES = ['lxd']
 
 
-def deploy_constraint(client, charm, series, charm_repo,
-                      memory=None, cpu_cores=None, virt_type=None):
+def append_constraint(list, constraint_name, constraint_value):
+    """Append a constraint to a list of constraints if it is used."""
+    if constraint_value is not None:
+        list.append('{}={}'.format(constraint_name, constraint_value))
+
+
+def make_constraints(memory=None, cpu_cores=None, virt_type=None):
+    """Construct a contraints argument string from contraint values."""
+    args = []
+    append_constraint(args, 'mem', memory)
+    append_constraint(args, 'cpu-cores', cpu_cores)
+    append_constraint(args, 'virt-type', virt_type)
+    return ' '.join(args)
+
+
+def deploy_constraint(client, charm, series, charm_repo, constraints):
     """Test deploying charm with constraints."""
-    args = ()
-    if memory:
-        args += ("mem={}".format(memory),)
-    if cpu_cores:
-        args += ("cpu-cores={}".format(cpu_cores),)
-    if virt_type:
-        args += ("virt-type={}".format(virt_type),)
-    constraints = " ".join(args)
     client.deploy(charm, series=series, repository=charm_repo,
                   constraints=constraints)
     client.wait_for_workloads()
 
 
-def assess_virt_type(client, virt_type):
-    """Assess the virt-type option for constraints"""
-    if virt_type not in VIRT_TYPES:
-        raise JujuAssertionError(virt_type)
-    charm_name = 'virt-type-' + virt_type
-    charm_series = 'xenial'
+def deploy_charm_constraint(client, charm_name, charm_series, constraints):
+    """Create a charm with constraints and test deploying it."""
     with temp_dir() as charm_dir:
         constraints_charm = Charm(charm_name,
                                   'Test charm for constraints',
@@ -65,11 +67,21 @@ def assess_virt_type(client, virt_type):
                                  repository=os.path.dirname(charm_root),
                                  platform=platform)
         deploy_constraint(client, charm, charm_series,
-                          charm_dir, virt_type=virt_type)
+                          charm_dir, constraints)
 
 
-def assess_constraints(client, test_kvm=False):
-    """Assess deployment with constraints"""
+def assess_virt_type(client, virt_type):
+    """Assess the virt-type option for constraints"""
+    if virt_type not in VIRT_TYPES:
+        raise JujuAssertionError(virt_type)
+    constraints = make_constraints(virt_type=virt_type)
+    charm_name = 'virt-type-' + virt_type
+    charm_series = 'xenial'
+    deploy_charm_constraint(client, charm_name, charm_series, constraints)
+
+
+def assess_virt_type_constraints(client, test_kvm=False):
+    """Assess deployment with virt-type constraints."""
     if test_kvm:
         VIRT_TYPES.append("kvm")
     for virt_type in VIRT_TYPES:
@@ -82,6 +94,11 @@ def assess_constraints(client, test_kvm=False):
         raise JujuAssertionError("FAIL: Client deployed with virt-type aws")
     if test_kvm:
         VIRT_TYPES.remove("kvm")
+
+
+def assess_constraints(client, test_kvm=False):
+    """Assess deployment with constraints."""
+    assess_virt_type_constraints(client, test_kvm)
 
 
 def parse_args(argv):
