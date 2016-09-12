@@ -3,19 +3,22 @@
 import logging
 from mock import Mock, patch
 import StringIO
+import os
 
 from assess_constraints import (
     append_constraint,
     make_constraints,
     assess_virt_type_constraints,
+    deploy_charm_constraint,
     parse_args,
     main,
-)
+    )
 from tests import (
     parse_error,
     TestCase,
-)
+    )
 from tests.test_jujupy import fake_juju_client
+from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
@@ -116,3 +119,20 @@ class TestAssess(TestCase):
             call[1]["constraints"] for call in
             deploy_mock.call_args_list]
         self.assertEqual(constraints_calls, assert_constraints_calls)
+
+
+class TestDeploy(TestCase):
+
+    def test_deploy_charm_constraint(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        charm_name = 'test-constraint'
+        charm_series = 'xenial'
+        constraints = 'mem=10GB'
+        with temp_dir() as charm_dir:
+            with patch('assess_constraints.deploy_constraint',
+                       autospec=True) as deploy_mock:
+                deploy_charm_constraint(fake_client, charm_name, charm_series,
+                                        charm_dir, constraints)
+        charm = os.path.join(charm_dir, charm_series, charm_name)
+        deploy_mock.assert_called_once_with(fake_client, charm, charm_series,
+                                            charm_dir, constraints)

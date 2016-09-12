@@ -53,21 +53,21 @@ def deploy_constraint(client, charm, series, charm_repo, constraints):
     client.wait_for_workloads()
 
 
-def deploy_charm_constraint(client, charm_name, charm_series, constraints):
+def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
+                            constraints):
     """Create a charm with constraints and test deploying it."""
-    with temp_dir() as charm_dir:
-        constraints_charm = Charm(charm_name,
-                                  'Test charm for constraints',
-                                  series=['xenial'])
-        charm_root = constraints_charm.to_repo_dir(charm_dir)
-        platform = 'ubuntu'
-        charm = local_charm_path(charm=charm_name,
-                                 juju_ver=client.version,
-                                 series=charm_series,
-                                 repository=os.path.dirname(charm_root),
-                                 platform=platform)
-        deploy_constraint(client, charm, charm_series,
-                          charm_dir, constraints)
+    constraints_charm = Charm(charm_name,
+                              'Test charm for constraints',
+                              series=['xenial'])
+    charm_root = constraints_charm.to_repo_dir(charm_dir)
+    platform = 'ubuntu'
+    charm = local_charm_path(charm=charm_name,
+                             juju_ver=client.version,
+                             series=charm_series,
+                             repository=os.path.dirname(charm_root),
+                             platform=platform)
+    deploy_constraint(client, charm, charm_series,
+                      charm_dir, constraints)
 
 
 def assess_virt_type(client, virt_type):
@@ -77,7 +77,9 @@ def assess_virt_type(client, virt_type):
     constraints = make_constraints(virt_type=virt_type)
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
-    deploy_charm_constraint(client, charm_name, charm_series, constraints)
+    with temp_dir() as charm_dir:
+        deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
+                                constraints)
 
 
 def assess_virt_type_constraints(client, test_kvm=False):
