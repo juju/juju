@@ -35,9 +35,8 @@ func (fa *failAction) Prepare(state State) (*State, error) {
 
 // Execute is part of the Operation interface.
 func (fa *failAction) Execute(state State) (*State, error) {
-	message := fmt.Sprintf("running action %s", fa.name)
 
-	if err := fa.callbacks.SetExecutingStatus(message); err != nil {
+	if err := fa.callbacks.FailAction(fa.actionId, fa.message); err != nil {
 		return nil, err
 	}
 
