@@ -797,7 +797,7 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
 func processMachine(machine *state.Machine) (out params.DetailedStatus) {
-	statusInfo, err := machine.Status()
+	statusInfo, err := common.MachineStatus(machine)
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)

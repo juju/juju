@@ -65,6 +65,7 @@ type Machine interface {
 	Life() state.Life
 	ForceDestroy() error
 	Destroy() error
+	AgentPresence() (bool, error)
 }
 
 func DestroyMachines(st origStateInterface, force bool, ids ...string) error {
@@ -105,7 +106,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			continue
 		}
 		var status string
-		statusInfo, err := m.Status()
+		statusInfo, err := MachineStatus(m)
 		if err == nil {
 			status = string(statusInfo.Status)
 		} else {

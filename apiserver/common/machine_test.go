@@ -171,10 +171,13 @@ type mockMachine struct {
 	instId             instance.Id
 	hasVote, wantsVote bool
 	status             status.Status
+	statusErr          error
 	destroyErr         error
 	forceDestroyErr    error
 	forceDestroyCalled bool
 	destroyCalled      bool
+	presenceDead       bool
+	presenceErr        error
 }
 
 func (m *mockMachine) Id() string {
@@ -200,11 +203,15 @@ func (m *mockMachine) HasVote() bool {
 func (m *mockMachine) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{
 		Status: m.status,
-	}, nil
+	}, m.statusErr
 }
 
 func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	return m.hw, nil
+}
+
+func (m *mockMachine) AgentPresence() (bool, error) {
+	return !m.presenceDead, m.presenceErr
 }
 
 func (m *mockMachine) ForceDestroy() error {

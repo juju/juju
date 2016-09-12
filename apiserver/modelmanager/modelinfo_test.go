@@ -557,6 +557,10 @@ func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristi
 	return m.hw, nil
 }
 
+func (m *mockMachine) AgentPresence() (bool, error) {
+	return true, nil
+}
+
 func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return "", nil
 }

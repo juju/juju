@@ -1288,7 +1288,7 @@ var statusTests = []testCase{
 								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
-									"message": "agent lost, see 'juju status-history dummy-application/0'",
+									"message": "agent lost, see 'juju show-status-log dummy-application/0'",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
