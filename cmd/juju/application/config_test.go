@@ -23,7 +23,7 @@ import (
 type configCommandSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	dir  string
-	fake *fakeServiceAPI
+	fake *fakeApplicationAPI
 }
 
 var (
@@ -71,7 +71,7 @@ var getTests = []struct {
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAPI{serviceName: "dummy-application", charmName: "dummy",
+	s.fake = &fakeApplicationAPI{name: "dummy-application", charmName: "dummy",
 		values: map[string]interface{}{
 			"title":       "Nearly There",
 			"skill-level": 100,
@@ -250,7 +250,7 @@ func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestResetConfigToDefault(c *gc.C) {
-	s.fake = &fakeServiceAPI{serviceName: "dummy-application", values: map[string]interface{}{
+	s.fake = &fakeApplicationAPI{name: "dummy-application", values: map[string]interface{}{
 		"username": "hello",
 	}}
 	s.assertSetSuccess(c, s.dir, []string{

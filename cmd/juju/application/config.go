@@ -22,6 +22,8 @@ import (
 	"github.com/juju/utils/keyvalues"
 )
 
+const maxValueSize = 5242880 // Max size for a config file.
+
 const (
 	configSummary = `Gets, sets, or resets configuration for a deployed application.`
 	configDetails = `By default, all configuration (keys, values, metadata) for the application are
@@ -32,21 +34,22 @@ listing of the application-specific configuration settings.
 See ` + "`juju status`" + ` for application names.
 
 Examples:
-    juju config <application-name>
-	juju config --format=json <application-name>
-    juju config <application-name> wait-timeout
-	juju config <application-name> key=value key2=value2
-	juju config <application-name> --reset key key2
-	juju config <application-name> --file path/to/config.yaml
+    juju config apache2
+    juju config --format=json apache2
+    juju config mysql dataset-size
+    juju config mysql --reset dataset-size backup_dir
+    juju config apache2 --file path/to/config.yaml
+    juju config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
+    juju config apache2 --model mymodel --file /home/ubuntu/mysql.yaml
 
 See also:
     deploy
     status
 `
-	maxValueSize = 5242880 // Max size for a config file.
 )
 
-// NewConfigCommand returns a command used to get application attributes.
+// NewConfigCommand returns a command used to get, reset, and set application
+// attributes.
 func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
@@ -81,7 +84,7 @@ type configCommandAPI interface {
 func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "config",
-		Args:    "<application name> [<attribute-key>[<=attribute-value>] ...]",
+		Args:    "<application name> [[--reset] <attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
 	}
