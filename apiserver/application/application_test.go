@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"runtime"
 	"sync"
 	"time"
 
@@ -503,9 +502,8 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 }
 
 func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1596960: Skipping this on windows for now")
-	}
+	c.Skip("see lp:1596960 -- bad test for bad code")
+
 	var putBarrier sync.WaitGroup
 	var blobs blobs
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
