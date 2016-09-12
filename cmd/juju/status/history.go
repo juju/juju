@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// TODO(peritto666) - add tests
+
 // NewStatusHistoryCommand returns a command that reports the history
 // of status changes for the specified unit.
 func NewStatusHistoryCommand() cmd.Command {
@@ -144,7 +146,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		}
 		tag = names.NewUnitTag(c.entityName)
 	default:
-		if names.IsValidMachine(c.entityName) {
+		if !names.IsValidMachine(c.entityName) {
 			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
 		}
 		tag = names.NewMachineTag(c.entityName)

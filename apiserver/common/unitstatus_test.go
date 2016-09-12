@@ -67,7 +67,7 @@ func (s *UnitStatusSuite) TestLost(c *gc.C) {
 	c.Check(agent.Err, jc.ErrorIsNil)
 	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
 		Status:  status.StatusUnknown,
-		Message: "agent lost, see 'juju status-history foo/2'",
+		Message: "agent lost, see 'juju show-status-log foo/2'",
 	})
 	c.Check(workload.Err, jc.ErrorIsNil)
 }
