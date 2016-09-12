@@ -27,45 +27,30 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 func (s *Suite) TestInitiateMigration(c *gc.C) {
-	client, stub := makeClient(params.InitiateMigrationResults{
-		Results: []params.InitiateMigrationResult{{
-			MigrationId: "id",
-		}},
-	})
-	spec := makeSpec()
-	id, err := client.InitiateMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, gc.Equals, "id")
-	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
-	})
+	s.checkInitiateMigration(c, makeSpec())
 }
 
 func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
-	client, stub := makeClient(params.InitiateMigrationResults{
-		Results: []params.InitiateMigrationResult{{
-			MigrationId: "id",
-		}},
-	})
 	spec := makeSpec()
 	spec.ExternalControl = true
-	_, err := client.InitiateMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
-	})
+	s.checkInitiateMigration(c, spec)
 }
 
 func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
+	spec := makeSpec()
+	spec.SkipInitialPrechecks = true
+	s.checkInitiateMigration(c, spec)
+}
+
+func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
 	client, stub := makeClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			MigrationId: "id",
 		}},
 	})
-	spec := makeSpec()
-	spec.SkipInitialPrechecks = true
-	_, err := client.InitiateMigration(spec)
+	id, err := client.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(id, gc.Equals, "id")
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
 	})
