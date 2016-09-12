@@ -26,9 +26,9 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	return nil
 }
 
-// SupportedArchitectures returns the image architectures which can
+// supportedArchitectures returns the image architectures which can
 // be hosted by this environment.
-func (env *environ) SupportedArchitectures() ([]string, error) {
+func (env *environ) allSupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()
 	defer env.archLock.Unlock()
 
@@ -78,7 +78,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 
-	supportedArches, err := env.SupportedArchitectures()
+	supportedArches, err := env.allSupportedArchitectures()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
