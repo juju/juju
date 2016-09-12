@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 
@@ -25,12 +24,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	envjujutesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -70,7 +69,7 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) *maasEnviron {
+func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) (*maasEnviron, *fakeController) {
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {
 		expected.AgentName = env.Config().UUID()
@@ -87,7 +86,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
-	return env
+	return env, controller
 }
 
 func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemIDs []string, returnSystemIDs []string) *maasEnviron {
@@ -309,12 +308,30 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
-	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
+	env, _ := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+}
+
+func (suite *maas2EnvironSuite) TestStartInstanceAppliesResourceTags(c *gc.C) {
+	env, controller := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
+	config := env.Config()
+	_, ok := config.ResourceTags()
+	c.Assert(ok, jc.IsTrue)
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
+	_, err := jujutesting.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine := controller.allocateMachine.(*fakeMachine)
+	machine.CheckCallNames(c, "Start", "SetOwnerData")
+	c.Assert(machine.Calls()[1].Args[0], gc.DeepEquals, map[string]string{
+		"claude":            "rains",
+		tags.JujuController: suite.controllerUUID,
+		tags.JujuModel:      config.UUID(),
+	})
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
@@ -371,7 +388,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 		Tags:    []string{"tag1", "tag3"},
 		NotTags: []string{"tag2", "tag4"},
 	}
-	env = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
+	env, _ = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
 	_, err := env.acquireNode2(
 		"", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
@@ -414,7 +431,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 			{Label: "1", Space: "7"},
 		},
 	}
-	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
+	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
 	_, err := env.acquireNode2(
 		"", "",
@@ -425,7 +442,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
-	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), gomaasapi.AllocateMachineArgs{})
+	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), gomaasapi.AllocateMachineArgs{})
 	var shortLimit uint = 0
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 
@@ -624,7 +641,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 		NotSpace:   []string{"3"},
 		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
 	}
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
+	env, _ := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
@@ -637,7 +654,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 		NotSpace:   []string{"3"},
 		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
 	}
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
+	env, _ := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
@@ -1502,16 +1519,15 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine.Stub.CheckCallNames(c, "Start")
-	controller.Stub.CheckCallNames(c, "GetFile", "AddFile")
-	addFileArgs, ok := controller.Stub.Calls()[1].Args[0].(gomaasapi.AddFileArgs)
+	machine.Stub.CheckCallNames(c, "Start", "SetOwnerData")
+	ownerData, ok := machine.Stub.Calls()[1].Args[0].(map[string]string)
 	c.Assert(ok, jc.IsTrue)
-
-	// Make it look like the right state was written to the file.
-	buffer := new(bytes.Buffer)
-	buffer.ReadFrom(addFileArgs.Reader)
-	file.contents = buffer.Bytes()
-	c.Check(string(buffer.Bytes()), gc.Equals, "state-instances:\n- gus\n")
+	c.Assert(ownerData, gc.DeepEquals, map[string]string{
+		"claude":              "rains",
+		tags.JujuController:   suite.controllerUUID,
+		tags.JujuIsController: "true",
+		tags.JujuModel:        env.Config().UUID(),
+	})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
@@ -1535,7 +1551,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
 
-	node1.Stub.CheckCallNames(c, "Start")
+	node1.Stub.CheckCallNames(c, "Start", "SetOwnerData")
 	startArgs, ok := node1.Stub.Calls()[0].Args[0].(gomaasapi.StartArgs)
 	c.Assert(ok, jc.IsTrue)
 
@@ -1563,26 +1579,25 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 	_, err := env.ControllerInstances(suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
-	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
-	for _, expected := range tests {
-		state, err := goyaml.Marshal(&common.BootstrapState{StateInstances: expected})
-		c.Assert(err, jc.ErrorIsNil)
+	controller.machinesArgsCheck = func(args gomaasapi.MachinesArgs) {
+		c.Assert(args, gc.DeepEquals, gomaasapi.MachinesArgs{
+			OwnerData: map[string]string{
+				tags.JujuIsController: "true",
+				tags.JujuController:   suite.controllerUUID,
+			},
+		})
+	}
 
-		controller.files = []gomaasapi.File{&fakeFile{
-			name:     coretesting.ModelTag.Id() + "-provider-state",
-			contents: state,
-		}}
+	tests := [][]instance.Id{{"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		controller.machines = make([]gomaasapi.Machine, len(expected))
+		for i := range expected {
+			controller.machines[i] = newFakeMachine(string(expected[i]), "", "")
+		}
 		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
-}
-
-func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
-	env := suite.makeEnviron(c,
-		newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state")))
-	_, err := env.ControllerInstances(suite.controllerUUID)
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {

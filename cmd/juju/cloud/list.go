@@ -41,9 +41,10 @@ Examples:
 
     juju clouds
 
-See also: show-cloud
-          update-clouds
-          add-cloud
+See also:
+    add-cloud
+    show-cloud
+    update-clouds
 `
 
 // NewListCloudsCommand returns a command to list cloud information.

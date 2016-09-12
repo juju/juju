@@ -20,8 +20,8 @@ import (
 // APIContext holds the context required for making connections to
 // APIs used by juju.
 type APIContext struct {
-	Jar          *cookiejar.Jar
-	BakeryClient *httpbakery.Client
+	Jar            *cookiejar.Jar
+	WebPageVisitor httpbakery.Visitor
 }
 
 // AuthOpts holds flags relating to authentication.
@@ -32,7 +32,7 @@ type AuthOpts struct {
 }
 
 func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&o.NoBrowser, "B", false, "do not use web browser for authentication")
+	f.BoolVar(&o.NoBrowser, "B", false, "Do not use web browser for authentication")
 	f.BoolVar(&o.NoBrowser, "no-browser-login", false, "")
 }
 
@@ -52,10 +52,7 @@ func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client := httpbakery.NewClient()
-	client.Jar = jar
 	var visitors []httpbakery.Visitor
-
 	if ctxt != nil && opts != nil && opts.NoBrowser {
 		filler := &form.IOFiller{
 			In:  ctxt.Stdin,
@@ -65,11 +62,20 @@ func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	} else {
 		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
-	client.WebPageVisitor = httpbakery.NewMultiVisitor(visitors...)
+	webPageVisitor := httpbakery.NewMultiVisitor(visitors...)
 	return &APIContext{
-		Jar:          jar,
-		BakeryClient: client,
+		Jar:            jar,
+		WebPageVisitor: webPageVisitor,
 	}, nil
+}
+
+// NewBakeryClient returns a new httpbakery.Client, using the API context's
+// persistent cookie jar and web page visitor.
+func (ctx *APIContext) NewBakeryClient() *httpbakery.Client {
+	client := httpbakery.NewClient()
+	client.Jar = ctx.Jar
+	client.WebPageVisitor = ctx.WebPageVisitor
+	return client
 }
 
 // cookieFile returns the path to the cookie used to store authorization

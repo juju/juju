@@ -90,6 +90,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
+		ExternalControl:  status.Spec.ExternalControl,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{

@@ -48,22 +48,28 @@ type apiHandler struct {
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	entity    state.Entity
+
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
 	// path, logins processed with v2 or later will only offer the
 	// user manager and model manager api endpoints from here.
 	modelUUID string
+
+	// serverHost is the host:port of the API server that the client
+	// connected to.
+	serverHost string
 }
 
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
 	r := &apiHandler{
-		state:     st,
-		resources: common.NewResources(),
-		rpcConn:   rpcConn,
-		modelUUID: modelUUID,
+		state:      st,
+		resources:  common.NewResources(),
+		rpcConn:    rpcConn,
+		modelUUID:  modelUUID,
+		serverHost: serverHost,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
@@ -72,11 +78,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
-		srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
-	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil

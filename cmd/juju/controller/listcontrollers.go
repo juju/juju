@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/status"
 )
 
 var helpControllersSummary = `
@@ -89,12 +91,12 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 				defer wg.Done()
 				client, err := c.getAPI(name)
 				if err != nil {
-					fmt.Fprintf(ctx.GetStderr(), "error connecting to api for %q: %v", name, err)
+					fmt.Fprintf(ctx.GetStderr(), "error connecting to api for %q: %v\n", name, err)
 					return
 				}
 				defer client.Close()
 				if err := c.refreshControllerDetails(client, name); err != nil {
-					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v", name, err)
+					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v\n", name, err)
 				}
 			}()
 		}
@@ -129,9 +131,13 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 	if err != nil {
 		return err
 	}
+	var controllerModelUUID string
 	modelTags := make([]names.ModelTag, len(allModels))
 	for i, m := range allModels {
 		modelTags[i] = names.NewModelTag(m.UUID)
+		if m.Name == bootstrap.ControllerModelName {
+			controllerModelUUID = m.UUID
+		}
 	}
 	modelStatus, err = client.ModelStatus(modelTags...)
 	if err != nil {
@@ -153,7 +159,26 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = controllerMachineCounts(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
+}
+
+func controllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
+	for _, s := range modelStatus {
+		if s.UUID != controllerModelUUID {
+			continue
+		}
+		for _, m := range s.Machines {
+			if !m.WantsVote {
+				continue
+			}
+			totalCount++
+			if m.Status != string(status.StatusDown) && m.HasVote {
+				activeCount++
+			}
+		}
+	}
+	return activeCount, totalCount
 }
 
 type listControllersCommand struct {

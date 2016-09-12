@@ -188,6 +188,11 @@ func (w *Worker) run() error {
 		return errors.Trace(err)
 	}
 
+	if status.ExternalControl {
+		err := w.waitForMigrationEnd()
+		return errors.Trace(err)
+	}
+
 	phase := status.Phase
 
 	for {
@@ -482,6 +487,40 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 		// While waiting for a migration, ensure the fortress is open.
 		if err := w.config.Guard.Unlock(); err != nil {
 			return empty, errors.Trace(err)
+		}
+	}
+}
+
+func (w *Worker) waitForMigrationEnd() error {
+	w.logger.Infof("migration is externally managed. waiting for completion")
+	watcher, err := w.config.Facade.Watch()
+	if err != nil {
+		return errors.Annotate(err, "watching for migration")
+	}
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Kill()
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case <-watcher.Changes():
+		}
+
+		status, err := w.config.Facade.MigrationStatus()
+		if err != nil {
+			return errors.Annotate(err, "retrieving migration status")
+		}
+		w.logger.Infof("migration phase is now %v", status.Phase)
+		if status.Phase.IsTerminal() {
+			if modelHasMigrated(status.Phase) {
+				w.logger.Infof("migration is complete")
+				return ErrMigrated
+			}
+			w.logger.Infof("migration has aborted")
+			return ErrInactive
 		}
 	}
 }

@@ -52,7 +52,7 @@ func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndEr
 		// error information would then be lost.
 		if workload.Status.Status != status.StatusError {
 			workload.Status.Status = status.StatusUnknown
-			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju status-history %s'", unit.Name())
+			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju show-status-log %s'", unit.Name())
 		}
 		agent.Status.Status = status.StatusLost
 		agent.Status.Message = "agent is not communicating with the server"

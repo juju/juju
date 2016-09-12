@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -225,7 +226,11 @@ var scenarioStatus = &params.FullStatus{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
-			// TODO(fwereade): why does the subordinate have no service status?
+			Status: params.DetailedStatus{
+				Status: "unknown",
+				Info:   "Waiting for agent initialization to finish",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
@@ -472,11 +477,21 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		s.setAgentPresence(c, wu)
 		add(lu)
 	}
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, m := range allMachines {
+		s.setAgentPresence(c, m)
+	}
 	return
 }
 
-func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
-	pinger, err := u.SetAgentPresence()
+type presenceEntity interface {
+	SetAgentPresence() (*presence.Pinger, error)
+	WaitAgentPresence(timeout time.Duration) (err error)
+}
+
+func (s *baseSuite) setAgentPresence(c *gc.C, e presenceEntity) {
+	pinger, err := e.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
@@ -484,6 +499,6 @@ func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
 
 	s.State.StartSync()
 	s.BackingState.StartSync()
-	err = u.WaitAgentPresence(coretesting.LongWait)
+	err = e.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 }

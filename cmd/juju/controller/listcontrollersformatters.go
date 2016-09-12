@@ -34,7 +34,39 @@ func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, 
 func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
+
+	// See if we need the HA column.
+	showHA := false
+	for _, c := range set.Controllers {
+		if c.ControllerMachines != nil && c.ControllerMachines.Total > 1 {
+			showHA = true
+			break
+		}
+	}
+
+	p := func(headers ...interface{}) {
+		if promptRefresh && len(set.Controllers) > 0 {
+			for i, h := range headers {
+				switch h {
+				case "ACCESS", "MACHINES", "MODELS", "HA", "VERSION":
+					h = h.(string) + refresh
+				}
+				headers[i] = h
+			}
+		}
+		w.Println(headers...)
+	}
+
+	if showHA {
+		p("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
+		tw.SetColumnAlignRight(5)
+		tw.SetColumnAlignRight(6)
+		tw.SetColumnAlignRight(7)
+	} else {
+		p("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
+		tw.SetColumnAlignRight(5)
+		tw.SetColumnAlignRight(6)
+	}
 
 	names := []string{}
 	for name := range set.Controllers {
@@ -56,9 +88,6 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			if c.Access != "" {
 				access = c.Access
 			}
-			if promptRefresh {
-				access += refresh
-			}
 		}
 		if name == set.CurrentController {
 			name += "*"
@@ -78,24 +107,23 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			agentVersionNum, err := version.Parse(agentVersion)
 			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
-		if promptRefresh {
-			agentVersion += refresh
-		}
 		machineCount := noValueDisplay
-		if c.MachineCount != nil {
+		if c.MachineCount != nil && *c.MachineCount > 0 {
 			machineCount = fmt.Sprintf("%d", *c.MachineCount)
-			if promptRefresh {
-				machineCount += refresh
-			}
 		}
 		modelCount := noValueDisplay
-		if c.ModelCount != nil {
+		if c.ModelCount != nil && *c.ModelCount > 0 {
 			modelCount = fmt.Sprintf("%d", *c.ModelCount)
-			if promptRefresh {
-				modelCount += refresh
-			}
 		}
 		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
+		if showHA {
+			controllerMachineInfo, warn := controllerMachineStatus(c.ControllerMachines)
+			if warn {
+				w.PrintColor(output.WarningHighlight, controllerMachineInfo)
+			} else {
+				w.Print(controllerMachineInfo)
+			}
+		}
 		if staleVersion {
 			w.PrintColor(output.WarningHighlight, agentVersion)
 		} else {
@@ -108,4 +136,17 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		fmt.Fprintln(writer, "\n+ these are the last known values, run with --refresh to see the latest information.")
 	}
 	return nil
+}
+
+func controllerMachineStatus(machines *ControllerMachines) (string, bool) {
+	if machines == nil || machines.Total == 0 {
+		return "-", false
+	}
+	controllerMachineStatus := ""
+	warn := machines.Active < machines.Total
+	controllerMachineStatus = fmt.Sprintf("%d", machines.Total)
+	if machines.Active < machines.Total {
+		controllerMachineStatus = fmt.Sprintf("%d/%d", machines.Active, machines.Total)
+	}
+	return controllerMachineStatus, warn
 }

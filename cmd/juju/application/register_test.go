@@ -49,6 +49,7 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 }
 
+// FAILING
 func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
@@ -166,6 +167,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	})
 }
 
+// FAILING
 func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	client := httpbakery.NewClient()
@@ -222,6 +224,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
+// FAILING
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
@@ -417,6 +420,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	}})
 }
 
+// FAILING
 func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
@@ -470,6 +474,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{})
 }
 
+// FAILING
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	s.stub.SetErrors(nil, errors.Errorf("could not authorize"))
 	client := httpbakery.NewClient()

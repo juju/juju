@@ -4,7 +4,6 @@ package model
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -12,12 +11,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/keyvalues"
+
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/utils/keyvalues"
 )
 
 const (
@@ -93,7 +93,7 @@ func (c *configCommand) Init(args []string) error {
 			return errors.New("no keys specified")
 		}
 		for _, k := range args {
-			if k == "agent-version" {
+			if k == config.AgentVersionKey {
 				return errors.Errorf("agent-version cannot be reset")
 			}
 		}
@@ -110,7 +110,7 @@ func (c *configCommand) Init(args []string) error {
 		}
 		c.values = make(attributes)
 		for k, v := range options {
-			if k == "agent-version" {
+			if k == config.AgentVersionKey {
 				return errors.Errorf(`agent-version must be set via "upgrade-juju"`)
 			}
 			c.values[k] = v
@@ -262,16 +262,14 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	p := func(values ...string) {
-		text := strings.Join(values, "\t")
-		fmt.Fprintln(tw, text)
-	}
+	w := output.Wrapper{tw}
+
 	var valueNames []string
 	for name := range configValues {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	p("ATTRIBUTE\tFROM\tVALUE")
+	w.Println("ATTRIBUTE", "FROM", "VALUE")
 
 	for _, name := range valueNames {
 		info := configValues[name]
@@ -283,7 +281,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 		// Some attribute values have a newline appended
 		// which makes the output messy.
 		valString := strings.TrimSuffix(out.String(), "\n")
-		p(name, info.Source, valString)
+		w.Println(name, info.Source, valString)
 	}
 
 	tw.Flush()

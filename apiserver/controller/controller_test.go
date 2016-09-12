@@ -267,15 +267,17 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
+		InstanceId:      "id-4",
 	})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits}, InstanceId: "id-5"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
 	otherFactory := factory.NewFactory(otherSt)
-	otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
@@ -295,15 +297,15 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
 		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}},
-			{Id: "1", Hardware: stdHw},
+			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 		},
 	}, {
 		ModelTag:           hostedEnvTag,
@@ -312,8 +314,8 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		OwnerTag:           otherEnvOwner.UserTag.String(),
 		Life:               params.Alive,
 		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: stdHw},
-			{Id: "1", Hardware: stdHw},
+			{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
 		},
 	}})
 }
@@ -353,6 +355,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
 					Macaroons:     string(macsJSON),
+					Password:      "secret2",
 				},
 				ExternalControl: true,
 			},

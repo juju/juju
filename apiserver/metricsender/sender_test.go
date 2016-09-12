@@ -14,19 +14,22 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/cert"
-	jujutesting "github.com/juju/juju/juju/testing"
+	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/testing"
 )
 
 type SenderSuite struct {
-	jujutesting.JujuConnSuite
+	jujujutesting.JujuConnSuite
 	unit           *state.Unit
 	meteredService *state.Application
+	clock          clock.Clock
 }
 
 var _ = gc.Suite(&SenderSuite{})
@@ -48,6 +51,7 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	s.meteredService = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	s.clock = jujutesting.NewClock(time.Now())
 }
 
 // startServer starts a test HTTP server, returning a function that should be
@@ -79,7 +83,7 @@ func (s *SenderSuite) TestHttpSender(c *gc.C) {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
 	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10, true)
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(receiverChan, gc.HasLen, metricCount)
@@ -161,7 +165,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 		}
 		var sender metricsender.HttpSender
-		err := metricsender.SendMetrics(s.State, &sender, 10, true)
+		err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, batch := range batches {
 			m, err := s.State.MetricBatch(batch.UUID())
@@ -190,7 +194,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
 	var sender metricsender.HttpSender
-	err = metricsender.SendMetrics(s.State, &sender, 10, true)
+	err = metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = s.unit.GetMeterStatus()
@@ -235,7 +239,7 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 	}
 
 	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10, true)
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err := unit1.GetMeterStatus()
@@ -257,7 +261,7 @@ func (s *SenderSuite) TestGracePeriodResponse(c *gc.C) {
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 47*time.Hour))
 	defer cleanup()
 	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10, true)
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,7 +274,7 @@ func (s *SenderSuite) TestNegativeGracePeriodResponse(c *gc.C) {
 	cleanup := s.startServer(c, testHandler(c, nil, nil, -47*time.Hour))
 	defer cleanup()
 	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10, true)
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,7 +287,7 @@ func (s *SenderSuite) TestZeroGracePeriodResponse(c *gc.C) {
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 0))
 	defer cleanup()
 	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10, true)
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

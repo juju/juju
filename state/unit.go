@@ -1095,7 +1095,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the service settings for the new charm.
-		incOps, err := charmIncRefOps(u.st, u.doc.Application, curl, false)
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1111,7 +1111,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := charmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -2315,7 +2315,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// create the settings doc.
 	if curl := args.unitDoc.CharmURL; curl != nil {
 		appName := args.unitDoc.Application
-		charmRefOps, err := charmIncRefOps(st, appName, curl, false)
+		charmRefOps, err := appCharmIncRefOps(st, appName, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

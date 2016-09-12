@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 type machineSuite struct{}
@@ -117,6 +118,25 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	})
 }
 
+func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
+	st := mockState{
+		machines: map[string]*mockMachine{
+			"1": {id: "1", instId: instance.Id("123"), status: status.StatusDown, hasVote: true, wantsVote: true},
+		},
+	}
+	info, err := common.ModelMachineInfo(&st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+		{
+			Id:         "1",
+			InstanceId: "123",
+			Status:     "down",
+			HasVote:    true,
+			WantsVote:  true,
+		},
+	})
+}
+
 type mockState struct {
 	common.ModelManagerBackend
 	machines map[string]*mockMachine
@@ -148,10 +168,16 @@ type mockMachine struct {
 	life               state.Life
 	containerType      instance.ContainerType
 	hw                 *instance.HardwareCharacteristics
+	instId             instance.Id
+	hasVote, wantsVote bool
+	status             status.Status
+	statusErr          error
 	destroyErr         error
 	forceDestroyErr    error
 	forceDestroyCalled bool
 	destroyCalled      bool
+	agentDead          bool
+	presenceErr        error
 }
 
 func (m *mockMachine) Id() string {
@@ -162,8 +188,30 @@ func (m *mockMachine) Life() state.Life {
 	return m.life
 }
 
+func (m *mockMachine) InstanceId() (instance.Id, error) {
+	return m.instId, nil
+}
+
+func (m *mockMachine) WantsVote() bool {
+	return m.wantsVote
+}
+
+func (m *mockMachine) HasVote() bool {
+	return m.hasVote
+}
+
+func (m *mockMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{
+		Status: m.status,
+	}, m.statusErr
+}
+
 func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	return m.hw, nil
+}
+
+func (m *mockMachine) AgentPresence() (bool, error) {
+	return !m.agentDead, m.presenceErr
 }
 
 func (m *mockMachine) ForceDestroy() error {

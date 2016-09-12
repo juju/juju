@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/status"
 )
 
 var usageShowControllerSummary = `
@@ -190,6 +192,9 @@ type ShowControllerDetails struct {
 	// Details contains the same details that client store caches for this controller.
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
 
+	// Machines is a collection of all machines forming the controller cluster.
+	Machines map[string]MachineDetails `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
+
 	// Models is a collection of all models for this controller.
 	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
 
@@ -225,6 +230,18 @@ type ControllerDetails struct {
 	// used in both list-controller and show-controller. show-controller
 	// displays the agent version where list-controller does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
+}
+
+// ModelDetails holds details of a model to show.
+type MachineDetails struct {
+	// ID holds the id of the machine.
+	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+
+	// InstanceID holds the cloud instance id of the machine.
+	InstanceID string `yaml:"instance-id,omitempty" json:"instance-id,omitempty"`
+
+	// HAStatus holds information informing of the HA status of the machine.
+	HAStatus string `yaml:"ha-status,omitempty" json:"ha-status,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -270,6 +287,27 @@ func (c *showControllerCommand) convertControllerForShow(
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatus)
 	c.convertAccountsForShow(controllerName, controller, access)
+	var controllerModelUUID string
+	for _, m := range allModels {
+		if m.Name == bootstrap.ControllerModelName {
+			controllerModelUUID = m.UUID
+			break
+		}
+	}
+	if controllerModelUUID != "" {
+		var controllerModel base.ModelStatus
+		found := false
+		for _, m := range modelStatus {
+			if m.UUID == controllerModelUUID {
+				controllerModel = m
+				found = true
+				break
+			}
+		}
+		if found {
+			c.convertMachinesForShow(controllerName, controller, controllerModel)
+		}
+	}
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
@@ -314,4 +352,47 @@ func (c *showControllerCommand) convertModelsForShow(
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
+}
+
+func (c *showControllerCommand) convertMachinesForShow(
+	controllerName string,
+	controller *ShowControllerDetails,
+	controllerModel base.ModelStatus,
+) {
+	controller.Machines = make(map[string]MachineDetails)
+	numControllers := 0
+	for _, m := range controllerModel.Machines {
+		if !m.WantsVote {
+			continue
+		}
+		numControllers++
+	}
+	for _, m := range controllerModel.Machines {
+		if !m.WantsVote {
+			// Skip non controller machines.
+			continue
+		}
+		instId := m.InstanceId
+		if instId == "" {
+			instId = "(unprovisioned)"
+		}
+		details := MachineDetails{InstanceID: instId}
+		if numControllers > 1 {
+			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
+		}
+		controller.Machines[m.Id] = details
+	}
+}
+
+func haStatus(hasVote bool, wantsVote bool, statusStr string) string {
+	if statusStr == string(status.StatusDown) {
+		return "down, lost connection"
+	}
+	if !wantsVote {
+		return ""
+	}
+	if hasVote {
+		return "ha-enabled"
+	}
+	return "ha-pending"
 }

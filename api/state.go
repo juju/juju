@@ -5,6 +5,7 @@ package api
 
 import (
 	"net"
+	"net/url"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -40,7 +41,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		Nonce:       nonce,
 		Macaroons:   macaroons,
 	}
-	if tag == nil {
+	if password == "" {
 		// Add any macaroons from the cookie jar that might work for
 		// authenticating the login request.
 		request.Macaroons = append(request.Macaroons,
@@ -81,6 +82,13 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 				MacaroonPath: "/",
 			},
 		}); err != nil {
+			cause := errors.Cause(err)
+			if httpbakery.IsInteractionError(cause) {
+				// Just inform the user of the reason for the
+				// failure, e.g. because the username/password
+				// they presented was invalid.
+				err = cause.(*httpbakery.InteractionError).Reason
+			}
 			return errors.Trace(err)
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
@@ -186,6 +194,13 @@ func (st *state) ModelAccess() string {
 // ControllerAccess returns the access level of authorized user to the model.
 func (st *state) ControllerAccess() string {
 	return st.controllerAccess
+}
+
+// CookieURL returns the URL that HTTP cookies for the API will be
+// associated with.
+func (st *state) CookieURL() *url.URL {
+	copy := *st.cookieURL
+	return &copy
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be

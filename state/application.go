@@ -191,7 +191,11 @@ func (s *Application) destroyOps() ([]txn.Op, error) {
 	// removed, the application can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
-		return append(ops, s.removeOps(hasLastRefs)...), nil
+		removeOps, err := s.removeOps(hasLastRefs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the last unit or relation referencing it. If any
@@ -245,7 +249,7 @@ func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the application document.
-func (s *Application) removeOps(asserts bson.D) []txn.Op {
+func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	ops := []txn.Op{
 		{
 			C:      applicationsC,
@@ -257,7 +261,13 @@ func (s *Application) removeOps(asserts bson.D) []txn.Op {
 			Id:     s.settingsKey(),
 			Remove: true,
 		},
-		nsRefcounts.JustRemoveOp(refcountsC, s.settingsKey(), -1),
+	}
+	charmOps, err := appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, charmOps...)
+	ops = append(ops,
 		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
@@ -265,14 +275,14 @@ func (s *Application) removeOps(asserts bson.D) []txn.Op {
 		removeLeadershipSettingsOp(s.Name()),
 		removeStatusOp(s.st, s.globalKey()),
 		removeModelServiceRefOp(s.st, s.Name()),
-	}
+	)
 	// For local charms, we also delete the charm itself since the
 	// charm is associated 1:1 with the service. Each different deploy
 	// of a local charm creates a new copy with a different revision.
 	if s.doc.CharmURL.Schema == "local" {
 		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
 	}
-	return ops
+	return ops, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open
@@ -619,7 +629,7 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 	}
 
 	// Add or create a reference to the new charm and settings docs.
-	incOps, err := charmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
+	incOps, err := appCharmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -627,7 +637,7 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 	// Drop the references to the old settings and charm docs (if
 	// the refs actually exist yet).
 	if oldSettings != nil {
-		decOps, err = charmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+		decOps, err = appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1177,7 +1187,7 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
-		decOps, err := charmDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
+		decOps, err := appCharmDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {
@@ -1187,7 +1197,11 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	if s.doc.Life == Dying && s.doc.RelationCount == 0 && s.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
-		return append(ops, s.removeOps(hasLastRef)...), nil
+		removeOps, err := s.removeOps(hasLastRef)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return append(ops, removeOps...), nil
 	}
 	svcOp := txn.Op{
 		C:      applicationsC,
@@ -1635,7 +1649,7 @@ type addApplicationOpsArgs struct {
 func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
 	svc := newApplication(st, args.applicationDoc)
 
-	charmRefOps, err := charmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
+	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

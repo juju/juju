@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 // StateJobs translates a slice of multiwatcher jobs to their equivalents in state.
@@ -55,11 +56,16 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 
 type Machine interface {
 	Id() string
+	InstanceId() (instance.Id, error)
+	WantsVote() bool
+	HasVote() bool
+	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
 	ForceDestroy() error
 	Destroy() error
+	AgentPresence() (bool, error)
 }
 
 func DestroyMachines(st origStateInterface, force bool, ids ...string) error {
@@ -99,7 +105,28 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 		if m.Life() != state.Alive {
 			continue
 		}
-		mInfo := params.ModelMachineInfo{Id: m.Id()}
+		var status string
+		statusInfo, err := MachineStatus(m)
+		if err == nil {
+			status = string(statusInfo.Status)
+		} else {
+			status = err.Error()
+		}
+		mInfo := params.ModelMachineInfo{
+			Id:        m.Id(),
+			HasVote:   m.HasVote(),
+			WantsVote: m.WantsVote(),
+			Status:    status,
+		}
+		instId, err := m.InstanceId()
+		switch {
+		case err == nil:
+			mInfo.InstanceId = string(instId)
+		case errors.IsNotProvisioned(err):
+			// ok, but no instance ID to get.
+		default:
+			return nil, errors.Trace(err)
+		}
 		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
 			machineInfo = append(machineInfo, mInfo)
 			continue

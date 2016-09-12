@@ -139,7 +139,6 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 		Nonce:       "",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
-
 }
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
@@ -166,57 +165,51 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	// no check for checker function, can't compare functions
 }
 
-func (s *userAuthenticatorSuite) TestMacaroonUserLoginExpired(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Name: "bobbrown",
-	})
-	clock := testing.NewClock(time.Now())
-
-	m := &macaroon.Macaroon{}
-	err := m.AddFirstPartyCaveat(
-		checkers.TimeBeforeCaveat(clock.Now().Add(-time.Second)).Condition,
+func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
+	service := mockBakeryService{}
+	clock := testing.NewClock(time.Time{})
+	_, err := authentication.CreateLocalLoginMacaroon(
+		names.NewUserTag("bobbrown"), &service, clock,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	macaroons := []macaroon.Slice{{m}}
-	service := mockBakeryService{}
-	service.SetErrors(errors.New("auth failed"))
-
-	// User login
-	authenticator := &authentication.UserAuthenticator{
-		Service: &service,
-		Clock:   clock,
-	}
-	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
-		Credentials: "",
-		Nonce:       "",
-		Macaroons:   macaroons,
+	service.CheckCallNames(c, "NewMacaroon")
+	service.CheckCall(c, 0, "NewMacaroon", "", []byte(nil), []checkers.Caveat{
+		{Condition: "is-authenticated-user bobbrown@local"},
+		{Condition: "time-before 0001-01-01T00:02:00Z"},
 	})
-	c.Assert(err, gc.Equals, common.ErrLoginExpired)
 }
 
-func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
+func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testing.NewClock(time.Time{})
 	authenticator := &authentication.UserAuthenticator{
 		Service: &service,
 		Clock:   clock,
+		LocalUserIdentityLocation: "https://testing.invalid:1234/auth",
 	}
 
-	_, err := authenticator.CreateLocalLoginMacaroon(names.NewUserTag("bobbrown"))
-	c.Assert(err, jc.ErrorIsNil)
+	service.SetErrors(&bakery.VerificationError{})
+	_, err := authenticator.Authenticate(
+		authentication.EntityFinder(nil),
+		names.NewUserTag("bobbrown"),
+		params.LoginRequest{},
+	)
+	c.Assert(err, gc.FitsTypeOf, &common.DischargeRequiredError{})
 
-	service.CheckCallNames(c, "ExpireStorageAt", "NewMacaroon", "AddCaveat")
+	service.CheckCallNames(c, "CheckAny", "ExpireStorageAt", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[0].Args, jc.DeepEquals, []interface{}{clock.Now().Add(24 * time.Hour)})
-	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{
-		"", []byte(nil), []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bobbrown@local"),
-		},
-	})
+	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{clock.Now().Add(24 * time.Hour)})
 	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
-		&macaroon.Macaroon{},
-		checkers.TimeBeforeCaveat(clock.Now().Add(24 * time.Hour)),
+		"", []byte(nil), []checkers.Caveat{
+			checkers.NeedDeclaredCaveat(
+				checkers.Caveat{
+					Location:  "https://testing.invalid:1234/auth",
+					Condition: "is-authenticated-user bobbrown@local",
+				},
+				"username",
+			),
+			{Condition: "time-before 0001-01-02T00:00:00Z"},
+		},
 	})
 }
 

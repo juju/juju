@@ -6,6 +6,7 @@ package user
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -56,8 +57,15 @@ func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cm
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
-	c := &changePasswordCommand{api: api}
+func NewChangePasswordCommandForTest(
+	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error),
+	api ChangePasswordAPI,
+	store jujuclient.ClientStore,
+) (cmd.Command, *ChangePasswordCommand) {
+	c := &changePasswordCommand{
+		newAPIConnection: newAPIConnection,
+		api:              api,
+	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }

@@ -6,11 +6,10 @@
 package metricsender
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state"
 )
@@ -57,7 +56,7 @@ func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireform
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
 // no larger than batchSize.
-func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVendorMetrics bool) error {
+func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchSize int, transmitVendorMetrics bool) error {
 	metricsManager, err := st.MetricsManager()
 	if err != nil {
 		return errors.Trace(err)
@@ -102,8 +101,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, batchSize int, transmitVe
 		if response != nil {
 			// TODO (mattyw) We are currently ignoring errors during response handling.
 			handleResponse(metricsManager, st, *response)
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			if err := metricsManager.SetLastSuccessfulSend(time.Now()); err != nil {
+			if err := metricsManager.SetLastSuccessfulSend(clock.Now()); err != nil {
 				err = errors.Annotate(err, "failed to set successful send time")
 				logger.Warningf("%v", err)
 				return errors.Trace(err)

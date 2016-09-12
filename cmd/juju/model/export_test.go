@@ -19,28 +19,13 @@ func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
-// NewGetDefaultsCommandForTest returns a GetDefaultsCommand with the api provided as specified.
-func NewGetDefaultsCommandForTest(api modelDefaultsAPI) cmd.Command {
-	cmd := &getDefaultsCommand{
-		newAPIFunc: func() (modelDefaultsAPI, error) { return api, nil },
+// NewDefaultsCommandForTest returns a defaultsCommand with the api provided as specified.
+func NewDefaultsCommandForTest(api defaultsCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &defaultsCommand{
+		api: api,
 	}
-	return modelcmd.Wrap(cmd)
-}
-
-// NewSetDefaultsCommandForTest returns a SetDefaultsCommand with the api provided as specified.
-func NewSetDefaultsCommandForTest(api setModelDefaultsAPI) cmd.Command {
-	cmd := &setDefaultsCommand{
-		newAPIFunc: func() (setModelDefaultsAPI, error) { return api, nil },
-	}
-	return modelcmd.Wrap(cmd)
-}
-
-// NewUnsetDefaultsCommandForTest returns a UnsetDefaultsCommand with the api provided as specified.
-func NewUnsetDefaultsCommandForTest(api unsetModelDefaultsAPI) cmd.Command {
-	cmd := &unsetDefaultsCommand{
-		newAPIFunc: func() (unsetModelDefaultsAPI, error) { return api, nil },
-	}
-	return modelcmd.Wrap(cmd)
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd)
 }
 
 // NewRetryProvisioningCommandForTest returns a RetryProvisioningCommand with the api provided as specified.

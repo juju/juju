@@ -81,12 +81,12 @@ const testModelsYaml = `
 controllers:
   aws-test:
     models:
-      admin:
+      controller:
         uuid: ghi
-    current-model: admin
+    current-model: controller
   mallards:
     models:
-      admin:
+      controller:
         uuid: abc
       my-model:
         uuid: def

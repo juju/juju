@@ -1148,6 +1148,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO(fwereade): 2016-09-09 lp:1621754
+		// This is not always correct -- there are a million
+		// operations collected in this func, not *all* of them
+		// imply that this is the problem. (e.g. the charm being
+		// destroyed just as we add application will fail, but
+		// not because "application already exists")
 		return nil, errors.Errorf("application already exists")
 	} else if err != nil {
 		return nil, errors.Trace(err)
