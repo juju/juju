@@ -206,7 +206,7 @@ func (m *fakeModelMigration) Phase() (migration.Phase, error) {
 
 func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	return &migration.TargetInfo{
-		ControllerTag: names.NewModelTag("uuid"),
+		ControllerTag: names.NewControllerTag("uuid"),
 		Addrs:         []string{"1.2.3.4:5555"},
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),

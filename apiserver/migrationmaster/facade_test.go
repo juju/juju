@@ -100,7 +100,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(modelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewModelTag(controllerUUID).String(),
+				ControllerTag: names.NewControllerTag(controllerUUID).String(),
 				Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
@@ -406,7 +406,7 @@ func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
 		panic(err)
 	}
 	return &coremigration.TargetInfo{
-		ControllerTag: names.NewModelTag(controllerUUID),
+		ControllerTag: names.NewControllerTag(controllerUUID),
 		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
 		CACert:        "trust me",
 		AuthTag:       names.NewUserTag("admin"),
