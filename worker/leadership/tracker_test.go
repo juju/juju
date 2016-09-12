@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -29,20 +28,27 @@ type TrackerSuite struct {
 var _ = gc.Suite(&TrackerSuite{})
 
 const (
-	trackerDuration = coretesting.ShortWait
+	trackerDuration = 30 * time.Second
 	leaseDuration   = trackerDuration * 2
 )
 
-func refreshes(count int) time.Duration {
+func (s *TrackerSuite) refreshes(count int) {
+	halfDuration := trackerDuration / 2
 	halfRefreshes := (2 * count) + 1
-	twiceDuration := trackerDuration * time.Duration(halfRefreshes)
-	return twiceDuration / 2
+	// The worker often checks against the current time
+	// and adds delay to that time. Here we advance the clock
+	// in small jumps, and then wait a short time to allow the
+	// worker to do stuff.
+	for i := 0; i < halfRefreshes; i++ {
+		s.clock.Advance(halfDuration)
+		<-time.After(coretesting.ShortWait)
+	}
 }
 
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testing.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
 	s.claimer = &StubClaimer{
 		Stub:     &testing.Stub{},
 		releases: make(chan struct{}),
@@ -68,7 +74,7 @@ func (s *TrackerSuite) unblockRelease(c *gc.C) {
 }
 
 func (s *TrackerSuite) newTrackerInner() *leadership.Tracker {
-	return leadership.NewTracker(s.unitTag, s.claimer, clock.WallClock, trackerDuration)
+	return leadership.NewTracker(s.unitTag, s.claimer, s.clock, trackerDuration)
 }
 
 func (s *TrackerSuite) newTracker() *leadership.Tracker {
@@ -161,7 +167,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 
 	// Wait long enough for a single refresh, to trigger ErrClaimDenied; then
 	// check the next ticket fails.
-	<-time.After(refreshes(1))
+	s.refreshes(1)
 	assertClaimLeader(c, tracker, false)
 
 	// Stop the tracker before trying to look at its stub.
@@ -198,8 +204,8 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	// Unblock the release goroutine...
 	s.unblockRelease(c)
 
-	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
-	<-time.After(refreshes(0))
+	// advance the clock a small amount, but not enough to trigger a check
+	s.refreshes(0)
 
 	// ...then check the next ticket succeeds.
 	assertClaimLeader(c, tracker, true)
@@ -236,15 +242,15 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 	// Unblock the release goroutine...
 	s.unblockRelease(c)
 
-	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
-	<-time.After(refreshes(0))
+	// advance the clock a small amount, but not enough to trigger a check
+	s.refreshes(0)
 
 	// ...then check the next ticket fails again.
 	assertClaimLeader(c, tracker, false)
 
-	// This time, sleep long enough that a refresh would trigger if it were
+	// This time, advance far enough that a refresh would trigger if it were
 	// going to...
-	<-time.After(refreshes(1))
+	s.refreshes(1)
 
 	// ...but it won't, because we Stop the tracker...
 	workertest.CleanKill(c, tracker)
@@ -301,8 +307,8 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 	// Unblock the release goroutine...
 	s.unblockRelease(c)
 
-	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
-	<-time.After(refreshes(0))
+	// advance the clock a small amount, but not enough to trigger a check
+	s.refreshes(0)
 
 	// ...then check the next ticket succeeds.
 	assertWaitLeader(c, tracker, true)
@@ -389,7 +395,7 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 
 	// Wait long enough for a single refresh, to trigger ErrClaimDenied; then
 	// check the next ticket is closed.
-	<-time.After(refreshes(1))
+	s.refreshes(1)
 	assertWaitMinion(c, tracker, true)
 
 	// Stop the tracker before trying to look at its stub.
@@ -420,10 +426,13 @@ func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
 	tracker := s.newTracker()
 
 	ticket := tracker.WaitMinion()
+	s.refreshes(2)
+
 	select {
-	case <-time.After(refreshes(2)):
 	case <-ticket.Ready():
 		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
+	default:
+		// fallthrough
 	}
 
 	s.claimer.CheckCalls(c, []testing.StubCall{{
@@ -461,7 +470,7 @@ func assertWaitLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
 		return
 	}
 	select {
-	case <-time.After(trackerDuration / 4):
+	case <-time.After(coretesting.ShortWait):
 		// This wait needs to be small, compared to the resolution we run the
 		// tests at, so as not to disturb client timing too much.
 	case <-ticket.Ready():
@@ -477,7 +486,7 @@ func assertWaitMinion(c *gc.C, tracker *leadership.Tracker, expect bool) {
 		return
 	}
 	select {
-	case <-time.After(trackerDuration / 4):
+	case <-time.After(coretesting.ShortWait):
 		// This wait needs to be small, compared to the resolution we run the
 		// tests at, so as not to disturb client timing too much.
 	case <-ticket.Ready():
