@@ -69,7 +69,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
