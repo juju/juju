@@ -678,11 +678,7 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 		ModelTag:  names.NewModelTag(modelUUID),
 		Macaroons: targetInfo.Macaroons,
 	}
-
-	// Use zero DialOpts (no retries) because the worker must stay
-	// responsive to Kill requests. We don't want it to be blocked by
-	// a long set of retry attempts.
-	return w.config.APIOpen(apiInfo, api.DialOpts{})
+	return w.config.APIOpen(apiInfo, migration.ControllerDialOpts())
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {

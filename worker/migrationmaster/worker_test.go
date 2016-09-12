@@ -59,7 +59,7 @@ var (
 				Tag:      names.NewUserTag("admin"),
 				Password: "secret",
 			},
-			api.DialOpts{},
+			migration.ControllerDialOpts(),
 		},
 	}
 	apiOpenCallModel = jujutesting.StubCall{
@@ -72,7 +72,7 @@ var (
 				Password: "secret",
 				ModelTag: modelTag,
 			},
-			api.DialOpts{},
+			migration.ControllerDialOpts(),
 		},
 	}
 	importCall = jujutesting.StubCall{
@@ -614,7 +614,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 						Tag:       names.NewUserTag("admin"),
 						Macaroons: macs, // <---
 					},
-					api.DialOpts{},
+					migration.ControllerDialOpts(),
 				},
 			},
 			abortCall,
