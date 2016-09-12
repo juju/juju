@@ -56,6 +56,21 @@ func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
 	})
 }
 
+func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
+	client, stub := makeClient(params.InitiateMigrationResults{
+		Results: []params.InitiateMigrationResult{{
+			MigrationId: "id",
+		}},
+	})
+	spec := makeSpec()
+	spec.SkipInitialPrechecks = true
+	_, err := client.InitiateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
+	})
+}
+
 func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 	var macsJSON []byte
 	if len(spec.TargetMacaroons) > 0 {
@@ -76,7 +91,8 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl: spec.ExternalControl,
+			ExternalControl:      spec.ExternalControl,
+			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }
