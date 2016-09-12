@@ -90,25 +90,28 @@ class TestAssess(TestCase):
 
     @contextmanager
     def prepare_deploy_mock(self):
+        """Mock a client and the deploy function."""
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
         with patch('jujupy.EnvJujuClient.deploy',
                    autospec=True) as deploy_mock:
-            yield deploy_mock
+            yield fake_client, deploy_mock
+
+    def gather_constraint_args(self, mock):
+        """Create a list of the constraint arguments passed to the mock."""
+        constraint_args = [
+            args[1]["constraints"] for args in mock.call_args_list]
+        return constraint_args
 
     def test_virt_type_constraints_with_kvm(self):
         # Using fake_client means that deploy and get_status have plausible
         # results.  Wrapping it in a Mock causes every call to be recorded, and
         # allows assertions to be made about calls.  Mocks and the fake client
         # can also be used separately.
-        fake_client = Mock(wraps=fake_juju_client())
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
-        fake_client.bootstrap()
-        deploy = patch('jujupy.EnvJujuClient.deploy',
-                       autospec=True)
-        with deploy as deploy_mock:
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, True)
-        constraints_calls = [
-            call[1]["constraints"] for call in
-            deploy_mock.call_args_list]
+        constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_virt_type_constraints_without_kvm(self):
@@ -116,34 +119,31 @@ class TestAssess(TestCase):
         # results.  Wrapping it in a Mock causes every call to be recorded, and
         # allows assertions to be made about calls.  Mocks and the fake client
         # can also be used separately.
-        fake_client = Mock(wraps=fake_juju_client())
         assert_constraints_calls = ["virt-type=lxd"]
-        fake_client.bootstrap()
-        deploy = patch('jujupy.EnvJujuClient.deploy',
-                       autospec=True)
-        with deploy as deploy_mock:
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, False)
         constraints_calls = [
             call[1]["constraints"] for call in
             deploy_mock.call_args_list]
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
-    # TODO Get these two working:
-    def do_not_test_instance_type_constraints(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        #fake_client.env.config['type'] = 'foo'
-        INSTANCE_TYPES['foo'] = ['bar' , 'baz']
-        with patch('assess_constraints.assess_instance_type',
-                   autospec=True) as assess_mock:
-            assess_instance_type_constraints(fake_client)
-        calls = assess_mock.call_args_list
-        self.assertEqual(len(INSTANCE_TYPES[provider]), len(calls))
-        for instance_type in INSTANCE_TYPES[provider]:
-            pass
+    # TODO Get this one working:
+    def test_instance_type_constraints(self):
+        fake_instance_types = ['bar', 'baz']
+        INSTANCE_TYPES['foo'] = fake_instance_types
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+            #fake_client.env.config['type'] = 'foo'
+            with patch('assess_constraints.assess_instance_type',
+                       autospec=True) as assess_mock:
+                assess_instance_type_constraints(fake_client)
         del INSTANCE_TYPES['foo']
+        constraints_calls = self.gather_constraint_args(deploy_mock)
+        self.assertEqual(constraints_calls, fake_instance_types)
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())
+        with self.assertRaises(ValueError):
+            assess_instance_type_constraints(fake_client)
 
 
 class TestDeploy(TestCase):

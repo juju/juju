@@ -107,11 +107,6 @@ def assess_virt_type_constraints(client, test_kvm=False):
     if test_kvm:
         VIRT_TYPES.remove("kvm")
 
-#
-#def get_provider_instance_types(client):
-#    """Get a list of all valid instance types for the client's provider."""
-#    return
-#
 
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
@@ -127,7 +122,7 @@ def assess_instance_type(client, provider, instance_type):
 
 def assess_instance_type_constraints(client):
     """Assess deployment with instance-type constraints."""
-    provider = client.env.config['type']
+    provider = client.env.config.get('type')
     if provider not in INSTANCE_TYPES:
         raise ValueError('Provider does not implement instance-type '
                          'constraint.')
