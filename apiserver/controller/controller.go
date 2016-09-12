@@ -519,7 +519,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.Targe
 	}
 
 	// Check target controller.
-	conn, err := api.Open(targetToAPIInfo(targetInfo), api.DialOpts{})
+	conn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}

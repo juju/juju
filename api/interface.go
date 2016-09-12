@@ -119,7 +119,7 @@ type DialOpts struct {
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
+	// unsuccessful connection attempts.
 	RetryDelay time.Duration
 
 	// BakeryClient is the httpbakery Client, which
