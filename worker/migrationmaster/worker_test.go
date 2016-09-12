@@ -41,13 +41,14 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 var (
-	fakeModelBytes = []byte("model")
-	modelUUID      = "model-uuid"
-	modelTag       = names.NewModelTag(modelUUID)
-	modelTagString = modelTag.String()
-	modelName      = "model-name"
-	ownerTag       = names.NewUserTag("owner")
-	modelVersion   = version.MustParse("1.2.4")
+	fakeModelBytes      = []byte("model")
+	targetControllerTag = names.NewControllerTag("controller-uuid")
+	modelUUID           = "model-uuid"
+	modelTag            = names.NewModelTag(modelUUID)
+	modelTagString      = modelTag.String()
+	modelName           = "model-name"
+	ownerTag            = names.NewUserTag("owner")
+	modelVersion        = version.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenCallController = jujutesting.StubCall{
@@ -125,7 +126,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 	s.clock = jujutesting.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
-	s.connection = &stubConnection{stub: s.stub}
+	s.connection = &stubConnection{
+		stub:          s.stub,
+		controllerTag: targetControllerTag,
+	}
 	s.connectionErr = nil
 
 	s.facade = newStubMasterFacade(s.stub, s.clock.Now())
@@ -159,7 +163,7 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 		Phase:            phase,
 		PhaseChangedTime: s.clock.Now(),
 		TargetInfo: coremigration.TargetInfo{
-			ControllerTag: names.NewControllerTag("controller-uuid"),
+			ControllerTag: targetControllerTag,
 			Addrs:         []string{"1.2.3.4:5"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
@@ -352,6 +356,23 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+		},
+		abortCalls,
+	))
+}
+
+func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.connection.controllerTag = names.NewControllerTag("another-controller")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.Prechecks", nil},
+			{"facade.ModelInfo", nil},
+			apiOpenCallController,
+			connCloseCall,
 		},
 		abortCalls,
 	))
@@ -903,9 +924,10 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 
 type stubConnection struct {
 	api.Connection
-	stub         *jujutesting.Stub
-	prechecksErr error
-	importErr    error
+	stub          *jujutesting.Stub
+	prechecksErr  error
+	importErr     error
+	controllerTag names.ControllerTag
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -937,6 +959,10 @@ func (c *stubConnection) Client() *api.Client {
 func (c *stubConnection) Close() error {
 	c.stub.AddCall("Connection.Close")
 	return nil
+}
+
+func (c *stubConnection) ControllerTag() names.ControllerTag {
+	return c.controllerTag
 }
 
 func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
