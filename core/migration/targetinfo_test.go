@@ -29,13 +29,13 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 	}{{
 		"empty ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewModelTag("fooo")
+			info.ControllerTag = names.NewControllerTag("fooo")
 		},
 		"ControllerTag not valid",
 	}, {
 		"invalid ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewModelTag("")
+			info.ControllerTag = names.NewControllerTag("")
 		},
 		"ControllerTag not valid",
 	}, {
@@ -102,11 +102,10 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 }
 
 func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
-	modelTag := names.NewModelTag(utils.MustNewUUID().String())
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
 	return migration.TargetInfo{
-		ControllerTag: modelTag,
+		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 		Addrs:         []string{"1.2.3.4:5555"},
 		CACert:        "cert",
 		AuthTag:       names.NewUserTag("user"),
