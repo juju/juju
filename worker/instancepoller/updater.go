@@ -4,7 +4,6 @@
 package instancepoller
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -240,22 +239,21 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	instId, err := m.InstanceId()
 	// We can't ask the machine for its addresses if it isn't provisioned yet.
 	if params.IsCodeNotProvisioned(err) {
-		return instInfo, err
+		return instanceInfo{}, err
 	}
 	if err != nil {
-		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
+		return instanceInfo{}, errors.Annotate(err, "cannot get machine's instance id")
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
 		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
 		if params.IsCodeNotImplemented(err) {
-			return instInfo, err
+			return instanceInfo{}, err
 		}
 		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)
 		return instInfo, nil
 	}
-	instStat, err := m.InstanceStatus()
-	if err != nil {
+	if instStat, err := m.InstanceStatus(); err != nil {
 		// This should never occur since the machine is provisioned.
 		// But just in case, we reset polled status so we try again next time.
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
@@ -270,20 +268,24 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			logger.Infof("machine %q instance status changed from %q to %q", m.Id(), currentInstStatus, instInfo.status)
 			if err = m.SetInstanceStatus(instInfo.status.Status, instInfo.status.Message, nil); err != nil {
 				logger.Errorf("cannot set instance status on %q: %v", m, err)
+				return instanceInfo{}, err
 			}
 		}
 	}
-	providerAddresses, err := m.ProviderAddresses()
-	if err != nil {
-		return instInfo, err
-	}
-	if !addressesEqual(providerAddresses, instInfo.addresses) {
-		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
-		if err = m.SetProviderAddresses(instInfo.addresses...); err != nil {
-			logger.Errorf("cannot set addresses on %q: %v", m, err)
+	if m.Life() != params.Dead {
+		providerAddresses, err := m.ProviderAddresses()
+		if err != nil {
+			return instanceInfo{}, err
+		}
+		if !addressesEqual(providerAddresses, instInfo.addresses) {
+			logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
+			if err := m.SetProviderAddresses(instInfo.addresses...); err != nil {
+				logger.Errorf("cannot set addresses on %q: %v", m, err)
+				return instanceInfo{}, err
+			}
 		}
 	}
-	return instInfo, err
+	return instInfo, nil
 }
 
 // addressesEqual compares the addresses of the machine and the instance information.
