@@ -2264,7 +2264,8 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 
-		addService{name: "servicewithmeterstatus", charm: "mysql"},
+		addCharm{"metered"},
+		addService{name: "servicewithmeterstatus", charm: "metered"},
 
 		addAliveUnit{"mysql", "1"},
 		addAliveUnit{"servicewithmeterstatus", "2"},
@@ -2319,7 +2320,7 @@ var statusTests = []testCase{
 						},
 					}),
 
-					"servicewithmeterstatus": mysqlCharm(M{
+					"servicewithmeterstatus": meteredCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2528,6 +2529,22 @@ func mysqlCharm(extras M) M {
 		"charm":        "cs:quantal/mysql-1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "mysql",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func meteredCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/metered-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "metered",
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",

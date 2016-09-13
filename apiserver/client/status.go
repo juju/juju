@@ -609,33 +609,36 @@ func (context *statusContext) processApplications() map[string]params.Applicatio
 }
 
 func (context *statusContext) processApplication(service *state.Application) params.ApplicationStatus {
-	serviceCharmURL, _ := service.CharmURL()
+	serviceCharm, _, err := service.Charm()
+	if err != nil {
+		return params.ApplicationStatus{Err: common.ServerError(err)}
+	}
+
 	var processedStatus = params.ApplicationStatus{
-		Charm:   serviceCharmURL.String(),
+		Charm:   serviceCharm.URL().String(),
 		Series:  service.Series(),
 		Exposed: service.IsExposed(),
 		Life:    processLife(service),
 	}
 
-	if latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]; ok && latestCharm != nil {
-		if latestCharm.Revision() > serviceCharmURL.Revision {
+	if latestCharm, ok := context.latestCharms[*serviceCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > serviceCharm.URL().Revision {
 			processedStatus.CanUpgradeTo = latestCharm.String()
 		}
 	}
 
-	var err error
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
-		processedStatus.Err = err
+		processedStatus.Err = common.ServerError(err)
 		return processedStatus
 	}
 	units := context.units[service.Name()]
 	if service.IsPrincipal() {
-		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
+		processedStatus.Units = context.processUnits(units, serviceCharm.URL().String())
 	}
 	applicationStatus, err := service.Status()
 	if err != nil {
-		processedStatus.Err = err
+		processedStatus.Err = common.ServerError(err)
 		return processedStatus
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
@@ -643,7 +646,11 @@ func (context *statusContext) processApplication(service *state.Application) par
 	processedStatus.Status.Data = applicationStatus.Data
 	processedStatus.Status.Since = applicationStatus.Since
 
-	processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
+	metrics := serviceCharm.Metrics()
+	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
+	if planRequired || len(service.MetricCredentials()) > 0 {
+		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
+	}
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
@@ -651,7 +658,7 @@ func (context *statusContext) processApplication(service *state.Application) par
 			status.StatusHistoryFilter{Size: 1},
 		)
 		if err != nil {
-			processedStatus.Err = err
+			processedStatus.Err = common.ServerError(err)
 			return processedStatus
 		}
 		// Even though we fully expect there to be historical values there,
