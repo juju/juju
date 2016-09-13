@@ -200,7 +200,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
             })
             output = {
                 ('status',): status,
-                ('get-config', 'chaos-monkey'): charm_config,
+                ('config', 'chaos-monkey'): charm_config,
                 }
             return output[args]
         client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
