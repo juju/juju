@@ -106,13 +106,12 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 }
 
 // NewFailAction is part of the factory interface.
-func (f *factory) NewFailAction(actionId, message string) (Operation, error) {
+func (f *factory) NewFailAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
 	return &failAction{
 		actionId:  actionId,
-		message:   message,
 		callbacks: f.config.Callbacks,
 	}, nil
 }

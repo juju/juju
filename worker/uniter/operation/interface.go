@@ -91,7 +91,7 @@ type Factory interface {
 	NewAction(actionId string) (Operation, error)
 
 	// NewFailAction creates an operation that marks an action as failed.
-	NewFailAction(actionId, message string) (Operation, error)
+	NewFailAction(actionId string) (Operation, error)
 
 	// NewCommands creates an operation to execute the supplied script in the
 	// indicated relation context, and pass the results back over the supplied
