@@ -30,6 +30,14 @@ log = logging.getLogger("assess_constraints")
 
 VIRT_TYPES = ['lxd']
 
+INSTANCE_TYPES = {
+    'azure': [],
+    'ec2': [],
+    'gce': [],
+    'joyent': [],
+    'openstack': [],
+    }
+
 
 def append_constraint(list, constraint_name, constraint_value):
     """Append a constraint to a list of constraints if it is used."""
@@ -37,12 +45,14 @@ def append_constraint(list, constraint_name, constraint_value):
         list.append('{}={}'.format(constraint_name, constraint_value))
 
 
-def make_constraints(memory=None, cpu_cores=None, virt_type=None):
+def make_constraints(memory=None, cpu_cores=None, virt_type=None,
+                     instance_type=None):
     """Construct a contraints argument string from contraint values."""
     args = []
     append_constraint(args, 'mem', memory)
     append_constraint(args, 'cpu-cores', cpu_cores)
     append_constraint(args, 'virt-type', virt_type)
+    append_constraint(args, 'instance-type', instance_type)
     return ' '.join(args)
 
 
@@ -53,21 +63,21 @@ def deploy_constraint(client, charm, series, charm_repo, constraints):
     client.wait_for_workloads()
 
 
-def deploy_charm_constraint(client, charm_name, charm_series, constraints):
+def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
+                            constraints):
     """Create a charm with constraints and test deploying it."""
-    with temp_dir() as charm_dir:
-        constraints_charm = Charm(charm_name,
-                                  'Test charm for constraints',
-                                  series=['xenial'])
-        charm_root = constraints_charm.to_repo_dir(charm_dir)
-        platform = 'ubuntu'
-        charm = local_charm_path(charm=charm_name,
-                                 juju_ver=client.version,
-                                 series=charm_series,
-                                 repository=os.path.dirname(charm_root),
-                                 platform=platform)
-        deploy_constraint(client, charm, charm_series,
-                          charm_dir, constraints)
+    constraints_charm = Charm(charm_name,
+                              'Test charm for constraints',
+                              series=['xenial'])
+    charm_root = constraints_charm.to_repo_dir(charm_dir)
+    platform = 'ubuntu'
+    charm = local_charm_path(charm=charm_name,
+                             juju_ver=client.version,
+                             series=charm_series,
+                             repository=os.path.dirname(charm_root),
+                             platform=platform)
+    deploy_constraint(client, charm, charm_series,
+                      charm_dir, constraints)
 
 
 def assess_virt_type(client, virt_type):
@@ -77,7 +87,9 @@ def assess_virt_type(client, virt_type):
     constraints = make_constraints(virt_type=virt_type)
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
-    deploy_charm_constraint(client, charm_name, charm_series, constraints)
+    with temp_dir() as charm_dir:
+        deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
+                                constraints)
 
 
 def assess_virt_type_constraints(client, test_kvm=False):
@@ -95,10 +107,38 @@ def assess_virt_type_constraints(client, test_kvm=False):
     if test_kvm:
         VIRT_TYPES.remove("kvm")
 
+#
+#def get_provider_instance_types(client):
+#    """Get a list of all valid instance types for the client's provider."""
+#    return
+#
+
+def assess_instance_type(client, provider, instance_type):
+    """Assess the instance-type option for constraints"""
+    if instance_type not in INSTANCE_TYPES[provider]:
+        raise JujuAssertionError(instance_type)
+    constraints = make_constraints(instance_type=instance_type)
+    charm_name = 'instance-type-' + instance_type
+    charm_series = 'xenial'
+    with temp_dir() as charm_dir:
+        deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
+                                constraints)
+
+
+def assess_instance_type_constraints(client):
+    """Assess deployment with instance-type constraints."""
+    provider = client.env.config['type']
+    if provider not in INSTANCE_TYPES:
+        raise ValueError('Provider does not implement instance-type '
+                         'constraint.')
+    for instance_type in INSTANCE_TYPES[provider]:
+        assess_instance_type(client, provider, instance_type)
+
 
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     assess_virt_type_constraints(client, test_kvm)
+    assess_instance_type_constraints(client)
 
 
 def parse_args(argv):
