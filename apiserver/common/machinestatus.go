@@ -28,7 +28,7 @@ func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 	if !canMachineBeDown(machineStatus) {
 		// The machine still being provisioned - there's no point in
 		// enquiring about the agent liveness.
-		return machineStatus, err
+		return machineStatus, nil
 	}
 
 	agentAlive, err := machine.AgentPresence()
