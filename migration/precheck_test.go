@@ -124,12 +124,17 @@ func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	err := migration.SourcePrecheck(newBackendWithProvisioningMachine())
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+}
+
+func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
+	err := migration.SourcePrecheck(newBackendWithDownMachineAgent())
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
@@ -266,7 +271,7 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 		controllerBackend: newBackendWithDownMachine(),
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "controller: machine 0 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
@@ -366,13 +371,19 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.TargetPrecheck(backend, s.modelInfo)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
 	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+}
+
+func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
+	backend := newBackendWithDownMachineAgent()
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
@@ -507,6 +518,15 @@ func newBackendWithProvisioningMachine() *fakeBackend {
 	}
 }
 
+func newBackendWithDownMachineAgent() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0"},
+			&fakeMachine{id: "1", lost: true},
+		},
+	}
+}
+
 func newFakeBackend() *fakeBackend {
 	return &fakeBackend{
 		controllerBackend: &fakeBackend{},
@@ -611,6 +631,7 @@ type fakeMachine struct {
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
+	lost           bool
 	rebootAction   state.RebootAction
 }
 
@@ -638,6 +659,10 @@ func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
 		s = status.StatusRunning
 	}
 	return status.StatusInfo{Status: s}, nil
+}
+
+func (m *fakeMachine) AgentPresence() (bool, error) {
+	return !m.lost, nil
 }
 
 func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
