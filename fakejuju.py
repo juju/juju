@@ -328,13 +328,15 @@ class AutoloadCredentials(FakeExpectChild):
         juju_data = JujuData('foo', juju_home=self.juju_home)
         juju_data.load_yaml()
         creds = juju_data.credentials.setdefault('credentials', {})
-        creds.update({self.cloud: {self.extra_env['OS_USERNAME']: {
-            'domain-name': '',
-            'auth-type': 'userpass',
-            'username': self.extra_env['OS_USERNAME'],
-            'password': self.extra_env['OS_PASSWORD'],
-            'tenant-name': self.extra_env['OS_TENANT_NAME'],
-            }}})
+        creds.update({self.cloud: {
+            'default-region': self.extra_env['OS_REGION_NAME'],
+            self.extra_env['OS_USERNAME']: {
+                'domain-name': '',
+                'auth-type': 'userpass',
+                'username': self.extra_env['OS_USERNAME'],
+                'password': self.extra_env['OS_PASSWORD'],
+                'tenant-name': self.extra_env['OS_TENANT_NAME'],
+                }}})
         juju_data.dump_yaml(self.juju_home, {})
         return False
 
