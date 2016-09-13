@@ -1982,9 +1982,8 @@ class TestEnvJujuClient(ClientTest):
             admin@local:
               display-name: admin
               access: admin
-              last-connection: just now""".format(
-                  model=controller_model_uuid,
-                  controller=controller_uuid))
+              last-connection: just now""".format(model=controller_model_uuid,
+                                                  controller=controller_uuid))
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
@@ -2893,7 +2892,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
         with patch.object(client, 'juju') as juju_mock:
             client.set_config('foo', {'bar': 'baz'})
-        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+        juju_mock.assert_called_once_with('config', ('foo', 'bar=baz'))
 
     def test_get_config(self):
         def output(*args, **kwargs):
@@ -2915,7 +2914,7 @@ class TestEnvJujuClient(ClientTest):
                           side_effect=output) as gjo_mock:
             results = client.get_config('foo')
         self.assertEqual(expected, results)
-        gjo_mock.assert_called_once_with('get-config', 'foo')
+        gjo_mock.assert_called_once_with('config', 'foo')
 
     def test_get_service_config(self):
         def output(*args, **kwargs):
@@ -3280,6 +3279,34 @@ class TestEnvJujuClient2B9(ClientTest):
             expected_args = _get_expected_args(permissions=permissions)
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
+
+    def test_set_config(self):
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_config('foo', {'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+
+    def test_get_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output',
+                          side_effect=output) as gjo_mock:
+            results = client.get_config('foo')
+        self.assertEqual(expected, results)
+        gjo_mock.assert_called_once_with('get-config', 'foo')
 
     def test_get_model_config(self):
         env = JujuData('foo', None)

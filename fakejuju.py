@@ -267,7 +267,7 @@ class FakeEnvironmentState:
         for i in reversed(range(len(keys_to_remove))):
             key = keys_to_remove[i]
             if key in ('juju-client-key', 'juju-system-key'):
-                keys_to_remove = keys_to_remove[:i] + keys_to_remove[i+1:]
+                keys_to_remove = keys_to_remove[:i] + keys_to_remove[i + 1:]
                 errors.append(
                     'cannot remove key id "{0}": may not delete internal key:'
                     ' {0}'.format(key))
@@ -544,7 +544,8 @@ class FakeBackend:
             model_state = self.controller_state.models[model]
             if command == 'enable-ha':
                 model_state.enable_ha()
-            if (command, args[:1]) == ('set-config', ('dummy-source',)):
+            if ((command, args[:1]) == ('set-config', ('dummy-source',)) or
+                    (command, args[:1]) == ('config', ('dummy-source',))):
                 name, value = args[1].split('=')
                 if name == 'token':
                     model_state.token = value

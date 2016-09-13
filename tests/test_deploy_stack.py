@@ -496,6 +496,15 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
+    def test_archive_logs_syslog(self):
+        with temp_dir() as log_dir:
+            log_path = os.path.join(log_dir, 'syslog')
+            with open(log_path, 'w') as f:
+                f.write('syslog contents')
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
+
     def test_archive_logs_subdir(self):
         with temp_dir() as log_dir:
             subdir = os.path.join(log_dir, "subdir")
@@ -512,6 +521,26 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 archive_logs(log_dir)
         self.assertEquals(cc_mock.call_count, 0)
+
+    def test_archive_logs_multiple(self):
+        with temp_dir() as log_dir:
+            log_paths = []
+            with open(os.path.join(log_dir, 'fake.log'), 'w') as f:
+                f.write('log contents')
+            log_paths.append(os.path.join(log_dir, 'fake.log'))
+            subdir = os.path.join(log_dir, "subdir")
+            os.mkdir(subdir)
+            with open(os.path.join(subdir, 'syslog'), 'w') as f:
+                f.write('syslog contents')
+            log_paths.append(os.path.join(subdir, 'syslog'))
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            self.assertEqual(1, cc_mock.call_count)
+            call_args, call_kwargs = cc_mock.call_args
+            gzip_args = call_args[0]
+            self.assertEqual(0, len(call_kwargs))
+            self.assertEqual(gzip_args[:3], ['gzip', '--best', '-f'])
+            self.assertEqual(set(gzip_args[3:]), set(log_paths))
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
@@ -800,7 +829,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
                                autospec=True) as ct_mock:
                         assess_juju_relations(client)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set-config', '-m', 'foo:foo',
+            'juju', '--show-log', 'config', '-m', 'foo:foo',
             'dummy-source', 'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 

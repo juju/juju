@@ -1237,10 +1237,10 @@ class EnvJujuClient:
 
     def set_config(self, service, options):
         option_strings = self._dict_as_option_strings(options)
-        self.juju('set-config', (service,) + option_strings)
+        self.juju('config', (service,) + option_strings)
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get-config', service))
+        return yaml_loads(self.get_juju_output('config', service))
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -2114,6 +2114,13 @@ class EnvJujuClient2B9(EnvJujuClient):
         args = (username, models, '--acl', permissions)
 
         self.controller_juju('revoke', args)
+
+    def set_config(self, service, options):
+        option_strings = self._dict_as_option_strings(options)
+        self.juju('set-config', (service,) + option_strings)
+
+    def get_config(self, service):
+        return yaml_loads(self.get_juju_output('get-config', service))
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
