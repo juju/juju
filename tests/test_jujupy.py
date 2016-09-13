@@ -3281,7 +3281,6 @@ class TestEnvJujuClient2B9(ClientTest):
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
 
-
     def test_get_model_config(self):
         env = JujuData('foo', None)
         fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
