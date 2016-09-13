@@ -125,17 +125,17 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status:  status.StatusMaintenance,
+			Status:  status.Maintenance,
 			Message: "working",
 		},
 		{
-			Status:  status.StatusActive,
+			Status:  status.Active,
 			Message: "running",
 		},
 	})
 	s.st.agentHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 		},
 	})
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
@@ -152,20 +152,20 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status:  status.StatusMaintenance,
+			Status:  status.Maintenance,
 			Message: "working",
 		},
 		{
-			Status:  status.StatusActive,
+			Status:  status.Active,
 			Message: "running",
 		},
 	})
 	s.st.agentHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 		},
 	})
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
@@ -182,24 +182,24 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status:  status.StatusMaintenance,
+			Status:  status.Maintenance,
 			Message: "working",
 		},
 		{
-			Status:  status.StatusActive,
+			Status:  status.Active,
 			Message: "running",
 		},
 		{
-			Status:  status.StatusBlocked,
+			Status:  status.Blocked,
 			Message: "waiting",
 		},
 	})
 	s.st.agentHistory = statusInfoWithDates([]status.StatusInfo{
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 		},
 	})
 	h := s.api.StatusHistory(params.StatusHistoryRequests{

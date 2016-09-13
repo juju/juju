@@ -290,7 +290,7 @@ func (i *importer) machine(m description.Machine) error {
 	// (a card exists for the work). Fake it for now.
 	instanceStatusDoc := statusDoc{
 		ModelUUID: i.st.ModelUUID(),
-		Status:    status.StatusStarted,
+		Status:    status.Started,
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
@@ -708,9 +708,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
 	workloadVersion := u.WorkloadVersion()
-	versionStatus := status.StatusActive
+	versionStatus := status.Active
 	if workloadVersion == "" {
-		versionStatus = status.StatusUnknown
+		versionStatus = status.Unknown
 	}
 	workloadVersionDoc := statusDoc{
 		Status:     versionStatus,

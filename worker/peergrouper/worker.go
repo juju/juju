@@ -288,7 +288,7 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
-		if machineStatus.Status == status.StatusStarted {
+		if machineStatus.Status == status.Started {
 			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
 			tracker, err := newMachineTracker(stm, w.machineChanges)
 			if err != nil {

@@ -1042,17 +1042,17 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:  status.StatusAllocating,
+		Status:  status.Allocating,
 		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
-		Status:     status.StatusUnknown,
+		Status:     status.Unknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
 	workloadVersionDoc := statusDoc{
-		Status:  status.StatusUnknown,
+		Status:  status.Unknown,
 		Updated: now.UnixNano(),
 	}
 
@@ -1626,13 +1626,13 @@ func (s *Application) deriveStatus(units []*Unit) (status.StatusInfo, error) {
 // statusSeverities holds status values with a severity measure.
 // Status values with higher severity are used in preference to others.
 var statusServerities = map[status.Status]int{
-	status.StatusError:       100,
-	status.StatusBlocked:     90,
-	status.StatusWaiting:     80,
-	status.StatusMaintenance: 70,
-	status.StatusTerminated:  60,
-	status.StatusActive:      50,
-	status.StatusUnknown:     40,
+	status.Error:       100,
+	status.Blocked:     90,
+	status.Waiting:     80,
+	status.Maintenance: 70,
+	status.Terminated:  60,
+	status.Active:      50,
+	status.Unknown:     40,
 }
 
 type addApplicationOpsArgs struct {

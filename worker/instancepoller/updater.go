@@ -182,7 +182,7 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 			return err
 		}
 
-		machineStatus := status.StatusPending
+		machineStatus := status.Pending
 		if err == nil {
 			if statusInfo, err := m.Status(); err != nil {
 				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
@@ -194,8 +194,8 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 
 		// the extra condition below (checking allocating/pending) is here to improve user experience
 		// without it the instance status will say "pending" for +10 minutes after the agent comes up to "started"
-		if instInfo.status.Status != status.StatusAllocating && instInfo.status.Status != status.StatusPending {
-			if len(instInfo.addresses) > 0 && machineStatus == status.StatusStarted {
+		if instInfo.status.Status != status.Allocating && instInfo.status.Status != status.Pending {
+			if len(instInfo.addresses) > 0 && machineStatus == status.Started {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {
@@ -259,7 +259,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		// This should never occur since the machine is provisioned.
 		// But just in case, we reset polled status so we try again next time.
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
-		instInfo.status = instance.InstanceStatus{status.StatusUnknown, ""}
+		instInfo.status = instance.InstanceStatus{status.Unknown, ""}
 	} else {
 		// TODO(perrito666) add status validation.
 		currentInstStatus := instance.InstanceStatus{

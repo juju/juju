@@ -173,7 +173,7 @@ func controllerMachineCounts(controllerModelUUID string, modelStatus []base.Mode
 				continue
 			}
 			totalCount++
-			if m.Status != string(status.StatusDown) && m.HasVote {
+			if m.Status != string(status.Down) && m.HasVote {
 				activeCount++
 			}
 		}

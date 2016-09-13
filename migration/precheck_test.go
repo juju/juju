@@ -205,7 +205,7 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", agentStatus: status.StatusFailed},
+					&fakeUnit{name: "foo/0", agentStatus: status.Failed},
 				},
 			},
 		},
@@ -503,7 +503,7 @@ func newBackendWithDyingMachine() *fakeBackend {
 func newBackendWithDownMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&fakeMachine{id: "0", status: status.StatusDown},
+			&fakeMachine{id: "0", status: status.Down},
 			&fakeMachine{id: "1"},
 		},
 	}
@@ -512,7 +512,7 @@ func newBackendWithDownMachine() *fakeBackend {
 func newBackendWithProvisioningMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&fakeMachine{id: "0", instanceStatus: status.StatusProvisioning},
+			&fakeMachine{id: "0", instanceStatus: status.Provisioning},
 			&fakeMachine{id: "1"},
 		},
 	}
@@ -647,7 +647,7 @@ func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	s := m.status
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusStarted
+		s = status.Started
 	}
 	return status.StatusInfo{Status: s}, nil
 }
@@ -656,7 +656,7 @@ func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
 	s := m.instanceStatus
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusRunning
+		s = status.Running
 	}
 	return status.StatusInfo{Status: s}, nil
 }
@@ -757,13 +757,13 @@ func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
 	s := u.agentStatus
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusIdle
+		s = status.Idle
 	}
 	return status.StatusInfo{Status: s}, nil
 }
 
 func (u *fakeUnit) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.StatusIdle}, nil
+	return status.StatusInfo{Status: status.Idle}, nil
 }
 
 func (u *fakeUnit) AgentPresence() (bool, error) {

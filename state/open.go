@@ -320,7 +320,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		// TODO(axw) 2016-04-13 lp:1569632
 		// We need to decide how we will
 		// represent migration in model status.
-		Status: status.StatusAvailable,
+		Status: status.Available,
 	}
 
 	modelUserOps := createModelUserOps(

@@ -97,7 +97,7 @@ func (u *Undertaker) run() error {
 		// checking the emptiness criteria before
 		// attempting to remove the model.
 		if err := u.setStatus(
-			status.StatusDestroying,
+			status.Destroying,
 			"cleaning up cloud resources",
 		); err != nil {
 			return errors.Trace(err)
@@ -125,7 +125,7 @@ func (u *Undertaker) run() error {
 	// Now the model is known to be hosted and dead, we can tidy up any
 	// provider resources it might have used.
 	if err := u.setStatus(
-		status.StatusDestroying, "tearing down cloud environment",
+		status.Destroying, "tearing down cloud environment",
 	); err != nil {
 		return errors.Trace(err)
 	}

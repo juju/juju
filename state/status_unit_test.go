@@ -51,7 +51,7 @@ func (s *UnitStatusSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *UnitStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "healthy",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -71,7 +71,7 @@ func (s *UnitStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "healthy",
 		Data: map[string]interface{}{
 			"$ping": map[string]interface{}{
@@ -87,7 +87,7 @@ func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := unit.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.Active)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$ping": map[string]interface{}{
@@ -124,7 +124,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -139,7 +139,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusMaintenance,
+		Status:  status.Maintenance,
 		Message: "",
 		Since:   &now,
 	}
@@ -154,7 +154,7 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 	// Setting the same status a second time also updates the timestamp.
 	now = now.Add(1 * time.Second)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusMaintenance,
+		Status:  status.Maintenance,
 		Message: "",
 		Since:   &now,
 	}

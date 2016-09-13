@@ -281,7 +281,7 @@ func (e *fakeInstance) Id() instance.Id {
 func (e *fakeInstance) Status() instance.InstanceStatus {
 	e.Push("Status")
 	return instance.InstanceStatus{
-		Status:  status.StatusProvisioning,
+		Status:  status.Provisioning,
 		Message: "a message",
 	}
 }

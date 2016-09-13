@@ -22,7 +22,7 @@ func (manualBootstrapInstance) Status() instance.InstanceStatus {
 	// We asume that if we are deploying in manual provider the
 	// underlying machine is clearly running.
 	return instance.InstanceStatus{
-		Status: status.StatusRunning,
+		Status: status.Running,
 	}
 }
 

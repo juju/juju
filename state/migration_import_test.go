@@ -234,7 +234,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	})
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, status.StatusStarted, 5)
+	s.primeStatusHistory(c, machine1, status.Started, 5)
 
 	// machine1 should have some instance data.
 	hardware, err := machine1.HardwareCharacteristics()
@@ -327,7 +327,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
 	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.StatusActive, 5)
+	s.primeStatusHistory(c, application, status.Active, 5)
 
 	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,8 +404,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Val
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, exported, status.StatusActive, 5)
-	s.primeStatusHistory(c, exported.Agent(), status.StatusIdle, 5)
+	s.primeStatusHistory(c, exported, status.Active, 5)
+	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
 
 	_, newSt := s.importModel(c)
 

@@ -385,7 +385,7 @@ func (c *showControllerCommand) convertMachinesForShow(
 }
 
 func haStatus(hasVote bool, wantsVote bool, statusStr string) string {
-	if statusStr == string(status.StatusDown) {
+	if statusStr == string(status.Down) {
 		return "down, lost connection"
 	}
 	if !wantsVote {

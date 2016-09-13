@@ -148,20 +148,20 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	twoDaysAgo := now.Add(-twoDaysBack)
 	threeDaysAgo := now.Add(-threeDaysBack)
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "current status",
 		Since:   &now,
 	}
 	err := unit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "2 days ago",
 		Since:   &twoDaysAgo,
 	}
 	unit.SetStatus(sInfo)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "3 days ago",
 		Since:   &threeDaysAgo,
 	}

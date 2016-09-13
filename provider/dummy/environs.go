@@ -1433,7 +1433,7 @@ func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	if inst.status != "" {
 		dummyStatus := status.Status(inst.status)
 		if dummyStatus.KnownInstanceStatus() {

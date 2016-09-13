@@ -40,10 +40,10 @@ status and message are the same as what's already set.
 }
 
 var validStatus = []status.Status{
-	status.StatusMaintenance,
-	status.StatusBlocked,
-	status.StatusWaiting,
-	status.StatusActive,
+	status.Maintenance,
+	status.Blocked,
+	status.Waiting,
+	status.Active,
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -79,7 +79,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			life:  state.Alive,
 			cfg:   cfg,
 			status: status.StatusInfo{
-				Status: status.StatusAvailable,
+				Status: status.Available,
 				Since:  &time.Time{},
 			},
 			users: []*mockModelUser{{
@@ -96,7 +96,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			tag:   coretesting.ModelTag,
 			cfg:   cfg,
 			status: status.StatusInfo{
-				Status: status.StatusAvailable,
+				Status: status.Available,
 				Since:  &time.Time{},
 			},
 			users: []*mockModelUser{{

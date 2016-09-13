@@ -149,7 +149,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusDestroying,
+		Status:  status.Destroying,
 		Message: "",
 		Since:   &now,
 	}

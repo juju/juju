@@ -1077,7 +1077,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
-		Status:     status.StatusUnknown,
+		Status:     status.Unknown,
 		StatusInfo: MessageWaitForAgentInit,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),

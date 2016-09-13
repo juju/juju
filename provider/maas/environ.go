@@ -1106,10 +1106,10 @@ func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id, timeout time.
 			return errors.Trace(err)
 		}
 		stat := machine.Status()
-		if stat.Status == status.StatusRunning {
+		if stat.Status == status.Running {
 			return nil
 		}
-		if stat.Status == status.StatusProvisioningError {
+		if stat.Status == status.ProvisioningError {
 			return errors.Errorf("instance %q failed to deploy", id)
 
 		}

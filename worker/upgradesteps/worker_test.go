@@ -292,7 +292,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 			"aborted wait for other controllers:" + causeMsg},
 	})
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
-		status.StatusError,
+		status.Error,
 		fmt.Sprintf(
 			"upgrade to %s failed (giving up): aborted wait for other controllers:"+causeMsg,
 			jujuversion.Current),
@@ -389,7 +389,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	statusMessage := fmt.Sprintf(
 		`upgrade to %s failed (giving up): %s`, jujuversion.Current, causeMessage)
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
-		status.StatusError, statusMessage,
+		status.Error, statusMessage,
 	}})
 }
 
@@ -502,22 +502,22 @@ func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 
 func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []StatusCall {
 	calls := []StatusCall{{
-		status.StatusStarted,
+		status.Started,
 		fmt.Sprintf("upgrading to %s", jujuversion.Current),
 	}}
 	for i := 0; i < retryCount; i++ {
 		calls = append(calls, StatusCall{
-			status.StatusError,
+			status.Error,
 			fmt.Sprintf("upgrade to %s failed (will retry): %s", jujuversion.Current, failReason),
 		})
 	}
 	if expectFail {
 		calls = append(calls, StatusCall{
-			status.StatusError,
+			status.Error,
 			fmt.Sprintf("upgrade to %s failed (giving up): %s", jujuversion.Current, failReason),
 		})
 	} else {
-		calls = append(calls, StatusCall{status.StatusStarted, ""})
+		calls = append(calls, StatusCall{status.Started, ""})
 	}
 	return calls
 }

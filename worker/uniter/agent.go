@@ -25,7 +25,7 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 	if err == nil {
 		return
 	}
-	err2 := setAgentStatus(u, status.StatusFailed, userMessage, nil)
+	err2 := setAgentStatus(u, status.Failed, userMessage, nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}

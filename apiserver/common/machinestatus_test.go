@@ -24,7 +24,7 @@ var _ = gc.Suite(&MachineStatusSuite{})
 
 func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
 	s.machine = &mockMachine{
-		status: status.StatusStarted,
+		status: status.Started,
 	}
 }
 
@@ -50,7 +50,7 @@ func (s *MachineStatusSuite) TestDown(c *gc.C) {
 	agent, err := common.MachineStatus(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
-		Status:  status.StatusDown,
+		Status:  status.Down,
 		Message: "agent is not communicating with the server",
 	})
 }
@@ -71,6 +71,6 @@ func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
 
 func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
 	s.machine.agentDead = true
-	s.machine.status = status.StatusPending
+	s.machine.status = status.Pending
 	s.checkUntouched(c)
 }

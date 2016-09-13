@@ -209,7 +209,7 @@ func (m *mockVolume) Info() (state.VolumeInfo, error) {
 }
 
 func (m *mockVolume) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.StatusAttached}, nil
+	return status.StatusInfo{Status: status.Attached}, nil
 }
 
 type mockFilesystem struct {
@@ -246,7 +246,7 @@ func (m *mockFilesystem) Info() (state.FilesystemInfo, error) {
 }
 
 func (m *mockFilesystem) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.StatusAttached}, nil
+	return status.StatusInfo{Status: status.Attached}, nil
 }
 
 type mockFilesystemAttachment struct {

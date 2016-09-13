@@ -99,7 +99,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 
 	// Mark the machine as started and log it.
-	if err := m.SetStatus(status.StatusStarted, "", nil); err != nil {
+	if err := m.SetStatus(status.Started, "", nil); err != nil {
 		return nil, errors.Annotatef(err, "%s failed to set status started", mr.config.Tag)
 	}
 	logger.Infof("%q started", mr.config.Tag)
@@ -173,7 +173,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.config.Tag, life)
-	if err := mr.machine.SetStatus(status.StatusStopped, "", nil); err != nil {
+	if err := mr.machine.SetStatus(status.Stopped, "", nil); err != nil {
 		return errors.Annotatef(err, "%s failed to set status stopped", mr.config.Tag)
 	}
 

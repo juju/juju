@@ -261,7 +261,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// lp:1558657
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}

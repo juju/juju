@@ -21,47 +21,47 @@ func (h *statusHistorySuite) TestStatusSquashing(c *gc.C) {
 	since := time.Now()
 	statuses := status.History{
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status two",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status three",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 			Info:   "repeated status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 			Info:   "repeated status two",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 			Info:   "repeated status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 			Info:   "repeated status two",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 			Info:   "repeated status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 			Info:   "repeated status two",
 			Since:  &since,
 		},
@@ -72,32 +72,32 @@ func (h *statusHistorySuite) TestStatusSquashing(c *gc.C) {
 	newStatuses[5].Since = &since
 	expectedStatuses := status.History{
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status two",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Info:   "unique status three",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusExecuting,
+			Status: status.Executing,
 			Info:   "repeated status one",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 			Info:   "repeated status two",
 			Since:  &since,
 		},
 		{
-			Status: status.StatusIdle,
+			Status: status.Idle,
 			Info:   "last 2 statuses repeated 2 times",
 			Since:  &since,
 		},

@@ -2164,7 +2164,7 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Sta
 		Message: "status 2",
 		Since:   &now,
 	}
-	if status2 == status.StatusError {
+	if status2 == status.Error {
 		err = u2.SetAgentStatus(sInfo)
 	} else {
 		err = u2.SetStatus(sInfo)
@@ -2184,15 +2184,15 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Sta
 
 func (s *ServiceSuite) TestStatus(c *gc.C) {
 	for _, t := range []struct{ status1, status2, expected status.Status }{
-		{status.StatusActive, status.StatusWaiting, status.StatusWaiting},
-		{status.StatusMaintenance, status.StatusWaiting, status.StatusWaiting},
-		{status.StatusActive, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusWaiting, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusMaintenance, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusMaintenance, status.StatusError, status.StatusError},
-		{status.StatusBlocked, status.StatusError, status.StatusError},
-		{status.StatusWaiting, status.StatusError, status.StatusError},
-		{status.StatusActive, status.StatusError, status.StatusError},
+		{status.Active, status.Waiting, status.Waiting},
+		{status.Maintenance, status.Waiting, status.Waiting},
+		{status.Active, status.Blocked, status.Blocked},
+		{status.Waiting, status.Blocked, status.Blocked},
+		{status.Maintenance, status.Blocked, status.Blocked},
+		{status.Maintenance, status.Error, status.Error},
+		{status.Blocked, status.Error, status.Error},
+		{status.Waiting, status.Error, status.Error},
+		{status.Active, status.Error, status.Error},
 	} {
 		s.testStatus(c, t.status1, t.status2, t.expected)
 	}

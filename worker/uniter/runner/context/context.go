@@ -616,7 +616,7 @@ func (ctx *HookContext) handleReboot(err *error) {
 	case jujuc.RebootNow:
 		*err = ErrRequeueAndReboot
 	}
-	err2 := ctx.unit.SetUnitStatus(status.StatusRebooting, "", nil)
+	err2 := ctx.unit.SetUnitStatus(status.Rebooting, "", nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}

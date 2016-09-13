@@ -267,7 +267,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applicationName string) {
 	// TODO(perrito66) add status validation.
-	if status.Status(unit.WorkloadStatus.Status) == status.StatusError {
+	if status.Status(unit.WorkloadStatus.Status) == status.Error {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, applicationName); ok {

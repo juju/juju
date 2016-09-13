@@ -32,7 +32,7 @@ func (s *MachineStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *MachineStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.machine.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
@@ -41,7 +41,7 @@ func (s *MachineStatusSuite) checkInitialStatus(c *gc.C) {
 func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "",
 		Since:   &now,
 	}
@@ -54,7 +54,7 @@ func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusDown,
+		Status:  status.Down,
 		Message: "",
 		Since:   &now,
 	}
@@ -80,7 +80,7 @@ func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *MachineStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -100,7 +100,7 @@ func (s *MachineStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"$foo.bar.baz": map[string]interface{}{
@@ -117,7 +117,7 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := machine.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusStarted)
+	c.Check(statusInfo.Status, gc.Equals, status.Started)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
@@ -152,7 +152,7 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -167,7 +167,7 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "",
 		Since:   &now,
 	}
@@ -180,7 +180,7 @@ func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "",
 		Since:   &now,
 	}

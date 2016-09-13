@@ -698,7 +698,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
-	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
+	c.Assert(inst.Status().Status, gc.Equals, status.Running)
 	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
