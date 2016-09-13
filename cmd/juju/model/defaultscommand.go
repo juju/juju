@@ -55,7 +55,7 @@ type defaultsCommand struct {
 	api defaultsCommandAPI
 	out cmd.Output
 
-	action func(*cmd.Context) error // The function handling the input, set in Init.
+	action func(defaultsCommandAPI, *cmd.Context) error // The function handling the input, set in Init.
 	keys   []string
 	reset  bool // Flag indicating if we are resetting the keys provided.
 	values attributes
@@ -150,33 +150,33 @@ func (c *defaultsCommand) Init(args []string) error {
 
 // getAPI sets the api on the command. This allows passing in a test
 // ModelDefaultsAPI implementation.
-func (c *defaultsCommand) getAPI() (func(), error) {
+func (c *defaultsCommand) getAPI() (defaultsCommandAPI, error) {
 	if c.api != nil {
-		return func() { c.api.Close() }, nil
+		return c.api, nil
 	}
 
 	api, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}
-	c.api = modelmanager.NewClient(api)
+	client := modelmanager.NewClient(api)
 
-	return func() { c.api.Close() }, nil
+	return client, nil
 }
 
 // Run implements part of the cmd.Command interface.
 func (c *defaultsCommand) Run(ctx *cmd.Context) error {
-	apiCloser, err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiCloser()
+	defer client.Close()
 
-	return c.action(ctx)
+	return c.action(client, ctx)
 }
 
-func (c *defaultsCommand) getDefaults(ctx *cmd.Context) error {
-	attrs, err := c.api.ModelDefaults()
+func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
+	attrs, err := client.ModelDefaults()
 	if err != nil {
 		return err
 	}
@@ -195,29 +195,29 @@ func (c *defaultsCommand) getDefaults(ctx *cmd.Context) error {
 	return c.out.Write(ctx, attrs)
 }
 
-func (c *defaultsCommand) setDefaults(ctx *cmd.Context) error {
+func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method.
-	if err := c.verifyKnownKeys(); err != nil {
+	if err := c.verifyKnownKeys(client); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(wallyworld) - call with cloud and region when that bit is done
-	return block.ProcessBlockedError(c.api.SetModelDefaults("", "", c.values), block.BlockChange)
+	return block.ProcessBlockedError(client.SetModelDefaults("", "", c.values), block.BlockChange)
 }
 
-func (c *defaultsCommand) resetDefaults(ctx *cmd.Context) error {
+func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method.
-	if err := c.verifyKnownKeys(); err != nil {
+	if err := c.verifyKnownKeys(client); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(wallyworld) - call with cloud and region when that bit is done
-	return block.ProcessBlockedError(c.api.UnsetModelDefaults("", "", c.keys...), block.BlockChange)
+	return block.ProcessBlockedError(client.UnsetModelDefaults("", "", c.keys...), block.BlockChange)
 
 }
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
-func (c *defaultsCommand) verifyKnownKeys() error {
-	known, err := c.api.ModelDefaults()
+func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI) error {
+	known, err := client.ModelDefaults()
 	if err != nil {
 		return errors.Trace(err)
 	}
