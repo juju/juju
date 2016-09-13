@@ -224,7 +224,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})
 	}
-	cleanupOp := r.st.newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
+	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }
 

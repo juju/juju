@@ -213,7 +213,7 @@ func (s *Application) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
-		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name))
+		ops = append(ops, newCleanupOp(cleanupUnitsForDyingService, s.doc.Name))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -262,26 +262,30 @@ func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 			Remove: true,
 		},
 	}
-	charmOps, err := appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL)
+	// Note that appCharmDecRefOps might not catch the final decref
+	// when run in a transaction that decrefs more than once. In
+	// this case, luckily, we can be sure that we unconditionally
+	// need finalAppCharmRemoveOps; and we trust that it's written
+	// such that it's safe to run multiple times.
+	name := s.doc.Name
+	curl := s.doc.CharmURL
+	charmOps, err := appCharmDecRefOps(s.st, name, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
+	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
+
+	globalKey := s.globalKey()
 	ops = append(ops,
-		removeEndpointBindingsOp(s.globalKey()),
-		removeStorageConstraintsOp(s.globalKey()),
-		removeConstraintsOp(s.st, s.globalKey()),
-		annotationRemoveOp(s.st, s.globalKey()),
-		removeLeadershipSettingsOp(s.Name()),
-		removeStatusOp(s.st, s.globalKey()),
-		removeModelServiceRefOp(s.st, s.Name()),
+		removeEndpointBindingsOp(globalKey),
+		removeStorageConstraintsOp(globalKey),
+		removeConstraintsOp(s.st, globalKey),
+		annotationRemoveOp(s.st, globalKey),
+		removeLeadershipSettingsOp(name),
+		removeStatusOp(s.st, globalKey),
+		removeModelServiceRefOp(s.st, name),
 	)
-	// For local charms, we also delete the charm itself since the
-	// charm is associated 1:1 with the service. Each different deploy
-	// of a local charm creates a new copy with a different revision.
-	if s.doc.CharmURL.Schema == "local" {
-		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
-	}
 	return ops, nil
 }
 
@@ -1182,7 +1186,7 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeStatusOp(s.st, u.globalKey()),
 		removeConstraintsOp(s.st, u.globalAgentKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
-		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
+		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)

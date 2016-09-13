@@ -20,7 +20,7 @@ import (
 // done right now.
 type TargetInfo struct {
 	// ControllerTag holds tag for the target controller.
-	ControllerTag names.ModelTag
+	ControllerTag names.ControllerTag
 
 	// Addrs holds the addresses and ports of the target controller's
 	// API servers.

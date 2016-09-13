@@ -236,6 +236,7 @@ func printTerms(ctx *cmd.Context, terms []wireformat.GetTermsResponse) (returnEr
 }
 
 func pagerCmd() (*exec.Cmd, error) {
+	os.Unsetenv("LESS")
 	if pager := os.Getenv("PAGER"); pager != "" {
 		if pagerPath, err := exec.LookPath(pager); err == nil {
 			return exec.Command(pagerPath), nil

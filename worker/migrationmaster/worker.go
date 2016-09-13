@@ -317,6 +317,12 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer conn.Close()
+
+	if conn.ControllerTag() != status.TargetInfo.ControllerTag {
+		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
+			conn.ControllerTag(), status.TargetInfo.ControllerTag)
+	}
+
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
@@ -678,11 +684,7 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 		ModelTag:  names.NewModelTag(modelUUID),
 		Macaroons: targetInfo.Macaroons,
 	}
-
-	// Use zero DialOpts (no retries) because the worker must stay
-	// responsive to Kill requests. We don't want it to be blocked by
-	// a long set of retry attempts.
-	return w.config.APIOpen(apiInfo, api.DialOpts{})
+	return w.config.APIOpen(apiInfo, migration.ControllerDialOpts())
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {

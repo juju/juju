@@ -13,9 +13,6 @@ func ValidateControllerDetails(details ControllerDetails) error {
 	if details.ControllerUUID == "" {
 		return errors.NotValidf("missing uuid, controller details")
 	}
-	if details.CACert == "" {
-		return errors.NotValidf("missing ca-cert, controller details")
-	}
 	return nil
 }
 

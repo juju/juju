@@ -21,6 +21,11 @@ type MigrationSpec struct {
 	ModelTag        string              `json:"model-tag"`
 	TargetInfo      MigrationTargetInfo `json:"target-info"`
 	ExternalControl bool                `json:"external-control"`
+
+	// SkipInitialPrechecks allows the migration prechecks run during
+	// handling of the InitiateMigration API call to be bypassed. It
+	// is only honoured if ExternalControl is true.
+	SkipInitialPrechecks bool `json:"skip-initial-prechecks"`
 }
 
 // MigrationTargetInfo holds the details required to connect to and

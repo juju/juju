@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
@@ -21,6 +22,7 @@ type Tracker struct {
 	claimer         leadership.Claimer
 	unitName        string
 	applicationName string
+	clock           clock.Clock
 	duration        time.Duration
 	isMinion        bool
 
@@ -41,13 +43,14 @@ type Tracker struct {
 // leadership for the duration supplied here without generating additional
 // calls to the supplied manager (which may very well be on the other side of
 // a network connection).
-func NewTracker(tag names.UnitTag, claimer leadership.Claimer, duration time.Duration) *Tracker {
+func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock, duration time.Duration) *Tracker {
 	unitName := tag.Id()
 	serviceName, _ := names.UnitApplication(unitName)
 	t := &Tracker{
 		unitName:          unitName,
 		applicationName:   serviceName,
 		claimer:           claimer,
+		clock:             clock,
 		duration:          duration,
 		claimTickets:      make(chan chan bool),
 		waitLeaderTickets: make(chan chan bool),
@@ -163,8 +166,7 @@ func (t *Tracker) loop() error {
 func (t *Tracker) refresh() error {
 	logger.Debugf("checking %s for %s leadership", t.unitName, t.applicationName)
 	leaseDuration := 2 * t.duration
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	untilTime := time.Now().Add(leaseDuration)
+	untilTime := t.clock.Now().Add(leaseDuration)
 	err := t.claimer.ClaimLeadership(t.applicationName, t.unitName, leaseDuration)
 	switch {
 	case err == nil:
@@ -182,8 +184,7 @@ func (t *Tracker) setLeader(untilTime time.Time) error {
 	logger.Infof("%s will renew %s leadership at %s", t.unitName, t.applicationName, renewTime)
 	t.isMinion = false
 	t.claimLease = nil
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	t.renewLease = time.After(renewTime.Sub(time.Now()))
+	t.renewLease = t.clock.After(renewTime.Sub(t.clock.Now()))
 
 	for len(t.waitingLeader) > 0 {
 		logger.Debugf("notifying %s ticket of impending %s leadership", t.unitName, t.applicationName)

@@ -11,16 +11,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewSetCommandForTest returns a SetCommand with the api provided as specified.
-func NewSetCommandForTest(serviceAPI serviceAPI) cmd.Command {
-	return modelcmd.Wrap(&setCommand{
-		serviceApi: serviceAPI,
-	})
-}
-
-// NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommandForTest(api getServiceAPI) cmd.Command {
-	return modelcmd.Wrap(&getCommand{
+// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
+func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
+	return modelcmd.Wrap(&configCommand{
 		api: api,
 	})
 }

@@ -38,11 +38,6 @@ func (s *ControllerValidationSuite) TestValidateControllerDetailsNoControllerUUI
 	s.assertValidateControllerDetailsFails(c, "missing uuid, controller details not valid")
 }
 
-func (s *ControllerValidationSuite) TestValidateControllerDetailsNoCACert(c *gc.C) {
-	s.controller.CACert = ""
-	s.assertValidateControllerDetailsFails(c, "missing ca-cert, controller details not valid")
-}
-
 func (s *ControllerValidationSuite) assertValidateControllerDetailsFails(c *gc.C, failureMessage string) {
 	err := jujuclient.ValidateControllerDetails(s.controller)
 	c.Assert(err, gc.ErrorMatches, failureMessage)

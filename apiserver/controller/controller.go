@@ -382,7 +382,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
-	controllerTag, err := names.ParseModelTag(specTarget.ControllerTag)
+	controllerTag, err := names.ParseControllerTag(specTarget.ControllerTag)
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
@@ -406,8 +406,10 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-		return "", errors.Trace(err)
+	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
+		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	// Trigger the migration.
@@ -519,7 +521,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.Targe
 	}
 
 	// Check target controller.
-	conn, err := api.Open(targetToAPIInfo(targetInfo), api.DialOpts{})
+	conn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}

@@ -220,13 +220,14 @@ func (c *Client) GetControllerAccess(user string) (description.Access, error) {
 // a single model.
 type MigrationSpec struct {
 	ModelUUID            string
-	ExternalControl      bool
 	TargetControllerUUID string
 	TargetAddrs          []string
 	TargetCACert         string
 	TargetUser           string
 	TargetPassword       string
 	TargetMacaroons      []macaroon.Slice
+	ExternalControl      bool
+	SkipInitialPrechecks bool
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -273,14 +274,15 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl: spec.ExternalControl,
+			ExternalControl:      spec.ExternalControl,
+			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 	response := params.InitiateMigrationResults{}

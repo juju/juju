@@ -390,7 +390,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,

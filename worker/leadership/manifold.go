@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -22,6 +23,7 @@ import (
 type ManifoldConfig struct {
 	AgentName           string
 	APICallerName       string
+	Clock               clock.Clock
 	LeadershipGuarantee time.Duration
 }
 
@@ -42,6 +44,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // named in the supplied config.
 func startFunc(config ManifoldConfig) dependency.StartFunc {
 	return func(context dependency.Context) (worker.Worker, error) {
+		if config.Clock == nil {
+			return nil, errors.NotValidf("missing Clock")
+		}
 		var agent agent.Agent
 		if err := context.Get(config.AgentName, &agent); err != nil {
 			return nil, err
@@ -50,7 +55,7 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		return NewManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)
+		return NewManifoldWorker(agent, apiCaller, config.Clock, config.LeadershipGuarantee)
 	}
 }
 
@@ -58,14 +63,14 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 // exists primarily to be patched out via NewManifoldWorker for ease of testing,
 // and is not itself directly tested. It would almost certainly be better to
 // pass the constructor dependencies in as explicit manifold config.
-var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, clock clock.Clock, guarantee time.Duration) (worker.Worker, error) {
 	tag := agent.CurrentConfig().Tag()
 	unitTag, ok := tag.(names.UnitTag)
 	if !ok {
 		return nil, fmt.Errorf("expected a unit tag; got %q", tag)
 	}
 	claimer := leadership.NewClient(apiCaller)
-	return NewTracker(unitTag, claimer, guarantee), nil
+	return NewTracker(unitTag, claimer, clock, guarantee), nil
 }
 
 // outputFunc extracts the coreleadership.Tracker from a *Tracker passed in as a Worker.

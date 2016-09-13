@@ -673,7 +673,7 @@ func destroyVolumeOps(st *State, v *volume) []txn.Op {
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}
 	}
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
+	cleanupOp := newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
 	return []txn.Op{{
 		C:      volumesC,

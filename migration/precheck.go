@@ -49,6 +49,7 @@ type PrecheckMachine interface {
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
 	Status() (status.StatusInfo, error)
+	AgentPresence() (bool, error)
 	InstanceStatus() (status.StatusInfo, error)
 	ShouldRebootOrShutdown() (state.RebootAction, error)
 }
@@ -218,10 +219,11 @@ func checkMachines(backend PrecheckBackend) error {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
-		if statusInfo, err := machine.Status(); err != nil {
+		if statusInfo, err := common.MachineStatus(machine); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
 		} else if statusInfo.Status != status.StatusStarted {
-			return newStatusError("machine %s not started", machine.Id(), statusInfo.Status)
+			return newStatusError("machine %s agent not functioning at this time",
+				machine.Id(), statusInfo.Status)
 		}
 
 		if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {

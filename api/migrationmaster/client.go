@@ -70,7 +70,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	}
 
 	target := status.Spec.TargetInfo
-	controllerTag, err := names.ParseModelTag(target.ControllerTag)
+	controllerTag, err := names.ParseControllerTag(target.ControllerTag)
 	if err != nil {
 		return empty, errors.Annotatef(err, "parsing controller tag")
 	}

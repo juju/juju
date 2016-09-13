@@ -43,8 +43,8 @@ var _ = gc.Suite(&MainSuite{})
 func deployHelpText() string {
 	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
-func setconfigHelpText() string {
-	return cmdtesting.HelpText(application.NewSetCommand(), "juju set-config")
+func configHelpText() string {
+	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
@@ -84,15 +84,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju --help set-config shows the same help as 'help set-config'",
-		args:    []string{"--help", "set-config"},
+		summary: "juju --help config shows the same help as 'help config'",
+		args:    []string{"--help", "config"},
 		code:    0,
-		out:     setconfigHelpText(),
+		out:     configHelpText(),
 	}, {
-		summary: "juju set-config --help shows the same help as 'help set-config'",
-		args:    []string{"set-config", "--help"},
+		summary: "juju config --help shows the same help as 'help config'",
+		args:    []string{"config", "--help"},
 		code:    0,
-		out:     setconfigHelpText(),
+		out:     configHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -408,6 +408,7 @@ var commandNames = []string{
 	"change-user-password",
 	"charm",
 	"clouds",
+	"config",
 	"collect-metrics",
 	"controllers",
 	"create-backup",
@@ -429,7 +430,6 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-user",
 	"expose",
-	"get-config",
 	"get-constraints",
 	"get-controller-config",
 	"get-model-constraints",
@@ -485,7 +485,6 @@ var commandNames = []string{
 	"run-action",
 	"scp",
 	"set-budget",
-	"set-config",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
