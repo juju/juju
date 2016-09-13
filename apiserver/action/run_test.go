@@ -7,8 +7,10 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
+	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -239,4 +241,40 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 			Timeout:  testing.LongWait,
 		})
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
+	alpha := names.NewUserTag("alpha@bravo")
+	auth := apiservertesting.FakeAuthorizer{
+		Tag:         alpha,
+		HasWriteTag: alpha,
+	}
+	client, err := action.NewActionAPI(s.State, nil, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.Run(params.RunParams{})
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
+
+	auth.AdminTag = alpha
+	client, err = action.NewActionAPI(s.State, nil, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.Run(params.RunParams{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
+	alpha := names.NewUserTag("alpha@bravo")
+	auth := apiservertesting.FakeAuthorizer{
+		Tag:         alpha,
+		HasWriteTag: alpha,
+	}
+	client, err := action.NewActionAPI(s.State, nil, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.RunOnAllMachines(params.RunParams{})
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
+
+	auth.AdminTag = alpha
+	client, err = action.NewActionAPI(s.State, nil, auth)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.RunOnAllMachines(params.RunParams{})
+	c.Assert(err, jc.ErrorIsNil)
 }
