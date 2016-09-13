@@ -329,8 +329,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(application.NewAddUnitCommand())
-	r.Register(application.NewGetCommand())
-	r.Register(application.NewSetCommand())
+	r.Register(application.NewConfigCommand())
 	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
