@@ -227,8 +227,8 @@ var scenarioStatus = &params.FullStatus{
 			},
 			SubordinateTo: []string{"wordpress"},
 			Status: params.DetailedStatus{
-				Status: "unknown",
-				Info:   "Waiting for agent initialization to finish",
+				Status: "waiting",
+				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
 			},
 		},
@@ -239,8 +239,8 @@ var scenarioStatus = &params.FullStatus{
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
 			Status: params.DetailedStatus{
-				Status: "unknown",
-				Info:   "Waiting for agent initialization to finish",
+				Status: "waiting",
+				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
 			},
 		},
@@ -271,8 +271,8 @@ var scenarioStatus = &params.FullStatus{
 					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
 							WorkloadStatus: params.DetailedStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{
@@ -284,8 +284,8 @@ var scenarioStatus = &params.FullStatus{
 				},
 				"wordpress/1": {
 					WorkloadStatus: params.DetailedStatus{
-						Status: "unknown",
-						Info:   "Waiting for agent initialization to finish",
+						Status: "waiting",
+						Info:   "waiting for machine",
 						Data:   make(map[string]interface{}),
 					},
 					AgentStatus: params.DetailedStatus{
@@ -298,8 +298,8 @@ var scenarioStatus = &params.FullStatus{
 					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
 							WorkloadStatus: params.DetailedStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{

@@ -108,6 +108,21 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	c.Assert(u1.Life(), gc.Equals, state.Dying)
 }
 
+func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dep, _ := s.makeDeployerAndContext(c)
+	defer stop(c, dep)
+	err = u0.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+	s.waitFor(c, unitStatus(u0, status.StatusInfo{
+		Status:  status.Waiting,
+		Message: "installing agent",
+	}))
+}
+
 func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// Create a service, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -262,6 +277,14 @@ func isRemoved(st *state.State, name string) func(*gc.C) bool {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		return false
+	}
+}
+
+func unitStatus(u *state.Unit, statusInfo status.StatusInfo) func(*gc.C) bool {
+	return func(c *gc.C) bool {
+		sInfo, err := u.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		return sInfo.Status == statusInfo.Status && sInfo.Message == statusInfo.Message
 	}
 }
 

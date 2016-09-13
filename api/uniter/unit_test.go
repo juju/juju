@@ -69,8 +69,8 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 
 	unitStatusInfo, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatusInfo.Status, gc.Equals, status.Unknown)
-	c.Assert(unitStatusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(unitStatusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(unitStatusInfo.Message, gc.Equals, "waiting for machine")
 	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
 
 	err = s.apiUnit.SetAgentStatus(status.Idle, "blah", nil)
@@ -86,16 +86,16 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	// Ensure that unit has not changed.
 	unitStatusInfo, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatusInfo.Status, gc.Equals, status.Unknown)
-	c.Assert(unitStatusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(unitStatusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(unitStatusInfo.Message, gc.Equals, "waiting for machine")
 	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	statusInfo, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Unknown)
-	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, "waiting for machine")
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	agentStatusInfo, err := s.wordpressUnit.AgentStatus()

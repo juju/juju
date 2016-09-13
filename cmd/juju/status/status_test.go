@@ -296,15 +296,15 @@ var (
 	}
 	unexposedService = dummyCharm(M{
 		"application-status": M{
-			"current": "unknown",
-			"message": "Waiting for agent initialization to finish",
+			"current": "waiting",
+			"message": "waiting for machine",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 	})
 	exposedService = dummyCharm(M{
 		"application-status": M{
-			"current": "unknown",
-			"message": "Waiting for agent initialization to finish",
+			"current": "waiting",
+			"message": "waiting for machine",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"exposed": true,
@@ -1081,16 +1081,16 @@ var statusTests = []testCase{
 							"server": L{"wordpress"},
 						},
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
 								"machine": "1",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -1170,16 +1170,16 @@ var statusTests = []testCase{
 							"server": L{"wordpress"},
 						},
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
 								"machine": "1",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -1224,16 +1224,16 @@ var statusTests = []testCase{
 					"dummy-application": dummyCharm(M{
 						"life": "dying",
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-application/0": M{
 								"machine": "0",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -1425,16 +1425,16 @@ var statusTests = []testCase{
 						"os":           "ubuntu",
 						"exposed":      true,
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"varnish/0": M{
 								"machine": "3",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -1451,16 +1451,16 @@ var statusTests = []testCase{
 					"private": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"private/0": M{
 								"machine": "4",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -2041,16 +2041,16 @@ var statusTests = []testCase{
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
 								"machine": "1",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -2424,16 +2424,16 @@ var statusTests = []testCase{
 					"mysql": mysqlCharm(M{
 						"version": "the best!",
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
 								"machine": "1",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -2485,16 +2485,16 @@ var statusTests = []testCase{
 					"mysql": mysqlCharm(M{
 						"version": "not as good",
 						"application-status": M{
-							"current": "unknown",
-							"message": "Waiting for agent initialization to finish",
+							"current": "waiting",
+							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
 								"machine": "1",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -2506,8 +2506,8 @@ var statusTests = []testCase{
 							"mysql/1": M{
 								"machine": "2",
 								"workload-status": M{
-									"current": "unknown",
-									"message": "Waiting for agent initialization to finish",
+									"current": "waiting",
+									"message": "waiting for machine",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -4139,16 +4139,16 @@ var statusTimeTest = test(
 			"applications": M{
 				"dummy-application": dummyCharm(M{
 					"application-status": M{
-						"current": "unknown",
-						"message": "Waiting for agent initialization to finish",
+						"current": "waiting",
+						"message": "waiting for machine",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"units": M{
 						"dummy-application/0": M{
 							"machine": "1",
 							"workload-status": M{
-								"current": "unknown",
-								"message": "Waiting for agent initialization to finish",
+								"current": "waiting",
+								"message": "waiting for machine",
 								"since":   "01 Apr 15 01:23+10:00",
 							},
 							"juju-status": M{

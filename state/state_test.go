@@ -1355,6 +1355,9 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
+	sInfo, err := mysql.Status()
+	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(sInfo.Message, gc.Equals, "waiting for machine")
 
 	// Check that retrieving the new created services works correctly.
 	wordpress, err = s.State.Application("wordpress")

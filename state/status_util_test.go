@@ -43,8 +43,8 @@ func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, c
 }
 
 func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
-	c.Check(statusInfo.Status, gc.Equals, status.Unknown)
-	c.Check(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Check(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Check(statusInfo.Message, gc.Equals, "waiting for machine")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
 }
