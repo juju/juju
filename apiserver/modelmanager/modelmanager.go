@@ -481,25 +481,6 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	return result, nil
 }
 
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-//
-// TODO(axw) drop this method after 2.0-beta16 is out.
-func (m *ModelManagerAPI) DestroyModel() error {
-	// Any user is able to delete their own model (until real fine
-	// grain permissions are available), and admins (the creator of the state
-	// server model) are able to delete models for other people.
-	model, err := m.state.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = m.authCheck(model.Owner())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
-}
-
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
 func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResults, error) {
