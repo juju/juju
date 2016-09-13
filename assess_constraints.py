@@ -68,7 +68,7 @@ def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
     """Create a charm with constraints and test deploying it."""
     constraints_charm = Charm(charm_name,
                               'Test charm for constraints',
-                              series=['xenial'])
+                              series=[charm_series])
     charm_root = constraints_charm.to_repo_dir(charm_dir)
     platform = 'ubuntu'
     charm = local_charm_path(charm=charm_name,
@@ -107,11 +107,6 @@ def assess_virt_type_constraints(client, test_kvm=False):
     if test_kvm:
         VIRT_TYPES.remove("kvm")
 
-#
-#def get_provider_instance_types(client):
-#    """Get a list of all valid instance types for the client's provider."""
-#    return
-#
 
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
@@ -127,7 +122,7 @@ def assess_instance_type(client, provider, instance_type):
 
 def assess_instance_type_constraints(client):
     """Assess deployment with instance-type constraints."""
-    provider = client.env.config['type']
+    provider = client.env.config.get('type')
     if provider not in INSTANCE_TYPES:
         raise ValueError('Provider does not implement instance-type '
                          'constraint.')
