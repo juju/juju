@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -75,6 +76,26 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 		c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, "action terminated")
 		c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
 	}
+}
+
+func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
+	st := operation.State{
+		Kind:     operation.RunAction,
+		Step:     operation.Done,
+		ActionId: &someActionId,
+	}
+	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
+	op, err := factory.NewFailAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+	midState, err := op.Prepare(st)
+	c.Assert(midState, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Execute(*midState)
+	c.Assert(err, gc.ErrorMatches, "squelch")
 }
 
 func (s *FailActionSuite) TestCommit(c *gc.C) {
