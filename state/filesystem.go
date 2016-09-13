@@ -614,7 +614,7 @@ func destroyFilesystemOps(st *State, f *filesystem) []txn.Op {
 		}}
 	}
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingFilesystem, f.doc.FilesystemId)
+	cleanupOp := newCleanupOp(cleanupAttachmentsForDyingFilesystem, f.doc.FilesystemId)
 	return []txn.Op{{
 		C:      filesystemsC,
 		Id:     f.doc.FilesystemId,

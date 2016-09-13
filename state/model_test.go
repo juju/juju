@@ -431,8 +431,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerEnv.DestroyIncludingHosted(), jc.ErrorIsNil)
 
-	assertCleanupRuns(c, s.State)
-	assertDoesNotNeedCleanup(c, s.State)
+	assertCleanupCount(c, s.State, 2)
 	assertAllMachinesDeadAndRemove(c, s.State)
 	assertEnv(controllerEnv, s.State, state.Dying, 0, 0)
 

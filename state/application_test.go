@@ -1031,6 +1031,17 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
+
+	// Having studiously avoided triggering cleanups throughout,
+	// invoke them now and check that the charms are cleaned up
+	// correctly -- and that a storm of cleanups for the same
+	// charm are not a problem.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	err = oldCh.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = newCh.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
@@ -1755,18 +1766,12 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check charm removed
+	err = s.charm.Refresh()
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
-}
-
-func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
-	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
-
-	err := svc.Destroy()
-	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsFalse)
 }

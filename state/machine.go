@@ -486,7 +486,7 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
+	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -623,7 +623,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
-	cleanupOp := m.st.newCleanupOp(cleanupDyingMachine, m.doc.Id)
+	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
