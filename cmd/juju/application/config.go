@@ -62,7 +62,7 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action          func(*cmd.Context) error // get, set, or reset action set in  Init
+	action          func(configCommandAPI, *cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
 	configFile      cmd.FileVar
 	keys            []string
@@ -100,16 +100,16 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
 // API and sets that as the API.
-func (c *configCommand) getAPI() (func(), error) {
+func (c *configCommand) getAPI() (configCommandAPI, error) {
 	if c.api != nil {
-		return func() { c.api.Close() }, nil
+		return c.api, nil
 	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.api = application.NewClient(root)
-	return func() { c.api.Close() }, nil
+	client := application.NewClient(root)
+	return client, nil
 }
 
 // Init is part of the cmd.Command interface.
@@ -175,33 +175,18 @@ func (c *configCommand) parseGet(args []string) error {
 
 // Run implements the cmd.Command interface.
 func (c *configCommand) Run(ctx *cmd.Context) error {
-	closer, err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer closer()
+	defer client.Close()
 
-	return c.action(ctx)
+	return c.action(client, ctx)
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(ctx *cmd.Context) error {
-	return block.ProcessBlockedError(c.api.Unset(c.applicationName, c.keys), block.BlockChange)
-}
-
-// setConfigFromFile sets the application configuration from settings passed
-// in a YAML file.
-func (c *configCommand) setConfigFromFile(ctx *cmd.Context) error {
-	b, err := c.configFile.Read(ctx)
-	if err != nil {
-		return err
-	}
-	return block.ProcessBlockedError(
-		c.api.Update(
-			params.ApplicationUpdate{
-				ApplicationName: c.applicationName,
-				SettingsYAML:    string(b)}), block.BlockChange)
-
+func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
+	return block.ProcessBlockedError(client.Unset(c.applicationName, c.keys), block.BlockChange)
 }
 
 // validateValues reads the values provided as args and validates that they are
@@ -237,9 +222,9 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 
 // setConfig is the run action when we are setting new attribute values as args
 // or as a file passed in.
-func (c *configCommand) setConfig(ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
 	if c.useFile {
-		return c.setConfigFromFile(ctx)
+		return c.setConfigFromFile(client, ctx)
 	}
 
 	settings, err := c.validateValues(ctx)
@@ -247,7 +232,7 @@ func (c *configCommand) setConfig(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	result, err := c.api.Get(c.applicationName)
+	result, err := client.Get(c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -264,12 +249,37 @@ func (c *configCommand) setConfig(ctx *cmd.Context) error {
 		}
 	}
 
-	return block.ProcessBlockedError(c.api.Set(c.applicationName, settings), block.BlockChange)
+	return block.ProcessBlockedError(client.Set(c.applicationName, settings), block.BlockChange)
+}
+
+// setConfigFromFile sets the application configuration from settings passed
+// in a YAML file.
+func (c *configCommand) setConfigFromFile(client configCommandAPI, ctx *cmd.Context) error {
+	var (
+		b   []byte
+		err error
+	)
+	if c.configFile.Path == "-" {
+		buf := bytes.Buffer{}
+		buf.ReadFrom(ctx.Stdin)
+		b = buf.Bytes()
+	} else {
+		b, err = c.configFile.Read(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return block.ProcessBlockedError(
+		client.Update(
+			params.ApplicationUpdate{
+				ApplicationName: c.applicationName,
+				SettingsYAML:    string(b)}), block.BlockChange)
+
 }
 
 // getConfig is the run action to return one or all configuration values.
-func (c *configCommand) getConfig(ctx *cmd.Context) error {
-	results, err := c.api.Get(c.applicationName)
+func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
+	results, err := client.Get(c.applicationName)
 	if err != nil {
 		return err
 	}

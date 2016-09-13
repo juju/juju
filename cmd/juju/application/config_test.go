@@ -249,6 +249,19 @@ func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 	c.Check(s.fake.config, gc.Equals, yamlConfigValue)
 }
 
+func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
+	s.fake = &fakeApplicationAPI{name: "dummy-application"}
+	ctx := coretesting.Context(c)
+	ctx.Stdin = strings.NewReader("settings:\n  username:\n  value: world\n")
+	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
+		"dummy-application",
+		"--file",
+		"-"})
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n")
+}
+
 func (s *configCommandSuite) TestResetConfigToDefault(c *gc.C) {
 	s.fake = &fakeApplicationAPI{name: "dummy-application", values: map[string]interface{}{
 		"username": "hello",
