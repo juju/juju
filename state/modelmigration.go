@@ -281,7 +281,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	return &migration.TargetInfo{
-		ControllerTag: names.NewModelTag(mig.doc.TargetController),
+		ControllerTag: names.NewControllerTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
 		AuthTag:       authTag,
@@ -695,12 +695,12 @@ func jsonToMacaroons(raw string) ([]macaroon.Slice, error) {
 	return macs, nil
 }
 
-func checkTargetController(st *State, targetControllerTag names.ModelTag) error {
+func checkTargetController(st *State, targetControllerTag names.ControllerTag) error {
 	currentController, err := st.ControllerModel()
 	if err != nil {
 		return errors.Annotate(err, "failed to load existing controller model")
 	}
-	if targetControllerTag == currentController.ModelTag() {
+	if targetControllerTag == currentController.ControllerTag() {
 		return errors.New("model already attached to target controller")
 	}
 	return nil

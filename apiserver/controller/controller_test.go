@@ -341,7 +341,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			{
 				ModelTag: st1.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
 					AuthTag:       names.NewUserTag("admin1").String(),
@@ -350,7 +350,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			}, {
 				ModelTag: st2.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
@@ -431,7 +431,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 			{
 				ModelTag: st.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
@@ -462,7 +462,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 			{
 				ModelTag: st.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
@@ -489,7 +489,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 		Specs: []params.MigrationSpec{{
 			ModelTag: st.ModelTag().String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: randomModelTag(),
+				ControllerTag: randomControllerTag(),
 				Addrs:         []string{"1.1.1.1:1111"},
 				CACert:        "cert1",
 				AuthTag:       names.NewUserTag("admin1").String(),
@@ -505,6 +505,11 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(active, jc.IsFalse)
 
+}
+
+func randomControllerTag() string {
+	uuid := utils.MustNewUUID().String()
+	return names.NewControllerTag(uuid).String()
 }
 
 func randomModelTag() string {

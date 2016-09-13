@@ -42,7 +42,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
-	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,7 +247,7 @@ func (s *MigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
 
 func (s *MigrationSuite) TestMigrationToSameController(c *gc.C) {
 	spec := s.stdSpec
-	spec.TargetInfo.ControllerTag = s.State.ModelTag()
+	spec.TargetInfo.ControllerTag = s.State.ControllerTag()
 
 	mig, err := s.State2.CreateMigration(spec)
 	c.Check(mig, gc.IsNil)

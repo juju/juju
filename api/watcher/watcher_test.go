@@ -323,7 +323,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	spec := state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("someone"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 			Addrs:         []string{"1.2.3.4:5"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("dog"),
