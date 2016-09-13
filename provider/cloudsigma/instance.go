@@ -31,19 +31,19 @@ func (i sigmaInstance) Id() instance.Id {
 func (i sigmaInstance) Status() instance.InstanceStatus {
 	entityStatus := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	switch entityStatus {
 	case gosigma.ServerStarting:
-		jujuStatus = status.StatusAllocating
+		jujuStatus = status.Allocating
 	case gosigma.ServerRunning:
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case gosigma.ServerStopping, gosigma.ServerStopped:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	case gosigma.ServerUnavailable:
 		// I am not sure about this one.
-		jujuStatus = status.StatusPending
+		jujuStatus = status.Pending
 	default:
-		jujuStatus = status.StatusPending
+		jujuStatus = status.Pending
 	}
 
 	return instance.InstanceStatus{

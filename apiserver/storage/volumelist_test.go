@@ -151,7 +151,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 	}
 	expected := s.expectedVolumeDetails()
 	expected.Storage.Kind = params.StorageKindBlock
-	expected.Storage.Status.Status = status.StatusAttached
+	expected.Storage.Status.Status = status.Attached
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
 		ReadOnly: true,
 	}
@@ -177,7 +177,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 	}
 	expected := s.expectedVolumeDetails()
 	expected.Storage.Kind = params.StorageKindBlock
-	expected.Storage.Status.Status = status.StatusAttached
+	expected.Storage.Status.Status = status.Attached
 	storageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
 	expected.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails

@@ -121,7 +121,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
-			"1": {id: "1", instId: instance.Id("123"), status: status.StatusDown, hasVote: true, wantsVote: true},
+			"1": {id: "1", instId: instance.Id("123"), status: status.Down, hasVote: true, wantsVote: true},
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)

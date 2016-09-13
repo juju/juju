@@ -80,7 +80,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		ProviderType:   "openstack",
 		Life:           params.Alive,
 		Status: params.EntityStatus{
-			Status: status.StatusActive,
+			Status: status.Active,
 			Since:  &statusSince,
 		},
 		Users: users,

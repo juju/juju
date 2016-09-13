@@ -113,7 +113,7 @@ type setStatuser interface {
 func setDefaultStatus(c *gc.C, entity setStatuser) {
 	now := time.Now()
 	s := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "",
 		Since:   &now,
 	}
@@ -174,7 +174,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -191,7 +191,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -208,7 +208,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -453,7 +453,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			}
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "blam",
 				Data:    sd,
 				Since:   &now,

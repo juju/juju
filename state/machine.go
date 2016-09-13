@@ -1526,12 +1526,12 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	switch statusInfo.Status {
-	case status.StatusStarted, status.StatusStopped:
-	case status.StatusError:
+	case status.Started, status.Stopped:
+	case status.Error:
 		if statusInfo.Message == "" {
 			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
 		}
-	case status.StatusPending:
+	case status.Pending:
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		_, err := m.InstanceId()
@@ -1540,7 +1540,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 			break
 		}
 		fallthrough
-	case status.StatusDown:
+	case status.Down:
 		return errors.Errorf("cannot set status %q", statusInfo.Status)
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
@@ -1656,12 +1656,12 @@ func (m *Machine) markInvalidContainers() error {
 				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
 			}
-			if statusInfo.Status == status.StatusPending {
+			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
 				// TODO(perrito666) 2016-05-02 lp:1558657
 				now := time.Now()
 				s := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "unsupported container",
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,

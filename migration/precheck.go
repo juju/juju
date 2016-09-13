@@ -215,13 +215,13 @@ func checkMachines(backend PrecheckBackend) error {
 
 		if statusInfo, err := machine.InstanceStatus(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
-		} else if statusInfo.Status != status.StatusRunning {
+		} else if statusInfo.Status != status.Running {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
 		if statusInfo, err := common.MachineStatus(machine); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
-		} else if statusInfo.Status != status.StatusStarted {
+		} else if statusInfo.Status != status.Started {
 			return newStatusError("machine %s agent not functioning at this time",
 				machine.Id(), statusInfo.Status)
 		}
@@ -298,7 +298,7 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
 	}
 	agentStatus := statusData.Status.Status
-	if agentStatus != status.StatusIdle {
+	if agentStatus != status.Idle {
 		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
 	}
 	return nil
@@ -323,7 +323,7 @@ type agentToolsGetter interface {
 
 func newStatusError(format, id string, s status.Status) error {
 	msg := fmt.Sprintf(format, id)
-	if s != status.StatusEmpty {
+	if s != status.Empty {
 		msg += fmt.Sprintf(" (%s)", s)
 	}
 	return errors.New(msg)

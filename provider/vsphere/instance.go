@@ -41,7 +41,7 @@ func (inst *environInstance) Status() instance.InstanceStatus {
 	// but that method does not exist.
 	// return inst.base.Status()
 	return instance.InstanceStatus{
-		Status: status.StatusPending,
+		Status: status.Pending,
 	}
 }
 

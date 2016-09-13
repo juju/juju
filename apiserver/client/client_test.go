@@ -460,7 +460,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "gaaah",
 		Since:   &now,
 	}
@@ -492,7 +492,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "gaaah",
 		Since:   &now,
 	}
@@ -594,10 +594,10 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:         m.Id(),
 			InstanceId: "i-0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
@@ -1219,7 +1219,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -1230,7 +1230,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
@@ -1240,7 +1240,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -1254,7 +1254,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }

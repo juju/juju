@@ -2071,7 +2071,7 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		now := time.Now()
 		sInfo := status.StatusInfo{
-			Status:  status.StatusIdle,
+			Status:  status.Idle,
 			Message: "",
 			Since:   &now,
 		}
@@ -2154,7 +2154,7 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 		c.Assert(err, jc.ErrorIsNil)
 		now := time.Now()
 		sInfo := status.StatusInfo{
-			Status:  status.StatusIdle,
+			Status:  status.Idle,
 			Message: "",
 			Since:   &now,
 		}

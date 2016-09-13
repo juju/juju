@@ -97,7 +97,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 		// Signal that we're in Status.
 		waitStatus <- struct{}{}
 		return params.StatusResult{
-			Status: status.StatusPending.String(),
+			Status: status.Pending.String(),
 			Info:   "",
 			Data:   map[string]interface{}{},
 			Since:  nil,

@@ -216,7 +216,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	return setStatus(u.st, setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
-		status:    status.StatusActive,
+		status:    status.Active,
 		message:   version,
 		updated:   &now,
 	})
@@ -413,14 +413,14 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != status.StatusAllocating {
+	if agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", status.StatusAllocating}},
+		Assert: bson.D{{"status", status.Allocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -855,7 +855,7 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
-	if info.Status != status.StatusError {
+	if info.Status != status.Error {
 		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
 			return status.StatusInfo{}, err
@@ -2215,7 +2215,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if statusInfo.Status != status.StatusError {
+	if statusInfo.Status != status.Error {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks

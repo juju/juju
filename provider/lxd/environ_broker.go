@@ -50,7 +50,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	raw, err := env.newRawInstance(args)
 	if err != nil {
 		if args.StatusCallback != nil {
-			args.StatusCallback(status.StatusProvisioningError, err.Error(), nil)
+			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -170,7 +170,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	defer cleanupCallback()
 
 	imageCallback := func(copyProgress string) {
-		statusCallback(status.StatusAllocating, copyProgress)
+		statusCallback(status.Allocating, copyProgress)
 	}
 	if err := env.raw.EnsureImageExists(series, imageSources, imageCallback); err != nil {
 		return nil, errors.Trace(err)
@@ -240,12 +240,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 
-	statusCallback(status.StatusAllocating, "preparing image")
+	statusCallback(status.Allocating, "preparing image")
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.StatusRunning, "container started")
+	statusCallback(status.Running, "container started")
 	return inst, nil
 }
 

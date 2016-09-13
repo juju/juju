@@ -124,7 +124,7 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
-			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+			callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
 
@@ -170,7 +170,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
-	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
+	callback(status.Allocating, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")

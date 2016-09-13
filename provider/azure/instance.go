@@ -47,7 +47,7 @@ func (inst *azureInstance) Status() instance.InstanceStatus {
 	// we should query the operation status and report the error
 	// here.
 	return instance.InstanceStatus{
-		Status:  status.StatusEmpty,
+		Status:  status.Empty,
 		Message: to.String(inst.Properties.ProvisioningState),
 	}
 

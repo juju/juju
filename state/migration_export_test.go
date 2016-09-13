@@ -237,7 +237,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, status.StatusStarted, addedHistoryCount)
+	s.primeStatusHistory(c, machine1, status.Started, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,7 +265,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusStarted)
+	s.checkStatusHistory(c, history[:addedHistoryCount], status.Started)
 
 	containers := exported.Containers()
 	c.Assert(containers, gc.HasLen, 1)
@@ -341,7 +341,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.StatusActive, addedHistoryCount)
+	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,7 +373,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
+	s.checkStatusHistory(c, history[:addedHistoryCount], status.Active)
 }
 
 func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
@@ -400,8 +400,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	}
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
-	s.primeStatusHistory(c, unit.Agent(), status.StatusIdle, addedHistoryCount)
+	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
+	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,11 +429,11 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 
 	workloadHistory := exported.WorkloadStatusHistory()
 	c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], status.StatusActive)
+	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], status.Active)
 
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
+	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.Idle)
 
 	versionHistory := exported.WorkloadVersionHistory()
 	// There are extra entries at the start that we don't care about.

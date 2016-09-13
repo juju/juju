@@ -131,7 +131,7 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 	match := func(u unitStatus) {
 		desiredUnitCount += 1
 		switch u.JujuStatusInfo.Current {
-		case status.StatusExecuting, status.StatusIdle:
+		case status.Executing, status.Idle:
 			currentUnitCount += 1
 		}
 	}

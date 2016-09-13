@@ -216,23 +216,23 @@ func (inst *openstackInstance) Id() instance.Id {
 
 func (inst *openstackInstance) Status() instance.InstanceStatus {
 	instStatus := inst.getServerDetail().Status
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	switch instStatus {
 	case nova.StatusActive:
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case nova.StatusError:
-		jujuStatus = status.StatusProvisioningError
+		jujuStatus = status.ProvisioningError
 	case nova.StatusBuild, nova.StatusBuildSpawning,
 		nova.StatusDeleted, nova.StatusHardReboot,
 		nova.StatusPassword, nova.StatusReboot,
 		nova.StatusRebuild, nova.StatusRescue,
 		nova.StatusResize, nova.StatusShutoff,
 		nova.StatusSuspended, nova.StatusVerifyResize:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	case nova.StatusUnknown:
-		jujuStatus = status.StatusUnknown
+		jujuStatus = status.Unknown
 	default:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,

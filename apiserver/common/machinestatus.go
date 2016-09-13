@@ -38,7 +38,7 @@ func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 		return machineStatus, nil
 	}
 	if machine.Life() != state.Dead && !agentAlive {
-		machineStatus.Status = status.StatusDown
+		machineStatus.Status = status.Down
 		machineStatus.Message = "agent is not communicating with the server"
 	}
 	return machineStatus, nil
@@ -46,7 +46,7 @@ func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 
 func canMachineBeDown(machineStatus status.StatusInfo) bool {
 	switch machineStatus.Status {
-	case status.StatusPending, status.StatusStopped:
+	case status.Pending, status.Stopped:
 		return false
 	}
 	return true

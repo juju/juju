@@ -613,7 +613,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       status.StatusError,
+		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -636,7 +636,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       status.StatusError,
+		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -657,7 +657,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{minion: s.minion})
-	step(c, ctx, waitUnitAgent{status: status.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.Idle})
 	step(c, ctx, waitHooks(startupHooks(s.minion)))
 	step(c, ctx, verifyCharm{})
 }
@@ -680,7 +680,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{status: status.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.Idle})
 	step(c, ctx, waitHooks(startupHooks(false)))
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -1017,7 +1017,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnitAgent{
-			status: status.StatusIdle,
+			status: status.Idle,
 		},
 		waitHooks(startupHooks(false)),
 		verifyCharm{},
@@ -1027,7 +1027,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       status.StatusError,
+			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        1,
 		},
@@ -1047,7 +1047,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       status.StatusError,
+			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        s.revision,
 		},
@@ -1062,7 +1062,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// upgrade; and thus puts us in an unexpected state for future steps.
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusIdle,
+				Status:  status.Idle,
 				Message: "",
 				Since:   &now,
 			}

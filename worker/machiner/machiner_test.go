@@ -131,7 +131,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	)
 	s.accessor.machine.CheckCall(
 		c, 5, "SetStatus",
-		status.StatusStopped,
+		status.Stopped,
 		"",
 		map[string]interface{}(nil),
 	)
@@ -232,7 +232,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			status.StatusStarted,
+			status.Started,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -245,7 +245,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			status.StatusStopped,
+			status.Stopped,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -371,20 +371,20 @@ func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
 func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 
-	s.waitMachineStatus(c, s.machine, status.StatusStarted)
+	s.waitMachineStatus(c, s.machine, status.Started)
 }
 
 func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), jc.ErrorIsNil)
-	s.waitMachineStatus(c, s.machine, status.StatusStopped)
+	s.waitMachineStatus(c, s.machine, status.Stopped)
 }
 
 func (s *MachinerStateSuite) TestSetDead(c *gc.C) {

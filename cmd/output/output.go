@@ -92,21 +92,21 @@ var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
-	status.StatusActive:  GoodHighlight,
-	status.StatusIdle:    GoodHighlight,
-	status.StatusStarted: GoodHighlight,
+	status.Active:  GoodHighlight,
+	status.Idle:    GoodHighlight,
+	status.Started: GoodHighlight,
 	// busy
-	status.StatusAllocating:  WarningHighlight,
-	status.StatusExecuting:   WarningHighlight,
-	status.StatusLost:        WarningHighlight,
-	status.StatusMaintenance: WarningHighlight,
-	status.StatusPending:     WarningHighlight,
-	status.StatusRebooting:   WarningHighlight,
-	status.StatusStopped:     WarningHighlight,
-	status.StatusUnknown:     WarningHighlight,
+	status.Allocating:  WarningHighlight,
+	status.Executing:   WarningHighlight,
+	status.Lost:        WarningHighlight,
+	status.Maintenance: WarningHighlight,
+	status.Pending:     WarningHighlight,
+	status.Rebooting:   WarningHighlight,
+	status.Stopped:     WarningHighlight,
+	status.Unknown:     WarningHighlight,
 	// bad
-	status.StatusBlocked: ErrorHighlight,
-	status.StatusDown:    ErrorHighlight,
-	status.StatusError:   ErrorHighlight,
-	status.StatusFailed:  ErrorHighlight,
+	status.Blocked: ErrorHighlight,
+	status.Down:    ErrorHighlight,
+	status.Error:   ErrorHighlight,
+	status.Failed:  ErrorHighlight,
 }

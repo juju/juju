@@ -256,7 +256,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		return setAgentStatus(u, status.StatusIdle, "", nil)
+		return setAgentStatus(u, status.Idle, "", nil)
 	}
 
 	clearResolved := func() error {
@@ -335,7 +335,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
 					localState.Conflicted = true
-					err = setAgentStatus(u, status.StatusError, "upgrade failed", nil)
+					err = setAgentStatus(u, status.Error, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)
 				}
@@ -547,5 +547,5 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	return setAgentStatus(u, status.StatusError, statusMessage, statusData)
+	return setAgentStatus(u, status.Error, statusMessage, statusData)
 }

@@ -160,7 +160,7 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	// Change remote state.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "it works",
 		Since:   &now,
 	}

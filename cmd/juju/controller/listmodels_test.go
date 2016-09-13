@@ -73,7 +73,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 			switch model.Name {
 			case "test-model1":
 				last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.StatusActive
+				result.Status.Status = status.Active
 				if f.user != "" {
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
@@ -89,7 +89,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				}
 			case "test-model2":
 				last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.StatusActive
+				result.Status.Status = status.Active
 				if f.user != "" {
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
@@ -98,7 +98,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 					}}
 				}
 			case "test-model3":
-				result.Status.Status = status.StatusDestroying
+				result.Status.Status = status.Destroying
 			}
 			results[i].Result = result
 		}

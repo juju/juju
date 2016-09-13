@@ -100,7 +100,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
-			Status:  status.StatusError,
+			Status:  status.Error,
 			Message: "lol borken",
 			Since:   &now,
 		}
@@ -135,7 +135,7 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
-			Status:  status.StatusError,
+			Status:  status.Error,
 			Message: "lol borken",
 			Since:   &now,
 		}

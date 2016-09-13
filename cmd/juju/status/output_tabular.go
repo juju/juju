@@ -279,7 +279,7 @@ func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) 
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.
 func agentDoing(agentStatus statusInfoContents) string {
-	if agentStatus.Current != status.StatusExecuting {
+	if agentStatus.Current != status.Executing {
 		return ""
 	}
 	// First see if we can determine a hook name.

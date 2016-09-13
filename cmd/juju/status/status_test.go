@@ -404,7 +404,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
@@ -451,7 +451,7 @@ var statusTests = []testCase{
 			network.NewScopedAddress("controller-0.dns", network.ScopePublic),
 		}},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
@@ -481,7 +481,7 @@ var statusTests = []testCase{
 		"instance without addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		expect{
 			"machine 0 has no dns-name",
 			M{
@@ -564,7 +564,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"dummy"},
 		addService{name: "dummy-application", charm: "dummy"},
 		addService{name: "exposed-application", charm: "dummy"},
@@ -602,11 +602,11 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		expect{
 			"two more machines added",
 			M{
@@ -626,7 +626,7 @@ var statusTests = []testCase{
 		// step 19
 		addAliveUnit{"dummy-application", "1"},
 		addAliveUnit{"exposed-application", "2"},
-		setAgentStatus{"exposed-application/0", status.StatusError, "You Require More Vespene Gas", nil},
+		setAgentStatus{"exposed-application/0", status.Error, "You Require More Vespene Gas", nil},
 		// Open multiple ports with different protocols,
 		// ensure they're sorted on protocol, then number.
 		openUnitPort{"exposed-application/0", "udp", 10},
@@ -636,8 +636,8 @@ var statusTests = []testCase{
 		// Simulate some status with no info, while the agent is down.
 		// Status used to be down, we no longer support said state.
 		// now is one of: pending, started, error.
-		setUnitStatus{"dummy-application/0", status.StatusTerminated, "", nil},
-		setAgentStatus{"dummy-application/0", status.StatusIdle, "", nil},
+		setUnitStatus{"dummy-application/0", status.Terminated, "", nil},
+		setAgentStatus{"dummy-application/0", status.Idle, "", nil},
 
 		expect{
 			"add two units, one alive (in error state), one started",
@@ -704,11 +704,11 @@ var statusTests = []testCase{
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
 		setAddresses{"3", network.NewAddresses("controller-3.dns")},
-		setMachineStatus{"3", status.StatusStopped, "Really?"},
+		setMachineStatus{"3", status.Stopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
-		setMachineStatus{"4", status.StatusError, "Beware the red toys"},
+		setMachineStatus{"4", status.Error, "Beware the red toys"},
 		ensureDyingUnit{"dummy-application/0"},
 		addMachine{machineId: "5", job: state.JobHostUnits},
 		ensureDeadMachine{"5"},
@@ -1021,12 +1021,12 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
@@ -1038,7 +1038,7 @@ var statusTests = []testCase{
 
 		relateServices{"wordpress", "mysql"},
 
-		setAgentStatus{"wordpress/0", status.StatusError,
+		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
 			map[string]interface{}{"relation-id": 0}},
 
@@ -1110,12 +1110,12 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
@@ -1127,7 +1127,7 @@ var statusTests = []testCase{
 
 		relateServices{"wordpress", "mysql"},
 
-		setAgentStatus{"wordpress/0", status.StatusError,
+		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
 			map[string]interface{}{"relation-id": 0}},
 
@@ -1253,10 +1253,10 @@ var statusTests = []testCase{
 		addService{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addUnit{"dummy-application", "0"},
-		setAgentStatus{"dummy-application/0", status.StatusIdle, "", nil},
-		setUnitStatus{"dummy-application/0", status.StatusActive, "", nil},
+		setAgentStatus{"dummy-application/0", status.Idle, "", nil},
+		setUnitStatus{"dummy-application/0", status.Active, "", nil},
 		expect{
 			"unit shows that agent is lost",
 			M{
@@ -1310,7 +1310,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"varnish"},
@@ -1320,27 +1320,27 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"project", "1"},
-		setAgentStatus{"project/0", status.StatusIdle, "", nil},
-		setUnitStatus{"project/0", status.StatusActive, "", nil},
+		setAgentStatus{"project/0", status.Idle, "", nil},
+		setUnitStatus{"project/0", status.Active, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
-		setMachineStatus{"3", status.StatusStarted, ""},
+		setMachineStatus{"3", status.Started, ""},
 		addAliveUnit{"varnish", "3"},
 
 		addService{name: "private", charm: "wordpress"},
@@ -1348,7 +1348,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
-		setMachineStatus{"4", status.StatusStarted, ""},
+		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
 
 		relateServices{"project", "mysql"},
@@ -1483,7 +1483,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"riak"},
 		addCharm{"wordpress"},
 
@@ -1492,24 +1492,24 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"riak", "1"},
-		setAgentStatus{"riak/0", status.StatusIdle, "", nil},
-		setUnitStatus{"riak/0", status.StatusActive, "", nil},
+		setAgentStatus{"riak/0", status.Idle, "", nil},
+		setUnitStatus{"riak/0", status.Active, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"riak", "2"},
-		setAgentStatus{"riak/1", status.StatusIdle, "", nil},
-		setUnitStatus{"riak/1", status.StatusActive, "", nil},
+		setAgentStatus{"riak/1", status.Idle, "", nil},
+		setUnitStatus{"riak/1", status.Active, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
-		setMachineStatus{"3", status.StatusStarted, ""},
+		setMachineStatus{"3", status.Started, ""},
 		addAliveUnit{"riak", "3"},
-		setAgentStatus{"riak/2", status.StatusIdle, "", nil},
-		setUnitStatus{"riak/2", status.StatusActive, "", nil},
+		setAgentStatus{"riak/2", status.Idle, "", nil},
+		setUnitStatus{"riak/2", status.Active, "", nil},
 
 		expect{
 			"multiples related peer units",
@@ -1587,7 +1587,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
@@ -1597,20 +1597,20 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
-		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -1623,9 +1623,9 @@ var statusTests = []testCase{
 		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
-		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/0", status.StatusActive, "", nil},
-		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/0", status.Idle, "", nil},
+		setUnitStatus{"logging/0", status.Active, "", nil},
+		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 
 		expect{
 			"multiples related peer units",
@@ -1871,7 +1871,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -1880,26 +1880,26 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 
 		// step 14: A container on machine 1.
 		addContainer{"1", "1/lxd/0", state.JobHostUnits},
 		setAddresses{"1/lxd/0", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"1/lxd/0"},
-		setMachineStatus{"1/lxd/0", status.StatusStarted, ""},
+		setMachineStatus{"1/lxd/0", status.Started, ""},
 		addAliveUnit{"mysql", "1/lxd/0"},
-		setAgentStatus{"mysql/1", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/1", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/1", status.Idle, "", nil},
+		setUnitStatus{"mysql/1", status.Active, "", nil},
 		addContainer{"1", "1/lxd/1", state.JobHostUnits},
 
 		// step 22: A nested container.
 		addContainer{"1/lxd/0", "1/lxd/0/lxd/0", state.JobHostUnits},
 		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"1/lxd/0/lxd/0"},
-		setMachineStatus{"1/lxd/0/lxd/0", status.StatusStarted, ""},
+		setMachineStatus{"1/lxd/0/lxd/0", status.Started, ""},
 
 		expect{
 			"machines with nested containers",
@@ -2017,11 +2017,11 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2070,11 +2070,11 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2125,11 +2125,11 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2182,11 +2182,11 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2238,27 +2238,27 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
-		setMachineStatus{"3", status.StatusStarted, ""},
+		setMachineStatus{"3", status.Started, ""},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
-		setMachineStatus{"4", status.StatusStarted, ""},
+		setMachineStatus{"4", status.Started, ""},
 
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
@@ -2274,14 +2274,14 @@ var statusTests = []testCase{
 
 		setServiceExposed{"mysql", true},
 
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
-		setAgentStatus{"servicewithmeterstatus/0", status.StatusIdle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/0", status.StatusActive, "", nil},
-		setAgentStatus{"servicewithmeterstatus/1", status.StatusIdle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/1", status.StatusActive, "", nil},
-		setAgentStatus{"servicewithmeterstatus/2", status.StatusIdle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/2", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
+		setAgentStatus{"servicewithmeterstatus/0", status.Idle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/0", status.Active, "", nil},
+		setAgentStatus{"servicewithmeterstatus/1", status.Idle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/1", status.Active, "", nil},
+		setAgentStatus{"servicewithmeterstatus/2", status.Idle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/2", status.Active, "", nil},
 
 		setUnitMeterStatus{"servicewithmeterstatus/1", "GREEN", "test green status"},
 		setUnitMeterStatus{"servicewithmeterstatus/2", "RED", "test red status"},
@@ -2400,7 +2400,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
@@ -2408,7 +2408,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
@@ -2453,7 +2453,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
@@ -2461,14 +2461,14 @@ var statusTests = []testCase{
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
 		setUnitWorkloadVersion{"mysql/1", "not as good"},
 
@@ -2655,7 +2655,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	// lp:1558657
 	now := time.Now()
 	s := status.StatusInfo{
-		Status:  status.StatusUnknown,
+		Status:  status.Unknown,
 		Message: "missing",
 		Since:   &now,
 	}
@@ -2950,14 +2950,14 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	// lp:1558657
 	now := time.Now()
 	s := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "",
 		Since:   &now,
 	}
 	err = u.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -3310,7 +3310,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("localhost")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
@@ -3319,19 +3319,19 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("localhost")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
-		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 		relateServices{"wordpress", "mysql"},
@@ -3340,9 +3340,9 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
-		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/0", status.StatusActive, "", nil},
-		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/0", status.Idle, "", nil},
+		setUnitStatus{"logging/0", status.Active, "", nil},
+		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3374,7 +3374,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
@@ -3384,20 +3384,20 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
-		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -3410,9 +3410,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
-		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/0", status.StatusActive, "", nil},
-		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/0", status.Idle, "", nil},
+		setUnitStatus{"logging/0", status.Active, "", nil},
+		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 	}
 
 	ctx.run(c, steps)
@@ -3452,7 +3452,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
@@ -3461,22 +3461,22 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
-		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
 		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{
 			"mysql/0",
-			status.StatusMaintenance,
+			status.Maintenance,
 			"installing all the things", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "logging", charm: "logging"},
@@ -3487,9 +3487,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
-		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/0", status.StatusActive, "", nil},
-		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/0", status.Idle, "", nil},
+		setUnitStatus{"logging/0", status.Active, "", nil},
+		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
 		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
 		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
@@ -3552,21 +3552,21 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
-							Current: status.StatusExecuting,
+							Current: status.Executing,
 							Message: "running config-changed hook",
 						},
 						WorkloadStatusInfo: statusInfoContents{
-							Current: status.StatusMaintenance,
+							Current: status.Maintenance,
 							Message: "doing some work",
 						},
 					},
 					"foo/1": {
 						JujuStatusInfo: statusInfoContents{
-							Current: status.StatusExecuting,
+							Current: status.Executing,
 							Message: "running action backup database",
 						},
 						WorkloadStatusInfo: statusInfoContents{
-							Current: status.StatusMaintenance,
+							Current: status.Maintenance,
 							Message: "doing some work",
 						},
 					},
@@ -3626,7 +3626,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 	}
 
 	for _, s := range steps {
@@ -3703,7 +3703,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the machine's job is to manage the environment
 		addMachine{machineId: "0", job: state.JobManageModel},
 		startAliveMachine{"0"},
-		setMachineStatus{"0", status.StatusStarted, ""},
+		setMachineStatus{"0", status.Started, ""},
 		// And the machine's address is "controller-0.dns"
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		// And a container is started
@@ -3724,28 +3724,28 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the machine's job is to host units
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
-		setMachineStatus{"1", status.StatusStarted, ""},
+		setMachineStatus{"1", status.Started, ""},
 		// And the machine's address is "controller-1.dns"
 		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
-		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
-		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
 		// And a machine is started
 
 		// And the machine's ID is "2"
 		// And the machine's job is to host units
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
-		setMachineStatus{"2", status.StatusStarted, ""},
+		setMachineStatus{"2", status.Started, ""},
 		// And the machine's address is "controller-2.dns"
 		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
-		setAgentStatus{"mysql/0", status.StatusIdle, "", nil},
-		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
 		// And the "logging" service is added
 		addService{name: "logging", charm: "logging"},
 		// And the service is exposed
@@ -3758,12 +3758,12 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		relateServices{"mysql", "logging"},
 		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
 		addSubordinate{"wordpress/0", "logging"},
-		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/0", status.StatusActive, "", nil},
+		setAgentStatus{"logging/0", status.Idle, "", nil},
+		setUnitStatus{"logging/0", status.Active, "", nil},
 		// And the "logging" service is a subordinate to unit 0 of the "mysql" service
 		addSubordinate{"mysql/0", "logging"},
-		setAgentStatus{"logging/1", status.StatusIdle, "", nil},
-		setUnitStatus{"logging/1", status.StatusActive, "", nil},
+		setAgentStatus{"logging/1", status.Idle, "", nil},
+		setUnitStatus{"logging/1", status.Active, "", nil},
 		setUnitsAlive{"logging"},
 	}
 
@@ -3777,9 +3777,9 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given unit 1 of the "logging" service has an error
-	setAgentStatus{"logging/1", status.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
 	// And unit 0 of the "mysql" service has an error
-	setAgentStatus{"mysql/0", status.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"mysql/0", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "active")
 	c.Assert(string(stderr), gc.Equals, "")
@@ -3872,7 +3872,7 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given unit 1 of the "logging" service has an error
-	setAgentStatus{"logging/1", status.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
 	c.Assert(stderr, gc.IsNil)
@@ -4112,14 +4112,14 @@ var statusTimeTest = test(
 	addMachine{machineId: "0", job: state.JobManageModel},
 	setAddresses{"0", network.NewAddresses("controller-0.dns")},
 	startAliveMachine{"0"},
-	setMachineStatus{"0", status.StatusStarted, ""},
+	setMachineStatus{"0", status.Started, ""},
 	addCharm{"dummy"},
 	addService{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
 	setAddresses{"1", network.NewAddresses("controller-1.dns")},
-	setMachineStatus{"1", status.StatusStarted, ""},
+	setMachineStatus{"1", status.Started, ""},
 
 	addAliveUnit{"dummy-application", "1"},
 	expect{

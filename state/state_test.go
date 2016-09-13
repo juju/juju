@@ -57,7 +57,7 @@ var alternatePassword = "bar-12345678901234567890"
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -492,7 +492,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 
 				now := time.Now()
 				sInfo := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "some status",
 					Since:   &now,
 				}

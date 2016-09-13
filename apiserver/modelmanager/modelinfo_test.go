@@ -75,7 +75,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		life:  state.Alive,
 		cfg:   coretesting.ModelConfig(c),
 		status: status.StatusInfo{
-			Status: status.StatusAvailable,
+			Status: status.Available,
 			Since:  &time.Time{},
 		},
 		users: []*mockModelUser{{
@@ -92,7 +92,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		cfg:   coretesting.ModelConfig(c),
 		life:  state.Dying,
 		status: status.StatusInfo{
-			Status: status.StatusDestroying,
+			Status: status.Destroying,
 			Since:  &time.Time{},
 		},
 
@@ -157,7 +157,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		DefaultSeries:      series.LatestLts(),
 		Life:               params.Dying,
 		Status: params.EntityStatus{
-			Status: status.StatusDestroying,
+			Status: status.Destroying,
 			Since:  &time.Time{},
 		},
 		Users: []params.ModelUserInfo{{

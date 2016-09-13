@@ -46,7 +46,7 @@ func (s *ModelStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *ModelStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.model.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusAvailable)
+	c.Check(statusInfo.Status, gc.Equals, status.Available)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
@@ -68,7 +68,7 @@ func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *ModelStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAvailable,
+		Status:  status.Available,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -111,7 +111,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAvailable,
+		Status:  status.Available,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -125,7 +125,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAvailable,
+		Status:  status.Available,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"$foo.bar.baz": map[string]interface{}{
@@ -141,7 +141,7 @@ func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := model.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusAvailable)
+	c.Check(statusInfo.Status, gc.Equals, status.Available)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{

@@ -208,14 +208,14 @@ func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
 	var called int
 	results := params.StatusResults{
 		Results: []params.StatusResult{{
-			Status: status.StatusProvisioning.String(),
+			Status: status.Provisioning.String(),
 		}},
 	}
 	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	statusResult, err := machine.InstanceStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusResult.Status, gc.DeepEquals, status.StatusProvisioning.String())
+	c.Check(statusResult.Status, gc.DeepEquals, status.Provisioning.String())
 	c.Check(called, gc.Equals, 1)
 }
 

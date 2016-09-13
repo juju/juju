@@ -79,7 +79,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	// Cause a unit to become Dying, and check no change.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -128,7 +128,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// would happen if it were possible to have a dying unit in this situation.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
