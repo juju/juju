@@ -186,7 +186,9 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 		go func() {
 			defer machineUpdating.Done()
 			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
-			logger.Errorf("failed updating machine: %v", err)
+			if err != nil {
+				logger.Errorf("failed updating machine: %v", err)
+			}
 		}()
 	}
 	machineUpdating.Wait()
@@ -203,11 +205,17 @@ set -xu
 cd /var/lib/juju/agents
 for agent in *
 do
-	status  jujud-$agent| grep -q "^jujud-$agent start" > /dev/null
-	if [ $? -eq 0 ]; then
-		initctl stop jujud-$agent
-	fi
+	initctl stop jujud-$agent > /dev/null
+        systemctl stop jujud-$agent > /dev/null
+	service jujud-$agent stop > /dev/null
+
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
+	}" $agent/agent.conf
+	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
 	}" $agent/agent.conf
@@ -222,12 +230,10 @@ do
 		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	# Just in case is a stale unit
-	status  jujud-$agent| grep -q "^jujud-$agent stop" > /dev/null
-	if [ $? -eq 0 ]; then
-		initctl start jujud-$agent
-                systemctl stop jujud-$agent
-                systemctl start jujud-$agent
-	fi
+	initctl start jujud-$agent > /dev/null
+        systemctl stop jujud-$agent > /dev/null
+        systemctl start jujud-$agent > /dev/null
+	service jujud-$agent start > /dev/null
 done
 `))
 
