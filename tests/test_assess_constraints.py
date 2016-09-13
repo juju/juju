@@ -127,18 +127,16 @@ class TestAssess(TestCase):
             deploy_mock.call_args_list]
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
-    # TODO Get this one working:
     def test_instance_type_constraints(self):
+        assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
         fake_instance_types = ['bar', 'baz']
-        INSTANCE_TYPES['foo'] = fake_instance_types
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            #fake_client.env.config['type'] = 'foo'
-            with patch('assess_constraints.assess_instance_type',
-                       autospec=True) as assess_mock:
-                assess_instance_type_constraints(fake_client)
-        del INSTANCE_TYPES['foo']
+            fake_provider = fake_client.env.config.get('type')
+            INSTANCE_TYPES[fake_provider] = fake_instance_types
+            assess_instance_type_constraints(fake_client)
+            del INSTANCE_TYPES[fake_provider]
         constraints_calls = self.gather_constraint_args(deploy_mock)
-        self.assertEqual(constraints_calls, fake_instance_types)
+        self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())

@@ -68,7 +68,7 @@ def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
     """Create a charm with constraints and test deploying it."""
     constraints_charm = Charm(charm_name,
                               'Test charm for constraints',
-                              series=['xenial'])
+                              series=[charm_series])
     charm_root = constraints_charm.to_repo_dir(charm_dir)
     platform = 'ubuntu'
     charm = local_charm_path(charm=charm_name,
