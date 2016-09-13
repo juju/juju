@@ -41,16 +41,16 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 var (
-	fakeModelBytes = []byte("model")
-	modelUUID      = "model-uuid"
-	modelTag       = names.NewModelTag(modelUUID)
-	modelTagString = modelTag.String()
-	modelName      = "model-name"
-	ownerTag       = names.NewUserTag("owner")
-	modelVersion   = version.MustParse("1.2.4")
+	fakeModelBytes      = []byte("model")
+	targetControllerTag = names.NewControllerTag("controller-uuid")
+	modelUUID           = "model-uuid"
+	modelTag            = names.NewModelTag(modelUUID)
+	modelName           = "model-name"
+	ownerTag            = names.NewUserTag("owner")
+	modelVersion        = version.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
-	apiOpenCallController = jujutesting.StubCall{
+	apiOpenControllerCall = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -62,7 +62,7 @@ var (
 			migration.ControllerDialOpts(),
 		},
 	}
-	apiOpenCallModel = jujutesting.StubCall{
+	apiOpenModelCall = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -84,14 +84,14 @@ var (
 	activateCall = jujutesting.StubCall{
 		"MigrationTarget.Activate",
 		[]interface{}{
-			params.ModelArgs{ModelTag: modelTagString},
+			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	connCloseCall = jujutesting.StubCall{"Connection.Close", nil}
-	abortCall     = jujutesting.StubCall{
+	apiCloseCall = jujutesting.StubCall{"Connection.Close", nil}
+	abortCall    = jujutesting.StubCall{
 		"MigrationTarget.Abort",
 		[]interface{}{
-			params.ModelArgs{ModelTag: modelTagString},
+			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	watchStatusLockdownCalls = []jujutesting.StubCall{
@@ -102,20 +102,20 @@ var (
 	prechecksCalls = []jujutesting.StubCall{
 		{"facade.Prechecks", nil},
 		{"facade.ModelInfo", nil},
-		apiOpenCallController,
+		apiOpenControllerCall,
 		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
 			OwnerTag:     ownerTag.String(),
 			AgentVersion: modelVersion,
 		}}},
-		connCloseCall,
+		apiCloseCall,
 	}
 	abortCalls = []jujutesting.StubCall{
 		{"facade.SetPhase", []interface{}{coremigration.ABORT}},
-		apiOpenCallController,
+		apiOpenControllerCall,
 		abortCall,
-		connCloseCall,
+		apiCloseCall,
 		{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	}
 )
@@ -125,7 +125,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 	s.clock = jujutesting.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
-	s.connection = &stubConnection{stub: s.stub}
+	s.connection = &stubConnection{
+		stub:          s.stub,
+		controllerTag: targetControllerTag,
+	}
 	s.connectionErr = nil
 
 	s.facade = newStubMasterFacade(s.stub, s.clock.Now())
@@ -159,7 +162,7 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 		Phase:            phase,
 		PhaseChangedTime: s.clock.Now(),
 		TargetInfo: coremigration.TargetInfo{
-			ControllerTag: names.NewControllerTag("controller-uuid"),
+			ControllerTag: targetControllerTag,
 			Addrs:         []string{"1.2.3.4:5"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
@@ -193,9 +196,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 			//IMPORT
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			importCall,
-			apiOpenCallModel,
+			apiOpenModelCall,
 			{"UploadBinaries", []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmDownloader,
@@ -204,16 +207,16 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				},
 				fakeToolsDownloader,
 			}},
-			connCloseCall, // for target model
-			connCloseCall, // for target controller
+			apiCloseCall, // for target model
+			apiCloseCall, // for target controller
 			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
 
 			// VALIDATION
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			activateCall,
-			connCloseCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.SUCCESS}},
 
 			// SUCCESS
@@ -357,6 +360,23 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	))
 }
 
+func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.connection.controllerTag = names.NewControllerTag("another-controller")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.Prechecks", nil},
+			{"facade.ModelInfo", nil},
+			apiOpenControllerCall,
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+}
+
 func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.prechecksErr = errors.New("boom")
@@ -419,9 +439,9 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORT}},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 		},
 	))
@@ -436,9 +456,9 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.Export", nil},
-			apiOpenCallController,
+			apiOpenControllerCall,
 			importCall,
-			connCloseCall,
+			apiCloseCall,
 		},
 		abortCalls,
 	))
@@ -618,7 +638,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 				},
 			},
 			abortCall,
-			connCloseCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 		},
 	))
@@ -903,9 +923,10 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 
 type stubConnection struct {
 	api.Connection
-	stub         *jujutesting.Stub
-	prechecksErr error
-	importErr    error
+	stub          *jujutesting.Stub
+	prechecksErr  error
+	importErr     error
+	controllerTag names.ControllerTag
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -937,6 +958,10 @@ func (c *stubConnection) Client() *api.Client {
 func (c *stubConnection) Close() error {
 	c.stub.AddCall("Connection.Close")
 	return nil
+}
+
+func (c *stubConnection) ControllerTag() names.ControllerTag {
+	return c.controllerTag
 }
 
 func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {

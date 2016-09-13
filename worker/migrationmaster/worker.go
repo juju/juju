@@ -317,6 +317,12 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer conn.Close()
+
+	if conn.ControllerTag() != status.TargetInfo.ControllerTag {
+		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
+			conn.ControllerTag(), status.TargetInfo.ControllerTag)
+	}
+
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
