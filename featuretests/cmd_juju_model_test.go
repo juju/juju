@@ -81,30 +81,6 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
 }
 
-func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
-	// Firstly share an model with a user
-	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "read", "controller")
-	user := names.NewUserTag(username)
-	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.NotNil)
-
-	// Because we are calling into juju through the main command,
-	// and the main command adds a warning logging writer, we need
-	// to clear the logging writers here.
-	loggo.RemoveWriter("warning")
-
-	context = s.run(c, "list-shares")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                 ACCESS  LAST CONNECTION\n"+
-		"admin@local (admin)  admin   just now\n"+
-		"bar@ubuntuone        read    never connected\n"+
-		"\n")
-
-}
-
 func (s *cmdModelSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

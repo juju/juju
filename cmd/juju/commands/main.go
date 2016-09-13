@@ -305,7 +305,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewDefaultsCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-	r.Register(model.NewUsersCommand())
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
