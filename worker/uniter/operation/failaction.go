@@ -9,7 +9,6 @@ import (
 
 type failAction struct {
 	actionId string
-	message  string
 
 	callbacks Callbacks
 
@@ -35,8 +34,7 @@ func (fa *failAction) Prepare(state State) (*State, error) {
 
 // Execute is part of the Operation interface.
 func (fa *failAction) Execute(state State) (*State, error) {
-
-	if err := fa.callbacks.FailAction(fa.actionId, fa.message); err != nil {
+	if err := fa.callbacks.FailAction(fa.actionId, "action terminated"); err != nil {
 		return nil, err
 	}
 

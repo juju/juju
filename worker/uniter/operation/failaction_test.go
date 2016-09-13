@@ -59,11 +59,9 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		runnerFactory := NewRunActionRunnerFactory(nil)
-		callbacks := &RunActionCallbacks{}
+		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
 		factory := operation.NewFactory(operation.FactoryParams{
-			RunnerFactory: runnerFactory,
-			Callbacks:     callbacks,
+			Callbacks: callbacks,
 		})
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
@@ -74,8 +72,8 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
-		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
-		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
+		c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, "action terminated")
+		c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
 	}
 }
 
