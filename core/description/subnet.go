@@ -16,15 +16,15 @@ type subnets struct {
 type subnet struct {
 	ProviderId_ string `yaml:"provider-id,omitempty"`
 	CIDR_       string `yaml:"cidr"`
-	VLANTag_    int    `yaml:"vlantag"`
+	VLANTag_    int    `yaml:"vlan-tag"`
 
-	AvailabilityZone_ string `yaml:"availabilityzone"`
-	SpaceName_        string `yaml:"spacename"`
+	AvailabilityZone_ string `yaml:"availability-zone"`
+	SpaceName_        string `yaml:"space-name"`
 
 	// These will be deprecated once the address allocation strategy for
 	// EC2 is changed. They are unused already on MAAS.
-	AllocatableIPHigh_ string `yaml:"allocatableiphigh,omitempty"`
-	AllocatableIPLow_  string `yaml:"allocatableiplow,omitempty"`
+	AllocatableIPHigh_ string `yaml:"allocatable-ip-high,omitempty"`
+	AllocatableIPLow_  string `yaml:"allocatable-ip-low,omitempty"`
 }
 
 // SubnetArgs is an argument struct used to create a
@@ -130,19 +130,19 @@ var subnetDeserializationFuncs = map[int]subnetDeserializationFunc{
 
 func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 	fields := schema.Fields{
-		"cidr":              schema.String(),
-		"provider-id":       schema.String(),
-		"vlantag":           schema.Int(),
-		"spacename":         schema.String(),
-		"availabilityzone":  schema.String(),
-		"allocatableiphigh": schema.String(),
-		"allocatableiplow":  schema.String(),
+		"cidr":                schema.String(),
+		"provider-id":         schema.String(),
+		"vlan-tag":            schema.Int(),
+		"space-name":          schema.String(),
+		"availability-zone":   schema.String(),
+		"allocatable-ip-high": schema.String(),
+		"allocatable-ip-low":  schema.String(),
 	}
 
 	defaults := schema.Defaults{
-		"provider-id":       "",
-		"allocatableiphigh": "",
-		"allocatableiplow":  "",
+		"provider-id":         "",
+		"allocatable-ip-high": "",
+		"allocatable-ip-low":  "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -157,10 +157,10 @@ func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 	return &subnet{
 		CIDR_:              valid["cidr"].(string),
 		ProviderId_:        valid["provider-id"].(string),
-		VLANTag_:           int(valid["vlantag"].(int64)),
-		SpaceName_:         valid["spacename"].(string),
-		AvailabilityZone_:  valid["availabilityzone"].(string),
-		AllocatableIPHigh_: valid["allocatableiphigh"].(string),
-		AllocatableIPLow_:  valid["allocatableiplow"].(string),
+		VLANTag_:           int(valid["vlan-tag"].(int64)),
+		SpaceName_:         valid["space-name"].(string),
+		AvailabilityZone_:  valid["availability-zone"].(string),
+		AllocatableIPHigh_: valid["allocatable-ip-high"].(string),
+		AllocatableIPLow_:  valid["allocatable-ip-low"].(string),
 	}, nil
 }
