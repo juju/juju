@@ -515,22 +515,22 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 	for _, observed := range observedConfigs {
 
 		name, ipAddress := observed.InterfaceName, observed.Address
-		mergedConfig := observed
+		finalConfig := observed
 
 		providerConfig, known := providerConfigByName[name]
 		if known {
-			mergedConfig = mergeObservedAndProviderInterfaceConfig(mergedConfig, providerConfig)
+			finalConfig = mergeObservedAndProviderInterfaceConfig(finalConfig, providerConfig)
 			logger.Debugf("updated observed interface config for %q with: %+v", name, providerConfig)
 		}
 
 		providerConfig, known = providerConfigByAddress[ipAddress]
 		if known {
-			mergedConfig = mergeObservedAndProviderAddressConfig(mergedConfig, providerConfig)
+			finalConfig = mergeObservedAndProviderAddressConfig(finalConfig, providerConfig)
 			logger.Debugf("updated observed address config for %q with: %+v", name, providerConfig)
 		}
 
-		results = append(results, mergedConfig)
-		logger.Debugf("merged config for %q: %+v", name, mergedConfig)
+		results = append(results, finalConfig)
+		logger.Debugf("merged config for %q: %+v", name, finalConfig)
 	}
 
 	return results
@@ -553,61 +553,71 @@ func networkConfigsByAddress(input []params.NetworkConfig) map[string]params.Net
 }
 
 func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
-	mergedConfig := observedConfig
+	finalConfig := observedConfig
 
-	mergedConfig.ProviderId = providerConfig.ProviderId
-	mergedConfig.ProviderVLANId = providerConfig.ProviderVLANId
-	mergedConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
+	// The following fields cannot be observed and are only known by the
+	// provider.
+	finalConfig.ProviderId = providerConfig.ProviderId
+	finalConfig.ProviderVLANId = providerConfig.ProviderVLANId
+	finalConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
+
+	// The following few fields are only updated if their observed values are
+	// empty.
 
 	if observedConfig.InterfaceType == "" {
-		mergedConfig.InterfaceType = providerConfig.InterfaceType
+		finalConfig.InterfaceType = providerConfig.InterfaceType
 	}
 
 	if observedConfig.VLANTag == 0 {
-		mergedConfig.VLANTag = providerConfig.VLANTag
+		finalConfig.VLANTag = providerConfig.VLANTag
 	}
 
 	if observedConfig.ParentInterfaceName == "" {
-		mergedConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
+		finalConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
 	}
 
-	return mergedConfig
+	return finalConfig
 }
 
 func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
-	mergedConfig := observedConfig
+	finalConfig := observedConfig
 
-	mergedConfig.ProviderAddressId = providerConfig.ProviderAddressId
-	mergedConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
-	mergedConfig.ProviderSpaceId = providerConfig.ProviderSpaceId
+	// The following fields cannot be observed and are only known by the
+	// provider.
+	finalConfig.ProviderAddressId = providerConfig.ProviderAddressId
+	finalConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
+	finalConfig.ProviderSpaceId = providerConfig.ProviderSpaceId
+
+	// The following few fields are only updated if their observed values are
+	// empty.
 
 	if observedConfig.ProviderVLANId == "" {
-		mergedConfig.ProviderVLANId = providerConfig.ProviderVLANId
+		finalConfig.ProviderVLANId = providerConfig.ProviderVLANId
 	}
 
 	if observedConfig.VLANTag == 0 {
-		mergedConfig.VLANTag = providerConfig.VLANTag
+		finalConfig.VLANTag = providerConfig.VLANTag
 	}
 
 	if observedConfig.ConfigType == "" {
-		mergedConfig.ConfigType = providerConfig.ConfigType
+		finalConfig.ConfigType = providerConfig.ConfigType
 	}
 
 	if observedConfig.CIDR == "" {
-		mergedConfig.CIDR = providerConfig.CIDR
+		finalConfig.CIDR = providerConfig.CIDR
 	}
 
 	if observedConfig.GatewayAddress == "" {
-		mergedConfig.GatewayAddress = providerConfig.GatewayAddress
+		finalConfig.GatewayAddress = providerConfig.GatewayAddress
 	}
 
 	if len(observedConfig.DNSServers) == 0 {
-		mergedConfig.DNSServers = providerConfig.DNSServers
+		finalConfig.DNSServers = providerConfig.DNSServers
 	}
 
 	if len(observedConfig.DNSSearchDomains) == 0 {
-		mergedConfig.DNSSearchDomains = providerConfig.DNSSearchDomains
+		finalConfig.DNSSearchDomains = providerConfig.DNSSearchDomains
 	}
 
-	return mergedConfig
+	return finalConfig
 }
