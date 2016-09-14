@@ -10,19 +10,19 @@ import (
 
 type ipaddresses struct {
 	Version      int          `yaml:"version"`
-	IPAddresses_ []*ipaddress `yaml:"ipaddresses"`
+	IPAddresses_ []*ipaddress `yaml:"ip-addresses"`
 }
 
 type ipaddress struct {
 	ProviderID_       string   `yaml:"provider-id,omitempty"`
-	DeviceName_       string   `yaml:"devicename"`
-	MachineID_        string   `yaml:"machineid"`
-	SubnetCIDR_       string   `yaml:"subnetcidr"`
-	ConfigMethod_     string   `yaml:"configmethod"`
+	DeviceName_       string   `yaml:"device-name"`
+	MachineID_        string   `yaml:"machine-id"`
+	SubnetCIDR_       string   `yaml:"subnet-cidr"`
+	ConfigMethod_     string   `yaml:"config-method"`
 	Value_            string   `yaml:"value"`
-	DNSServers_       []string `yaml:"dnsservers"`
-	DNSSearchDomains_ []string `yaml:"dnssearchdomains"`
-	GatewayAddress_   string   `yaml:"gatewayaddress"`
+	DNSServers_       []string `yaml:"dns-servers"`
+	DNSSearchDomains_ []string `yaml:"dns-search-domains"`
+	GatewayAddress_   string   `yaml:"gateway-address"`
 }
 
 // ProviderID implements IPAddress.
@@ -99,10 +99,10 @@ func newIPAddress(args IPAddressArgs) *ipaddress {
 }
 
 func importIPAddresses(source map[string]interface{}) ([]*ipaddress, error) {
-	checker := versionedChecker("ipaddresses")
+	checker := versionedChecker("ip-addresses")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ipaddresses version schema check failed")
+		return nil, errors.Annotatef(err, "ip-addresses version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
@@ -111,7 +111,7 @@ func importIPAddresses(source map[string]interface{}) ([]*ipaddress, error) {
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["ipaddresses"].([]interface{})
+	sourceList := valid["ip-addresses"].([]interface{})
 	return importIPAddressList(sourceList, importFunc)
 }
 
@@ -120,11 +120,11 @@ func importIPAddressList(sourceList []interface{}, importFunc ipaddressDeseriali
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for ipaddress %d, %T", i, value)
+			return nil, errors.Errorf("unexpected value for ip-address %d, %T", i, value)
 		}
 		ipaddress, err := importFunc(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "ipaddress %d", i)
+			return nil, errors.Annotatef(err, "ip-address %d", i)
 		}
 		result = append(result, ipaddress)
 	}
@@ -139,15 +139,15 @@ var ipaddressDeserializationFuncs = map[int]ipaddressDeserializationFunc{
 
 func importIPAddressV1(source map[string]interface{}) (*ipaddress, error) {
 	fields := schema.Fields{
-		"provider-id":      schema.String(),
-		"devicename":       schema.String(),
-		"machineid":        schema.String(),
-		"subnetcidr":       schema.String(),
-		"configmethod":     schema.String(),
-		"value":            schema.String(),
-		"dnsservers":       schema.List(schema.String()),
-		"dnssearchdomains": schema.List(schema.String()),
-		"gatewayaddress":   schema.String(),
+		"provider-id":        schema.String(),
+		"device-name":        schema.String(),
+		"machine-id":         schema.String(),
+		"subnet-cidr":        schema.String(),
+		"config-method":      schema.String(),
+		"value":              schema.String(),
+		"dns-servers":        schema.List(schema.String()),
+		"dns-search-domains": schema.List(schema.String()),
+		"gateway-address":    schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -157,28 +157,28 @@ func importIPAddressV1(source map[string]interface{}) (*ipaddress, error) {
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ipaddress v1 schema check failed")
+		return nil, errors.Annotatef(err, "ip address v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	dnsserversInterface := valid["dnsservers"].([]interface{})
+	dnsserversInterface := valid["dns-servers"].([]interface{})
 	dnsservers := make([]string, len(dnsserversInterface))
 	for i, d := range dnsserversInterface {
 		dnsservers[i] = d.(string)
 	}
-	dnssearchInterface := valid["dnssearchdomains"].([]interface{})
+	dnssearchInterface := valid["dns-search-domains"].([]interface{})
 	dnssearch := make([]string, len(dnssearchInterface))
 	for i, d := range dnssearchInterface {
 		dnssearch[i] = d.(string)
 	}
 	return &ipaddress{
 		ProviderID_:       valid["provider-id"].(string),
-		DeviceName_:       valid["devicename"].(string),
-		MachineID_:        valid["machineid"].(string),
-		SubnetCIDR_:       valid["subnetcidr"].(string),
-		ConfigMethod_:     valid["configmethod"].(string),
+		DeviceName_:       valid["device-name"].(string),
+		MachineID_:        valid["machine-id"].(string),
+		SubnetCIDR_:       valid["subnet-cidr"].(string),
+		ConfigMethod_:     valid["config-method"].(string),
 		Value_:            valid["value"].(string),
 		DNSServers_:       dnsservers,
 		DNSSearchDomains_: dnssearch,
-		GatewayAddress_:   valid["gatewayaddress"].(string),
+		GatewayAddress_:   valid["gateway-address"].(string),
 	}, nil
 }

@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -269,5 +269,5 @@ func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, description.Access("addmodel"))
+	c.Assert(access, gc.Equals, permission.Access("addmodel"))
 }

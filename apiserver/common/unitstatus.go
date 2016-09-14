@@ -76,5 +76,16 @@ func canBeLost(agent, workload status.StatusInfo) bool {
 }
 
 func isWorkloadInstalled(workload status.StatusInfo) bool {
-	return workload.Status != status.Maintenance || workload.Message != status.MessageInstalling
+	switch workload.Status {
+	case status.Maintenance:
+		return workload.Message != status.MessageInstallingCharm
+	case status.Waiting:
+		switch workload.Message {
+		case status.MessageWaitForMachine:
+		case status.MessageInstallingAgent:
+		case status.MessageInitializingAgent:
+			return false
+		}
+	}
+	return true
 }

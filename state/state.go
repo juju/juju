@@ -33,11 +33,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
@@ -147,7 +147,7 @@ func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
 
-func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
+func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
@@ -1073,12 +1073,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	statusDoc := statusDoc{
-		ModelUUID: st.ModelUUID(),
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		// Implemented like this to be consistent with incorrect add-unit
-		// behaviour.
-		Status:     status.Unknown,
-		StatusInfo: MessageWaitForAgentInit,
+		ModelUUID:  st.ModelUUID(),
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour

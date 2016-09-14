@@ -111,9 +111,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 			// host, but the devices will typically not be present.
 			continue
 		} else if err != nil {
-			logger.Errorf(
-				"error checking if %q is in use: %v", dev.DeviceName, err,
-			)
+			logger.Infof("could not check if %q is in use: %v", dev.DeviceName, err)
 			// We cannot detect, so err on the side of caution and default to
 			// "in use" so the device cannot be used.
 			dev.InUse = true

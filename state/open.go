@@ -16,10 +16,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -324,7 +324,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),

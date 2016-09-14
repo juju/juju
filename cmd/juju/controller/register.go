@@ -30,8 +30,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
 )
 
 var errNoModels = errors.New(`
@@ -173,7 +173,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	}
 	accountDetails := jujuclient.AccountDetails{
 		User:            registrationParams.userTag.Canonical(),
-		LastKnownAccess: string(description.LoginAccess),
+		LastKnownAccess: string(permission.LoginAccess),
 	}
 	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)

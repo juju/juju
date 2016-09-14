@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -186,7 +186,7 @@ type Patcher interface {
 	PatchValue(ptr, value interface{})
 }
 
-func AssertHasPermission(c *gc.C, handler *apiHandler, access description.Access, tag names.Tag, expect bool) {
+func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
 	hasPermission, err := handler.HasPermission(access, tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, gc.Equals, expect)

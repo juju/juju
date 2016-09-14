@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -62,7 +63,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share a model with a user
 	username := "bar@ubuntuone"
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
-		User: username, Access: description.ReadAccess})
+		User: username, Access: permission.ReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -78,7 +79,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
+	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
 
 func (s *cmdModelSuite) TestGet(c *gc.C) {

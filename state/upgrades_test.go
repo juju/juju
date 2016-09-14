@@ -13,8 +13,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
 
@@ -462,7 +462,7 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Ap
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",
-		Access:      description.ReadAccess,
+		Access:      permission.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

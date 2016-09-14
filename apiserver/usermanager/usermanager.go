@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -47,7 +47,7 @@ func NewUserManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
+	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -62,7 +62,7 @@ func NewUserManagerAPI(
 }
 
 func (api *UserManagerAPI) hasReadAccess() (bool, error) {
-	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.state.ModelTag())
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.state.ModelTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -71,7 +71,7 @@ func (api *UserManagerAPI) hasReadAccess() (bool, error) {
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
-	isAdmin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

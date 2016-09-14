@@ -22,7 +22,7 @@ type UserArgs struct {
 	CreatedBy      names.UserTag
 	DateCreated    time.Time
 	LastConnection time.Time
-	Access         Access
+	Access         string
 }
 
 func newUser(args UserArgs) *user {
@@ -45,7 +45,7 @@ type user struct {
 	DisplayName_ string    `yaml:"display-name,omitempty"`
 	CreatedBy_   string    `yaml:"created-by"`
 	DateCreated_ time.Time `yaml:"date-created"`
-	Access_      Access    `yaml:"access"`
+	Access_      string    `yaml:"access"`
 	// Can't use omitempty with time.Time, it just doesn't work,
 	// so use a pointer in the struct.
 	LastConnection_ *time.Time `yaml:"last-connection,omitempty"`
@@ -81,7 +81,7 @@ func (u *user) LastConnection() time.Time {
 }
 
 // Access implements User.
-func (u *user) Access() Access {
+func (u *user) Access() string {
 	return u.Access_
 }
 
@@ -132,7 +132,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		"read-only":       schema.Bool(),
 		"date-created":    schema.Time(),
 		"last-connection": schema.Time(),
-		"access":          accessField(),
+		"access":          schema.String(),
 	}
 
 	// Some values don't have to be there.
@@ -155,7 +155,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		DisplayName_: valid["display-name"].(string),
 		CreatedBy_:   valid["created-by"].(string),
 		DateCreated_: valid["date-created"].(time.Time),
-		Access_:      valid["access"].(Access),
+		Access_:      valid["access"].(string),
 	}
 
 	lastConn := valid["last-connection"].(time.Time)

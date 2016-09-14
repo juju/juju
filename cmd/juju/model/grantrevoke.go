@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/permission"
+	"github.com/juju/juju/permission"
 )
 
 var usageGrantSummary = `
@@ -100,7 +100,7 @@ func (c *accessCommand) Init(args []string) error {
 	c.ModelNames = args[2:]
 	c.ModelAccess = args[1]
 	if len(c.ModelNames) > 0 {
-		_, err := permission.ParseModelAccess(c.ModelAccess)
+		err := permission.ValidateModelAccess(permission.Access(c.ModelAccess))
 		if err != nil {
 			return err
 		}

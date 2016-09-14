@@ -57,7 +57,7 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action func(*cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	action func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
 	keys   []string
 	reset  bool // Flag denoting whether we are resetting the keys provided.
 	values attributes
@@ -154,36 +154,35 @@ func (c *configCommand) isModelAttrbute(attr string) bool {
 
 // getAPI returns the API. This allows passing in a test configCommandAPI
 // implementation.
-func (c *configCommand) getAPI() error {
+func (c *configCommand) getAPI() (configCommandAPI, error) {
 	if c.api != nil {
-
-		return nil
+		return c.api, nil
 	}
 	api, err := c.NewAPIRoot()
 	if err != nil {
-		return errors.Annotate(err, "opening API connection")
+		return nil, errors.Annotate(err, "opening API connection")
 	}
-	c.api = modelconfig.NewClient(api)
-	return nil
+	client := modelconfig.NewClient(api)
+	return client, nil
 }
 
 // Run implements the meaty part of the cmd.Command interface.
 func (c *configCommand) Run(ctx *cmd.Context) error {
-	err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
-	defer c.api.Close()
+	defer client.Close()
 
-	return c.action(ctx)
+	return c.action(client, ctx)
 }
 
 // reset unsets the keys provided to the command.
-func (c *configCommand) resetConfig(ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method
 
 	// extra call to the API to retrieve env config
-	envAttrs, err := c.api.ModelGet()
+	envAttrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -201,13 +200,13 @@ func (c *configCommand) resetConfig(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(c.api.ModelUnset(c.keys...), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelUnset(c.keys...), block.BlockChange)
 }
 
 // set sets the provided key/value pairs on the model.
-func (c *configCommand) setConfig(ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method.
-	envAttrs, err := c.api.ModelGet()
+	envAttrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -217,12 +216,12 @@ func (c *configCommand) setConfig(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(c.api.ModelSet(c.values), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelSet(c.values), block.BlockChange)
 }
 
 // get writes the value of a single key or the full output for the model to the cmd.Context.
-func (c *configCommand) getConfig(ctx *cmd.Context) error {
-	attrs, err := c.api.ModelGetWithMetadata()
+func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
+	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return err
 	}

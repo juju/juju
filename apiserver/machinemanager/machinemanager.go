@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -57,7 +57,7 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
 
-	canWrite, err := mm.authorizer.HasPermission(description.WriteAccess, mm.st.ModelTag())
+	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.st.ModelTag())
 	if err != nil {
 		return results, errors.Trace(err)
 	}

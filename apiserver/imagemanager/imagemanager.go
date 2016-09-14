@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -59,7 +59,7 @@ func NewImageManagerAPI(st *state.State, resources facade.Resources, authorizer 
 // ListImages returns images matching the specified filter.
 func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.ListImageResult, error) {
 	var result params.ListImageResult
-	admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+	admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -99,7 +99,7 @@ func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.Lis
 // DeleteImages deletes the images matching the specified filter.
 func (api *ImageManagerAPI) DeleteImages(arg params.ImageFilterParams) (params.ErrorResults, error) {
 	var result params.ErrorResults
-	admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+	admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}

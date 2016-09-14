@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -339,7 +339,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 	err := controller.ChangeControllerAccess(
 		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
-		params.GrantControllerAccess, description.AddModelAccess)
+		params.GrantControllerAccess, permission.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
@@ -500,13 +500,13 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	_, err := s.State.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("everyone@external"),
-		Access:    description.AddModelAccess,
+		Access:    permission.AddModelAccess,
 		CreatedBy: s.AdminUserTag(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("aardvark@external"),
-		Access:    description.LoginAccess,
+		Access:    permission.LoginAccess,
 		CreatedBy: s.AdminUserTag(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

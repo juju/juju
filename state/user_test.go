@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -233,16 +233,16 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	// Assert user exists and can authenticate.
 	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
 
-	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), description.AdminAccess)
-	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), description.SuperuserAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
 
 	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uam.Access, gc.Equals, description.AdminAccess)
+	c.Assert(uam.Access, gc.Equals, permission.AdminAccess)
 
 	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uac.Access, gc.Equals, description.SuperuserAccess)
+	c.Assert(uac.Access, gc.Equals, permission.SuperuserAccess)
 
 	// Look for the user.
 	u, err := s.State.User(user.UserTag())

@@ -10,11 +10,11 @@ import (
 
 type sshHostKeys struct {
 	Version      int           `yaml:"version"`
-	SSHHostKeys_ []*sshHostKey `yaml:"sshhostkeys"`
+	SSHHostKeys_ []*sshHostKey `yaml:"ssh-host-keys"`
 }
 
 type sshHostKey struct {
-	MachineID_ string   `yaml:"machineid"`
+	MachineID_ string   `yaml:"machine-id"`
 	Keys_      []string `yaml:"keys"`
 }
 
@@ -43,10 +43,10 @@ func newSSHHostKey(args SSHHostKeyArgs) *sshHostKey {
 }
 
 func importSSHHostKeys(source map[string]interface{}) ([]*sshHostKey, error) {
-	checker := versionedChecker("sshhostkeys")
+	checker := versionedChecker("ssh-host-keys")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "sshhostkeys version schema check failed")
+		return nil, errors.Annotatef(err, "ssh-host-keys version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
@@ -55,7 +55,7 @@ func importSSHHostKeys(source map[string]interface{}) ([]*sshHostKey, error) {
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["sshhostkeys"].([]interface{})
+	sourceList := valid["ssh-host-keys"].([]interface{})
 	return importSSHHostKeyList(sourceList, importFunc)
 }
 
@@ -64,11 +64,11 @@ func importSSHHostKeyList(sourceList []interface{}, importFunc sshHostKeyDeseria
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for sshhostkey %d, %T", i, value)
+			return nil, errors.Errorf("unexpected value for ssh-host-key %d, %T", i, value)
 		}
 		sshHostKey, err := importFunc(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "sshhostkey %d", i)
+			return nil, errors.Annotatef(err, "ssh-host-key %d", i)
 		}
 		result = append(result, sshHostKey)
 	}
@@ -83,8 +83,8 @@ var sshHostKeyDeserializationFuncs = map[int]sshHostKeyDeserializationFunc{
 
 func importSSHHostKeyV1(source map[string]interface{}) (*sshHostKey, error) {
 	fields := schema.Fields{
-		"machineid": schema.String(),
-		"keys":      schema.List(schema.String()),
+		"machine-id": schema.String(),
+		"keys":       schema.List(schema.String()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{}
@@ -101,7 +101,7 @@ func importSSHHostKeyV1(source map[string]interface{}) (*sshHostKey, error) {
 		keys[i] = d.(string)
 	}
 	return &sshHostKey{
-		MachineID_: valid["machineid"].(string),
+		MachineID_: valid["machine-id"].(string),
 		Keys_:      keys,
 	}, nil
 }

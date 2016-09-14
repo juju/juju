@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
 
@@ -82,7 +82,7 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type ControllerAccessAPI interface {
-	GetControllerAccess(user string) (description.Access, error)
+	GetControllerAccess(user string) (permission.Access, error)
 	ModelConfig() (map[string]interface{}, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)

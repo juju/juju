@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -227,7 +228,7 @@ func (i *importer) modelUsers() error {
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			user.Access())...,
+			permission.Access(user.Access()))...,
 		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {

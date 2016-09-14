@@ -135,8 +135,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
 		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Message: "Waiting for agent initialization to finish",
+			Current: "waiting",
+			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
 		},
 	})
@@ -158,8 +158,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{},
 		Subordinate: true,
 		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Message: "Waiting for agent initialization to finish",
+			Current: "waiting",
+			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
 		},
 	})
@@ -195,8 +195,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Ports:       []multiwatcher.Port{},
 			Subordinate: false,
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -276,8 +276,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Ports:       []multiwatcher.Port{},
 			Subordinate: true,
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -610,8 +610,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []multiwatcher.Port{{"tcp", 12345}},
 			PortRanges:     []multiwatcher.PortRange{{12345, 12345, "tcp"}},
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -646,8 +646,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []multiwatcher.Port{},
 			PortRanges:     []multiwatcher.PortRange{},
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -913,8 +913,8 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 		},
@@ -926,8 +926,8 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Series:      "quantal",
 			MachineId:   "2",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -1582,8 +1582,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 		},
@@ -1595,8 +1595,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Series:      "quantal",
 			MachineId:   "1",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -2026,8 +2026,8 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						MinUnits:  42,
 						Config:    charm.Settings{},
 						Status: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 					}}}
@@ -2505,8 +2505,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Series:      "quantal",
 						MachineId:   "0",
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -2937,8 +2937,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:       []multiwatcher.Port{},
 						PortRanges:  []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -2969,8 +2969,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []multiwatcher.Port{{"tcp", 12345}},
 						PortRanges:     []multiwatcher.PortRange{{12345, 12345, "tcp"}},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -3001,8 +3001,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []multiwatcher.Port{},
 						PortRanges:     []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -3030,8 +3030,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:       []multiwatcher.Port{},
 						PortRanges:  []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{

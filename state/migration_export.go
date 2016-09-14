@@ -190,7 +190,7 @@ func (e *exporter) modelUsers() error {
 			CreatedBy:      user.CreatedBy,
 			DateCreated:    user.DateCreated,
 			LastConnection: lastConn,
-			Access:         user.Access,
+			Access:         string(user.Access),
 		}
 		e.model.AddUser(arg)
 	}
