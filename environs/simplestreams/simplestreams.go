@@ -388,6 +388,15 @@ type GetMetadataParams struct {
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+	// TODO(axw, wallyworld, anastasiamac 2016-09-14) Currently, we can only ever return items for one stream at a time
+	// as these are bound by value of content id of products' metadata.
+	// Although index files can point to different products collections, we only ever look at one of these.
+	// Each product collection can have several products that would in turn contain one or more metadata item.
+	// There is nothing in our current model that would prevent us from returning more than one collection of products
+	// apart from the current implementation and usage.
+	// When the implementation will change to get items from more than one product collection,
+	// we will need to return map of metadata items by stream from here
+	// and remove stream property from resolve info.
 	for _, source := range sources {
 		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
