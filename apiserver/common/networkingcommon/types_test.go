@@ -178,7 +178,7 @@ var exampleObservedInterfaceAddrs = map[string][]net.Addr{
 	"br-eth1.13":  {fakeAddr("10.13.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
 }
 
-var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
+var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	DeviceIndex:   1,
 	InterfaceName: "lo",
 	InterfaceType: string(network.LoopbackInterface),
@@ -333,7 +333,7 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 	ConfigType:          string(network.ConfigManual),
 }}
 
-var expectedSortedProviderNetworkConfigs = []params.NetworkConfig{{
+var expectedProviderNetworkConfigs = []params.NetworkConfig{{
 	InterfaceName:       "eth0",
 	InterfaceType:       string(network.EthernetInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
@@ -461,7 +461,7 @@ var expectedSortedProviderNetworkConfigs = []params.NetworkConfig{{
 	ProviderAddressId:   "1302",
 }}
 
-var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
+var expectedFinalNetworkConfigs = []params.NetworkConfig{{
 	DeviceIndex:         1,
 	InterfaceName:       "lo",
 	InterfaceType:       string(network.LoopbackInterface),
@@ -694,7 +694,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	VLANTag:             13,
 }}
 
-var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDeviceArgs{{
+var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceArgs{{
 	Name:        "lo",
 	MTU:         65536,
 	Type:        state.LoopbackDevice,
@@ -836,7 +836,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	ParentName:  "br-eth1.13",
 }}
 
-var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDeviceAddress{{
+var expectedLinkLayerDeviceAdressesWithFinalNetworkConfig = []state.LinkLayerDeviceAddress{{
 	DeviceName:   "lo",
 	ConfigMethod: state.LoopbackAddress,
 	CIDRAddress:  "127.0.0.1/8",
@@ -888,10 +888,10 @@ var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDe
 }}
 
 func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedFinalNetworkConfigs)
 
-	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
-	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
+	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
+	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithFinalNetworkConfig)
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsBothNil(c *gc.C) {
@@ -900,22 +900,22 @@ func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsBothNil(c *gc.C) 
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilObservedConfigs(c *gc.C) {
-	input := expectedSortedProviderNetworkConfigs
+	input := expectedProviderNetworkConfigs
 	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(input, nil)
 	c.Check(result, gc.IsNil)
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilProviderConfigs(c *gc.C) {
-	input := expectedSortedObservedNetworkConfigs
+	input := expectedObservedNetworkConfigs
 	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, input)
 	c.Check(result, jc.DeepEquals, input)
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
-	observedConfig := expectedSortedObservedNetworkConfigs
-	providerConfig := expectedSortedProviderNetworkConfigs
+	observedConfig := expectedObservedNetworkConfigs
+	providerConfig := expectedProviderNetworkConfigs
 	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	c.Check(result, jc.DeepEquals, expectedSortedMergedNetworkConfigs)
+	c.Check(result, jc.DeepEquals, expectedFinalNetworkConfigs)
 }
 
 func (s *TypesSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
