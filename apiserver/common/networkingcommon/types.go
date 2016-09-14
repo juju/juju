@@ -514,7 +514,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 	var results []params.NetworkConfig
 	for _, observed := range observedConfigs {
 
-		name, address := observed.InterfaceName, observed.Address
+		name, ipAddress := observed.InterfaceName, observed.Address
 		mergedConfig := observed
 
 		providerConfig, known := providerConfigByName[name]
@@ -523,7 +523,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 			logger.Debugf("updated observed interface config for %q with: %+v", name, providerConfig)
 		}
 
-		providerConfig, known = providerConfigByAddress[address]
+		providerConfig, known = providerConfigByAddress[ipAddress]
 		if known {
 			mergedConfig = mergeObservedAndProviderAddressConfig(mergedConfig, providerConfig)
 			logger.Debugf("updated observed address config for %q with: %+v", name, providerConfig)
