@@ -250,7 +250,7 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		}
 		machines = append(machines, machinesForModel...)
 	}
-	if err := updateAllMachines(args.PrivateAddress, machines); err != nil {
+	if err := updateAllMachines(args.PrivateAddress, args.PublicAddress, machines); err != nil {
 		return nil, errors.Annotate(err, "cannot update agents")
 	}
 

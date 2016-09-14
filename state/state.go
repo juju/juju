@@ -690,9 +690,9 @@ func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, e
 		return nil, errors.Annotatef(err, "cannot get all machines")
 	}
 	sort.Sort(mdocs)
-	machines := []*Machine{}
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
+	machines := make([]*Machine, len(mdocs))
+	for i, doc := range mdocs {
+		machines[i] = newMachine(st, &doc)
 	}
 	return machines, nil
 }
