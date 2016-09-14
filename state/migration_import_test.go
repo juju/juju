@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
@@ -142,10 +143,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
 }
 
-func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) description.UserAccess {
-	access := description.AdminAccess
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) permission.UserAccess {
+	access := permission.AdminAccess
 	if readOnly {
-		access = description.ReadAccess
+		access = permission.ReadAccess
 	}
 	user, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      names.NewUserTag(name),
@@ -160,7 +161,7 @@ func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool,
 	return user
 }
 
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser description.UserAccess) {
+func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permission.UserAccess) {
 	c.Assert(newUser.UserName, gc.Equals, oldUser.UserName)
 	c.Assert(newUser.DisplayName, gc.Equals, oldUser.DisplayName)
 	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
@@ -195,7 +196,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	newModel, newSt := s.importModel(c)
 
 	// Check the import values of the users.
-	for _, user := range []description.UserAccess{bravo, charlie, delta} {
+	for _, user := range []permission.UserAccess{bravo, charlie, delta} {
 		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)

@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 )
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
@@ -30,8 +30,8 @@ type modelUserLastConnectionDoc struct {
 }
 
 // setModelAccess changes the user's access permissions on the model.
-func (st *State) setModelAccess(access description.Access, userGlobalKey, modelUUID string) error {
-	if err := description.ValidateModelAccess(access); err != nil {
+func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUUID string) error {
+	if err := permission.ValidateModelAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 	op := updatePermissionOp(modelKey(modelUUID), userGlobalKey, access)
@@ -123,7 +123,7 @@ func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc,
 	return modelUser, nil
 }
 
-func createModelUserOps(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access description.Access) []txn.Op {
+func createModelUserOps(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access permission.Access) []txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &userAccessDoc{
 		ID:          userAccessID(user),
@@ -232,5 +232,5 @@ func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return ua.Access == description.SuperuserAccess, nil
+	return ua.Access == permission.SuperuserAccess, nil
 }

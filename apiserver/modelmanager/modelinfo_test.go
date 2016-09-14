@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -80,10 +81,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 		users: []*mockModelUser{{
 			userName: "admin",
-			access:   description.AdminAccess,
+			access:   permission.AdminAccess,
 		}, {
 			userName: "otheruser",
-			access:   description.AdminAccess,
+			access:   permission.AdminAccess,
 		}},
 	}
 
@@ -98,19 +99,19 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 		users: []*mockModelUser{{
 			userName: "admin",
-			access:   description.AdminAccess,
+			access:   permission.AdminAccess,
 		}, {
 			userName:    "bob@local",
 			displayName: "Bob",
-			access:      description.ReadAccess,
+			access:      permission.ReadAccess,
 		}, {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
-			access:      description.ReadAccess,
+			access:      permission.ReadAccess,
 		}, {
 			userName:    "mary@local",
 			displayName: "Mary",
-			access:      description.WriteAccess,
+			access:      permission.WriteAccess,
 		}},
 	}
 	s.st.machines = []common.Machine{
@@ -313,7 +314,7 @@ type mockState struct {
 	clouds          map[names.CloudTag]cloud.Cloud
 	model           *mockModel
 	controllerModel *mockModel
-	users           []description.UserAccess
+	users           []permission.UserAccess
 	cred            cloud.Credential
 	machines        []common.Machine
 	cfgDefaults     config.ModelDefaultAttributes
@@ -351,7 +352,7 @@ func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 	}
 
 	for _, u := range st.controllerModel.users {
-		if user.Name() == u.userName && u.access == description.AdminAccess {
+		if user.Name() == u.userName && u.access == permission.AdminAccess {
 			nextErr := st.NextErr()
 			if user.Name() != "admin" {
 				panic(user.Name())
@@ -450,14 +451,14 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (description.UserAccess, error) {
+func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (permission.UserAccess, error) {
 	st.MethodCall(st, "AddModelUser", modelUUID, spec)
-	return description.UserAccess{}, st.NextErr()
+	return permission.UserAccess{}, st.NextErr()
 }
 
-func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (description.UserAccess, error) {
+func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
 	st.MethodCall(st, "AddControllerUser", spec)
-	return description.UserAccess{}, st.NextErr()
+	return permission.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) RemoveModelUser(tag names.UserTag) error {
@@ -465,9 +466,9 @@ func (st *mockState) RemoveModelUser(tag names.UserTag) error {
 	return st.NextErr()
 }
 
-func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (description.UserAccess, error) {
+func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	st.MethodCall(st, "ModelUser", tag, target)
-	return description.UserAccess{}, st.NextErr()
+	return permission.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) LastModelConnection(user names.UserTag) (time.Time, error) {
@@ -480,9 +481,9 @@ func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) e
 	return st.NextErr()
 }
 
-func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error) {
+func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
 	st.MethodCall(st, "SetUserAccess", subject, target, access)
-	return description.UserAccess{}, st.NextErr()
+	return permission.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
@@ -633,14 +634,14 @@ func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	return names.NewCloudCredentialTag("some-cloud/bob@local/some-credential"), true
 }
 
-func (m *mockModel) Users() ([]description.UserAccess, error) {
+func (m *mockModel) Users() ([]permission.UserAccess, error) {
 	m.MethodCall(m, "Users")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	users := make([]description.UserAccess, len(m.users))
+	users := make([]permission.UserAccess, len(m.users))
 	for i, user := range m.users {
-		users[i] = description.UserAccess{
+		users[i] = permission.UserAccess{
 			UserID:      strings.ToLower(user.userName),
 			UserTag:     names.NewUserTag(user.userName),
 			Object:      m.ModelTag(),
@@ -667,5 +668,5 @@ type mockModelUser struct {
 	userName       string
 	displayName    string
 	lastConnection time.Time
-	access         description.Access
+	access         permission.Access
 }

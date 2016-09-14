@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -197,7 +197,7 @@ func (c *Client) modifyControllerUser(action params.ControllerAction, user, acce
 }
 
 // GetControllerAccess returns the access level the user has on the controller.
-func (c *Client) GetControllerAccess(user string) (description.Access, error) {
+func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 	if !names.IsValidUser(user) {
 		return "", errors.Errorf("invalid username: %q", user)
 	}
@@ -213,7 +213,7 @@ func (c *Client) GetControllerAccess(user string) (description.Access, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	return description.Access(results.Results[0].Result.Access), nil
+	return permission.Access(results.Results[0].Result.Access), nil
 }
 
 // MigrationSpec holds the details required to start the migration of

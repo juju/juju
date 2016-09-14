@@ -7,11 +7,12 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 )
 
 func init() {
@@ -33,7 +34,7 @@ func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Fa
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
-	isModelAdmin, err := facade.authorizer.HasPermission(description.AdminAccess, facade.backend.ModelTag())
+	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

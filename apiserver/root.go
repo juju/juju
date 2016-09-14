@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -359,12 +359,12 @@ func (r *apiHandler) GetAuthEntity() state.Entity {
 }
 
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
-func (r *apiHandler) HasPermission(operation description.Access, target names.Tag) (bool, error) {
+func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
 	return common.HasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
 }
 
 // UserHasPermission returns true if the passed in user can perform <operation> on <target>.
-func (r *apiHandler) UserHasPermission(user names.UserTag, operation description.Access, target names.Tag) (bool, error) {
+func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
 	return common.HasPermission(r.state.UserAccess, user, operation, target)
 }
 

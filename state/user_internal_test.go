@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 )
 
 type internalUserSuite struct {
@@ -33,7 +33,7 @@ func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	// controller user permissions
 	op = ops[1]
 	permdoc := op.Insert.(*permissionDoc)
-	c.Assert(permdoc.Access, gc.Equals, string(description.SuperuserAccess))
+	c.Assert(permdoc.Access, gc.Equals, string(permission.SuperuserAccess))
 	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerKey(s.state.ControllerUUID()), userGlobalKey(strings.ToLower(tag.Canonical()))))
 	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Canonical())))
 	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerKey(s.state.ControllerUUID()))

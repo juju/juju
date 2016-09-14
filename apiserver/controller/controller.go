@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -91,7 +91,7 @@ func NewControllerAPI(
 }
 
 func (s *ControllerAPI) checkHasAdmin() error {
-	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	isAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -309,7 +309,7 @@ func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResu
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	isAdmin, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -485,7 +485,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 		return result, nil
 	}
 
-	hasPermission, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	hasPermission, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -496,8 +496,8 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 			continue
 		}
 
-		controllerAccess := description.Access(arg.Access)
-		if err := description.ValidateControllerAccess(controllerAccess); err != nil {
+		controllerAccess := permission.Access(arg.Access)
+		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -564,7 +564,7 @@ func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
 	}
 }
 
-func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
@@ -593,28 +593,28 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 	return nil
 }
 
-func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	controllerTag := accessor.ControllerTag()
 	switch access {
-	case description.LoginAccess:
+	case permission.LoginAccess:
 		// Revoking login access removes all access.
 		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
 		return errors.Annotate(err, "could not revoke controller access")
-	case description.AddModelAccess:
+	case permission.AddModelAccess:
 		// Revoking add-model access sets login.
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.LoginAccess)
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
 		return errors.Annotate(err, "could not set controller access to read-only")
-	case description.SuperuserAccess:
+	case permission.SuperuserAccess:
 		// Revoking superuser sets add-model.
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.AddModelAccess)
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.AddModelAccess)
 		return errors.Annotate(err, "could not set controller access to add-model")
 
 	default:
@@ -625,7 +625,7 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
+func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
