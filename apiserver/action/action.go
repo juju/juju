@@ -63,7 +63,7 @@ func (a *ActionAPI) checkCanWrite() error {
 }
 
 func (a *ActionAPI) checkCanAdmin() error {
-	canAdmin, err := a.authorizer.HasPermission(description.AdminAccess, a.state.ModelTag())
+	canAdmin, err := a.authorizer.HasPermission(permission.AdminAccess, a.state.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
