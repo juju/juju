@@ -105,6 +105,17 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}, nil
 }
 
+// NewFailAction is part of the factory interface.
+func (f *factory) NewFailAction(actionId string) (Operation, error) {
+	if !names.IsValidAction(actionId) {
+		return nil, errors.Errorf("invalid action id %q", actionId)
+	}
+	return &failAction{
+		actionId:  actionId,
+		callbacks: f.config.Callbacks,
+	}, nil
+}
+
 // NewCommands is part of the Factory interface.
 func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
 	if args.Commands == "" {
