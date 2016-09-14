@@ -34,7 +34,6 @@ type ResolveInfo struct {
 	Signed    bool   `yaml:"signed" json:"signed"`
 	IndexURL  string `yaml:"indexURL" json:"indexURL"`
 	MirrorURL string `yaml:"mirrorURL,omitempty" json:"mirrorURL,omitempty"`
-	Stream    string `yaml:"stream,omitempty" json:"stream,omitempty"`
 }
 
 // CloudSpec uniquely defines a specific cloud deployment.
@@ -388,15 +387,6 @@ type GetMetadataParams struct {
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
-	// TODO(axw, wallyworld, anastasiamac 2016-09-14) Currently, we can only ever return items for one stream at a time
-	// as these are bound by value of content id of products' metadata.
-	// Although index files can point to different products collections, we only ever look at one of these.
-	// Each product collection can have several products that would in turn contain one or more metadata item.
-	// There is nothing in our current model that would prevent us from returning more than one collection of products
-	// apart from the current implementation and usage.
-	// When the implementation will change to get items from more than one product collection,
-	// we will need to return map of metadata items by stream from here
-	// and remove stream property from resolve info.
 	for _, source := range sources {
 		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
@@ -458,7 +448,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 		return nil, resolveInfo, err
 	}
 	logger.Tracef("read metadata index at %q", indexURL)
-	items, stream, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
+	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
@@ -471,7 +461,6 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	if indexRef.Source.Description() == "mirror" {
 		resolveInfo.MirrorURL = indexRef.Source.(*urlDataSource).baseURL
 	}
-	resolveInfo.Stream = stream
 	return items, resolveInfo, err
 }
 
@@ -993,39 +982,20 @@ func ParseCloudMetadata(data []byte, format, url string, valueTemplate interface
 // getLatestMetadataWithFormat loads the metadata for the given cloud and orders the resulting structs
 // starting with the most recent, and returns items which match the product criteria, choosing from the
 // latest versions first.
-func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstraint, format string, requireSigned bool) ([]interface{}, string, error) {
+func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstraint, format string, requireSigned bool) ([]interface{}, error) {
 	metadata, err := indexRef.GetCloudMetadataWithFormat(cons, format, requireSigned)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	logger.Tracef("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if len(matches) == 0 {
-		return nil, "", newNoMatchingProductsError("index has no matching records")
+		return nil, newNoMatchingProductsError("index has no matching records")
 	}
-	return matches, streamFromContentId(metadata.ContentId), nil
-}
-
-// streamFromContentId retrieves stream value from contentID.
-// Current stream default, if none is found, is "released" according to
-// config.Config().ImageStream() and config.Config().AgentStream().
-// All occurrences in code where content id is constructed position
-// stream as a 2nd token
-// (see evirons.tools.ToolsContentId(); environs.gui.contentId();
-// environs.imagemetadata.ImageContentId; environs.simplestreams.MirrorContentId;
-// environs.simplestreams.ContentId)
-func streamFromContentId(contentId string) string {
-	if contentId == "" {
-		return "released"
-	}
-	indexTokens := strings.Split(contentId, ":")
-	if len(indexTokens) < 2 || indexTokens[1] == "" {
-		return "released"
-	}
-	return indexTokens[1]
+	return matches, nil
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.

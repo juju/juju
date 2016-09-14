@@ -590,34 +590,6 @@ var imageData = map[string]string{
  },
  "format": "products:1.0"
 }
-`, "/daily/streams/v1/raring_metadata.json": `
-{
- "updated": "Wed, 01 May 2013 13:31:26 +0000",
- "content_id": "com.ubuntu.cloud",
- "region": "nz-east-1",
- "endpoint": "https://anywhere",
- "root_store": "ebs",
- "virt": "pv", 
- "products": {
-  "com.ubuntu.cloud:server:13.04:amd64": {
-   "release": "raring",
-   "version": "13.04",
-   "arch": "amd64",
-   "versions": {
-    "20160318": {
-     "items": {
-      "nzww1pe": {
-       "id": "ami-36745463"
-      }
-     },
-     "pubname": "ubuntu-utopic-13.04-amd64-server-20160318",
-     "label": "release"
-    }
-   }
-  }
- },
- "format": "products:1.0"
-}
 `,
 }
 
