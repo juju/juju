@@ -4,6 +4,9 @@
 package maas_test
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	stdtesting "testing"
 
 	"github.com/juju/gomaasapi"
@@ -11,6 +14,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -22,7 +26,6 @@ import (
 type environSuite struct {
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
-	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
 }
 
@@ -38,8 +41,6 @@ func TestMAAS(t *stdtesting.T) {
 func (s *environSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(maas.ShortAttempt)
 	s.BaseSuite.SetUpSuite(c)
-	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
-	s.testMAASObject = TestMAASObject
 }
 
 func (s *environSuite) SetUpTest(c *gc.C) {
@@ -57,13 +58,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
-	s.testMAASObject.TestServer.Clear()
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environSuite) TearDownSuite(c *gc.C) {
-	s.testMAASObject.Close()
 	s.restoreTimeouts()
 	s.BaseSuite.TearDownSuite(c)
 }
@@ -167,4 +166,39 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
+}
+
+type badEndpointSuite struct {
+	coretesting.BaseSuite
+
+	fakeServer *httptest.Server
+	cloudSpec  environs.CloudSpec
+}
+
+var _ = gc.Suite(&badEndpointSuite{})
+
+func (s *badEndpointSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	always404 := func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "uh-oh")
+	}
+	s.fakeServer = httptest.NewServer(http.HandlerFunc(always404))
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	s.cloudSpec = environs.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   s.fakeServer.URL,
+		Credential: &cred,
+	}
+}
+
+func (s *badEndpointSuite) TestBadEndpointMessage(c *gc.C) {
+	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
+	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	c.Assert(env, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "Couldn't get MAAS version - check the endpoint is correct")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }

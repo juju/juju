@@ -276,7 +276,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 			return errors.Trace(err)
 		}
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
-			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+			return errors.NewNotSupported(nil, "MAAS 1.9 or more recent is required")
 		}
 	case err != nil:
 		return errors.Trace(err)
@@ -607,7 +607,7 @@ func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 		result, err = version.CallGet("", nil)
 		if err != nil {
 			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
+				return caps, errors.NewNotSupported(nil, "Couldn't get MAAS version - check the endpoint is correct")
 			}
 		} else {
 			break
