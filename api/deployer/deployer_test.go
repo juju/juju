@@ -242,7 +242,7 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
 	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetStatus(status.StatusBlocked, "waiting", map[string]interface{}{"foo": "bar"})
+	err = unit.SetStatus(status.Blocked, "waiting", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateUnit, err := s.BackingState.Unit(unit.Name())
@@ -251,7 +251,7 @@ func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo.Since = nil
 	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
-		Status:  status.StatusBlocked,
+		Status:  status.Blocked,
 		Message: "waiting",
 		Data:    map[string]interface{}{"foo": "bar"},
 	})

@@ -377,7 +377,7 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo.Since = nil
 	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
-		Status:  status.StatusBlocked,
+		Status:  status.Blocked,
 		Message: "waiting",
 		Data:    map[string]interface{}{"foo": "bar"},
 	})
