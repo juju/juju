@@ -70,6 +70,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(metadataPath, "streams/v1/index.json")),
 		MirrorURL: "",
+		Stream:    "custom",
 	})
 }
 

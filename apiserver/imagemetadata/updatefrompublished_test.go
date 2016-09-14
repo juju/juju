@@ -392,7 +392,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 	priority := s.setupMetadata(c, anotherDS, cloudSpec, m1)
 	m1.Source = anotherDS
 	m1.Priority = priority
-	m1.Stream = "released"
+	m1.Stream = "custom"
 
 	s.expected = append(s.expected, m1)
 
