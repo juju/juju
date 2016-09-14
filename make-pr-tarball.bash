@@ -117,7 +117,7 @@ mv $WORK $TMP_DIR/juju-core_${VERSION}/
 # Tar it up.
 echo "Creating build tarball"
 cd $TMP_DIR
-TARFILE=$(pwd)/juju-core_${VERSION}.tar.gz
+TARFILE=$HERE/juju-core_${VERSION}.tar.gz
 tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr juju-core_${VERSION}
 
 echo "Successfully created tarball: $TARFILE"
