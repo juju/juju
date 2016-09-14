@@ -23,12 +23,13 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-)
+    )
 
 __metaclass__ = type
 
@@ -59,11 +60,6 @@ SHARE_LIST_CTRL_WRITE = copy.deepcopy(SHARE_LIST_CTRL)
 SHARE_LIST_CTRL_WRITE["writeuser@local"] = {"access": "write"}
 SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
 SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
-
-
-# This needs refactored out to utility
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
 
 
 def assert_equal(found, expected):
