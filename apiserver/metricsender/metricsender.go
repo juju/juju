@@ -23,8 +23,9 @@ type MetricSender interface {
 }
 
 var (
-	defaultMaxBatchesPerSend              = 10
-	defaultSender            MetricSender = &HttpSender{}
+	defaultMaxSendsPerInvocation              = 5
+	defaultMaxBatchesPerSend                  = 1000
+	defaultSender                MetricSender = &HttpSender{}
 )
 
 func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) {
@@ -63,7 +64,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 	}
 	sent := 0
 	held := 0
-	for {
+	for i := 0; i < defaultMaxSendsPerInvocation; i++ {
 		metrics, err := st.MetricsToSend(batchSize)
 		if err != nil {
 			return errors.Trace(err)
