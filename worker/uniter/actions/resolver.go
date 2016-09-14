@@ -52,8 +52,6 @@ func (r *actionsResolver) NextOp(
 			return opFactory.NewAction(nextAction)
 		}
 	case operation.RunAction:
-		// TODO(fwereade): we *should* handle interrupted actions, and make sure
-		// they're marked as failed, but that's not for now.
 		if localState.Hook != nil {
 			logger.Infof("found incomplete action %q; ignoring", localState.ActionId)
 			logger.Infof("recommitting prior %q hook", localState.Hook.Kind)

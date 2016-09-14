@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package operation
@@ -8,12 +8,9 @@ import (
 )
 
 type failAction struct {
-	actionId string
-
+	actionId  string
 	callbacks Callbacks
-
-	name string
-
+	name      string
 	RequiresMachineLock
 }
 
