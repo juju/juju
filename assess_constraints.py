@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """This module tests the deployment with constraints."""
+# Currently in a major re-work.
 
 from __future__ import print_function
 import os
@@ -7,6 +8,8 @@ import os
 import argparse
 import logging
 import sys
+
+import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -46,25 +49,27 @@ def append_constraint(list, constraint_name, constraint_value):
 
 
 def make_constraints(memory=None, cpu_cores=None, virt_type=None,
-                     instance_type=None):
+                     instance_type=None, root_disk=None, cpu_power=None):
     """Construct a contraints argument string from contraint values."""
     args = []
     append_constraint(args, 'mem', memory)
     append_constraint(args, 'cpu-cores', cpu_cores)
     append_constraint(args, 'virt-type', virt_type)
     append_constraint(args, 'instance-type', instance_type)
+    append_constraint(args, 'root-disk', root_disk)
+    append_constraint(args, 'cpu-power', cpu_power)
     return ' '.join(args)
 
 
-def deploy_constraint(client, charm, series, charm_repo, constraints):
+def deploy_constraint(client, constraints, charm, series, charm_repo):
     """Test deploying charm with constraints."""
     client.deploy(charm, series=series, repository=charm_repo,
                   constraints=constraints)
     client.wait_for_workloads()
 
 
-def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
-                            constraints):
+def deploy_charm_constraint(client, constraints, charm_name, charm_series,
+                            charm_dir):
     """Create a charm with constraints and test deploying it."""
     constraints_charm = Charm(charm_name,
                               'Test charm for constraints',
@@ -76,8 +81,8 @@ def deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
                              series=charm_series,
                              repository=os.path.dirname(charm_root),
                              platform=platform)
-    deploy_constraint(client, charm, charm_series,
-                      charm_dir, constraints)
+    deploy_constraint(client, constraints, charm,
+                      charm_series, charm_dir)
 
 
 def assess_virt_type(client, virt_type):
@@ -88,8 +93,8 @@ def assess_virt_type(client, virt_type):
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
-        deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
-                                constraints)
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
 
 
 def assess_virt_type_constraints(client, test_kvm=False):
@@ -116,8 +121,8 @@ def assess_instance_type(client, provider, instance_type):
     charm_name = 'instance-type-' + instance_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
-        deploy_charm_constraint(client, charm_name, charm_series, charm_dir,
-                                constraints)
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
 
 
 def assess_instance_type_constraints(client):
@@ -128,6 +133,42 @@ def assess_instance_type_constraints(client):
                          'constraint.')
     for instance_type in INSTANCE_TYPES[provider]:
         assess_instance_type(client, provider, instance_type)
+
+
+def juju_show_machine_hardware(client, machine):
+    """Uses juju show-machine and returns information about the hardwere."""
+    raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
+    raw_yaml = yaml.load(raw)
+    hardware = raw_yaml['machines'][machine]['hardware']
+    data = {}
+    for kvp in hardware.split(' '):
+        (key, value) = kvp.split('=')
+        data[key] = value
+    return data
+
+
+def assess_constraints_lxd(client, args):
+    """Run the tests that are used on lxd."""
+    charm_series = (args.series or 'xenial')
+    with temp_dir() as charm_dir:
+        charm_name = 'lxd-root-disk-2048'
+        constraints = make_constraints(root_disk='2048')
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
+        # Check the machine for the amount of disk-space.
+        client.remove_service(charm_name)
+
+
+def assess_constraints_ec2(client):
+    """Run the tests that are used on ec2."""
+    charm_series = 'xenial'
+    with temp_dir() as charm_dir:
+        charm_name = 'ec2-instance-type-t2.small'
+        constraints = make_constraints(instance_type='t2.small')
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
+        # Check the povider for the instance-type
+        client.remove_service(charm_name)
 
 
 def assess_constraints(client, test_kvm=False):
@@ -149,6 +190,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     test_kvm = '--with-virttype-kvm' in args
     with bs_manager.booted_context(args.upload_tools):
+        #assess_constraints_lxd(bs_manager.client, args)
         assess_constraints(bs_manager.client, test_kvm)
     return 0
 

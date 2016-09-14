@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from assess_constraints import (
     append_constraint,
     make_constraints,
+    juju_show_machine_hardware,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
     deploy_charm_constraint,
@@ -90,6 +91,10 @@ class TestAssess(TestCase):
 
     @contextmanager
     def prepare_deploy_mock(self):
+        # Using fake_client means that deploy and get_status have plausible
+        # results.  Wrapping it in a Mock causes every call to be recorded, and
+        # allows assertions to be made about calls.  Mocks and the fake client
+        # can also be used separately.
         """Mock a client and the deploy function."""
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
@@ -104,10 +109,6 @@ class TestAssess(TestCase):
         return constraint_args
 
     def test_virt_type_constraints_with_kvm(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, True)
@@ -115,16 +116,10 @@ class TestAssess(TestCase):
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_virt_type_constraints_without_kvm(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         assert_constraints_calls = ["virt-type=lxd"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, False)
-        constraints_calls = [
-            call[1]["constraints"] for call in
-            deploy_mock.call_args_list]
+        constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_instance_type_constraints(self):
@@ -132,9 +127,9 @@ class TestAssess(TestCase):
         fake_instance_types = ['bar', 'baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             fake_provider = fake_client.env.config.get('type')
-            INSTANCE_TYPES[fake_provider] = fake_instance_types
-            assess_instance_type_constraints(fake_client)
-            del INSTANCE_TYPES[fake_provider]
+            with patch.dict(INSTANCE_TYPES,
+                            {fake_provider: fake_instance_types}):
+                assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
@@ -154,8 +149,45 @@ class TestDeploy(TestCase):
         with temp_dir() as charm_dir:
             with patch('assess_constraints.deploy_constraint',
                        autospec=True) as deploy_mock:
-                deploy_charm_constraint(fake_client, charm_name, charm_series,
-                                        charm_dir, constraints)
+                deploy_charm_constraint(fake_client, constraints, charm_name,
+                                        charm_series, charm_dir)
         charm = os.path.join(charm_dir, charm_series, charm_name)
-        deploy_mock.assert_called_once_with(fake_client, charm, charm_series,
-                                            charm_dir, constraints)
+        deploy_mock.assert_called_once_with(fake_client, constraints, charm,
+                                            charm_series, charm_dir)
+
+
+class TestChecks(TestCase):
+
+    SAMPLE_JUJU_SHOW_MACHINE_OUTPUT = """\
+model:
+  name: controller
+  controller: assessconstraints-20160914122952-temp-env
+  cloud: lxd
+  region: localhost
+  version: 2.0-beta18
+machines:
+  "0":
+    juju-status:
+      current: started
+      since: 14 Sep 2016 12:32:17-04:00
+      version: 2.0-beta18
+    dns-name: 10.252.22.39
+    instance-id: juju-7d249e-0
+    machine-status:
+      current: pending
+      since: 14 Sep 2016 12:32:07-04:00
+    series: xenial
+    hardware: arch=amd64 cpu-cores=0 mem=0M
+    controller-member-status: has-vote
+applications: {}"""
+
+    def test_juju_show_machine_hardware(self):
+        """Check the juju_show_machine_hardware data translation."""
+        output_mock = Mock(
+            return_value=self.SAMPLE_JUJU_SHOW_MACHINE_OUTPUT)
+        fake_client = Mock(get_juju_output=output_mock)
+        data = juju_show_machine_hardware(fake_client, '0')
+        output_mock.assert_called_once_with('show-machine', '0',
+                                            '--format', 'yaml')
+        self.assertEqual({'arch': 'amd64', 'cpu-cores': '0', 'mem': '0M'},
+                         data)
