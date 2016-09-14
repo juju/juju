@@ -35,8 +35,9 @@ var _ = gc.Suite(&environProviderSuite{})
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:           &s.sender,
-		RequestInspector: requestRecorder(&s.requests),
+		Sender:                     &s.sender,
+		RequestInspector:           requestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.spec = environs.CloudSpec{
 		Type:             "azure",
@@ -107,14 +108,10 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 		var storage azuretesting.MockStorageClient
 		config.NewStorageClient = storage.NewClient
 	}
-	if config.StorageAccountNameGenerator == nil {
-		config.StorageAccountNameGenerator = func() string {
-			return fakeStorageAccount
-		}
-	}
 	if config.RetryClock == nil {
 		config.RetryClock = jujutesting.NewClock(time.Time{})
 	}
+	config.RandomWindowsAdminPassword = func() string { return "sorandom" }
 	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return environProvider

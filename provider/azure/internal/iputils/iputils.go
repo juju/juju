@@ -47,6 +47,27 @@ func NextSubnetIP(subnet *net.IPNet, ipsInUse []net.IP) (net.IP, error) {
 	return nil, errors.Errorf("no addresses available in %s", subnet)
 }
 
+// NthSubnetIP returns the n'th IP address in a given subnet, where n is a
+// zero-based index, zero being the first available IP address in the subnet.
+//
+// If n is out of range, NthSubnetIP will return nil.
+func NthSubnetIP(subnet *net.IPNet, n int) net.IP {
+	ones, bits := subnet.Mask.Size()
+	base := ipUint32(subnet.IP)
+	var valid int
+	for i := reservedAddressRangeEnd + 1; i < (1<<uint64(bits-ones) - 1); i++ {
+		ip := uint32IP(base + uint32(i))
+		if !ip.IsGlobalUnicast() {
+			continue
+		}
+		if n == valid {
+			return ip
+		}
+		valid++
+	}
+	return nil
+}
+
 // ipIndex calculates the index of the IP in the subnet.
 // e.g. 10.0.0.1 in 10.0.0.0/8 has index 1.
 func ipIndex(ip net.IP, subnetMask uint32) int {
