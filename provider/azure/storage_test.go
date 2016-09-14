@@ -61,7 +61,9 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 
 	// Force an explicit refresh of the access token, so it isn't done
 	// implicitly during the tests.
-	s.sender = azuretesting.Senders{tokenRefreshSender()}
+	s.sender = azuretesting.Senders{
+		tokenRefreshSender(),
+	}
 	err = azure.ForceVolumeSourceTokenRefresh(volumeSource)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource

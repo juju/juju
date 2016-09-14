@@ -360,12 +360,13 @@ func newAPIConnectionParams(
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
-func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	return bootstrapConfigGetter{store}.getBootstrapConfigParams
+func NewGetBootstrapConfigParamsFunc(ctx *cmd.Context, store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+	return bootstrapConfigGetter{ctx, store}.getBootstrapConfigParams
 }
 
 type bootstrapConfigGetter struct {
-	jujuclient.ClientStore
+	ctx   *cmd.Context
+	store jujuclient.ClientStore
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
@@ -381,10 +382,10 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
+	if _, err := g.store.ControllerByName(controllerName); err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
 	}
-	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)
+	bootstrapConfig, err := g.store.BootstrapConfigForController(controllerName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting bootstrap config")
 	}
@@ -392,7 +393,8 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	var credential *cloud.Credential
 	if bootstrapConfig.Credential != "" {
 		credential, _, _, err = GetCredentials(
-			g.ClientStore,
+			g.ctx,
+			g.store,
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.Credential,
 			bootstrapConfig.Cloud,
@@ -418,7 +420,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 
 	// Add attributes from the controller details.
-	controllerDetails, err := g.ControllerByName(controllerName)
+	controllerDetails, err := g.store.ControllerByName(controllerName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

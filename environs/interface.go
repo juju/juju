@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"io"
+
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -88,6 +90,19 @@ type ProviderCredentials interface {
 	// If no credentials can be detected, DetectCredentials should
 	// return an error satisfying errors.IsNotFound.
 	DetectCredentials() (*cloud.CloudCredential, error)
+
+	// FinalizeCredential finalizes a credential, updating any attributes
+	// as necessary. This is always done client-side, before uploading
+	// credentials to the controller. The provider may completely alter
+	// a credential, even going as far as changing the auth-type, but
+	// the output must be a fully formed credential.
+	FinalizeCredential(FinalizeCredentialContext, cloud.Credential) (cloud.Credential, error)
+}
+
+// FinalizeCredentialContext is an interface passed into FinalizeCredential
+// to provide a means of interacting with the user when finalizing credentials.
+type FinalizeCredentialContext interface {
+	GetStderr() io.Writer
 }
 
 // CloudRegionDetector is an interface that an EnvironProvider implements

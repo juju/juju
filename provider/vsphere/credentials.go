@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 const (
@@ -37,4 +38,9 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
+	return in, nil
 }

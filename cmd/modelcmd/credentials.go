@@ -6,6 +6,7 @@ package modelcmd
 import (
 	"io/ioutil"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
@@ -25,7 +26,9 @@ var (
 // finalises the values to resolve things like json files.
 // If region is not specified, the default credential region is used.
 func GetCredentials(
-	store jujuclient.CredentialGetter, region, credentialName, cloudName, cloudType string,
+	ctx *cmd.Context,
+	store jujuclient.CredentialGetter,
+	region, credentialName, cloudName, cloudType string,
 ) (_ *cloud.Credential, chosenCredentialName, regionName string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
@@ -59,10 +62,11 @@ func GetCredentials(
 	)
 	if err != nil {
 		return nil, "", "", errors.Annotatef(
-			err, "validating %q credential for cloud %q",
+			err, "finalizing %q credential for cloud %q",
 			credentialName, cloudName,
 		)
 	}
+	// TODO(axw) call provider.FinalizeCredential
 	return credential, credentialName, regionName, nil
 }
 

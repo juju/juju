@@ -125,7 +125,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(store, controllerName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
@@ -308,11 +308,12 @@ func (c *destroyCommandBase) Init(args []string) error {
 // Environ by first checking the config store, then querying the
 // API if the information is not in the store.
 func (c *destroyCommandBase) getControllerEnviron(
+	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
 	sysAPI destroyControllerAPI,
 ) (environs.Environ, error) {
-	env, err := c.getControllerEnvironFromStore(store, controllerName)
+	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.IsNotFound(err) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
 	} else if err != nil {
@@ -322,10 +323,11 @@ func (c *destroyCommandBase) getControllerEnviron(
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromStore(
+	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
 ) (environs.Environ, error) {
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

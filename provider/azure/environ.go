@@ -17,7 +17,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -86,8 +85,8 @@ type azureEnviron struct {
 	// envName is the name of the environment.
 	envName string
 
-	// azure auth token, and management clients
-	token *azure.ServicePrincipalToken
+	// authorizer is the authorizer we use for Azure.
+	authorizer *cloudSpecAuth
 
 	compute            compute.ManagementClient
 	resources          resources.ManagementClient
@@ -155,37 +154,9 @@ func newEnviron(
 func (env *azureEnviron) initEnviron() error {
 	credAttrs := env.cloud.Credential.Attributes()
 	env.subscriptionId = credAttrs[credAttrSubscriptionId]
-	tenantId := credAttrs[credAttrTenantId]
-	appId := credAttrs[credAttrAppId]
-	appPassword := credAttrs[credAttrAppPassword]
-
-	cloudEnv := azure.Environment{
-		ActiveDirectoryEndpoint: env.cloud.IdentityEndpoint,
-	}
-	oauthConfig, err := cloudEnv.OAuthConfigForTenant(tenantId)
-	if err != nil {
-		return errors.Annotate(err, "getting OAuth configuration")
-	}
-
-	// We want to create a service principal token for the resource
-	// manager endpoint. Azure demands that the URL end with a '/'.
-	resource := env.cloud.Endpoint
-	if !strings.HasSuffix(resource, "/") {
-		resource += "/"
-	}
-
-	token, err := azure.NewServicePrincipalToken(
-		*oauthConfig,
-		appId,
-		appPassword,
-		resource,
-	)
-	if err != nil {
-		return errors.Annotate(err, "constructing service principal token")
-	}
-	env.token = token
-	if env.provider.config.Sender != nil {
-		env.token.SetSender(env.provider.config.Sender)
+	env.authorizer = &cloudSpecAuth{
+		cloud:  env.cloud,
+		sender: env.provider.config.Sender,
 	}
 
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
@@ -199,7 +170,7 @@ func (env *azureEnviron) initEnviron() error {
 		"azure.network":   &env.network.Client,
 	}
 	for id, client := range clients {
-		client.Authorizer = env.token
+		client.Authorizer = env.authorizer
 		logger := loggo.GetLogger(id)
 		if env.provider.config.Sender != nil {
 			client.Sender = env.provider.config.Sender

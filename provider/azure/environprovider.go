@@ -109,5 +109,5 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 // level.
 var verifyCredentials = func(e *azureEnviron) error {
 	// TODO(axw) user-friendly error message
-	return e.token.EnsureFresh()
+	return e.authorizer.refresh()
 }
