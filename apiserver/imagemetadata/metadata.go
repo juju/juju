@@ -289,7 +289,7 @@ var convertToParams = func(info *simplestreams.ResolveInfo, priority int, publis
 		m := params.CloudImageMetadata{
 			Source:          info.Source,
 			ImageId:         p.Id,
-			Stream:          p.Stream,
+			Stream:          info.Stream,
 			Region:          p.RegionName,
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
