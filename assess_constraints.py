@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """This module tests the deployment with constraints."""
 # Currently in a major re-work.
+# ./assess_constraints.py parallel-lxd /usr/lib/juju-2.0/bin/juju
+# Errors out, because of a bad charm path. I have chased it all the way to
+# backend.juju, the correct argument is still being passed there.
 
 from __future__ import print_function
 import os
@@ -8,6 +11,7 @@ import os
 import argparse
 import logging
 import sys
+import re
 
 import yaml
 
@@ -61,6 +65,24 @@ def make_constraints(memory=None, cpu_cores=None, virt_type=None,
     return ' '.join(args)
 
 
+def cmp_mem_size(ms1, ms2):
+    """Preform a comparison between to memory sizes."""
+    def mem_size(size):
+        """Convert an argument size into a number of megabytes."""
+        if not re.match(re.compile('[0123456789]+[MGTP]?'), size):
+            raise JujuAssertionError('Not a size format:', size)
+        if size[-1] in 'MGTP':
+            val = int(size[0:-1])
+            unit = size[-1]
+        else:
+            val = int(size)
+            unit = 'M'
+        return val * (1024 ** 'MGTP'.find(unit))
+    num1 = mem_size(ms1)
+    num2 = mem_size(ms2)
+    return num1 - num2
+
+
 def deploy_constraint(client, constraints, charm, series, charm_repo):
     """Test deploying charm with constraints."""
     client.deploy(charm, series=series, repository=charm_repo,
@@ -81,6 +103,9 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
                              series=charm_series,
                              repository=os.path.dirname(charm_root),
                              platform=platform)
+    log.info(charm)
+    if charm.startswith('local:'):
+        raise JujuAssertionError('Bad charm path', charm)
     deploy_constraint(client, constraints, charm,
                       charm_series, charm_dir)
 
@@ -149,13 +174,15 @@ def juju_show_machine_hardware(client, machine):
 
 def assess_constraints_lxd(client, args):
     """Run the tests that are used on lxd."""
+    log.info('verion: ' + client.version)
     charm_series = (args.series or 'xenial')
     with temp_dir() as charm_dir:
-        charm_name = 'lxd-root-disk-2048'
+        charm_name = 'root-disk-2048' #'lxd-root-disk-2048'
         constraints = make_constraints(root_disk='2048')
-        deploy_charm_constraint(client, constraints, charm_name,
+        deploy_charm_constraint(client, None, charm_name,
                                 charm_series, charm_dir)
         # Check the machine for the amount of disk-space.
+        log.info(charm_name + ' has been deployed')
         client.remove_service(charm_name)
 
 
@@ -174,7 +201,7 @@ def assess_constraints_ec2(client):
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     assess_virt_type_constraints(client, test_kvm)
-    assess_instance_type_constraints(client)
+    #assess_instance_type_constraints(client)
 
 
 def parse_args(argv):
@@ -190,8 +217,8 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     test_kvm = '--with-virttype-kvm' in args
     with bs_manager.booted_context(args.upload_tools):
-        #assess_constraints_lxd(bs_manager.client, args)
-        assess_constraints(bs_manager.client, test_kvm)
+        assess_constraints_lxd(bs_manager.client, args)
+        #assess_constraints(bs_manager.client, test_kvm)
     return 0
 
 
