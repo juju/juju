@@ -26,6 +26,7 @@ const (
 	modeStatic  maasLinkMode = "static"
 	modeDHCP    maasLinkMode = "dhcp"
 	modeLinkUp  maasLinkMode = "link_up"
+	modeAuto    maasLinkMode = "auto"
 )
 
 type maasInterfaceLink struct {
@@ -153,20 +154,18 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			NoAutoStart:         !iface.Enabled,
 		}
 
+		if len(iface.Links) == 0 {
+			logger.Debugf("interface %q has no links", iface.Name)
+			infos = append(infos, nicInfo)
+			continue
+		}
+
 		for _, link := range iface.Links {
-			switch link.Mode {
-			case modeUnknown:
-				nicInfo.ConfigType = network.ConfigUnknown
-			case modeDHCP:
-				nicInfo.ConfigType = network.ConfigDHCP
-			case modeStatic, modeLinkUp:
-				nicInfo.ConfigType = network.ConfigStatic
-			default:
-				nicInfo.ConfigType = network.ConfigManual
-			}
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode), link.IPAddress)
 
 			if link.IPAddress == "" {
 				logger.Debugf("interface %q has no address", iface.Name)
+				infos = append(infos, nicInfo)
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
@@ -258,20 +257,18 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			NoAutoStart:         !iface.Enabled(),
 		}
 
+		if len(iface.Links()) == 0 {
+			logger.Debugf("interface %q has no links", iface.Name())
+			infos = append(infos, nicInfo)
+			continue
+		}
+
 		for _, link := range iface.Links() {
-			switch maasLinkMode(link.Mode()) {
-			case modeUnknown:
-				nicInfo.ConfigType = network.ConfigUnknown
-			case modeDHCP:
-				nicInfo.ConfigType = network.ConfigDHCP
-			case modeStatic, modeLinkUp:
-				nicInfo.ConfigType = network.ConfigStatic
-			default:
-				nicInfo.ConfigType = network.ConfigManual
-			}
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode(), link.IPAddress())
 
 			if link.IPAddress() == "" {
 				logger.Debugf("interface %q has no address", iface.Name())
+				infos = append(infos, nicInfo)
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
@@ -338,4 +335,21 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		mi := inst.(*maas1Instance)
 		return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
 	}
+}
+
+func maasLinkToInterfaceConfigType(mode, ipAddress string) network.InterfaceConfigType {
+	switch maasLinkMode(mode) {
+	case modeUnknown:
+		return network.ConfigUnknown
+	case modeDHCP:
+		return network.ConfigDHCP
+	case modeStatic, modeAuto:
+		if ipAddress != "" {
+			return network.ConfigStatic
+		}
+	case modeLinkUp:
+	default:
+	}
+
+	return network.ConfigManual
 }
