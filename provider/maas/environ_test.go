@@ -47,10 +47,10 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
-	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
-	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
 	s.PatchValue(&maas.GetCapabilities, mockCapabilities)
@@ -184,6 +184,10 @@ func (s *badEndpointSuite) SetUpSuite(c *gc.C) {
 		io.WriteString(w, "uh-oh")
 	}
 	s.fakeServer = httptest.NewServer(http.HandlerFunc(always404))
+}
+
+func (s *badEndpointSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
@@ -195,10 +199,28 @@ func (s *badEndpointSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *badEndpointSuite) TestBadEndpointMessage(c *gc.C) {
+func (s *badEndpointSuite) TestBadEndpointMessageNoMAAS(c *gc.C) {
 	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
 	env, err := maas.NewEnviron(s.cloudSpec, cfg)
 	c.Assert(env, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "Couldn't get MAAS version - check the endpoint is correct")
+	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct \(it normally ends with /MAAS\)`)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *badEndpointSuite) TestBadEndpointMessageWithMAAS(c *gc.C) {
+	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
+	s.cloudSpec.Endpoint += "/MAAS"
+	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	c.Assert(env, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct`)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *badEndpointSuite) TestBadEndpointMessageWithMAASAndSlash(c *gc.C) {
+	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
+	s.cloudSpec.Endpoint += "/MAAS/"
+	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	c.Assert(env, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct`)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
