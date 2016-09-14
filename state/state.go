@@ -683,22 +683,34 @@ func (st *State) SetModelConstraints(cons constraints.Value) error {
 	return writeConstraints(st, modelGlobalKey, cons)
 }
 
-// AllMachines returns all machines in the model
-// ordered by id.
-func (st *State) AllMachines() (machines []*Machine, err error) {
-	machinesCollection, closer := st.getCollection(machinesC)
-	defer closer()
-
+func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
 	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
+	err := machinesCollection.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all machines")
 	}
 	sort.Sort(mdocs)
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
+	machines := make([]*Machine, len(mdocs))
+	for i, doc := range mdocs {
+		machines[i] = newMachine(st, &doc)
 	}
-	return
+	return machines, nil
+}
+
+// AllMachines returns all machines in the model
+// ordered by id.
+func (st *State) AllMachines() ([]*Machine, error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
+}
+
+// AllMachinesFor returns all machines for the model represented
+// by the given modeluuid
+func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
+	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
 }
 
 type machineDocSlice []machineDoc

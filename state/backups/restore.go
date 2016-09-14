@@ -172,7 +172,7 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 // better chance of being fixed by the user, if we were to fail
 // we risk an inconsistent controller because of one unresponsive
 // agent, we should nevertheless return the err info to the user.
-func updateAllMachines(privateAddress string, machines []*state.Machine) error {
+func updateAllMachines(privateAddress, publicAddress string, machines []*state.Machine) error {
 	var machineUpdating sync.WaitGroup
 	for key := range machines {
 		// key is used to have machine be scope bound to the loop iteration.
@@ -185,8 +185,10 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 		machineUpdating.Add(1)
 		go func() {
 			defer machineUpdating.Done()
-			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
-			logger.Errorf("failed updating machine: %v", err)
+			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress, publicAddress))
+			if err != nil {
+				logger.Errorf("failed updating machine: %v", err)
+			}
 		}()
 	}
 	machineUpdating.Wait()
@@ -203,13 +205,23 @@ set -xu
 cd /var/lib/juju/agents
 for agent in *
 do
-	status  jujud-$agent| grep -q "^jujud-$agent start" > /dev/null
-	if [ $? -eq 0 ]; then
-		initctl stop jujud-$agent
-	fi
+	initctl stop jujud-$agent > /dev/null
+        systemctl stop jujud-$agent > /dev/null
+	service jujud-$agent stop > /dev/null
+
+	# The below statement will work in cases where there
+	# is a private address for the api server only
+	# or where there are a private and a public, which are
+	# the two common cases.
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
+	}" $agent/agent.conf
+	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
+		n
+		s/- .*(:[0-9]+)/- {{.PubAddress}}\1/
 	}" $agent/agent.conf
 
 	# If we're processing a unit agent's directly
@@ -222,21 +234,19 @@ do
 		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	# Just in case is a stale unit
-	status  jujud-$agent| grep -q "^jujud-$agent stop" > /dev/null
-	if [ $? -eq 0 ]; then
-		initctl start jujud-$agent
-                systemctl stop jujud-$agent
-                systemctl start jujud-$agent
-	fi
+	initctl start jujud-$agent > /dev/null
+        systemctl start jujud-$agent > /dev/null
+	service jujud-$agent start > /dev/null
 done
 `))
 
 // setAgentAddressScript generates an ssh script argument to update state addresses.
-func setAgentAddressScript(stateAddr string) string {
+func setAgentAddressScript(stateAddr, statePubAddr string) string {
 	var buf bytes.Buffer
 	err := agentAddressAndRelationsTemplate.Execute(&buf, struct {
-		Address string
-	}{stateAddr})
+		Address    string
+		PubAddress string
+	}{stateAddr, statePubAddr})
 	if err != nil {
 		panic(errors.Annotate(err, "template error"))
 	}
