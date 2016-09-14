@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"
@@ -22,30 +23,41 @@ import (
 // This suite provides basic tests for the "show-user" command
 type UserListCommandSuite struct {
 	BaseSuite
+
+	clock fakeClock
 }
 
 var _ = gc.Suite(&UserListCommandSuite{})
 
 func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
-	return user.NewListCommandForTest(&fakeUserListAPI{}, s.store)
+	clock := &fakeClock{now: time.Date(2016, 9, 15, 12, 0, 0, 0, time.UTC)}
+	return user.NewListCommandForTest(&fakeUserListAPI{clock}, s.store, clock)
 }
 
-type fakeUserListAPI struct{}
+type fakeUserListAPI struct {
+	clock *fakeClock
+}
 
 func (*fakeUserListAPI) Close() error {
 	return nil
+}
+
+type fakeClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (f *fakeClock) Now() time.Time {
+	return f.now
 }
 
 func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
 	if len(usernames) > 0 {
 		return nil, errors.Errorf("expected no usernames, got %d", len(usernames))
 	}
-	// lp:1558657
-	now := time.Now().UTC().Round(time.Second)
+	now := f.clock.Now()
 	last1 := time.Date(2014, 1, 1, 0, 0, 0, 0, time.UTC)
-	// The extra two seconds here are needed to make sure
-	// we don't get intermittent failures in formatting.
-	last2 := now.Add(-35*time.Minute + -2*time.Second)
+	last2 := now.Add(-35 * time.Minute)
 	result := []params.UserInfo{
 		{
 			Username:       "adam",
@@ -63,9 +75,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 			Username:    "charlie",
 			DisplayName: "Charlie Xavier",
 			Access:      "superuser",
-			// The extra two minutes here are needed to make sure
-			// we don't get intermittent failures in formatting.
-			DateCreated: now.Add(-6*time.Hour + -2*time.Minute),
+			DateCreated: now.Add(-6 * time.Hour),
 		},
 	}
 	if all {
@@ -116,13 +126,13 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
-	dateRegex := `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000 UTC`
-	c.Assert(testing.Stdout(context), gc.Matches, ""+
+	// dateRegex := `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000 UTC`
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: testing\n\n"+
 		"NAME     DISPLAY NAME    ACCESS     DATE CREATED                   LAST CONNECTION\n"+
-		"adam\\*    Adam Zulu       login      2012-10-08 00:00:00 \\+0000 UTC  2014-01-01 00:00:00 \\+0000 UTC\n"+
-		"barbara  Barbara Yellow  addmodel   2013-05-02 00:00:00 \\+0000 UTC  "+dateRegex+"\n"+
-		"charlie  Charlie Xavier  superuser  "+dateRegex+"  never connected\n"+
+		"adam*    Adam Zulu       login      2012-10-08 00:00:00 +0000 UTC  2014-01-01 00:00:00 +0000 UTC\n"+
+		"barbara  Barbara Yellow  addmodel   2013-05-02 00:00:00 +0000 UTC  2016-09-15 12:00:00 +0000 UTC\n"+
+		"charlie  Charlie Xavier  superuser  2016-09-15 06:00:00 +0000 UTC  never connected\n"+
 		"\n")
 }
 
@@ -158,6 +168,6 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 }
 
 func (s *UserListCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newUserListCommand(), "whoops")
+	_, err := testing.RunCommand(c, s.newUserListCommand(), "model", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

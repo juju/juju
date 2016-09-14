@@ -5,6 +5,7 @@ package user
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -50,7 +51,9 @@ func NewRemoveCommandForTest(api RemoveUserAPI, store jujuclient.ClientStore) (c
 }
 
 func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &infoCommand{infoCommandBase: infoCommandBase{api: api}}
+	cmd := &infoCommand{infoCommandBase: infoCommandBase{
+		clock: clock.WallClock,
+		api:   api}}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd)
 }
@@ -106,8 +109,10 @@ func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore)
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
+func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore, clock clock.Clock) cmd.Command {
+	c := &listCommand{infoCommandBase: infoCommandBase{
+		clock: clock,
+		api:   api}}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }
