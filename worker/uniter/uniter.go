@@ -397,6 +397,21 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
 	}
+	// If initialising for the first time after deploying, update the status.
+	currentStatus, err := u.unit.UnitStatus()
+	if err != nil {
+		return err
+	}
+	// TODO(fwereade/wallyworld): we should have an explicit place in the model
+	// to tell us when we've hit this point, instead of piggybacking on top of
+	// status and/or status history.
+	// If the previous status was waiting for machine, we transition to the next step.
+	if currentStatus.Status == string(status.Waiting) &&
+		(currentStatus.Info == status.MessageWaitForMachine || currentStatus.Info == status.MessageInstallingAgent) {
+		if err := u.unit.SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
 	}

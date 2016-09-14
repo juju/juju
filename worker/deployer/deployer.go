@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -150,6 +151,9 @@ func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
+	}
+	if err := unit.SetStatus(status.Waiting, status.MessageInstallingAgent, nil); err != nil {
+		return errors.Trace(err)
 	}
 	logger.Infof("deploying unit %q", unitName)
 	initialPassword, err := utils.RandomPassword()

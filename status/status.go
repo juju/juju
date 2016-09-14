@@ -194,15 +194,10 @@ const (
 )
 
 const (
-	MessageInstalling = "installing charm software"
-
-	// StorageReadyMessage is the message set to the agent status when all storage
-	// attachments are properly done.
-	StorageReadyMessage = "storage ready"
-
-	// PreparingStorageMessage is the message set to the agent status before trying
-	// to attach storages.
-	PreparingStorageMessage = "preparing storage"
+	MessageWaitForMachine    = "waiting for machine"
+	MessageInstallingAgent   = "installing agent"
+	MessageInitializingAgent = "agent initializing"
+	MessageInstallingCharm   = "installing charm software"
 )
 
 func (status Status) KnownInstanceStatus() bool {

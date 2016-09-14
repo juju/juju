@@ -1073,12 +1073,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	statusDoc := statusDoc{
-		ModelUUID: st.ModelUUID(),
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		// Implemented like this to be consistent with incorrect add-unit
-		// behaviour.
-		Status:     status.Unknown,
-		StatusInfo: MessageWaitForAgentInit,
+		ModelUUID:  st.ModelUUID(),
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
