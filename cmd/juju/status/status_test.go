@@ -4176,6 +4176,9 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{
+			CloudTag: "cloud-dummy",
+		},
 		Machines: map[string]params.MachineStatus{
 			"1": {
 				AgentStatus: params.DetailedStatus{
@@ -4191,9 +4194,13 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 	}
 	formatter := NewStatusFormatter(status, true)
-	formatted := formatter.format()
+	formatted, err := formatter.format()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Model: modelStatus{
+			Cloud: "dummy",
+		},
 		Machines: map[string]machineStatus{
 			"1": {
 				JujuStatus: statusInfoContents{Current: "error", Message: "<error while provisioning>"},

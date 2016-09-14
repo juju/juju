@@ -129,7 +129,7 @@ type AddModelAPI interface {
 		name, owner, cloudName, cloudRegion string,
 		cloudCredential names.CloudCredentialTag,
 		config map[string]interface{},
-	) (params.ModelInfo, error)
+	) (base.ModelInfo, error)
 }
 
 type CloudAPI interface {
@@ -235,11 +235,8 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		messageFormat += " on %s"
 		messageArgs = append(messageArgs, cloudRegion)
 	}
-	if model.CloudCredentialTag != "" {
-		tag, err := names.ParseCloudCredentialTag(model.CloudCredentialTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	if model.CloudCredential != "" {
+		tag := names.NewCloudCredentialTag(model.CloudCredential)
 		credentialName := tag.Name()
 		if tag.Owner().Canonical() != modelOwner {
 			credentialName = fmt.Sprintf("%s/%s", tag.Owner().Canonical(), credentialName)

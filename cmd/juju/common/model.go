@@ -64,6 +64,10 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	if info.Status.Since != nil {
 		status.Since = UserFriendlyDuration(*info.Status.Since, now)
 	}
+	cloudTag, err := names.ParseCloudTag(info.CloudTag)
+	if err != nil {
+		return ModelInfo{}, errors.Trace(err)
+	}
 	return ModelInfo{
 		Name:           info.Name,
 		UUID:           info.UUID,
@@ -71,7 +75,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
 		Status:         status,
-		Cloud:          info.Cloud,
+		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
 		ProviderType:   info.ProviderType,
 		Users:          ModelUserInfoFromParams(info.Users, now),

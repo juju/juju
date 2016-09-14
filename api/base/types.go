@@ -6,7 +6,8 @@ package base
 import (
 	"time"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 // UserModel holds information about a model and the last
@@ -22,7 +23,7 @@ type UserModel struct {
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	UUID               string
-	Life               params.Life
+	Life               string
 	Owner              string
 	TotalMachineCount  int
 	CoreCount          int
@@ -38,4 +39,38 @@ type Machine struct {
 	HasVote    bool
 	WantsVote  bool
 	Status     string
+	Hardware   *instance.HardwareCharacteristics
+}
+
+// ModelInfo holds information about a model.
+type ModelInfo struct {
+	Name            string
+	UUID            string
+	ControllerUUID  string
+	ProviderType    string
+	DefaultSeries   string
+	Cloud           string
+	CloudRegion     string
+	CloudCredential string
+	Owner           string
+	Life            string
+	Status          Status
+	Users           []UserInfo
+	Machines        []Machine
+}
+
+// Status represents the status of a machine, application, or unit.
+type Status struct {
+	Status status.Status
+	Info   string
+	Data   map[string]interface{}
+	Since  *time.Time
+}
+
+// UserInfo holds information about a user in a juju model.
+type UserInfo struct {
+	UserName       string
+	DisplayName    string
+	LastConnection *time.Time
+	Access         string
 }

@@ -195,13 +195,6 @@ func (c *Client) ModelUUID() (string, bool) {
 	return tag.Id(), true
 }
 
-// ModelInfo returns details about the Juju model.
-func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	var info params.ModelInfo
-	err := c.facade.FacadeCall("ModelInfo", nil, &info)
-	return info, err
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	var results params.ModelUserInfoResults

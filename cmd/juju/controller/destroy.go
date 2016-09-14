@@ -186,7 +186,7 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 	// and there are models still alive.
 	var buf bytes.Buffer
 	for _, model := range models {
-		if model.Life != params.Alive {
+		if model.Life != string(params.Alive) {
 			continue
 		}
 		buf.WriteString(fmtModelStatus(model))

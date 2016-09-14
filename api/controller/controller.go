@@ -137,7 +137,7 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 
 		results[i] = base.ModelStatus{
 			UUID:               model.Id(),
-			Life:               r.Life,
+			Life:               string(r.Life),
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,
 			ServiceCount:       r.ApplicationCount,

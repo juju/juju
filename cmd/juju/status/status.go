@@ -153,7 +153,10 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
-	formatted := formatter.format()
+	formatted, err := formatter.format()
+	if err != nil {
+		return err
+	}
 	return c.out.Write(ctx, formatted)
 }
 

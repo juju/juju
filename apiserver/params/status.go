@@ -30,7 +30,7 @@ type FullStatus struct {
 // ModelStatusInfo holds status information about the model itself.
 type ModelStatusInfo struct {
 	Name             string `json:"name"`
-	Cloud            string `json:"cloud"`
+	CloudTag         string `json:"cloud-tag"`
 	CloudRegion      string `json:"region,omitempty"`
 	Version          string `json:"version"`
 	AvailableVersion string `json:"available-version"`

@@ -580,7 +580,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		Status:         common.EntityStatusFromState(status),
 		ProviderType:   cfg.Type(),
 		DefaultSeries:  config.PreferredSeries(cfg),
-		Cloud:          model.Cloud(),
+		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}
 

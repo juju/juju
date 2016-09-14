@@ -213,7 +213,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
-			Life:               params.Dead,
+			Life:               string(params.Dead),
 			HostedMachineCount: 0,
 			ServiceCount:       0,
 			Owner:              owner.Canonical(),
@@ -317,7 +317,7 @@ func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 	for uuid, status := range s.api.envStatus {
-		status.Life = params.Alive
+		status.Life = string(params.Alive)
 		s.api.envStatus[uuid] = status
 	}
 	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
