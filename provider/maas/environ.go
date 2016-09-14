@@ -271,12 +271,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 			return errors.Trace(err)
 		}
 		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-		caps, err := GetCapabilities(env.maasClientUnlocked)
+		caps, err := GetCapabilities(env.maasClientUnlocked, maasServer)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
-			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+			return errors.NewNotSupported(nil, "MAAS 1.9 or more recent is required")
 		}
 	case err != nil:
 		return errors.Trace(err)
@@ -597,7 +597,7 @@ const (
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
+func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 	var err error
@@ -607,7 +607,12 @@ func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 		result, err = version.CallGet("", nil)
 		if err != nil {
 			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
+				message := "could not connect to MAAS controller - check the endpoint is correct"
+				trimmedUrl := strings.TrimRight(serverURL, "/")
+				if !strings.HasSuffix(trimmedUrl, "/MAAS") {
+					message += " (it normally ends with /MAAS)"
+				}
+				return caps, errors.NewNotSupported(nil, message)
 			}
 		} else {
 			break

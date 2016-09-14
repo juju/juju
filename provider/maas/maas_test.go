@@ -95,10 +95,10 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
-	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
