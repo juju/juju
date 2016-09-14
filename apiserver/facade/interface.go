@@ -6,7 +6,7 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -95,11 +95,11 @@ type Authorizer interface {
 
 	// HasPermission reports whether the given access is allowed for the given
 	// target by the authenticated entity.
-	HasPermission(operation description.Access, target names.Tag) (bool, error)
+	HasPermission(operation permission.Access, target names.Tag) (bool, error)
 
 	// UserHasPermission reports whether the given access is allowed for the given
 	// target by the given user.
-	UserHasPermission(user names.UserTag, operation description.Access, target names.Tag) (bool, error)
+	UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error)
 
 	// ConnectedModel returns the UUID of the model to which the API
 	// connection was made.

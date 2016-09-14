@@ -28,12 +28,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -2393,7 +2393,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		state.UserAccessSpec{
 			User:      names.NewUserTag("amelia@external"),
 			CreatedBy: s.Owner,
-			Access:    description.ReadAccess,
+			Access:    permission.ReadAccess,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

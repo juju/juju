@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/permission"
+	"github.com/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -182,29 +182,6 @@ func (c *Client) DestroyModel(tag names.ModelTag) error {
 	return nil
 }
 
-// ParseModelAccess parses an access permission argument into
-// a type suitable for making an API facade call.
-func ParseModelAccess(access string) (params.UserAccessPermission, error) {
-	var fail params.UserAccessPermission
-
-	modelAccess, err := permission.ParseModelAccess(access)
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-	var accessPermission params.UserAccessPermission
-	switch modelAccess {
-	case permission.ModelReadAccess:
-		accessPermission = params.ModelReadAccess
-	case permission.ModelWriteAccess:
-		accessPermission = params.ModelWriteAccess
-	case permission.ModelAdminAccess:
-		accessPermission = params.ModelAdminAccess
-	default:
-		return fail, errors.Errorf("unsupported model access permission %v", modelAccess)
-	}
-	return accessPermission, nil
-}
-
 // GrantModel grants a user access to the specified models.
 func (c *Client) GrantModel(user, access string, modelUUIDs ...string) error {
 	return c.modifyModelUser(params.GrantModelAccess, user, access, modelUUIDs)
@@ -223,8 +200,8 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	}
 	userTag := names.NewUserTag(user)
 
-	accessPermission, err := ParseModelAccess(access)
-	if err != nil {
+	modelAccess := permission.Access(access)
+	if err := permission.ValidateModelAccess(modelAccess); err != nil {
 		return errors.Trace(err)
 	}
 	for _, model := range modelUUIDs {
@@ -235,13 +212,13 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 		args.Changes = append(args.Changes, params.ModifyModelAccess{
 			UserTag:  userTag.String(),
 			Action:   action,
-			Access:   accessPermission,
+			Access:   params.UserAccessPermission(modelAccess),
 			ModelTag: modelTag.String(),
 		})
 	}
 
 	var result params.ErrorResults
-	err = c.facade.FacadeCall("ModifyModelAccess", args, &result)
+	err := c.facade.FacadeCall("ModifyModelAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

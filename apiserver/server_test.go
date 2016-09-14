@@ -31,10 +31,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -447,7 +447,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 	c.Assert(err, jc.ErrorIsNil)
 	cu, err := s.State.UserAccess(user, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cu.Access, gc.Equals, description.LoginAccess)
+	c.Assert(cu.Access, gc.Equals, permission.LoginAccess)
 	return u, ctag
 }
 
@@ -457,9 +457,9 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
-	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, false)
-	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, false)
+	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
 func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
@@ -469,13 +469,13 @@ func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
-	ua, err := s.State.SetUserAccess(user, ctag, description.AddModelAccess)
+	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ua.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(ua.Access, gc.Equals, permission.AddModelAccess)
 
-	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, false)
+	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
 func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
@@ -485,13 +485,13 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
 	defer handler.Kill()
 
-	ua, err := s.State.SetUserAccess(user, ctag, description.SuperuserAccess)
+	ua, err := s.State.SetUserAccess(user, ctag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ua.Access, gc.Equals, description.SuperuserAccess)
+	c.Assert(ua.Access, gc.Equals, permission.SuperuserAccess)
 
-	apiserver.AssertHasPermission(c, handler, description.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, description.AddModelAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, description.SuperuserAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
+	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
 }
 
 func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {

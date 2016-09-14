@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -190,7 +191,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    description.ReadAccess,
+		Access:    permission.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, bob, lastConnection)
@@ -211,14 +212,14 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated)
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.Access(), gc.Equals, description.AdminAccess)
+	c.Assert(exportedAdmin.Access(), gc.Equals, "admin")
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated)
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.Access(), gc.Equals, description.ReadAccess)
+	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {

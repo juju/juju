@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
 )
 
@@ -346,7 +346,7 @@ type fakeController struct {
 	machines       map[string][]base.Machine
 }
 
-func (*fakeController) GetControllerAccess(user string) (description.Access, error) {
+func (*fakeController) GetControllerAccess(user string) (permission.Access, error) {
 	return "superuser", nil
 }
 

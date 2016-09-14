@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -43,7 +43,7 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
-	canWrite, err := c.auth.HasPermission(description.WriteAccess, c.backend.ModelTag())
+	canWrite, err := c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,7 +54,7 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 }
 
 func (c *ModelConfigAPI) isAdmin() error {
-	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ControllerTag())
+	hasAccess, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

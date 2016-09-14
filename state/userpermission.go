@@ -11,12 +11,12 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 )
 
 // permission represents the permission a user has
 // on a given scope.
-type permission struct {
+type userPermission struct {
 	doc permissionDoc
 }
 
@@ -31,62 +31,62 @@ type permissionDoc struct {
 	Access string `bson:"access"`
 }
 
-func stringToAccess(a string) description.Access {
-	return description.Access(a)
+func stringToAccess(a string) permission.Access {
+	return permission.Access(a)
 }
 
-func accessToString(a description.Access) string {
+func accessToString(a permission.Access) string {
 	return string(a)
 }
 
 // userPermission returns a Permission for the given Subject and User.
-func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*permission, error) {
-	userPermission := &permission{}
+func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
+	result := &userPermission{}
 	permissions, closer := st.getCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
-	err := permissions.FindId(id).One(&userPermission.doc)
+	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
-	return userPermission, nil
+	return result, nil
 }
 
 // controllerUserPermission returns a Permission for the given Subject and User.
-func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*permission, error) {
-	userPermission := &permission{}
+func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
+	result := &userPermission{}
 
 	permissions, closer := st.getCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
-	err := permissions.FindId(id).One(&userPermission.doc)
+	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("user permissions for user %q", id)
 	}
-	return userPermission, nil
+	return result, nil
 }
 
 // isReadOnly returns whether or not the user has write access or only
 // read access to the model.
-func (p *permission) isReadOnly() bool {
-	return stringToAccess(p.doc.Access) == description.UndefinedAccess || stringToAccess(p.doc.Access) == description.ReadAccess
+func (p *userPermission) isReadOnly() bool {
+	return stringToAccess(p.doc.Access) == permission.UndefinedAccess || stringToAccess(p.doc.Access) == permission.ReadAccess
 }
 
 // isAdmin is a convenience method that
-// returns whether or not the user has description.AdminAccess.
-func (p *permission) isAdmin() bool {
-	return stringToAccess(p.doc.Access) == description.AdminAccess
+// returns whether or not the user has permission.AdminAccess.
+func (p *userPermission) isAdmin() bool {
+	return stringToAccess(p.doc.Access) == permission.AdminAccess
 }
 
 // isReadWrite is a convenience method that
-// returns whether or not the user has description.WriteAccess.
-func (p *permission) isReadWrite() bool {
-	return stringToAccess(p.doc.Access) == description.WriteAccess
+// returns whether or not the user has permission.WriteAccess.
+func (p *userPermission) isReadWrite() bool {
+	return stringToAccess(p.doc.Access) == permission.WriteAccess
 }
 
-func (p *permission) access() description.Access {
+func (p *userPermission) access() permission.Access {
 	return stringToAccess(p.doc.Access)
 }
 
@@ -109,7 +109,7 @@ func permissionID(objectGlobalKey, subjectGlobalKey string) string {
 	return fmt.Sprintf("%s#%s", objectGlobalKey, subjectGlobalKey)
 }
 
-func updatePermissionOp(objectGlobalKey, subjectGlobalKey string, access description.Access) txn.Op {
+func updatePermissionOp(objectGlobalKey, subjectGlobalKey string, access permission.Access) txn.Op {
 	return txn.Op{
 		C:      permissionsC,
 		Id:     permissionID(objectGlobalKey, subjectGlobalKey),
@@ -127,7 +127,7 @@ func removePermissionOp(objectGlobalKey, subjectGlobalKey string) txn.Op {
 	}
 
 }
-func createPermissionOp(objectGlobalKey, subjectGlobalKey string, access description.Access) txn.Op {
+func createPermissionOp(objectGlobalKey, subjectGlobalKey string, access permission.Access) txn.Op {
 	doc := &permissionDoc{
 		ID:               permissionID(objectGlobalKey, subjectGlobalKey),
 		SubjectGlobalKey: subjectGlobalKey,

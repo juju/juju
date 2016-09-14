@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -45,7 +45,7 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 
 	getUserAuthFunc := func() (common.AuthFunc, error) {
 		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
-		isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, backend.ControllerTag())
+		isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}

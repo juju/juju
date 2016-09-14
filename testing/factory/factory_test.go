@@ -15,8 +15,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -191,7 +191,7 @@ func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
 	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.State.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(saved, gc.DeepEquals, description.UserAccess{})
+	c.Assert(saved, gc.DeepEquals, permission.UserAccess{})
 }
 
 func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {

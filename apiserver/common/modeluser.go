@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -19,8 +19,8 @@ type modelConnectionAbleBackend interface {
 	LastModelConnection(names.UserTag) (time.Time, error)
 }
 
-// ModelUserInfo converts description.UserAccess to params.ModelUserInfo.
-func ModelUserInfo(user description.UserAccess, st modelConnectionAbleBackend) (params.ModelUserInfo, error) {
+// ModelUserInfo converts permission.UserAccess to params.ModelUserInfo.
+func ModelUserInfo(user permission.UserAccess, st modelConnectionAbleBackend) (params.ModelUserInfo, error) {
 	access, err := StateToParamsUserAccessPermission(user.Access)
 	if err != nil {
 		return params.ModelUserInfo{}, errors.Trace(err)
@@ -44,14 +44,14 @@ func ModelUserInfo(user description.UserAccess, st modelConnectionAbleBackend) (
 	return userInfo, nil
 }
 
-// StateToParamsUserAccessPermission converts description.Access to params.AccessPermission.
-func StateToParamsUserAccessPermission(descriptionAccess description.Access) (params.UserAccessPermission, error) {
+// StateToParamsUserAccessPermission converts permission.Access to params.AccessPermission.
+func StateToParamsUserAccessPermission(descriptionAccess permission.Access) (params.UserAccessPermission, error) {
 	switch descriptionAccess {
-	case description.ReadAccess:
+	case permission.ReadAccess:
 		return params.ModelReadAccess, nil
-	case description.WriteAccess:
+	case permission.WriteAccess:
 		return params.ModelWriteAccess, nil
-	case description.AdminAccess:
+	case permission.AdminAccess:
 		return params.ModelAdminAccess, nil
 	}
 

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -149,8 +149,8 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var modelUser description.UserAccess
-	var everyoneGroupUser description.UserAccess
+	var modelUser permission.UserAccess
+	var everyoneGroupUser permission.UserAccess
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
@@ -182,9 +182,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
 
-		if description.IsEmptyUserAccess(modelUser) &&
-			description.IsEmptyUserAccess(controllerUser) &&
-			description.IsEmptyUserAccess(everyoneGroupUser) {
+		if permission.IsEmptyUserAccess(modelUser) &&
+			permission.IsEmptyUserAccess(controllerUser) &&
+			permission.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
 		maybeUserInfo.ControllerAccess = string(controllerUser.Access)
@@ -393,8 +393,8 @@ var _ loginEntity = &modelUserEntity{}
 type modelUserEntity struct {
 	st *state.State
 
-	controllerUser description.UserAccess
-	modelUser      description.UserAccess
+	controllerUser permission.UserAccess
+	modelUser      permission.UserAccess
 	user           *state.User
 }
 
@@ -428,7 +428,7 @@ func (u *modelUserEntity) Tag() names.Tag {
 	if u.user != nil {
 		return u.user.UserTag()
 	}
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		return u.modelUser.UserTag
 	}
 	return u.controllerUser.UserTag
@@ -441,12 +441,12 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// the local user last login time.
 	var err error
 	var t time.Time
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
 	} else {
 		err = state.NeverConnectedError("controller user")
 	}
-	if state.IsNeverConnectedError(err) || description.IsEmptyUserAccess(u.modelUser) {
+	if state.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
@@ -462,7 +462,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 func (u *modelUserEntity) UpdateLastLogin() error {
 	var err error
 
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		if u.modelUser.Object.Kind() != names.ModelTagKind {
 			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
 		}

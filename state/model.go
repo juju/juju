@@ -16,9 +16,9 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -321,7 +321,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), description.AdminAccess)
+	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
@@ -611,7 +611,7 @@ func (m *Model) refresh(query mongo.Query) error {
 }
 
 // Users returns a slice of all users for this model.
-func (m *Model) Users() ([]description.UserAccess, error) {
+func (m *Model) Users() ([]permission.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
@@ -624,7 +624,7 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var modelUsers []description.UserAccess
+	var modelUsers []permission.UserAccess
 	for _, doc := range userDocs {
 		// check if the User belonging to this model user has
 		// been deleted, in this case we should not return it.
