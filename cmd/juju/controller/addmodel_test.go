@@ -13,9 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -23,7 +25,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/testing"
-	"gopkg.in/juju/names.v2"
 )
 
 type AddModelSuite struct {
@@ -38,10 +39,10 @@ var _ = gc.Suite(&AddModelSuite{})
 func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddModelAPI = &fakeAddClient{
-		model: params.ModelInfo{
-			Name:     "test",
-			UUID:     "fake-model-uuid",
-			OwnerTag: "ignored-for-now",
+		model: base.ModelInfo{
+			Name:  "test",
+			UUID:  "fake-model-uuid",
+			Owner: "ignored-for-now",
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{}
@@ -401,7 +402,7 @@ type fakeAddClient struct {
 	cloudCredential names.CloudCredentialTag
 	config          map[string]interface{}
 	err             error
-	model           params.ModelInfo
+	model           base.ModelInfo
 }
 
 var _ controller.AddModelAPI = (*fakeAddClient)(nil)
@@ -410,9 +411,9 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (params.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
 	if f.err != nil {
-		return params.ModelInfo{}, f.err
+		return base.ModelInfo{}, f.err
 	}
 	f.owner = owner
 	f.cloudCredential = cloudCredential

@@ -257,7 +257,7 @@ func (s *legacySuite) TestModelStatus(c *gc.C) {
 		HostedMachineCount: 1,
 		ServiceCount:       0,
 		Owner:              "admin@local",
-		Life:               params.Alive,
+		Life:               string(params.Alive),
 		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
 	}})
 }

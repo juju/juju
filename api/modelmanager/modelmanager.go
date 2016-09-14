@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 )
 
@@ -41,8 +42,8 @@ func (c *Client) CreateModel(
 	name, owner, cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
-) (params.ModelInfo, error) {
-	var result params.ModelInfo
+) (base.ModelInfo, error) {
+	var result base.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
@@ -65,9 +66,82 @@ func (c *Client) CreateModel(
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
 	}
-	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
+	var modelInfo params.ModelInfo
+	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)
 	if err != nil {
 		return result, errors.Trace(err)
+	}
+	return convertParamsModelInfo(modelInfo)
+}
+
+func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) {
+	cloud, err := names.ParseCloudTag(modelInfo.CloudTag)
+	if err != nil {
+		return base.ModelInfo{}, err
+	}
+	var credential string
+	if modelInfo.CloudCredentialTag != "" {
+		credTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
+		if err != nil {
+			return base.ModelInfo{}, err
+		}
+		credential = credTag.Id()
+	}
+	ownerTag, err := names.ParseUserTag(modelInfo.OwnerTag)
+	if err != nil {
+		return base.ModelInfo{}, err
+	}
+	result := base.ModelInfo{
+		Name:            modelInfo.Name,
+		UUID:            modelInfo.UUID,
+		ControllerUUID:  modelInfo.ControllerUUID,
+		ProviderType:    modelInfo.ProviderType,
+		DefaultSeries:   modelInfo.DefaultSeries,
+		Cloud:           cloud.Id(),
+		CloudRegion:     modelInfo.CloudRegion,
+		CloudCredential: credential,
+		Owner:           ownerTag.Id(),
+		Life:            string(modelInfo.Life),
+	}
+	result.Status = base.Status{
+		Status: modelInfo.Status.Status,
+		Info:   modelInfo.Status.Info,
+		Data:   make(map[string]interface{}),
+		Since:  modelInfo.Status.Since,
+	}
+	for k, v := range modelInfo.Status.Data {
+		result.Status.Data[k] = v
+	}
+	result.Users = make([]base.UserInfo, len(modelInfo.Users))
+	for i, u := range modelInfo.Users {
+		result.Users[i] = base.UserInfo{
+			UserName:       u.UserName,
+			DisplayName:    u.DisplayName,
+			Access:         string(u.Access),
+			LastConnection: u.LastConnection,
+		}
+	}
+	result.Machines = make([]base.Machine, len(modelInfo.Machines))
+	for i, m := range modelInfo.Machines {
+		machine := base.Machine{
+			Id:         m.Id,
+			InstanceId: m.InstanceId,
+			HasVote:    m.HasVote,
+			WantsVote:  m.WantsVote,
+			Status:     m.Status,
+		}
+		if m.Hardware != nil {
+			machine.Hardware = &instance.HardwareCharacteristics{
+				Arch:             m.Hardware.Arch,
+				Mem:              m.Hardware.Mem,
+				RootDisk:         m.Hardware.RootDisk,
+				CpuCores:         m.Hardware.Cores,
+				CpuPower:         m.Hardware.CpuPower,
+				Tags:             m.Hardware.Tags,
+				AvailabilityZone: m.Hardware.AvailabilityZone,
+			}
+		}
+		result.Machines[i] = machine
 	}
 	return result, nil
 }

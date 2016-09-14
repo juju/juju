@@ -288,7 +288,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return info, errors.Annotate(err, "cannot get model")
 	}
 	info.Name = m.Name()
-	info.Cloud = m.Cloud()
+	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
 	info.CloudRegion = m.CloudRegion()
 
 	cfg, err := m.Config()

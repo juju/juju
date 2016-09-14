@@ -75,7 +75,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		UUID:           testing.ModelTag.Id(),
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 		OwnerTag:       "user-admin@local",
-		Cloud:          "some-cloud",
+		CloudTag:       "cloud-some-cloud",
 		CloudRegion:    "some-region",
 		ProviderType:   "openstack",
 		Life:           params.Alive,

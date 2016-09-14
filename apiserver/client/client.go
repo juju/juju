@@ -431,7 +431,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	}
 	info := params.ModelInfo{
 		DefaultSeries: config.PreferredSeries(conf),
-		Cloud:         model.Cloud(),
+		CloudTag:      names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:   model.CloudRegion(),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),

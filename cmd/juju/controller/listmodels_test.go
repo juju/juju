@@ -69,6 +69,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				Name:     model.Name,
 				UUID:     model.UUID,
 				OwnerTag: names.NewUserTag(model.Owner).String(),
+				CloudTag: "cloud-dummy",
 			}
 			switch model.Name {
 			case "test-model1":

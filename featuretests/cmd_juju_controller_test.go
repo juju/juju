@@ -17,8 +17,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -44,7 +44,7 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.ModelInfo {
+func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) base.ModelInfo {
 	modelManager := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer modelManager.Close()
 	model, err := modelManager.CreateModel(

@@ -152,7 +152,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		OwnerTag:           "user-bob@local",
 		ProviderType:       "someprovider",
-		Cloud:              "some-cloud",
+		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob@local_some-credential",
 		DefaultSeries:      series.LatestLts(),

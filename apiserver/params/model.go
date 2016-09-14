@@ -95,7 +95,7 @@ type ModelInfo struct {
 	ControllerUUID     string `json:"controller-uuid"`
 	ProviderType       string `json:"provider-type"`
 	DefaultSeries      string `json:"default-series"`
-	Cloud              string `json:"cloud"`
+	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
