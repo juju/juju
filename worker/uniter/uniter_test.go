@@ -186,6 +186,44 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 	})
 }
 
+type noopExecutor struct {
+	operation.Executor
+}
+
+func (m *noopExecutor) Run(op operation.Operation) error {
+	return errors.New("some error occurred")
+}
+
+func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+		c.Assert(err, jc.ErrorIsNil)
+		return &mockExecutor{e}, nil
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"unit status and message at startup",
+			createCharm{},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			startUniter{
+				newExecutorFunc: executorFunc,
+			},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       status.Waiting,
+				info:         status.MessageInitializingAgent,
+			},
+			waitUnitAgent{
+				status: status.Failed,
+				info:   "resolver loop error",
+			},
+			expectError{".*some error occurred.*"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1439,9 +1477,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data: map[string]interface{}{
-					"hook": "start",
-				},
+				data:         map[string]interface{}{"hook": "start"},
 			},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",

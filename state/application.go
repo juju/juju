@@ -951,8 +951,6 @@ func (s *Application) newUnitName() (string, error) {
 	return name, nil
 }
 
-const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
-
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. Only one subordinate of a given
@@ -1046,9 +1044,8 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		Status:     status.Unknown,
-		StatusInfo: MessageWaitForAgentInit,
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
 		Updated:    now.UnixNano(),
 	}
 	workloadVersionDoc := statusDoc{

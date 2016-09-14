@@ -39,6 +39,7 @@ func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade
 		check:      common.NewBlockChecker(st),
 	}, nil
 }
+
 func (a *ActionAPI) checkCanRead() error {
 	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.state.ModelTag())
 	if err != nil {
@@ -56,6 +57,17 @@ func (a *ActionAPI) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (a *ActionAPI) checkCanAdmin() error {
+	canAdmin, err := a.authorizer.HasPermission(description.AdminAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canAdmin {
 		return common.ErrPerm
 	}
 	return nil
