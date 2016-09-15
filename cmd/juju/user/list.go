@@ -48,7 +48,7 @@ func NewListCommand() cmd.Command {
 // listCommand shows all the users in the Juju server.
 type listCommand struct {
 	infoCommandBase
-	modelUserAPI ModelUsersAPI
+	modelUserAPI modelUsersAPI
 
 	All         bool
 	modelName   string
@@ -57,12 +57,12 @@ type listCommand struct {
 
 // ModelUsersAPI defines the methods on the client API that the
 // users command calls.
-type ModelUsersAPI interface {
+type modelUsersAPI interface {
 	Close() error
 	ModelUserInfo() ([]params.ModelUserInfo, error)
 }
 
-func (c *listCommand) getModelAPI() (ModelUsersAPI, error) {
+func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
 	if c.modelUserAPI != nil {
 		return c.modelUserAPI, nil
 	}
