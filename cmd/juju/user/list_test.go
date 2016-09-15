@@ -62,8 +62,8 @@ func (f *fakeUserListAPI) ModelUserInfo() ([]params.ModelUserInfo, error) {
 			LastConnection: &last1,
 			Access:         "write",
 		}, {
-			UserName:       "bob@local",
-			DisplayName:    "Bob",
+			UserName:       "adam@local",
+			DisplayName:    "Adam",
 			LastConnection: &last2,
 			Access:         "read",
 		}, {
@@ -194,10 +194,10 @@ func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                          ACCESS  LAST CONNECTION\n"+
-		"admin@local                   write   2015-03-20\n"+
-		"bob@local (Bob)               read    2015-03-01\n"+
-		"charlie@ubuntu.com (Charlie)  read    never connected\n"+
+		"NAME                DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
+		"adam@local*         Adam          read    2015-03-01\n"+
+		"admin@local                       write   2015-03-20\n"+
+		"charlie@ubuntu.com  Charlie       read    never connected\n"+
 		"\n")
 }
 
@@ -205,8 +205,8 @@ func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "{"+
+		`"adam@local":{"display-name":"Adam","access":"read","last-connection":"2015-03-01"},`+
 		`"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
-		`"bob@local":{"display-name":"Bob","access":"read","last-connection":"2015-03-01"},`+
 		`"charlie@ubuntu.com":{"display-name":"Charlie","access":"read","last-connection":"never connected"}`+
 		"}\n")
 }
@@ -215,13 +215,13 @@ func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"adam@local:\n"+
+		"  display-name: Adam\n"+
+		"  access: read\n"+
+		"  last-connection: 2015-03-01\n"+
 		"admin@local:\n"+
 		"  access: write\n"+
 		"  last-connection: 2015-03-20\n"+
-		"bob@local:\n"+
-		"  display-name: Bob\n"+
-		"  access: read\n"+
-		"  last-connection: 2015-03-01\n"+
 		"charlie@ubuntu.com:\n"+
 		"  display-name: Charlie\n"+
 		"  access: read\n"+

@@ -4,7 +4,6 @@
 package user
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/juju/ansiterm"
@@ -51,8 +50,9 @@ type listCommand struct {
 	infoCommandBase
 	modelUserAPI ModelUsersAPI
 
-	All       bool
-	modelName string
+	All         bool
+	modelName   string
+	currentUser string
 }
 
 // ModelUsersAPI defines the methods on the client API that the
@@ -105,6 +105,15 @@ func (c *listCommand) Init(args []string) (err error) {
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) (err error) {
+	if c.out.Name() == "tabular" {
+		// Only the tabular outputters need to know the current user,
+		// but both of them do, so do it in one place.
+		accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+		if err != nil {
+			return err
+		}
+		c.currentUser = names.NewUserTag(accountDetails.User).Canonical()
+	}
 	if c.modelName == "" {
 		return c.controllerUsers(ctx)
 	}
@@ -149,25 +158,34 @@ func (c *listCommand) formatTabular(writer io.Writer, value interface{}) error {
 	return c.formatModelUsers(writer, value)
 }
 
+func (c *listCommand) isLoggedInUser(username string) bool {
+	tag := names.NewUserTag(username)
+	return tag.Canonical() == c.currentUser
+}
+
 func (c *listCommand) formatModelUsers(writer io.Writer, value interface{}) error {
 	users, ok := value.(map[string]common.ModelUserInfo)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
-	names := set.NewStrings()
+	modelUsers := set.NewStrings()
 	for name := range users {
-		names.Add(name)
+		modelUsers.Add(name)
 	}
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("NAME", "ACCESS", "LAST CONNECTION")
-	for _, name := range names.SortedValues() {
+	w.Println("NAME", "DISPLAY NAME", "ACCESS", "LAST CONNECTION")
+	for _, name := range modelUsers.SortedValues() {
 		user := users[name]
-		displayName := name
-		if user.DisplayName != "" {
-			displayName = fmt.Sprintf("%s (%s)", name, user.DisplayName)
+
+		var highlight *ansiterm.Context
+		userName := name
+		if c.isLoggedInUser(name) {
+			userName += "*"
+			highlight = output.CurrentHighlight
 		}
-		w.Println(displayName, user.Access, user.LastConnection)
+		w.PrintColor(highlight, userName)
+		w.Println(user.DisplayName, user.Access, user.LastConnection)
 	}
 	tw.Flush()
 	return nil
@@ -178,11 +196,6 @@ func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{})
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", users, value)
 	}
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
-	if err != nil {
-		return err
-	}
-	loggedInUser := names.NewUserTag(accountDetails.User).Canonical()
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
@@ -196,7 +209,7 @@ func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{})
 		}
 		var highlight *ansiterm.Context
 		userName := user.Username
-		if loggedInUser == names.NewUserTag(user.Username).Canonical() {
+		if c.isLoggedInUser(user.Username) {
 			userName += "*"
 			highlight = output.CurrentHighlight
 		}
