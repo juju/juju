@@ -665,37 +665,40 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 				preparedOK = false
 				break
 			}
-			if len(parentAddrs) == 0 {
-				err = errors.Errorf("host machine device %q has no addresses", parentDevice.Name())
-				result.Results[i].Error = common.ServerError(err)
-				preparedOK = false
-				break
-			}
-			firstAddress := parentAddrs[0]
-			parentDeviceSubnet, err := firstAddress.Subnet()
-			if err != nil {
-				err = errors.Annotatef(err,
-					"cannot get subnet %q used by address %q of host machine device %q",
-					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
-				)
-				result.Results[i].Error = common.ServerError(err)
-				preparedOK = false
-				break
-			}
 
 			info := network.InterfaceInfo{
 				InterfaceName:       device.Name(),
 				MACAddress:          device.MACAddress(),
-				ConfigType:          network.ConfigStatic,
+				ConfigType:          network.ConfigManual,
 				InterfaceType:       network.InterfaceType(device.Type()),
 				NoAutoStart:         !device.IsAutoStart(),
 				Disabled:            !device.IsUp(),
 				MTU:                 int(device.MTU()),
-				CIDR:                parentDeviceSubnet.CIDR(),
-				ProviderSubnetId:    parentDeviceSubnet.ProviderId(),
-				VLANTag:             parentDeviceSubnet.VLANTag(),
 				ParentInterfaceName: parentDevice.Name(),
 			}
+
+			if len(parentAddrs) > 0 {
+				logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
+
+				firstAddress := parentAddrs[0]
+				parentDeviceSubnet, err := firstAddress.Subnet()
+				if err != nil {
+					err = errors.Annotatef(err,
+						"cannot get subnet %q used by address %q of host machine device %q",
+						firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
+					)
+					result.Results[i].Error = common.ServerError(err)
+					preparedOK = false
+					break
+				}
+				info.ConfigType = network.ConfigStatic
+				info.CIDR = parentDeviceSubnet.CIDR()
+				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
+				info.VLANTag = parentDeviceSubnet.VLANTag()
+			} else {
+				logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+			}
+
 			logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
 			preparedOK = true
 			preparedInfo[j] = info
