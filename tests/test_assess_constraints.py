@@ -7,6 +7,8 @@ import os
 from contextlib import contextmanager
 
 from assess_constraints import (
+    mem_as_int,
+    Constraints,
     append_constraint,
     make_constraints,
     juju_show_machine_hardware,
@@ -22,7 +24,10 @@ from tests import (
     TestCase,
     )
 from tests.test_jujupy import fake_juju_client
-from utility import temp_dir
+from utility import (
+    JujuAssertionError,
+    temp_dir,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -41,6 +46,54 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
+
+
+class TestConstraints(TestCase):
+
+    def test__list_to_str_none(self):
+        string = Constraints._list_to_str([])
+        self.assertEqual('', string)
+
+    def test__list_to_str(self):
+        string = Constraints._list_to_str(
+             [('a', 'true'), ('b', None), ('c', 'false')])
+        self.assertEqual('a=true c=false', string)
+
+    def test_static_str(self):
+        string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
+
+    def test_str_operator(self):
+        constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
+                         str(constraints))
+
+    def test_mem_as_int(self):
+        self.assertEqual(1, mem_as_int('1'))
+        self.assertEqual(1, mem_as_int('1M'))
+        self.assertEqual(1024, mem_as_int('1G'))
+        self.assertEqual(4096, mem_as_int('4G'))
+        with self.assertRaises(JujuAssertionError):
+            mem_as_int('40XB')
+
+    def test_meets_root_disk(self):
+        constraints = Constraints(root_disk='4G')
+        self.assertTrue(constraints.meets_root_disk('8G'))
+        self.assertTrue(constraints.meets_root_disk('4096'))
+        self.assertFalse(constraints.meets_root_disk('2G'))
+
+    def test_meets_cores(self):
+        constraints = Constraints(cores='2')
+        results = map(constraints.meets_cores, ['3', '2', '1'])
+        self.assertEqual([True, True, False], results)
+
+    def test_meets_cpu_power(self):
+        constraints = Constraints(cpu_power='20')
+        results = map(constraints.meets_cpu_power, ['30', '20', '10'])
+        self.assertEqual([True, True, False], results)
+
+    #def test_meets_arch(self):
+    #    constraints = Constraints(arch
 
 
 class TestMakeConstraints(TestCase):

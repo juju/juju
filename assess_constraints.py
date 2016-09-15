@@ -46,6 +46,109 @@ INSTANCE_TYPES = {
     }
 
 
+# This assumes instances are unique accross providers.
+def get_instance_spec(instance_type):
+    """Get the specifications of a given instance type."""
+    return {
+        # t2.micro hardware: arch=amd64 cpu-cores=1 cpu-power=10
+        #                    mem=1024M root-disk=8192M
+        't2.micro': {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'},
+        't2.large': {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'},
+        }[instance_type]
+
+
+def mem_as_int(size):
+    """Convert an argument size into a number of megabytes."""
+    if not re.match(re.compile('^[0123456789]+[MGTP]?$'), size):
+        raise JujuAssertionError('Not a size format:', size)
+    if size[-1] in 'MGTP':
+        val = int(size[0:-1])
+        unit = size[-1]
+        return val * (1024 ** 'MGTP'.find(unit))
+    else:
+        return int(size)
+
+
+class Constraints:
+    """Class that repersents a set of contraints."""
+
+    @staticmethod
+    def _list_to_str(constraints_list):
+        parts = []
+        for (name, value) in constraints_list:
+            if value is not None:
+                parts.append('{}={}'.format(name, value))
+        return ' '.join(parts)
+
+    @staticmethod
+    def str(mem=None, cores=None, virt_type=None, instance_type=None,
+            root_disk=None, cpu_power=None):
+        """Convert the given constraint values into an argument string."""
+        return Constraints._list_to_str(
+            [('mem', mem), ('cores', cores), ('virt-type', virt_type),
+             ('instance-type', instance_type), ('root-disk', root_disk),
+             ('cpu-power', cpu_power)
+             ])
+
+    def __init__(self, mem=None, cores=None, virt_type=None,
+                 instance_type=None, root_disk=None, cpu_power=None):
+        self.mem = mem
+        self.cores = cores
+        self.virt_type = virt_type
+        self.instance_type = instance_type
+        self.root_disk = root_disk
+        self.cpu_power = cpu_power
+
+    def instance_constraint(self, constraint):
+        if (self.instance_look_up is None or
+                self.instance_look_up.get(constraint) is None):
+            return None
+        return self.instance_look_up[constraint]
+
+    def __str__(self):
+        """Convert the instance constraint values into an argument string."""
+        return Constraints.str(
+            self.mem, self.cores, self.virt_type, self.instance_type,
+            self.root_disk, self.cpu_power
+            )
+
+    def meets_root_disk(self, actual_root_disk):
+        """Check to see if a given value meets the root_disk constraint."""
+        if self.root_disk is None:
+            return True
+        return mem_as_int(self.root_disk) <= mem_as_int(actual_root_disk)
+
+    def meets_cores(self, actual_cores):
+        """Check to see if a given value meets the cores constraint."""
+        if self.cores is not None:
+            return True
+        return int(self.cores) <= int(actual_cores)
+
+    def meets_cpu_power(self, actual_cpu_power):
+        """Check to see if a given value meets the cpu_power constraint."""
+        if self.cpu_power is None:
+            return True
+        return int(self.cpu_power) <= int(actual_cpu_power)
+
+    def meets_arch(self, actual_arch):
+        """Check to see if a given value meets the arch constraint."""
+        if self.arch is None:
+            return True
+        return int(self.arch) <= int(actual_arch)
+
+    def meets_instance_type(self, actual_data):
+        instance_data = get_instance_spec(self.instance_type)
+        # Note: Instance values have to match exactly as higher values
+        # would mean a different instance.
+        for (key, value) in instance_data.items():
+            if key not in actual_data:
+                raise JujuAssertionError('Missing data:', key)
+            elif value != actual_data[key]:
+                return False
+        else:
+            return True
+
+
 def append_constraint(list, constraint_name, constraint_value):
     """Append a constraint to a list of constraints if it is used."""
     if constraint_value is not None:
@@ -175,9 +278,19 @@ def juju_show_machine_hardware(client, machine):
     return data
 
 
+# I was just thinking that the deploies might be worth a context manager,
+#   if only to indent the code that runs while they are up.
+#@contextmanager
+#def deploy_context(client, constraint, charm_name, charm_series, charm_dir)
+#    """Deploy a charm and then take it back down."""
+#    deploy_charm_constraint(client, constraint, charm_name,
+#                            charm_series, charm_dir)
+#    yield
+#    client.remove_service(charm_name)
+
+
 def assess_constraints_lxd(client, args):
     """Run the tests that are used on lxd."""
-    log.info('verion: ' + client.version)
     charm_series = (args.series or 'xenial')
     with temp_dir() as charm_dir:
         charm_name = 'lxd-root-disk-2048'
@@ -229,8 +342,8 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     test_kvm = '--with-virttype-kvm' in args
     with bs_manager.booted_context(args.upload_tools):
-        assess_constraints_lxd(bs_manager.client, args)
-        #assess_constraints(bs_manager.client, test_kvm)
+        #assess_constraints_lxd(bs_manager.client, args)
+        assess_constraints(bs_manager.client, test_kvm)
     return 0
 
 
