@@ -562,6 +562,10 @@ func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 
+func (*environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
+	return in, nil
+}
+
 func (*environProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "dummy"}}, nil
 }

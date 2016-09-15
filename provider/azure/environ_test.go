@@ -217,7 +217,10 @@ func openEnviron(
 
 	// Force an explicit refresh of the access token, so it isn't done
 	// implicitly during the tests.
-	*sender = azuretesting.Senders{tokenRefreshSender()}
+	*sender = azuretesting.Senders{
+		discoverAuthSender(),
+		tokenRefreshSender(),
+	}
 	err = azure.ForceTokenRefresh(env)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -244,7 +247,10 @@ func prepareForBootstrap(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	*sender = azuretesting.Senders{tokenRefreshSender()}
+	*sender = azuretesting.Senders{
+		discoverAuthSender(),
+		tokenRefreshSender(),
+	}
 	err = env.PrepareForBootstrap(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -270,6 +276,23 @@ func tokenRefreshSender() *azuretesting.MockSender {
 	})
 	tokenRefreshSender.PathPattern = ".*/oauth2/token"
 	return tokenRefreshSender
+}
+
+func discoverAuthSender() *azuretesting.MockSender {
+	const fakeTenantId = "11111111-1111-1111-1111-111111111111"
+	sender := mocks.NewSender()
+	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
+	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
+		fmt.Sprintf(
+			`authorization_uri="https://testing.invalid/%s"`,
+			fakeTenantId,
+		),
+	})
+	sender.AppendResponse(resp)
+	return &azuretesting.MockSender{
+		Sender:      sender,
+		PathPattern: ".*/subscriptions/" + fakeSubscriptionId,
+	}
 }
 
 func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {

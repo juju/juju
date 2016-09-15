@@ -34,7 +34,6 @@ var sampleCredentialAttributes = map[string]string{
 	"application-id":       "application",
 	"application-password": "password",
 	"subscription-id":      "subscription",
-	"tenant-id":            "tenant",
 }
 
 func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
@@ -42,7 +41,6 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 		"application-id":       "application",
 		"application-password": "password",
 		"subscription-id":      "subscription",
-		"tenant-id":            "tenant",
 	})
 }
 

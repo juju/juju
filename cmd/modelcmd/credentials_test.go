@@ -70,7 +70,7 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 	}
 
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		store, region, "secrets", "cloud", "fake",
+		testing.Context(c), store, region, "secrets", "cloud", "fake",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedRegion := region

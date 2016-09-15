@@ -56,7 +56,7 @@ type restoreCommand struct {
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
-	getRebootstrapParamsFunc func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
+	getRebootstrapParamsFunc func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
 	getArchiveFunc           func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error
 }
@@ -147,7 +147,7 @@ type restoreBootstrapParams struct {
 // getRebootstrapParams returns the params for rebootstrapping the
 // specified controller.
 func (c *restoreCommand) getRebootstrapParams(
-	controllerName string, meta *params.BackupsMetadataResult,
+	ctx *cmd.Context, controllerName string, meta *params.BackupsMetadataResult,
 ) (*restoreBootstrapParams, error) {
 	// TODO(axw) delete this and -b. We will update bootstrap with a flag
 	// to specify a restore file. When we do that, we'll need to extract
@@ -160,7 +160,7 @@ func (c *restoreCommand) getRebootstrapParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
+	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -219,7 +219,7 @@ func (c *restoreCommand) getRebootstrapParams(
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	params, err := c.getRebootstrapParamsFunc(c.ControllerName(), meta)
+	params, err := c.getRebootstrapParamsFunc(ctx, c.ControllerName(), meta)
 	if err != nil {
 		return errors.Trace(err)
 	}

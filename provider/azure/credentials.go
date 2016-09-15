@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 const (
 	credAttrAppId          = "application-id"
 	credAttrSubscriptionId = "subscription-id"
-	credAttrTenantId       = "tenant-id"
 	credAttrAppPassword    = "application-password"
 )
 
@@ -30,8 +30,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			}, {
 				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
 			}, {
-				credAttrTenantId, cloud.CredentialAttr{Description: "Azure Active Directory tenant ID"},
-			}, {
 				credAttrAppPassword, cloud.CredentialAttr{
 					Description: "Azure Active Directory application password",
 					Hidden:      true,
@@ -44,4 +42,9 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
+	return in, nil
 }

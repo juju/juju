@@ -57,7 +57,6 @@ func fakeUserPassCredential() *cloud.Credential {
 		map[string]string{
 			"application-id":       fakeApplicationId,
 			"subscription-id":      fakeSubscriptionId,
-			"tenant-id":            fakeTenantId,
 			"application-password": "opensezme",
 		},
 	)
