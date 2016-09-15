@@ -45,28 +45,22 @@ def deploy_stack(client, charm_series):
     charm = local_charm_path(
         charm='ubuntu', juju_ver=client.version, series=charm_series)
     client.deploy(charm, series=charm_series)
-    client.wait_for_started().status
+    client.wait_for_started()
     log.info("%s is ready to testing", client.env.environment)
 
 
 def restore_present_state_server(controller_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
-        output = controller_client.restore_backup(backup_file)
-    except CalledProcessError as e:
+        controller_client.restore_backup(backup_file)
+    except CalledProcessError:
         log.info(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        match = running_instance_pattern.search(e.stderr)
-        if match is None:
-            log.warning("Could not find the instance_id in output:\n%s\n",
-                        e.stderr)
-            return None
-        return match.group(1)
+        return
     else:
         raise Exception(
-            "juju-restore restored to an operational state-server: %s" %
-            output)
+            "juju-restore restored to an operational state-serve")
 
 
 def delete_controller_members(client, leader_only=False):
@@ -101,15 +95,16 @@ def restore_missing_state_server(client, controller_client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     log.info("Starting restore.")
     try:
-        output = controller_client.restore_backup(backup_file)
+        controller_client.restore_backup(backup_file)
     except CalledProcessError as e:
         log.info('Call of juju restore exited with an error\n')
         log.info('Call:  %r\n', e.cmd)
-        log.info('Restore failed: \n%s\n', e.stderr)
         log.exception(e)
         raise LoggedException(e)
-    log.info(output)
-    controller_client.wait_for_started(600).status
+    controller_client.wait_for_started(600)
+    controller_info = controller_client.show_controller(format='yaml')
+    log.info('Controller is:\n{}'.format(controller_info))
+    client.wait_for_workloads()
     log.info("%s restored", client.env.environment)
     log.info("PASS")
 
