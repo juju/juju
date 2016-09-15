@@ -109,10 +109,14 @@ func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore)
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore, clock clock.Clock) cmd.Command {
-	c := &listCommand{infoCommandBase: infoCommandBase{
-		clock: clock,
-		api:   api}}
+func NewListCommandForTest(api UserInfoAPI, modelAPI ModelUsersAPI, store jujuclient.ClientStore, clock clock.Clock) cmd.Command {
+	c := &listCommand{
+		infoCommandBase: infoCommandBase{
+			clock: clock,
+			api:   api,
+		},
+		modelUserAPI: modelAPI,
+	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

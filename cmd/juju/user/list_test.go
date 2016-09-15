@@ -31,7 +31,8 @@ var _ = gc.Suite(&UserListCommandSuite{})
 
 func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
 	clock := &fakeClock{now: time.Date(2016, 9, 15, 12, 0, 0, 0, time.UTC)}
-	return user.NewListCommandForTest(&fakeUserListAPI{clock}, s.store, clock)
+	api := &fakeUserListAPI{clock}
+	return user.NewListCommandForTest(api, api, s.store, clock)
 }
 
 type fakeUserListAPI struct {
@@ -49,6 +50,29 @@ type fakeClock struct {
 
 func (f *fakeClock) Now() time.Time {
 	return f.now
+}
+
+func (f *fakeUserListAPI) ModelUserInfo() ([]params.ModelUserInfo, error) {
+	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
+
+	userlist := []params.ModelUserInfo{
+		{
+			UserName:       "admin@local",
+			LastConnection: &last1,
+			Access:         "write",
+		}, {
+			UserName:       "bob@local",
+			DisplayName:    "Bob",
+			LastConnection: &last2,
+			Access:         "read",
+		}, {
+			UserName:    "charlie@ubuntu.com",
+			DisplayName: "Charlie",
+			Access:      "read",
+		},
+	}
+	return userlist, nil
 }
 
 func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
@@ -126,7 +150,6 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
-	// dateRegex := `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000 UTC`
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: testing\n\n"+
 		"NAME     DISPLAY NAME    ACCESS     DATE CREATED                   LAST CONNECTION\n"+
@@ -164,6 +187,44 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 		"  display-name: Charlie Xavier\n"+
 		"  access: superuser\n"+
 		"  date-created: 6 hours ago\n"+
+		"  last-connection: never connected\n")
+}
+
+func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME                          ACCESS  LAST CONNECTION\n"+
+		"admin@local                   write   2015-03-20\n"+
+		"bob@local (Bob)               read    2015-03-01\n"+
+		"charlie@ubuntu.com (Charlie)  read    never connected\n"+
+		"\n")
+}
+
+func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, "{"+
+		`"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
+		`"bob@local":{"display-name":"Bob","access":"read","last-connection":"2015-03-01"},`+
+		`"charlie@ubuntu.com":{"display-name":"Charlie","access":"read","last-connection":"never connected"}`+
+		"}\n")
+}
+
+func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"admin@local:\n"+
+		"  access: write\n"+
+		"  last-connection: 2015-03-20\n"+
+		"bob@local:\n"+
+		"  display-name: Bob\n"+
+		"  access: read\n"+
+		"  last-connection: 2015-03-01\n"+
+		"charlie@ubuntu.com:\n"+
+		"  display-name: Charlie\n"+
+		"  access: read\n"+
 		"  last-connection: never connected\n")
 }
 
