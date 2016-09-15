@@ -2108,12 +2108,14 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 	primaryNICName := interfaces[0].Name
 	primaryNICID := strconv.Itoa(interfaces[0].ID)
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	primaryNICVLANID := subnetCIDRToVLANID[primaryNICSubnetCIDR]
-	updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+	primaryNICVLANID, hasSubnet := subnetCIDRToVLANID[primaryNICSubnetCIDR]
+	if hasSubnet {
+		updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+		}
+		logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
 	}
-	logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
 
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
