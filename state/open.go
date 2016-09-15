@@ -176,10 +176,14 @@ func (p InitializeParams) Validate() error {
 	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
+	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
+	for tag, cred := range p.CloudCredentials {
+		creds[tag.Canonical()] = cred
+	}
 	if _, err := validateCloudCredential(
 		p.Cloud,
 		p.CloudName,
-		p.CloudCredentials,
+		creds,
 		p.ControllerModelArgs.CloudCredential,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")

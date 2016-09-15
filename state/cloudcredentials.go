@@ -49,14 +49,12 @@ func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential
 
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag, cloudName string) (
-	map[names.CloudCredentialTag]cloud.Credential, error,
-) {
+func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
 	coll, cleanup := st.getCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
-	credentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	credentials := make(map[string]cloud.Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Canonical()},
 		{"cloud", cloudName},
@@ -66,7 +64,7 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		credentials[tag] = doc.toCredential()
+		credentials[tag.Canonical()] = doc.toCredential()
 	}
 	if err := iter.Err(); err != nil {
 		return nil, errors.Annotatef(
@@ -174,7 +172,8 @@ func cloudCredentialDocID(tag names.CloudCredentialTag) string {
 }
 
 func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, error) {
-	id := fmt.Sprintf("%s/%s/%s", c.Cloud, c.Owner, c.Name)
+	ownerTag := names.NewUserTag(c.Owner)
+	id := fmt.Sprintf("%s/%s/%s", c.Cloud, ownerTag.Canonical(), c.Name)
 	if !names.IsValidCloudCredential(id) {
 		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential ID")
 	}

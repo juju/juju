@@ -366,7 +366,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (t
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
 	cloudName string,
-	cloudCredentials map[names.CloudCredentialTag]jujucloud.Credential,
+	cloudCredentials map[string]jujucloud.Credential,
 	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {
@@ -375,7 +375,7 @@ func validateCloudCredential(
 		}
 		var found bool
 		for tag := range cloudCredentials {
-			if tag.Canonical() == cloudCredential.Canonical() {
+			if tag == cloudCredential.Canonical() {
 				found = true
 				break
 			}
