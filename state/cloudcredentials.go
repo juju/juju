@@ -23,6 +23,7 @@ type cloudCredentialDoc struct {
 	Owner      string            `bson:"owner"`
 	Cloud      string            `bson:"cloud"`
 	Name       string            `bson:"name"`
+	Revoked    bool              `bson:"revoked"`
 	AuthType   string            `bson:"auth-type"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
@@ -89,11 +90,11 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err != nil {
 			return nil, errors.Annotate(err, "validating cloud credentials")
 		}
-		existingCreds, err := st.CloudCredentials(tag.Owner(), cloudName)
-		if err != nil {
+		_, err = st.CloudCredential(tag)
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Maskf(err, "fetching cloud credentials")
 		}
-		if _, ok := existingCreds[tag]; ok {
+		if err == nil {
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
 			ops = append(ops, createCloudCredentialOp(tag, credential))
@@ -137,6 +138,7 @@ func createCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 			Name:       tag.Name(),
 			AuthType:   string(cred.AuthType()),
 			Attributes: cred.Attributes(),
+			Revoked:    cred.Revoked,
 		},
 	}
 }
@@ -151,6 +153,7 @@ func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 		Update: bson.D{{"$set", bson.D{
 			{"auth-type", string(cred.AuthType())},
 			{"attributes", cred.Attributes()},
+			{"revoked", cred.Revoked},
 		}}},
 	}
 }
@@ -180,6 +183,7 @@ func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, erro
 
 func (c cloudCredentialDoc) toCredential() cloud.Credential {
 	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
+	out.Revoked = c.Revoked
 	out.Label = c.Name
 	return out
 }
@@ -233,4 +237,17 @@ func validateCloudCredentials(
 		}
 	}
 	return ops, nil
+}
+
+// WatchCredential returns a new NotifyWatcher watching for
+// changes to the specified credential.
+func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return id == cloudCredentialDocID(cred)
+	}
+	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
 }
