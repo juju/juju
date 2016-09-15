@@ -52,7 +52,7 @@ func (s *RenderersSuite) TestMAASWindows(c *gc.C) {
 func (s *RenderersSuite) TestMAASUnknownOS(c *gc.C) {
 	renderer := maas.MAASRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{}
-	result, err := renderer.Render(cloudcfg, os.Arch)
+	result, err := renderer.Render(cloudcfg, os.GenericLinux)
 	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Arch")
+	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
 }
