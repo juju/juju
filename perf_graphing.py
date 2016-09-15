@@ -2,13 +2,43 @@
 
 from fixtures import EnvironmentVariable
 import os
+import logging
+import time
 import rrdtool
+
+log = logging.getLogger("perf_graphing")
 
 
 class GraphDefaults:
     height = '600'
     width = '800'
     font = 'DEFAULT:0:Bitstream Vera Sans'
+
+
+class MongoStats:
+    # Timestamp is last item in the output
+    timestamp = -1
+    # Query stats
+    inserts = 0
+    query = 1
+    update = 2
+    delete = 3
+    # Memory stats
+    vsize = 9
+    res = 10
+
+
+class MongoStatsData:
+
+    def __init__(self, timestamp, insert, query, update, delete, vsize, res):
+
+        self.timestamp = timestamp
+        self.insert = int(insert.replace('*', ''))
+        self.query = int(query.replace('*', ''))
+        self.update = int(update.replace('*', ''))
+        self.delete = int(delete.replace('*', ''))
+        self.vsize = int(vsize.replace('M', '')) * 1024 * 1024
+        self.res = int(res.replace('M', '')) * 1024 * 1024
 
 
 def network_graph(start, end, rrd_path, output_file):
@@ -65,7 +95,7 @@ def memory_graph(start, end, rrd_path, output_file):
             'LINE1:used_stk#ffb000: used')
 
 
-def mongdb_graph(start, end, rrd_path, output_file):
+def mongodb_graph(start, end, rrd_path, output_file):
     with EnvironmentVariable('TZ', 'UTC'):
         rrdtool.graph(
             output_file,
@@ -102,6 +132,32 @@ def mongdb_graph(start, end, rrd_path, output_file):
             'LINE1:update_stk#FFB000: update',
             'AREA:delete_stk#ffbfbf80',
             'LINE1:delete_stk#FF0000: delete')
+
+
+def mongodb_memory_graph(start, end, rrd_path, output_file):
+    rrd_file = os.path.join(rrd_path, 'mongodb_memory.rrd')
+    with EnvironmentVariable('TZ', 'UTC'):
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',
+            '-w', '800',
+            '-h', '600',
+            '-n', 'DEFAULT:0:Bitstream Vera Sans',
+            '-v', 'Queries',
+            '--alt-autoscale-max',
+            '-t', 'MongoDB Memory Usage',
+            'DEF:vsize_avg={}:vsize:AVERAGE'.format(rrd_file),
+            'CDEF:vsize_nnl=vsize_avg,UN,0,vsize_avg,IF',
+            'DEF:res_avg={}:res:AVERAGE'.format(rrd_file),
+            'CDEF:res_nnl=res_avg,UN,0,res_avg,IF',
+            'CDEF:vsize_stk=vsize_nnl',
+            'CDEF:res_stk=res_nnl,vsize_stk,+',
+            'AREA:vsize_stk#bff7bf80',
+            'LINE1:vsize_stk#00E000: vsize',
+            'AREA:res_stk#bfbfff80',
+            'LINE1:res_stk#0000FF: res')
 
 
 def cpu_graph(start, end, rrd_path, output_file):
@@ -161,3 +217,92 @@ def cpu_graph(start, end, rrd_path, output_file):
             'LINE1:interrupt_stk#a000a0: Interrupt',
             'AREA:steal_stk#bfbfbf',
             'LINE1:steal_stk#000000: Steal')
+
+
+def get_mongodb_stat_data(log_file):
+    data_lines = []
+    with open(log_file, 'rt') as f:
+        for line in f:
+            details = line.split()
+            raw_time = details[MongoStats.timestamp]
+            epoch = int(
+                time.mktime(
+                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+            data_lines.append(
+                MongoStatsData(
+                    epoch,
+                    details[MongoStats.inserts],
+                    details[MongoStats.query],
+                    details[MongoStats.update],
+                    details[MongoStats.delete],
+                    details[MongoStats.vsize],
+                    details[MongoStats.res],
+                ))
+    first_timestamp = data_lines[0].timestamp
+    final_timestamp = data_lines[-1].timestamp
+    return first_timestamp, final_timestamp, data_lines
+
+
+def create_mongodb_rrd_file(results_dir, destination_dir):
+    os.mkdir(destination_dir)
+    source_file = os.path.join(results_dir, 'mongodb-stats.log')
+
+    if not os.path.exists(source_file):
+        log.warning(
+            'Not creating mongodb rrd. Source file not found ({})'.format(
+                source_file))
+        return False
+
+    first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
+
+    query_detail_file = os.path.join(destination_dir, 'mongodb.rrd')
+    memory_detail_file = os.path.join(destination_dir, 'mongodb_memory.rrd')
+
+    _create_mongodb_actions_file(query_detail_file, first_ts)
+    _create_mongodb_memory_file(memory_detail_file, first_ts)
+
+    for entry in all_data:
+        query_update_details = '{time}:{i}:{q}:{u}:{d}'.format(
+            time=entry.timestamp,
+            i=entry.insert,
+            q=entry.query,
+            u=entry.update,
+            d=entry.delete,
+        )
+        rrdtool.update(query_detail_file, query_update_details)
+
+        memory_update_details = '{time}:{vsize}:{res}'.format(
+            time=entry.timestamp,
+            vsize=entry.vsize,
+            res=entry.res,
+        )
+        rrdtool.update(memory_detail_file, memory_update_details)
+    return True
+
+
+def _create_mongodb_actions_file(destination_file, first_ts):
+    rrdtool.create(
+        destination_file,
+        '--start', '{}-10'.format(first_ts),
+        '--step', '5',
+        'DS:insert:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:query:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:update:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:delete:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'RRA:MIN:0.5:1:1200',
+        'RRA:MAX:0.5:1:1200',
+        'RRA:AVERAGE:0.5:1:120'
+    )
+
+
+def _create_mongodb_memory_file(destination_file, first_ts):
+    rrdtool.create(
+        destination_file,
+        '--start', '{}-10'.format(first_ts),
+        '--step', '5',
+        'DS:vsize:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:res:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'RRA:MIN:0.5:1:1200',
+        'RRA:MAX:0.5:1:1200',
+        'RRA:AVERAGE:0.5:1:120'
+    )

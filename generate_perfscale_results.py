@@ -10,7 +10,6 @@ import logging
 import os
 import sys
 import subprocess
-import time
 
 import rrdtool
 from jinja2 import Template
@@ -131,7 +130,8 @@ def generate_reports(controller_log, results_dir, deployments):
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
-    mongo_image = generate_mongo_graph_image(results_dir)
+    mongo_query_image, mongo_memory_image = generate_mongo_graph_image(
+        results_dir)
 
     log_message_chunks = get_log_message_in_timed_chunks(
         controller_log, deployments)
@@ -140,7 +140,8 @@ def generate_reports(controller_log, results_dir, deployments):
         cpu_graph=cpu_image,
         memory_graph=memory_image,
         network_graph=network_image,
-        mongo_graph=mongo_image,
+        mongo_graph=mongo_query_image,
+        mongo_memory_graph=mongo_memory_image,
         deployments=deployments,
         log_message_chunks=log_message_chunks
     )
@@ -232,65 +233,19 @@ def generate_network_graph_image(results_dir):
 def generate_mongo_graph_image(results_dir):
     dest_path = os.path.join(results_dir, 'mongodb')
 
-    if not create_mongodb_rrd_file(results_dir, dest_path):
+    if not perf_graphing.create_mongodb_rrd_file(results_dir, dest_path):
         log.error('Failed to create the MongoDB RRD file.')
         return None
-    return generate_graph_image(
-        results_dir, 'mongodb', 'mongodb', perf_graphing.mongdb_graph)
+    query_graph = generate_graph_image(
+        results_dir, 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
 
+    memory_graph = generate_graph_image(
+        results_dir,
+        'mongodb',
+        'mongodb_memory',
+        perf_graphing.mongodb_memory_graph)
 
-def create_mongodb_rrd_file(results_dir, destination_dir):
-    os.mkdir(destination_dir)
-    source_file = os.path.join(results_dir, 'mongodb-stats.log')
-
-    if not os.path.exists(source_file):
-        log.warning(
-            'Not creating mongodb rrd. Source file not found ({})'.format(
-                source_file))
-        return False
-
-    dest_file = os.path.join(destination_dir, 'mongodb.rrd')
-
-    first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
-    rrdtool.create(
-        dest_file,
-        '--start', '{}-10'.format(first_ts),
-        '--step', '5',
-        'DS:insert:GAUGE:600:0:1000',
-        'DS:query:GAUGE:600:0:1000',
-        'DS:update:GAUGE:600:0:1000',
-        'DS:delete:GAUGE:600:0:1000',
-        'RRA:MIN:0.5:1:1200',
-        'RRA:MAX:0.5:1:1200',
-        'RRA:AVERAGE:0.5:1:120'
-    )
-    for entry in all_data:
-        update_details = '{time}:{i}:{q}:{u}:{d}'.format(
-            time=entry[0],
-            i=int(entry[1]),
-            q=int(entry[2]),
-            u=int(entry[3]),
-            d=int(entry[4]))
-        rrdtool.update(dest_file, update_details)
-    return True
-
-
-def get_mongodb_stat_data(log_file):
-    data_lines = []
-    with open(log_file, 'rt') as f:
-        for line in f:
-            details = line.split()
-            raw_time = details[-1]
-            epoch = int(
-                time.mktime(
-                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
-            data_lines.append((
-                epoch,
-                int(details[0].replace('*', '')),
-                int(details[1].replace('*', '')),
-                int(details[2].replace('*', '')),
-                int(details[3].replace('*', ''))))
-    return data_lines[0][0], data_lines[-1][0], data_lines
+    return query_graph, memory_graph
 
 
 def get_duration_points(rrd_file):
