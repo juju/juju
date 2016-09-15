@@ -822,7 +822,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 
 func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
-	cons := constraints.MustParse("cpu-cores=123", "mem=8G")
+	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},

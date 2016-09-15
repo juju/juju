@@ -96,36 +96,36 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		err:     `bad "arch" characteristic: already set`,
 	},
 
-	// "cpu-cores" in detail.
+	// "cores" in detail.
 	{
-		summary: "set cpu-cores empty",
-		args:    []string{"cpu-cores="},
+		summary: "set cores empty",
+		args:    []string{"cores="},
 	}, {
-		summary: "set cpu-cores zero",
-		args:    []string{"cpu-cores=0"},
+		summary: "set cores zero",
+		args:    []string{"cores=0"},
 	}, {
-		summary: "set cpu-cores",
-		args:    []string{"cpu-cores=4"},
+		summary: "set cores",
+		args:    []string{"cores=4"},
 	}, {
-		summary: "set nonsense cpu-cores 1",
-		args:    []string{"cpu-cores=cheese"},
-		err:     `bad "cpu-cores" characteristic: must be a non-negative integer`,
+		summary: "set nonsense cores 1",
+		args:    []string{"cores=cheese"},
+		err:     `bad "cores" characteristic: must be a non-negative integer`,
 	}, {
-		summary: "set nonsense cpu-cores 2",
-		args:    []string{"cpu-cores=-1"},
-		err:     `bad "cpu-cores" characteristic: must be a non-negative integer`,
+		summary: "set nonsense cores 2",
+		args:    []string{"cores=-1"},
+		err:     `bad "cores" characteristic: must be a non-negative integer`,
 	}, {
-		summary: "set nonsense cpu-cores 3",
-		args:    []string{"cpu-cores=123.45"},
-		err:     `bad "cpu-cores" characteristic: must be a non-negative integer`,
+		summary: "set nonsense cores 3",
+		args:    []string{"cores=123.45"},
+		err:     `bad "cores" characteristic: must be a non-negative integer`,
 	}, {
-		summary: "double set cpu-cores together",
-		args:    []string{"cpu-cores=128 cpu-cores=1"},
-		err:     `bad "cpu-cores" characteristic: already set`,
+		summary: "double set cores together",
+		args:    []string{"cores=128 cores=1"},
+		err:     `bad "cores" characteristic: already set`,
 	}, {
-		summary: "double set cpu-cores separately",
-		args:    []string{"cpu-cores=128", "cpu-cores=1"},
-		err:     `bad "cpu-cores" characteristic: already set`,
+		summary: "double set cores separately",
+		args:    []string{"cores=128", "cores=1"},
+		err:     `bad "cores" characteristic: already set`,
 	},
 
 	// "cpu-power" in detail.
@@ -264,10 +264,10 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 availability-zone=a_zone"},
+		args:    []string{" root-disk=4G mem=2T  arch=i386  cores=4096 cpu-power=9001 availability-zone=a_zone"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone"},
+		args:    []string{"root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone"},
 	},
 }
 

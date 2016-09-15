@@ -154,7 +154,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
+		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {

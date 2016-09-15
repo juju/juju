@@ -6,7 +6,6 @@
 package lxd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -298,19 +297,13 @@ func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams
 		// TODO(ericsnow) This special-case should be improved.
 		archStr = arch.HostArch()
 	}
-
-	hwc, err := instance.ParseHardware(
-		"arch="+archStr,
-		fmt.Sprintf("cpu-cores=%d", raw.NumCores),
-		fmt.Sprintf("mem=%dM", raw.MemoryMB),
-		//"root-disk=",
-		//"tags=",
-	)
-	if err != nil {
-		logger.Errorf("unexpected problem parsing hardware info: %v", err)
-		// Keep moving...
+	cores := uint64(raw.NumCores)
+	mem := uint64(raw.MemoryMB)
+	return &instance.HardwareCharacteristics{
+		Arch:     &archStr,
+		CpuCores: &cores,
+		Mem:      &mem,
 	}
-	return &hwc
 }
 
 // AllInstances implements environs.InstanceBroker.

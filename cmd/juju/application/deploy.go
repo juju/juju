@@ -30,6 +30,7 @@ import (
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -260,6 +261,7 @@ type DeployCommand struct {
 
 	ApplicationName string
 	Config          cmd.FileVar
+	ConstraintsStr  string
 	Constraints     constraints.Value
 	BindToSpaces    string
 
@@ -436,7 +438,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set application constraints")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
@@ -467,8 +469,8 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	err := c.parseBind()
-	if err != nil {
+
+	if err := c.parseBind(); err != nil {
 		return err
 	}
 	return c.UnitCommandBase.Init(args)
@@ -670,6 +672,11 @@ func (c *DeployCommand) parseBind() error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	var err error
+	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
+	if err != nil {
+		return err
+	}
 	apiRoot, err := c.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)

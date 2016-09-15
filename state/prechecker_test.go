@@ -102,7 +102,7 @@ func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, plac
 	err := s.State.SetModelConstraints(envCons)
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	extraCons := constraints.MustParse("cpu-cores=4")
+	extraCons := constraints.MustParse("cores=4")
 	template := state.MachineTemplate{
 		Series:      "precise",
 		Constraints: extraCons,

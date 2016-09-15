@@ -311,7 +311,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "bad --constraints",
 	args: []string{"--constraints", "bad=wrong"},
-	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
+	err:  `unknown constraint "bad"`,
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
@@ -323,17 +323,17 @@ var bootstrapTests = []bootstrapTest{{
 	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
-	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
-	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+	args:        []string{"--constraints", "mem=4G cores=4"},
+	constraints: constraints.MustParse("mem=4G cores=4"),
 }, {
 	info:                 "bootstrap and environ constraints",
-	args:                 []string{"--constraints", "mem=4G cpu-cores=4", "--bootstrap-constraints", "mem=8G"},
-	constraints:          constraints.MustParse("mem=4G cpu-cores=4"),
-	bootstrapConstraints: constraints.MustParse("mem=8G cpu-cores=4"),
+	args:                 []string{"--constraints", "mem=4G cores=4", "--bootstrap-constraints", "mem=8G"},
+	constraints:          constraints.MustParse("mem=4G cores=4"),
+	bootstrapConstraints: constraints.MustParse("mem=8G cores=4"),
 }, {
 	info:        "unsupported constraint passed through but no error",
-	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
-	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
+	args:        []string{"--constraints", "mem=4G cores=4 cpu-power=10"},
+	constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
 }, {
 	info:        "--build-agent uses arch from constraint if it matches current version",
 	version:     "1.3.3-saucy-ppc64el",

@@ -178,7 +178,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series":                   "quantal",
-		"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 		"controller-member-status": "adding-vote",
 	}
 	machine1 = M{
@@ -193,7 +193,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
 		"juju-status": M{
@@ -207,7 +207,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
 		"juju-status": M{
@@ -221,7 +221,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
 		"juju-status": M{
@@ -235,7 +235,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
 		"juju-status": M{
@@ -292,7 +292,7 @@ var (
 		},
 
 		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = dummyCharm(M{
 		"application-status": M{
@@ -343,7 +343,7 @@ var statusFormats = []outputFormat{
 	{"json", json.Marshal, json.Unmarshal},
 }
 
-var machineCons = constraints.MustParse("cpu-cores=2 mem=8G root-disk=8G")
+var machineCons = constraints.MustParse("cores=2 mem=8G root-disk=8G")
 
 var statusTests = []testCase{
 	// Status tests
@@ -396,7 +396,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
-						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -435,7 +435,7 @@ var statusTests = []testCase{
 							"version": "1.2.3",
 						},
 						"series":                   "quantal",
-						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -469,7 +469,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
-						"hardware":                 "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -498,7 +498,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
-						"hardware":                 "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -550,7 +550,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
-						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -733,7 +733,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":   "quantal",
-						"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
 						"dns-name":    "controller-4.dns",
@@ -748,7 +748,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":   "quantal",
-						"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
 						"juju-status": M{
@@ -1274,7 +1274,7 @@ var statusTests = []testCase{
 						},
 
 						"series":   "quantal",
-						"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
 				"applications": M{
@@ -1983,7 +1983,7 @@ var statusTests = []testCase{
 						},
 
 						"series":   "quantal",
-						"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
 				"applications": M{
@@ -3859,7 +3859,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"          current: pending\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        series: quantal\n" +
-		"    hardware: arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M\n" +
+		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n"
 

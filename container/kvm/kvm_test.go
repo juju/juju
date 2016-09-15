@@ -266,14 +266,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			RootDisk: kvm.DefaultDisk,
 		},
 	}, {
-		cons: "cpu-cores=4",
+		cons: "cores=4",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: 4,
 			RootDisk: kvm.DefaultDisk,
 		},
 	}, {
-		cons: "cpu-cores=0",
+		cons: "cores=0",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.MinCpu,
@@ -334,7 +334,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
+		cons: "mem=4G cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,

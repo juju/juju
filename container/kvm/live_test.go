@@ -106,7 +106,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", network, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
-	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())
+	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())
 	c.Assert(hardware.String(), gc.Equals, expected)
 	return inst
 }

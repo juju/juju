@@ -362,7 +362,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.RootDisk, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.Cores})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()

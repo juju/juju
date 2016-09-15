@@ -280,7 +280,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
 	c.Assert(instanceId, gc.Equals, instance.Id(""))
 
-	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
+	hwChars := instance.MustParseHardware("cores=123", "mem=4G")
 
 	volumes := []params.Volume{{
 		VolumeTag: "volume-1-0",
@@ -415,7 +415,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		SpaceName:        "{{if (lt . 2)}}space1{{else}}space2{{end}}",
 	})
 
-	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
+	cons := constraints.MustParse("cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},

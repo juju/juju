@@ -48,11 +48,12 @@ func NewRestoreCommand() cmd.Command {
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints constraints.Value
-	filename    string
-	backupId    string
-	bootstrap   bool
-	buildAgent  bool
+	constraints    constraints.Value
+	constraintsStr string
+	filename       string
+	backupId       string
+	bootstrap      bool
+	buildAgent     bool
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
@@ -105,9 +106,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
-		"constraints", "set model constraints")
-
+	f.StringVar(&c.constraintsStr, "constraints", "", "set model constraints")
 	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
@@ -367,6 +366,12 @@ func (c *restoreCommand) newClient() (*backups.Client, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	var err error
+	c.constraints, err = common.ParseConstraints(ctx, c.constraintsStr)
+	if err != nil {
+		return err
+	}
+
 	if c.Log != nil {
 		if err := c.Log.Start(ctx); err != nil {
 			return err

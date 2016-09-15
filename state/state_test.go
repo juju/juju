@@ -861,7 +861,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	extraCons := constraints.MustParse("cpu-cores=4")
+	extraCons := constraints.MustParse("cores=4")
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: extraCons,
@@ -871,7 +871,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
+	expectedCons := constraints.MustParse("cores=4 mem=4G")
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)

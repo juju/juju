@@ -92,9 +92,6 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "--to", "#:foo"},
 		err:  `invalid --to parameter "#:foo"`,
 	}, {
-		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
-		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
-	}, {
 		args: []string{"charm", "application", "--force"},
 		err:  `--force is only used with --series`,
 	},
@@ -279,13 +276,13 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "--constraints", "mem=2G cpu-cores=2", "--series", "trusty")
+	err := runDeploy(c, ch, "--constraints", "mem=2G cores=2", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	application, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := application.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2"))
 }
 
 func (s *DeploySuite) TestResources(c *gc.C) {

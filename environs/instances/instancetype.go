@@ -103,7 +103,7 @@ func MatchingInstanceTypes(allInstanceTypes []InstanceType, region string, cons 
 	var itypes []InstanceType
 
 	// Rules used to select instance types:
-	// - non memory constraints like cpu-cores etc are always honoured
+	// - non memory constraints like cores etc are always honoured
 	// - if no mem constraint specified and instance-type not specified,
 	//   try opinionated default with enough mem to run a server.
 	// - if no matches and no mem constraint specified, try again and
