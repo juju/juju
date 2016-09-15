@@ -74,6 +74,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
+		Stream:    "released",
 	})
 }
 
@@ -100,6 +101,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
+		Stream:    "released",
 	})
 }
 
@@ -126,6 +128,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
+		Stream:    "released",
 	})
 }
 

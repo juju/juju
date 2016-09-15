@@ -497,8 +497,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, errors.Trace(err)
 	}
 
-	cfg := env.Config()
-	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+	toModel := func(m *imagemetadata.ImageMetadata, mSeries, source, stream string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -507,20 +506,11 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				RootStorageType: m.Storage,
 				Source:          source,
 				Series:          mSeries,
-				Stream:          m.Stream,
+				Stream:          stream,
 				Version:         m.Version,
 			},
 			priority,
 			m.Id,
-		}
-		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
-		// Once correct value is read from simplestreams, this needs to go.
-		// Bug# 1616295
-		if result.Stream == "" {
-			result.Stream = constraint.Stream
-		}
-		if result.Stream == "" {
-			result.Stream = cfg.ImageStream()
 		}
 		return result
 	}
@@ -540,7 +530,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
 				continue
 			}
-			metadataState = append(metadataState, toModel(m, mSeries, info.Source, source.Priority()))
+			metadataState = append(metadataState, toModel(m, mSeries, info.Source, info.Stream, source.Priority()))
 		}
 	}
 	if len(metadataState) > 0 {
