@@ -60,6 +60,12 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 					IdentityEndpoint: "nether-identity-endpoint",
 					StorageEndpoint:  "nether-storage-endpoint",
 				},
+				cloud.Region{
+					Name:             "unused-region",
+					Endpoint:         "unused-endpoint",
+					IdentityEndpoint: "unused-identity-endpoint",
+					StorageEndpoint:  "unused-storage-endpoint",
+				},
 			},
 			RegionConfig: regionConfig,
 		},

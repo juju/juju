@@ -541,3 +541,37 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 		}}}
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
+
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion(c *gc.C) {
+	// Set up settings to create
+	attrs := map[string]interface{}{
+		"no-proxy": "changed-proxy",
+	}
+
+	rspec, err := environs.NewRegionSpec("dummy", "unused-region")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We add this to the unused-region which has not been created in mongo
+	// yet.
+	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Then check in another state.
+	info := statetesting.NewMongoInfo()
+	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	cfg, err := anotherState.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
+		Default:    "",
+		Controller: nil,
+		Regions: []config.RegionDefaultValue{
+			config.RegionDefaultValue{
+				Name:  "dummy-region",
+				Value: "dummy-proxy"},
+			config.RegionDefaultValue{
+				Name:  "unused-region",
+				Value: "changed-proxy"}}})
+}
