@@ -967,11 +967,15 @@ func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := mocks.NewSender()
-	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender0 := mocks.NewSender()
+	sender0.AppendResponse(mocks.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
-	), 2)
-	s.sender = azuretesting.Senders{sender, sender}
+	))
+	sender1 := mocks.NewSender()
+	sender1.AppendResponse(mocks.NewResponseWithStatus(
+		"vm not found", http.StatusNotFound,
+	))
+	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances("a", "b")
 	c.Assert(err, jc.ErrorIsNil)
 }
