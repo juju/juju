@@ -39,7 +39,7 @@ VIRT_TYPES = ['lxd']
 
 INSTANCE_TYPES = {
     'azure': [],
-    'ec2': [],
+    'ec2': {'t2.large': {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'}},
     'gce': [],
     'joyent': [],
     'openstack': [],
@@ -74,13 +74,16 @@ def cmp_mem_size(ms1, ms2):
         if size[-1] in 'MGTP':
             val = int(size[0:-1])
             unit = size[-1]
+            return val * (1024 ** 'MGTP'.find(unit))
         else:
-            val = int(size)
-            unit = 'M'
-        return val * (1024 ** 'MGTP'.find(unit))
+            return int(size)
     num1 = mem_size(ms1)
     num2 = mem_size(ms2)
     return num1 - num2
+
+def mem_at_least(lhs, rhs):
+    """Returns true if lhs is at least (<=) rhs."""
+    return 0 <= cmp_mem_size(lhs, rhs)
 
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
@@ -177,12 +180,15 @@ def assess_constraints_lxd(client, args):
     log.info('verion: ' + client.version)
     charm_series = (args.series or 'xenial')
     with temp_dir() as charm_dir:
-        charm_name = 'root-disk-2048' #'lxd-root-disk-2048'
+        charm_name = 'lxd-root-disk-2048'
         constraints = make_constraints(root_disk='2048')
         deploy_charm_constraint(client, None, charm_name,
                                 charm_series, charm_dir)
-        # Check the machine for the amount of disk-space.
         log.info(charm_name + ' has been deployed')
+        # Check the machine for the amount of disk-space.
+        data = juju_show_machine_hardware(client, 0)
+        if not mem_at_least(data['root-disk'], '2048'):
+            JujuAssertionError('Not enough space on the root disk.')
         client.remove_service(charm_name)
 
 
@@ -190,11 +196,17 @@ def assess_constraints_ec2(client):
     """Run the tests that are used on ec2."""
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
-        charm_name = 'ec2-instance-type-t2.small'
-        constraints = make_constraints(instance_type='t2.small')
+        charm_name = 'ec2-instance-type-t2.large'
+        constraints = make_constraints(instance_type='t2.large')
         deploy_charm_constraint(client, constraints, charm_name,
                                 charm_series, charm_dir)
         # Check the povider for the instance-type
+        if not mem_at_least(data['root-disk'], '8G'):
+            JujuAssertionError('Not enough space on the root disk.')
+        if int(data['cores']) < 1:
+            JujuAssertionError('Not enough cores have been allocated.')
+        if int(data['cpu_power']) < 20:
+            JujuAssertionError('The cpu is not powerful enough.')
         client.remove_service(charm_name)
 
 
