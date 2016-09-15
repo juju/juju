@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
@@ -25,9 +24,18 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
 			RequireSigned:  false,
 			DataType:       "image-ids",
 			StreamsVersion: "v1",
+			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
+				CloudSpec: simplestreams.CloudSpec{
+					Region:   "us-east-1",
+					Endpoint: "https://ec2.us-east-1.amazonaws.com",
+				},
+				Series: []string{"precise"},
+				Arches: []string{"amd64", "arm"},
+			}),
 		},
 	})
 }
@@ -39,27 +47,6 @@ type simplestreamsSuite struct {
 
 func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.LocalLiveSimplestreamsSuite.SetUpSuite(c)
-	s.TestDataSuite.SetUpSuite(c)
-}
-
-func (s *simplestreamsSuite) SetUpTest(c *gc.C) {
-	s.LocalLiveSimplestreamsSuite.SetUpTest(c)
-
-	s.LocalLiveSimplestreamsSuite.Source = simplestreams.NewURLDataSource(
-		"test",
-		"test:",
-		utils.VerifySSLHostnames,
-		simplestreams.DEFAULT_CLOUD_DATA, false)
-
-	s.LocalLiveSimplestreamsSuite.ValidConstraint = sstesting.NewTestConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{
-			Region:   "us-east-1",
-			Endpoint: "https://ec2.us-east-1.amazonaws.com",
-		},
-		Series: []string{"precise"},
-		Arches: []string{"amd64", "arm"},
-	})
-
 	s.TestDataSuite.SetUpSuite(c)
 }
 
@@ -473,44 +460,6 @@ func (s *simplestreamsSuite) assertImageMetadata(c *gc.C, one storageVirtTest) {
 	ti := ic.Items[one.item].(*sstesting.TestItem)
 	c.Check(ti.Storage, gc.Equals, one.storage)
 	c.Check(ti.VirtType, gc.Equals, one.virt)
-}
-func (s *simplestreamsSuite) TestMetadataStreamFromProductName(c *gc.C) {
-	s.assertExpectedStreamFromGetMetadata(c, "released")
-}
-
-func (s *simplestreamsSuite) TestMetadataStreamEmptyInProductName(c *gc.C) {
-	testConstraints := sstesting.NewTestConstraint(simplestreams.LookupParams{
-		CloudSpec: s.ValidConstraint.Params().CloudSpec,
-		Series:    []string{"raring"},
-		Arches:    s.ValidConstraint.Params().Arches,
-	})
-	s.ValidConstraint = testConstraints
-	s.Source = simplestreams.NewURLDataSource("test", "test:/daily/", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)
-	// even though stream is empty in simplestreams, it should be defaulted to "released"
-	s.assertExpectedStreamFromGetMetadata(c, "released")
-}
-
-func (s *simplestreamsSuite) assertExpectedStreamFromGetMetadata(c *gc.C, expectedStream string) {
-	filterFunc := func(source simplestreams.DataSource, prev []interface{}, images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
-		result := []interface{}{}
-		for _, val := range images {
-			result = append(result, val)
-		}
-		return result, nil
-	}
-
-	params := simplestreams.GetMetadataParams{
-		StreamsVersion:   s.StreamsVersion,
-		LookupConstraint: s.ValidConstraint,
-		ValueParams: simplestreams.ValueParams{
-			DataType:      s.DataType,
-			FilterFunc:    filterFunc,
-			ValueTemplate: imagemetadata.ImageMetadata{},
-		},
-	}
-	_, info, err := simplestreams.GetMetadata([]simplestreams.DataSource{s.Source}, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Stream, gc.Equals, expectedStream)
 }
 
 var getMirrorTests = []struct {

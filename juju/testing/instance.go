@@ -225,12 +225,9 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})
-	imageMetadata, info, err := imagemetadata.Fetch(sources, imageConstraint)
+	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	for _, metadata := range imageMetadata {
-		metadata.Stream = info.Stream
 	}
 	*out = imageMetadata
 	return nil
