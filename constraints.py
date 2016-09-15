@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 
+import re
+
+
 class Constraints:
     """Class that repersents a set of contraints."""
 
@@ -22,14 +25,20 @@ class Constraints:
              ('cpu-power', cpu_power)
              ])
 
-    def __init__(mem=None, cores=None, virt_type=None, instance_type=None,
-                 root_disk=None, cpu_power=None):
+    def __init__(self, mem=None, cores=None, virt_type=None,
+                 instance_type=None, root_disk=None, cpu_power=None):
         self.mem = mem
         self.cores = cores
         self.virt_type = virt_type
         self.instance_type = instance_type
         self.root_disk = root_disk
         self.cpu_power = cpu_power
+        #if self.instance_type is None:
+        #    self.instance_look_up = None
+        #else:
+        #    self.instance_look_up = LOOKUPFUNC(instance_type)
+        #self.instance_look_up =
+        #    (None if (instance_type is None) else LOOKUPFUNC(instance_type))
 
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
@@ -87,3 +96,31 @@ def cmp_mem_size(ms1, ms2):
     num1 = mem_as_int(ms1)
     num2 = mem_as_int(ms2)
     return num1 - num2
+
+
+from tests import TestCase
+
+class TestConstraints(TestCase):
+
+    def test__list_to_str_none(self):
+        string = Constraints._list_to_str([])
+        self.assertEqual('', string)
+
+    def test__list_to_str(self):
+        string = Constraints._list_to_str(
+             [('a', 'true'), ('b', None), ('c', 'false')])
+        self.assertEqual('a=true c=false', string)
+
+    def test_static_str(self):
+        string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
+
+    def test_str_operator(self):
+        constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
+                         str(constraints))
+
+    def test_mem_as_int(self):
+        self.assertEqual(1, mem_as_int('1'))
+        self.assertEqual(1, mem_as_int('1M'))
+        self.assertEqual(1024, mem_as_int('1G'))
