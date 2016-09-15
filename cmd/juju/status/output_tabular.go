@@ -170,15 +170,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 
 	}
-	if relations.len() > 0 {
-		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
-		for _, k := range relations.sorted() {
-			r := relations.get(k)
-			if r != nil {
-				p(r.relation, r.application1, r.application2, r.relationType())
-			}
-		}
-	}
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
@@ -217,6 +208,17 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	p()
 	printMachines(tw, fs.Machines)
+
+	if relations.len() > 0 {
+		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
+		for _, k := range relations.sorted() {
+			r := relations.get(k)
+			if r != nil {
+				p(r.relation, r.application1, r.application2, r.relationType())
+			}
+		}
+	}
+
 	tw.Flush()
 	return nil
 }

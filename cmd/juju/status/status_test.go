@@ -3519,13 +3519,6 @@ logging    a bi...  error            2  logging    jujucharms    1  ubuntu  expo
 mysql      5.7.13   maintenance      1  mysql      jujucharms    1  ubuntu  exposed
 wordpress  4.5.3    active           1  wordpress  jujucharms    3  ubuntu  exposed
 
-RELATION           PROVIDES   CONSUMES   TYPE
-juju-info          logging    mysql      regular
-logging-dir        logging    wordpress  regular
-info               mysql      logging    subordinate
-db                 mysql      wordpress  regular
-logging-directory  wordpress  logging    subordinate
-
 UNIT         WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
 mysql/0      maintenance  idle   2        controller-2.dns         installing all the things
   logging/1  error        idle            controller-2.dns         somehow lost in all those logs
@@ -3536,6 +3529,13 @@ MACHINE  STATE    DNS               INS-ID        SERIES   AZ
 0        started  controller-0.dns  controller-0  quantal  us-east-1a
 1        started  controller-1.dns  controller-1  quantal  
 2        started  controller-2.dns  controller-2  quantal  
+
+RELATION           PROVIDES   CONSUMES   TYPE
+juju-info          logging    mysql      regular
+logging-dir        logging    wordpress  regular
+info               mysql      logging    subordinate
+db                 mysql      wordpress  regular
+logging-directory  wordpress  logging    subordinate
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
