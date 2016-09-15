@@ -560,13 +560,17 @@ func bootstrapImageMetadata(
 	// Since order of data source matters, order of image metadata matters too. Append is important here.
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	for _, source := range sources {
-		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		sourceMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
 		if err != nil {
 			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
 			continue
 		}
 		logger.Debugf("found %d image metadata in %s", len(sourceMetadata), source.Description())
+		for _, metadata := range sourceMetadata {
+			metadata.Stream = info.Stream
+			publicImageMetadata = append(publicImageMetadata, metadata)
+		}
 		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
 	}
 
