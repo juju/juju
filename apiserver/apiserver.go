@@ -100,18 +100,18 @@ type changeCertListener struct {
 	// A mutex used to block accept operations.
 	m sync.Mutex
 
+	// The current certificate used for tls.Config
+	cert tls.Certificate
+
 	// A channel used to pass in new certificate information.
 	certChanged <-chan params.StateServingInfo
-
-	// The config to update with any new certificate.
-	config *tls.Config
 }
 
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, cert tls.Certificate) *changeCertListener {
 	cl := &changeCertListener{
 		Listener:    lis,
+		cert:        cert,
 		certChanged: certChanged,
-		config:      config,
 	}
 	go func() {
 		defer cl.tomb.Done()
@@ -126,13 +126,15 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	return tls.Server(conn, cl.tlsConfig()), nil
+}
+
+func (cl *changeCertListener) tlsConfig() *tls.Config {
 	cl.m.Lock()
 	defer cl.m.Unlock()
-
-	// make a copy of cl.config so that update certificate does not mutate
-	// the config passed to the tls.Server for this conn.
-	config := *cl.config
-	return tls.Server(conn, &config), nil
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{cl.cert}
+	return tlsConfig
 }
 
 // Close closes the listener.
@@ -172,8 +174,10 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 				addr = append(addr, ip.String())
 			}
 			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+			cl.cert = tlsCert
+		} else {
+			logger.Errorf("parsing x509 cert: %v", err)
 		}
-		cl.config.Certificates = []tls.Certificate{tlsCert}
 	}
 }
 
@@ -210,11 +214,6 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) check that *srvRoot is a valid type for using
-	// as an RPC server.
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{tlsCert}
-
 	stPool := cfg.StatePool
 	if stPool == nil {
 		stPool = state.NewStatePool(s)
@@ -224,7 +223,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		newObserver: cfg.NewObserver,
 		state:       s,
 		statePool:   stPool,
-		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
+		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsCert),
 		tag:         cfg.Tag,
 		dataDir:     cfg.DataDir,
 		logDir:      cfg.LogDir,

@@ -53,7 +53,8 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 		APIPort:      ssi.APIPort,
 		StatePort:    ssi.StatePort,
 	}
-	s.State.SetStateServingInfo(ssi)
+	err := s.State.SetStateServingInfo(ssi)
+	c.Assert(err, jc.ErrorIsNil)
 	info, err := apiagent.NewState(st).StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
