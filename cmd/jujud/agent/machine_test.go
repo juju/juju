@@ -1043,7 +1043,9 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 		for {
 			stateInfo, _ := a.CurrentConfig().StateServingInfo()
 			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			c.Assert(err, jc.ErrorIsNil)
+			if !c.Check(err, jc.ErrorIsNil) {
+				break
+			}
 			sanIPs := make([]string, len(srvCert.IPAddresses))
 			for i, ip := range srvCert.IPAddresses {
 				sanIPs[i] = ip.String()
@@ -1052,7 +1054,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 				close(updated)
 				break
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
