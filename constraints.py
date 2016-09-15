@@ -2,6 +2,17 @@
 
 
 import re
+from contextlib import contextmanager
+
+from utility import JujuAssertionError
+
+
+# This assumes instances are unique accross providers.
+def get_instance_spec(instance_type):
+    """Get the specifications of a given instance type."""
+    return {
+        't2.large': {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'},
+        }[instance_type]
 
 
 class Constraints:
@@ -33,12 +44,12 @@ class Constraints:
         self.instance_type = instance_type
         self.root_disk = root_disk
         self.cpu_power = cpu_power
-        #if self.instance_type is None:
-        #    self.instance_look_up = None
-        #else:
-        #    self.instance_look_up = LOOKUPFUNC(instance_type)
-        #self.instance_look_up =
-        #    (None if (instance_type is None) else LOOKUPFUNC(instance_type))
+
+    def instance_constraint(self, constraint):
+        if (self.instance_look_up is None or
+                self.instance_look_up.get(constraint) is None):
+            return None
+        return self.instance_look_up[constraint]
 
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
@@ -55,8 +66,8 @@ class Constraints:
 
     def meets_cores(self, actual_cores):
         """Check to see if a given value meets the cores constraint."""
-        if self.cores is None:
-            return true
+        if self.cores is not None:
+            return None
         return int(self.cores) <= int(actual_cores)
 
     def meets_cpu_power(self, actual_cpu_power):
@@ -70,6 +81,18 @@ class Constraints:
         if self.arch is None:
             return true
         return int(self.arch) <= int(actual_arch)
+
+    def meets_instance(self, actual_data):
+        instance_data = {} # Some helper function will provide it.
+        # Note: Instance values have to match exactly as higher values
+        # would mean a different instance.
+        for (key, value) in instance_data.items():
+            if key not in actual_data:
+                raise JujuAssertionError('Missing data:', key)
+            elif value != actual_data[key]:
+                return False
+        else:
+            return True
 
     def meets_all(self, actual_data):
         """Check to see if a given value meets all constraints."""
@@ -96,6 +119,17 @@ def cmp_mem_size(ms1, ms2):
     num1 = mem_as_int(ms1)
     num2 = mem_as_int(ms2)
     return num1 - num2
+
+
+# I was just thinking that the deploies might be worth a context manager,
+#   if only to indent the code that runs while they are up.
+#@contextmanager
+#def deploy_context(client, constraint, charm_name, charm_series, charm_dir)
+#    """Deploy a charm and then take it back down."""
+#    deploy_charm_constraint(client, constraint, charm_name,
+#                            charm_series, charm_dir)
+#    yield
+#    client.remove_service(charm_name)
 
 
 from tests import TestCase
