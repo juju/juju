@@ -9,7 +9,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -97,7 +96,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

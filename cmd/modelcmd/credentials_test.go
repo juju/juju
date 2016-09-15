@@ -4,6 +4,8 @@
 package modelcmd_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -42,7 +44,23 @@ func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchem
 	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
+		"interactive": cloud.CredentialSchema{
+			{"username", cloud.CredentialAttr{}},
+		},
 	}
+}
+
+func (mockProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
+	if in.AuthType() == "interactive" {
+		username := in.Attributes()["username"]
+		fmt.Fprintf(ctx.GetStderr(), "generating credential for %q\n", username)
+		return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+			"username": username,
+			"password": "sekret",
+			"key":      "value",
+		}), nil
+	}
+	return in, nil
 }
 
 type credentialsSuite struct {
@@ -51,7 +69,7 @@ type credentialsSuite struct {
 
 var _ = gc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
+func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	dir := c.MkDir()
 	keyFile := filepath.Join(dir, "keyfile")
 	err := ioutil.WriteFile(keyFile, []byte("value"), 0600)
@@ -61,6 +79,9 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 	store.Credentials["cloud"] = cloud.CloudCredential{
 		DefaultRegion: "default-region",
 		AuthCredentials: map[string]cloud.Credential{
+			"interactive": cloud.NewCredential("interactive", map[string]string{
+				"username": "user",
+			}),
 			"secrets": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "user",
 				"password": "sekret",
@@ -70,7 +91,7 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 	}
 
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		testing.Context(c), store, region, "secrets", "cloud", "fake",
+		testing.Context(c), store, region, cred, "cloud", "fake",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedRegion := region
@@ -78,7 +99,7 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 		expectedRegion = "default-region"
 	}
 	c.Assert(regionName, gc.Equals, expectedRegion)
-	c.Assert(credentialName, gc.Equals, "secrets")
+	c.Assert(credentialName, gc.Equals, cred)
 	c.Assert(credential.Attributes(), jc.DeepEquals, map[string]string{
 		"key":      "value",
 		"username": "user",
@@ -87,9 +108,13 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 }
 
 func (s *credentialsSuite) TestGetCredentialsDefaultRegion(c *gc.C) {
-	s.assertGetCredentials(c, "")
+	s.assertGetCredentials(c, "secrets", "")
 }
 
 func (s *credentialsSuite) TestGetCredentials(c *gc.C) {
-	s.assertGetCredentials(c, "region")
+	s.assertGetCredentials(c, "secrets", "region")
+}
+
+func (s *credentialsSuite) TestGetCredentialsProviderFinalizeCredential(c *gc.C) {
+	s.assertGetCredentials(c, "interactive", "region")
 }

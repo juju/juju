@@ -66,8 +66,14 @@ func GetCredentials(
 			credentialName, cloudName,
 		)
 	}
-	// TODO(axw) call provider.FinalizeCredential
-	return credential, credentialName, regionName, nil
+	finalizedCredential, err := provider.FinalizeCredential(ctx, *credential)
+	if err != nil {
+		return nil, "", "", errors.Annotatef(
+			err, "finalizing %q credential for cloud %q",
+			credentialName, cloudName,
+		)
+	}
+	return &finalizedCredential, credentialName, regionName, nil
 }
 
 // credentialByName returns the credential and default region to use for the

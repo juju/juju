@@ -46,14 +46,14 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		Endpoint:         "https://api.azurestack.local",
 		IdentityEndpoint: "https://login.azurestack.local",
 		StorageEndpoint:  "https://storage.azurestack.local",
-		Credential:       fakeUserPassCredential(),
+		Credential:       fakeServicePrincipalCredential(),
 	}
 	s.sender = nil
 }
 
-func fakeUserPassCredential() *cloud.Credential {
+func fakeServicePrincipalCredential() *cloud.Credential {
 	cred := cloud.NewCredential(
-		cloud.UserPassAuthType,
+		"service-principal-secret",
 		map[string]string{
 			"application-id":       fakeApplicationId,
 			"subscription-id":      fakeSubscriptionId,

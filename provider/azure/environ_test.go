@@ -264,7 +264,7 @@ func fakeCloudSpec() environs.CloudSpec {
 		Endpoint:         "https://api.azurestack.local",
 		IdentityEndpoint: "https://login.microsoftonline.com",
 		StorageEndpoint:  "https://storage.azurestack.local",
-		Credential:       fakeUserPassCredential(),
+		Credential:       fakeServicePrincipalCredential(),
 	}
 }
 
