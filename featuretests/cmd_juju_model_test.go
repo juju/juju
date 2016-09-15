@@ -96,12 +96,12 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// to clear the logging writers here.
 	loggo.RemoveWriter("warning")
 
-	context = s.run(c, "list-shares")
+	context = s.run(c, "list-users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                 ACCESS  LAST CONNECTION\n"+
-		"admin@local (admin)  admin   just now\n"+
-		"bar@ubuntuone        read    never connected\n"+
+		"NAME           DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
+		"admin@local*   admin         admin   just now\n"+
+		"bar@ubuntuone                read    never connected\n"+
 		"\n")
 
 }
