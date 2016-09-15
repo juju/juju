@@ -305,7 +305,6 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Signed:    s.RequireSigned,
 			IndexURL:  "test:/streams/v1/index.json",
 			MirrorURL: "",
-			Stream:    "released",
 		})
 	}
 }
@@ -405,7 +404,6 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 		Signed:    true,
 		IndexURL:  "test://host/signed/streams/v1/index.sjson",
 		MirrorURL: "",
-		Stream:    "released",
 	})
 }
 

@@ -278,7 +278,6 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Signed:    s.RequireSigned,
 			IndexURL:  "test:/streams/v1/index.json",
 			MirrorURL: "",
-			Stream:    "tools",
 		})
 	}
 }
@@ -324,7 +323,6 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Signed:    s.RequireSigned,
 		IndexURL:  "test:/streams/v1/index.json",
 		MirrorURL: "test:/",
-		Stream:    "tools",
 	})
 }
 
@@ -1079,7 +1077,6 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		Signed:    true,
 		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
 		MirrorURL: "",
-		Stream:    "released",
 	})
 }
 
