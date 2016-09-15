@@ -123,12 +123,14 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	cred1.Label = "bobcred1"
 	cred2.Label = "bobcred2"
 
-	creds, err := s.State.CloudCredentials(names.NewUserTag("bob"), "stratus")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds, jc.DeepEquals, map[names.CloudCredentialTag]cloud.Credential{
-		tag1: cred1,
-		tag3: cred2,
-	})
+	for _, userName := range []string{"bob", "bob@local"} {
+		creds, err := s.State.CloudCredentials(names.NewUserTag(userName), "stratus")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
+			tag1.Canonical(): cred1,
+			tag3.Canonical(): cred2,
+		})
+	}
 }
 
 func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {

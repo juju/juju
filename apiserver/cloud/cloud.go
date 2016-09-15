@@ -174,8 +174,8 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 			continue
 		}
 		out := make([]string, 0, len(cloudCredentials))
-		for tag := range cloudCredentials {
-			out = append(out, tag.String())
+		for tagId := range cloudCredentials {
+			out = append(out, names.NewCloudCredentialTag(tagId).String())
 		}
 		results.Results[i].Result = out
 	}
@@ -289,7 +289,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			continue
 		}
 
-		cred, ok := cloudCredentials[credentialTag]
+		cred, ok := cloudCredentials[credentialTag.Canonical()]
 		if !ok {
 			results.Results[i].Error = common.ServerError(errors.NotFoundf("credential %q", credentialTag.Name()))
 			continue

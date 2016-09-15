@@ -172,7 +172,11 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudCredentials, jc.DeepEquals, cloudCredentialsIn)
+	expectedCred := make(map[string]cloud.Credential, len(cloudCredentialsIn))
+	for tag, cred := range cloudCredentialsIn {
+		expectedCred[tag.Canonical()] = cred
+	}
+	c.Assert(cloudCredentials, jc.DeepEquals, expectedCred)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
