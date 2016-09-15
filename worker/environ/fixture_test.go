@@ -38,11 +38,12 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 }
 
 type runContext struct {
-	mu      sync.Mutex
-	stub    testing.Stub
-	cloud   environs.CloudSpec
-	config  map[string]interface{}
-	watcher *notifyWatcher
+	mu          sync.Mutex
+	stub        testing.Stub
+	cloud       environs.CloudSpec
+	config      map[string]interface{}
+	watcher     *notifyWatcher
+	credWatcher *notifyWatcher
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
@@ -74,20 +75,20 @@ func (context *runContext) ModelConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, context.config)
 }
 
-// KillNotify kills the watcher returned from WatchForModelConfigChanges with
+// KillModelConfigNotify kills the watcher returned from WatchForModelConfigChanges with
 // the error configured in the enclosing fixture.
-func (context *runContext) KillNotify() {
+func (context *runContext) KillModelConfigNotify() {
 	context.watcher.Kill()
 }
 
-// SendNotify sends a value on the channel used by WatchForModelConfigChanges
+// SendModelConfigNotify sends a value on the channel used by WatchForModelConfigChanges
 // results.
-func (context *runContext) SendNotify() {
+func (context *runContext) SendModelConfigNotify() {
 	context.watcher.changes <- struct{}{}
 }
 
-// CloseNotify closes the channel used by WatchForModelConfigChanges results.
-func (context *runContext) CloseNotify() {
+// CloseModelConfigNotify closes the channel used by WatchForModelConfigChanges results.
+func (context *runContext) CloseModelConfigNotify() {
 	close(context.watcher.changes)
 }
 
@@ -96,6 +97,34 @@ func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, 
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("WatchForModelConfigChanges")
+	if err := context.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return context.watcher, nil
+}
+
+// KillCredentialNotify kills the watcher returned from WatchCredentialChanges with
+// the error configured in the enclosing fixture.
+func (context *runContext) KillCredentialNotify() {
+	context.credWatcher.Kill()
+}
+
+// SendCredentialNotify sends a value on the channel used by WatchCredentialChanges
+// results.
+func (context *runContext) SendCredentialNotify() {
+	context.credWatcher.changes <- struct{}{}
+}
+
+// CloseCredentialNotify closes the channel used by WatchCredentialChanges results.
+func (context *runContext) CloseCredentialNotify() {
+	close(context.credWatcher.changes)
+}
+
+// WatchCredential is part of the environ.ConfigObserver interface.
+func (context *runContext) WatchCredential(cred names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("WatchCredential")
 	if err := context.stub.NextErr(); err != nil {
 		return nil, err
 	}

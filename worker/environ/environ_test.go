@@ -152,7 +152,7 @@ func (s *TrackerSuite) TestWatchCloses(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
-		context.CloseNotify()
+		context.CloseModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "environ config watch closed")
 		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
@@ -173,7 +173,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot read environ config: blam ouch")
 		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "ModelConfig")
@@ -194,7 +194,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update environ config: SetConfig is broken")
 		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "ModelConfig")
@@ -223,7 +223,7 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 
 		timeout := time.After(coretesting.LongWait)
 		attempt := time.After(0)
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		for {
 			select {
 			case <-attempt:

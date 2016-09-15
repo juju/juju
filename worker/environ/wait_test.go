@@ -58,7 +58,7 @@ func (s *WaitSuite) TestWatchClosed(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, "environ config watch closed")
 		}()
 
-		context.CloseNotify()
+		context.CloseModelConfigNotify()
 		select {
 		case <-done:
 		case <-time.After(coretesting.LongWait):
@@ -86,7 +86,7 @@ func (s *WaitSuite) TestConfigError(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, "cannot read environ config: biff zonk")
 		}()
 
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		select {
 		case <-done:
 		case <-time.After(coretesting.LongWait):
@@ -121,7 +121,7 @@ func (s *WaitSuite) TestIgnoresBadConfig(c *gc.C) {
 			}
 		}()
 
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		select {
 		case <-time.After(coretesting.ShortWait):
 		case <-done:
@@ -131,7 +131,7 @@ func (s *WaitSuite) TestIgnoresBadConfig(c *gc.C) {
 		context.SetConfig(c, coretesting.Attrs{
 			"name": "expected-name",
 		})
-		context.SendNotify()
+		context.SendModelConfigNotify()
 		select {
 		case <-done:
 		case <-time.After(coretesting.LongWait):
