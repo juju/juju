@@ -12,10 +12,9 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
+    deploy_dummy_stack,
+    get_token_from_status,
     wait_for_state_server_to_shutdown,
-)
-from jujucharm import (
-    local_charm_path,
 )
 from jujupy import (
     parse_new_state_server_from_error,
@@ -27,6 +26,7 @@ from substrate import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     LoggedException,
 )
 
@@ -40,12 +40,19 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 log = logging.getLogger("assess_recovery")
 
 
+def check_token(client, token):
+    found = get_token_from_status(client)
+    if token not in found:
+        raise JujuAssertionError('Token is not {}: {}'.format(
+            token, found))
+
+
 def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
-    charm = local_charm_path(
-        charm='ubuntu', juju_ver=client.version, series=charm_series)
-    client.deploy(charm, series=charm_series)
-    client.wait_for_started()
+    deploy_dummy_stack(client, charm_series)
+    client.set_config('dummy-source', {'token': 'One'})
+    client.wait_for_workloads()
+    check_token(client, 'One')
     log.info("%s is ready to testing", client.env.environment)
 
 
@@ -104,8 +111,10 @@ def restore_missing_state_server(client, controller_client, backup_file):
     controller_client.wait_for_started(600)
     controller_info = controller_client.show_controller(format='yaml')
     log.info('Controller is:\n{}'.format(controller_info))
+    client.set_config('dummy-source', {'token': 'Two'})
     client.wait_for_started()
     client.wait_for_workloads()
+    check_token(client, 'Two')
     log.info("%s restored", client.env.environment)
     log.info("PASS")
 
