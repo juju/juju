@@ -1766,6 +1766,29 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_wait_until_removed_timeout_lxc(self):
         self.assertEqual(30, self.get_wait_until_removed_timeout(LXC_MACHINE))
 
+    def test_wait_until_removed_timeout_azure(self):
+        deploy_many = DeployManyAttempt(host_count=4, container_count=0)
+        client = fake_juju_client()
+        client.env.config['type'] = 'azure'
+        client.env.config['location'] = 'us-west-1'
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            list(deploy_iter)
+        remove_timeout = wur_mock.mock_calls[3][2]['timeout']
+        self.assertEqual(2400, remove_timeout)
+
+    def test_wait_until_removed_timeout_not_azure(self):
+        deploy_many = DeployManyAttempt(host_count=4, container_count=0)
+        client = fake_juju_client()
+        client.env.config['type'] = 'aws'
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            list(deploy_iter)
+        remove_timeout = wur_mock.mock_calls[3][2]['timeout']
+        self.assertEqual(300, remove_timeout)
+
 
 class TestBackupRestoreAttempt(JujuPyTestCase):
 

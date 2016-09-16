@@ -622,6 +622,10 @@ def wait_until_removed(client, to_remove, timeout=300):
     This is implemented as a context manager so that it is coroutine-friendly.
     The start of the timeout begins at the with statement, but the actual
     waiting (if any) is done when exiting the with block.
+
+    Cloud performance differs. The caller must pass a timeout that matches
+    the expected performance of the cloud. Most clouds need 300s to remove
+    a machine, but aure will need much more.
     """
     timeout_iter = until_timeout(timeout)
     yield
@@ -752,7 +756,12 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
-        with wait_until_removed(client, machine_names):
+        if client.env.config['type'] == 'azure':
+            # Azure takes a minimum of 5 minutes per machine to delete.
+            remove_timeout = 600 * len(machine_names)
+        else:
+            remove_timeout = 300
+        with wait_until_removed(client, machine_names, timeout=remove_timeout):
             yield results
         results['result'] = True
         yield results
