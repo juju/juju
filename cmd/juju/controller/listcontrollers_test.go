@@ -27,7 +27,7 @@ var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
+CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  HA  VERSION
 
 `[1:]
 
@@ -37,12 +37,12 @@ CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  VERSION
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS+    CLOUD/REGION        MODELS+  MACHINES+  VERSION+
-aws-test             controller  -            -          aws/us-east-1             2          5  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1        -          -  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                 -          -  (unknown)  
+Use --refresh to see the latest information.
 
-+ these are the last known values, run with --refresh to see the latest information.
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+aws-test             controller  -            -          aws/us-east-1            2         5   -  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1       -         -   -  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 
@@ -66,10 +66,10 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -  (unknown)  
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2   -  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4   -  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -112,13 +112,13 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 	}
 }
 
-func (s *ListControllersSuite) TestListControllersHAStatus(c *gc.C) {
+func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
 CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES   HA  VERSION
 aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  1/3  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4    1  (unknown)  
+mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  N/A  (unknown)  
 mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -    -  (unknown)  
 
 `[1:]

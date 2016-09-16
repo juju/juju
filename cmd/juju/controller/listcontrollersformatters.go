@@ -18,7 +18,6 @@ import (
 const (
 	noValueDisplay  = "-"
 	notKnownDisplay = "(unknown)"
-	refresh         = "+"
 )
 
 func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, value interface{}) error {
@@ -35,38 +34,13 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
 
-	// See if we need the HA column.
-	showHA := false
-	for _, c := range set.Controllers {
-		if c.ControllerMachines != nil && c.ControllerMachines.Total > 1 {
-			showHA = true
-			break
-		}
+	if promptRefresh && len(set.Controllers) > 0 {
+		fmt.Fprintln(writer, "Use --refresh to see the latest information.\n")
 	}
-
-	p := func(headers ...interface{}) {
-		if promptRefresh && len(set.Controllers) > 0 {
-			for i, h := range headers {
-				switch h {
-				case "ACCESS", "MACHINES", "MODELS", "HA", "VERSION":
-					h = h.(string) + refresh
-				}
-				headers[i] = h
-			}
-		}
-		w.Println(headers...)
-	}
-
-	if showHA {
-		p("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
-		tw.SetColumnAlignRight(5)
-		tw.SetColumnAlignRight(6)
-		tw.SetColumnAlignRight(7)
-	} else {
-		p("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "VERSION")
-		tw.SetColumnAlignRight(5)
-		tw.SetColumnAlignRight(6)
-	}
+	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
+	tw.SetColumnAlignRight(5)
+	tw.SetColumnAlignRight(6)
+	tw.SetColumnAlignRight(7)
 
 	names := []string{}
 	for name := range set.Controllers {
@@ -116,13 +90,11 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			modelCount = fmt.Sprintf("%d", *c.ModelCount)
 		}
 		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
-		if showHA {
-			controllerMachineInfo, warn := controllerMachineStatus(c.ControllerMachines)
-			if warn {
-				w.PrintColor(output.WarningHighlight, controllerMachineInfo)
-			} else {
-				w.Print(controllerMachineInfo)
-			}
+		controllerMachineInfo, warn := controllerMachineStatus(c.ControllerMachines)
+		if warn {
+			w.PrintColor(output.WarningHighlight, controllerMachineInfo)
+		} else {
+			w.Print(controllerMachineInfo)
 		}
 		if staleVersion {
 			w.PrintColor(output.WarningHighlight, agentVersion)
@@ -132,15 +104,15 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		w.Println()
 	}
 	tw.Flush()
-	if promptRefresh && len(names) > 0 {
-		fmt.Fprintln(writer, "\n+ these are the last known values, run with --refresh to see the latest information.")
-	}
 	return nil
 }
 
 func controllerMachineStatus(machines *ControllerMachines) (string, bool) {
 	if machines == nil || machines.Total == 0 {
 		return "-", false
+	}
+	if machines.Total == 1 {
+		return "N/A", false
 	}
 	controllerMachineStatus := ""
 	warn := machines.Active < machines.Total
