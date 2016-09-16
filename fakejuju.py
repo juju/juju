@@ -59,10 +59,9 @@ class FakeControllerState:
         self.shares = ['admin']
 
     def add_model(self, name):
-        state = FakeEnvironmentState()
+        state = FakeEnvironmentState(self)
         state.name = name
         self.models[name] = state
-        state.controller = self
         state.controller.state = 'created'
         return state
 
@@ -524,6 +523,19 @@ class FakeBackend:
                 share_list[name]['access'] = 'admin'
         return share_list
 
+    def show_model(self):
+        # To get data from the model we would need:
+        # self.controller_state.current_model
+        model_name = 'default'
+        data = {
+            'name': model_name,
+            'owner': 'admin@local',
+            'life': 'alive',
+            'status': {'current': 'available', 'since': '15 minutes ago'},
+            'users': self.list_shares(),
+            }
+        return { model_name: data }
+
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
         if model is not None:
@@ -676,6 +688,8 @@ class FakeBackend:
             return json.dumps(self.list_users())
         if command == 'list-shares':
             return json.dumps(self.list_shares())
+        if command == 'show-model':
+            return json.dumps(self.show_model())
         if command == 'show-user':
             return json.dumps(self.show_user(user_name))
         if command == 'add-user':
