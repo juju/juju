@@ -505,7 +505,7 @@ class FakeBackend:
             user_status = {'user-name': user_name, 'display-name': ''}
         return user_status
 
-    def list_shares(self):
+    def get_users(self):
         share_names = self.controller_state.shares
         permissions = []
         for key, value in self.controller_state.users.iteritems():
@@ -532,7 +532,7 @@ class FakeBackend:
             'owner': 'admin@local',
             'life': 'alive',
             'status': {'current': 'available', 'since': '15 minutes ago'},
-            'users': self.list_shares(),
+            'users': self.get_users(),
             }
         return { model_name: data }
 
@@ -686,8 +686,6 @@ class FakeBackend:
             return yaml.safe_dump(self.list_models())
         if command == 'list-users':
             return json.dumps(self.list_users())
-        if command == 'list-shares':
-            return json.dumps(self.list_shares())
         if command == 'show-model':
             return json.dumps(self.show_model())
         if command == 'show-user':
