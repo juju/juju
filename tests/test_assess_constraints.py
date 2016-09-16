@@ -9,8 +9,6 @@ from contextlib import contextmanager
 from assess_constraints import (
     mem_as_int,
     Constraints,
-    append_constraint,
-    make_constraints,
     juju_show_machine_hardware,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
@@ -50,24 +48,6 @@ class TestParseArgs(TestCase):
 
 class TestConstraints(TestCase):
 
-    def test__list_to_str_none(self):
-        string = Constraints._list_to_str([])
-        self.assertEqual('', string)
-
-    def test__list_to_str(self):
-        string = Constraints._list_to_str(
-             [('a', 'true'), ('b', None), ('c', 'false')])
-        self.assertEqual('a=true c=false', string)
-
-    def test_static_str(self):
-        string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
-        self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
-
-    def test_str_operator(self):
-        constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
-        self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
-                         str(constraints))
-
     def test_mem_as_int(self):
         self.assertEqual(1, mem_as_int('1'))
         self.assertEqual(1, mem_as_int('1M'))
@@ -75,6 +55,19 @@ class TestConstraints(TestCase):
         self.assertEqual(4096, mem_as_int('4G'))
         with self.assertRaises(JujuAssertionError):
             mem_as_int('40XB')
+
+    def test_static_str(self):
+        string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
+
+    def test_static_str_none(self):
+        self.assertEqual('', Constraints.str())
+        self.assertEqual('', Constraints.str(arch=None))
+
+    def test_str_operator(self):
+        constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
+                         str(constraints))
 
     def test_meets_root_disk(self):
         constraints = Constraints(root_disk='4G')
@@ -92,32 +85,22 @@ class TestConstraints(TestCase):
         results = map(constraints.meets_cpu_power, ['30', '20', '10'])
         self.assertEqual([True, True, False], results)
 
-    #def test_meets_arch(self):
-    #    constraints = Constraints(arch
+    def test_meets_arch(self):
+        constraints = Constraints(arch='amd64')
+        self.assertTrue(constraints.meets_arch('amd64'))
+        self.assertFalse(constraints.meets_arch('i32'))
 
-
-class TestMakeConstraints(TestCase):
-
-    def test_append_constraint_none(self):
-        args = []
-        append_constraint(args, 'name', None)
-        self.assertEqual([], args)
-
-    def test_append_constraint_string(self):
-        args = ['inital=True']
-        append_constraint(args, 'name', 'value')
-        self.assertEqual(['inital=True', 'name=value'], args)
-
-    def test_make_constraints_empty(self):
-        constraints = make_constraints()
-        self.assertEqual('', constraints)
-
-    def test_make_constraints(self):
-        constraints = make_constraints(memory='20GB', virt_type='test')
-        if 'm' == constraints[0]:
-            self.assertEqual('mem=20GB virt-type=test', constraints)
-        else:
-            self.assertEqual('virt-type=test mem=20GB', constraints)
+    def test_meets_instance_type(self):
+        constraints = Constraints(instance_type='t2.micro')
+        data1 = {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'}
+        self.assertTrue(constraints.meets_instance_type(data1))
+        data2 = {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'}
+        self.assertFalse(constraints.meets_instance_type(data2))
+        data3 = dict(data1, arch='amd64')
+        self.assertTrue(constraints.meets_instance_type(data3))
+        data4 = {'cpu_power': '10', 'cores': '1'}
+        with self.assertRaises(JujuAssertionError):
+            constraints.meets_instance_type(data4)
 
 
 class TestMain(TestCase):

@@ -7,11 +7,11 @@
 
 from __future__ import print_function
 import os
-
 import argparse
 import logging
 import sys
 import re
+from contextlib import contextmanager
 
 import yaml
 
@@ -39,7 +39,7 @@ VIRT_TYPES = ['lxd']
 
 INSTANCE_TYPES = {
     'azure': [],
-    'ec2': {'t2.large': {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'}},
+    'ec2': ['t2.micro'],
     'gce': [],
     'joyent': [],
     'openstack': [],
@@ -82,35 +82,41 @@ class Constraints:
 
     @staticmethod
     def str(mem=None, cores=None, virt_type=None, instance_type=None,
-            root_disk=None, cpu_power=None):
+            root_disk=None, cpu_power=None, arch=None):
         """Convert the given constraint values into an argument string."""
         return Constraints._list_to_str(
             [('mem', mem), ('cores', cores), ('virt-type', virt_type),
              ('instance-type', instance_type), ('root-disk', root_disk),
-             ('cpu-power', cpu_power)
+             ('cpu-power', cpu_power), ('arch', arch),
              ])
 
     def __init__(self, mem=None, cores=None, virt_type=None,
-                 instance_type=None, root_disk=None, cpu_power=None):
+                 instance_type=None, root_disk=None, cpu_power=None,
+                 arch=None):
+        """Create a new constraints instance from individual constraints."""
         self.mem = mem
         self.cores = cores
         self.virt_type = virt_type
         self.instance_type = instance_type
         self.root_disk = root_disk
         self.cpu_power = cpu_power
-
-    def instance_constraint(self, constraint):
-        if (self.instance_look_up is None or
-                self.instance_look_up.get(constraint) is None):
-            return None
-        return self.instance_look_up[constraint]
+        self.arch = arch
 
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
         return Constraints.str(
             self.mem, self.cores, self.virt_type, self.instance_type,
-            self.root_disk, self.cpu_power
+            self.root_disk, self.cpu_power, self.arch
             )
+
+    def __eq__(self, other):
+        return (self.mem == other.mem and self.cores == other.cores
+                and self.virt_type == other.virt_type
+                and self.instance_type == other.instance_type
+                and self.root_disk == other.root_disk
+                and self.cpu_power == other.cpu_power
+                and self.arch == other.arch
+                )
 
     def meets_root_disk(self, actual_root_disk):
         """Check to see if a given value meets the root_disk constraint."""
@@ -120,7 +126,7 @@ class Constraints:
 
     def meets_cores(self, actual_cores):
         """Check to see if a given value meets the cores constraint."""
-        if self.cores is not None:
+        if self.cores is None:
             return True
         return int(self.cores) <= int(actual_cores)
 
@@ -134,59 +140,21 @@ class Constraints:
         """Check to see if a given value meets the arch constraint."""
         if self.arch is None:
             return True
-        return int(self.arch) <= int(actual_arch)
+        return self.arch == actual_arch
 
     def meets_instance_type(self, actual_data):
+        """Check to see if a given value meets the instance_type constraint.
+
+        Currently there is no direct way to check for it, so we 'fingerprint'
+        each instance_type in a dictionary."""
         instance_data = get_instance_spec(self.instance_type)
-        # Note: Instance values have to match exactly as higher values
-        # would mean a different instance.
-        for (key, value) in instance_data.items():
+        for (key, value) in instance_data.iteritems():
             if key not in actual_data:
                 raise JujuAssertionError('Missing data:', key)
             elif value != actual_data[key]:
                 return False
         else:
             return True
-
-
-def append_constraint(list, constraint_name, constraint_value):
-    """Append a constraint to a list of constraints if it is used."""
-    if constraint_value is not None:
-        list.append('{}={}'.format(constraint_name, constraint_value))
-
-
-def make_constraints(memory=None, cpu_cores=None, virt_type=None,
-                     instance_type=None, root_disk=None, cpu_power=None):
-    """Construct a contraints argument string from contraint values."""
-    args = []
-    append_constraint(args, 'mem', memory)
-    append_constraint(args, 'cpu-cores', cpu_cores)
-    append_constraint(args, 'virt-type', virt_type)
-    append_constraint(args, 'instance-type', instance_type)
-    append_constraint(args, 'root-disk', root_disk)
-    append_constraint(args, 'cpu-power', cpu_power)
-    return ' '.join(args)
-
-
-def cmp_mem_size(ms1, ms2):
-    """Preform a comparison between to memory sizes."""
-    def mem_size(size):
-        """Convert an argument size into a number of megabytes."""
-        if not re.match(re.compile('[0123456789]+[MGTP]?'), size):
-            raise JujuAssertionError('Not a size format:', size)
-        if size[-1] in 'MGTP':
-            val = int(size[0:-1])
-            unit = size[-1]
-            return val * (1024 ** 'MGTP'.find(unit))
-        else:
-            return int(size)
-    num1 = mem_size(ms1)
-    num2 = mem_size(ms2)
-    return num1 - num2
-
-def mem_at_least(lhs, rhs):
-    """Returns true if lhs is at least (<=) rhs."""
-    return 0 <= cmp_mem_size(lhs, rhs)
 
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
@@ -209,9 +177,6 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
                              series=charm_series,
                              repository=os.path.dirname(charm_root),
                              platform=platform)
-    log.info(charm)
-    if charm.startswith('local:'):
-        raise JujuAssertionError('Bad charm path', charm)
     deploy_constraint(client, constraints, charm,
                       charm_series, charm_dir)
 
@@ -220,7 +185,7 @@ def assess_virt_type(client, virt_type):
     """Assess the virt-type option for constraints"""
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
-    constraints = make_constraints(virt_type=virt_type)
+    constraints = Constraints.str(virt_type=virt_type)
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
@@ -248,7 +213,7 @@ def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
-    constraints = make_constraints(instance_type=instance_type)
+    constraints = Constraints.str(instance_type=instance_type)
     charm_name = 'instance-type-' + instance_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
@@ -278,15 +243,13 @@ def juju_show_machine_hardware(client, machine):
     return data
 
 
-# I was just thinking that the deploies might be worth a context manager,
-#   if only to indent the code that runs while they are up.
-#@contextmanager
-#def deploy_context(client, constraint, charm_name, charm_series, charm_dir)
-#    """Deploy a charm and then take it back down."""
-#    deploy_charm_constraint(client, constraint, charm_name,
-#                            charm_series, charm_dir)
-#    yield
-#    client.remove_service(charm_name)
+@contextmanager
+def deploy_context(client, constraint, charm_name, charm_series, charm_dir):
+    """Deploy a charm and then take it back down."""
+    deploy_charm_constraint(client, constraint, charm_name,
+                            charm_series, charm_dir)
+    yield
+    client.remove_service(charm_name)
 
 
 def assess_constraints_lxd(client, args):
@@ -294,33 +257,39 @@ def assess_constraints_lxd(client, args):
     charm_series = (args.series or 'xenial')
     with temp_dir() as charm_dir:
         charm_name = 'lxd-root-disk-2048'
-        constraints = make_constraints(root_disk='2048')
-        deploy_charm_constraint(client, None, charm_name,
-                                charm_series, charm_dir)
-        log.info(charm_name + ' has been deployed')
-        # Check the machine for the amount of disk-space.
-        data = juju_show_machine_hardware(client, 0)
-        if not mem_at_least(data['root-disk'], '2048'):
-            JujuAssertionError('Not enough space on the root disk.')
-        client.remove_service(charm_name)
+        constraints = Constraints(root_disk='2048')
+        with deploy_context(client, str(constraints), charm_name,
+                            charm_series, charm_dir):
+            data = juju_show_machine_hardware(client, 0)
+            if not constraints.meets_root_disk(data['root-disk']):
+                JujuAssertionError('Not enough space on the root disk.')
 
 
 def assess_constraints_ec2(client):
     """Run the tests that are used on ec2."""
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
-        charm_name = 'ec2-instance-type-t2.large'
-        constraints = make_constraints(instance_type='t2.large')
-        deploy_charm_constraint(client, constraints, charm_name,
-                                charm_series, charm_dir)
-        # Check the povider for the instance-type
-        if not mem_at_least(data['root-disk'], '8G'):
-            JujuAssertionError('Not enough space on the root disk.')
-        if int(data['cores']) < 1:
-            JujuAssertionError('Not enough cores have been allocated.')
-        if int(data['cpu_power']) < 20:
-            JujuAssertionError('The cpu is not powerful enough.')
-        client.remove_service(charm_name)
+        charm_name = 'ec2-instance-type-t2.micro'
+        constraints = Constraints(instance_type='t2.micro')
+        with deploy_context(client, str(constraints), charm_name,
+                            charm_series, charm_dir):
+            data = juju_show_machine_hardware(client, '0')
+            if not constraints.meets_instance_type(data):
+                JujuAssertionError('Instance type did not match.')
+        charm_name = 'ec2-cores-2'
+        constraints = Constraints(cores='2')
+        with deploy_context(client, str(constraints), charm_name,
+                            charm_series, charm_dir):
+            data = juju_show_machine_hardware(client, '0')
+            if not constraints.meets_cores(data['cores']):
+                JujuAssertionError('Not enough cores on machine.')
+        charm_name = 'ec2-cpu-power-30'
+        constraints = Constraints(cpu_power='30')
+        with deploy_context(client, str(constraints), charm_name,
+                            charm_series, charm_dir):
+            data = juju_show_machine_hardware(client, '0')
+            if not constraints.meets_cpu_power(data['cpu_power']):
+                JujuAssertionError('CPU does not have enough power.')
 
 
 def assess_constraints(client, test_kvm=False):
