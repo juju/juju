@@ -185,6 +185,7 @@ class FakeEnvironmentState:
         self.controller.require_controller('restore', self.name)
         if len(self.state_servers) > 0:
             return self._fail_stderr('Operation not permitted')
+        self.state_servers.append(self.add_machine())
 
     def enable_ha(self):
         self.controller.require_controller('enable-ha', self.name)
@@ -651,6 +652,8 @@ class FakeBackend:
                 self.controller_state.users.pop(username)
                 if username in self.controller_state.shares:
                     self.controller_state.shares.remove(username)
+            if command == 'restore-backup':
+                model_state.restore_backup()
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
@@ -678,8 +681,6 @@ class FakeBackend:
                 model_state.model_config['default-series'])
         if command in ('model-config', 'get-model-config'):
             return yaml.safe_dump(model_state.model_config)
-        if command == 'restore-backup':
-            model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':

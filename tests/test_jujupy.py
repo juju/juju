@@ -1871,7 +1871,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml',
+            include_e=False, timeout=120)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
@@ -2616,12 +2617,11 @@ class TestEnvJujuClient(ClientTest):
     def test_restore_backup(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch.object(client, 'get_juju_output') as gjo_mock:
-            result = client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', '-b',
-                                         '--constraints', 'mem=2G',
-                                         '--file', 'quxx')
-        self.assertIs(gjo_mock.return_value, result)
+        with patch.object(client, 'juju') as gjo_mock:
+            client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')

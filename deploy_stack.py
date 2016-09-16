@@ -639,9 +639,9 @@ class BootstrapManager:
         stdout = getattr(exc, 'output', None)
         stderr = getattr(exc, 'stderr', None)
         if stdout or stderr:
-                logging.info(
-                        'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                        stdout, stderr)
+            logging.info(
+                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                stdout, stderr)
         return LoggedException(exc)
 
     @contextmanager
