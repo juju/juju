@@ -59,10 +59,9 @@ class FakeControllerState:
         self.shares = ['admin']
 
     def add_model(self, name):
-        state = FakeEnvironmentState()
+        state = FakeEnvironmentState(self)
         state.name = name
         self.models[name] = state
-        state.controller = self
         state.controller.state = 'created'
         return state
 
@@ -506,7 +505,7 @@ class FakeBackend:
             user_status = {'user-name': user_name, 'display-name': ''}
         return user_status
 
-    def list_shares(self):
+    def get_users(self):
         share_names = self.controller_state.shares
         permissions = []
         for key, value in self.controller_state.users.iteritems():
@@ -523,6 +522,19 @@ class FakeBackend:
             else:
                 share_list[name]['access'] = 'admin'
         return share_list
+
+    def show_model(self):
+        # To get data from the model we would need:
+        # self.controller_state.current_model
+        model_name = 'default'
+        data = {
+            'name': model_name,
+            'owner': 'admin@local',
+            'life': 'alive',
+            'status': {'current': 'available', 'since': '15 minutes ago'},
+            'users': self.get_users(),
+            }
+        return { model_name: data }
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -674,8 +686,8 @@ class FakeBackend:
             return yaml.safe_dump(self.list_models())
         if command == 'list-users':
             return json.dumps(self.list_users())
-        if command == 'list-shares':
-            return json.dumps(self.list_shares())
+        if command == 'show-model':
+            return json.dumps(self.show_model())
         if command == 'show-user':
             return json.dumps(self.show_user(user_name))
         if command == 'add-user':
