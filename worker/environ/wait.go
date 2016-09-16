@@ -31,6 +31,7 @@ var ErrWaitAborted = errors.New("environ wait aborted")
 // responsible for detecting and handling any watcher errors that may occur,
 // whether this func succeeds or fails.
 func WaitForEnviron(
+	// TODO(wallyworld) - pass in credential watcher
 	w watcher.NotifyWatcher,
 	getter environs.EnvironConfigGetter,
 	newEnviron environs.NewEnvironFunc,

@@ -14,10 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -237,4 +239,40 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	rFlag, err = s.machine1.GetRebootFlag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
+}
+
+func (s *agentSuite) TestWatchCredentials(c *gc.C) {
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
+	}
+	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewCloudCredentialTag("dummy/fred/default")
+	result, err := api.WatchCredentials(params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{"1", nil}}})
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+
+	w := s.resources.Get("1")
+	defer statetesting.AssertStop(c, w)
+
+	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	s.State.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	wc.AssertOneChange()
+}
+
+func (s *agentSuite) TestWatchAuthError(c *gc.C) {
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("1"),
+		EnvironManager: false,
+	}
+	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = api.WatchCredentials(params.Entities{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
