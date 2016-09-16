@@ -129,6 +129,6 @@ func (environProviderCredentials) detectEnvCredentials() (*cloud.CloudCredential
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
-	return in, nil
+func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
 }

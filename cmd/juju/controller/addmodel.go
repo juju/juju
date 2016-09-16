@@ -426,8 +426,12 @@ func (c *addModelCommand) maybeUploadCredential(
 
 	// Upload the credential from the client, if it exists locally.
 	credential, _, _, err := modelcmd.GetCredentials(
-		ctx, c.ClientStore(), c.CloudRegion, credentialTag.Name(),
-		cloudTag.Id(), cloud.Type,
+		ctx, c.ClientStore(), modelcmd.GetCredentialsParams{
+			Cloud:          cloud,
+			CloudName:      cloudTag.Id(),
+			CloudRegion:    c.CloudRegion,
+			CredentialName: credentialTag.Name(),
+		},
 	)
 	if err != nil {
 		return names.CloudCredentialTag{}, errors.Trace(err)

@@ -75,8 +75,9 @@ func (s *credentialsSuite) TestFinalizeCredentialUserPass(c *gc.C) {
 		"tenant-id":            "tenant",
 	})
 	ctx := testing.Context(c)
-	out, err := s.provider.FinalizeCredential(ctx, in)
+	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{Credential: in})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.NotNil)
 	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("service-principal-secret"))
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"application-id":       "application",

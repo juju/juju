@@ -151,6 +151,6 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (OpenstackCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
-	return in, nil
+func (OpenstackCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
 }

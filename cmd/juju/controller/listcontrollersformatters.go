@@ -35,7 +35,8 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 	w := output.Wrapper{tw}
 
 	if promptRefresh && len(set.Controllers) > 0 {
-		fmt.Fprintln(writer, "Use --refresh to see the latest information.\n")
+		fmt.Fprintln(writer, "Use --refresh to see the latest information.")
+		fmt.Fprintln(writer)
 	}
 	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
 	tw.SetColumnAlignRight(5)

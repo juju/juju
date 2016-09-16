@@ -421,7 +421,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store := c.ClientStore()
 	var detectedCredentialName string
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		ctx, store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
+		ctx, store, modelcmd.GetCredentialsParams{
+			Cloud:          *cloud,
+			CloudName:      c.Cloud,
+			CloudRegion:    c.Region,
+			CredentialName: c.CredentialName,
+		},
 	)
 	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
 		return ambiguousCredentialError

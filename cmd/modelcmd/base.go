@@ -392,13 +392,26 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 
 	var credential *cloud.Credential
 	if bootstrapConfig.Credential != "" {
+		bootstrapCloud := cloud.Cloud{
+			Type:             bootstrapConfig.CloudType,
+			Endpoint:         bootstrapConfig.CloudEndpoint,
+			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+		}
+		if bootstrapConfig.CloudRegion != "" {
+			bootstrapCloud.Regions = []cloud.Region{{
+				Name:             bootstrapConfig.CloudRegion,
+				Endpoint:         bootstrapConfig.CloudEndpoint,
+				IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+			}}
+		}
 		credential, _, _, err = GetCredentials(
-			g.ctx,
-			g.store,
-			bootstrapConfig.CloudRegion,
-			bootstrapConfig.Credential,
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudType,
+			g.ctx, g.store,
+			GetCredentialsParams{
+				Cloud:          bootstrapCloud,
+				CloudName:      bootstrapConfig.Cloud,
+				CloudRegion:    bootstrapConfig.CloudRegion,
+				CredentialName: bootstrapConfig.Credential,
+			},
 		)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
