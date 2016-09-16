@@ -50,34 +50,49 @@ func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchem
 	}
 }
 
-func (mockProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
-	if in.AuthType() == "interactive" {
-		username := in.Attributes()["username"]
+func (mockProvider) FinalizeCredential(
+	ctx environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*cloud.Credential, error) {
+	if args.Credential.AuthType() == "interactive" {
+		username := args.Credential.Attributes()["username"]
 		fmt.Fprintf(ctx.GetStderr(), "generating credential for %q\n", username)
-		return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		out := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 			"username": username,
 			"password": "sekret",
 			"key":      "value",
-		}), nil
+		})
+		return &out, nil
 	}
-	return in, nil
+	return &args.Credential, nil
 }
 
 type credentialsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	cloud cloud.Cloud
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
+func (s *credentialsSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.cloud = cloud.Cloud{
+		Type: "fake",
+		Regions: []cloud.Region{
+			{Name: "first-region"},
+			{Name: "second-region"},
+		},
+	}
+
 	dir := c.MkDir()
 	keyFile := filepath.Join(dir, "keyfile")
 	err := ioutil.WriteFile(keyFile, []byte("value"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	store := jujuclienttesting.NewMemStore()
-	store.Credentials["cloud"] = cloud.CloudCredential{
-		DefaultRegion: "default-region",
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Credentials["cloud"] = cloud.CloudCredential{
+		DefaultRegion: "second-region",
 		AuthCredentials: map[string]cloud.Credential{
 			"interactive": cloud.NewCredential("interactive", map[string]string{
 				"username": "user",
@@ -89,14 +104,24 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 			}),
 		},
 	}
+}
 
+func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		testing.Context(c), store, region, cred, "cloud", "fake",
+		testing.Context(c), s.store, modelcmd.GetCredentialsParams{
+			Cloud:          s.cloud,
+			CloudName:      "cloud",
+			CloudRegion:    region,
+			CredentialName: cred,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedRegion := region
 	if expectedRegion == "" {
-		expectedRegion = "default-region"
+		expectedRegion = s.store.Credentials["cloud"].DefaultRegion
+		if expectedRegion == "" && len(s.cloud.Regions) > 0 {
+			expectedRegion = "first-region"
+		}
 	}
 	c.Assert(regionName, gc.Equals, expectedRegion)
 	c.Assert(credentialName, gc.Equals, cred)
@@ -107,14 +132,30 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	})
 }
 
-func (s *credentialsSuite) TestGetCredentialsDefaultRegion(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentialsUserDefaultRegion(c *gc.C) {
+	s.assertGetCredentials(c, "secrets", "")
+}
+
+func (s *credentialsSuite) TestGetCredentialsCloudDefaultRegion(c *gc.C) {
+	creds := s.store.Credentials["cloud"]
+	creds.DefaultRegion = ""
+	s.store.Credentials["cloud"] = creds
+	s.assertGetCredentials(c, "secrets", "")
+}
+
+func (s *credentialsSuite) TestGetCredentialsNoRegion(c *gc.C) {
+	creds := s.store.Credentials["cloud"]
+	creds.DefaultRegion = ""
+	s.store.Credentials["cloud"] = creds
+	s.cloud.Regions = nil
 	s.assertGetCredentials(c, "secrets", "")
 }
 
 func (s *credentialsSuite) TestGetCredentials(c *gc.C) {
-	s.assertGetCredentials(c, "secrets", "region")
+	s.cloud.Regions = append(s.cloud.Regions, cloud.Region{Name: "third-region"})
+	s.assertGetCredentials(c, "secrets", "third-region")
 }
 
 func (s *credentialsSuite) TestGetCredentialsProviderFinalizeCredential(c *gc.C) {
-	s.assertGetCredentials(c, "interactive", "region")
+	s.assertGetCredentials(c, "interactive", "")
 }

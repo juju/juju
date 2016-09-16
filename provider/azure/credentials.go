@@ -89,8 +89,11 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, in cloud.Credential) (cloud.Credential, error) {
-	switch authType := in.AuthType(); authType {
+func (environProviderCredentials) FinalizeCredential(
+	ctx environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*cloud.Credential, error) {
+	switch authType := args.Credential.AuthType(); authType {
 	case cloud.UserPassAuthType:
 		fmt.Fprintf(ctx.GetStderr(), `
 WARNING: The %q auth-type is deprecated, and will be removed soon.
@@ -101,15 +104,14 @@ changing auth-type to %q, and dropping the tenant-id field.
 `[1:],
 			authType, clientCredentialsAuthType,
 		)
-		attrs := in.Attributes()
+		attrs := args.Credential.Attributes()
 		delete(attrs, credAttrTenantId)
-		label := in.Label
-		in = cloud.NewCredential(clientCredentialsAuthType, attrs)
-		in.Label = label
-		return in, nil
+		out := cloud.NewCredential(clientCredentialsAuthType, attrs)
+		out.Label = args.Credential.Label
+		return &out, nil
 	case clientCredentialsAuthType:
-		return in, nil
+		return &args.Credential, nil
 	default:
-		return cloud.Credential{}, errors.NotSupportedf("%q auth-type", authType)
+		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
 }

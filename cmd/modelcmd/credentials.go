@@ -21,6 +21,26 @@ var (
 	ErrMultipleCredentials = errors.New("more than one credential detected")
 )
 
+// GetCredentialsParams contains parameters for the GetCredentials function.
+type GetCredentialsParams struct {
+	// Cloud is the cloud definition.
+	Cloud cloud.Cloud
+
+	// CloudName is the name of the cloud for which credentials are being
+	// obtained.
+	CloudName string
+
+	// CloudRegion is the name of the region that the user has specified.
+	// If this is empty, then GetCredentials will determine the default
+	// region, and return that. The default region is the one set by the
+	// user in credentials.yaml, or if there is none set, the first region
+	// in the cloud's list.
+	CloudRegion string
+
+	// CredentialName is the name of the credential to get.
+	CredentialName string
+}
+
 // GetCredentials returns a curated set of credential values for a given cloud.
 // The credential key values are read from the credentials store and the provider
 // finalises the values to resolve things like json files.
@@ -28,19 +48,35 @@ var (
 func GetCredentials(
 	ctx *cmd.Context,
 	store jujuclient.CredentialGetter,
-	region, credentialName, cloudName, cloudType string,
+	args GetCredentialsParams,
 ) (_ *cloud.Credential, chosenCredentialName, regionName string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
-		store, cloudName, credentialName,
+		store, args.CloudName, args.CredentialName,
 	)
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
 	}
 
-	regionName = region
+	regionName = args.CloudRegion
 	if regionName == "" {
 		regionName = defaultRegion
+		if regionName == "" && len(args.Cloud.Regions) > 0 {
+			// No region was specified, use the first region
+			// in the list.
+			regionName = args.Cloud.Regions[0].Name
+		}
+	}
+
+	cloudEndpoint := args.Cloud.Endpoint
+	cloudIdentityEndpoint := args.Cloud.IdentityEndpoint
+	if regionName != "" {
+		region, err := cloud.RegionByName(args.Cloud.Regions, regionName)
+		if err != nil {
+			return nil, "", "", errors.Trace(err)
+		}
+		cloudEndpoint = region.Endpoint
+		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
 	readFile := func(f string) ([]byte, error) {
@@ -52,7 +88,7 @@ func GetCredentials(
 	}
 
 	// Finalize credential against schemas supported by the provider.
-	provider, err := environs.Provider(cloudType)
+	provider, err := environs.Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
 	}
@@ -63,17 +99,25 @@ func GetCredentials(
 	if err != nil {
 		return nil, "", "", errors.Annotatef(
 			err, "finalizing %q credential for cloud %q",
-			credentialName, cloudName,
+			credentialName, args.CloudName,
 		)
 	}
-	finalizedCredential, err := provider.FinalizeCredential(ctx, *credential)
+
+	credential, err = provider.FinalizeCredential(
+		ctx, environs.FinalizeCredentialParams{
+			Credential:            *credential,
+			CloudEndpoint:         cloudEndpoint,
+			CloudIdentityEndpoint: cloudIdentityEndpoint,
+		},
+	)
 	if err != nil {
 		return nil, "", "", errors.Annotatef(
 			err, "finalizing %q credential for cloud %q",
-			credentialName, cloudName,
+			credentialName, args.CloudName,
 		)
 	}
-	return &finalizedCredential, credentialName, regionName, nil
+
+	return credential, credentialName, regionName, nil
 }
 
 // credentialByName returns the credential and default region to use for the
