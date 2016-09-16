@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -397,6 +398,93 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 		// make sure we looked in each and all...
 		c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
 	}
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is CentOS, wanting to bootstrap a CentOS
+	// controller. This is fine.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "centos7",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "centos7")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"centos7"})
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is a Windows system, wanting to bootstrap a trusty
+	// controller with local tools. This can't work.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "trusty" using a machine running "Windows"`)
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is some unspecified Linux system, wanting to
+	// bootstrap a trusty controller with local tools. This should be
+	// OK.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
 }
 
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {

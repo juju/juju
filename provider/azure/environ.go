@@ -802,7 +802,7 @@ func newOSProfile(
 		return nil, os.Unknown, errors.Trace(err)
 	}
 	switch seriesOS {
-	case os.Ubuntu, os.CentOS, os.Arch:
+	case os.Ubuntu, os.CentOS:
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
 		// disable password authentication.
