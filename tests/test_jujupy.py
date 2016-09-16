@@ -2616,12 +2616,11 @@ class TestEnvJujuClient(ClientTest):
     def test_restore_backup(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch.object(client, 'get_juju_output') as gjo_mock:
+        with patch.object(client, 'juju') as gjo_mock:
             result = client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', '-b',
-                                         '--constraints', 'mem=2G',
-                                         '--file', 'quxx')
-        self.assertIs(gjo_mock.return_value, result)
+        gjo_mock.assert_called_once_with(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')

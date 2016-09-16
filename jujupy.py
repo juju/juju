@@ -1812,7 +1812,7 @@ class EnvJujuClient:
         return backup_file_path
 
     def restore_backup(self, backup_file):
-        return self.juju(
+        self.juju(
             'restore-backup',
             ('-b', '--constraints', 'mem=2G', '--file', backup_file))
 

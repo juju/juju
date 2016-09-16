@@ -73,9 +73,15 @@ class TestAssessRecovery(TestCase):
             with patch('assess_recovery.terminate_instances',
                        side_effect=terminate):
                 with patch('deploy_stack.wait_for_port', autospec=True):
-                    with patch('assess_recovery.check_token', autospec=True,
-                               side_effect=['Token: One', 'Token: Two']):
-                        yield
+                    with patch('assess_recovery.restore_present_state_server',
+                               autospec=True):
+                        with patch('assess_recovery.check_token',
+                                   autospec=True,
+                                   side_effect=['Token: One', 'Token: Two']):
+                            with patch('assess_recovery.show_controller',
+                                       autospec=True,
+                                       return_value='controller'):
+                                yield
 
     def test_backup(self):
         client = fake_juju_client()

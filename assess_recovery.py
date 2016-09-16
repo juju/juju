@@ -56,6 +56,11 @@ def deploy_stack(client, charm_series):
     log.info("%s is ready to testing", client.env.environment)
 
 
+def show_controller(client):
+    controller_info = client.show_controller(format='yaml')
+    log.info('Controller is:\n{}'.format(controller_info))
+
+
 def restore_present_state_server(controller_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
@@ -109,8 +114,7 @@ def restore_missing_state_server(client, controller_client, backup_file):
         log.exception(e)
         raise LoggedException(e)
     controller_client.wait_for_started(600)
-    controller_info = controller_client.show_controller(format='yaml')
-    log.info('Controller is:\n{}'.format(controller_info))
+    show_controller(client)
     client.set_config('dummy-source', {'token': 'Two'})
     client.wait_for_started()
     client.wait_for_workloads()
