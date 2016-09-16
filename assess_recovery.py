@@ -104,6 +104,7 @@ def restore_missing_state_server(client, controller_client, backup_file):
     controller_client.wait_for_started(600)
     controller_info = controller_client.show_controller(format='yaml')
     log.info('Controller is:\n{}'.format(controller_info))
+    client.wait_for_started()
     client.wait_for_workloads()
     log.info("%s restored", client.env.environment)
     log.info("PASS")
