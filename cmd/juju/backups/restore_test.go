@@ -258,6 +258,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		AgentVersion:           version.Current.String(),
 		ModelCount:             intPtr(2),
 		MachineCount:           intPtr(1),
+		ControllerMachineCount: 1,
 	})
 }
 

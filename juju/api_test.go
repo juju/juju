@@ -373,6 +373,7 @@ func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name st
 	c.Assert(found.AgentVersion, gc.Equals, "1.2.3")
 	c.Assert(found.ModelCount, gc.IsNil)
 	c.Assert(found.MachineCount, gc.IsNil)
+	c.Assert(found.ControllerMachineCount, gc.Equals, 0)
 }
 
 func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
@@ -405,9 +406,10 @@ func intptr(i int) *int {
 func (s *CacheAPIEndpointsSuite) TestUpdateModelMachineCount(c *gc.C) {
 	s.assertCreateController(c, "controller-name1")
 	params := juju.UpdateControllerParams{
-		AgentVersion: "1.2.3",
-		ModelCount:   intptr(2),
-		MachineCount: intptr(3),
+		AgentVersion:           "1.2.3",
+		ControllerMachineCount: intptr(1),
+		ModelCount:             intptr(2),
+		MachineCount:           intptr(3),
 	}
 	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,6 +418,7 @@ func (s *CacheAPIEndpointsSuite) TestUpdateModelMachineCount(c *gc.C) {
 	c.Assert(controllerDetails.UnresolvedAPIEndpoints, gc.HasLen, 0)
 	c.Assert(controllerDetails.APIEndpoints, gc.HasLen, 0)
 	c.Assert(controllerDetails.AgentVersion, gc.Equals, "1.2.3")
+	c.Assert(controllerDetails.ControllerMachineCount, gc.Equals, 1)
 	c.Assert(*controllerDetails.ModelCount, gc.Equals, 2)
 	c.Assert(*controllerDetails.MachineCount, gc.Equals, 3)
 }

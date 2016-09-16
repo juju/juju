@@ -61,10 +61,11 @@ func SetBootstrapEndpointAddress(
 	// At bootstrap we have 2 models, the controller model and the default.
 	two := 2
 	params := juju.UpdateControllerParams{
-		AgentVersion:    agentVersion.String(),
-		AddrConnectedTo: apiHostPorts,
-		MachineCount:    &length,
-		ModelCount:      &two,
+		AgentVersion:           agentVersion.String(),
+		AddrConnectedTo:        apiHostPorts,
+		MachineCount:           &length,
+		ControllerMachineCount: &length,
+		ModelCount:             &two,
 	}
 	return juju.UpdateControllerDetailsFromLogin(store, controllerName, params)
 }

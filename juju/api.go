@@ -323,6 +323,9 @@ type UpdateControllerParams struct {
 	// ModelCount (when set) is the number of models visible to the user.
 	ModelCount *int
 
+	// ControllerMachineCount (when set) is the total number of controller machines in the environment.
+	ControllerMachineCount *int
+
 	// MachineCount (when set) is the total number of machines in the models.
 	MachineCount *int
 }
@@ -349,7 +352,7 @@ func updateControllerDetailsFromLogin(
 	// Get the new endpoint addresses.
 	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, params.CurrentHostPorts, params.AddrConnectedTo...)
 	agentChanged := params.AgentVersion != controllerDetails.AgentVersion
-	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil {
+	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil && params.ControllerMachineCount == nil {
 		return nil
 	}
 
@@ -366,6 +369,9 @@ func updateControllerDetailsFromLogin(
 	}
 	if params.MachineCount != nil {
 		controllerDetails.MachineCount = params.MachineCount
+	}
+	if params.ControllerMachineCount != nil {
+		controllerDetails.ControllerMachineCount = *params.ControllerMachineCount
 	}
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
