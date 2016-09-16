@@ -967,6 +967,7 @@ def safe_print_status(client, timeout=300):
         for ignored in until_timeout(timeout):
             for m_client in client.iter_model_clients():
                 m_client.show_status()
+            break
     except Exception as e:
         logging.exception(e)
 
