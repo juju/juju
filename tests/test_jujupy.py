@@ -1871,7 +1871,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml',
+            include_e=False, timeout=120)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},

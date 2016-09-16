@@ -1528,10 +1528,14 @@ class EnvJujuClient:
         self.controller_juju('list-models', ())
 
     def get_models(self):
-        """return a models dict with a 'models': [] key-value pair."""
+        """return a models dict with a 'models': [] key-value pair.
+
+        The server has 120 seconds to respond because this method is called
+        often when tearing down a controller-less deployment.
+        """
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
-            include_e=False)
+            include_e=False, timeout=120)
         models = yaml_loads(output)
         return models
 

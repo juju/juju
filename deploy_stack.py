@@ -639,9 +639,9 @@ class BootstrapManager:
         stdout = getattr(exc, 'output', None)
         stderr = getattr(exc, 'stderr', None)
         if stdout or stderr:
-                logging.info(
-                    'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                    stdout, stderr)
+            logging.info(
+                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                stdout, stderr)
         return LoggedException(exc)
 
     @contextmanager
@@ -961,13 +961,11 @@ def _deploy_job(args, charm_series, series):
                 assess_juju_run(client)
 
 
-def safe_print_status(client, timeout=300):
+def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        for ignored in until_timeout(timeout):
-            for m_client in client.iter_model_clients():
-                m_client.show_status()
-            break
+        for m_client in client.iter_model_clients():
+            m_client.show_status()
     except Exception as e:
         logging.exception(e)
 
