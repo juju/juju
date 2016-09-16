@@ -15,6 +15,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -526,6 +527,7 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Clock:       clock.WallClock,
 		Cert:        []byte(coretesting.ServerCert),
 		Key:         []byte(coretesting.ServerKey),
 		Tag:         names.NewMachineTag("0"),

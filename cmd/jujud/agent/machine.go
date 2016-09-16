@@ -1084,6 +1084,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	}
 
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Clock:       clock.WallClock,
 		Cert:        cert,
 		Key:         key,
 		Tag:         tag,

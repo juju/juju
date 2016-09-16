@@ -23,8 +23,8 @@ import (
 
 var (
 	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = &maxClientPingInterval
-	MongoPingInterval     = &mongoPingInterval
+	MaxClientPingInterval = maxClientPingInterval
+	MongoPingInterval     = mongoPingInterval
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
