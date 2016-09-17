@@ -1269,13 +1269,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMi
 	suite.assertAllocateContainerAddressesFails(c, controller, nil, "cannot find primary interface for container")
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceSubnetMissing(c *gc.C) {
-	controller := &fakeController{}
-	prepared := []network.InterfaceInfo{{InterfaceName: "eth0"}}
-	errorMatches := "primary NIC subnet  not found"
-	suite.assertAllocateContainerAddressesFails(c, controller, prepared, errorMatches)
-}
-
 func makeFakeSubnet(id int) fakeSubnet {
 	return fakeSubnet{
 		id:      id,
@@ -1360,7 +1353,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMissing(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *gc.C) {
 	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	device := &fakeDevice{
@@ -1375,10 +1368,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 				vlan:       &fakeVLAN{vid: 0},
 				links: []gomaasapi.Link{
 					&fakeLink{
-						id:        480,
-						subnet:    &subnet,
-						ipAddress: "10.20.19.127",
-						mode:      "static",
+						id:   480,
+						mode: "link_up",
 					},
 				},
 				parents:  []string{},
@@ -1425,41 +1416,34 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
 	prepared := []network.InterfaceInfo{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
-		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+		{InterfaceName: "eth0", CIDR: "", MACAddress: "DEADBEEF"},
+		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	allocated, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
-		MACAddress:        "53:54:00:70:9b:ff",
-		CIDR:              "10.20.19.0/24",
-		ProviderId:        "93",
-		ProviderSubnetId:  "3",
-		ProviderVLANId:    "0",
-		ProviderAddressId: "480",
-		VLANTag:           0,
-		InterfaceName:     "eth0",
-		InterfaceType:     "ethernet",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "10.20.19.127"),
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+		MACAddress:     "53:54:00:70:9b:ff",
+		ProviderId:     "93",
+		ProviderVLANId: "0",
+		VLANTag:        0,
+		InterfaceName:  "eth0",
+		InterfaceType:  "ethernet",
+		Disabled:       false,
+		NoAutoStart:    false,
+		ConfigType:     "manual",
+		MTU:            1500,
 	}, {
-		MACAddress:       "53:54:00:70:9b:f1",
-		CIDR:             "",
-		ProviderId:       "94",
-		ProviderSubnetId: "",
-		ProviderVLANId:   "0",
-		VLANTag:          0,
-		InterfaceName:    "eth1",
-		InterfaceType:    "ethernet",
-		Disabled:         false,
-		NoAutoStart:      false,
-		ConfigType:       "manual",
-		MTU:              1500,
+		MACAddress:     "53:54:00:70:9b:f1",
+		ProviderId:     "94",
+		ProviderVLANId: "0",
+		VLANTag:        0,
+		InterfaceName:  "eth1",
+		InterfaceType:  "ethernet",
+		Disabled:       false,
+		NoAutoStart:    false,
+		ConfigType:     "manual",
+		MTU:            1500,
 	}})
 }
 

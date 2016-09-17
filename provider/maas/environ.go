@@ -2190,9 +2190,9 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	subnet, ok := subnetCIDRToSubnet[primaryNICSubnetCIDR]
-	if !ok {
-		return nil, errors.Errorf("primary NIC subnet %v not found", primaryNICSubnetCIDR)
+	subnet, hasSubnet := subnetCIDRToSubnet[primaryNICSubnetCIDR]
+	if !hasSubnet {
+		logger.Debugf("primary device NIC %q has no linked subnet - leaving unconfigured", primaryNICInfo.InterfaceName)
 	}
 	primaryMACAddress := primaryNICInfo.MACAddress
 	args := gomaasapi.MachinesArgs{
@@ -2214,7 +2214,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
 		Hostname:      deviceName,
 		MACAddress:    primaryMACAddress,
-		Subnet:        subnet,
+		Subnet:        subnet, // can be nil
 		InterfaceName: primaryNICName,
 	}
 	device, err := machine.CreateDevice(createDeviceArgs)
