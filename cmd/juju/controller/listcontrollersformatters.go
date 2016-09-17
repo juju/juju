@@ -113,7 +113,7 @@ func controllerMachineStatus(machines *ControllerMachines) (string, bool) {
 		return "-", false
 	}
 	if machines.Total == 1 {
-		return "N/A", false
+		return "none", false
 	}
 	controllerMachineStatus := ""
 	warn := machines.Active < machines.Total

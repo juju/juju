@@ -116,10 +116,10 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES   HA  VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2  1/3  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  N/A  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -    -  (unknown)  
+CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES    HA  VERSION
+aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
+mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  none  (unknown)  
+mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -     -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
