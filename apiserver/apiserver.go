@@ -11,12 +11,12 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -41,6 +41,7 @@ const loginRateLimit = 10
 // Server holds the server side of the API.
 type Server struct {
 	tomb              tomb.Tomb
+	clock             clock.Clock
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
@@ -65,6 +66,7 @@ type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
+	Clock       clock.Clock
 	Cert        []byte
 	Key         []byte
 	Tag         names.Tag
@@ -83,6 +85,9 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Validate() error {
+	if c.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
 	}
@@ -220,6 +225,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 
 	srv := &Server{
+		clock:       cfg.Clock,
 		newObserver: cfg.NewObserver,
 		state:       s,
 		statePool:   stPool,
@@ -440,7 +446,7 @@ func (srv *Server) expireLocalLoginInteractions() error {
 		select {
 		case <-srv.tomb.Dying():
 			return tomb.ErrDying
-		case <-time.After(authentication.LocalLoginInteractionTimeout):
+		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
 			now := srv.authCtxt.clock.Now()
 			srv.authCtxt.localUserInteractions.Expire(now)
 		}
@@ -586,21 +592,18 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID, serverHost string) (
 }
 
 func (srv *Server) mongoPinger() error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	timer := time.NewTimer(0)
 	session := srv.state.MongoSession().Copy()
 	defer session.Close()
 	for {
-		select {
-		case <-timer.C:
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
 			return errors.Annotate(err, "error pinging mongo")
 		}
-		timer.Reset(mongoPingInterval)
+		select {
+		case <-srv.clock.After(mongoPingInterval):
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
 }
 

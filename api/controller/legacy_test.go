@@ -9,6 +9,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -178,6 +179,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
+		Clock:       clock.WallClock,
 		Cert:        []byte(testing.ServerCert),
 		Key:         []byte(testing.ServerKey),
 		Tag:         names.NewMachineTag("0"),

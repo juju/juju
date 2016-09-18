@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -572,6 +573,7 @@ func (s *baseLoginSuite) setupServerForModelWithValidator(c *gc.C, modelTag name
 		s.State,
 		listener,
 		apiserver.ServerConfig{
+			Clock:       clock.WallClock,
 			Cert:        []byte(coretesting.ServerCert),
 			Key:         []byte(coretesting.ServerKey),
 			Validator:   validator,

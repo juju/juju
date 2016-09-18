@@ -143,7 +143,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	a.loggedIn = true
 
 	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.root, entity); err != nil {
+		if err := startPingerIfAgent(a.srv.clock, a.root, entity); err != nil {
 			return fail, errors.Trace(err)
 		}
 	}
@@ -501,7 +501,7 @@ func (shim presenceShim) Start() (presence.Pinger, error) {
 	return pinger, nil
 }
 
-func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
+func startPingerIfAgent(clock clock.Clock, root *apiHandler, entity state.Entity) error {
 	// worker runs presence.Pingers -- absence of which will cause
 	// embarrassing "agent is lost" messages to show up in status --
 	// until it's stopped. It's stored in resources purely for the
@@ -515,7 +515,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	worker, err := presence.New(presence.Config{
 		Identity:   entity.Tag(),
 		Start:      presenceShim{agent}.Start,
-		Clock:      clock.WallClock,
+		Clock:      clock,
 		RetryDelay: 3 * time.Second,
 	})
 	if err != nil {
@@ -539,7 +539,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	pingTimeout := newPingTimeout(action, clock.WallClock, maxClientPingInterval)
+	pingTimeout := newPingTimeout(action, clock, maxClientPingInterval)
 	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 }
 
