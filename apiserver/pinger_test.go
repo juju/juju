@@ -48,12 +48,7 @@ func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 		// all good, connection still there
 	}
 
-	// Close the connection and see if we detect this
-	go func() {
-		c.Logf("before close")
-		conn.Close()
-		c.Logf("after close")
-	}()
+	conn.Close()
 
 	clock.Advance(api.PingPeriod + time.Second)
 	// Check it's detected

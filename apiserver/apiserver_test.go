@@ -74,6 +74,8 @@ func (s *apiserverBaseSuite) newServerDirtyKill(c *gc.C, config apiserver.Server
 	return srv
 }
 
+// APIInfo returns an info struct that has the server's address and ca-cert
+// populated.
 func (s *apiserverBaseSuite) APIInfo(server *apiserver.Server) *api.Info {
 	address := fmt.Sprintf("localhost:%d", server.Addr().Port)
 	return &api.Info{
@@ -99,10 +101,17 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	return conn
 }
 
+// OpenAPIAsNewMachine creates a new client connection logging in as the
+// controller owner. The returned api.Connection should not be closed by the
+// caller as a cleanup function has been registered to do that.
 func (s *apiserverBaseSuite) OpenAPIAsAdmin(c *gc.C, srv *apiserver.Server) api.Connection {
 	return s.openAPIAs(c, srv, s.Owner, ownerPassword, "", false)
 }
 
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
+// and then uses that to open the API. The returned api.Connection should not be
+// closed by the caller as a cleanup function has been registered to do that.
+// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
 func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *gc.C, srv *apiserver.Server, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
