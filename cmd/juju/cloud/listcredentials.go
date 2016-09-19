@@ -61,8 +61,35 @@ type listCredentialsCommand struct {
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
 
+type CloudCredential struct {
+	// DefaultCredential is the named credential to use by default.
+	DefaultCredential string `json:"default-credential,omitempty" yaml:"default-credential,omitempty"`
+
+	// DefaultRegion is the cloud region to use by default.
+	DefaultRegion string `json:"default-region,omitempty" yaml:"default-region,omitempty"`
+
+	// Credentials is the collection of all credentials registered by the user for a cloud, keyed on a cloud name.
+	Credentials map[string]Credential `json:"cloud-credentials,omitempty" yaml:",omitempty,inline"`
+}
+
+// Credential instances represent cloud credentials.
+type Credential struct {
+	// AuthType determines authentication type for the credential.
+	AuthType string `json:"auth-type" yaml:"auth-type"`
+
+	// Attributes define details for individual credential.
+	// This collection is provider-specific: each provider is interested in different credential details.
+	Attributes map[string]string `json:"details,omitempty" yaml:",omitempty,inline"`
+
+	// Revoked is true if the credential has been revoked.
+	Revoked bool `json:"revoked,omitempty" yaml:"revoked,omitempty"`
+
+	// Label is optionally set to describe the credentials to a user.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
+}
+
 type credentialsMap struct {
-	Credentials map[string]jujucloud.CloudCredential `yaml:"credentials" json:"credentials"`
+	Credentials map[string]CloudCredential `yaml:"credentials" json:"credentials"`
 }
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
@@ -133,14 +160,29 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		personalCloudNames = append(personalCloudNames, name)
 	}
 
-	displayCredentials := make(map[string]jujucloud.CloudCredential)
+	displayCredentials := make(map[string]CloudCredential)
 	for cloudName, cred := range credentials {
 		if !c.showSecrets {
 			if err := c.removeSecrets(cloudName, &cred); err != nil {
 				return errors.Annotatef(err, "removing secrets from credentials for cloud %v", cloudName)
 			}
 		}
-		displayCredentials[cloudName] = cred
+		displayCredential := CloudCredential{
+			DefaultCredential: cred.DefaultCredential,
+			DefaultRegion:     cred.DefaultRegion,
+		}
+		if len(cred.AuthCredentials) != 0 {
+			displayCredential.Credentials = make(map[string]Credential, len(cred.AuthCredentials))
+			for credName, credDetails := range cred.AuthCredentials {
+				displayCredential.Credentials[credName] = Credential{
+					string(credDetails.AuthType()),
+					credDetails.Attributes(),
+					credDetails.Revoked,
+					credDetails.Label,
+				}
+			}
+		}
+		displayCredentials[cloudName] = displayCredential
 	}
 	return c.out.Write(ctxt, credentialsMap{displayCredentials})
 }
@@ -189,7 +231,7 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		var haveDefault bool
 		var credentialNames []string
 		credentials := credentials.Credentials[cloudName]
-		for credentialName := range credentials.AuthCredentials {
+		for credentialName := range credentials.Credentials {
 			if credentialName == credentials.DefaultCredential {
 				credentialNames = append([]string{credentialName + "*"}, credentialNames...)
 				haveDefault = true

@@ -206,8 +206,10 @@ credentials:
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSON(c *gc.C) {
-	// TODO(axw) test once json marshalling works properly
-	c.Skip("not implemented: credentials don't marshal to JSON yet")
+	out := s.listCredentials(c, "--format", "json", "azure")
+	c.Assert(out, gc.Equals, `
+{"credentials":{"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}}}}
+`[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
@@ -224,7 +226,11 @@ func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "credentials: {}")
 
-	// TODO(axw) test json once json marshaling works properly
+	ctx, err = testing.RunCommand(c, listCmd, "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(out, gc.Equals, `{"credentials":{}}`)
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {
