@@ -789,8 +789,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
             wait_for_state_server_to_shutdown(
                 host, controller_client, instance_id)
             yield results
-            with controller_client.restore_backup(backup_file):
-                yield results
+            controller_client.restore_backup(backup_file)
+            yield results
         finally:
             os.unlink(backup_file)
         with wait_for_started(controller_client):
