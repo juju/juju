@@ -1,16 +1,16 @@
 """Tests for assess_constraints module."""
 
+from contextlib import contextmanager
 import logging
 from mock import Mock, patch
-import StringIO
 import os
-from contextlib import contextmanager
+import StringIO
 
 from assess_constraints import (
-    append_constraint,
-    make_constraints,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
+    Constraints,
+    deploy_constraint,
     deploy_charm_constraint,
     parse_args,
     main,
@@ -21,7 +21,9 @@ from tests import (
     TestCase,
     )
 from tests.test_jujupy import fake_juju_client
-from utility import temp_dir
+from utility import (
+    temp_dir,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -42,28 +44,16 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
 
 
-class TestMakeConstraints(TestCase):
+class TestConstraints(TestCase):
 
-    def test_append_constraint_none(self):
-        args = []
-        append_constraint(args, 'name', None)
-        self.assertEqual([], args)
+    def test_str_operator(self):
+        constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
+        self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
+                         str(constraints))
 
-    def test_append_constraint_string(self):
-        args = ['inital=True']
-        append_constraint(args, 'name', 'value')
-        self.assertEqual(['inital=True', 'name=value'], args)
-
-    def test_make_constraints_empty(self):
-        constraints = make_constraints()
-        self.assertEqual('', constraints)
-
-    def test_make_constraints(self):
-        constraints = make_constraints(memory='20GB', virt_type='test')
-        if 'm' == constraints[0]:
-            self.assertEqual('mem=20GB virt-type=test', constraints)
-        else:
-            self.assertEqual('virt-type=test mem=20GB', constraints)
+    def test_str_operator_none(self):
+        self.assertEqual('', str(Constraints()))
+        self.assertEqual('', str(Constraints(arch=None)))
 
 
 class TestMain(TestCase):
@@ -90,6 +80,10 @@ class TestAssess(TestCase):
 
     @contextmanager
     def prepare_deploy_mock(self):
+        # Using fake_client means that deploy and get_status have plausible
+        # results.  Wrapping it in a Mock causes every call to be recorded, and
+        # allows assertions to be made about calls.  Mocks and the fake client
+        # can also be used separately.
         """Mock a client and the deploy function."""
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
@@ -104,10 +98,6 @@ class TestAssess(TestCase):
         return constraint_args
 
     def test_virt_type_constraints_with_kvm(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, True)
@@ -115,16 +105,10 @@ class TestAssess(TestCase):
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_virt_type_constraints_without_kvm(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         assert_constraints_calls = ["virt-type=lxd"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_virt_type_constraints(fake_client, False)
-        constraints_calls = [
-            call[1]["constraints"] for call in
-            deploy_mock.call_args_list]
+        constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_instance_type_constraints(self):
@@ -132,30 +116,47 @@ class TestAssess(TestCase):
         fake_instance_types = ['bar', 'baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             fake_provider = fake_client.env.config.get('type')
-            INSTANCE_TYPES[fake_provider] = fake_instance_types
-            assess_instance_type_constraints(fake_client)
-            del INSTANCE_TYPES[fake_provider]
+            with patch.dict(INSTANCE_TYPES,
+                            {fake_provider: fake_instance_types}):
+                assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())
-        with self.assertRaises(ValueError):
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_instance_type_constraints(fake_client)
+        self.assertFalse(deploy_mock.called)
 
 
 class TestDeploy(TestCase):
+
+    def test_deploy_constraint(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.attach_mock(Mock(), 'deploy')
+        fake_client.attach_mock(Mock(), 'wait_for_workloads')
+        charm_name = 'test-constraint'
+        charm_series = 'xenial'
+        constraints = Constraints(mem='10GB')
+        with temp_dir() as charm_dir:
+            charm = os.path.join(charm_dir, charm_series, charm_name)
+            deploy_constraint(fake_client, constraints, charm, charm_series,
+                              charm_dir)
+        fake_client.deploy.assert_called_once_with(
+            charm, series=charm_series, repository=charm_dir,
+            constraints=str(constraints))
+        fake_client.wait_for_workloads.assert_called_once_with()
 
     def test_deploy_charm_constraint(self):
         fake_client = Mock(wraps=fake_juju_client())
         charm_name = 'test-constraint'
         charm_series = 'xenial'
-        constraints = 'mem=10GB'
+        constraints = Constraints(mem='10GB')
         with temp_dir() as charm_dir:
             with patch('assess_constraints.deploy_constraint',
                        autospec=True) as deploy_mock:
-                deploy_charm_constraint(fake_client, charm_name, charm_series,
-                                        charm_dir, constraints)
+                deploy_charm_constraint(fake_client, constraints, charm_name,
+                                        charm_series, charm_dir)
         charm = os.path.join(charm_dir, charm_series, charm_name)
-        deploy_mock.assert_called_once_with(fake_client, charm, charm_series,
-                                            charm_dir, constraints)
+        deploy_mock.assert_called_once_with(fake_client, constraints, charm,
+                                            charm_series, charm_dir)
