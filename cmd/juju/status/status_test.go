@@ -3514,10 +3514,10 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 MODEL       CONTROLLER  CLOUD/REGION        VERSION  NOTES
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
-APP        VERSION  STATUS       SCALE  CHARM      STORE       REV  OS      NOTES
-logging    a bi...  error            2  logging    jujucharms    1  ubuntu  exposed
-mysql      5.7.13   maintenance      1  mysql      jujucharms    1  ubuntu  exposed
-wordpress  4.5.3    active           1  wordpress  jujucharms    3  ubuntu  exposed
+APP        VERSION          STATUS       SCALE  CHARM      STORE       REV  OS      NOTES
+logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
+mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
+wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
 
 UNIT         WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
 mysql/0      maintenance  idle   2        controller-2.dns         installing all the things
