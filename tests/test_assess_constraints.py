@@ -7,9 +7,9 @@ import os
 import StringIO
 
 from assess_constraints import (
-    Constraints,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
+    Constraints,
     deploy_constraint,
     deploy_charm_constraint,
     parse_args,
