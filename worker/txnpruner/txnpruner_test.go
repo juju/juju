@@ -33,10 +33,11 @@ func (s *TxnPrunerSuite) TestPrunes(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for worker to stat")
 	}
-
+	c.Logf("pruner running and waiting: %s (%s)", testClock.Now(), time.Now())
 	// Show that we prune every minute
 	for i := 0; i < 5; i++ {
 		testClock.Advance(interval)
+		c.Logf("loop %d: %s (%s)", i, testClock.Now(), time.Now())
 		select {
 		case <-fakePruner.pruneCh:
 		case <-time.After(coretesting.LongWait):
