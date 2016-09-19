@@ -155,8 +155,7 @@ def assess_instance_type_constraints(client):
     """Assess deployment with instance-type constraints."""
     provider = client.env.config.get('type')
     if provider not in INSTANCE_TYPES:
-        raise ValueError('Provider does not implement instance-type '
-                         'constraint.')
+        return
     for instance_type in INSTANCE_TYPES[provider]:
         assess_instance_type(client, provider, instance_type)
 

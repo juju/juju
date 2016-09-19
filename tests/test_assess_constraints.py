@@ -124,8 +124,9 @@ class TestAssess(TestCase):
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())
-        with self.assertRaises(ValueError):
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_instance_type_constraints(fake_client)
+        self.assertFalse(deploy_mock.called)
 
 
 class TestDeploy(TestCase):
