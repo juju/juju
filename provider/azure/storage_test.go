@@ -41,7 +41,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	envProvider := newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
 		NewStorageClient:           s.storageClient.NewClient,
-		RequestInspector:           requestRecorder(&s.requests),
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.sender = nil

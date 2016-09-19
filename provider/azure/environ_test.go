@@ -126,7 +126,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
-		RequestInspector: requestRecorder(&s.requests),
+		RequestInspector: azuretesting.RequestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
 		RetryClock: &gitjujutesting.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
