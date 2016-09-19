@@ -82,9 +82,10 @@ def list_users(client):
 
 def list_shares(client):
     """Test listing users' shares"""
-    model_data = json.loads(client.get_juju_output('show-model', '--format',
-                                                   'json', include_e=False))
-    share_list = model_data['default']['users']
+    model_data = json.loads(
+        client.get_juju_output(
+            'show-model', '--format', 'json', include_e=False))
+    share_list = model_data[client.model_name]['users']
     for key, value in share_list.iteritems():
         value.pop("last-connection", None)
     return share_list

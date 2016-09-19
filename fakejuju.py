@@ -527,7 +527,7 @@ class FakeBackend:
     def show_model(self):
         # To get data from the model we would need:
         # self.controller_state.current_model
-        model_name = 'default'
+        model_name = 'name'
         data = {
             'name': model_name,
             'owner': 'admin@local',
@@ -535,7 +535,7 @@ class FakeBackend:
             'status': {'current': 'available', 'since': '15 minutes ago'},
             'users': self.get_users(),
             }
-        return { model_name: data }
+        return {model_name: data}
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
