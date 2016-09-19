@@ -2,9 +2,9 @@
 """This module tests the deployment with constraints."""
 
 from __future__ import print_function
-import os
 import argparse
 import logging
+import os
 import sys
 
 from deploy_stack import (
@@ -42,21 +42,17 @@ INSTANCE_TYPES = {
 def get_instance_spec(instance_type):
     """Get the specifications of a given instance type."""
     return {
-        # t2.micro hardware: arch=amd64 cpu-cores=1 cpu-power=10
-        #                    mem=1024M root-disk=8192M
         't2.micro': {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'},
         }[instance_type]
 
 
 class Constraints:
-    """Class that repersents a set of contraints."""
+    """Class that represents a set of contraints."""
 
     @staticmethod
     def _list_to_str(constraints_list):
-        parts = []
-        for (name, value) in constraints_list:
-            if value is not None:
-                parts.append('{}={}'.format(name, value))
+        parts = ['{}={}'.format(name, value) for (name, value) in
+                 constraints_list if value is not None]
         return ' '.join(parts)
 
     def __init__(self, mem=None, cores=None, virt_type=None,
@@ -168,6 +164,7 @@ def assess_instance_type_constraints(client):
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     assess_virt_type_constraints(client, test_kvm)
+    assess_instance_type_constraints(client)
 
 
 def parse_args(argv):

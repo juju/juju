@@ -1,10 +1,10 @@
 """Tests for assess_constraints module."""
 
+from contextlib import contextmanager
 import logging
 from mock import Mock, patch
-import StringIO
 import os
-from contextlib import contextmanager
+import StringIO
 
 from assess_constraints import (
     Constraints,
