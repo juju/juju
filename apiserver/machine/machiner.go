@@ -167,10 +167,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 		return nil
 	}
 
-	mergedConfig, err := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
 	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
 
 	return api.setOneMachineNetworkConfig(m, mergedConfig)
@@ -245,10 +242,9 @@ func (api *MachinerAPI) SetProviderNetworkConfig(args params.Entities) (params.E
 			continue
 		}
 
-		sortedProviderConfig := networkingcommon.SortNetworkConfigsByParents(providerConfig)
-		logger.Tracef("sorted provider network config for %q: %+v", m.Id(), sortedProviderConfig)
+		logger.Tracef("provider network config for %q: %+v", m.Id(), providerConfig)
 
-		if err := api.setOneMachineNetworkConfig(m, sortedProviderConfig); err != nil {
+		if err := api.setOneMachineNetworkConfig(m, providerConfig); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
