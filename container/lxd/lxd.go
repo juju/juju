@@ -27,6 +27,20 @@ var (
 
 const lxdDefaultProfileName = "default"
 
+// LXD templates README.JUJU content.
+const readme = `
+Juju Networking
+===============
+
+interfaces.tpl and cloud-init-network.tpl have been rewritten by Juju.
+Depending on the distro and cloud-init version, either may be used to
+create the network configuration in /etc/network/interfaces.d/.
+
+As examples:
+ * cloud-init 0.7.5 uses interfaces.tpl (trusty)
+ * cloud-init 0.7.7 uses cloud-init-networking.tpl (xenial)
+`
+
 // XXX: should we allow managing containers on other hosts? this is
 // functionality LXD gives us and from discussion juju would use eventually for
 // the local provider, so the APIs probably need to be changed to pass extra
@@ -123,7 +137,8 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Trace(err)
 	}
 
-	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	// Do not pass networkConfig, as we want to inject our own templates instead
+	userData, err := containerinit.CloudInitUserData(instanceConfig, nil)
 	if err != nil {
 		return
 	}
@@ -143,6 +158,7 @@ func (manager *containerManager) CreateContainer(
 		return
 	}
 
+	// TODO This might be dead code. Do we always get nics > 0?
 	profiles := []string{}
 
 	if len(nics) == 0 {
@@ -152,12 +168,45 @@ func (manager *containerManager) CreateContainer(
 		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
+	// Update the LXD network templates to not rely on DHCP.
+	// Do not let the container expect DHCP on eth0, but instead write out
+	// ENI before the container starts. Especially on a multi-nic host, it
+	// is possible for MAAS to provide DHCP on a different space to that
+	// which the container eth0 interface will be bridged.
+	eni, err := containerinit.GenerateEtcNetworkInterfaces(networkConfig)
+	if err != nil {
+		err = errors.Annotatef(err, "failed to generate interfaces.tpl content")
+		return
+	}
+
+	cinet, err := containerinit.GenerateNetworkConfigV1(networkConfig)
+	if err != nil {
+		err = errors.Annotatef(err, "failed to generate cloud-init-network.tpl content")
+		return
+	}
+
+	templates := lxdclient.Templates{
+		lxdclient.Template{
+			Content: []byte(readme[1:]),
+			Name:    "README.JUJU",
+		},
+		lxdclient.Template{
+			Content: []byte(eni),
+			Name:    "interfaces.tpl",
+		},
+		lxdclient.Template{
+			Content: []byte(cinet),
+			Name:    "cloud-init-network.tpl",
+		},
+	}
+
 	spec := lxdclient.InstanceSpec{
-		Name:     name,
-		Image:    manager.client.ImageNameForSeries(series),
-		Metadata: metadata,
-		Devices:  nics,
-		Profiles: profiles,
+		Name:      name,
+		Image:     manager.client.ImageNameForSeries(series),
+		Metadata:  metadata,
+		Devices:   nics,
+		Profiles:  profiles,
+		Templates: templates,
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)

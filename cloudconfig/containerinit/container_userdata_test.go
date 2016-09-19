@@ -35,8 +35,10 @@ type UserDataSuite struct {
 	fakeInterfaces []network.InterfaceInfo
 
 	expectedSampleConfig     string
+	expectedSampleTemplate   string
 	expectedSampleUserData   string
 	expectedFallbackConfig   string
+	expectedFallbackTemplate string
 	expectedFallbackUserData string
 }
 
@@ -99,6 +101,46 @@ iface any3 inet dhcp
 
 iface any4 inet manual
 `
+	s.expectedSampleTemplate = `
+version: 1
+config:
+
+    - type: nameserver
+      address: [ns1.invalid, ns2.invalid]
+      search: [bar, foo]
+
+    - type: physical
+      name: any0
+      subnets:
+          - type: static
+            control: auto
+            address: 0.1.2.3/24
+            gateway: 0.1.2.1
+
+    - type: physical
+      name: any1
+      subnets:
+          - type: static
+            control: auto
+            address: 0.2.2.4/24
+
+    - type: physical
+      name: any2
+      subnets:
+          - type: dhcp
+            control: auto
+
+    - type: physical
+      name: any3
+      subnets:
+          - type: dhcp
+            control: auto
+
+    - type: physical
+      name: any4
+      subnets:
+          - type: manual
+`
 	s.expectedSampleUserData = `
 #cloud-config
 bootcmd:
@@ -145,6 +187,16 @@ iface lo inet loopback
 
 iface eth0 inet dhcp
 `
+	s.expectedFallbackTemplate = `
+version: 1
+config:
+
+    - type: physical
+      name: eth0
+      subnets:
+          - type: dhcp
+            control: auto
+`
 	s.expectedFallbackUserData = `
 #cloud-config
 bootcmd:
@@ -175,21 +227,38 @@ runcmd:
 	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 }
 
-func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	data, err := containerinit.GenerateNetworkConfig(nil)
+func (s *UserDataSuite) TestGenerateEtcNetworkInterfaces(c *gc.C) {
+	data, err := containerinit.GenerateEtcNetworkInterfaces(nil)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateEtcNetworkInterfaces(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateEtcNetworkInterfaces(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedSampleConfig)
+}
+
+func (s *UserDataSuite) TestGenerateNetworkConfigV1(c *gc.C) {
+	data, err := containerinit.GenerateNetworkConfigV1(nil)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
+
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err = containerinit.GenerateNetworkConfigV1(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.Equals, s.expectedFallbackTemplate)
+
+	// Test with all interface types.
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	data, err = containerinit.GenerateNetworkConfigV1(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.Equals, s.expectedSampleTemplate)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {

@@ -63,10 +63,120 @@ var (
 	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
 )
 
-// GenerateNetworkConfig renders a network config for one or more network
+// GenerateNetworkConfigV1 renders a network config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
-// Interfaces field.
-func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
+// Interfaces field. It returns the YAML expected in a version 1 LXD template
+// as a string.
+func GenerateNetworkConfigV1(networkConfig *container.NetworkConfig) (string, error) {
+	// TODO We could change PrepareNetworkConfigFromInterfaces() to output
+	// a map suitable for yaml.Marshal(), but while we still need an eni
+	// file as a template for trusty we leave the eni and yaml generators
+	// with a common prepare and similar generate functions, for code
+	// maintenance.
+	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
+		return "", errors.Errorf("missing container network config")
+	}
+	logger.Debugf("generating network template from %#v", *networkConfig)
+
+	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
+
+	// $ cat cloud-init-network.tpl
+	// version: 1
+	// config:
+	//
+	//     - type: nameserver
+	//       address: [192.168.123.20]
+	//       search: [maas]
+	//
+	//     - type: physical
+	//       name: eth0
+	//       subnets:
+	//           - type: static
+	//             control: auto
+	//             address: 192.168.123.40/24
+	//             gateway: 192.168.123.1
+	var output bytes.Buffer
+	output.WriteString(`
+version: 1
+config:
+`)
+	gatewayHandled := false
+	dnsServers := strings.Join(prepared.DNSServers, ", ")
+	dnsSearchDomains := strings.Join(prepared.DNSSearchDomains, ", ")
+	if dnsServers != "" || dnsSearchDomains != "" {
+		output.WriteString("\n    - type: nameserver\n")
+	}
+	if dnsServers != "" {
+		output.WriteString("      address: [" + dnsServers + "]\n")
+	}
+	if dnsSearchDomains != "" {
+		output.WriteString("      search: [" + dnsSearchDomains + "]\n")
+	}
+
+	for _, name := range prepared.InterfaceNames {
+		if name == "lo" {
+			continue
+		}
+		address, hasAddress := prepared.NameToAddress[name]
+		if !hasAddress {
+			output.WriteString(`
+    - type: physical
+      name: ` + name + `
+      subnets:
+          - type: manual
+`)
+			continue
+		} else if address == string(network.ConfigDHCP) {
+			output.WriteString(`
+    - type: physical
+      name: ` + name + `
+      subnets:
+          - type: dhcp
+            control: auto
+`)
+			// We're expecting to get a default gateway
+			// from the DHCP lease.
+			gatewayHandled = true
+			continue
+		}
+
+		output.WriteString(`
+    - type: physical
+      name: ` + name + `
+      subnets:
+          - type: static
+            control: auto
+            address: ` + address + `
+`)
+		if !gatewayHandled && prepared.GatewayAddress != "" {
+			_, network, err := net.ParseCIDR(address)
+			if err != nil {
+				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
+			}
+
+			gatewayIP := net.ParseIP(prepared.GatewayAddress)
+			if network.Contains(gatewayIP) {
+				output.WriteString("            gateway: " + prepared.GatewayAddress + "\n")
+				gatewayHandled = true // write it only once
+			}
+		}
+	}
+
+	generatedTemplate := output.String()
+	logger.Debugf("generated network template:\n%s", generatedTemplate)
+
+	if !gatewayHandled {
+		logger.Infof("generated network template has no gateway")
+	}
+
+	return generatedTemplate, nil
+}
+
+// GenerateEtcNetworkInterfaces renders a network config for one or more
+// network interfaces, using the given non-nil networkConfig containing a
+// non-empty Interfaces field. It returns the content of a Debian
+// /etc/network/interfaces config file as a string.
+func GenerateEtcNetworkInterfaces(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -202,17 +312,20 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
 func newCloudInitConfigWithNetworks(series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
-	config, err := GenerateNetworkConfig(networkConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	cloudConfig, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
-	cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+	if networkConfig != nil {
+		config, err := GenerateEtcNetworkInterfaces(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// TODO Do we need this anymore? Look for use cases where we
+		// still pass in networkConfig
+		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+	}
 
 	return cloudConfig, nil
 }
