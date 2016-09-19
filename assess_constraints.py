@@ -6,10 +6,6 @@ import os
 import argparse
 import logging
 import sys
-import re
-from contextlib import contextmanager
-
-import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -94,12 +90,12 @@ class Constraints:
             )
 
     def __eq__(self, other):
-        return (self.mem == other.mem and self.cores == other.cores
-                and self.virt_type == other.virt_type
-                and self.instance_type == other.instance_type
-                and self.root_disk == other.root_disk
-                and self.cpu_power == other.cpu_power
-                and self.arch == other.arch
+        return (self.mem == other.mem and self.cores == other.cores and
+                self.virt_type == other.virt_type and
+                self.instance_type == other.instance_type and
+                self.root_disk == other.root_disk and
+                self.cpu_power == other.cpu_power and
+                self.arch == other.arch
                 )
 
 
@@ -180,7 +176,6 @@ def assess_instance_type_constraints(client):
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     assess_virt_type_constraints(client, test_kvm)
-    #assess_instance_type_constraints(client)
 
 
 def parse_args(argv):

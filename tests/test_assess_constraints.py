@@ -21,7 +21,6 @@ from tests import (
     )
 from tests.test_jujupy import fake_juju_client
 from utility import (
-    JujuAssertionError,
     temp_dir,
     )
 
