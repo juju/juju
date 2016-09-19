@@ -59,7 +59,7 @@ var addressTests = []struct {
 	networks: []string{"private"},
 	expected: "fc00::1",
 }, {
-	summary:  "private IPv4 plus (HP cloud)",
+	summary:  "private IPv4 plus (what HP cloud used to do)",
 	private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
 	networks: []string{"private"},
 	expected: "8.8.4.4",

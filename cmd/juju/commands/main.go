@@ -58,8 +58,8 @@ func init() {
 
 var jujuDoc = `
 juju provides easy, intelligent application orchestration on top of cloud
-infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
-Azure, or your local machine.
+infrastructure providers such as Amazon EC2, MaaS, OpenStack, Windows, Azure,
+or your local machine.
 
 https://jujucharms.com/
 `
