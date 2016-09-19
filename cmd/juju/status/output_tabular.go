@@ -80,7 +80,7 @@ func (r *relationFormatter) get(k string) *statusRelation {
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
-	const maxVersionWidth = 7
+	const maxVersionWidth = 15
 	const ellipsis = "..."
 	const truncatedWidth = maxVersionWidth - len(ellipsis)
 
