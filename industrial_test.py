@@ -731,7 +731,13 @@ class DeployManyAttempt(SteppedStageAttempt):
                 application_names.append(application)
         timeout_start = datetime.now()
         yield results
-        status = client.wait_for_started(start=timeout_start)
+        # Joyent needs longer to deploy so many containers (bug #1624384).
+        if client.env.config['type'] == 'joyent':
+            deploy_many_timeout = 3000
+        else:
+            deploy_many_timeout = 1200
+        status = client.wait_for_started(deploy_many_timeout,
+                                         start=timeout_start)
         results['result'] = True
         yield results
         results = {'test_id': 'remove-machine-many-container'}
@@ -789,8 +795,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
             wait_for_state_server_to_shutdown(
                 host, controller_client, instance_id)
             yield results
-            with controller_client.restore_backup(backup_file):
-                yield results
+            controller_client.restore_backup(backup_file)
+            yield results
         finally:
             os.unlink(backup_file)
         with wait_for_started(controller_client):
