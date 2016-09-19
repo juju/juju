@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 """This module tests the deployment with constraints."""
-# Currently in a major re-work.
-# ./assess_constraints.py parallel-lxd /usr/lib/juju-2.0/bin/juju
-# Errors out, because of a bad charm path. I have chased it all the way to
-# backend.juju, the correct argument is still being passed there.
 
 from __future__ import print_function
 import os
@@ -57,18 +53,6 @@ def get_instance_spec(instance_type):
         }[instance_type]
 
 
-def mem_as_int(size):
-    """Convert an argument size into a number of megabytes."""
-    if not re.match(re.compile('^[0123456789]+[MGTP]?$'), size):
-        raise JujuAssertionError('Not a size format:', size)
-    if size[-1] in 'MGTP':
-        val = int(size[0:-1])
-        unit = size[-1]
-        return val * (1024 ** 'MGTP'.find(unit))
-    else:
-        return int(size)
-
-
 class Constraints:
     """Class that repersents a set of contraints."""
 
@@ -117,44 +101,6 @@ class Constraints:
                 and self.cpu_power == other.cpu_power
                 and self.arch == other.arch
                 )
-
-    def meets_root_disk(self, actual_root_disk):
-        """Check to see if a given value meets the root_disk constraint."""
-        if self.root_disk is None:
-            return True
-        return mem_as_int(self.root_disk) <= mem_as_int(actual_root_disk)
-
-    def meets_cores(self, actual_cores):
-        """Check to see if a given value meets the cores constraint."""
-        if self.cores is None:
-            return True
-        return int(self.cores) <= int(actual_cores)
-
-    def meets_cpu_power(self, actual_cpu_power):
-        """Check to see if a given value meets the cpu_power constraint."""
-        if self.cpu_power is None:
-            return True
-        return int(self.cpu_power) <= int(actual_cpu_power)
-
-    def meets_arch(self, actual_arch):
-        """Check to see if a given value meets the arch constraint."""
-        if self.arch is None:
-            return True
-        return self.arch == actual_arch
-
-    def meets_instance_type(self, actual_data):
-        """Check to see if a given value meets the instance_type constraint.
-
-        Currently there is no direct way to check for it, so we 'fingerprint'
-        each instance_type in a dictionary."""
-        instance_data = get_instance_spec(self.instance_type)
-        for (key, value) in instance_data.iteritems():
-            if key not in actual_data:
-                raise JujuAssertionError('Missing data:', key)
-            elif value != actual_data[key]:
-                return False
-        else:
-            return True
 
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
@@ -231,67 +177,6 @@ def assess_instance_type_constraints(client):
         assess_instance_type(client, provider, instance_type)
 
 
-def juju_show_machine_hardware(client, machine):
-    """Uses juju show-machine and returns information about the hardwere."""
-    raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
-    raw_yaml = yaml.load(raw)
-    hardware = raw_yaml['machines'][machine]['hardware']
-    data = {}
-    for kvp in hardware.split(' '):
-        (key, value) = kvp.split('=')
-        data[key] = value
-    return data
-
-
-@contextmanager
-def deploy_context(client, constraint, charm_name, charm_series, charm_dir):
-    """Deploy a charm and then take it back down."""
-    deploy_charm_constraint(client, constraint, charm_name,
-                            charm_series, charm_dir)
-    yield
-    client.remove_service(charm_name)
-
-
-def assess_constraints_lxd(client, args):
-    """Run the tests that are used on lxd."""
-    charm_series = (args.series or 'xenial')
-    with temp_dir() as charm_dir:
-        charm_name = 'lxd-root-disk-2048'
-        constraints = Constraints(root_disk='2048')
-        with deploy_context(client, str(constraints), charm_name,
-                            charm_series, charm_dir):
-            data = juju_show_machine_hardware(client, 0)
-            if not constraints.meets_root_disk(data['root-disk']):
-                JujuAssertionError('Not enough space on the root disk.')
-
-
-def assess_constraints_ec2(client):
-    """Run the tests that are used on ec2."""
-    charm_series = 'xenial'
-    with temp_dir() as charm_dir:
-        charm_name = 'ec2-instance-type-t2.micro'
-        constraints = Constraints(instance_type='t2.micro')
-        with deploy_context(client, str(constraints), charm_name,
-                            charm_series, charm_dir):
-            data = juju_show_machine_hardware(client, '0')
-            if not constraints.meets_instance_type(data):
-                JujuAssertionError('Instance type did not match.')
-        charm_name = 'ec2-cores-2'
-        constraints = Constraints(cores='2')
-        with deploy_context(client, str(constraints), charm_name,
-                            charm_series, charm_dir):
-            data = juju_show_machine_hardware(client, '0')
-            if not constraints.meets_cores(data['cores']):
-                JujuAssertionError('Not enough cores on machine.')
-        charm_name = 'ec2-cpu-power-30'
-        constraints = Constraints(cpu_power='30')
-        with deploy_context(client, str(constraints), charm_name,
-                            charm_series, charm_dir):
-            data = juju_show_machine_hardware(client, '0')
-            if not constraints.meets_cpu_power(data['cpu_power']):
-                JujuAssertionError('CPU does not have enough power.')
-
-
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     assess_virt_type_constraints(client, test_kvm)
@@ -311,7 +196,6 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     test_kvm = '--with-virttype-kvm' in args
     with bs_manager.booted_context(args.upload_tools):
-        #assess_constraints_lxd(bs_manager.client, args)
         assess_constraints(bs_manager.client, test_kvm)
     return 0
 

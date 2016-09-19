@@ -7,9 +7,7 @@ import os
 from contextlib import contextmanager
 
 from assess_constraints import (
-    mem_as_int,
     Constraints,
-    juju_show_machine_hardware,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
     deploy_charm_constraint,
@@ -48,14 +46,6 @@ class TestParseArgs(TestCase):
 
 class TestConstraints(TestCase):
 
-    def test_mem_as_int(self):
-        self.assertEqual(1, mem_as_int('1'))
-        self.assertEqual(1, mem_as_int('1M'))
-        self.assertEqual(1024, mem_as_int('1G'))
-        self.assertEqual(4096, mem_as_int('4G'))
-        with self.assertRaises(JujuAssertionError):
-            mem_as_int('40XB')
-
     def test_static_str(self):
         string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
         self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
@@ -68,39 +58,6 @@ class TestConstraints(TestCase):
         constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
         self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
                          str(constraints))
-
-    def test_meets_root_disk(self):
-        constraints = Constraints(root_disk='4G')
-        self.assertTrue(constraints.meets_root_disk('8G'))
-        self.assertTrue(constraints.meets_root_disk('4096'))
-        self.assertFalse(constraints.meets_root_disk('2G'))
-
-    def test_meets_cores(self):
-        constraints = Constraints(cores='2')
-        results = map(constraints.meets_cores, ['3', '2', '1'])
-        self.assertEqual([True, True, False], results)
-
-    def test_meets_cpu_power(self):
-        constraints = Constraints(cpu_power='20')
-        results = map(constraints.meets_cpu_power, ['30', '20', '10'])
-        self.assertEqual([True, True, False], results)
-
-    def test_meets_arch(self):
-        constraints = Constraints(arch='amd64')
-        self.assertTrue(constraints.meets_arch('amd64'))
-        self.assertFalse(constraints.meets_arch('i32'))
-
-    def test_meets_instance_type(self):
-        constraints = Constraints(instance_type='t2.micro')
-        data1 = {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'}
-        self.assertTrue(constraints.meets_instance_type(data1))
-        data2 = {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'}
-        self.assertFalse(constraints.meets_instance_type(data2))
-        data3 = dict(data1, arch='amd64')
-        self.assertTrue(constraints.meets_instance_type(data3))
-        data4 = {'cpu_power': '10', 'cores': '1'}
-        with self.assertRaises(JujuAssertionError):
-            constraints.meets_instance_type(data4)
 
 
 class TestMain(TestCase):
@@ -190,40 +147,3 @@ class TestDeploy(TestCase):
         charm = os.path.join(charm_dir, charm_series, charm_name)
         deploy_mock.assert_called_once_with(fake_client, constraints, charm,
                                             charm_series, charm_dir)
-
-
-class TestChecks(TestCase):
-
-    SAMPLE_JUJU_SHOW_MACHINE_OUTPUT = """\
-model:
-  name: controller
-  controller: assessconstraints-20160914122952-temp-env
-  cloud: lxd
-  region: localhost
-  version: 2.0-beta18
-machines:
-  "0":
-    juju-status:
-      current: started
-      since: 14 Sep 2016 12:32:17-04:00
-      version: 2.0-beta18
-    dns-name: 10.252.22.39
-    instance-id: juju-7d249e-0
-    machine-status:
-      current: pending
-      since: 14 Sep 2016 12:32:07-04:00
-    series: xenial
-    hardware: arch=amd64 cpu-cores=0 mem=0M
-    controller-member-status: has-vote
-applications: {}"""
-
-    def test_juju_show_machine_hardware(self):
-        """Check the juju_show_machine_hardware data translation."""
-        output_mock = Mock(
-            return_value=self.SAMPLE_JUJU_SHOW_MACHINE_OUTPUT)
-        fake_client = Mock(get_juju_output=output_mock)
-        data = juju_show_machine_hardware(fake_client, '0')
-        output_mock.assert_called_once_with('show-machine', '0',
-                                            '--format', 'yaml')
-        self.assertEqual({'arch': 'amd64', 'cpu-cores': '0', 'mem': '0M'},
-                         data)
