@@ -93,6 +93,38 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	c.Assert(sent2.Sent(), jc.IsTrue)
 }
 
+// TestSendMetricsAbort creates 7 unsent metrics and
+// checks that the sending stops when no more batches are ack'ed.
+func (s *MetricSenderSuite) TestSendMetricsAbort(c *gc.C) {
+	sender := &testing.MockSender{}
+	now := time.Now()
+	metrics := make([]*state.MetricBatch, 7)
+	for i := 0; i < 7; i++ {
+		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	}
+
+	sender.IgnoreBatches(metrics[0:2]...)
+
+	// Send 4 batches per POST.
+	err := metricsender.SendMetrics(s.State, sender, s.clock, 4, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sender.Data, gc.HasLen, 4)
+
+	unsent := 0
+	sent := 0
+	for _, batch := range metrics {
+		b, err := s.State.MetricBatch(batch.UUID())
+		c.Assert(err, jc.ErrorIsNil)
+		if b.Sent() {
+			sent++
+		} else {
+			unsent++
+		}
+	}
+	c.Assert(sent, gc.Equals, 5)
+	c.Assert(unsent, gc.Equals, 2)
+}
+
 // TestHoldMetrics creates 2 unsent metrics and a sent metric
 // and checks that only the metric from the application with credentials is sent.
 // But both metrics are marked as sent.
@@ -153,8 +185,8 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
-	for i := 0; i < 10; i++ {
-		c.Assert(sender.Data, gc.HasLen, 10)
+	for _, d := range sender.Data {
+		c.Assert(d, gc.HasLen, 10)
 	}
 }
 

@@ -23,12 +23,14 @@ type MetricSender interface {
 }
 
 var (
-	defaultMaxBatchesPerSend              = 10
+	defaultMaxBatchesPerSend              = 1000
 	defaultSender            MetricSender = &HttpSender{}
 )
 
-func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) {
+func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) int {
+	var acknowledgedBatches int
 	for _, envResp := range response.EnvResponses {
+		acknowledgedBatches += len(envResp.AcknowledgedBatches)
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
 		if err != nil {
 			logger.Errorf("failed to set sent on metrics %v", err)
@@ -51,6 +53,7 @@ func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireform
 			logger.Errorf("failed to set new grace period %v", err)
 		}
 	}
+	return acknowledgedBatches
 }
 
 // SendMetrics will send any unsent metrics
@@ -100,7 +103,12 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 		}
 		if response != nil {
 			// TODO (mattyw) We are currently ignoring errors during response handling.
-			handleResponse(metricsManager, st, *response)
+			acknowledged := handleResponse(metricsManager, st, *response)
+			// Stop sending if there are no acknowledged batches.
+			if acknowledged == 0 {
+				logger.Debugf("got 0 acks, ending send loop")
+				break
+			}
 			if err := metricsManager.SetLastSuccessfulSend(clock.Now()); err != nil {
 				err = errors.Annotate(err, "failed to set successful send time")
 				logger.Warningf("%v", err)

@@ -4,13 +4,18 @@
 package testing
 
 import (
+	"fmt"
+
+	"github.com/juju/juju/state"
+
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
 )
 
 // MockSender implements the metric sender interface.
 type MockSender struct {
-	Data [][]*wireformat.MetricBatch
+	UnackedBatches map[string]struct{}
+	Data           [][]*wireformat.MetricBatch
 }
 
 // Send implements the Send interface.
@@ -23,12 +28,27 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 	var envResponses = make(wireformat.EnvironmentResponses)
 
 	for _, batch := range d {
+		if m.UnackedBatches != nil {
+			_, ok := m.UnackedBatches[fmt.Sprintf("%s/%s", batch.ModelUUID, batch.UUID)]
+			if ok {
+				continue
+			}
+		}
 		envResponses.Ack(batch.ModelUUID, batch.UUID)
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),
 		EnvResponses: envResponses,
 	}, nil
+}
+
+func (m *MockSender) IgnoreBatches(batches ...*state.MetricBatch) {
+	if m.UnackedBatches == nil {
+		m.UnackedBatches = make(map[string]struct{})
+	}
+	for _, batch := range batches {
+		m.UnackedBatches[fmt.Sprintf("%s/%s", batch.ModelUUID(), batch.UUID())] = struct{}{}
+	}
 }
 
 // ErrorSender implements the metric sender interface and is used
