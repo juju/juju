@@ -45,7 +45,6 @@ def get_instance_spec(instance_type):
         # t2.micro hardware: arch=amd64 cpu-cores=1 cpu-power=10
         #                    mem=1024M root-disk=8192M
         't2.micro': {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'},
-        't2.large': {'root_disk': '8G', 'cpu_power': '20', 'cores': '1'},
         }[instance_type]
 
 
@@ -59,16 +58,6 @@ class Constraints:
             if value is not None:
                 parts.append('{}={}'.format(name, value))
         return ' '.join(parts)
-
-    @staticmethod
-    def str(mem=None, cores=None, virt_type=None, instance_type=None,
-            root_disk=None, cpu_power=None, arch=None):
-        """Convert the given constraint values into an argument string."""
-        return Constraints._list_to_str(
-            [('mem', mem), ('cores', cores), ('virt-type', virt_type),
-             ('instance-type', instance_type), ('root-disk', root_disk),
-             ('cpu-power', cpu_power), ('arch', arch),
-             ])
 
     def __init__(self, mem=None, cores=None, virt_type=None,
                  instance_type=None, root_disk=None, cpu_power=None,
@@ -84,10 +73,13 @@ class Constraints:
 
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
-        return Constraints.str(
-            self.mem, self.cores, self.virt_type, self.instance_type,
-            self.root_disk, self.cpu_power, self.arch
-            )
+        return Constraints._list_to_str(
+            [('mem', self.mem), ('cores', self.cores),
+             ('virt-type', self.virt_type),
+             ('instance-type', self.instance_type),
+             ('root-disk', self.root_disk), ('cpu-power', self.cpu_power),
+             ('arch', self.arch),
+             ])
 
     def __eq__(self, other):
         return (self.mem == other.mem and self.cores == other.cores and
@@ -102,7 +94,7 @@ class Constraints:
 def deploy_constraint(client, constraints, charm, series, charm_repo):
     """Test deploying charm with constraints."""
     client.deploy(charm, series=series, repository=charm_repo,
-                  constraints=constraints)
+                  constraints=str(constraints))
     client.wait_for_workloads()
 
 
@@ -127,7 +119,7 @@ def assess_virt_type(client, virt_type):
     """Assess the virt-type option for constraints"""
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
-    constraints = Constraints.str(virt_type=virt_type)
+    constraints = Constraints(virt_type=virt_type)
     charm_name = 'virt-type-' + virt_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
@@ -155,7 +147,7 @@ def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
-    constraints = Constraints.str(instance_type=instance_type)
+    constraints = Constraints(instance_type=instance_type)
     charm_name = 'instance-type-' + instance_type
     charm_series = 'xenial'
     with temp_dir() as charm_dir:

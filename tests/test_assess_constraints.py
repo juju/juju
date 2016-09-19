@@ -10,6 +10,7 @@ from assess_constraints import (
     Constraints,
     assess_virt_type_constraints,
     assess_instance_type_constraints,
+    deploy_constraint,
     deploy_charm_constraint,
     parse_args,
     main,
@@ -45,18 +46,14 @@ class TestParseArgs(TestCase):
 
 class TestConstraints(TestCase):
 
-    def test_static_str(self):
-        string = Constraints.str(mem='2G', root_disk='4G', virt_type='lxd')
-        self.assertEqual('mem=2G virt-type=lxd root-disk=4G', string)
-
-    def test_static_str_none(self):
-        self.assertEqual('', Constraints.str())
-        self.assertEqual('', Constraints.str(arch=None))
-
     def test_str_operator(self):
         constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
         self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
                          str(constraints))
+
+    def test_str_operator_none(self):
+        self.assertEqual('', str(Constraints()))
+        self.assertEqual('', str(Constraints(arch=None)))
 
 
 class TestMain(TestCase):
@@ -133,11 +130,27 @@ class TestAssess(TestCase):
 
 class TestDeploy(TestCase):
 
+    def test_deploy_constraint(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.attach_mock(Mock(), 'deploy')
+        fake_client.attach_mock(Mock(), 'wait_for_workloads')
+        charm_name = 'test-constraint'
+        charm_series = 'xenial'
+        constraints = Constraints(mem='10GB')
+        with temp_dir() as charm_dir:
+            charm = os.path.join(charm_dir, charm_series, charm_name)
+            deploy_constraint(fake_client, constraints, charm, charm_series,
+                              charm_dir)
+        fake_client.deploy.assert_called_once_with(
+            charm, series=charm_series, repository=charm_dir,
+            constraints=str(constraints))
+        fake_client.wait_for_workloads.assert_called_once_with()
+
     def test_deploy_charm_constraint(self):
         fake_client = Mock(wraps=fake_juju_client())
         charm_name = 'test-constraint'
         charm_series = 'xenial'
-        constraints = 'mem=10GB'
+        constraints = Constraints(mem='10GB')
         with temp_dir() as charm_dir:
             with patch('assess_constraints.deploy_constraint',
                        autospec=True) as deploy_mock:
