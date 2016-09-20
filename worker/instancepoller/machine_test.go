@@ -61,6 +61,32 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	c.Assert(m.instStatusInfo, gc.Equals, "running")
 }
 
+func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
+	context := &testMachineContext{
+		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "deleting", nil),
+		dyingc:          make(chan struct{}),
+	}
+	m := &testMachine{
+		tag:        names.NewMachineTag("99"),
+		instanceId: "i1234",
+		refresh:    func() error { return nil },
+		life:       params.Dead,
+	}
+	died := make(chan machine)
+	// Change the poll intervals to be short, so that we know
+	// that we've polled (probably) at least a few times.
+	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
+	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
+
+	go runMachine(context, m, nil, died, clock.WallClock)
+	time.Sleep(coretesting.ShortWait)
+
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killErr, gc.Equals, nil)
+	c.Assert(m.setAddressCount, gc.Equals, 0)
+	c.Assert(m.instStatusInfo, gc.Equals, "deleting")
+}
+
 func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
