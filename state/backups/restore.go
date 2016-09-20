@@ -172,26 +172,24 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 // better chance of being fixed by the user, if we were to fail
 // we risk an inconsistent controller because of one unresponsive
 // agent, we should nevertheless return the err info to the user.
-func updateAllMachines(privateAddress, publicAddress string, machines []machineModel) error {
+func updateAllMachines(privateAddress, publicAddress string, machines []*state.Machine) error {
 	var machineUpdating sync.WaitGroup
-	for _, item := range machines {
-		machine := item.machine
+	for key := range machines {
+		// key is used to have machine be scope bound to the loop iteration.
+		machine := machines[key]
 		// A newly resumed controller requires no updating, and more
 		// than one controller is not yet supported by this code.
 		if machine.IsManager() || machine.Life() == state.Dead {
 			continue
 		}
 		machineUpdating.Add(1)
-		go func(machine *state.Machine, model *state.Model) {
+		go func() {
 			defer machineUpdating.Done()
-			logger.Debugf("updating addresses for machine %s in model %s/%s", machine.Tag().Id(), model.Owner().Canonical(), model.Name())
-			// TODO: thumper 2016-09-20
-			// runMachineUpdate only handles linux machines, what about windows?
 			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress, publicAddress))
 			if err != nil {
 				logger.Errorf("failed updating machine: %v", err)
 			}
-		}(machine, item.model)
+		}()
 	}
 	machineUpdating.Wait()
 
@@ -207,12 +205,18 @@ set -xu
 cd /var/lib/juju/agents
 for agent in *
 do
+	initctl stop jujud-$agent > /dev/null
+        systemctl stop jujud-$agent > /dev/null
 	service jujud-$agent stop > /dev/null
 
 	# The below statement will work in cases where there
 	# is a private address for the api server only
 	# or where there are a private and a public, which are
 	# the two common cases.
+	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
+	}" $agent/agent.conf
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
@@ -229,6 +233,9 @@ do
 	then
 		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
+	# Just in case is a stale unit
+	initctl start jujud-$agent > /dev/null
+        systemctl start jujud-$agent > /dev/null
 	service jujud-$agent start > /dev/null
 done
 `))
@@ -268,14 +275,10 @@ func runViaSSH(addr string, script string) error {
 	sshOptions := ssh.Options{}
 	sshOptions.SetIdentities("/var/lib/juju/system-identity")
 	userCmd := sshCommand(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
-	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
-	userCmd.Stdout = &stdoutBuf
 	userCmd.Stderr = &stderrBuf
-	logger.Debugf("updating %s, script:\n%s", addr, script)
 	if err := userCmd.Run(); err != nil {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
-	logger.Debugf("result %s\nstdout: \n%s\nstderr: %s", addr, stdoutBuf.String(), stderrBuf.String())
 	return nil
 }
