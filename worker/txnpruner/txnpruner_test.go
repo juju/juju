@@ -43,6 +43,13 @@ func (s *TxnPrunerSuite) TestPrunes(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatal("timed out waiting for pruning to happen")
 		}
+		// Now we need to wait for the txn pruner to call clock.After again
+		// before we advance the clock, or it will be waiting for the wrong time.
+		select {
+		case <-testClock.Alarms():
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for worker to loop around")
+		}
 	}
 }
 
