@@ -2207,7 +2207,7 @@ func (u *Unit) RunningActions() ([]Action, error) {
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) Resolve(retryHooks bool) error {
+func (u *Unit) Resolve(noretryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
@@ -2218,9 +2218,9 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if statusInfo.Status != status.Error {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
-	mode := ResolvedNoHooks
-	if retryHooks {
-		mode = ResolvedRetryHooks
+	mode := ResolvedRetryHooks
+	if noretryHooks {
+		mode = ResolvedNoHooks
 	}
 	return u.SetResolved(mode)
 }

@@ -21,21 +21,20 @@ func newResolvedCommand() cmd.Command {
 type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	UnitName string
-	Retry    bool
+	NoRetry  bool
 }
 
 func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
 		Args:    "<unit>",
-		Purpose: "Marks unit errors resolved.",
+		Purpose: "Marks unit errors resolved and re-executes failed hooks",
 	}
 }
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Retry, "r", false, "Re-execute failed hooks")
-	f.BoolVar(&c.Retry, "retry", false, "")
+	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
 }
 
 func (c *resolvedCommand) Init(args []string) error {
@@ -57,5 +56,5 @@ func (c *resolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.Retry), block.BlockChange)
+	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry), block.BlockChange)
 }
