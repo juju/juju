@@ -36,6 +36,107 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *InterfaceInfoSuite) TestUpdateNilOtherOK(c *gc.C) {
+	original := s.info[0]
+	input := &original
+	input.Update(nil) // nil => no changes
+	c.Check(input, jc.DeepEquals, &original)
+}
+
+func (s *InterfaceInfoSuite) TestUpdateSimpleFieldTypes(c *gc.C) {
+	allSimpleFieldsSet := &network.InterfaceInfo{
+		MACAddress:          "mac",
+		CIDR:                "cidr",
+		ProviderId:          "iface-id",
+		ProviderSubnetId:    "subnet-id",
+		ProviderSpaceId:     "space-id",
+		ProviderVLANId:      "vlan-id",
+		ProviderAddressId:   "link-id",
+		InterfaceName:       "iface",
+		InterfaceType:       network.EthernetInterface,
+		ParentInterfaceName: "parent-iface",
+		Disabled:            true,
+		NoAutoStart:         true,
+		ConfigType:          network.ConfigManual,
+	}
+
+	input := &network.InterfaceInfo{}
+	input.Update(allSimpleFieldsSet)
+	c.Check(input, jc.DeepEquals, allSimpleFieldsSet)
+}
+
+func (s *InterfaceInfoSuite) TestUpdateSliceFieldTypes(c *gc.C) {
+	zones := []string{"z1", "z2"}
+	dnsServers := network.NewAddressesOnSpace("foo", "1.2.3.4", "foo.bar")
+	dnsSearchDomains := []string{"dom1", "dom2"}
+	allSlicetFieldsSet := &network.InterfaceInfo{
+		AvailabilityZones: zones,
+		DNSServers:        dnsServers,
+		DNSSearchDomains:  dnsSearchDomains,
+	}
+
+	input := &network.InterfaceInfo{}
+	input.Update(allSlicetFieldsSet)
+	c.Check(input, jc.DeepEquals, allSlicetFieldsSet)
+
+	// Change all slices to verify input contains copies of the values.
+	zones = []string{"z3", "z4", "z5"}
+	dnsServers = network.NewAddressesOnSpace("4.3.2.1", "ns.foo")
+	dnsSearchDomains = []string{"foo", "bar"}
+	c.Check(input, jc.DeepEquals, allSlicetFieldsSet)
+}
+
+func (s *InterfaceInfoSuite) TestUpdateNumericFieldTypes(c *gc.C) {
+	allNumericFieldsSet := &network.InterfaceInfo{
+		DeviceIndex: 42,
+		VLANTag:     1234,
+		MTU:         9001,
+	}
+
+	initiallyEmptyInput := &network.InterfaceInfo{}
+	initiallyEmptyInput.Update(allNumericFieldsSet)
+	c.Check(initiallyEmptyInput, jc.DeepEquals, allNumericFieldsSet)
+
+	updatedFields := &network.InterfaceInfo{
+		DeviceIndex: 0, // 0 is valid, negative means don't change.
+		VLANTag:     0, // 0 is valid, negative means don't update.
+		MTU:         0, // 0 means empty, don't update.
+	}
+	initiallyEmptyInput.Update(updatedFields)
+	expected := &network.InterfaceInfo{
+		DeviceIndex: 0,
+		VLANTag:     0,
+		MTU:         9001,
+	}
+	c.Check(initiallyEmptyInput, jc.DeepEquals, expected)
+
+	notUpdatedFields := &network.InterfaceInfo{
+		DeviceIndex: -1,
+		VLANTag:     -1,
+	}
+	initiallyEmptyInput.Update(notUpdatedFields)
+	c.Check(initiallyEmptyInput, jc.DeepEquals, expected)
+}
+
+func (s *InterfaceInfoSuite) TestUpdateAddressFields(c *gc.C) {
+	allAddressFieldsSet := &network.InterfaceInfo{
+		Address:        network.NewAddressOnSpace("foo", "1.2.3.4"),
+		GatewayAddress: network.NewAddressOnSpace("bar", "host.domain"),
+	}
+	initiallyEmptyInput := &network.InterfaceInfo{}
+	initiallyEmptyInput.Update(allAddressFieldsSet)
+	c.Check(initiallyEmptyInput, jc.DeepEquals, allAddressFieldsSet)
+
+	notUpdatedFields := &network.InterfaceInfo{
+		Address:        network.Address{}, // don't update
+		GatewayAddress: network.Address{}, // don't update.
+	}
+	initiallyEmptyInput.Update(notUpdatedFields)
+	c.Check(initiallyEmptyInput, jc.DeepEquals, allAddressFieldsSet)
+	c.Check(notUpdatedFields.Address.IsEmpty(), jc.IsTrue)
+	c.Check(notUpdatedFields.GatewayAddress.IsEmpty(), jc.IsTrue)
+}
+
 func (s *InterfaceInfoSuite) TestActualInterfaceName(c *gc.C) {
 	c.Check(s.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
 	c.Check(s.info[1].ActualInterfaceName(), gc.Equals, "eth1")

@@ -5,6 +5,7 @@ package maas
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"text/template"
 
@@ -332,7 +333,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/subnets/3/",
 	}
 
-	expected := []maasInterface{{
+	expected := maasInterfaces{{
 		ID:          91,
 		Name:        "eth0",
 		Type:        "physical",
@@ -439,9 +440,63 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expected)
 }
 
+func (s *interfacesSuite) TestExtractMAASObjectPXEMACAddress(c *gc.C) {
+	node := s.addNode(c, nil)
+	_, err := extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "missing or null pxe_mac field")
+
+	node = s.addNode(c, attributes{"pxe_mac": nil})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "missing or null pxe_mac field")
+
+	node = s.addNode(c, attributes{"pxe_mac": 42})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac map failed: Requested map, got float.*")
+
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"any-key": 42}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, `missing or null pxe_mac\.mac_address field`)
+
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": nil}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, `missing or null pxe_mac\.mac_address field`)
+
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": 42}})
+	_, err = extractMAASObjectPXEMACAddress(node)
+	c.Check(err, gc.ErrorMatches, "getting pxe_mac.mac_address failed: Requested string, got float.*")
+
+	node = s.addNode(c, attributes{"pxe_mac": attributes{"mac_address": "mac"}})
+	mac, err := extractMAASObjectPXEMACAddress(node)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mac, gc.Equals, "mac")
+}
+
+func (s *interfacesSuite) TestExtractMAASObjectHostname(c *gc.C) {
+	node := s.addNode(c, nil)
+	_, err := extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "missing or null hostname field")
+
+	node = s.addNode(c, attributes{"hostname": nil})
+	_, err = extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "missing or null hostname field")
+
+	node = s.addNode(c, attributes{"hostname": 42})
+	_, err = extractMAASObjectHostname(node)
+	c.Check(err, gc.ErrorMatches, "getting hostname failed: Requested string, got float.*")
+
+	node = s.addNode(c, attributes{"hostname": "node-xyz.maas"})
+	hostname, err := extractMAASObjectHostname(node)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(hostname, gc.Equals, "node-xyz.maas")
+}
+
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
+	// Expect to see hostname on top, followed by the first address of the PXE
+	// interface.
 	nodeJSON := fmt.Sprintf(`{
         "system_id": "foo",
+        "hostname": "foo.bar.maas",
+        "pxe_mac": {"mac_address": "52:54:00:70:9b:fe"},
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
@@ -450,6 +505,26 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
 
 	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "foo.bar.maas"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains:  nil,
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -912,4 +987,19 @@ func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (str
 		return "", err
 	}
 	return string(buf.Bytes()), nil
+}
+
+type attributes map[string]interface{}
+
+func (s *interfacesSuite) addNode(c *gc.C, attrs attributes) *gomaasapi.MAASObject {
+	if attrs == nil {
+		attrs = make(attributes)
+	}
+	if _, ok := attrs["system_id"]; !ok {
+		attrs["system_id"] = "node-0"
+	}
+	nodeJSON, err := json.Marshal(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	nodeObject := s.testMAASObject.TestServer.NewNode(string(nodeJSON))
+	return &nodeObject
 }
