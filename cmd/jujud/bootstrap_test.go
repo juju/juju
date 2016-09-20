@@ -767,7 +767,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 
 	// This metadata should have also been written to state...
 	expect := cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Arch:            "amd64",
 			Version:         "14.04",
@@ -776,9 +776,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 			VirtType:        "virtType",
 			Source:          "custom",
 		},
-		simplestreams.CUSTOM_CLOUD_DATA,
-		"imageId",
-		0,
+		Priority: simplestreams.CUSTOM_CLOUD_DATA,
+		ImageId:  "imageId",
 	}
 	assertWrittenToState(c, expect)
 }
