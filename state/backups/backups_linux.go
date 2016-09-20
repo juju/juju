@@ -44,14 +44,20 @@ func ensureMongoService(agentConfig agent.Config) error {
 		return errors.Errorf("agent config has no state serving info")
 	}
 
-	err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
+	if err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
 		si.StatePort,
 		oplogSize,
 		numaCtlPolicy,
 		agentConfig.MongoVersion(),
 		true,
-	)
-	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
+	); err != nil {
+		return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
+	}
+	// Installing a service will not automatically restart it.
+	if err := mongo.StartService(); err != nil {
+		return errors.Annotate(err, "failed to start mongo")
+	}
+	return nil
 }
 
 // Restore handles either returning or creating a controller to a backed up status:
@@ -100,8 +106,13 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Annotate(err, "cannot load old agent config from disk")
 	}
 
+	logger.Infof("stopping juju-db")
+	if err = mongo.StopService(); err != nil {
+		return nil, errors.Annotate(err, "failed to stop mongo")
+	}
+
 	// delete all the files to be replaced
-	if err := PrepareMachineForRestore(); err != nil {
+	if err := PrepareMachineForRestore(oldAgentConfig.MongoVersion()); err != nil {
 		return nil, errors.Annotate(err, "cannot delete existing files")
 	}
 	logger.Infof("deleted old files to place new")
@@ -229,9 +240,25 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Trace(err)
 	}
 
+	logger.Infof("updating local machine addresses")
 	err = updateMachineAddresses(machine, args.PrivateAddress, args.PublicAddress)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot update api server machine addresses")
+	}
+	// Update the APIHostPorts as well. Under normal circumstances the API
+	// Host Ports are only set during bootstrap and by the peergrouper worker.
+	// Unfortunately right now, the peer grouper is busy restarting and isn't
+	// guaranteed to set the host ports before the remote machines we are
+	// about to tell about us. If it doesn't, the remote machine gets its
+	// agent.conf file updated with this new machine's IP address, it then
+	// starts, and the "api-address-updater" worker asks for the api host
+	// ports, and gets told the old IP address of the machine that was backed
+	// up. It then writes this incorrect file to its agent.conf file, which
+	// causes it to attempt to reconnect to the api server. Unfortunately it
+	// now has the wrong address and can never get the  correct one.
+	// So, we set it explicitly here.
+	if err := st.SetAPIHostPorts([][]network.HostPort{APIHostPorts}); err != nil {
+		return nil, errors.Annotate(err, "cannot update api server host ports")
 	}
 
 	// update all agents known to the new controller.
@@ -242,14 +269,17 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := []*state.Machine{}
+	machines := []machineModel{}
 	for _, model := range models {
 		machinesForModel, err := st.AllMachinesFor(model.UUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		machines = append(machines, machinesForModel...)
+		for _, machine := range machinesForModel {
+			machines = append(machines, machineModel{machine: machine, model: model})
+		}
 	}
+	logger.Infof("updating other machine addresses")
 	if err := updateAllMachines(args.PrivateAddress, args.PublicAddress, machines); err != nil {
 		return nil, errors.Annotate(err, "cannot update agents")
 	}
@@ -267,4 +297,9 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 
 	return backupMachine, nil
+}
+
+type machineModel struct {
+	machine *state.Machine
+	model   *state.Model
 }
