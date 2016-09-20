@@ -45,7 +45,7 @@ INSTANCE_TYPES = {
 def get_instance_spec(instance_type):
     """Get the specifications of a given instance type."""
     return {
-        't2.micro': {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'},
+        't2.micro': {'mem': '1G', 'cpu-power': '10', 'cores': '1'},
         }[instance_type]
 
 
@@ -181,7 +181,7 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
 
 
 def juju_show_machine_hardware(client, machine):
-    """Uses juju show-machine and returns information about the hardwere."""
+    """Uses juju show-machine and returns information about the hardware."""
     raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
     raw_yaml = yaml.load(raw)
     try:
@@ -235,7 +235,8 @@ def assess_instance_type(client, provider, instance_type):
                                 charm_series, charm_dir)
         client.wait_for_started()
         data = juju_show_machine_hardware(client, '0')
-        constraints.meets_instance_type(data)
+        if not constraints.meets_instance_type(data):
+            raise ValueError('Test failed', charm_name)
 
 
 def assess_instance_type_constraints(client, provider=None):

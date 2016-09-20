@@ -89,19 +89,19 @@ class TestConstraints(TestCase):
 
     def test_meets_instance_type(self):
         constraints = Constraints(instance_type='t2.micro')
-        data1 = {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'}
+        data1 = {'mem': '1G', 'cpu-power': '10', 'cores': '1'}
         self.assertTrue(constraints.meets_instance_type(data1))
-        data2 = {'root-disk': '8G', 'cpu-power': '20', 'cores': '1'}
+        data2 = {'mem': '8G', 'cpu-power': '20', 'cores': '1'}
         self.assertFalse(constraints.meets_instance_type(data2))
         data3 = dict(data1, arch='amd64')
         self.assertTrue(constraints.meets_instance_type(data3))
-        data4 = {'cpu-power': '10', 'cores': '1'}
+        data4 = {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'}
         with self.assertRaises(JujuAssertionError):
             constraints.meets_instance_type(data4)
 
     def test_meets_instance_type_fix(self):
         constraints = Constraints(instance_type='t2.micro')
-        data = {'root-disk': '1G', 'cpu-power': '10', 'cpu-cores': '1'}
+        data = {'mem': '1G', 'cpu-power': '10', 'cpu-cores': '1'}
         self.assertTrue(constraints.meets_instance_type(data))
 
 
@@ -147,6 +147,15 @@ class TestAssess(TestCase):
             args[1]["constraints"] for args in mock.call_args_list]
         return constraint_args
 
+    @contextmanager
+    def patch_hardware(self, return_values):
+        """Patch juju_show_machine_hardware with a series of return values."""
+        def pop_hardware(client, machine):
+            return return_values.pop(0)
+        with patch('assess_constraints.juju_show_machine_hardware',
+                   autospec=True, side_effect=pop_hardware) as hardware_mock:
+            yield hardware_mock
+
     def test_virt_type_constraints_with_kvm(self):
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
@@ -162,32 +171,42 @@ class TestAssess(TestCase):
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     @contextmanager
-    def patch_instance_spec(self):
+    def patch_instance_spec(self, fake_provider, passing=True):
+        fake_instance_types = ['bar', 'baz']
         bar_data = {'cpu-power': '20'}
+        baz_data = {'cpu-power': '30'}
 
         def mock_get_instance_spec(instance_type):
             if 'bar' == instance_type:
                 return bar_data
+            elif 'baz' == instance_type and passing:
+                return baz_data
+            elif 'baz' == instance_type:
+                return {'cpu-power': '40'}
             else:
                 raise ValueError('instance-type not in mock.')
-        with patch('assess_constraints.get_instance_spec', autospec=True,
-                   side_effect=mock_get_instance_spec) as spec_mock:
-            with patch('assess_constraints.juju_show_machine_hardware',
-                       autospec=True, return_value=bar_data):
-                yield spec_mock
+        with patch.dict(INSTANCE_TYPES, {fake_provider: fake_instance_types}):
+            with patch('assess_constraints.get_instance_spec', autospec=True,
+                       side_effect=mock_get_instance_spec) as spec_mock:
+                with self.patch_hardware([bar_data, baz_data]):
+                    yield spec_mock
 
     def test_instance_type_constraints(self):
-        assert_constraints_calls = ['instance-type=bar']
-        fake_instance_types = ['bar']
+        assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             fake_provider = fake_client.env.config.get('type')
-            with patch.dict(INSTANCE_TYPES,
-                            {fake_provider: fake_instance_types}):
-                with self.patch_instance_spec() as spec_mock:
-                    assess_instance_type_constraints(fake_client)
+            with self.patch_instance_spec(fake_provider) as spec_mock:
+                assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
-        self.assertEqual(spec_mock.call_args_list, [call('bar')])
+        self.assertEqual(spec_mock.call_args_list, [call('bar'), call('baz')])
+
+    def test_instance_type_constraints_fail(self):
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+            fake_provider = fake_client.env.config.get('type')
+            with self.patch_instance_spec(fake_provider, False):
+                with self.assertRaises(ValueError):
+                    assess_instance_type_constraints(fake_client)
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())
